@@ -16,12 +16,12 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
 {
     /// <summary>
     /// Serializer for Rhino.Geometry.Interval type.
-    /// Format: "domain:min<max" (e.g., "domain:0.0<10.0").
+    /// Format: "interval:min<max" (e.g., "interval:0.0<10.0").
     /// </summary>
-    public class DomainSerializer : IDataTypeSerializer
+    public class IntervalSerializer : IDataTypeSerializer
     {
         /// <inheritdoc/>
-        public string TypeName => "Domain";
+        public string TypeName => "Interval";
 
         /// <inheritdoc/>
         public Type TargetType => typeof(Interval);
@@ -31,7 +31,7 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
         {
             if (value is Interval interval)
             {
-                return $"domain:{interval.Min.ToString(CultureInfo.InvariantCulture)}<{interval.Max.ToString(CultureInfo.InvariantCulture)}";
+                return $"interval:{interval.Min.ToString(CultureInfo.InvariantCulture)}<{interval.Max.ToString(CultureInfo.InvariantCulture)}";
             }
 
             throw new ArgumentException($"Value must be of type Interval, got {value?.GetType().Name ?? "null"}");
@@ -42,7 +42,7 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
         {
             if (!Validate(value))
             {
-                throw new FormatException($"Invalid Domain format: '{value}'. Expected format: 'domain:min<max' with valid doubles.");
+                throw new FormatException($"Invalid Interval format: '{value}'. Expected format: 'interval:min<max' with valid doubles.");
             }
 
             var valueWithoutPrefix = value.Substring(value.IndexOf(':') + 1);
@@ -61,12 +61,12 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
                 return false;
             }
 
-            if (!value.StartsWith("domain:"))
+            if (!value.StartsWith("interval:"))
             {
                 return false;
             }
 
-            var valueWithoutPrefix = value.Substring(7); // "domain:".Length
+            var valueWithoutPrefix = value.Substring(9); // "interval:".Length
             var parts = valueWithoutPrefix.Split('<');
             if (parts.Length != 2)
             {

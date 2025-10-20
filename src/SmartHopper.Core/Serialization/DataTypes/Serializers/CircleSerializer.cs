@@ -16,7 +16,7 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
 {
     /// <summary>
     /// Serializer for Rhino.Geometry.Circle type.
-    /// Format: "circleCNR:cx,cy,cz;nx,ny,nz;r" (center + normal + radius).
+    /// Format: "circleCNRS:cx,cy,cz;nx,ny,nz;r;sx,sy,sz" (center + normal + radius + start point).
     /// </summary>
     public class CircleSerializer : IDataTypeSerializer
     {
@@ -31,9 +31,13 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
         {
             if (value is Circle circle)
             {
-                return $"circleCNR:{circle.Center.X.ToString(CultureInfo.InvariantCulture)},{circle.Center.Y.ToString(CultureInfo.InvariantCulture)},{circle.Center.Z.ToString(CultureInfo.InvariantCulture)};" +
+                // Calculate start point (point on circle at angle 0 in the circle's coordinate system)
+                var startPoint = circle.Center + circle.Plane.XAxis * circle.Radius;
+
+                return $"circleCNRS:{circle.Center.X.ToString(CultureInfo.InvariantCulture)},{circle.Center.Y.ToString(CultureInfo.InvariantCulture)},{circle.Center.Z.ToString(CultureInfo.InvariantCulture)};" +
                        $"{circle.Normal.X.ToString(CultureInfo.InvariantCulture)},{circle.Normal.Y.ToString(CultureInfo.InvariantCulture)},{circle.Normal.Z.ToString(CultureInfo.InvariantCulture)};" +
-                       $"{circle.Radius.ToString(CultureInfo.InvariantCulture)}";
+                       $"{circle.Radius.ToString(CultureInfo.InvariantCulture)};" +
+                       $"{startPoint.X.ToString(CultureInfo.InvariantCulture)},{startPoint.Y.ToString(CultureInfo.InvariantCulture)},{startPoint.Z.ToString(CultureInfo.InvariantCulture)}";
             }
 
             throw new ArgumentException($"Value must be of type Circle, got {value?.GetType().Name ?? "null"}");
@@ -44,25 +48,43 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
         {
             if (!Validate(value))
             {
-                throw new FormatException($"Invalid Circle format: '{value}'. Expected format: 'circleCNR:cx,cy,cz;nx,ny,nz;r' with valid doubles and r > 0.");
+                throw new FormatException($"Invalid Circle format: '{value}'. Expected format: 'circleCNRS:cx,cy,cz;nx,ny,nz;r;sx,sy,sz' with valid doubles and r > 0.");
             }
 
             var valueWithoutPrefix = value.Substring(value.IndexOf(':') + 1);
             var parts = valueWithoutPrefix.Split(';');
             var centerParts = parts[0].Split(',');
             var normalParts = parts[1].Split(',');
+            var startParts = parts[3].Split(',');
             double r = double.Parse(parts[2], CultureInfo.InvariantCulture);
 
-            double cx = double.Parse(centerParts[0], CultureInfo.InvariantCulture);
-            double cy = double.Parse(centerParts[1], CultureInfo.InvariantCulture);
-            double cz = double.Parse(centerParts[2], CultureInfo.InvariantCulture);
-            double nx = double.Parse(normalParts[0], CultureInfo.InvariantCulture);
-            double ny = double.Parse(normalParts[1], CultureInfo.InvariantCulture);
-            double nz = double.Parse(normalParts[2], CultureInfo.InvariantCulture);
+            // Parse center
+            var center = new Point3d(
+                double.Parse(centerParts[0], CultureInfo.InvariantCulture),
+                double.Parse(centerParts[1], CultureInfo.InvariantCulture),
+                double.Parse(centerParts[2], CultureInfo.InvariantCulture)
+            );
 
-            var center = new Point3d(cx, cy, cz);
-            var normal = new Vector3d(nx, ny, nz);
-            var plane = new Plane(center, normal);
+            // Parse normal
+            var normal = new Vector3d(
+                double.Parse(normalParts[0], CultureInfo.InvariantCulture),
+                double.Parse(normalParts[1], CultureInfo.InvariantCulture),
+                double.Parse(normalParts[2], CultureInfo.InvariantCulture)
+            );
+
+            // Parse start point
+            var startPoint = new Point3d(
+                double.Parse(startParts[0], CultureInfo.InvariantCulture),
+                double.Parse(startParts[1], CultureInfo.InvariantCulture),
+                double.Parse(startParts[2], CultureInfo.InvariantCulture)
+            );
+
+            // Calculate X-axis from center to start point
+            var xAxis = startPoint - center;
+            xAxis.Unitize();
+
+            // Create plane with proper orientation
+            var plane = new Plane(center, xAxis, normal);
 
             return new Circle(plane, r);
         }
@@ -75,14 +97,14 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
                 return false;
             }
 
-            if (!value.StartsWith("circleCNR:"))
+            if (!value.StartsWith("circleCNRS:"))
             {
                 return false;
             }
 
-            var valueWithoutPrefix = value.Substring(10); // "circleCNR:".Length
+            var valueWithoutPrefix = value.Substring(11); // "circleCNRS:".Length
             var parts = valueWithoutPrefix.Split(';');
-            if (parts.Length != 3)
+            if (parts.Length != 4)
             {
                 return false;
             }
@@ -123,7 +145,27 @@ namespace SmartHopper.Core.Serialization.DataTypes.Serializers
                 return false;
             }
 
-            return radius > 0;
+            if (radius <= 0)
+            {
+                return false;
+            }
+
+            // Validate start point (3 components)
+            var startParts = parts[3].Split(',');
+            if (startParts.Length != 3)
+            {
+                return false;
+            }
+
+            foreach (var part in startParts)
+            {
+                if (!double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

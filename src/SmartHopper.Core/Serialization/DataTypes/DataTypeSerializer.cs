@@ -205,6 +205,17 @@ namespace SmartHopper.Core.Serialization.DataTypes
         {
             switch (prefix.ToLowerInvariant())
             {
+                // Basic data types
+                case "text":
+                    return "Text";
+                case "number":
+                    return "Number";
+                case "integer":
+                    return "Integer";
+                case "boolean":
+                    return "Boolean";
+
+                // Geometric data types
                 case "argb":
                     return "Color";
                 case "pointxyz":
@@ -215,14 +226,16 @@ namespace SmartHopper.Core.Serialization.DataTypes
                     return "Line";
                 case "planeoxy":
                     return "Plane";
-                case "circlecnr":
+                case "circlecnrs":
                     return "Circle";
-                case "arccnrab":
+                case "arc3p":
                     return "Arc";
-                case "box2p":
-                    return "BoundingBox";
-                case "domain":
-                    return "Domain";
+                case "boxoxy":
+                    return "Box";
+                case "rectangleoxy":
+                    return "Rectangle";
+                case "interval":
+                    return "Interval";
                 default:
                     return null;
             }

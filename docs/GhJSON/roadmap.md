@@ -148,16 +148,20 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 
 | Type | Format | Example | Notes |
 |------|--------|---------|-------|
+| **Text** | `value` | `"text:Hello World"` | String values |
+| **Number** | `value` | `"number:3.14159"` | Double precision floating-point |
+| **Integer** | `value` | `"integer:42"` | 32-bit signed integer |
+| **Boolean** | `true/false` | `"boolean:true"` | Boolean values (lowercase) |
 | **Color** | `a,r,g,b` | `"argb:255,128,64,255"` | ARGB values 0-255 |
 | **Point** | `x,y,z` | `"pointXYZ:10.5,20.0,30.5"` | 3D coordinates |
 | **Vector** | `x,y,z` | `"vectorXYZ:1.0,0.0,0.0"` | 3D direction vector |
 | **Line** | `x1,y1,z1;x2,y2,z2` | `"line2p:0,0,0;10,10,10"` | Start and end points |
 | **Plane** | `ox,oy,oz;xx,xy,xz;yx,yy,yz` | `"planeOXY:0,0,0;1,0,0;0,1,0"` | Origin + X/Y axes |
-| **Circle** | `cx,cy,cz;nx,ny,nz;r` | `"circleCNR:0,0,0;0,0,1;5.0"` | Center + normal + radius |
-| **Arc** | `cx,cy,cz;nx,ny,nz;r;a1;a2` | `"arcCNRAB:0,0,0;0,0,1;5.0;0;1.57"` | Circle + start/end angles |
-| **BoundingBox** | `x1,y1,z1;x2,y2,z2` | `"box2p:0,0,0;10,10,10"` | Min and max corners |
-| **Domain** | `min,max` | `"domain:0.0<10.0"` | Domain/range |
-| **Rectangle** | `cx,cy,cz;nx,ny,nz;w,h` | `"rectangleCNWH:0,0,0;0,0,1;10,5"` | Corner + normal + width/height |
+| **Circle** | `cx,cy,cz;nx,ny,nz;r;sx,sy,sz` | `"circleCNRS:0,0,0;0,0,1;5.0;5,0,0"` | Center + normal + radius + start point |
+| **Arc** | `x1,y1,z1;x2,y2,z2;x3,y3,z3` | `"arc3P:0,0,0;5,5,0;10,0,0"` | Three points defining the arc |
+| **Box** | `ox,oy,oz;xx,xy,xz;yx,yy,yz;x0,x1;y0,y1;z0,z1` | `"boxOXY:0,0,0;1,0,0;0,1,0;-5,5;-5,5;0,10"` | Origin + X-axis + Y-axis + 3 intervals |
+| **Interval (Domain)** | `min,max` | `"interval:0.0<10.0"` | Domain/range/interval |
+| **Rectangle** | `ox,oy,oz;xx,xy,xz;yx,yy,yz;w,h` | `"rectangleOXY:0,0,0;1,0,0;0,1,0;10,5"` | Origin + X-axis + Y-axis + dimensions |
 
 #### Persistent Data Encoding
 
@@ -170,11 +174,11 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
     "{0}": {
       "0": {
         "type": "Point3d",
-        "value": "10.0,20.0,30.0"
+        "value": "pointXYZ:10.0,20.0,30.0"
       },
       "1": {
         "type": "Color",
-        "value": "255,128,64,255"
+        "value": "argb:255,128,64,255"
       }
     }
   }
