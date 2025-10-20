@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Serialization
         public void ShouldIncludeProperty_VariousProperties_ReturnsExpectedResult(string propertyName, bool expected)
         {
             // Arrange
-            var propertyManager = PropertyManagerFactory.CreateForAI();
+            var propertyManager = PropertyManagerFactory.CreateStandard();
             var mockObject = new TestComponent(); // Mock object for context
 
             // Act
@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Serialization
         public void ExtractProperties_TestComponent_ReturnsExpectedProperties()
         {
             // Arrange
-            var propertyManager = PropertyManagerFactory.CreateForAI();
+            var propertyManager = PropertyManagerFactory.CreateStandard();
             var testComponent = new TestComponent();
 
             // Act
@@ -71,7 +71,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Serialization
         public void CreateExtractionSummary_TestComponent_ReturnsValidSummary()
         {
             // Arrange
-            var propertyManager = PropertyManagerFactory.CreateForAI();
+            var propertyManager = PropertyManagerFactory.CreateStandard();
             var testComponent = new TestComponent();
 
             // Act

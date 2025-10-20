@@ -7,7 +7,7 @@
 - [x] 1.2 Groups support (groups array in `GrasshopperDocument`, `GroupInfo` model, extraction in `DocumentIntrospection`, recreation in `GhJsonPlacer` - always included, no flag needed)
 - [x] 1.3 Data type serialization (core serializers + `PropertyManager`/`DataTreeConverter` integration)
 - [x] 1.4 Component schema improvements (`params`, `inputSettings`/`outputSettings`, `componentState` - keeping legacy `pivot` for compactness)
-- [x] 1.5 Property Management System V2 ✅ **NEW** - Advanced property management with context-aware filtering, component categories, and flexible configuration
+- [x] 1.5 Property Management System V2: Advanced property management with context-aware filtering, component categories, and flexible configuration
 
 - **Phase 2: GhJSON-Lite**
 - [ ] 2.1 Lite converter (structure-only)
@@ -574,11 +574,11 @@ This approach validates:
 
 ### Phase 1
 
-- [ ] Metadata populated correctly for all documents
-- [ ] Groups serialize and deserialize with correct members
-- [ ] New schema properties extract correctly
-- [ ] 100% backward compatibility with old JSON
-- [ ] Zero breaking changes for existing users
+- [x] Metadata populated correctly for all documents
+- [x] Groups serialize and deserialize with correct members
+- [x] New schema properties extract correctly
+- [x] 100% backward compatibility with old JSON
+- [x] Zero breaking changes for existing users
 
 ### Phase 2
 
