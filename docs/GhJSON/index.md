@@ -170,7 +170,7 @@ User: "Unlock all locked components"
 AI: Uses gh_get_locked to find components, then modifies and replaces them
 ```
 
-### Documentation and Telemetry
+### Documentation
 
 Extract component usage patterns for documentation or analytics:
 
