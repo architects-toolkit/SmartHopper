@@ -34,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New test project `SmartHopper.Core.Grasshopper.Tests` with comprehensive unit test coverage:
   - `AIResponseParserTests`: 40+ tests for parsing edge cases (JSON arrays, markdown blocks, ranges, text formats)
   - `PropertyManagerTests`: 30+ tests for type conversion, property setting, and persistent data handling
+- **SelectingComponentBase Persistence**: Selected objects list now persists when saving and loading Grasshopper files
+  - Stores selected object GUIDs during write operations
+  - Restores selected objects by GUID lookup during read operations
+  - Updates component message to reflect restored selection count
+  - Handles missing objects gracefully (objects deleted after selection)
 
 ### Changed
 

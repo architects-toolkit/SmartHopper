@@ -101,6 +101,95 @@ namespace SmartHopper.Core.ComponentBase
             base.AppendAdditionalComponentMenuItems(menu);
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
         }
+
+        /// <summary>
+        /// Writes the component's persistent data to the Grasshopper file, including selected objects.
+        /// </summary>
+        /// <param name="writer">The writer to use for serialization.</param>
+        /// <returns>True if the write operation succeeds, false if it fails or an exception occurs.</returns>
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer)
+        {
+            if (!base.Write(writer))
+            {
+                return false;
+            }
+
+            try
+            {
+                // Store the count of selected objects
+                writer.SetInt32("SelectedObjectsCount", this.SelectedObjects.Count);
+
+                // Store each selected object's GUID
+                for (int i = 0; i < this.SelectedObjects.Count; i++)
+                {
+                    if (this.SelectedObjects[i] is IGH_DocumentObject docObj)
+                    {
+                        writer.SetGuid($"SelectedObject_{i}", docObj.InstanceGuid);
+                    }
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Reads the component's persistent data from the Grasshopper file, including selected objects.
+        /// </summary>
+        /// <param name="reader">The reader to use for deserialization.</param>
+        /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs.</returns>
+        public override bool Read(GH_IO.Serialization.GH_IReader reader)
+        {
+            if (!base.Read(reader))
+            {
+                return false;
+            }
+
+            try
+            {
+                // Clear existing selected objects
+                this.SelectedObjects.Clear();
+
+                // Read the count of selected objects
+                if (reader.ItemExists("SelectedObjectsCount"))
+                {
+                    int count = reader.GetInt32("SelectedObjectsCount");
+
+                    // Read each selected object's GUID and try to find it in the document
+                    for (int i = 0; i < count; i++)
+                    {
+                        string key = $"SelectedObject_{i}";
+                        if (reader.ItemExists(key))
+                        {
+                            Guid objectGuid = reader.GetGuid(key);
+                            
+                            // Try to find the object in the current document
+                            var canvas = Instances.ActiveCanvas;
+                            if (canvas?.Document != null)
+                            {
+                                var foundObject = canvas.Document.FindObject(objectGuid, true);
+                                if (foundObject is IGH_ActiveObject activeObj)
+                                {
+                                    this.SelectedObjects.Add(activeObj);
+                                }
+                            }
+                        }
+                    }
+
+                    // Update the message to reflect the restored selection
+                    this.Message = $"{this.SelectedObjects.Count} selected";
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
     /// <summary>
