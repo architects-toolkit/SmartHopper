@@ -423,7 +423,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Debug.WriteLine($"\n--- IScriptComponent Properties ---");
                     try
                     {
-                        var langSpec = scriptComp.LanguageSpec;
+                        // Use reflection to avoid compile-time dependency on Rhino.Runtime.Code
+                        var langSpecProperty = scriptComp.GetType().GetProperty("LanguageSpec");
+                        var langSpec = langSpecProperty?.GetValue(scriptComp);
                         Debug.WriteLine($"LanguageSpec: {langSpec}");
                         Debug.WriteLine($"LanguageSpec Type: {langSpec?.GetType().FullName}");
 
