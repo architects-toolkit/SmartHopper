@@ -145,10 +145,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             }
             // Selected remains null when false, which will be omitted from JSON
 
-            // Extract properties using the property manager
-            component.Properties = propertyManager.ExtractProperties(obj);
-
-            // Extract schema-specific properties
+            // Extract schema-specific properties (params, inputSettings, outputSettings, componentState)
             ExtractSchemaProperties(component, obj, propertyManager);
 
             // Extract warnings and errors only if they exist (avoid empty arrays)
@@ -401,7 +398,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             }
 
             // Extract value consolidation based on component type and property manager rules
-            var valueProperty = ExtractUniversalValue(component, originalObject, propertyManager);
+            var valueProperty = ExtractUniversalValue(originalObject, propertyManager);
             if (valueProperty != null)
             {
                 state.Value = valueProperty;
@@ -412,58 +409,45 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         }
 
         /// <summary>
-        /// Extracts the universal value property and removes duplicate from Properties to avoid redundancy.
+        /// Extracts the universal value property directly from the Grasshopper object.
         /// </summary>
-        /// <param name="component">Component properties being built.</param>
         /// <param name="originalObject">Original Grasshopper object.</param>
         /// <param name="propertyManager">Property manager for filtering.</param>
-        /// <returns>Universal value string or null.</returns>
-        private static string ExtractUniversalValue(
-            ComponentProperties component,
+        /// <returns>Universal value object or null.</returns>
+        private static object ExtractUniversalValue(
             IGH_ActiveObject originalObject,
             PropertyManagerV2 propertyManager)
         {
-            // Value consolidation mapping based on component type
-            string value = originalObject switch
+            // Extract value directly from the Grasshopper object based on component type
+            return originalObject switch
             {
-                GH_NumberSlider when propertyManager.ShouldIncludeProperty("CurrentValue", originalObject) &&
-                                   component.Properties.ContainsKey("CurrentValue") =>
-                    component.Properties["CurrentValue"].Value?.ToString(),
+                // Number Slider: "5.0<0.0,10.0>" format
+                GH_NumberSlider slider when propertyManager.ShouldIncludeProperty("CurrentValue", originalObject) =>
+                    $"{slider.CurrentValue}<{slider.Slider.Minimum},{slider.Slider.Maximum}>",
 
-                GH_Panel when propertyManager.ShouldIncludeProperty("UserText", originalObject) &&
-                             component.Properties.ContainsKey("UserText") =>
-                    component.Properties["UserText"].Value?.ToString(),
+                // Panel: plain text
+                GH_Panel panel when propertyManager.ShouldIncludeProperty("UserText", originalObject) =>
+                    panel.UserText,
 
-                GH_Scribble when propertyManager.ShouldIncludeProperty("Text", originalObject) &&
-                                component.Properties.ContainsKey("Text") =>
-                    component.Properties["Text"].Value?.ToString(),
+                // Scribble: plain text
+                GH_Scribble scribble when propertyManager.ShouldIncludeProperty("Text", originalObject) =>
+                    scribble.Text,
 
-                _ when propertyManager.ShouldIncludeProperty("ListItems", originalObject) &&
-                      component.Properties.ContainsKey("ListItems") =>
-                    component.Properties["ListItems"].Value?.ToString(),
+                // Value List: array of items
+                GH_ValueList valueList when propertyManager.ShouldIncludeProperty("ListItems", originalObject) =>
+                    valueList.ListItems.Select(item => new Dictionary<string, object>
+                    {
+                        ["Name"] = item.Name,
+                        ["Expression"] = item.Expression
+                    }).ToList(),
+
+                // Script components: extract script code
+                _ when originalObject.GetType().GetProperty("ScriptSource") != null &&
+                       propertyManager.ShouldIncludeProperty("Script", originalObject) =>
+                    originalObject.GetType().GetProperty("ScriptSource")?.GetValue(originalObject)?.ToString(),
 
                 _ => null
             };
-
-            // Remove the duplicate property from Properties to avoid redundancy
-            if (!string.IsNullOrEmpty(value))
-            {
-                var propertyToRemove = originalObject switch
-                {
-                    GH_NumberSlider => "CurrentValue",
-                    GH_Panel => "UserText",
-                    GH_Scribble => "Text",
-                    _ when component.Properties.ContainsKey("ListItems") => "ListItems",
-                    _ => null
-                };
-
-                if (propertyToRemove != null && component.Properties.ContainsKey(propertyToRemove))
-                {
-                    component.Properties.Remove(propertyToRemove);
-                }
-            }
-
-            return value;
         }
 
         /// <summary>

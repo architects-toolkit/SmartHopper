@@ -15,118 +15,76 @@ A basic addition component with two number inputs.
   "components": [
     {
       "name": "Number Slider",
-      "type": "IGH_Param",
-      "objectType": "Grasshopper.Kernel.Special.GH_NumberSlider",
       "componentGuid": "57da07bd-ecab-415d-9d86-af36d7073abc",
       "instanceGuid": "a1111111-1111-1111-1111-111111111111",
-      "selected": false,
-      "pivot": {
-        "X": 100.0,
-        "Y": 100.0
+      "id": 1,
+      "pivot": "100.0,100.0",
+      "componentState": {
+        "value": "5.0<0.0,10.0>"
       },
-      "properties": {
-        "CurrentValue": {
-          "value": "5.0<0.0,10.0>",
-          "type": "String",
-          "humanReadable": "5.0"
-        },
-        "NickName": {
-          "value": "A",
-          "type": "String"
-        }
-      },
-      "warnings": [],
-      "errors": []
+      "params": {
+        "NickName": "A"
+      }
     },
     {
       "name": "Number Slider",
-      "type": "IGH_Param",
-      "objectType": "Grasshopper.Kernel.Special.GH_NumberSlider",
       "componentGuid": "57da07bd-ecab-415d-9d86-af36d7073abc",
       "instanceGuid": "b2222222-2222-2222-2222-222222222222",
-      "selected": false,
-      "pivot": {
-        "X": 100.0,
-        "Y": 150.0
+      "id": 2,
+      "pivot": "100.0,150.0",
+      "componentState": {
+        "value": "3.0<0.0,10.0>"
       },
-      "properties": {
-        "CurrentValue": {
-          "value": "3.0<0.0,10.0>",
-          "type": "String",
-          "humanReadable": "3.0"
-        },
-        "NickName": {
-          "value": "B",
-          "type": "String"
-        }
-      },
-      "warnings": [],
-      "errors": []
+      "params": {
+        "NickName": "B"
+      }
     },
     {
       "name": "Addition",
-      "type": "IGH_Component",
-      "objectType": "Grasshopper.Kernel.Components.GH_Addition",
       "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
       "instanceGuid": "c3333333-3333-3333-3333-333333333333",
-      "selected": false,
-      "pivot": {
-        "X": 250.0,
-        "Y": 125.0
-      },
-      "properties": {},
-      "warnings": [],
-      "errors": []
+      "id": 3,
+      "pivot": "250.0,125.0"
     },
     {
       "name": "Panel",
-      "type": "IGH_Param",
-      "objectType": "Grasshopper.Kernel.Special.GH_Panel",
       "componentGuid": "59e0b89a-e487-49f8-bab8-b5bab16be14c",
       "instanceGuid": "d4444444-4444-4444-4444-444444444444",
-      "selected": false,
-      "pivot": {
-        "X": 400.0,
-        "Y": 125.0
-      },
-      "properties": {
-        "UserText": {
-          "value": "",
-          "type": "String"
-        }
-      },
-      "warnings": [],
-      "errors": []
+      "id": 4,
+      "pivot": "400.0,125.0",
+      "componentState": {
+        "value": ""
+      }
     }
   ],
   "connections": [
     {
       "from": {
-        "instanceId": "a1111111-1111-1111-1111-111111111111",
+        "id": 1,
         "paramName": "Number Slider"
       },
       "to": {
-        "instanceId": "c3333333-3333-3333-3333-333333333333",
+        "id": 3,
         "paramName": "A"
       }
     },
     {
       "from": {
-        "instanceId": "b2222222-2222-2222-2222-222222222222",
+        "id": 2,
         "paramName": "Number Slider"
       },
       "to": {
-        "instanceId": "c3333333-3333-3333-3333-333333333333",
+        "id": 3,
         "paramName": "B"
       }
     },
     {
       "from": {
-        "instanceId": "c3333333-3333-3333-3333-333333333333",
+        "id": 3,
         "paramName": "Result"
       },
       "to": {
-        "instanceId": "d4444444-4444-4444-4444-444444444444",
+        "id": 4,
         "paramName": "Panel"
       }
     }
@@ -145,72 +103,34 @@ A Python script component with custom inputs and outputs.
   "components": [
     {
       "name": "Python Script",
-      "type": "IGH_Component",
-      "objectType": "RhinoCodePlatform.GH.Components.PythonScriptComponent",
       "componentGuid": "410755b1-224a-4c1e-a407-bf32fb45ea7e",
       "instanceGuid": "e5555555-5555-5555-5555-555555555555",
-      "selected": false,
-      "pivot": {
-        "X": 200.0,
-        "Y": 200.0
+      "id": 1,
+      "pivot": "200.0,200.0",
+      "componentState": {
+        "value": "import math\n\nresult = math.sqrt(x ** 2 + y ** 2)\nprint(f'Distance: {result}')",
+        "marshInputs": true,
+        "marshOutputs": true
       },
-      "properties": {
-        "Script": {
-          "value": "import math\n\nresult = math.sqrt(x ** 2 + y ** 2)\nprint(f'Distance: {result}')",
-          "type": "String"
+      "inputSettings": [
+        {
+          "parameterName": "X",
+          "variableName": "x",
+          "dataMapping": "None"
         },
-        "ScriptInputs": {
-          "value": [
-            {
-              "variableName": "x",
-              "name": "X",
-              "description": "X coordinate",
-              "access": "item",
-              "simplify": false,
-              "reverse": false,
-              "dataMapping": "None"
-            },
-            {
-              "variableName": "y",
-              "name": "Y",
-              "description": "Y coordinate",
-              "access": "item",
-              "simplify": false,
-              "reverse": false,
-              "dataMapping": "None"
-            }
-          ],
-          "type": "JArray"
-        },
-        "ScriptOutputs": {
-          "value": [
-            {
-              "variableName": "result",
-              "name": "Distance",
-              "description": "Euclidean distance",
-              "access": "item",
-              "simplify": false,
-              "reverse": false,
-              "dataMapping": "None"
-            }
-          ],
-          "type": "JArray"
-        },
-        "MarshInputs": {
-          "value": true,
-          "type": "Boolean"
-        },
-        "MarshOutputs": {
-          "value": true,
-          "type": "Boolean"
-        },
-        "MarshGuids": {
-          "value": false,
-          "type": "Boolean"
+        {
+          "parameterName": "Y",
+          "variableName": "y",
+          "dataMapping": "None"
         }
-      },
-      "warnings": [],
-      "errors": []
+      ],
+      "outputSettings": [
+        {
+          "parameterName": "Distance",
+          "variableName": "result",
+          "dataMapping": "None"
+        }
+      ]
     }
   ],
   "connections": []
@@ -228,22 +148,14 @@ A component with runtime error messages.
   "components": [
     {
       "name": "Division",
-      "type": "IGH_Component",
-      "objectType": "Grasshopper.Kernel.Components.GH_Division",
       "componentGuid": "c4811991-5c5f-4f61-9882-c7f2e1f3b7a7",
       "instanceGuid": "f6666666-6666-6666-6666-666666666666",
+      "id": 1,
+      "pivot": "300.0,150.0",
       "selected": true,
-      "pivot": {
-        "X": 300.0,
-        "Y": 150.0
+      "componentState": {
+        "locked": false
       },
-      "properties": {
-        "Locked": {
-          "value": false,
-          "type": "Boolean"
-        }
-      },
-      "warnings": [],
       "errors": [
         "1. Runtime error (ZeroDivisionError): Division by zero"
       ]
@@ -264,37 +176,28 @@ A number parameter with internalized (persistent) data.
   "components": [
     {
       "name": "Number",
-      "type": "IGH_Param",
-      "objectType": "Grasshopper.Kernel.Parameters.Param_Number",
       "componentGuid": "3581f42a-9592-4549-bd6b-1c0fc39d067b",
       "instanceGuid": "g7777777-7777-7777-7777-777777777777",
-      "selected": false,
-      "pivot": {
-        "X": 150.0,
-        "Y": 100.0
-      },
-      "properties": {
-        "PersistentData": {
-          "value": {
-            "{0}": {
-              "0": {"value": 1.5},
-              "1": {"value": 2.5},
-              "2": {"value": 3.5}
-            }
-          },
-          "type": "JObject"
-        },
-        "Simplify": {
-          "value": false,
-          "type": "Boolean"
-        },
-        "Reverse": {
-          "value": false,
-          "type": "Boolean"
+      "id": 1,
+      "pivot": "150.0,100.0",
+      "componentState": {
+        "value": {
+          "{0}": {
+            "0": {"value": 1.5},
+            "1": {"value": 2.5},
+            "2": {"value": 3.5}
+          }
         }
       },
-      "warnings": [],
-      "errors": []
+      "outputSettings": [
+        {
+          "parameterName": "Number",
+          "additionalSettings": {
+            "simplify": false,
+            "reverse": false
+          }
+        }
+      ]
     }
   ],
   "connections": []
@@ -312,35 +215,21 @@ A value list component with selectable items.
   "components": [
     {
       "name": "Value List",
-      "type": "IGH_Param",
-      "objectType": "Grasshopper.Kernel.Special.GH_ValueList",
       "componentGuid": "6c24e2c6-02d7-4ada-bcbf-d50ad804d120",
       "instanceGuid": "h8888888-8888-8888-8888-888888888888",
-      "selected": false,
-      "pivot": {
-        "X": 100.0,
-        "Y": 200.0
+      "id": 1,
+      "pivot": "100.0,200.0",
+      "params": {
+        "NickName": "Options"
       },
-      "properties": {
-        "ListMode": {
-          "value": "DropDown",
-          "type": "String"
-        },
-        "ListItems": {
-          "value": [
-            {"Name": "Option A", "Expression": "0"},
-            {"Name": "Option B", "Expression": "1"},
-            {"Name": "Option C", "Expression": "2"}
-          ],
-          "type": "JArray"
-        },
-        "NickName": {
-          "value": "Options",
-          "type": "String"
-        }
-      },
-      "warnings": [],
-      "errors": []
+      "componentState": {
+        "value": [
+          {"Name": "Option A", "Expression": "0"},
+          {"Name": "Option B", "Expression": "1"},
+          {"Name": "Option C", "Expression": "2"}
+        ],
+        "listMode": "DropDown"
+      }
     }
   ],
   "connections": []
@@ -351,7 +240,7 @@ A value list component with selectable items.
 
 ## Example 6: AI-Generated with Integer IDs
 
-Components generated by AI using integer IDs (auto-converted to GUIDs).
+Components generated by AI using integer string IDs as instanceGuid (auto-converted to proper GUIDs).
 
 ```json
 {
@@ -359,58 +248,90 @@ Components generated by AI using integer IDs (auto-converted to GUIDs).
     {
       "name": "Point",
       "componentGuid": "3581f42a-9592-4549-bd6b-1c0fc39d067b",
-      "instanceGuid": "1"
+      "instanceGuid": "1",
+      "id": 1
     },
     {
       "name": "Circle",
       "componentGuid": "5ec4df20-2f3b-4ae2-a047-b95c9e5c6f3e",
-      "instanceGuid": "2"
+      "instanceGuid": "2",
+      "id": 2
     },
     {
       "name": "Extrude",
       "componentGuid": "9c2f8e8f-b9b0-4d3e-b0d8-d8e8f8f8f8f8",
-      "instanceGuid": "3"
+      "instanceGuid": "3",
+      "id": 3
     }
   ],
   "connections": [
     {
-      "from": {"instanceId": "1", "paramName": "Point"},
-      "to": {"instanceId": "2", "paramName": "Plane"}
+      "from": {"id": 1, "paramName": "Point"},
+      "to": {"id": 2, "paramName": "Plane"}
     },
     {
-      "from": {"instanceId": "2", "paramName": "Circle"},
-      "to": {"instanceId": "3", "paramName": "Base"}
+      "from": {"id": 2, "paramName": "Circle"},
+      "to": {"id": 3, "paramName": "Base"}
     }
   ]
 }
 ```
 
-**Note**: Integer IDs `"1"`, `"2"`, `"3"` will be automatically converted to proper GUIDs during deserialization, maintaining referential integrity in connections.
+**Note**: Integer string values for `instanceGuid` (e.g., `"1"`, `"2"`, `"3"`) are automatically converted to proper GUIDs during deserialization. The `id` field is used for connection references.
 
 ---
 
-## Example 7: Minimal GhJSON-Lite (Proposed)
+## Example 7: With Groups
 
-Lightweight format for bulk retrieval and analysis.
+Components organized into groups using integer ID references.
 
 ```json
 {
   "components": [
     {
-      "name": "Addition",
-      "guid": "c3333333-3333-3333-3333-333333333333",
-      "type": "a0d62394-a118-422d-abb3-6af115c75b25"
+      "name": "Number Slider",
+      "componentGuid": "57da07bd-ecab-415d-9d86-af36d7073abc",
+      "instanceGuid": "a1111111-1111-1111-1111-111111111111",
+      "id": 1,
+      "pivot": "100.0,100.0"
     },
     {
-      "name": "Multiplication",
-      "guid": "d4444444-4444-4444-4444-444444444444",
-      "type": "b4c52c9f-5e8c-4e4e-9c5e-5e8c4e4e9c5e"
+      "name": "Number Slider",
+      "componentGuid": "57da07bd-ecab-415d-9d86-af36d7073abc",
+      "instanceGuid": "b2222222-2222-2222-2222-222222222222",
+      "id": 2,
+      "pivot": "100.0,150.0"
+    },
+    {
+      "name": "Addition",
+      "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
+      "instanceGuid": "c3333333-3333-3333-3333-333333333333",
+      "id": 3,
+      "pivot": "250.0,125.0"
     }
   ],
   "connections": [
     {
-      "from": "c3333333-3333-3333-3333-333333333333",
-      "to": "d4444444-4444-4444-4444-444444444444"
+      "from": {"id": 1, "paramName": "Number Slider"},
+      "to": {"id": 3, "paramName": "A"}
+    },
+    {
+      "from": {"id": 2, "paramName": "Number Slider"},
+      "to": {"id": 3, "paramName": "B"}
+    }
+  ],
+  "groups": [
+    {
+      "instanceGuid": "g1111111-1111-1111-1111-111111111111",
+      "name": "Input Parameters",
+      "color": "100,150,200,255",
+      "members": [1, 2]
+    },
+    {
+      "instanceGuid": "g2222222-2222-2222-2222-222222222222",
+      "name": "Processing",
+      "color": "100,255,200,150",
+      "members": [3]
     }
   ]
 }
@@ -420,6 +341,8 @@ Lightweight format for bulk retrieval and analysis.
 
 ## Related Documentation
 
-- [GhJSON Format Specification](./format-specification.md)
-- [Property Whitelist](./property-whitelist.md)
-- [GhJSON Roadmap](./roadmap.md)
+- [Implementation Status](./implementation-status.md) - Current progress and pending tasks
+- [GhJSON Format Specification](./format-specification.md) - Complete schema reference
+- [Property Management V2](./property-management-v2.md) - Advanced property system
+- [Property Whitelist](./property-whitelist.md) - Legacy property filtering
+- [GhJSON Roadmap](./roadmap.md) - Future development plans

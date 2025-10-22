@@ -129,23 +129,19 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 var proxy = ObjectFactory.FindProxy(component.ComponentGuid, component.Name);
                 var instance = ObjectFactory.CreateInstance(proxy);
 
-                if (instance is GH_NumberSlider slider && component.Properties != null)
+                if (instance is GH_NumberSlider slider && component.ComponentState?.Value != null)
                 {
                     try
                     {
-                        var prop = component.Properties.GetValueOrDefault("CurrentValue");
-                        if (prop?.Value != null)
-                        {
-                            var initCode = prop.Value.ToString();
-                            slider.SetInitCode(initCode);
-                        }
+                        var valueStr = component.ComponentState.Value.ToString();
+                        slider.SetInitCode(valueStr);
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error setting slider value: {ex.Message}");
                     }
                 }
-                else if (instance is IScriptComponent scriptComp && component.Properties != null)
+                else if (instance is IScriptComponent scriptComp && component.ComponentState?.Value != null)
                 {
                     // clear default script inputs and outputs
                     var ghComp = (IGH_Component)scriptComp;
@@ -158,23 +154,20 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     foreach (var p in ghComp.Params.Output.ToArray())
                         ghComp.Params.UnregisterOutputParameter(p);
 
-                    // Script code
-                    if (component.Properties.TryGetValue("Script", out var scriptProperty) && scriptProperty?.Value != null)
-                    {
-                        var scriptCode = scriptProperty.Value.ToString();
-                        scriptComp.Text = scriptCode;
-                        Debug.WriteLine($"Set script code for component {instance.InstanceGuid}, length: {scriptCode.Length}");
-                    }
+                    // Script code from componentState.value
+                    var scriptCode = component.ComponentState.Value.ToString();
+                    scriptComp.Text = scriptCode;
+                    Debug.WriteLine($"Set script code for component {instance.InstanceGuid}, length: {scriptCode.Length}");
 
-                    // Inputs
-                    if (component.Properties.TryGetValue("ScriptInputs", out var inputsProperty) && inputsProperty?.Value is JArray inputArray)
+                    // Inputs from inputSettings
+                    if (component.InputSettings != null)
                     {
-                        foreach (JObject o in inputArray)
+                        foreach (var inputSetting in component.InputSettings)
                         {
-                            var variableName = o["variableName"]?.ToString() ?? string.Empty;
-                            var prettyName = o["name"]?.ToString() ?? variableName;
-                            var description = o["description"]?.ToString() ?? string.Empty;
-                            var access = Enum.TryParse<GH_ParamAccess>(o["access"]?.ToString(), true, out var pa) ? pa : GH_ParamAccess.item;
+                            var variableName = inputSetting.VariableName ?? string.Empty;
+                            var prettyName = inputSetting.ParameterName ?? variableName;
+                            var description = inputSetting.Description ?? string.Empty;
+                            var access = inputSetting.Access ?? GH_ParamAccess.item;
 
                             if (ParameterAccess.GetInputByName((IGH_Component)scriptComp, variableName) == null)
                             {
@@ -185,12 +178,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                                     Access = access,
                                 };
                                 param.CreateAttributes();
-                                if (o["simplify"] != null)
-                                    param.Simplify = o["simplify"].Value<bool>();
-                                if (o["reverse"] != null)
-                                    param.Reverse = o["reverse"].Value<bool>();
-                                if (o["dataMapping"] != null)
-                                    param.DataMapping = StringConverter.StringToGHDataMapping(o["dataMapping"].ToString());
+                                if (inputSetting.AdditionalSettings?.Simplify == true)
+                                    param.Simplify = true;
+                                if (inputSetting.AdditionalSettings?.Reverse == true)
+                                    param.Reverse = true;
+                                if (inputSetting.DataMapping != null)
+                                    param.DataMapping = StringConverter.StringToGHDataMapping(inputSetting.DataMapping);
                                 ((IGH_Component)scriptComp).Params.RegisterInputParam(param);
                             }
                             else
@@ -198,42 +191,41 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                                 var existing = ParameterAccess.GetInputByName((IGH_Component)scriptComp, variableName);
                                 if (existing != null)
                                 {
-                                    if (o["simplify"] != null)
-                                        existing.Simplify = o["simplify"].Value<bool>();
-                                    if (o["reverse"] != null)
-                                        existing.Reverse = o["reverse"].Value<bool>();
-                                    if (o["dataMapping"] != null)
-                                        existing.DataMapping = StringConverter.StringToGHDataMapping(o["dataMapping"].ToString());
+                                    if (inputSetting.AdditionalSettings?.Simplify == true)
+                                        existing.Simplify = true;
+                                    if (inputSetting.AdditionalSettings?.Reverse == true)
+                                        existing.Reverse = true;
+                                    if (inputSetting.DataMapping != null)
+                                        existing.DataMapping = StringConverter.StringToGHDataMapping(inputSetting.DataMapping);
                                 }
                             }
                         }
                     }
 
                     // Outputs
-                    if (component.Properties.TryGetValue("ScriptOutputs", out var outputsProperty) && outputsProperty?.Value is JArray outputArray)
+                    if (component.OutputSettings != null)
                     {
-                        foreach (JObject o in outputArray)
+                        foreach (var outputSetting in component.OutputSettings)
                         {
-                            var variableName = o["variableName"]?.ToString() ?? string.Empty;
-                            var prettyName = o["name"]?.ToString() ?? variableName;
-                            var description = o["description"]?.ToString() ?? string.Empty;
-                            var access = Enum.TryParse<GH_ParamAccess>(o["access"]?.ToString(), true, out var pa2) ? pa2 : GH_ParamAccess.item;
+                            var variableName = outputSetting.VariableName ?? string.Empty;
+                            var prettyName = outputSetting.ParameterName ?? variableName;
+                            var access = outputSetting.Access ?? GH_ParamAccess.item;
 
                             if (ParameterAccess.GetOutputByName((IGH_Component)scriptComp, variableName) == null)
                             {
                                 var param = new ScriptVariableParam(variableName)
                                 {
                                     PrettyName = prettyName,
-                                    Description = description,
+                                    Description = string.Empty,
                                     Access = access,
                                 };
                                 param.CreateAttributes();
-                                if (o["simplify"] != null)
-                                    param.Simplify = o["simplify"].Value<bool>();
-                                if (o["reverse"] != null)
-                                    param.Reverse = o["reverse"].Value<bool>();
-                                if (o["dataMapping"] != null)
-                                    param.DataMapping = StringConverter.StringToGHDataMapping(o["dataMapping"].ToString());
+                                if (outputSetting.AdditionalSettings?.Simplify == true)
+                                    param.Simplify = true;
+                                if (outputSetting.AdditionalSettings?.Reverse == true)
+                                    param.Reverse = true;
+                                if (outputSetting.DataMapping != null)
+                                    param.DataMapping = StringConverter.StringToGHDataMapping(outputSetting.DataMapping);
                                 ((IGH_Component)scriptComp).Params.RegisterOutputParam(param);
                             }
                             else
@@ -241,12 +233,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                                 var existing = ParameterAccess.GetOutputByName((IGH_Component)scriptComp, variableName);
                                 if (existing != null)
                                 {
-                                    if (o["simplify"] != null)
-                                        existing.Simplify = o["simplify"].Value<bool>();
-                                    if (o["reverse"] != null)
-                                        existing.Reverse = o["reverse"].Value<bool>();
-                                    if (o["dataMapping"] != null)
-                                        existing.DataMapping = StringConverter.StringToGHDataMapping(o["dataMapping"].ToString());
+                                    if (outputSetting.AdditionalSettings?.Simplify == true)
+                                        existing.Simplify = true;
+                                    if (outputSetting.AdditionalSettings?.Reverse == true)
+                                        existing.Reverse = true;
+                                    if (outputSetting.DataMapping != null)
+                                        existing.DataMapping = StringConverter.StringToGHDataMapping(outputSetting.DataMapping);
                                 }
                             }
                         }
@@ -255,15 +247,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     // Rebuild variable parameter UI
                     ((dynamic)scriptComp).VariableParameterMaintenance();
                 }
-                else if (component.Properties != null)
-                {
-                    // Apply legacy properties for backward compatibility using PropertyManagerV2
-                    // Note: component.Properties is already Dictionary<string, ComponentProperty> after deserialization
-                    var propertyManager = PropertyManagerFactory.CreateStandard();
-                    propertyManager.ApplyProperties(instance, component.Properties);
-                }
 
-                // Apply schema properties
+                // Apply schema properties (params, inputSettings, outputSettings, componentState)
                 ApplySchemaProperties(instance, component);
 
                 // Position and add component
@@ -577,6 +562,29 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     // Script: value is script code
                     scriptComp.Text = state.Value.ToString();
                 }
+                else if (instance is GH_ValueList valueList && state.Value != null)
+                {
+                    // Value List: value is array of items
+                    if (state.Value is JArray itemsArray)
+                    {
+                        valueList.ListItems.Clear();
+                        foreach (var item in itemsArray)
+                        {
+                            var name = item["Name"]?.ToString() ?? string.Empty;
+                            var expression = item["Expression"]?.ToString() ?? string.Empty;
+                            valueList.ListItems.Add(new GH_ValueListItem(name, expression));
+                        }
+                    }
+                    
+                    // Apply list mode if specified
+                    if (!string.IsNullOrEmpty(state.ListMode))
+                    {
+                        if (Enum.TryParse<GH_ValueListMode>(state.ListMode, out var mode))
+                        {
+                            valueList.ListMode = mode;
+                        }
+                    }
+                }
 
                 // Apply script-specific properties
                 if (instance is IScriptComponent scriptComp2)
@@ -590,13 +598,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     {
                         scriptComp2.MarshOutputs = state.MarshOutputs.Value;
                     }
-                }
-
-                // Apply value list mode
-                if (!string.IsNullOrEmpty(state.ListMode))
-                {
-                    // Value list mode handling would go here
-                    // This requires specific implementation for value list components
                 }
             }
             catch (Exception ex)

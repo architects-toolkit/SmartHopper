@@ -38,17 +38,26 @@ The modern GhJSON format organizes properties into distinct sections:
 ```json
 {
   "name": "Addition",
-  "componentGuid": "...",
-  "instanceGuid": "...",
-  "pivot": {"X": 100.0, "Y": 200.0},
+  "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
+  "instanceGuid": "f8e7d6c5-b4a3-9281-7065-43e1f2a9b8c7",
   "id": 1,
-  "properties": {...},           // Legacy properties (backward compatibility)
+  "pivot": "100.0,200.0",
   "params": {...},               // Simple key-value properties (NickName, etc.)
   "inputSettings": [...],        // Input parameter configuration
   "outputSettings": [...],       // Output parameter configuration
-  "componentState": {...}        // UI state and component-specific data
+  "componentState": {...},       // UI state and universal value
+  "selected": false,
+  "warnings": [],
+  "errors": []
 }
 ```
+
+**Key Features:**
+- `pivot` is a compact string `"X,Y"` format
+- `id` field is auto-generated for connections and group references
+- No `type` or `objectType` fields (redundant with `componentGuid`)
+- No `properties` dictionary (removed - use `componentState.value` instead)
+- All component values stored in `componentState.value`
 
 ### Parameter Settings Structure
 
@@ -69,14 +78,14 @@ The modern GhJSON format organizes properties into distinct sections:
 }]
 ```
 
+**Note**: `expression` field replaces the redundant `hasExpression` flag. If `expression` is present and non-null, the parameter has an expression.
+
 ### Component State Structure
 
 ```json
 "componentState": {
   "locked": false,
   "hidden": false,
-  "value": "5.0<0.0,10.0>",
-  "currentValue": "5.0<0.0,10.0>",
   "script": "print('hello')",
   "marshInputs": true,
   "marshOutputs": false,
@@ -87,17 +96,60 @@ The modern GhJSON format organizes properties into distinct sections:
 }
 ```
 
+**Universal Value Property (✅ IMPLEMENTED):**
+
+All components store their primary value in `componentState.value`:
+
+**Number Slider:**
+```json
+"componentState": {
+  "value": "5.0<0.0,10.0>"  // Format: "value<min,max>"
+}
+```
+
+**Panel / Scribble:**
+```json
+"componentState": {
+  "value": "Hello World"  // Plain text
+}
+```
+
+**Script Components:**
+```json
+"componentState": {
+  "value": "import math\nprint(x)",  // Script code
+  "marshInputs": true,
+  "marshOutputs": false
+}
+```
+
+**Value List:**
+```json
+"componentState": {
+  "value": [{"Name": "A", "Expression": "0"}],  // Array of items
+  "listMode": "DropDown"
+}
+```
+
+This unified approach provides:
+- ✅ Consistent API for all component types
+- ✅ Simpler for AI to understand and generate
+- ✅ Single source of truth for component values
+- ✅ No component-specific property names needed
+
 ---
 
 ## Whitelisted Properties
 
+> **Important**: The `properties` dictionary has been **removed**. All component values are now stored in `componentState.value`.
+
 ### General Component Properties
 
-| Property | Type | Description | Components |
-|----------|------|-------------|------------|
-| `Locked` | Boolean | Whether component is locked (disabled) | All components |
-| `NickName` | String | Custom nickname for the component | All |
-| `DisplayName` | String | Display name shown on canvas | All |
+| Property | Type | Location | Description | Components |
+|----------|------|----------|-------------|------------|
+| `Locked` | Boolean | `componentState` | Whether component is locked (disabled) | All components |
+| `NickName` | String | `params` | Custom nickname for the component | All |
+| `DisplayName` | String | `params` | Display name shown on canvas | All |
 
 ### Parameter Properties
 

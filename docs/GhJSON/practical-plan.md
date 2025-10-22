@@ -2,12 +2,13 @@
 
 ## Implementation Status Checklist
 
-- **Phase 1: Enhanced Schema and Metadata** ✅ **COMPLETED**
+- **Phase 1: Enhanced Schema and Metadata** ⚠️ **IN PROGRESS**
 - [x] 1.1 Document-level metadata (schemaVersion + metadata in `GrasshopperDocument`, metadata population in `DocumentIntrospection`, `includeMetadata` in `gh_get`, UI wiring in `GhGetComponents`)
 - [x] 1.2 Groups support (groups array in `GrasshopperDocument`, `GroupInfo` model, extraction in `DocumentIntrospection`, recreation in `GhJsonPlacer` - always included, no flag needed)
 - [x] 1.3 Data type serialization (core serializers + `PropertyManager`/`DataTreeConverter` integration)
 - [x] 1.4 Component schema improvements (`params`, `inputSettings`/`outputSettings`, `componentState` - keeping legacy `pivot` for compactness)
 - [x] 1.5 Property Management System V2: Advanced property management with context-aware filtering, component categories, and flexible configuration
+- [ ] 1.6 **Value Consolidation**: Unify all component values into `componentState.value` field
 
 - **Phase 2: GhJSON-Lite**
 - [ ] 2.1 Lite converter (structure-only)
@@ -89,7 +90,7 @@ Components placed on canvas
 - 3.2: Error handling and recovery
 - 3.3: Consistency guarantees
 
-**Total Estimated Time**: 11-16 weeks
+**Total Estimated Time**: 12-17 weeks (including value consolidation)
 
 ---
 
@@ -284,54 +285,27 @@ public static class DataTypeSerializer
 
 ---
 
-### 1.4: Component Schema Improvements (2-3 weeks)
+### 1.4: Component Schema Improvements (2-3 weeks) ✅ COMPLETED
 
 **Objective**: Separate input/output settings, component state, and standardize position naming.
 
-**Files to Create**:
-- `src/SmartHopper.Core/Models/Components/ParameterSettings.cs`
-- `src/SmartHopper.Core/Models/Components/AdditionalParameterSettings.cs`
-- `src/SmartHopper.Core/Models/Components/ComponentState.cs`
-- `src/SmartHopper.Core/Models/Components/Position.cs`
-- `src/SmartHopper.Core/Models/Serialization/PropertyMigration.cs`
+**Status**: Completed with `params`, `inputSettings`, `outputSettings`, and `componentState` fields.
 
-**Files to Modify**:
-- `src/SmartHopper.Core/Models/Components/ComponentProperties.cs`
-- `src/SmartHopper.Core.Grasshopper/Utils/Serialization/DocumentIntrospection.cs`
-- `src/SmartHopper.Core.Grasshopper/Utils/Internal/GhJsonPlacer.cs`
-- `src/SmartHopper.Core.Grasshopper/AITools/gh_get.cs`
+---
 
-**Implementation Tasks**:
-1. Create `ParameterSettings` model for input/output configuration
-2. Create `ComponentState` model for UI-specific state (script, slider, panel properties)
-3. Create `Position` model with lowercase x, y properties
-4. Extend `ComponentProperties` with:
-   - `Position` (new, lowercase x/y)
-   - `Params` (simple key-value dictionary)
-   - `InputSettings` (array of parameter settings)
-   - `OutputSettings` (array of parameter settings)
-   - `ComponentState` (component-specific state)
-   - Keep `Pivot` for backward compatibility (deprecated)
-   - Keep `Properties` for backward compatibility (deprecated)
-5. Implement property extraction in `DocumentIntrospection`:
-   - Extract position from component attributes
-   - Extract params (NickName, UserText, etc.)
-   - Extract input/output settings from parameters
-   - Extract component state (script, slider, panel)
-6. Implement property application in `GhJsonPlacer`:
-   - Apply position (prefer Position over Pivot)
-   - Apply params
-   - Apply input/output settings
-   - Apply component state
-7. Create `PropertyMigration` utility for converting old to new schema
-8. Add `useNewSchema` parameter to `gh_get` tool (default: true)
-9. Write unit tests for new schema serialization/deserialization
-10. Write migration tests (old → new schema)
+### 1.6: Value Consolidation (1 week) ⚠️ TO TEST
 
-**Backward Compatibility**: 
-- New properties are optional; old JSON will deserialize
-- Deserialization prefers new properties but falls back to old
-- Migration utility can convert old to new format
+**Objective**: Unify all component values into a single `componentState.value` field for consistency.
+
+**Testing Checklist**
+   - [ ] Number Slider: Serialize and deserialize with value
+   - [ ] Panel: Serialize and deserialize with text value
+   - [ ] Scribble: Serialize and deserialize with text value
+   - [ ] Script Component: Serialize and deserialize with script code
+   - [ ] Value List: Serialize and deserialize with items array
+   - [ ] Parameter: Serialize and deserialize with persistent data
+   - [ ] Round-trip test: gh_get → gh_put → gh_get yields same result
+   - [ ] All examples in documentation work correctly
 
 ---
 

@@ -1,5 +1,7 @@
 # GhJSON Format Roadmap
 
+> **📊 Implementation Status**: See [implementation-status.md](./implementation-status.md) for current progress, completed features, and pending tasks.
+
 ## Vision
 
 Transform GhJSON into a robust, AI-optimized serialization format that balances completeness with efficiency, enabling advanced AI-powered Grasshopper workflows while maintaining reliability and consistency.
@@ -563,13 +565,13 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `expressionContent` | ❌ | ❌ | string | Expression code | Separate expression storage | 🗑️ **ToRemove** | Redundant with `expression` |
 | `variableName` | ✅ | ✅ | string | Variable name | Script parameter variable | ✅ Implemented | Script components only |
 | **Properties to Remove** |
-| `dataType` | ✅ | ❌ | string | `"remote"`, `"void"`, `"local"` | Redundant (inferred) | 🗑️ **ToRemove** | Inferred from connections/persistentData |
-| `volatileData` | ✅ | ❌ | object | Runtime data | Runtime-only | 🗑️ **ToRemove** | Not persistent |
+| `dataType` | ❌ | ❌ | string | `"remote"`, `"void"`, `"local"` | Redundant (inferred) | 🗑️ **ToRemove** | Inferred from connections/persistentData |
+| `volatileData` | ❌ | ❌ | object | Runtime data | Runtime-only | 🗑️ **ToRemove** | Not persistent |
 | **Properties Excluded** |
 | `access` | ❌ | ❌ | string | `"item"`, `"list"`, `"tree"` | Implicit from component type | ❌ Excluded | |
 | `description` | ❌ | ❌ | string | Text | Implicit from component definition | ❌ Excluded | |
 | `optional` | ❌ | ❌ | boolean | `true`, `false` | Redundant information | ❌ Excluded | |
-| `isReparameterized` | ✅ | ❌ | boolean | `true`, `false` | Domain reparameterization | 🔨 **TODO** | Model exists, extraction/application not implemented |
+| `isReparameterized` | ✅ | ✅ | boolean | `true`, `false` | Domain reparameterization | 🔨 **TODO** | Model exists, extraction/application not implemented |
 
 #### Component Properties
 
@@ -584,12 +586,12 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `humanReadable` | ❌ | ❌ | string | Human-readable value | Debug/display helper | 🗑️ **ToRemove** | Not necessary if `value` is properly serialized |
 | **Number Slider** |
 | `currentValue` | ✅ | ✅ | string | `"5.0<0.0,10.0>"` | Slider value with range | 🗑️ **ToRemove** | Maps to `value` |
-| `minimum` | ✅ | ❌ | number | Min value | Slider minimum | 🗑️ **ToRemove** | Redundant (in currentValue) |
-| `maximum` | ✅ | ❌ | number | Max value | Slider maximum | 🗑️ **ToRemove** | Redundant (in currentValue) |
-| `decimals` | ✅ | ❌ | integer | Decimal places | Slider precision | 🗑️ **ToRemove** | Redundant (in currentValue) |
-| `range` | ✅ | ❌ | object | Range config | Slider range | 🗑️ **ToRemove** | Redundant (in currentValue) |
-| `limit` | ✅ | ❌ | object | Limit config | Slider limits | 🗑️ **ToRemove** | Redundant (in currentValue) |
-| `displayFormat` | ✅ | ❌ | string | Format string | Display format | 🗑️ **ToRemove** | Redundant (in currentValue) |
+| `minimum` | ❌ | ❌ | number | Min value | Slider minimum | 🗑️ **ToRemove** | Redundant (in currentValue) |
+| `maximum` | ❌ | ❌ | number | Max value | Slider maximum | 🗑️ **ToRemove** | Redundant (in currentValue) |
+| `decimals` | ❌ | ❌ | integer | Decimal places | Slider precision | 🗑️ **ToRemove** | Redundant (in currentValue) |
+| `range` | ❌ | ❌ | object | Range config | Slider range | 🗑️ **ToRemove** | Redundant (in currentValue) |
+| `limit` | ❌ | ❌ | object | Limit config | Slider limits | 🗑️ **ToRemove** | Redundant (in currentValue) |
+| `displayFormat` | ❌ | ❌ | string | Format string | Display format | 🗑️ **ToRemove** | Redundant (in currentValue) |
 | **Panel** |
 | `userText` | ✅ | ✅ | string | Panel text | Panel content | 🗑️ **ToRemove** | Maps to `value` |
 | `properties` | ✅ | ❌ | object | Nested properties | Panel properties | ✅ Implemented | UI formatting |
@@ -602,12 +604,12 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `listItems` | ✅ | ✅ | array | List items | Selectable items | 🗑️ **ToRemove** | Maps to `value` |
 | **Multidimensional Slider** |
 | `sliderMode` | ✅ | ❌ | string | Slider mode | Mode config | ✅ Implemented | |
-| `xInterval` | ✅ | ❌ | object | X interval | X-axis range | 🗑️ **ToRemove** | Redundant (in value) |
-| `yInterval` | ✅ | ❌ | object | Y interval | Y-axis range | 🗑️ **ToRemove** | Redundant (in value) |
-| `zInterval` | ✅ | ❌ | object | Z interval | Z-axis range | 🗑️ **ToRemove** | Redundant (in value) |
-| `x` | ✅ | ❌ | number | X value | Current X | 🗑️ **ToRemove** | Maps to `value` (consolidate) |
-| `y` | ✅ | ❌ | number | Y value | Current Y | 🗑️ **ToRemove** | Maps to `value` (consolidate) |
-| `z` | ✅ | ❌ | number | Z value | Current Z | 🗑️ **ToRemove** | Maps to `value` (consolidate) |
+| `xInterval` | ❌ | ❌ | object | X interval | X-axis range | 🗑️ **ToRemove** | Redundant (in value) |
+| `yInterval` | ❌ | ❌ | object | Y interval | Y-axis range | 🗑️ **ToRemove** | Redundant (in value) |
+| `zInterval` | ❌ | ❌ | object | Z interval | Z-axis range | 🗑️ **ToRemove** | Redundant (in value) |
+| `x` | ❌ | ❌ | number | X value | Current X | 🗑️ **ToRemove** | Maps to `value` (consolidate) |
+| `y` | ❌ | ❌ | number | Y value | Current Y | 🗑️ **ToRemove** | Maps to `value` (consolidate) |
+| `z` | ❌ | ❌ | number | Z value | Current Z | 🗑️ **ToRemove** | Maps to `value` (consolidate) |
 | **Script Component** |
 | `script` | ✅ | ✅ | string | Script code | Script content | 🗑️ **ToRemove** | Maps to `value` |
 | **Geometry Pipeline** |
@@ -629,17 +631,41 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `expressionNormal` | ✅ | ❌ | string | Normal expression | Button normal state | ✅ Implemented | |
 | `expressionPressed` | ✅ | ❌ | string | Pressed expression | Button pressed state | ✅ Implemented | |
 
-#### Value Property Mapping (Proposed Consolidation)
+#### Value Property Mapping (Proposed Consolidation) 🔨 TODO
 
-| Component Type | Current Property | Proposed `value` Format | Example | Notes |
-|----------------|------------------|------------------------|---------|-------|
-| Number Slider | `currentValue` | `"value<min,max>"` | `"5.0<0.0,10.0>"` | Already implemented |
-| Panel | `userText` | Plain text | `"Hello World"` | Direct mapping |
-| Scribble | `text` | Plain text | `"Note: Check this"` | Direct mapping |
-| Value List | `listItems` | Array of items | `[{"name":"A","value":"1"}]` | Keep as array |
-| Multidimensional Slider | `x`, `y`, `z` | `"x,y,z"` or object | `"1.0,2.0,3.0"` | See Phase 1.4 |
-| Script | `script` | Script code | `"import math\nprint(x)"` | Direct mapping |
-| Parameter | `persistentData` | Data tree | See Phase 1.4 | Complex types use DataTypeSerializer |
+**Problem**: Component values are currently scattered across different locations:
+- Number Slider: `properties.CurrentValue`
+- Panel: `properties.UserText`
+- Scribble: `properties.Text`
+- Script: `componentState.script`
+- Value List: `componentState.listItems`
+
+**Solution**: Create a single universal `componentState.value` field for all components.
+
+| Component Type | Current Location | Proposed Location | Example Value | Notes |
+|----------------|------------------|-------------------|---------------|-------|
+| Number Slider | `properties.CurrentValue` | `componentState.value` | `"5.0<0.0,10.0>"` | Slider value with range |
+| Panel | `properties.UserText` | `componentState.value` | `"Hello World"` | Plain text |
+| Scribble | `properties.Text` | `componentState.value` | `"Note: Check this"` | Plain text |
+| Value List | `componentState.listItems` | `componentState.value` | `[{"name":"A","value":"1"}]` | Array of items |
+| Multidimensional Slider | `properties.x/y/z` | `componentState.value` | `"1.0,2.0,3.0"` or object | Coordinate values |
+| Script | `componentState.script` | `componentState.value` | `"import math\nprint(x)"` | Script code |
+| Parameter | `properties.persistentData` | `properties.persistentData` | Data tree | Keep as-is (special case) |
+
+**Benefits**:
+- Consistent API for all component types
+- Simpler for AI to understand and generate
+- Eliminates component-specific property names
+- Cleaner schema with single source of truth
+- Enables eventual removal of legacy `properties` dictionary
+
+**Implementation Tasks**:
+1. Add `value` property to `ComponentState` model
+2. Update `DocumentIntrospectionV2` to populate `value` from component-specific properties
+3. Update `GhJsonPlacer` to apply `value` to appropriate component property
+4. Update all examples and documentation
+5. Mark component-specific properties as deprecated
+6. Eventually remove legacy `properties` dictionary
 
 **Note**: For complex data types (Color, Point3d, Line, Plane, etc.), see **Phase 1.4: Data Type Serialization** for standardized encoding formats.
 
@@ -891,6 +917,8 @@ public enum ValidationLevel
 
 ## Related Documentation
 
-- [GhJSON Format Specification](./format-specification.md)
-- [Property Whitelist](./property-whitelist.md)
-- [Examples](./examples.md)
+- [Implementation Status](./implementation-status.md) - Current progress and pending tasks
+- [GhJSON Format Specification](./format-specification.md) - Current format specification
+- [Property Management V2](./property-management-v2.md) - Advanced property system
+- [Property Whitelist](./property-whitelist.md) - Legacy property filtering
+- [Examples](./examples.md) - Usage examples

@@ -1,5 +1,7 @@
 # GhJSON Format Specification
 
+> **📊 Implementation Status**: This specification describes the current implemented format. See [implementation-status.md](./implementation-status.md) for feature completion status and [roadmap.md](./roadmap.md) for planned enhancements.
+
 ## Overview
 
 **GhJSON** (Grasshopper JSON) is SmartHopper's serialization format for representing Grasshopper definitions as structured JSON documents. It enables AI-powered tools to read, analyze, modify, and generate Grasshopper component networks programmatically.
@@ -42,16 +44,12 @@ Each component in the `components` array represents a Grasshopper object (compon
 ```json
 {
   "name": "Addition",
-  "type": "IGH_Component",
-  "objectType": "Grasshopper.Kernel.Components.GH_Addition",
   "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
   "instanceGuid": "f8e7d6c5-b4a3-9281-7065-43e1f2a9b8c7",
-  "selected": false,
-  "pivot": {
-    "X": 150.0,
-    "Y": 200.0
-  },
+  "id": 1,
+  "pivot": "150.0,200.0",
   "properties": {},
+  "selected": false,
   "warnings": [],
   "errors": []
 }
@@ -62,21 +60,24 @@ Each component in the `components` array represents a Grasshopper object (compon
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `name` | String | Yes | Display name of the component |
-| `type` | String | No | Component type classification |
-| `objectType` | String | No | Full .NET type name of the component |
 | `componentGuid` | GUID | No | Unique identifier for the component type |
 | `instanceGuid` | GUID | Yes | Unique identifier for this specific instance |
+| `id` | Integer | No | Sequential integer ID for connections and group references |
+| `pivot` | String | No | Canvas position in compact "X,Y" format (e.g., "150.0,200.0") |
+| `properties` | Object | No | Dictionary of component-specific properties (legacy) |
+| `params` | Object | No | Simple key-value pairs for basic properties |
+| `inputSettings` | Array | No | Input parameter configuration |
+| `outputSettings` | Array | No | Output parameter configuration |
+| `componentState` | Object | No | Component-specific UI state |
 | `selected` | Boolean | No | Whether the component is currently selected |
-| `pivot` | Object | No | Canvas position with X and Y coordinates |
-| `properties` | Object | No | Dictionary of component-specific properties |
 | `warnings` | Array | No | List of warning messages |
 | `errors` | Array | No | List of error messages |
 
-### Component Types
+### Notes
 
-- **IGH_Component**: Standard Grasshopper components
-- **IGH_Param**: Parameter objects
-- **other**: Other Grasshopper objects
+- **Integer IDs**: Components are assigned sequential integer IDs (1, 2, 3...) used for connections and group member references
+- **Compact Position**: The `pivot` property uses a compact string format "X,Y" instead of object format for efficiency
+- **Property Organization**: Properties are organized into `properties` (legacy), `params` (simple values), `inputSettings`/`outputSettings` (parameter config), and `componentState` (UI state)
 
 ---
 
@@ -89,22 +90,17 @@ The `properties` object contains component-specific configuration.
 ```json
 "properties": {
   "Locked": {
-    "value": false,
-    "type": "Boolean"
+    "value": false
   },
   "CurrentValue": {
-    "value": "5.0<0.0,10.0>",
-    "type": "String",
-    "humanReadable": "5.0"
+    "value": "5.0<0.0,10.0>"
   }
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `value` | Any | Yes | The actual property value |
-| `type` | String | Yes | .NET type name of the value |
-| `humanReadable` | String | No | Human-readable representation |
+| `value` | Any | Yes | The actual property value (type inferred from JSON) |
 
 ---
 
@@ -117,11 +113,11 @@ Connections define wiring between component parameters.
 ```json
 {
   "from": {
-    "instanceId": "f8e7d6c5-b4a3-9281-7065-43e1f2a9b8c7",
+    "id": 1,
     "paramName": "Result"
   },
   "to": {
-    "instanceId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "id": 2,
     "paramName": "A"
   }
 }
@@ -131,8 +127,10 @@ Connections define wiring between component parameters.
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `instanceId` | GUID | Yes | Instance GUID of the component |
+| `id` | Integer | Yes | Integer ID of the component (references component.id) |
 | `paramName` | String | Yes | Name of the parameter |
+
+**Note**: Connections use integer IDs instead of GUIDs for compact representation. The IDs reference the `id` field in components.
 
 ---
 
@@ -146,13 +144,14 @@ Connections define wiring between component parameters.
 
 **Connections:**
 - `from` and `to` objects
-- `instanceId` in both endpoints
-- `paramName` in both endpoints
+- `id` (integer > 0) in both endpoints
+- `paramName` (string, non-empty) in both endpoints
 
 ### Warnings
 
 - Invalid or missing `componentGuid`
 - Non-GUID `instanceGuid` values
+- Missing `id` field in components (auto-assigned during extraction)
 
 ### Information
 
@@ -163,23 +162,45 @@ Connections define wiring between component parameters.
 
 ## ID Handling
 
-### Integer ID Support
+### Integer ID System
 
-GhJSON supports integer IDs for AI-generated content:
+GhJSON uses integer IDs for connections and group references:
 
+**Component ID Assignment:**
 ```json
 {
-  "instanceGuid": "1",
-  "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25"
+  "name": "Addition",
+  "instanceGuid": "f8e7d6c5-b4a3-9281-7065-43e1f2a9b8c7",
+  "id": 1
 }
 ```
 
-Integer IDs are automatically converted to proper GUIDs during deserialization.
+**Connection References:**
+```json
+{
+  "from": {"id": 1, "paramName": "Result"},
+  "to": {"id": 2, "paramName": "A"}
+}
+```
+
+**Group Member References:**
+```json
+{
+  "instanceGuid": "...",
+  "name": "Input Group",
+  "members": [1, 2, 3]
+}
+```
+
+**AI-Generated Content:**
+AI can use simple integer strings as `instanceGuid` values (e.g., `"1"`, `"2"`), which are automatically converted to proper GUIDs during deserialization.
 
 ---
 
 ## Related Documentation
 
-- [GhJSON Roadmap](./roadmap.md)
-- [Property Whitelist](./property-whitelist.md)
-- [Examples](./examples.md)
+- [Implementation Status](./implementation-status.md) - Current progress and pending tasks
+- [GhJSON Roadmap](./roadmap.md) - Complete feature roadmap
+- [Property Management V2](./property-management-v2.md) - Advanced property system
+- [Property Whitelist](./property-whitelist.md) - Legacy property filtering
+- [Examples](./examples.md) - Usage examples
