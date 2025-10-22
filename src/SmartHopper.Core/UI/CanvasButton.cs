@@ -730,7 +730,7 @@ namespace SmartHopper.Core.UI
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Components,ComponentsRetrieval,Knowledge", // Removed the Scripting tools since they are still under development. TODO: reenable scripting tools
+                    toolFilter: "Components,ComponentsRetrieval,Knowledge,Scripting",
                     componentId: CanvasChatDialogId,
                     progressReporter: null,
                     onUpdate: null,

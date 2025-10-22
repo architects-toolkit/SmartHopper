@@ -12,12 +12,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Parameters;
-using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using Rhino;
+using Rhino.Runtime.Code;
 using RhinoCodePlatform.GH;
 using RhinoCodePluginGH.Parameters;
 using SmartHopper.Core.Grasshopper.Models;
@@ -129,16 +129,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             return;
                         }
 
-                        // Determine language
-                        var typeName = component.GetType().Name;
-                        if (typeName.Contains("Python3") || typeName.Contains("PythonScript"))
-                            language = "python";
-                        else if (typeName.Contains("IronPython"))
-                            language = "ironpython";
-                        else if (typeName.Contains("CSharp"))
-                            language = "c#";
-                        else if (typeName.Contains("VB"))
-                            language = "vb";
+                        // TASK 2 IMPLEMENTATION: Use IScriptComponent.LanguageSpec instead of type name matching
+                        language = DetectLanguageFromComponent(scriptComp);
+                        Debug.WriteLine($"[script_edit] Detected language: {language}");
+
+#if DEBUG
+                        // DEBUG: Log LanguageSpec properties for API discovery
+                        LogLanguageSpecProperties(scriptComp);
+#endif
 
                         // Get current code
                         currentCode = scriptComp.Text ?? string.Empty;
@@ -391,5 +389,174 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return output;
             }
         }
+
+        /// <summary>
+        /// TASK 2: Detect language from IScriptComponent.LanguageSpec property instead of type name matching.
+        /// Uses direct comparison with LanguageSpec static properties.
+        /// </summary>
+        private static string DetectLanguageFromComponent(IScriptComponent scriptComp)
+        {
+            try
+            {
+                var langSpec = scriptComp.LanguageSpec;
+                if (langSpec == null)
+                {
+                    Debug.WriteLine("[script_edit] LanguageSpec is null, falling back to type name");
+                    return DetectLanguageFromTypeName(scriptComp);
+                }
+
+                // Direct comparison with LanguageSpec static properties (cleanest approach)
+                if (langSpec.Equals(LanguageSpec.Python3))
+                {
+                    Debug.WriteLine("[script_edit] Language detected via LanguageSpec.Python3 (direct)");
+                    return "python";
+                }
+
+                if (langSpec.Equals(LanguageSpec.IronPython2))
+                {
+                    Debug.WriteLine("[script_edit] Language detected via LanguageSpec.IronPython2 (direct)");
+                    return "ironpython";
+                }
+
+                if (langSpec.Equals(LanguageSpec.CSharp))
+                {
+                    Debug.WriteLine("[script_edit] Language detected via LanguageSpec.CSharp (direct)");
+                    return "c#";
+                }
+
+                if (langSpec.Equals(LanguageSpec.VisualBasic))
+                {
+                    Debug.WriteLine("[script_edit] Language detected via LanguageSpec.VisualBasic (direct)");
+                    return "vb";
+                }
+
+                // Fallback: try ToString() on LanguageSpec for unknown/future languages
+                var langStr = langSpec.ToString()?.ToLowerInvariant() ?? "unknown";
+                Debug.WriteLine($"[script_edit] Language detected via LanguageSpec.ToString() fallback: {langStr}");
+                
+                if (langStr.Contains("python3") || langStr.Contains("python 3"))
+                    return "python";
+                if (langStr.Contains("ironpython") || langStr.Contains("python2"))
+                    return "ironpython";
+                if (langStr.Contains("csharp") || langStr.Contains("c#"))
+                    return "c#";
+                if (langStr.Contains("visualbasic") || langStr.Contains("vb"))
+                    return "vb";
+
+                return langStr;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[script_edit] Error detecting language from LanguageSpec: {ex.Message}");
+                return DetectLanguageFromTypeName(scriptComp);
+            }
+        }
+
+        /// <summary>
+        /// Fallback method: detect language from type name (old fragile approach).
+        /// </summary>
+        private static string DetectLanguageFromTypeName(IScriptComponent scriptComp)
+        {
+            var typeName = scriptComp.GetType().Name;
+            if (typeName.Contains("Python3") || typeName.Contains("PythonScript"))
+                return "python";
+            else if (typeName.Contains("IronPython"))
+                return "ironpython";
+            else if (typeName.Contains("CSharp"))
+                return "c#";
+            else if (typeName.Contains("VB"))
+                return "vb";
+            
+            return "unknown";
+        }
+
+#if DEBUG
+        /// <summary>
+        /// Debug logging to discover LanguageSpec API properties and constants.
+        /// </summary>
+        private static void LogLanguageSpecProperties(IScriptComponent scriptComp)
+        {
+            try
+            {
+                Debug.WriteLine("\n========== LANGUAGESPEC API DISCOVERY ==========");
+                
+                var langSpec = scriptComp.LanguageSpec;
+                if (langSpec == null)
+                {
+                    Debug.WriteLine("LanguageSpec is NULL");
+                    return;
+                }
+
+                var langSpecType = langSpec.GetType();
+                Debug.WriteLine($"LanguageSpec Type: {langSpecType.FullName}");
+                Debug.WriteLine($"LanguageSpec.ToString(): {langSpec}");
+
+                // Log instance properties
+                Debug.WriteLine("\n--- LanguageSpec Instance Properties ---");
+                foreach (var prop in langSpecType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    try
+                    {
+                        var value = prop.GetValue(langSpec);
+                        Debug.WriteLine($"  {prop.Name} ({prop.PropertyType.Name}): {value}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"  {prop.Name}: ERROR - {ex.Message}");
+                    }
+                }
+
+                // Log static fields/constants
+                Debug.WriteLine("\n--- LanguageSpec Static Constants ---");
+                foreach (var field in langSpecType.GetFields(BindingFlags.Public | BindingFlags.Static))
+                {
+                    try
+                    {
+                        var value = field.GetValue(null);
+                        Debug.WriteLine($"  {field.Name} ({field.FieldType.Name}): {value}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"  {field.Name}: ERROR - {ex.Message}");
+                    }
+                }
+
+                // Log static properties
+                Debug.WriteLine("\n--- LanguageSpec Static Properties ---");
+                foreach (var prop in langSpecType.GetProperties(BindingFlags.Public | BindingFlags.Static))
+                {
+                    try
+                    {
+                        var value = prop.GetValue(null);
+                        Debug.WriteLine($"  {prop.Name} ({prop.PropertyType.Name}): {value}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"  {prop.Name}: ERROR - {ex.Message}");
+                    }
+                }
+
+                // Try to get Language property if it exists
+                var languageProp = langSpecType.GetProperty("Language");
+                if (languageProp != null)
+                {
+                    try
+                    {
+                        var language = languageProp.GetValue(langSpec);
+                        Debug.WriteLine($"\n--- Language Property ---");
+                        Debug.WriteLine($"Language: {language}");
+                        Debug.WriteLine($"Language Type: {language?.GetType().FullName}");
+                    }
+                    catch { }
+                }
+
+                Debug.WriteLine("========== END LANGUAGESPEC DISCOVERY ==========\n");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[LogLanguageSpecProperties] ERROR: {ex.Message}");
+            }
+        }
+#endif
     }
 }
