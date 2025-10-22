@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using Rhino;
-using Rhino.Runtime.Code;
 using RhinoCodePlatform.GH;
 using RhinoCodePluginGH.Parameters;
 using SmartHopper.Core.Grasshopper.Models;
@@ -391,58 +390,58 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// TASK 2: Detect language from IScriptComponent.LanguageSpec property instead of type name matching.
-        /// Uses direct comparison with LanguageSpec static properties.
+        /// Uses reflection to access LanguageSpec property, avoiding compile-time dependency on Rhino.Runtime.Code assembly.
+        /// This approach works cross-platform (Windows + macOS) without requiring problematic assembly references.
         /// </summary>
         private static string DetectLanguageFromComponent(IScriptComponent scriptComp)
         {
             try
             {
-                var langSpec = scriptComp.LanguageSpec;
+                // Use reflection to get LanguageSpec property value (avoids compile-time dependency)
+                var langSpecProperty = scriptComp.GetType().GetProperty("LanguageSpec");
+                if (langSpecProperty == null)
+                {
+                    Debug.WriteLine("[script_edit] LanguageSpec property not found, falling back to type name");
+                    return DetectLanguageFromTypeName(scriptComp);
+                }
+
+                var langSpec = langSpecProperty.GetValue(scriptComp);
                 if (langSpec == null)
                 {
                     Debug.WriteLine("[script_edit] LanguageSpec is null, falling back to type name");
                     return DetectLanguageFromTypeName(scriptComp);
                 }
 
-                // Direct comparison with LanguageSpec static properties (cleanest approach)
-                if (langSpec.Equals(LanguageSpec.Python3))
-                {
-                    Debug.WriteLine("[script_edit] Language detected via LanguageSpec.Python3 (direct)");
-                    return "python";
-                }
-
-                if (langSpec.Equals(LanguageSpec.IronPython2))
-                {
-                    Debug.WriteLine("[script_edit] Language detected via LanguageSpec.IronPython2 (direct)");
-                    return "ironpython";
-                }
-
-                if (langSpec.Equals(LanguageSpec.CSharp))
-                {
-                    Debug.WriteLine("[script_edit] Language detected via LanguageSpec.CSharp (direct)");
-                    return "c#";
-                }
-
-                if (langSpec.Equals(LanguageSpec.VisualBasic))
-                {
-                    Debug.WriteLine("[script_edit] Language detected via LanguageSpec.VisualBasic (direct)");
-                    return "vb";
-                }
-
-                // Fallback: try ToString() on LanguageSpec for unknown/future languages
+                // Call ToString() on the LanguageSpec object (no type reference needed)
                 var langStr = langSpec.ToString()?.ToLowerInvariant() ?? "unknown";
-                Debug.WriteLine($"[script_edit] Language detected via LanguageSpec.ToString() fallback: {langStr}");
-                
-                if (langStr.Contains("python3") || langStr.Contains("python 3"))
-                    return "python";
-                if (langStr.Contains("ironpython") || langStr.Contains("python2"))
-                    return "ironpython";
-                if (langStr.Contains("csharp") || langStr.Contains("c#"))
-                    return "c#";
-                if (langStr.Contains("visualbasic") || langStr.Contains("vb"))
-                    return "vb";
+                Debug.WriteLine($"[script_edit] Language detected via LanguageSpec.ToString(): {langStr}");
 
+                // Match common language patterns
+                if (langStr.Contains("python3") || langStr.Contains("python 3"))
+                {
+                    Debug.WriteLine("[script_edit] Detected as Python 3");
+                    return "python";
+                }
+
+                if (langStr.Contains("ironpython") || langStr.Contains("python2") || langStr.Contains("python 2"))
+                {
+                    Debug.WriteLine("[script_edit] Detected as IronPython 2");
+                    return "ironpython";
+                }
+
+                if (langStr.Contains("csharp") || langStr.Contains("c#"))
+                {
+                    Debug.WriteLine("[script_edit] Detected as C#");
+                    return "c#";
+                }
+
+                if (langStr.Contains("visualbasic") || langStr.Contains("vb") || langStr.Contains("visual basic"))
+                {
+                    Debug.WriteLine("[script_edit] Detected as VB.NET");
+                    return "vb";
+                }
+
+                Debug.WriteLine($"[script_edit] Unknown language, returning: {langStr}");
                 return langStr;
             }
             catch (Exception ex)
@@ -466,7 +465,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return "c#";
             else if (typeName.Contains("VB"))
                 return "vb";
-            
+
             return "unknown";
         }
 
@@ -479,8 +478,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 Debug.WriteLine("\n========== LANGUAGESPEC API DISCOVERY ==========");
-                
-                var langSpec = scriptComp.LanguageSpec;
+
+                // Use reflection to avoid compile-time dependency on Rhino.Runtime.Code
+                var langSpecProperty = scriptComp.GetType().GetProperty("LanguageSpec");
+                var langSpec = langSpecProperty?.GetValue(scriptComp);
                 if (langSpec == null)
                 {
                     Debug.WriteLine("LanguageSpec is NULL");

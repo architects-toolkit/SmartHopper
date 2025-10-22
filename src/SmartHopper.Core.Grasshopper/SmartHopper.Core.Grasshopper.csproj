@@ -42,11 +42,6 @@
       <Private>false</Private>
       <CopyLocal>false</CopyLocal>
     </Reference>
-    <Reference Include="Rhino.Runtime.Code">
-      <HintPath>$(SolutionDir)\lib\Rhino\8.24\Rhino.Runtime.Code.dll</HintPath>
-      <Private>false</Private>
-      <CopyLocal>false</CopyLocal>
-    </Reference>
     <Reference Include="RhinoCodePluginGH">
       <HintPath>$(SolutionDir)\lib\Rhino\8.24\RhinoCodePluginGH.gha</HintPath>
       <Private>false</Private>
