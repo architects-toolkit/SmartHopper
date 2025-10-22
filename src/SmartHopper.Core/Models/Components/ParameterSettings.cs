@@ -50,6 +50,18 @@ namespace SmartHopper.Core.Models.Components
         public string? VariableName { get; set; }
 
         /// <summary>
+        /// Gets or sets the access mode for the parameter (item, list, tree).
+        /// </summary>
+        [JsonProperty("access", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Access { get; set; }
+
+        /// <summary>
+        /// Gets or sets the type hint for script parameters (e.g., "int", "double", "DataTree", etc.).
+        /// </summary>
+        [JsonProperty("typeHint", NullValueHandling = NullValueHandling.Ignore)]
+        public string? TypeHint { get; set; }
+
+        /// <summary>
         /// Gets or sets additional parameter settings such as flags and modifiers.
         /// </summary>
         [JsonProperty("additionalSettings", NullValueHandling = NullValueHandling.Ignore)]

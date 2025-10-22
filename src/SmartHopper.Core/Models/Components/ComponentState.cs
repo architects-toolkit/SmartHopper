@@ -22,7 +22,7 @@ namespace SmartHopper.Core.Models.Components
         /// <summary>
         /// Gets or sets the universal value property for the component.
         /// This stores the primary value for all component types:
-        /// - Number Slider: "5.0&lt;0.0,10.0&gt;" (value with range)
+        /// - Number Slider: "5<2,10.000>" (value with range; highest decimal count determines precision)
         /// - Panel/Scribble: "Hello World" (plain text)
         /// - Value List: [{"Name":"A","Expression":"0"}] (array of items)
         /// - Script: "import math\nprint(x)" (script code)
@@ -80,6 +80,12 @@ namespace SmartHopper.Core.Models.Components
         public string? ListMode { get; set; }
 
         /// <summary>
+        /// Gets or sets the indices of selected items in a value list.
+        /// </summary>
+        [JsonProperty("selectedIndices", NullValueHandling = NullValueHandling.Ignore)]
+        public List<int>? SelectedIndices { get; set; }
+
+        /// <summary>
         /// Gets or sets font configuration for text components.
         /// </summary>
         [JsonProperty("font", NullValueHandling = NullValueHandling.Ignore)]
@@ -90,6 +96,38 @@ namespace SmartHopper.Core.Models.Components
         /// </summary>
         [JsonProperty("corners", NullValueHandling = NullValueHandling.Ignore)]
         public List<Dictionary<string, float>>? Corners { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to draw indices (for panels).
+        /// </summary>
+        [JsonProperty("drawIndices", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? DrawIndices { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to draw paths (for panels).
+        /// </summary>
+        [JsonProperty("drawPaths", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? DrawPaths { get; set; }
+
+        /// <summary>
+        /// Gets or sets the alignment for panel text.
+        /// </summary>
+        [JsonProperty("alignment", NullValueHandling = NullValueHandling.Ignore)]
+        public int? Alignment { get; set; }
+
+        /// <summary>
+        /// Gets or sets the bounds (size) for panels and other UI components.
+        /// Format: {"width": 100, "height": 50}
+        /// </summary>
+        [JsonProperty("bounds", NullValueHandling = NullValueHandling.Ignore)]
+        public Dictionary<string, float>? Bounds { get; set; }
+
+        /// <summary>
+        /// Gets or sets the rounding mode for number sliders.
+        /// Values: "Round", "None", "Even", "Odd"
+        /// </summary>
+        [JsonProperty("rounding", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Rounding { get; set; }
 
         /// <summary>
         /// Gets or sets additional component-specific properties that don't fit into standard fields.

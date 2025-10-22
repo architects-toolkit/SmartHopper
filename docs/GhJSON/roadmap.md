@@ -631,41 +631,35 @@ Transform GhJSON into a robust, AI-optimized serialization format that balances 
 | `expressionNormal` | ✅ | ❌ | string | Normal expression | Button normal state | ✅ Implemented | |
 | `expressionPressed` | ✅ | ❌ | string | Pressed expression | Button pressed state | ✅ Implemented | |
 
-#### Value Property Mapping (Proposed Consolidation) 🔨 TODO
+#### Value Property Mapping ✅ COMPLETED
 
-**Problem**: Component values are currently scattered across different locations:
-- Number Slider: `properties.CurrentValue`
-- Panel: `properties.UserText`
-- Scribble: `properties.Text`
-- Script: `componentState.script`
-- Value List: `componentState.listItems`
+**Status**: ✅ **COMPLETED** - Universal `value` property implemented for all component types.
 
-**Solution**: Create a single universal `componentState.value` field for all components.
+**Implementation**: All component values are now consolidated in `componentState.value`:
 
-| Component Type | Current Location | Proposed Location | Example Value | Notes |
-|----------------|------------------|-------------------|---------------|-------|
-| Number Slider | `properties.CurrentValue` | `componentState.value` | `"5.0<0.0,10.0>"` | Slider value with range |
-| Panel | `properties.UserText` | `componentState.value` | `"Hello World"` | Plain text |
-| Scribble | `properties.Text` | `componentState.value` | `"Note: Check this"` | Plain text |
-| Value List | `componentState.listItems` | `componentState.value` | `[{"name":"A","value":"1"}]` | Array of items |
-| Multidimensional Slider | `properties.x/y/z` | `componentState.value` | `"1.0,2.0,3.0"` or object | Coordinate values |
-| Script | `componentState.script` | `componentState.value` | `"import math\nprint(x)"` | Script code |
-| Parameter | `properties.persistentData` | `properties.persistentData` | Data tree | Keep as-is (special case) |
+| Component Type | Value Location | Example Value | Format |
+|----------------|----------------|---------------|--------|
+| Number Slider | `componentState.value` | `"5<2,10.000>"` | Slider value with range; decimal precision encoded in max value (highest decimal count is used) |
+| Panel | `componentState.value` | `"Hello World"` | Plain text |
+| Scribble | `componentState.value` | `"Note: Check this"` | Plain text |
+| Value List | `componentState.value` | `[{"Name":"A","Expression":"1"}]` | Array of items |
+| Script | `componentState.value` | `"import math\nprint(x)"` | Script code |
+| Parameter | `properties.persistentData` | Data tree | Keep as-is (special case) |
 
-**Benefits**:
-- Consistent API for all component types
-- Simpler for AI to understand and generate
-- Eliminates component-specific property names
-- Cleaner schema with single source of truth
-- Enables eventual removal of legacy `properties` dictionary
+**Completed Tasks**:
+- [x] Added `value` property to `ComponentState` model
+- [x] Updated `DocumentIntrospectionV2.ExtractUniversalValue()` to populate `value` from component-specific properties
+- [x] Updated `GhJsonPlacer.ApplyComponentState()` to apply `value` to appropriate component property
+- [x] Removed `NumberSliderUtils` class (inline formatting now used)
+- [x] Replaced `Properties` dictionary with `Params` dictionary
+- [x] Removed redundant component-specific properties
 
-**Implementation Tasks**:
-1. Add `value` property to `ComponentState` model
-2. Update `DocumentIntrospectionV2` to populate `value` from component-specific properties
-3. Update `GhJsonPlacer` to apply `value` to appropriate component property
-4. Update all examples and documentation
-5. Mark component-specific properties as deprecated
-6. Eventually remove legacy `properties` dictionary
+**Benefits Achieved**:
+- ✅ Consistent API for all component types
+- ✅ Simpler for AI to understand and generate
+- ✅ Eliminates component-specific property names
+- ✅ Cleaner schema with single source of truth
+- ✅ Reduced code duplication
 
 **Note**: For complex data types (Color, Point3d, Line, Plane, etc.), see **Phase 1.4: Data Type Serialization** for standardized encoding formats.
 

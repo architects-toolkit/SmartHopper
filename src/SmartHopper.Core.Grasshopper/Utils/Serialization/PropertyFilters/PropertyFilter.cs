@@ -14,6 +14,7 @@ using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
+using RhinoCodePlatform.GH;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
 {
@@ -167,7 +168,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 GH_MultiDimensionalSlider => ComponentCategory.MultidimensionalSlider,
                 GH_ValueList => ComponentCategory.ValueList,
                 GH_ButtonObject => ComponentCategory.Button,
-                //IScriptComponent => ComponentCategory.Script,
+                IScriptComponent => ComponentCategory.Script,
                 GH_GeometryPipeline => ComponentCategory.GeometryPipeline,
                 GH_GraphMapper => ComponentCategory.GraphMapper,
                 GH_PathMapper => ComponentCategory.PathMapper,
