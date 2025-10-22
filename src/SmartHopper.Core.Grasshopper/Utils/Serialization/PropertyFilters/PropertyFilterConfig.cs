@@ -91,7 +91,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             {
                 "UserText",
                 "Font",
-                "Alignment"
+                "Alignment",
+                "Multiline",
+                "DrawIndices",
+                "DrawPaths",
+                "Wrap",
+                "Bounds"
             },
 
             [ComponentCategory.Scribble] = new()
@@ -108,6 +113,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 "Maximum", 
                 "Range",
                 "Decimals",
+                "Rounding",
                 "Limit",
                 "DisplayFormat"
             },
@@ -126,7 +132,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             [ComponentCategory.ValueList] = new()
             {
                 "ListMode",
-                "ListItems"
+                "ListItems",
+                "SelectedIndices"
             },
 
             [ComponentCategory.Button] = new()
@@ -139,7 +146,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             {
                 "Script",
                 "MarshInputs",
-                "MarshOutputs"
+                "MarshOutputs",
+                "VariableName"
             },
 
             [ComponentCategory.GeometryPipeline] = new()

@@ -289,10 +289,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
         {
             if (sourceObject is GH_NumberSlider slider)
             {
-                var instanceDesc = slider.InstanceDescription;
-                var (accuracy, lowerLimit, upperLimit) = NumberSliderUtils.ParseInstanceDescription(instanceDesc);
+                // Format: "currentValue<min,max>"
                 var currentValue = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
-                return NumberSliderUtils.FormatSliderValue(lowerLimit, upperLimit, currentValue);
+                var min = slider.Slider.Minimum;
+                var max = slider.Slider.Maximum;
+                return $"{currentValue.ToString(CultureInfo.InvariantCulture)}<{min.ToString(CultureInfo.InvariantCulture)},{max.ToString(CultureInfo.InvariantCulture)}>";
             }
             return value;
         }

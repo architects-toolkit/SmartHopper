@@ -15,6 +15,7 @@ using System.Linq;
 using System.Reflection;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters;
 using SmartHopper.Core.Models.Components;
@@ -255,7 +256,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             {
                 var param = paramList[i];
                 bool isPrincipal = (i == principalIndex);
-                var paramSettings = CreateParameterSettings(param, propertyManager, isPrincipal);
+                var paramSettings = CreateParameterSettings(param, propertyManager, isPrincipal, component);
                 if (paramSettings != null)
                 {
                     settings.Add(paramSettings);
@@ -271,11 +272,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         /// <param name="param">Parameter to extract settings from.</param>
         /// <param name="propertyManager">Property manager for filtering.</param>
         /// <param name="isPrincipal">Whether this parameter is the principal parameter (from component.PrincipalParameterIndex).</param>
+        /// <param name="component">Optional component that owns this parameter (used to detect script components).</param>
         /// <returns>ParameterSettings instance or null if no relevant settings.</returns>
         private static ParameterSettings CreateParameterSettings(
             IGH_Param param,
             PropertyManagerV2 propertyManager,
-            bool isPrincipal = false)
+            bool isPrincipal = false,
+            IGH_Component component = null)
         {
             var settings = new ParameterSettings
             {
@@ -303,6 +306,65 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     hasSettings = true;
                 }
                 // HasExpression flag is redundant - presence of Expression property implies it has one
+            }
+
+            // Extract variable name and type hint for script component parameters
+            // Script parameters use NickName as the variable name
+            if (component is IScriptComponent)
+            {
+                var variableName = param.NickName;
+                if (!string.IsNullOrEmpty(variableName))
+                {
+                    settings.VariableName = variableName;
+                    hasSettings = true;
+                    System.Diagnostics.Debug.WriteLine($"[ExtractVariableName] ✓ Extracted variable name '{variableName}' from parameter '{param.Name}'");
+                }
+
+                // Extract type hint from script code signature (C#) or infer from parameter type (Python/VB)
+                // ScriptVariableParam has no TypeHint property - type info is stored differently per language
+                try
+                {
+                    var scriptComp = component as IScriptComponent;
+                    if (scriptComp != null && !string.IsNullOrEmpty(variableName))
+                    {
+                        var scriptCode = scriptComp.Text;
+                        var isInput = param.Kind == GH_ParamKind.input;
+                        
+                        // Try to extract from C# signature first
+                        var typeHint = ExtractTypeHintFromScriptSignature(scriptCode, variableName, isInput);
+                        
+                        // If not found in signature (Python/VB scripts), infer from parameter's current type
+                        if (string.IsNullOrEmpty(typeHint))
+                        {
+                            typeHint = InferTypeHintFromParameter(param, scriptComp);
+                        }
+                        
+                        if (!string.IsNullOrEmpty(typeHint))
+                        {
+                            settings.TypeHint = typeHint;
+                            hasSettings = true;
+                            System.Diagnostics.Debug.WriteLine($"[ExtractTypeHint] ✓ Extracted type hint '{typeHint}' for parameter '{param.Name}'");
+                        }
+#if DEBUG
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[ExtractTypeHint] Could not extract type hint for parameter '{param.Name}'");
+                        }
+#endif
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ExtractTypeHint] Error extracting type hint for parameter '{param.Name}': {ex.Message}");
+                }
+            }
+
+            // Extract access mode (always extract for all parameters)
+            if (param.Access != GH_ParamAccess.item)
+            {
+                settings.Access = param.Access.ToString();
+                hasSettings = true;
+                System.Diagnostics.Debug.WriteLine($"[ExtractAccess] ✓ Extracted access mode '{param.Access}' from parameter '{param.Name}'");
             }
 
             // Extract additional settings
@@ -405,7 +467,127 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                 hasState = true;
             }
 
+            // Extract panel-specific properties
+            if (originalObject is GH_Panel panel)
+            {
+                if (propertyManager.ShouldIncludeProperty("Multiline", panel))
+                {
+                    state.Multiline = panel.Properties.Multiline;
+                    hasState = true;
+                }
+
+                if (propertyManager.ShouldIncludeProperty("DrawIndices", panel))
+                {
+                    state.DrawIndices = panel.Properties.DrawIndices;
+                    hasState = true;
+                }
+
+                if (propertyManager.ShouldIncludeProperty("DrawPaths", panel))
+                {
+                    state.DrawPaths = panel.Properties.DrawPaths;
+                    hasState = true;
+                }
+
+                if (propertyManager.ShouldIncludeProperty("Alignment", panel))
+                {
+                    state.Alignment = (int)panel.Properties.Alignment;
+                    hasState = true;
+                }
+
+                if (propertyManager.ShouldIncludeProperty("Wrap", panel))
+                {
+                    state.Wrap = panel.Properties.Wrap;
+                    hasState = true;
+                }
+
+                // Extract panel bounds (size)
+                if (propertyManager.ShouldIncludeProperty("Bounds", panel) && panel.Attributes != null)
+                {
+                    var bounds = panel.Attributes.Bounds;
+                    state.Bounds = new Dictionary<string, float>
+                    {
+                        ["width"] = bounds.Width,
+                        ["height"] = bounds.Height
+                    };
+                    hasState = true;
+                }
+            }
+
+            // Extract value list properties
+            if (originalObject is GH_ValueList valueList)
+            {
+                if (propertyManager.ShouldIncludeProperty("ListMode", valueList))
+                {
+                    state.ListMode = valueList.ListMode.ToString();
+                    hasState = true;
+                }
+
+                // Extract selected item indices
+                if (propertyManager.ShouldIncludeProperty("SelectedIndices", valueList))
+                {
+                    var selectedIndices = new List<int>();
+                    for (int i = 0; i < valueList.ListItems.Count; i++)
+                    {
+                        if (valueList.ListItems[i].Selected)
+                        {
+                            selectedIndices.Add(i);
+                        }
+                    }
+                    if (selectedIndices.Count > 0)
+                    {
+                        state.SelectedIndices = selectedIndices;
+                        hasState = true;
+                    }
+                }
+            }
+
+            // Extract number slider rounding mode
+            if (originalObject is GH_NumberSlider sliderForRounding && propertyManager.ShouldIncludeProperty("Rounding", sliderForRounding))
+            {
+                // GH_NumberSlider.Slider.Type is the rounding mode enum
+                state.Rounding = sliderForRounding.Slider.Type.ToString();
+                hasState = true;
+            }
+
+            // Extract script component properties
+            if (originalObject is IScriptComponent scriptComp)
+            {
+                if (propertyManager.ShouldIncludeProperty("MarshInputs", scriptComp))
+                {
+                    state.MarshInputs = scriptComp.MarshInputs;
+                    hasState = true;
+                }
+
+                if (propertyManager.ShouldIncludeProperty("MarshOutputs", scriptComp))
+                {
+                    state.MarshOutputs = scriptComp.MarshOutputs;
+                    hasState = true;
+                }
+            }
+
             return hasState ? state : null;
+        }
+
+        /// <summary>
+        /// Formats a number slider value with decimal precision encoded in the max value.
+        /// Examples: "5<2,10>" (no decimals), "5<2,10.0>" (1 decimal), "5<2,10.000>" (3 decimals)
+        /// The max value contains the decimal precision; current and min use minimal formatting.
+        /// </summary>
+        /// <param name="slider">The number slider to format.</param>
+        /// <returns>Formatted slider value string.</returns>
+        private static string FormatSliderValue(GH_NumberSlider slider)
+        {
+            var decimals = slider.Slider.DecimalPlaces;
+            
+            // Format current value and min with minimal decimals (G29 removes trailing zeros)
+            var currentValue = slider.CurrentValue.ToString("G29", System.Globalization.CultureInfo.InvariantCulture);
+            var min = slider.Slider.Minimum.ToString("G29", System.Globalization.CultureInfo.InvariantCulture);
+            
+            // Format max with explicit decimal places to encode precision
+            var maxFormat = decimals == 0 ? "0" : "0." + new string('0', decimals);
+            var max = slider.Slider.Maximum.ToString(maxFormat, System.Globalization.CultureInfo.InvariantCulture);
+            
+            return $"{currentValue}<{min},{max}>";
         }
 
         /// <summary>
@@ -418,12 +600,21 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             IGH_ActiveObject originalObject,
             PropertyManagerV2 propertyManager)
         {
+#if DEBUG
+            // Debug logging for script components
+            if (originalObject is IScriptComponent scriptDebug)
+            {
+                var shouldInclude = propertyManager.ShouldIncludeProperty("Script", originalObject);
+                System.Diagnostics.Debug.WriteLine($"[ExtractUniversalValue] Script component detected: {originalObject.Name}, ShouldIncludeProperty('Script')={shouldInclude}, Text length={scriptDebug.Text?.Length ?? 0}");
+            }
+
+#endif
             // Extract value directly from the Grasshopper object based on component type
             return originalObject switch
             {
-                // Number Slider: "5.0<0.0,10.0>" format
+                // Number Slider: "5<2,10.000>" format (decimal places encoded in the numbers)
                 GH_NumberSlider slider when propertyManager.ShouldIncludeProperty("CurrentValue", originalObject) =>
-                    $"{slider.CurrentValue}<{slider.Slider.Minimum},{slider.Slider.Maximum}>",
+                    FormatSliderValue(slider),
 
                 // Panel: plain text
                 GH_Panel panel when propertyManager.ShouldIncludeProperty("UserText", originalObject) =>
@@ -441,10 +632,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                         ["Expression"] = item.Expression
                     }).ToList(),
 
-                // Script components: extract script code
-                _ when originalObject.GetType().GetProperty("ScriptSource") != null &&
-                       propertyManager.ShouldIncludeProperty("Script", originalObject) =>
-                    originalObject.GetType().GetProperty("ScriptSource")?.GetValue(originalObject)?.ToString(),
+                // Script components: extract script code using IScriptComponent.Text
+                IScriptComponent scriptComp when propertyManager.ShouldIncludeProperty("Script", originalObject) =>
+                    scriptComp.Text,
 
                 _ => null
             };
@@ -718,6 +908,263 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         public static GrasshopperDocument GetObjectsDetails(IEnumerable<IGH_ActiveObject> objects, bool includeMetadata, bool includeGroups = true)
         {
             return ExtractDocument(objects, SerializationContext.Standard, includeMetadata, includeGroups);
+        }
+
+        /// <summary>
+        /// Extracts type hint for a parameter from the RunScript method signature in script code.
+        /// </summary>
+        /// <param name="scriptCode">The script code containing the RunScript method.</param>
+        /// <param name="variableName">The parameter variable name to find.</param>
+        /// <param name="isInput">True for input parameters, false for output parameters.</param>
+        /// <returns>Type hint string (e.g., "List&lt;Curve&gt;", "Interval") or null if not found.</returns>
+        private static string ExtractTypeHintFromScriptSignature(string scriptCode, string variableName, bool isInput)
+        {
+            if (string.IsNullOrEmpty(scriptCode) || string.IsNullOrEmpty(variableName))
+                return null;
+
+            try
+            {
+                // Try C# style: private void RunScript(...)
+                var csharpMatch = System.Text.RegularExpressions.Regex.Match(
+                    scriptCode,
+                    @"private\s+void\s+RunScript\s*\((.*?)\)",
+                    System.Text.RegularExpressions.RegexOptions.Singleline);
+
+                if (csharpMatch.Success)
+                {
+                    return ExtractTypeFromCSharpSignature(csharpMatch.Groups[1].Value, variableName, isInput);
+                }
+
+                // Try Python style: def RunScript(self, ...)
+                var pythonMatch = System.Text.RegularExpressions.Regex.Match(
+                    scriptCode,
+                    @"def\s+RunScript\s*\(\s*self\s*,\s*(.*?)\s*\)\s*:",
+                    System.Text.RegularExpressions.RegexOptions.Singleline);
+
+                if (pythonMatch.Success)
+                {
+                    return ExtractTypeFromPythonSignature(pythonMatch.Groups[1].Value, variableName, isInput);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ExtractTypeHintFromScriptSignature] Error parsing signature: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Extracts type hint from C# RunScript signature parameters.
+        /// </summary>
+        private static string ExtractTypeFromCSharpSignature(string parametersStr, string variableName, bool isInput)
+        {
+            // Split by comma, handling nested generics like List<Curve>
+            var parameters = SplitParameters(parametersStr);
+            
+            System.Diagnostics.Debug.WriteLine($"[ExtractTypeFromCSharpSignature] Looking for '{variableName}' (isInput={isInput}) in {parameters.Count} parameters");
+
+            foreach (var param in parameters)
+            {
+                var trimmed = param.Trim();
+                
+                // C# format: "Type varName" or "ref Type varName" (outputs use ref)
+                var isRef = trimmed.StartsWith("ref ");
+                if (isRef != !isInput) // ref params are outputs, non-ref are inputs
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ExtractTypeFromCSharpSignature] Skipping '{trimmed}' - isRef={isRef}, looking for isInput={isInput}");
+                    continue;
+                }
+
+                var parts = trimmed.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2)
+                {
+                    var paramName = parts[parts.Length - 1].Trim();
+                    // Handle @out -> out comparison
+                    var cleanParamName = paramName.TrimStart('@');
+                    var cleanVariableName = variableName.TrimStart('@');
+                    
+                    System.Diagnostics.Debug.WriteLine($"[ExtractTypeFromCSharpSignature] Comparing '{cleanParamName}' with '{cleanVariableName}'");
+                    
+                    if (cleanParamName.Equals(cleanVariableName, StringComparison.Ordinal))
+                    {
+                        // Type is everything except the last part (variable name) and "ref" if present
+                        var typeStartIdx = isRef ? 1 : 0;
+                        var typeParts = new string[parts.Length - 1 - typeStartIdx];
+                        Array.Copy(parts, typeStartIdx, typeParts, 0, typeParts.Length);
+                        var typeHint = string.Join(" ", typeParts).Trim();
+                        System.Diagnostics.Debug.WriteLine($"[ExtractTypeFromCSharpSignature] ✓ Found type '{typeHint}' for '{variableName}'");
+                        return typeHint;
+                    }
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[ExtractTypeFromCSharpSignature] ✗ No match found for '{variableName}'");
+            return null;
+        }
+
+        /// <summary>
+        /// Extracts type hint from Python RunScript signature parameters.
+        /// </summary>
+        private static string ExtractTypeFromPythonSignature(string parametersStr, string variableName, bool isInput)
+        {
+            // Python doesn't distinguish input/output in signature - all are inputs, outputs are return values
+            // For now, only extract input types
+            if (!isInput)
+                return null;
+
+            var parameters = SplitParameters(parametersStr);
+
+            foreach (var param in parameters)
+            {
+                var trimmed = param.Trim();
+                
+                // Python format: "varName" (no type hints in Grasshopper Python scripts typically)
+                // Just match by name
+                if (trimmed.Equals(variableName, StringComparison.Ordinal))
+                {
+                    // Python scripts in Grasshopper don't have type hints in signature
+                    // Return null - types are inferred at runtime
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Splits parameter string by commas, respecting nested generics like List&lt;Curve&gt;.
+        /// </summary>
+        private static List<string> SplitParameters(string parametersStr)
+        {
+            var result = new List<string>();
+            var current = new System.Text.StringBuilder();
+            int depth = 0;
+
+            foreach (char c in parametersStr)
+            {
+                if (c == '<')
+                {
+                    depth++;
+                    current.Append(c);
+                }
+                else if (c == '>')
+                {
+                    depth--;
+                    current.Append(c);
+                }
+                else if (c == ',' && depth == 0)
+                {
+                    result.Add(current.ToString());
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+
+            if (current.Length > 0)
+                result.Add(current.ToString());
+
+            return result;
+        }
+
+        /// <summary>
+        /// Extracts type hint from ScriptVariableParam.TypeHints property.
+        /// Works for all script languages (C#, Python, VB, IronPython).
+        /// </summary>
+        private static string InferTypeHintFromParameter(IGH_Param param, IScriptComponent scriptComp)
+        {
+            System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] Starting for parameter '{param.Name}', Type='{param.GetType().FullName}'");
+            
+            try
+            {
+                // ScriptVariableParam stores type info in private _converter field
+                // Access it via reflection
+                var converterField = param.GetType().GetField("_converter", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] _converter field: {(converterField != null ? "FOUND" : "NOT FOUND")}");
+                
+                if (converterField != null)
+                {
+                    var converter = converterField.GetValue(param);
+                    System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] Converter value: {(converter != null ? converter.GetType().FullName : "NULL")}");
+                    
+                    if (converter != null)
+                    {
+                        // Get TargetType property from converter
+                        var targetTypeProperty = converter.GetType().GetProperty("TargetType");
+                        System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] TargetType property: {(targetTypeProperty != null ? "FOUND" : "NOT FOUND")}");
+                        
+                        if (targetTypeProperty != null)
+                        {
+                            var targetType = targetTypeProperty.GetValue(converter);
+                            System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] TargetType value: {(targetType != null ? targetType.ToString() : "NULL")}");
+                            
+                            if (targetType != null)
+                            {
+                                // Get Type property from ParamType
+                                var typeProperty = targetType.GetType().GetProperty("Type");
+                                if (typeProperty != null)
+                                {
+                                    var type = typeProperty.GetValue(targetType) as Type;
+                                    if (type != null)
+                                    {
+                                        var typeName = type.Name;
+                                        System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] Type.Name: '{typeName}'");
+                                        
+                                        // Convert to standard format
+                                        var result = ConvertTypeHintToStandardFormat(typeName, param.Access);
+                                        System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] ✓ Returning '{result}'");
+                                        return result;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] ERROR: {ex.GetType().Name}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[InferTypeHintFromParameter] Stack: {ex.StackTrace}");
+            }
+            
+            // Fallback: generic type based on access mode
+            if (param.Access == GH_ParamAccess.tree)
+            {
+                return "DataTree<object>";
+            }
+            else if (param.Access == GH_ParamAccess.list)
+            {
+                return "List<object>";
+            }
+            else
+            {
+                return "object";
+            }
+        }
+
+        /// <summary>
+        /// Converts TypeHint name to standard C# format with proper access wrapper.
+        /// </summary>
+        private static string ConvertTypeHintToStandardFormat(string typeHintName, GH_ParamAccess access)
+        {
+            // TypeHint names might be like "Curve", "Point3d", "Interval", etc.
+            // We need to wrap them appropriately based on access mode
+            
+            if (access == GH_ParamAccess.tree)
+            {
+                return $"DataTree<{typeHintName}>";
+            }
+            else if (access == GH_ParamAccess.list)
+            {
+                return $"List<{typeHintName}>";
+            }
+            else
+            {
+                return typeHintName;
+            }
         }
     }
 }

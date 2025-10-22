@@ -247,21 +247,34 @@ The following redundant properties should be removed:
 - 🗑️ **Multidimensional Slider**: `xInterval`, `yInterval`, `zInterval`, `x`, `y`, `z` - Should consolidate to `value`
 - 🗑️ **Script**: `script` - Should map to `value`
 
-### Value Property Consolidation (Roadmap Section 2.3)
+### Value Property Consolidation ✅ COMPLETED
 
-**Proposed**: Consolidate component-specific properties into a universal `value` property:
+**Status**: ✅ **COMPLETED** - Universal `value` property implemented for all component types.
 
-| Component Type | Current Property | Proposed `value` Format |
-|----------------|------------------|------------------------|
-| Number Slider | `currentValue` | `"value<min,max>"` (already implemented) |
-| Panel | `userText` | Plain text |
-| Scribble | `text` | Plain text |
-| Value List | `listItems` | Array of items |
-| Multidimensional Slider | `x`, `y`, `z` | `"x,y,z"` or object |
-| Script | `script` | Script code |
-| Parameter | `persistentData` | Data tree (use DataTypeSerializer) |
+**Implementation**: All component values are now consolidated in `componentState.value`:
 
-**Status**: ❌ Not implemented
+| Component Type | Value Location | Example Value | Format |
+|----------------|----------------|---------------|--------|
+| Number Slider | `componentState.value` | `"5.0<0.0,10.0>"` | Slider value with range |
+| Panel | `componentState.value` | `"Hello World"` | Plain text |
+| Scribble | `componentState.value` | `"Note: Check this"` | Plain text |
+| Value List | `componentState.value` | `[{"Name":"A","Expression":"1"}]` | Array of items |
+| Script | `componentState.value` | `"import math\nprint(x)"` | Script code |
+| Parameter | `properties.persistentData` | Data tree | Keep as-is (special case) |
+
+**Files Modified**:
+- `DocumentIntrospectionV2.cs`: Added `ExtractUniversalValue()` method
+- `GhJsonPlacer.cs`: Added value handling in `ApplyComponentState()`
+- `SpecializedPropertyHandlers.cs`: Removed `NumberSliderUtils`, inline formatting now used
+- `script_new.cs`: Replaced `Properties` with `Params` dictionary
+- `ComponentProperties.cs`: Uses `Params` dictionary instead of `Properties`
+
+**Benefits Achieved**:
+- ✅ Consistent API for all component types
+- ✅ Simpler for AI to understand and generate
+- ✅ Eliminates component-specific property names
+- ✅ Cleaner schema with single source of truth
+- ✅ Reduced code duplication
 
 ---
 
@@ -274,12 +287,7 @@ The following redundant properties should be removed:
    - Update `DocumentIntrospectionV2` to use type-aware serialization
    - Add type format reference to AI tool descriptions
 
-2. **Value Property Consolidation**
-   - Implement universal `value` property mapping
-   - Remove redundant component-specific properties
-   - Update extraction logic in `DocumentIntrospectionV2`
-
-3. **Parameter Reparameterization** (Phase 1.3)
+2. **Parameter Reparameterization** (Phase 1.3)
    - Model exists (`ParameterSettings.IsReparameterized`)
    - Extraction not implemented
    - Application not implemented

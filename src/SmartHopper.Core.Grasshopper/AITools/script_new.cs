@@ -269,20 +269,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Name = displayName,
                     ComponentGuid = componentGuid,
                     InstanceGuid = Guid.NewGuid(),
-                    Properties = new Dictionary<string, ComponentProperty>
+                    Params = new Dictionary<string, object>
                     {
-                        ["Script"] = new ComponentProperty
-                        {
-                            Value = scriptCode,
-                        },
-                        ["ScriptInputs"] = new ComponentProperty
-                        {
-                            Value = scriptInputs,
-                        },
-                        ["ScriptOutputs"] = new ComponentProperty
-                        {
-                            Value = scriptOutputs,
-                        },
+                        ["Script"] = scriptCode,
+                        ["ScriptInputs"] = scriptInputs,
+                        ["ScriptOutputs"] = scriptOutputs,
                     },
                 };
                 doc.Components.Add(comp);

@@ -99,8 +99,14 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
+            // Get all selected objects that are active objects (includes components, parameters, and special objects like scribbles and panels)
             this.SelectedObjects = canvas.Document.SelectedObjects()
                 .OfType<IGH_ActiveObject>()
+                .Where(obj => obj is IGH_Component ||
+                              obj is IGH_Param ||
+                              obj is Grasshopper.Kernel.Special.GH_Group || 
+                              obj.GetType().Name.Contains("Scribble") ||
+                              obj.GetType().Name.Contains("Panel"))
                 .ToList();
             this.Message = $"{this.SelectedObjects.Count} selected";
             this.ExpireSolution(true);
