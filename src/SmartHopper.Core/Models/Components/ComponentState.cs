@@ -14,10 +14,35 @@ using Newtonsoft.Json;
 namespace SmartHopper.Core.Models.Components
 {
     /// <summary>
-    /// Represents UI-specific state for components such as colors, multiline settings, and component-specific configurations.
+    /// Represents UI-specific state for components.
+    /// The Value property stores the primary value for all component types.
     /// </summary>
     public class ComponentState
     {
+        /// <summary>
+        /// Gets or sets the universal value property for the component.
+        /// This stores the primary value for all component types:
+        /// - Number Slider: "5.0&lt;0.0,10.0&gt;" (value with range)
+        /// - Panel/Scribble: "Hello World" (plain text)
+        /// - Value List: [{"Name":"A","Expression":"0"}] (array of items)
+        /// - Script: "import math\nprint(x)" (script code)
+        /// - Multidimensional Slider: "1.0,2.0,3.0" (coordinate values)
+        /// </summary>
+        [JsonProperty("value", NullValueHandling = NullValueHandling.Ignore)]
+        public object? Value { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the component is locked.
+        /// </summary>
+        [JsonProperty("locked", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Locked { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the component preview is hidden.
+        /// </summary>
+        [JsonProperty("hidden", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Hidden { get; set; }
+
         /// <summary>
         /// Gets or sets a value indicating whether multiline mode is enabled (for panels, text components).
         /// </summary>
@@ -37,18 +62,6 @@ namespace SmartHopper.Core.Models.Components
         public Dictionary<string, int>? Color { get; set; }
 
         /// <summary>
-        /// Gets or sets slider-specific configuration (for number sliders).
-        /// </summary>
-        [JsonProperty("slider", NullValueHandling = NullValueHandling.Ignore)]
-        public Dictionary<string, object>? Slider { get; set; }
-
-        /// <summary>
-        /// Gets or sets script-specific configuration (for script components).
-        /// </summary>
-        [JsonProperty("script", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Script { get; set; }
-
-        /// <summary>
         /// Gets or sets a value indicating whether inputs should be marshalled (for script components).
         /// </summary>
         [JsonProperty("marshInputs", NullValueHandling = NullValueHandling.Ignore)]
@@ -61,19 +74,7 @@ namespace SmartHopper.Core.Models.Components
         public bool? MarshOutputs { get; set; }
 
         /// <summary>
-        /// Gets or sets the current value for components with state (sliders, value lists, etc.).
-        /// </summary>
-        [JsonProperty("currentValue", NullValueHandling = NullValueHandling.Ignore)]
-        public string? CurrentValue { get; set; }
-
-        /// <summary>
-        /// Gets or sets list items for value list components.
-        /// </summary>
-        [JsonProperty("listItems", NullValueHandling = NullValueHandling.Ignore)]
-        public List<Dictionary<string, object>>? ListItems { get; set; }
-
-        /// <summary>
-        /// Gets or sets the list mode for value list components.
+        /// Gets or sets the list mode for value list components (e.g., "DropDown", "CheckList").
         /// </summary>
         [JsonProperty("listMode", NullValueHandling = NullValueHandling.Ignore)]
         public string? ListMode { get; set; }
@@ -91,25 +92,7 @@ namespace SmartHopper.Core.Models.Components
         public List<Dictionary<string, float>>? Corners { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the component is locked.
-        /// </summary>
-        [JsonProperty("locked", NullValueHandling = NullValueHandling.Ignore)]
-        public bool? Locked { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the component preview is hidden.
-        /// </summary>
-        [JsonProperty("hidden", NullValueHandling = NullValueHandling.Ignore)]
-        public bool? Hidden { get; set; }
-
-        /// <summary>
-        /// Gets or sets the universal value property for the component.
-        /// </summary>
-        [JsonProperty("value", NullValueHandling = NullValueHandling.Ignore)]
-        public object? Value { get; set; }
-
-        /// <summary>
-        /// Gets or sets additional component-specific properties.
+        /// Gets or sets additional component-specific properties that don't fit into standard fields.
         /// </summary>
         [JsonProperty("additionalProperties", NullValueHandling = NullValueHandling.Ignore)]
         public Dictionary<string, object>? AdditionalProperties { get; set; }

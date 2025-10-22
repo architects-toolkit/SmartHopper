@@ -44,12 +44,6 @@ namespace SmartHopper.Core.Models.Components
         public Guid InstanceGuid { get; set; }
 
         /// <summary>
-        /// Gets or sets a dictionary of component properties keyed by property name.
-        /// </summary>
-        [JsonProperty("properties")]
-        public Dictionary<string, ComponentProperty> Properties { get; set; } = new Dictionary<string, ComponentProperty>();
-
-        /// <summary>
         /// Gets or sets a value indicating whether indicates whether the component is currently selected in the Grasshopper canvas.
         /// </summary>
         [JsonProperty("selected", NullValueHandling = NullValueHandling.Ignore)]
@@ -110,42 +104,5 @@ namespace SmartHopper.Core.Models.Components
         [JsonIgnore]
         public bool HasIssues => this.Warnings?.Any() == true || this.Errors?.Any() == true;
 
-        /// <summary>
-        /// Gets a property value by its key, with optional type conversion.
-        /// </summary>
-        /// <typeparam name="T">The type to convert the property value to.</typeparam>
-        /// <param name="key">The property key.</param>
-        /// <param name="defaultValue">Default value to return if property is not found or conversion fails.</param>
-        /// <returns>The property value converted to type T, or defaultValue if not found or conversion fails.</returns>
-        public T GetPropertyValue<T>(string key, T defaultValue = default)
-        {
-            if (this.Properties.TryGetValue(key, out var property) && property.Value != null)
-            {
-                try
-                {
-                    return (T)Convert.ChangeType(property.Value, typeof(T), CultureInfo.InvariantCulture);
-                }
-                catch
-                {
-                    return defaultValue;
-                }
-            }
-
-            return defaultValue;
-        }
-
-        /// <summary>
-        /// Sets a property value with type information and optional human-readable format.
-        /// </summary>
-        /// <param name="key">The property key.</param>
-        /// <param name="value">The property value.</param>
-        /// <param name="humanReadable">Optional human-readable representation of the value.</param>
-        public void SetProperty(string key, object value, string? humanReadable = null)
-        {
-            this.Properties[key] = new ComponentProperty
-            {
-                Value = value
-            };
-        }
     }
 }
