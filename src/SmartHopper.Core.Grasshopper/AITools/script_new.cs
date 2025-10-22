@@ -11,10 +11,15 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using Rhino;
+using RhinoCodePlatform.GH;
+using RhinoCodePlatform.GH.Context;
+using RhinoCodePluginGH.Components;
 using SmartHopper.Core.Grasshopper.Models;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
@@ -27,7 +32,6 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Utils;
 using static SmartHopper.Core.Grasshopper.Models.SupportedDataTypes;
 
 
@@ -87,50 +91,100 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 var langKey = language.Trim().ToLowerInvariant();
-                string objectType;
-                string displayName;
-                Guid componentGuid;
-                switch (langKey)
-                {
-                    case "python":
-                    case "python3":
-                        objectType = "RhinoCodePluginGH.Components.Python3Component";
-                        displayName = "Python 3 Script";
-                        break;
-                    case "ironpython":
-                    case "ironpython2":
-                        objectType = "RhinoCodePluginGH.Components.IronPython2Component";
-                        displayName = "IronPython 2 Script";
-                        break;
-                    case "c#":
-                    case "csharp":
-                        objectType = "RhinoCodePluginGH.Components.CSharpComponent";
-                        displayName = "C# Script";
-                        break;
-                    case "vb":
-                    case "vb.net":
-                    case "vbnet":
-                        objectType = "ScriptComponents.Component_VBNET_Script";
-                        displayName = "VB Script";
-                        break;
-                    default:
-                        throw new ArgumentException($"Unsupported language: {language}. Supported: python, ironpython, c#, vb.");
-                }
-
-                // Discover component GUID dynamically
-                var proxy = ObjectFactory.FindProxy(displayName)
-                               ?? throw new Exception($"Component type '{displayName}' not found in this Grasshopper installation.");
                 IGH_Component tempComp = null;
+                Guid componentGuid;
+                string displayName = "Script Component"; // Default name, will be set in switch statement
 
-                // Instantiate component proxy on UI thread
+                Debug.WriteLine($"[script_new] Creating component for language: {langKey}");
+
+                // Create component using factory methods on UI thread
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    var inst = ObjectFactory.CreateInstance(proxy);
-                    tempComp = inst as IGH_Component;
+                    try
+                    {
+                        switch (langKey)
+                        {
+                            case "python":
+                            case "python3":
+                                displayName = "Python 3 Script";
+                                Debug.WriteLine($"[script_new] Creating Python3Component using factory method...");
+                                tempComp = Python3Component.Create(
+                                    title: "AI Generated Script",
+                                    source: string.Empty, // Will be set later
+                                    icon: null,
+                                    emptyParams: false
+                                );
+                                Debug.WriteLine($"[script_new] Python3Component created successfully");
+                                break;
+
+                            case "ironpython":
+                            case "ironpython2":
+                                displayName = "IronPython 2 Script";
+                                Debug.WriteLine($"[script_new] Creating IronPython2Component using factory method...");
+                                tempComp = IronPython2Component.Create(
+                                    title: "AI Generated Script",
+                                    source: string.Empty, // Will be set later
+                                    icon: null,
+                                    emptyParams: false
+                                );
+                                Debug.WriteLine($"[script_new] IronPython2Component created successfully");
+                                break;
+
+                            case "c#":
+                            case "csharp":
+                                displayName = "C# Script";
+                                Debug.WriteLine($"[script_new] Creating CSharpComponent using factory method...");
+                                tempComp = CSharpComponent.Create(
+                                    title: "AI Generated Script",
+                                    source: string.Empty, // Will be set later
+                                    icon: null,
+                                    emptyParams: false
+                                );
+                                Debug.WriteLine($"[script_new] CSharpComponent created successfully");
+                                break;
+
+                            case "vb":
+                            case "vb.net":
+                            case "vbnet":
+                                // VB.NET uses legacy approach (not part of RhinoCodePlatform)
+                                displayName = "VB Script";
+                                Debug.WriteLine($"[script_new] Creating VB component using legacy ObjectFactory...");
+                                var proxy = ObjectFactory.FindProxy(displayName)
+                                           ?? throw new Exception($"VB Script component not found in this Grasshopper installation.");
+                                var inst = ObjectFactory.CreateInstance(proxy);
+                                tempComp = inst as IGH_Component;
+                                Debug.WriteLine($"[script_new] VB component created successfully");
+                                break;
+
+                            default:
+                                throw new ArgumentException($"Unsupported language: {language}. Supported: python, ironpython, c#, vb.");
+                        }
+
+                        if (tempComp == null)
+                        {
+                            throw new Exception($"Failed to create component for language: {langKey}");
+                        }
+
+#if DEBUG
+                        // DEBUG: Log all component properties to discover API surface
+                        LogComponentProperties(tempComp, langKey);
+#endif
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[script_new] ERROR creating component: {ex.Message}");
+                        Debug.WriteLine($"[script_new] Stack trace: {ex.StackTrace}");
+                        throw;
+                    }
                 });
+
                 if (tempComp == null)
-                    throw new Exception($"Proxy for '{displayName}' did not create an IGH_Component.");
+                {
+                    throw new Exception($"Failed to instantiate component for language: {langKey}");
+                }
+
                 componentGuid = tempComp.ComponentGuid;
+                Debug.WriteLine($"[script_new] Component GUID: {componentGuid}");
 
                 // Define JSON schema for structured output
                 var jsonSchema = @"{
@@ -344,5 +398,243 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return output;
             }
         }
+
+#if DEBUG
+        /// <summary>
+        /// Comprehensive debug logging to discover all available API properties, methods, and values at runtime.
+        /// This helps complete the documentation of the RhinoCodePlatform API.
+        /// </summary>
+        private static void LogComponentProperties(IGH_Component component, string language)
+        {
+            try
+            {
+                Debug.WriteLine($"\n========== API DISCOVERY FOR {language.ToUpper()} COMPONENT ==========");
+                Debug.WriteLine($"Component Type: {component.GetType().FullName}");
+                Debug.WriteLine($"Component GUID: {component.ComponentGuid}");
+                Debug.WriteLine($"Component Name: {component.Name}");
+                Debug.WriteLine($"Component NickName: {component.NickName}");
+                Debug.WriteLine($"Component Description: {component.Description}");
+                Debug.WriteLine($"Component Category: {component.Category}");
+                Debug.WriteLine($"Component SubCategory: {component.SubCategory}");
+
+                // Try to cast to IScriptComponent to access LanguageSpec
+                if (component is IScriptComponent scriptComp)
+                {
+                    Debug.WriteLine($"\n--- IScriptComponent Properties ---");
+                    try
+                    {
+                        var langSpec = scriptComp.LanguageSpec;
+                        Debug.WriteLine($"LanguageSpec: {langSpec}");
+                        Debug.WriteLine($"LanguageSpec Type: {langSpec?.GetType().FullName}");
+
+                        // Try to discover LanguageSpec properties
+                        if (langSpec != null)
+                        {
+                            var langSpecType = langSpec.GetType();
+                            Debug.WriteLine($"\n--- LanguageSpec Properties ---");
+                            foreach (var prop in langSpecType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                            {
+                                try
+                                {
+                                    var value = prop.GetValue(langSpec);
+                                    Debug.WriteLine($"  {prop.Name} ({prop.PropertyType.Name}): {value}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"  {prop.Name}: ERROR - {ex.Message}");
+                                }
+                            }
+
+                            // Try to discover LanguageSpec static properties/constants
+                            Debug.WriteLine($"\n--- LanguageSpec Static Properties ---");
+                            foreach (var field in langSpecType.GetFields(BindingFlags.Public | BindingFlags.Static))
+                            {
+                                try
+                                {
+                                    var value = field.GetValue(null);
+                                    Debug.WriteLine($"  {field.Name} ({field.FieldType.Name}): {value}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"  {field.Name}: ERROR - {ex.Message}");
+                                }
+                            }
+                        }
+
+                        // Check for Text property (script source code)
+                        var textProp = scriptComp.GetType().GetProperty("Text");
+                        if (textProp != null)
+                        {
+                            Debug.WriteLine($"Text Property Type: {textProp.PropertyType.FullName}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error accessing IScriptComponent properties: {ex.Message}");
+                    }
+                }
+
+                // Check for IScriptObject interface
+                if (component is IScriptObject scriptObj)
+                {
+                    Debug.WriteLine($"\n--- IScriptObject Interface Detected ---");
+                    var scriptObjType = component.GetType().GetInterface("IScriptObject");
+                    if (scriptObjType != null)
+                    {
+                        Debug.WriteLine($"IScriptObject methods:");
+                        foreach (var method in scriptObjType.GetMethods())
+                        {
+                            var parameters = string.Join(", ", method.GetParameters().Select(p => $"{p.ParameterType.Name} {p.Name}"));
+                            Debug.WriteLine($"  {method.Name}({parameters}): {method.ReturnType.Name}");
+                        }
+                    }
+                }
+
+                // Log all parameters
+                Debug.WriteLine($"\n--- Component Parameters ---");
+                Debug.WriteLine($"Input Parameters: {component.Params.Input.Count}");
+                for (int i = 0; i < component.Params.Input.Count; i++)
+                {
+                    var param = component.Params.Input[i];
+                    Debug.WriteLine($"  Input[{i}]: {param.Name} ({param.GetType().Name})");
+                    Debug.WriteLine($"    NickName: {param.NickName}");
+                    Debug.WriteLine($"    Description: {param.Description}");
+                    Debug.WriteLine($"    Access: {param.Access}");
+                    Debug.WriteLine($"    Optional: {param.Optional}");
+                    
+                    // Check for ScriptVariableParam
+                    if (param.GetType().Name.Contains("ScriptVariable"))
+                    {
+                        Debug.WriteLine($"    ** ScriptVariableParam detected **");
+                        LogScriptVariableParamProperties(param);
+                    }
+                }
+
+                Debug.WriteLine($"Output Parameters: {component.Params.Output.Count}");
+                for (int i = 0; i < component.Params.Output.Count; i++)
+                {
+                    var param = component.Params.Output[i];
+                    Debug.WriteLine($"  Output[{i}]: {param.Name} ({param.GetType().Name})");
+                    Debug.WriteLine($"    NickName: {param.NickName}");
+                    Debug.WriteLine($"    Description: {param.Description}");
+                }
+
+                // Log all public properties of the component
+                Debug.WriteLine($"\n--- All Public Component Properties ---");
+                var componentType = component.GetType();
+                foreach (var prop in componentType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    try
+                    {
+                        var value = prop.GetValue(component);
+                        var valueStr = value?.ToString() ?? "null";
+                        if (valueStr.Length > 100) valueStr = valueStr.Substring(0, 100) + "...";
+                        Debug.WriteLine($"  {prop.Name} ({prop.PropertyType.Name}): {valueStr}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"  {prop.Name}: ERROR - {ex.Message}");
+                    }
+                }
+
+                // Log base types and interfaces
+                Debug.WriteLine($"\n--- Type Hierarchy ---");
+                var baseType = componentType.BaseType;
+                while (baseType != null && baseType != typeof(object))
+                {
+                    Debug.WriteLine($"  Base: {baseType.FullName}");
+                    baseType = baseType.BaseType;
+                }
+
+                Debug.WriteLine($"\n--- Implemented Interfaces ---");
+                foreach (var iface in componentType.GetInterfaces())
+                {
+                    Debug.WriteLine($"  {iface.FullName}");
+                }
+
+                Debug.WriteLine($"========== END API DISCOVERY ==========\n");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[LogComponentProperties] ERROR: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Log properties specific to ScriptVariableParam to discover parameter API.
+        /// </summary>
+        private static void LogScriptVariableParamProperties(IGH_Param param)
+        {
+            try
+            {
+                var paramType = param.GetType();
+                Debug.WriteLine($"      --- ScriptVariableParam Properties ---");
+                
+                // Try to get VariableName property
+                var varNameProp = paramType.GetProperty("VariableName");
+                if (varNameProp != null)
+                {
+                    Debug.WriteLine($"      VariableName: {varNameProp.GetValue(param)}");
+                }
+
+                // Try to get PrettyName property
+                var prettyNameProp = paramType.GetProperty("PrettyName");
+                if (prettyNameProp != null)
+                {
+                    Debug.WriteLine($"      PrettyName: {prettyNameProp.GetValue(param)}");
+                }
+
+                // Try to get Converter property
+                var converterProp = paramType.GetProperty("Converter");
+                if (converterProp != null)
+                {
+                    var converter = converterProp.GetValue(param);
+                    Debug.WriteLine($"      Converter: {converter?.GetType().FullName ?? "null"}");
+                    
+                    // If converter exists, log its properties
+                    if (converter != null)
+                    {
+                        var converterType = converter.GetType();
+                        Debug.WriteLine($"      --- Converter Properties ---");
+                        foreach (var prop in converterType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                        {
+                            try
+                            {
+                                var value = prop.GetValue(converter);
+                                Debug.WriteLine($"        {prop.Name}: {value}");
+                            }
+                            catch { }
+                        }
+                    }
+                }
+
+                // Try to get TypeHints property
+                var typeHintsProp = paramType.GetProperty("TypeHints");
+                if (typeHintsProp != null)
+                {
+                    Debug.WriteLine($"      TypeHints: {typeHintsProp.GetValue(param)?.GetType().FullName}");
+                }
+
+                // Log all properties
+                Debug.WriteLine($"      --- All Properties ---");
+                foreach (var prop in paramType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    try
+                    {
+                        var value = prop.GetValue(param);
+                        var valueStr = value?.ToString() ?? "null";
+                        if (valueStr.Length > 50) valueStr = valueStr.Substring(0, 50) + "...";
+                        Debug.WriteLine($"        {prop.Name} ({prop.PropertyType.Name}): {valueStr}");
+                    }
+                    catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"      [LogScriptVariableParamProperties] ERROR: {ex.Message}");
+            }
+        }
+#endif
     }
 }
