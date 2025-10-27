@@ -21,6 +21,8 @@ using RhinoCodePlatform.GH;
 using RhinoCodePlatform.GH.Context;
 using RhinoCodePluginGH.Components;
 using SmartHopper.Core.Grasshopper.Models;
+using SmartHopper.Core.Grasshopper.Serialization.Canvas;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Models.Components;
@@ -338,7 +340,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
-                        var map = GhJsonPlacer.PutObjectsOnCanvasWithMapping(doc);
+                        var result = GhJsonDeserializer.Deserialize(doc, DeserializationOptions.Standard);
+                        ComponentPlacer.PlaceComponents(result);
+                        // Convert GuidMapping to Dictionary<Guid, Guid>
+                        var map = result.GuidMapping.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.InstanceGuid);
                         tcs.SetResult(map);
                     }
                     catch (Exception ex)

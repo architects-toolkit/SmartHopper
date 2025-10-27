@@ -144,8 +144,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         Debug.WriteLine("[gh_group] No color provided, using default color");
                     }
 
-                    // Create group with undo support
-                    group = DocumentIntrospectionV2.GroupObjects(validGuids, groupName, groupColor) as GH_Group;
+                    // Create group
+                    group = new GH_Group();
+                    group.NickName = groupName;
+                    group.Colour = groupColor;
+                    
+                    // Add objects to group
+                    foreach (var guid in validGuids)
+                    {
+                        group.AddObject(guid);
+                    }
+                    
+                    // Add group to document
+                    var canvas = Instances.ActiveCanvas;
+                    if (canvas?.Document != null)
+                    {
+                        canvas.Document.AddObject(group, false);
+                    }
 
                     // Update UI
                     Instances.RedrawCanvas();

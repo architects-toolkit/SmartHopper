@@ -44,6 +44,18 @@ namespace SmartHopper.Core.Models.Components
         public bool? Hidden { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the component is enabled (unlocked).
+        /// </summary>
+        [JsonProperty("enabled", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Enabled { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether preview is enabled.
+        /// </summary>
+        [JsonProperty("preview", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Preview { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether multiline mode is enabled (for panels, text components).
         /// </summary>
         [JsonProperty("multiline", NullValueHandling = NullValueHandling.Ignore)]

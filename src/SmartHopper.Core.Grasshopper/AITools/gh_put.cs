@@ -14,7 +14,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Core.Grasshopper.Serialization.Canvas;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -81,10 +82,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Placement & wiring using Put utils
-                Debug.WriteLine("[gh_put] About to call PutObjectsOnCanvas");
-                var placed = GhJsonPlacer.PutObjectsOnCanvas(document);
-                Debug.WriteLine("[gh_put] PutObjectsOnCanvas returned");
+                // Deserialize components
+                Debug.WriteLine("[gh_put] Deserializing components");
+                var result = GhJsonDeserializer.Deserialize(document, DeserializationOptions.Standard);
+                
+                if (!result.IsSuccess)
+                {
+                    output.CreateError($"Deserialization failed: {string.Join(", ", result.Errors)}");
+                    return output;
+                }
+
+                // Place components on canvas
+                Debug.WriteLine("[gh_put] Placing components on canvas");
+                var placed = ComponentPlacer.PlaceComponents(result);
+
+                // Create wire connections
+                Debug.WriteLine("[gh_put] Creating connections");
+                ConnectionManager.CreateConnections(result);
+
+                // Recreate groups
+                Debug.WriteLine("[gh_put] Recreating groups");
+                GroupManager.CreateGroups(result);
+                
+                Debug.WriteLine("[gh_put] Placement complete");
 
                 var toolResult = new JObject
                 {

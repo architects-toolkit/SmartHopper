@@ -25,6 +25,30 @@ namespace SmartHopper.Core.Models.Components
         public required string ParameterName { get; set; }
 
         /// <summary>
+        /// Gets or sets the nickname of the parameter.
+        /// </summary>
+        [JsonProperty("nickName", NullValueHandling = NullValueHandling.Ignore)]
+        public string? NickName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the description of the parameter.
+        /// </summary>
+        [JsonProperty("description", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Description { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the parameter is optional.
+        /// </summary>
+        [JsonProperty("optional", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Optional { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this is the principal parameter.
+        /// </summary>
+        [JsonProperty("isPrincipal", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? IsPrincipal { get; set; }
+
+        /// <summary>
         /// Gets or sets the data mapping mode for the parameter.
         /// </summary>
         [JsonProperty("dataMapping", NullValueHandling = NullValueHandling.Ignore)]
