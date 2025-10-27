@@ -38,6 +38,12 @@ namespace SmartHopper.Core.Models.Document
         public string Created { get; set; }
 
         /// <summary>
+        /// Gets or sets the creation timestamp (alias for Created).
+        /// </summary>
+        [JsonProperty("createdAt", NullValueHandling = NullValueHandling.Ignore)]
+        public string CreatedAt { get; set; }
+
+        /// <summary>
         /// Gets or sets the last modification timestamp in ISO 8601 format.
         /// </summary>
         [JsonProperty("modified", NullValueHandling = NullValueHandling.Ignore)]
@@ -66,5 +72,17 @@ namespace SmartHopper.Core.Models.Document
         /// </summary>
         [JsonProperty("dependencies", NullValueHandling = NullValueHandling.Ignore)]
         public List<string> Dependencies { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of components in the document.
+        /// </summary>
+        [JsonProperty("componentCount", NullValueHandling = NullValueHandling.Ignore)]
+        public int? ComponentCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the SmartHopper plugin version.
+        /// </summary>
+        [JsonProperty("pluginVersion", NullValueHandling = NullValueHandling.Ignore)]
+        public string PluginVersion { get; set; }
     }
 }

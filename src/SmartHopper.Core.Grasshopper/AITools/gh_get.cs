@@ -16,9 +16,10 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
-using SmartHopper.Core.Grasshopper.Utils.Serialization;
+using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -252,7 +253,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (includeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
-                        var tempDoc = DocumentIntrospectionV2.GetObjectsDetails(objects, includeMetadata: false, includeGroups: false);
+                        var serOptions1 = SerializationOptions.Standard;
+                        serOptions1.IncludeMetadata = false;
+                        serOptions1.IncludeGroups = false;
+                        var tempDoc = GhJsonSerializer.Serialize(objects, serOptions1);
 
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
@@ -308,7 +312,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (excludeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
-                        var tempDoc = DocumentIntrospectionV2.GetObjectsDetails(typeFiltered, includeMetadata: false, includeGroups: false);
+                        var serOptions2 = SerializationOptions.Standard;
+                        serOptions2.IncludeMetadata = false;
+                        serOptions2.IncludeGroups = false;
+                        var tempDoc = GhJsonSerializer.Serialize(typeFiltered, serOptions2);
 
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
@@ -469,7 +476,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (connectionDepth > 0)
                 {
                     var allObjects = CanvasAccess.GetCurrentObjects();
-                    var fullDoc = DocumentIntrospectionV2.GetObjectsDetails(allObjects, includeMetadata: false, includeGroups: false);
+                    var serOptions3 = SerializationOptions.Standard;
+                    serOptions3.IncludeMetadata = false;
+                    serOptions3.IncludeGroups = false;
+                    var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions3);
                     var edges = fullDoc.Connections
                         .Select(c => {
                             if (c.TryResolveGuids(fullDoc.GetIdToGuidMapping(), out var from, out var to))
@@ -487,7 +497,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                var document = DocumentIntrospectionV2.GetObjectsDetails(resultObjects, includeMetadata, includeGroups: true);
+                var serOptions = SerializationOptions.Standard;
+                serOptions.IncludeMetadata = includeMetadata;
+                serOptions.IncludeGroups = true;
+                var document = GhJsonSerializer.Serialize(resultObjects, serOptions);
 
                 // only keep connections where both components are in our filtered set
                 var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();

@@ -31,6 +31,24 @@ namespace SmartHopper.Core.Models.Components
         public required string Name { get; set; }
 
         /// <summary>
+        /// Gets or sets the component library/category.
+        /// </summary>
+        [JsonProperty("library", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Library { get; set; }
+
+        /// <summary>
+        /// Gets or sets the component type/subcategory.
+        /// </summary>
+        [JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Type { get; set; }
+
+        /// <summary>
+        /// Gets or sets the nickname of the component.
+        /// </summary>
+        [JsonProperty("nickName", NullValueHandling = NullValueHandling.Ignore)]
+        public string? NickName { get; set; }
+
+        /// <summary>
         /// Gets or sets the unique identifier for the component type.
         /// </summary>
         [JsonProperty("componentGuid")]
@@ -97,6 +115,12 @@ namespace SmartHopper.Core.Models.Components
         /// </summary>
         [JsonProperty("errors", NullValueHandling = NullValueHandling.Ignore)]
         public List<string>? Errors { get; set; }
+
+        /// <summary>
+        /// Gets or sets schema-specific properties (legacy format).
+        /// </summary>
+        [JsonProperty("schemaProperties", NullValueHandling = NullValueHandling.Ignore)]
+        public Dictionary<string, object>? SchemaProperties { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether checks if the component has any validation errors or warnings.
