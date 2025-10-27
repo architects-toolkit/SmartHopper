@@ -17,6 +17,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Connections;
@@ -310,11 +311,22 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 
             // Extract variable name and type hint for script component parameters
             // Script parameters use NickName as the variable name
-            if (component is IScriptComponent)
+            if (component is IScriptComponent scriptComp)
             {
                 var variableName = param.NickName;
                 if (!string.IsNullOrEmpty(variableName))
                 {
+                    // Unsanitize C# identifiers to ensure consistent JSON storage
+                    // This reverses the sanitization done during component placement
+                    if (ScriptComponentHelper.IsCSharpScriptComponent(scriptComp))
+                    {
+                        variableName = CSharpIdentifierHelper.UnsanitizeIdentifier(variableName);
+                        if (!string.Equals(param.NickName, variableName, StringComparison.Ordinal))
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[ExtractVariableName] ✓ Unsanitized variable name '{param.NickName}' -> '{variableName}' for C# script component");
+                        }
+                    }
+
                     settings.VariableName = variableName;
                     hasSettings = true;
                     System.Diagnostics.Debug.WriteLine($"[ExtractVariableName] ✓ Extracted variable name '{variableName}' from parameter '{param.Name}'");
@@ -324,21 +336,20 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                 // ScriptVariableParam has no TypeHint property - type info is stored differently per language
                 try
                 {
-                    var scriptComp = component as IScriptComponent;
                     if (scriptComp != null && !string.IsNullOrEmpty(variableName))
                     {
                         var scriptCode = scriptComp.Text;
                         var isInput = param.Kind == GH_ParamKind.input;
-                        
+
                         // Try to extract from C# signature first
                         var typeHint = ExtractTypeHintFromScriptSignature(scriptCode, variableName, isInput);
-                        
+
                         // If not found in signature (Python/VB scripts), infer from parameter's current type
                         if (string.IsNullOrEmpty(typeHint))
                         {
                             typeHint = InferTypeHintFromParameter(param, scriptComp);
                         }
-                        
+
                         if (!string.IsNullOrEmpty(typeHint))
                         {
                             settings.TypeHint = typeHint;

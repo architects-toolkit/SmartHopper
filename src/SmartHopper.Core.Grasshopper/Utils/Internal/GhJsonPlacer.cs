@@ -299,8 +299,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                             // If not set, fall back to ParameterName
                             var variableName = inputSetting.VariableName ?? inputSetting.ParameterName ?? string.Empty;
                             
-                            var isCSharp = IsCSharpScriptComponent(scriptComp);
-                            var searchName = isCSharp ? SanitizeIdentifierForCSharp(variableName) : variableName;
+                            var isCSharp = ScriptComponentHelper.IsCSharpScriptComponent(scriptComp);
+                            var searchName = isCSharp ? CSharpIdentifierHelper.SanitizeIdentifier(variableName) : variableName;
                             if (!string.Equals(variableName, searchName, StringComparison.Ordinal))
                             {
                                 Debug.WriteLine($"[GhJsonPlacer] Input search variable sanitized: '{variableName}' -> '{searchName}'");
@@ -356,8 +356,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                             // If not set, fall back to ParameterName
                             var variableName = outputSetting.VariableName ?? outputSetting.ParameterName ?? string.Empty;
                             
-                            var isCSharp = IsCSharpScriptComponent(scriptComp);
-                            var searchName = isCSharp ? SanitizeIdentifierForCSharp(variableName) : variableName;
+                            var isCSharp = ScriptComponentHelper.IsCSharpScriptComponent(scriptComp);
+                            var searchName = isCSharp ? CSharpIdentifierHelper.SanitizeIdentifier(variableName) : variableName;
                             if (!string.Equals(variableName, searchName, StringComparison.Ordinal))
                             {
                                 Debug.WriteLine($"[GhJsonPlacer] Output search variable sanitized: '{variableName}' -> '{searchName}'");
@@ -472,8 +472,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         {
             var variableNameRaw = settings.VariableName ?? settings.ParameterName ?? defaultName;
             var compName = (scriptComp as IGH_DocumentObject)?.Name ?? scriptComp.GetType().Name;
-            var isCSharp = IsCSharpScriptComponent(scriptComp);
-            var variableName = isCSharp ? SanitizeIdentifierForCSharp(variableNameRaw) : variableNameRaw;
+            var isCSharp = ScriptComponentHelper.IsCSharpScriptComponent(scriptComp);
+            var variableName = isCSharp ? CSharpIdentifierHelper.SanitizeIdentifier(variableNameRaw) : variableNameRaw;
             if (!string.Equals(variableNameRaw, variableName, StringComparison.Ordinal))
             {
                 Debug.WriteLine($"[GhJsonPlacer] Sanitized variable name for '{compName}': '{variableNameRaw}' -> '{variableName}'");
@@ -586,57 +586,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             {
                 Debug.WriteLine($"[GhJsonPlacer] Error applying type hint to parameter '{parameterName}': {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Detects whether an IScriptComponent is a C# script component.
-        /// </summary>
-        private static bool IsCSharpScriptComponent(IScriptComponent scriptComp)
-        {
-            try
-            {
-                var name = (scriptComp as IGH_DocumentObject)?.Name ?? scriptComp.GetType().Name;
-                if (!string.IsNullOrEmpty(name))
-                {
-                    if (name.IndexOf("C#", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        name.IndexOf("CSharp", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch { }
-            return false;
-        }
-
-        /// <summary>
-        /// Sanitizes a C# identifier by escaping reserved words or invalid identifiers with '@',
-        /// and replacing invalid characters with underscores.
-        /// Minimal set covers observed issues (e.g., 'out').
-        /// </summary>
-        private static string SanitizeIdentifierForCSharp(string identifier)
-        {
-            if (string.IsNullOrWhiteSpace(identifier)) return identifier;
-
-            // Replace spaces and invalid chars with '_'
-            var sanitized = new string(identifier.Select(ch =>
-                char.IsLetterOrDigit(ch) || ch == '_' ? ch : '_').ToArray());
-
-            // If starts with digit, prefix underscore
-            if (char.IsDigit(sanitized[0]))
-                sanitized = "_" + sanitized;
-
-            // Minimal reserved words set
-            var reserved = new HashSet<string>(StringComparer.Ordinal)
-            {
-                "out", "ref", "params", "class", "namespace", "object", "string", "int", "float", "double",
-                "public", "private", "protected", "internal", "static", "void", "var", "new"
-            };
-
-            if (reserved.Contains(sanitized))
-                sanitized = "@" + sanitized;
-
-            return sanitized;
         }
 
         /// <summary>
@@ -1296,7 +1245,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
 
             try
             {
-                var isCSharp = IsCSharpScriptComponent(scriptComp);
+                var isCSharp = ScriptComponentHelper.IsCSharpScriptComponent(scriptComp);
                 if (!isCSharp)
                 {
                     // Python scripts don't use type hints in Grasshopper
