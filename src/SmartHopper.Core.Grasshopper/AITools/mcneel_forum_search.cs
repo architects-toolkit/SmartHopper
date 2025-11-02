@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
@@ -182,16 +181,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ["id"] = postId,
             };
 
-            var toolCallInteraction = new AIInteractionToolCall(
-                AIAgent.Assistant,
-                id: Guid.NewGuid().ToString(),
-                name: "mcneel_forum_post_summarize",
-                arguments: summarizeArgs);
+            var toolCallInteraction = new AIInteractionToolCall
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = "mcneel_forum_post_summarize",
+                Arguments = summarizeArgs,
+            };
 
-            var toolCallRequest = new AIToolCall(toolCallInteraction, providerName, modelName);
+            var toolCallRequest = new AIToolCall();
+            toolCallRequest.Initialize(providerName, modelName, new List<IAIInteraction> { toolCallInteraction }, "mcneel_forum_post_summarize");
             var result = await toolCallRequest.Exec().ConfigureAwait(false);
 
-            if (result.Status == AICallStatus.Success)
+            if (result.Status == AICallStatus.Finished)
             {
                 var lastInteraction = result.Body?.Interactions?.LastOrDefault();
                 if (lastInteraction is AIInteractionToolResult toolResult)
