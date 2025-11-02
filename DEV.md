@@ -60,8 +60,9 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | json_generate | Generate an AI response in strict JSON output | ⚪ | - | - | - |
 | web_generic_page_read | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
-| web_rhino_forum_search | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
-| web_rhino_forum_read_post | Retrieve full JSON of a Rhino Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| mcneel_forum_search | Search McNeel Discourse forum with configurable limit and optional AI summaries | ⚪ | 🟡 | 🟠 | 🟢 |
+| mcneel_forum_get_post | Retrieve full JSON of a McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| mcneel_forum_post_summarize | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
 | get_input | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | get_output | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
 | gh_list_categories | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
