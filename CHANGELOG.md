@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **McNeel Forum AI Tools Enhancement**:
+  - `mcneel_forum_search`: Enhanced search tool with configurable result limit (1-50 posts) and optional AI-generated summaries (limited to first 5 posts)
+  - `mcneel_forum_get_post`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID
+  - `mcneel_forum_post_summarize`: New subtool that generates AI-powered summaries of forum posts using default provider/model
 - **Property Management System V2**: Complete refactoring of property management with modern, maintainable architecture:
   - **PropertyManagerV2**: New property management system with clean separation of concerns between filtering, extraction, and application
   - **PropertyFilter**: Intelligent property filtering based on object type and serialization context

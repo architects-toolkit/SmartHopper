@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -24,42 +25,49 @@ using SmartHopper.Infrastructure.AITools;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Provides AI tools for fetching webpage text content,
-    /// omitting HTML, scripts, styles, images, and respecting robots.txt rules.
+    /// Provides AI tools for searching McNeel Discourse forum posts.
     /// </summary>
-    public class web_rhino_forum_search : IAIToolProvider
+    public class mcneel_forum_search : IAIToolProvider
     {
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
-        private readonly string toolName = "web_rhino_forum_search";
+        private readonly string toolName = "mcneel_forum_search";
+
         /// <summary>
         /// Returns the list of tools provided by this class.
         /// </summary>
-        /// <returns></returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Search Rhino Discourse forum posts by query and return up to 10 matching posts.",
+                description: "Search McNeel Discourse forum posts by query and optionally get summaries. Returns matching posts with optional AI-generated summaries.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""query"": {
                             ""type"": ""string"",
-                            ""description"": ""Search query for Rhino Discourse forum.""
+                            ""description"": ""Search query for McNeel Discourse forum.""
+                        },
+                        ""limit"": {
+                            ""type"": ""integer"",
+                            ""description"": ""Maximum number of posts to return (default: 10, max: 50)."",
+                            ""default"": 10
+                        },
+                        ""summarize"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to generate AI summaries for the posts. Limited to first 5 posts when enabled (default: false)."",
+                            ""default"": false
                         }
                     },
                     ""required"": [""query""]
                 }",
-                execute: this.WebRhinoForumSearchAsync);
+                execute: this.SearchAsync);
         }
 
-        // TODO: take only 5 and return a summary of the posts
-        private async Task<AIReturn> WebRhinoForumSearchAsync(AIToolCall toolCall)
+        private async Task<AIReturn> SearchAsync(AIToolCall toolCall)
         {
-            // Prepare the output
             var output = new AIReturn()
             {
                 Request = toolCall,
@@ -67,6 +75,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
+                Debug.WriteLine("[McNeelForumTools] Running Search tool");
+
+                // Extract provider and model from toolCall
+                string providerName = toolCall.Provider;
+                string modelName = toolCall.Model;
+
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
@@ -77,6 +91,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
+                int limit = args["limit"]?.Value<int>() ?? 10;
+                limit = Math.Max(1, Math.Min(limit, 50)); // Clamp between 1 and 50
+
+                bool summarize = args["summarize"]?.Value<bool>() ?? false;
+
+                // Fetch search results
                 using var httpClient = new HttpClient();
                 var searchUri = new Uri($"https://discourse.mcneel.com/search.json?q={Uri.EscapeDataString(query)}");
                 var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
@@ -84,18 +104,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var json = JObject.Parse(content);
                 var posts = json["posts"] as JArray ?? new JArray();
-                posts = new JArray(posts.Take(10));
+                posts = new JArray(posts.Take(limit));
                 var topics = json["topics"] as JArray ?? new JArray();
 
                 // Build a map of topic ID to title
                 var topicTitles = topics
                     .Where(t => t["id"] != null)
                     .ToDictionary(t => (int)t["id"], t => (string)(t["title"] ?? t["fancy_title"] ?? string.Empty));
-                var result = new JArray(posts.Select(p =>
+
+                var result = new JArray();
+
+                // Process posts
+                for (int i = 0; i < posts.Count; i++)
                 {
+                    var p = posts[i];
                     int postId = p.Value<int>("id");
                     int topicId = p.Value<int>("topic_id");
-                    return new JObject
+
+                    var postObj = new JObject
                     {
                         ["id"] = postId,
                         ["username"] = p.Value<string>("username"),
@@ -104,12 +130,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["date"] = p.Value<string>("created_at"),
                         ["cooked"] = p.Value<string>("cooked"),
                     };
-                }));
+
+                    // Generate summary if requested and within limit
+                    if (summarize && i < 5)
+                    {
+                        try
+                        {
+                            string summary = await this.GenerateSummaryAsync(postId, providerName, modelName).ConfigureAwait(false);
+                            postObj["summary"] = summary;
+                        }
+                        catch (Exception ex)
+                        {
+                            postObj["summary"] = $"Summary generation failed: {ex.Message}";
+                        }
+                    }
+
+                    result.Add(postObj);
+                }
+
                 var toolResult = new JObject
                 {
                     ["query"] = query,
                     ["results"] = result,
                     ["count"] = result.Count,
+                    ["summarized"] = summarize ? Math.Min(result.Count, 5) : 0,
                 };
 
                 var builder = AIBodyBuilder.Create();
@@ -120,9 +164,44 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
+                Debug.WriteLine($"[McNeelForumTools] Error in Search: {ex.Message}");
+
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
+        }
+
+        /// <summary>
+        /// Generates a summary for a post using the mcneel_forum_post_summarize subtool.
+        /// </summary>
+        private async Task<string> GenerateSummaryAsync(int postId, string providerName, string modelName)
+        {
+            // Create a tool call for the summarize subtool
+            var summarizeArgs = new JObject
+            {
+                ["id"] = postId,
+            };
+
+            var toolCallInteraction = new AIInteractionToolCall(
+                AIAgent.Assistant,
+                id: Guid.NewGuid().ToString(),
+                name: "mcneel_forum_post_summarize",
+                arguments: summarizeArgs);
+
+            var toolCallRequest = new AIToolCall(toolCallInteraction, providerName, modelName);
+            var result = await toolCallRequest.Exec().ConfigureAwait(false);
+
+            if (result.Status == AICallStatus.Success)
+            {
+                var lastInteraction = result.Body?.Interactions?.LastOrDefault();
+                if (lastInteraction is AIInteractionToolResult toolResult)
+                {
+                    var resultJson = toolResult.Result as JObject;
+                    return resultJson?["summary"]?.ToString() ?? "No summary available.";
+                }
+            }
+
+            return "Summary generation failed.";
         }
     }
 }
