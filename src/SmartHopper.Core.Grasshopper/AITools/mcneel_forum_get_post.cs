@@ -19,8 +19,8 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -158,10 +158,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Create the summary request body
                 var requestBody = AIBodyBuilder.Create()
-                    .AddInteractionText(
+                    .AddText(
                         AIAgent.Context,
                         "You are a helpful assistant that summarizes forum posts concisely. Provide a brief 1-2 sentence summary of the main point or question.")
-                    .AddInteractionText(
+                    .AddText(
                         AIAgent.User,
                         $"Summarize this forum post:\n\nAuthor: {username}\nDate: {createdAt}\nContent:\n{cooked}")
                     .Build();
@@ -185,7 +185,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                string summary = summaryResult.GetLastText() ?? "Failed to generate summary.";
+                string summary = summaryResult.Body?.GetLastText() ?? "Failed to generate summary.";
 
                 var toolResult = new JObject
                 {

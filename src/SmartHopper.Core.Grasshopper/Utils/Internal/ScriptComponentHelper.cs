@@ -187,7 +187,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             if (IsPythonScriptComponent(scriptComp))
             {
                 var langName = GetScriptLanguage(scriptComp);
-                if (langName.Contains("IronPython", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(langName) && langName.Contains("IronPython", StringComparison.OrdinalIgnoreCase))
                     return ScriptLanguage.IronPython;
                 return ScriptLanguage.Python;
             }
