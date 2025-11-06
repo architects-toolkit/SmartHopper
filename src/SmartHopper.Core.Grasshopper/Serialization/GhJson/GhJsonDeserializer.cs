@@ -170,6 +170,15 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 return;
             }
 
+            // Handle VB Script components (don't implement IScriptComponent)
+            if (instance is IGH_Component ghComp && 
+                (instance.Name.Contains("VB", StringComparison.OrdinalIgnoreCase) ||
+                 instance.GetType().Name.Contains("VB", StringComparison.OrdinalIgnoreCase)))
+            {
+                ApplyVBScriptComponentProperties(ghComp, props, options);
+                return;
+            }
+
             // Apply nickname
             if (!string.IsNullOrEmpty(props.NickName) && props.NickName != props.Name)
             {
@@ -213,6 +222,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 
         /// <summary>
         /// Applies properties specific to script components.
+        /// Script components need parameters created from inputSettings/outputSettings,
+        /// then script code set. Parameters don't auto-generate from code - they must be explicitly created.
         /// </summary>
         private static void ApplyScriptComponentProperties(
             IScriptComponent scriptComp,
@@ -227,103 +238,193 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 docObj.NickName = props.NickName;
             }
 
-            // Clear default parameters before registering custom ones
-            // Script components come with default parameters (x, y, out, a) which need to be removed
+            // STEP 1: Clear default parameters and create custom ones from settings
+            // Script components come with default parameters (x, y, out, a) that need replacement
             if (scriptComp is IGH_Component ghComp)
             {
+                // Clear defaults and create parameters from settings
                 if (props.InputSettings != null && props.InputSettings.Any())
                 {
                     Debug.WriteLine($"[GhJsonDeserializer] Clearing {ghComp.Params.Input.Count} default input parameters");
                     ghComp.Params.Input.Clear();
+
+                    for (int i = 0; i < props.InputSettings.Count; i++)
+                    {
+                        var settings = props.InputSettings[i];
+                        var param = ScriptParameterMapper.CreateParameter(settings, "input", scriptComp);
+                        if (param != null)
+                        {
+                            ghComp.Params.RegisterInputParam(param);
+                            
+                            // Get the actual parameter from the collection (might be different from what we passed)
+                            var registeredParam = ghComp.Params.Input[i];
+                            
+                            // Apply additional settings (reverse, simplify) to the registered parameter
+                            if (settings.AdditionalSettings != null)
+                            {
+                                if (settings.AdditionalSettings.Reverse == true)
+                                {
+                                    registeredParam.Reverse = true;
+                                    Debug.WriteLine($"[GhJsonDeserializer] Applied Reverse to input parameter '{registeredParam.Name}'");
+                                }
+                                if (settings.AdditionalSettings.Simplify == true)
+                                {
+                                    registeredParam.Simplify = true;
+                                    Debug.WriteLine($"[GhJsonDeserializer] Applied Simplify to input parameter '{registeredParam.Name}'");
+                                }
+                            }
+                            
+                            Debug.WriteLine($"[GhJsonDeserializer] Registered input parameter '{registeredParam.Name}'");
+                        }
+                    }
+                    
+                    // Set principal (master) input if specified
+                    for (int i = 0; i < Math.Min(props.InputSettings.Count, ghComp.Params.Input.Count); i++)
+                    {
+                        if (props.InputSettings[i]?.IsPrincipal == true)
+                        {
+                            ghComp.MasterParameterIndex = i;
+                            Debug.WriteLine($"[GhJsonDeserializer] Set principal input parameter at index {i}");
+                            break;
+                        }
+                    }
                 }
+
                 if (props.OutputSettings != null && props.OutputSettings.Any())
                 {
                     Debug.WriteLine($"[GhJsonDeserializer] Clearing {ghComp.Params.Output.Count} default output parameters");
                     ghComp.Params.Output.Clear();
-                }
-            }
 
-            // Register input parameters
-            if (props.InputSettings != null)
-            {
-                foreach (var settings in props.InputSettings)
-                {
-                    var param = ScriptParameterMapper.CreateParameter(settings, "input", scriptComp);
-                    if (param != null)
+                    for (int i = 0; i < props.OutputSettings.Count; i++)
                     {
-                        try
+                        var settings = props.OutputSettings[i];
+                        var param = ScriptParameterMapper.CreateParameter(settings, "output", scriptComp);
+                        if (param != null)
                         {
-                            var mi = scriptComp.GetType().GetMethod("RegisterInputParameter");
-                            if (mi != null)
+                            ghComp.Params.RegisterOutputParam(param);
+                            
+                            // Get the actual parameter from the collection (might be different from what we passed)
+                            var registeredParam = ghComp.Params.Output[i];
+                            
+                            // Apply additional settings (reverse, simplify) to the registered parameter
+                            if (settings.AdditionalSettings != null)
                             {
-                                mi.Invoke(scriptComp, new object[] { param });
+                                if (settings.AdditionalSettings.Reverse == true)
+                                {
+                                    registeredParam.Reverse = true;
+                                    Debug.WriteLine($"[GhJsonDeserializer] Applied Reverse to output parameter '{registeredParam.Name}'");
+                                }
+                                if (settings.AdditionalSettings.Simplify == true)
+                                {
+                                    registeredParam.Simplify = true;
+                                    Debug.WriteLine($"[GhJsonDeserializer] Applied Simplify to output parameter '{registeredParam.Name}'");
+                                }
                             }
-                            else if (scriptComp is IGH_Component ghc)
-                            {
-                                ghc.Params.Input.Add(param);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[GhJsonDeserializer] Failed to add input parameter: {ex.Message}");
+                            
+                            Debug.WriteLine($"[GhJsonDeserializer] Registered output parameter '{registeredParam.Name}'");
                         }
                     }
                 }
             }
 
-            // Register output parameters
-            if (props.OutputSettings != null)
+            // STEP 2: Set script code (from componentState["value"])
+            string scriptCode = null;
+            if (props.ComponentState?.Value != null)
             {
-                foreach (var settings in props.OutputSettings)
-                {
-                    var param = ScriptParameterMapper.CreateParameter(settings, "output", scriptComp);
-                    if (param != null)
-                    {
-                        try
-                        {
-                            var mi = scriptComp.GetType().GetMethod("RegisterOutputParameter");
-                            if (mi != null)
-                            {
-                                mi.Invoke(scriptComp, new object[] { param });
-                            }
-                            else if (scriptComp is IGH_Component ghc)
-                            {
-                                ghc.Params.Output.Add(param);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[GhJsonDeserializer] Failed to add output parameter: {ex.Message}");
-                        }
-                    }
-                }
-            }
-
-            // Apply script code with type hints if available
-            if (props.SchemaProperties != null && props.SchemaProperties.TryGetValue("ScriptCode", out var codeObj))
-            {
-                var code = codeObj?.ToString();
-                if (!string.IsNullOrEmpty(code))
+                scriptCode = props.ComponentState.Value.ToString();
+                if (!string.IsNullOrEmpty(scriptCode))
                 {
                     // Inject type hints if option enabled
                     if (options.InjectScriptTypeHints)
                     {
-                        code = ScriptSignatureParser.InjectTypeHintsIntoScript(
-                            code,
+                        scriptCode = ScriptSignatureParser.InjectTypeHintsIntoScript(
+                            scriptCode,
                             props.InputSettings,
                             props.OutputSettings,
                             scriptComp);
                     }
 
-                    scriptComp.Text = code;
+                    scriptComp.Text = scriptCode;
+                    Debug.WriteLine($"[GhJsonDeserializer] Set script code for '{docObj?.Name}' ({scriptCode?.Length ?? 0} chars)");
                 }
             }
 
-            // Apply component state
+            // STEP 3: Apply component state (locked, hidden, etc.)
             if (options.ApplyComponentState && props.ComponentState != null && docObj != null)
             {
                 ApplyComponentState(docObj, props.ComponentState);
             }
+
+            // STEP 4: Recreate Attributes after parameter manipulation
+            // Parameter registration invalidates Attributes, so recreate them
+            if (docObj != null)
+            {
+                docObj.CreateAttributes();
+                Debug.WriteLine($"[GhJsonDeserializer] Recreated Attributes for script component '{docObj.Name}'");
+            }
+        }
+
+        /// <summary>
+        /// Applies properties specific to VB Script components.
+        /// VB Script doesn't implement IScriptComponent, so needs separate handling.
+        /// </summary>
+        private static void ApplyVBScriptComponentProperties(
+            IGH_Component vbComp,
+            ComponentProperties props,
+            DeserializationOptions options)
+        {
+            // Apply nickname
+            if (!string.IsNullOrEmpty(props.NickName))
+            {
+                vbComp.NickName = props.NickName;
+            }
+
+            // Apply parameter settings - VB Script uses standard IGH_Component parameters
+            if (options.ApplyParameterSettings)
+            {
+                ApplyParameterSettings(vbComp, props.InputSettings, props.OutputSettings);
+            }
+
+            // Set VB script code via reflection
+            if (props.ComponentState?.Value != null)
+            {
+                try
+                {
+                    var scriptCode = props.ComponentState.Value.ToString();
+                    var propertyNames = new[] { "ScriptCode", "Script", "Code", "ScriptSource" };
+                    
+                    bool codeSet = false;
+                    foreach (var propName in propertyNames)
+                    {
+                        var scriptProp = vbComp.GetType().GetProperty(propName);
+                        if (scriptProp != null && scriptProp.CanWrite)
+                        {
+                            scriptProp.SetValue(vbComp, scriptCode);
+                            Debug.WriteLine($"[GhJsonDeserializer] Set VB script code via property '{propName}'");
+                            codeSet = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!codeSet)
+                    {
+                        Debug.WriteLine($"[GhJsonDeserializer] Could not find writable script property for VB component");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[GhJsonDeserializer] Error setting VB script code: {ex.Message}");
+                }
+            }
+
+            // Apply component state
+            if (options.ApplyComponentState && props.ComponentState != null)
+            {
+                ApplyComponentState(vbComp, props.ComponentState);
+            }
+
+            // Recreate Attributes
+            vbComp.CreateAttributes();
         }
 
         #endregion

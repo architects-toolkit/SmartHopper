@@ -632,6 +632,131 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                         };
                     }
                 }
+
+                // Script components (Python, C#, VB, IronPython)
+                if (originalObject is IScriptComponent scriptComp)
+                {
+                    var scriptCode = scriptComp.Text;
+                    Debug.WriteLine($"[GhJsonSerializer] Script component '{(originalObject as IGH_DocumentObject)?.Name}' - Code length: {scriptCode?.Length ?? 0}");
+                    if (!string.IsNullOrEmpty(scriptCode))
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] Returning script code for '{(originalObject as IGH_DocumentObject)?.Name}'");
+                        return scriptCode;
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] Script code is null or empty for '{(originalObject as IGH_DocumentObject)?.Name}'");
+                    }
+                }
+
+                // VB Script components don't implement IScriptComponent - use reflection
+                else if (originalObject is IGH_Component component && 
+                         (component.Name.Contains("VB", StringComparison.OrdinalIgnoreCase) ||
+                          component.GetType().Name.Contains("VB", StringComparison.OrdinalIgnoreCase)))
+                {
+                    try
+                    {
+                        var componentType = component.GetType();
+#if DEBUG
+                        // DETAILED TYPE INFORMATION FOR DOCUMENTATION LOOKUP
+                        Debug.WriteLine($"========== VB SCRIPT COMPONENT TYPE INFORMATION ==========");
+                        Debug.WriteLine($"Full Type Name: {componentType.FullName}");
+                        Debug.WriteLine($"Assembly: {componentType.Assembly.GetName().Name}");
+                        Debug.WriteLine($"Assembly Version: {componentType.Assembly.GetName().Version}");
+                        Debug.WriteLine($"Namespace: {componentType.Namespace}");
+                        
+                        // Base types
+                        Debug.WriteLine($"\n--- Base Types ---");
+                        var baseType = componentType.BaseType;
+                        while (baseType != null && baseType != typeof(object))
+                        {
+                            Debug.WriteLine($"  - {baseType.FullName}");
+                            baseType = baseType.BaseType;
+                        }
+                        
+                        // Interfaces
+                        Debug.WriteLine($"\n--- Implemented Interfaces ---");
+                        foreach (var iface in componentType.GetInterfaces())
+                        {
+                            Debug.WriteLine($"  - {iface.FullName}");
+                        }
+                        
+                        // All public properties with types
+                        Debug.WriteLine($"\n--- Public Properties ---");
+                        foreach (var prop in componentType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+                        {
+                            Debug.WriteLine($"  - {prop.PropertyType.Name} {prop.Name} [CanRead: {prop.CanRead}, CanWrite: {prop.CanWrite}]");
+                        }
+                        
+                        // All public methods (just names, not full signatures)
+                        Debug.WriteLine($"\n--- Public Methods (sample) ---");
+                        var methods = componentType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                            .Where(m => !m.Name.StartsWith("get_") && !m.Name.StartsWith("set_") && m.DeclaringType != typeof(object))
+                            .Take(20);
+                        foreach (var method in methods)
+                        {
+                            Debug.WriteLine($"  - {method.Name}");
+                        }
+                        
+                        Debug.WriteLine($"==========================================================\n");
+#endif
+
+                        // ScriptSource is an object, not a string - need to probe it
+                        var scriptSourceProp = componentType.GetProperty("ScriptSource");
+                        if (scriptSourceProp != null && scriptSourceProp.CanRead)
+                        {
+                            var scriptSourceObj = scriptSourceProp.GetValue(component);
+                            if (scriptSourceObj != null)
+                            {
+                                var scriptSourceType = scriptSourceObj.GetType();
+                                Debug.WriteLine($"[GhJsonSerializer] ScriptSource object type: {scriptSourceType.FullName}");
+                                
+                                // List ALL properties of ScriptSource
+                                Debug.WriteLine($"[GhJsonSerializer] ScriptSource properties:");
+                                foreach (var prop in scriptSourceType.GetProperties())
+                                {
+                                    Debug.WriteLine($"  - {prop.PropertyType.Name} {prop.Name}");
+                                }
+                                
+                                // Try ToString() first
+                                var toStringResult = scriptSourceObj.ToString();
+                                if (!string.IsNullOrEmpty(toStringResult) && toStringResult != scriptSourceType.FullName)
+                                {
+                                    Debug.WriteLine($"[GhJsonSerializer] ScriptSource.ToString() - Code length: {toStringResult.Length}");
+                                    return toStringResult;
+                                }
+                                
+                                // Try all string properties
+                                foreach (var prop in scriptSourceType.GetProperties())
+                                {
+                                    if (prop.CanRead && prop.PropertyType == typeof(string))
+                                    {
+                                        var value = prop.GetValue(scriptSourceObj) as string;
+                                        Debug.WriteLine($"[GhJsonSerializer] ScriptSource.{prop.Name} = \"{value?.Substring(0, Math.Min(50, value?.Length ?? 0))}...\" (length: {value?.Length ?? 0})");
+                                        if (!string.IsNullOrEmpty(value) && value.Length > 10)  // Assume code is longer than 10 chars
+                                        {
+                                            Debug.WriteLine($"[GhJsonSerializer] Returning VB script code from ScriptSource.{prop.Name}");
+                                            return value;
+                                        }
+                                    }
+                                }
+                                
+                                Debug.WriteLine($"[GhJsonSerializer] No code found in ScriptSource object");
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"[GhJsonSerializer] ScriptSource is null");
+                            }
+                        }
+                        
+                        Debug.WriteLine($"[GhJsonSerializer] VB Script '{component.Name}' - No script code found");
+
+                    }
+                    catch (Exception reflectionEx)
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] Error accessing VB script via reflection: {reflectionEx.Message}");
+                    }
+                }
             }
             catch (Exception ex)
             {

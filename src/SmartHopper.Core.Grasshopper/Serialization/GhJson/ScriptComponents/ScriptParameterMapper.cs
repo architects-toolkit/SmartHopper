@@ -43,7 +43,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                 Access = AccessModeMapper.ToString(param.Access),
             };
 
-            bool hasSettings = false;
+            // Always serialize parameters (at minimum with parameterName and access)
+            bool hasSettings = true;
 
             // Extract variable name from NickName (script parameters use NickName as variable name)
             var variableName = param.NickName;
@@ -129,10 +130,12 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
 
             var accessMode = AccessModeMapper.FromString(settings.Access);
 
+            // Create parameter with sanitized variable name for code execution
+            // but use original name for display (NickName)
             var param = new ScriptVariableParam(variableName)
             {
-                Name = variableName,
-                NickName = variableName,
+                Name = variableNameRaw,        // Display name (original, unsanitized)
+                NickName = variableNameRaw,    // Display name (original, unsanitized)
                 Description = string.Empty,
                 Access = accessMode,
             };
