@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Documentation: Consolidated GhJSON docs.
+  - Created `docs/GhJSON/property-management.md` (V2) and moved the Complete Property Reference and Core Data Types tables there.
+  - Updated `docs/GhJSON/format-specification.md` to reflect current schema (params/inputSettings/outputSettings/componentState with universal `componentState.value`), removed legacy `properties` dict.
+  - Updated `docs/GhJSON/index.md` and `docs/GhJSON/examples.md` links to the new structure and added a short Status section.
+  - Marked for removal (outdated/duplicated): `implementation-status.md`, `practical-plan.md`, `roadmap.md`, `property-whitelist.md`, `property-management-v2.md`.
 - More robust GhJson schema, serialization and deserialization methods.
 - Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
 - Centralized error handling in AIReturn and tool calls.
