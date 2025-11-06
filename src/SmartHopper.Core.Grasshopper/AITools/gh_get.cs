@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -19,10 +20,9 @@ using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
-using SmartHopper.Core.Models.Serialization;
-using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Core.Models.Connections;
+using SmartHopper.Core.Models.Document;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
@@ -500,18 +500,80 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var serOptions = SerializationOptions.Standard;
                 serOptions.IncludeMetadata = includeMetadata;
                 serOptions.IncludeGroups = true;
-                var document = GhJsonSerializer.Serialize(resultObjects, serOptions);
+
+                Debug.WriteLine($"[gh_get] Starting serialization with {resultObjects.Count} objects");
+                Debug.WriteLine($"[gh_get] Objects: {string.Join(", ", resultObjects.Select(o => $"{o.Name}({o.InstanceGuid})"))}");
+
+                GrasshopperDocument document;
+                try
+                {
+                    document = GhJsonSerializer.Serialize(resultObjects, serOptions);
+                    Debug.WriteLine($"[gh_get] Serialization completed successfully");
+                }
+                catch (ArgumentNullException anex)
+                {
+                    Debug.WriteLine($"[gh_get] ArgumentNullException in serialization: {anex.Message}");
+                    Debug.WriteLine($"[gh_get] Stack trace: {anex.StackTrace}");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[gh_get] General exception in serialization: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
+
+                Debug.WriteLine($"[gh_get] Starting post-serialization processing");
+                Debug.WriteLine($"[gh_get] document.Components count: {document.Components?.Count ?? 0}");
+                Debug.WriteLine($"[gh_get] document.Connections count: {document.Connections?.Count ?? 0}");
 
                 // only keep connections where both components are in our filtered set
-                var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
-                document.Connections = document.Connections
-                    .Where(c => c.TryResolveGuids(document.GetIdToGuidMapping(), out var fromGuid, out var toGuid) && 
-                                allowed.Contains(fromGuid) && allowed.Contains(toGuid))
-                    .ToList();
+                try
+                {
+                    Debug.WriteLine($"[gh_get] Filtering connections...");
+                    var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
+                    Debug.WriteLine($"[gh_get] Allowed GUIDs count: {allowed.Count}");
+                    
+                    if (document.Connections != null)
+                    {
+                        document.Connections = document.Connections
+                            .Where(c => c.TryResolveGuids(document.GetIdToGuidMapping(), out var fromGuid, out var toGuid) && 
+                                        allowed.Contains(fromGuid) && allowed.Contains(toGuid))
+                            .ToList();
+                        Debug.WriteLine($"[gh_get] Filtered connections count: {document.Connections.Count}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[gh_get] document.Connections is null, initializing empty list");
+                        document.Connections = new List<ConnectionPairing>();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[gh_get] Exception filtering connections: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
 
                 // Get names and guids
-                var names = document.Components.Select(c => c.Name).Distinct().ToList();
-                var guids = document.Components.Select(c => c.InstanceGuid.ToString()).Distinct().ToList();
+                List<string> names;
+                List<string> guids;
+                try
+                {
+                    Debug.WriteLine($"[gh_get] Extracting component names...");
+                    names = document.Components.Select(c => c.Name).Distinct().ToList();
+                    Debug.WriteLine($"[gh_get] Extracted {names.Count} unique names");
+                    
+                    Debug.WriteLine($"[gh_get] Extracting component GUIDs...");
+                    guids = document.Components.Select(c => c.InstanceGuid.ToString()).Distinct().ToList();
+                    Debug.WriteLine($"[gh_get] Extracted {guids.Count} unique GUIDs");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[gh_get] Exception extracting names/guids: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
 
                 // Serialize document
                 var json = JsonConvert.SerializeObject(document, Formatting.None);

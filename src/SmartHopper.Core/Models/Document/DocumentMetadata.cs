@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using SmartHopper.Core.Serialization;
 
 namespace SmartHopper.Core.Models.Document
 {
@@ -23,48 +24,49 @@ namespace SmartHopper.Core.Models.Document
         /// Gets or sets the description of the document.
         /// </summary>
         [JsonProperty("description", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string Description { get; set; }
 
         /// <summary>
         /// Gets or sets the document version.
         /// </summary>
         [JsonProperty("version", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string Version { get; set; }
 
         /// <summary>
         /// Gets or sets the creation timestamp in ISO 8601 format.
         /// </summary>
         [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string Created { get; set; }
-
-        /// <summary>
-        /// Gets or sets the creation timestamp (alias for Created).
-        /// </summary>
-        [JsonProperty("createdAt", NullValueHandling = NullValueHandling.Ignore)]
-        public string CreatedAt { get; set; }
 
         /// <summary>
         /// Gets or sets the last modification timestamp in ISO 8601 format.
         /// </summary>
         [JsonProperty("modified", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string Modified { get; set; }
 
         /// <summary>
         /// Gets or sets the author of the document.
         /// </summary>
         [JsonProperty("author", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string Author { get; set; }
 
         /// <summary>
         /// Gets or sets the Rhino version.
         /// </summary>
         [JsonProperty("rhinoVersion", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string RhinoVersion { get; set; }
 
         /// <summary>
         /// Gets or sets the Grasshopper version.
         /// </summary>
         [JsonProperty("grasshopperVersion", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string GrasshopperVersion { get; set; }
 
         /// <summary>
@@ -80,9 +82,16 @@ namespace SmartHopper.Core.Models.Document
         public int? ComponentCount { get; set; }
 
         /// <summary>
+        /// Gets or sets the number of parameters in the document.
+        /// </summary>
+        [JsonProperty("parameterCount", NullValueHandling = NullValueHandling.Ignore)]
+        public int? ParameterCount { get; set; }
+
+        /// <summary>
         /// Gets or sets the SmartHopper plugin version.
         /// </summary>
         [JsonProperty("pluginVersion", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string PluginVersion { get; set; }
     }
 }

@@ -84,7 +84,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Deserialize components
                 Debug.WriteLine("[gh_put] Deserializing components");
-                var result = GhJsonDeserializer.Deserialize(document, DeserializationOptions.Standard);
+                var options = DeserializationOptions.Standard;
+                var result = GhJsonDeserializer.Deserialize(document, options);
                 
                 if (!result.IsSuccess)
                 {

@@ -168,6 +168,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 GH_MultiDimensionalSlider => ComponentCategory.MultidimensionalSlider,
                 GH_ValueList => ComponentCategory.ValueList,
                 GH_ButtonObject => ComponentCategory.Button,
+                GH_BooleanToggle => ComponentCategory.BooleanToggle,
+                GH_ColourSwatch => ComponentCategory.ColourSwatch,
                 IScriptComponent => ComponentCategory.Script,
                 GH_GeometryPipeline => ComponentCategory.GeometryPipeline,
                 GH_GraphMapper => ComponentCategory.GraphMapper,

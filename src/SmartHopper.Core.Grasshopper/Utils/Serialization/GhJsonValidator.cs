@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Models.Serialization;
@@ -342,8 +343,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
 
                                 Debug.WriteLine($"[ValidateConnectionDataTypes] Connection incompatible: {incompatibilityReason}");
                             }
-
-                            Debug.WriteLine($"[ValidateConnectionDataTypes] Connection compatible :)");
+                            else
+                            {
+                                Debug.WriteLine($"[ValidateConnectionDataTypes] Connection compatible :)");
+                            }
                         }
                     }
                 }
@@ -420,6 +423,10 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     var outputType = outputParam.Type;
                     var inputType = inputParam.Type;
 
+                    Debug.WriteLine($"[CheckDataTypeCompatibility] Param types: {fromParameterName}({outputType.Name}) → {toParameterName}({inputType.Name})");
+                    Debug.WriteLine($"[CheckDataTypeCompatibility] Full types: {outputType.FullName} → {inputType.FullName}");
+                    Debug.WriteLine($"[CheckDataTypeCompatibility] Base types: output={outputType.BaseType?.Name}, input={inputType.BaseType?.Name}");
+
                     // If types are significantly different, warn
                     if (!AreTypesCompatible(outputType, inputType))
                     {
@@ -437,53 +444,120 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         }
 
         /// <summary>
-        /// Checks if two parameter types are compatible for connections.
+        /// Checks if two parameter types are compatible for connections using Grasshopper's reflection-based type system.
         /// </summary>
         /// <param name="outputType">Type of the output parameter.</param>
         /// <param name="inputType">Type of the input parameter.</param>
         /// <returns>True if compatible; otherwise false.</returns>
         private static bool AreTypesCompatible(Type outputType, Type inputType)
         {
+            Debug.WriteLine($"[AreTypesCompatible] Checking: {outputType?.Name} → {inputType?.Name}");
+            
             if (outputType == null || inputType == null)
             {
+                Debug.WriteLine("[AreTypesCompatible] Null type(s), allowing connection");
                 return true; // Can't validate
             }
 
+            // Fast path: exact match or direct assignability
             if (outputType == inputType)
             {
-                return true; // Same type
+                Debug.WriteLine("[AreTypesCompatible] Exact type match - COMPATIBLE");
+                return true;
             }
-
+            
+            // Safe direction: output is more specific than input (e.g., GH_Point → IGH_GeometricGoo)
             if (inputType.IsAssignableFrom(outputType))
             {
-                return true; // Output can be assigned to input
-            }
-
-            // Check for common Grasshopper type conversions
-            var outputName = outputType.Name.ToLower(System.Globalization.CultureInfo.CurrentCulture);
-            var inputName = inputType.Name.ToLower(System.Globalization.CultureInfo.CurrentCulture);
-
-            // Allow numeric conversions
-            var numericTypes = new[] { "int", "double", "float", "decimal", "number" };
-            if (numericTypes.Any(t => outputName.Contains(t)) && numericTypes.Any(t => inputName.Contains(t)))
-            {
+                Debug.WriteLine($"[AreTypesCompatible] {outputType.Name} is assignable to {inputType.Name} (specific → general) - COMPATIBLE");
                 return true;
             }
-
-            // Allow geometry type conversions (common in Grasshopper)
-            var geometryTypes = new[] { "point", "curve", "surface", "mesh", "geometry", "brep" };
-            if (geometryTypes.Any(t => outputName.Contains(t)) && geometryTypes.Any(t => inputName.Contains(t)))
+            
+            // Unsafe direction: output is more general than input (e.g., IGH_GeometricGoo → GH_Point)
+            // Check if input implements the output interface - this means output is a base type
+            if (outputType.IsAssignableFrom(inputType))
             {
-                return true;
+                Debug.WriteLine($"[AreTypesCompatible] {inputType.Name} implements {outputType.Name} (general → specific) - INCOMPATIBLE (unsafe)");
+                return false; // Explicitly reject this unsafe direction
             }
 
-            // Allow string conversions (most things can be converted to string)
-            if (inputName.Contains("string") || inputName.Contains("text"))
+            // Use Grasshopper's type conversion system via reflection
+            try
             {
-                return true;
+                // Try to create instances of IGH_Goo wrapper types
+                var outputGoo = TryCreateGooInstance(outputType);
+                var inputGoo = TryCreateGooInstance(inputType);
+
+                Debug.WriteLine($"[AreTypesCompatible] Created instances: output={outputGoo?.GetType().Name ?? "null"}, input={inputGoo?.GetType().Name ?? "null"}");
+
+                if (outputGoo != null && inputGoo != null)
+                {
+                    // Test if input can cast from output type using Grasshopper's CastFrom
+                    bool castFromResult = inputGoo.CastFrom(outputGoo);
+                    Debug.WriteLine($"[AreTypesCompatible] CastFrom test: {castFromResult}");
+                    
+                    if (castFromResult)
+                    {
+                        Debug.WriteLine("[AreTypesCompatible] CastFrom succeeded - COMPATIBLE");
+                        return true;
+                    }
+
+                    // Test QuickCast compatibility if both implement IGH_QuickCast
+                    if (outputGoo is IGH_QuickCast outputQC && inputGoo is IGH_QuickCast inputQC)
+                    {
+                        Debug.WriteLine($"[AreTypesCompatible] QuickCast types: output={outputQC.QC_Type}, input={inputQC.QC_Type}");
+                        
+                        // If they share the same QuickCast type, they're compatible
+                        if (outputQC.QC_Type == inputQC.QC_Type)
+                        {
+                            Debug.WriteLine($"[AreTypesCompatible] Matching QuickCast type: {outputQC.QC_Type} - COMPATIBLE");
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[AreTypesCompatible] QuickCast not available: output={outputGoo is IGH_QuickCast}, input={inputGoo is IGH_QuickCast}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AreTypesCompatible] Reflection error: {ex.Message}");
             }
 
-            return false; // Types seem incompatible
+            Debug.WriteLine("[AreTypesCompatible] No compatibility found - INCOMPATIBLE");
+            return false; // Types appear incompatible
+        }
+
+        /// <summary>
+        /// Attempts to create an instance of an IGH_Goo type for type compatibility testing.
+        /// </summary>
+        /// <param name="gooType">The IGH_Goo type to instantiate.</param>
+        /// <returns>An instance of the type, or null if creation fails.</returns>
+        private static IGH_Goo? TryCreateGooInstance(Type gooType)
+        {
+            try
+            {
+                // Check if type implements IGH_Goo
+                if (!typeof(IGH_Goo).IsAssignableFrom(gooType))
+                {
+                    return null;
+                }
+
+                // Try to create instance using parameterless constructor
+                var constructor = gooType.GetConstructor(Type.EmptyTypes);
+                if (constructor != null)
+                {
+                    return constructor.Invoke(null) as IGH_Goo;
+                }
+
+                // Some types might need Activator
+                return Activator.CreateInstance(gooType) as IGH_Goo;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }
