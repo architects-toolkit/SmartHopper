@@ -39,6 +39,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             "IsGeometryLoaded",
             "QC_Type",
             
+            // GH_ValueListItem UI/runtime properties (handled by specialized handler)
+            "BoxName",
+            "BoxLeft",
+            "BoxRight",
+            "Value",
+            "IsVisible",
+            
             // Redundant metadata
             "humanReadable",
             
@@ -54,7 +61,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         {
             "NickName",
             "Locked",
-            "PersistentData"
+            "PersistentData",  // Data for parameters with no sources (restored on deserialization)
+            "VolatileData",    // Data for parameters with sources (AI context only, not restored)
         };
 
         /// <summary>
@@ -89,21 +97,20 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         {
             [ComponentCategory.Panel] = new()
             {
-                "UserText",
+                // UserText is consolidated into componentState.value; do not serialize as a separate property
                 "Font",
                 "Alignment",
                 "Multiline",
                 "DrawIndices",
                 "DrawPaths",
-                "Wrap",
-                "Bounds"
+                "SpecialCodes",
             },
 
             [ComponentCategory.Scribble] = new()
             {
                 "Text",
                 "Font", 
-                "Corners"
+                "Corners",
             },
 
             [ComponentCategory.Slider] = new()
@@ -115,7 +122,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 "Decimals",
                 "Rounding",
                 "Limit",
-                "DisplayFormat"
+                "DisplayFormat",
             },
 
             [ComponentCategory.MultidimensionalSlider] = new()
@@ -126,20 +133,30 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 "ZInterval",
                 "X",
                 "Y",
-                "Z"
+                "Z",
             },
 
             [ComponentCategory.ValueList] = new()
             {
                 "ListMode",
                 "ListItems",
-                "SelectedIndices"
+                "SelectedIndices",
             },
 
             [ComponentCategory.Button] = new()
             {
                 "ExpressionNormal",
-                "ExpressionPressed"
+                "ExpressionPressed",
+            },
+
+            [ComponentCategory.BooleanToggle] = new()
+            {
+                // Boolean toggle uses UniversalValue for state
+            },
+
+            [ComponentCategory.ColourSwatch] = new()
+            {
+                // Colour swatch uses UniversalValue for color
             },
 
             [ComponentCategory.Script] = new()
@@ -147,7 +164,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 "Script",
                 "MarshInputs",
                 "MarshOutputs",
-                "VariableName"
+                "VariableName",
             },
 
             [ComponentCategory.GeometryPipeline] = new()
@@ -158,34 +175,34 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 "IncludeLocked",
                 "IncludeHidden",
                 "GroupByLayer",
-                "GroupByType"
+                "GroupByType",
             },
 
             [ComponentCategory.GraphMapper] = new()
             {
-                "GraphType"
+                "GraphType",
             },
 
             [ComponentCategory.PathMapper] = new()
             {
-                "Lexers"
+                "Lexers",
             },
 
             [ComponentCategory.ColorWheel] = new()
             {
-                "State"
+                "State",
             },
 
             [ComponentCategory.DataRecorder] = new()
             {
                 "DataLimit",
-                "RecordData"
+                "RecordData",
             },
 
             [ComponentCategory.ItemPicker] = new()
             {
                 "TreePath",
-                "TreeIndex"
+                "TreeIndex",
             }
         };
 
@@ -209,7 +226,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 IncludeParameters = true,
                 IncludeComponents = false,  // No componentState in Lite format
                 IncludeCategories = ComponentCategory.Essential,
-                AdditionalExcludes = new() { "ComponentGuid", "InstanceGuid", "Selected", "DisplayName" }
+                AdditionalExcludes = new() {
+                    "ComponentGuid", "InstanceGuid", "Selected", "DisplayName",
+
+                    // Panel Visualization
+                    "Alignment", "Font", "SpecialCodes", "DrawIndices", "DrawPaths",
+                }
             }
         };
     }
@@ -227,17 +249,19 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         MultidimensionalSlider = 1 << 3,
         ValueList = 1 << 4,
         Button = 1 << 5,
-        Script = 1 << 6,
-        GeometryPipeline = 1 << 7,
-        GraphMapper = 1 << 8,
-        PathMapper = 1 << 9,
-        ColorWheel = 1 << 10,
-        DataRecorder = 1 << 11,
-        ItemPicker = 1 << 12,
+        BooleanToggle = 1 << 6,
+        ColourSwatch = 1 << 7,
+        Script = 1 << 8,
+        GeometryPipeline = 1 << 9,
+        GraphMapper = 1 << 10,
+        PathMapper = 1 << 11,
+        ColorWheel = 1 << 12,
+        DataRecorder = 1 << 13,
+        ItemPicker = 1 << 14,
 
         // Convenience combinations
         Essential = Panel | Scribble | Slider | ValueList | Script,
-        UI = Panel | Scribble | Button | ColorWheel,
+        UI = Panel | Scribble | Button | BooleanToggle | ColourSwatch | ColorWheel,
         Data = ValueList | DataRecorder | ItemPicker,
         Advanced = GeometryPipeline | GraphMapper | PathMapper,
         All = ~None

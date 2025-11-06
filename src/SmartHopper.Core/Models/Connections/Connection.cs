@@ -32,6 +32,13 @@ namespace SmartHopper.Core.Models.Connections
         public required string ParamName { get; set; }
 
         /// <summary>
+        /// Gets or sets the zero-based index of the parameter.
+        /// Used for reliable parameter matching regardless of display name settings.
+        /// </summary>
+        [JsonProperty("paramIndex", Order = 3)]
+        public int? ParamIndex { get; set; }
+
+        /// <summary>
         /// Checks if the connection has valid component ID and parameter name.
         /// </summary>
         /// <returns>True if the connection has a valid ID and parameter name.</returns>

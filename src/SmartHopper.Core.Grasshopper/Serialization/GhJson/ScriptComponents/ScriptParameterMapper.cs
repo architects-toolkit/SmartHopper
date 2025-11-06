@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
             var settings = new ParameterSettings
             {
                 ParameterName = param.Name,
-                Access = AccessModeMapper.ToString(param.Access)
+                Access = AccessModeMapper.ToString(param.Access),
             };
 
             bool hasSettings = false;
@@ -68,10 +68,10 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
             {
                 var isInput = param.Kind == GH_ParamKind.input;
                 var scriptCode = scriptComp.Text;
-                
+
                 var typeHint = ScriptSignatureParser.ExtractTypeHintFromSignature(
                     scriptCode, variableName, isInput, scriptComp);
-                
+
                 // If not found in signature, infer from parameter's runtime type
                 if (string.IsNullOrEmpty(typeHint))
                 {
@@ -106,8 +106,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
         /// <param name="scriptComp">Parent script component</param>
         /// <returns>Configured ScriptVariableParam</returns>
         public static ScriptVariableParam CreateParameter(
-            ParameterSettings settings, 
-            string defaultName, 
+            ParameterSettings settings,
+            string defaultName,
             IScriptComponent scriptComp)
         {
             if (settings == null || scriptComp == null)
@@ -134,7 +134,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                 Name = variableName,
                 NickName = variableName,
                 Description = string.Empty,
-                Access = accessMode
+                Access = accessMode,
             };
 
             // Try to set VariableName property if it exists

@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
@@ -18,7 +19,6 @@ using Grasshopper.Kernel.Special;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared;
-using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Connections;
@@ -35,6 +35,11 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
     public static class GhJsonSerializer
     {
         /// <summary>
+        /// The current schema version of GhJSON.
+        /// </summary>
+        public const string SchemaVersion = "1.0";
+
+        /// <summary>
         /// Serializes Grasshopper objects to a GhJSON document.
         /// </summary>
         /// <param name="objects">Objects to serialize</param>
@@ -44,12 +49,36 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             IEnumerable<IGH_ActiveObject> objects,
             SerializationOptions options = null)
         {
+            Debug.WriteLine("[GhJsonSerializer] Serialize called");
+
+            if (objects == null)
+            {
+                Debug.WriteLine("[GhJsonSerializer] ERROR: objects parameter is null");
+                throw new ArgumentNullException(nameof(objects));
+            }
+
+            var objectsList = objects.ToList();
+            Debug.WriteLine($"[GhJsonSerializer] Processing {objectsList.Count} objects");
+
+            for (int i = 0; i < objectsList.Count; i++)
+            {
+                var obj = objectsList[i];
+                if (obj == null)
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] ERROR: objects[{i}] is null");
+                    throw new ArgumentNullException($"objects[{i}]");
+                }
+                Debug.WriteLine($"[GhJsonSerializer] Object {i}: {obj?.Name} ({obj?.InstanceGuid})");
+            }
+
             options ??= SerializationOptions.Standard;
+            Debug.WriteLine($"[GhJsonSerializer] Using options: IncludeConnections={options.IncludeConnections}, IncludeMetadata={options.IncludeMetadata}, IncludeGroups={options.IncludeGroups}");
 
             // Create property manager if not provided
             var propertyManager = options.PropertyManager ?? new PropertyManagerV2(options.Context);
+            Debug.WriteLine("[GhJsonSerializer] Property manager created");
 
-            return SerializeWithManager(objects, propertyManager, options);
+            return SerializeWithManager(objectsList, propertyManager, options);
         }
 
         /// <summary>
@@ -60,37 +89,91 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             PropertyManagerV2 propertyManager,
             SerializationOptions options)
         {
+            Debug.WriteLine("[GhJsonSerializer] SerializeWithManager called");
+
             var objectsList = objects.ToList();
+            Debug.WriteLine($"[GhJsonSerializer] objectsList count: {objectsList.Count}");
 
             var document = new GrasshopperDocument
             {
-                Components = ExtractComponents(objectsList, propertyManager, options)
+                SchemaVersion = SchemaVersion,
             };
+
+            Debug.WriteLine("[GhJsonSerializer] Created GrasshopperDocument");
+
+            try
+            {
+                Debug.WriteLine("[GhJsonSerializer] Starting component extraction...");
+                document.Components = ExtractComponents(objectsList, propertyManager, options);
+                Debug.WriteLine($"[GhJsonSerializer] Extracted {document.Components?.Count ?? 0} components");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GhJsonSerializer] Exception in ExtractComponents: {ex.GetType().Name}: {ex.Message}");
+                Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                throw;
+            }
 
             // Assign sequential IDs if using compact representation
             if (options.UseCompactIds)
             {
+                Debug.WriteLine("[GhJsonSerializer] Assigning component IDs...");
                 AssignComponentIds(document);
+                Debug.WriteLine("[GhJsonSerializer] Component IDs assigned");
             }
 
             // Extract connections
             if (options.IncludeConnections)
             {
-                document.Connections = ExtractConnections(objectsList, document);
+                Debug.WriteLine("[GhJsonSerializer] Extracting connections...");
+                try
+                {
+                    document.Connections = ExtractConnections(objectsList, document);
+                    Debug.WriteLine($"[GhJsonSerializer] Extracted {document.Connections?.Count ?? 0} connections");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Exception in ExtractConnections: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
             }
 
             // Extract metadata
             if (options.IncludeMetadata)
             {
-                document.Metadata = CreateDocumentMetadata(objectsList);
+                Debug.WriteLine("[GhJsonSerializer] Creating metadata...");
+                try
+                {
+                    document.Metadata = CreateDocumentMetadata(objectsList);
+                    Debug.WriteLine("[GhJsonSerializer] Metadata created");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Exception in CreateDocumentMetadata: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
             }
 
             // Extract groups
             if (options.IncludeGroups)
             {
-                ExtractGroupInformation(document);
+                Debug.WriteLine("[GhJsonSerializer] Extracting group information...");
+                try
+                {
+                    ExtractGroupInformation(document);
+                    Debug.WriteLine("[GhJsonSerializer] Group information extracted");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Exception in ExtractGroupInformation: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
             }
 
+            Debug.WriteLine("[GhJsonSerializer] SerializeWithManager completed successfully");
             return document;
         }
 
@@ -98,30 +181,84 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 
         /// <summary>
         /// Extracts component properties from Grasshopper objects.
+        /// Handles both IGH_Component (components) and IGH_Param (stand-alone parameters).
         /// </summary>
         private static List<ComponentProperties> ExtractComponents(
             List<IGH_ActiveObject> objects,
             PropertyManagerV2 propertyManager,
             SerializationOptions options)
         {
+            Debug.WriteLine("[GhJsonSerializer] ExtractComponents called");
             var components = new List<ComponentProperties>();
 
+            Debug.WriteLine($"[GhJsonSerializer] Processing {objects.Count} objects for component extraction");
+
+            int componentIndex = 0;
+
+            // Process IGH_Component objects (regular components)
             foreach (var obj in objects.OfType<IGH_Component>())
             {
+                Debug.WriteLine($"[GhJsonSerializer] Processing component {componentIndex}: {obj?.Name} ({obj?.InstanceGuid})");
+                componentIndex++;
+
                 try
                 {
                     var component = CreateComponentProperties(obj, propertyManager, options);
                     if (component != null)
                     {
                         components.Add(component);
+                        Debug.WriteLine($"[GhJsonSerializer] Successfully added component: {component.Name}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] CreateComponentProperties returned null for {obj.Name}");
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[GhJsonSerializer] Error extracting component {obj.Name}: {ex.Message}");
+                    Debug.WriteLine($"[GhJsonSerializer] Exception type: {ex.GetType().Name}");
+                    Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
                 }
             }
 
+            // Process IGH_Param objects (stand-alone parameters) that are NOT part of components
+            int paramIndex = 0;
+            foreach (var obj in objects.OfType<IGH_Param>())
+            {
+                // Skip parameters that are already part of a component
+                // (they will be serialized as part of their parent component)
+                if (obj.Attributes?.Parent != null)
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Skipping parameter {obj.Name} - part of component");
+                    continue;
+                }
+
+                Debug.WriteLine($"[GhJsonSerializer] Processing stand-alone parameter {paramIndex}: {obj?.Name} ({obj?.InstanceGuid})");
+                paramIndex++;
+
+                try
+                {
+                    var component = CreateComponentProperties(obj, propertyManager, options);
+                    if (component != null)
+                    {
+                        components.Add(component);
+                        Debug.WriteLine($"[GhJsonSerializer] Successfully added stand-alone parameter: {component.Name}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] CreateComponentProperties returned null for {obj.Name}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Error extracting stand-alone parameter {obj.Name}: {ex.Message}");
+                    Debug.WriteLine($"[GhJsonSerializer] Exception type: {ex.GetType().Name}");
+                    Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                }
+            }
+
+            Debug.WriteLine($"[GhJsonSerializer] ExtractComponents completed with {components.Count} total objects ({componentIndex} components, {paramIndex} stand-alone parameters)");
             return components;
         }
 
@@ -133,54 +270,122 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             PropertyManagerV2 propertyManager,
             SerializationOptions options)
         {
-            var component = new ComponentProperties
-            {
-                InstanceGuid = obj.InstanceGuid,
-                ComponentGuid = obj.ComponentGuid,
-                Library = obj.Category,
-                Type = obj.SubCategory,
-                Name = obj.Name,
-                NickName = obj.NickName,
-                Pivot = new CompactPosition(obj.Attributes.Pivot.X, obj.Attributes.Pivot.Y)
-            };
+            Debug.WriteLine($"[GhJsonSerializer] CreateComponentProperties called for {obj?.Name}");
 
-            // Only include Selected when true (avoid irrelevant false values)
-            if (obj.Attributes.Selected)
+            if (obj == null)
             {
-                component.Selected = true;
+                Debug.WriteLine("[GhJsonSerializer] ERROR: obj is null in CreateComponentProperties");
+                throw new ArgumentNullException(nameof(obj));
             }
 
-            // Extract runtime warnings and errors only if they exist (avoid empty arrays)
-            var warnings = obj.RuntimeMessages(GH_RuntimeMessageLevel.Warning).ToList();
-            var errors = obj.RuntimeMessages(GH_RuntimeMessageLevel.Error).ToList();
-
-            if (warnings.Any())
-                component.Warnings = warnings;
-            if (errors.Any())
-                component.Errors = errors;
-
-            // Extract schema properties (filtered by property manager)
-            ExtractSchemaProperties(component, obj, propertyManager);
-
-            // Extract basic parameters
-            component.Params = ExtractBasicParams(obj, propertyManager);
-
-            // Extract parameter settings
-            if (obj is IGH_Component ghComponent)
+            if (obj.InstanceGuid == Guid.Empty)
             {
-                component.InputSettings = ExtractParameterSettings(
-                    ghComponent.Params.Input, propertyManager, ghComponent, options);
-                component.OutputSettings = ExtractParameterSettings(
-                    ghComponent.Params.Output, propertyManager, ghComponent, options);
+                Debug.WriteLine($"[GhJsonSerializer] WARNING: {obj.Name} has empty InstanceGuid");
             }
 
-            // Extract component state (includes universal value)
-            if (options.ExtractComponentState)
+            if (obj.ComponentGuid == Guid.Empty)
             {
-                component.ComponentState = ExtractComponentState(component, obj, propertyManager);
+                Debug.WriteLine($"[GhJsonSerializer] WARNING: {obj.Name} has empty ComponentGuid");
             }
 
-            return component;
+            try
+            {
+                var component = new ComponentProperties
+                {
+                    InstanceGuid = obj.InstanceGuid,
+                    ComponentGuid = obj.ComponentGuid,
+                    Name = obj.Name,
+                    Pivot = new CompactPosition(obj.Attributes.Pivot.X, obj.Attributes.Pivot.Y),
+                };
+
+                // // Only include Library if present and meaningful
+                // if (!string.IsNullOrWhiteSpace(obj.Category))
+                // {
+                //     component.Library = obj.Category;
+                // }
+
+                // // Only include Type if present and meaningful
+                // if (!string.IsNullOrWhiteSpace(obj.SubCategory))
+                // {
+                //     component.Type = obj.SubCategory;
+                // }
+
+                // Only include NickName if different from Name
+                if (!string.IsNullOrWhiteSpace(obj.NickName) &&
+                    !string.Equals(obj.Name, obj.NickName, StringComparison.Ordinal))
+                {
+                    component.NickName = obj.NickName;
+                }
+
+                Debug.WriteLine($"[GhJsonSerializer] Created basic component properties for {component.Name}");
+
+                // Only include Selected when true (avoid irrelevant false values)
+                if (obj.Attributes.Selected)
+                {
+                    component.Selected = true;
+                }
+
+                Debug.WriteLine($"[GhJsonSerializer] Set basic flags for {component.Name}");
+                
+                // Extract schema properties using property manager
+                try
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Extracting schema properties for {component.Name}");
+                    ExtractSchemaProperties(component, obj, propertyManager);
+                    Debug.WriteLine($"[GhJsonSerializer] Schema properties extracted for {component.Name}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Exception in ExtractSchemaProperties for {obj.Name}: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
+
+                // Extract parameter settings for GH_Component objects
+                if (obj is GH_Component ghComponent)
+                {
+                    try
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] Extracting parameter settings for {component.Name}");
+                        component.InputSettings = ExtractParameterSettings(
+                            ghComponent.Params.Input, propertyManager, ghComponent, options);
+                        component.OutputSettings = ExtractParameterSettings(
+                            ghComponent.Params.Output, propertyManager, ghComponent, options);
+                        Debug.WriteLine($"[GhJsonSerializer] Parameter settings extracted for {component.Name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] Exception in ExtractParameterSettings for {obj.Name}: {ex.GetType().Name}: {ex.Message}");
+                        Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                        throw;
+                    }
+                }
+
+                // Extract component state (includes universal value)
+                if (options.ExtractComponentState)
+                {
+                    try
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] Extracting component state for {component.Name}");
+                        component.ComponentState = ExtractComponentState(component, obj, propertyManager);
+                        Debug.WriteLine($"[GhJsonSerializer] Component state extracted for {component.Name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] Exception in ExtractComponentState for {obj.Name}: {ex.GetType().Name}: {ex.Message}");
+                        Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                        throw;
+                    }
+                }
+
+                return component;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GhJsonSerializer] Exception in CreateComponentProperties for {obj.Name}: {ex.GetType().Name}: {ex.Message}");
+                Debug.WriteLine($"[GhJsonSerializer] Stack trace: {ex.StackTrace}");
+                throw;
+            }
         }
 
         /// <summary>
@@ -263,7 +468,17 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             for (int i = 0; i < paramList.Count; i++)
             {
                 var param = paramList[i];
-                bool isPrincipal = (component is IGH_Component ghComp && ghComp.Params.IndexOfInputParam(param.Name) == 0);
+
+                // Determine if this parameter is the principal (master) input
+                int principalIndex = -1;
+                if (component != null && component.IsValidMasterParameterIndex)
+                {
+                    var idx = component.MasterParameterIndex;
+                    if (idx >= 0 && idx < paramList.Count)
+                        principalIndex = idx;
+                }
+
+                bool isPrincipal = (principalIndex >= 0 && i == principalIndex);
 
                 var paramSettings = CreateParameterSettings(param, component, isPrincipal, options);
                 if (paramSettings != null)
@@ -363,14 +578,12 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 
         /// <summary>
         /// Extracts universal value for special components (sliders, panels, etc.).
+        /// Note: This is only called when ExtractComponentState is true, so no additional filtering needed.
         /// </summary>
         private static object ExtractUniversalValue(
             IGH_ActiveObject originalObject,
             PropertyManagerV2 propertyManager)
         {
-            if (!propertyManager.ShouldIncludeProperty("UniversalValue", originalObject))
-                return null;
-
             try
             {
                 // Number slider
@@ -396,6 +609,29 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 {
                     return toggle.Value;
                 }
+
+                // Colour swatch
+                if (originalObject is GH_ColourSwatch swatch)
+                {
+                    return DataTypeSerializer.Serialize(swatch.SwatchColour);
+                }
+
+                // Button object
+                if (originalObject is GH_ButtonObject btn)
+                {
+                    var expNormal = btn.ExpressionNormal;
+                    var expPressed = btn.ExpressionPressed;
+
+                    // Only serialize if not default values
+                    if (expNormal != "False" || expPressed != "True")
+                    {
+                        return new Dictionary<string, string>
+                        {
+                            { "normal", expNormal ?? "False" },
+                            { "pressed", expPressed ?? "True" }
+                        };
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -411,11 +647,11 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
         private static string FormatSliderValue(GH_NumberSlider slider)
         {
             var decimals = slider.Slider.DecimalPlaces;
-            
+
             if (decimals == 0)
-                return slider.CurrentValue.ToString("F0");
-            
-            return slider.CurrentValue.ToString($"F{decimals}");
+                return slider.CurrentValue.ToString("F0", CultureInfo.InvariantCulture);
+
+            return slider.CurrentValue.ToString($"F{decimals}", CultureInfo.InvariantCulture);
         }
 
         #endregion
@@ -423,14 +659,14 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
         #region Connection Extraction
 
         /// <summary>
-        /// Extracts wire connections between components.
+        /// Extracts wire connections between components and stand-alone parameters.
         /// </summary>
         private static List<ConnectionPairing> ExtractConnections(
             List<IGH_ActiveObject> objects,
             GrasshopperDocument document)
         {
             var connections = new List<ConnectionPairing>();
-            
+
             // Build GUID to ID mapping if using compact IDs
             var guidToId = new Dictionary<Guid, int>();
             if (document.Components != null)
@@ -444,15 +680,31 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 }
             }
 
+            // Extract connections from components
             foreach (var obj in objects.OfType<IGH_Component>())
             {
-                foreach (var outputParam in obj.Params.Output)
+                for (int outIdx = 0; outIdx < obj.Params.Output.Count; outIdx++)
                 {
+                    var outputParam = obj.Params.Output[outIdx];
                     foreach (var recipient in outputParam.Recipients)
                     {
-                        var targetComp = recipient.Attributes?.GetTopLevel?.DocObject as IGH_Component;
-                        if (targetComp != null)
+                        var targetDocObj = recipient.Attributes?.GetTopLevel?.DocObject;
+                        if (targetDocObj != null && guidToId.ContainsKey(targetDocObj.InstanceGuid))
                         {
+                            // Find recipient parameter index
+                            int? recipientIndex = null;
+                            if (targetDocObj is IGH_Component targetComp)
+                            {
+                                // Target is a component - find input parameter index
+                                int idx = targetComp.Params.Input.IndexOf(recipient);
+                                recipientIndex = idx >= 0 ? idx : null;
+                            }
+                            else if (targetDocObj is IGH_Param)
+                            {
+                                // Target is a standalone parameter - single input at index 0
+                                recipientIndex = 0;
+                            }
+                            
                             var connection = new ConnectionPairing
                             {
                                 From = new Connection
@@ -460,19 +712,69 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                                     Id = guidToId.ContainsKey(obj.InstanceGuid) 
                                         ? guidToId[obj.InstanceGuid] 
                                         : -1,
-                                    ParamName = outputParam.Name
+                                    ParamName = outputParam.Name,
+                                    ParamIndex = outIdx
                                 },
                                 To = new Connection
                                 {
-                                    Id = guidToId.ContainsKey(targetComp.InstanceGuid)
-                                        ? guidToId[targetComp.InstanceGuid]
-                                        : -1,
-                                    ParamName = recipient.Name
+                                    Id = guidToId[targetDocObj.InstanceGuid],
+                                    ParamName = recipient.Name,
+                                    ParamIndex = recipientIndex
                                 }
                             };
 
                             connections.Add(connection);
                         }
+                    }
+                }
+            }
+
+            // Extract connections from stand-alone parameters
+            foreach (var param in objects.OfType<IGH_Param>())
+            {
+                // Skip parameters that are part of components (already handled above)
+                if (param.Attributes?.Parent != null)
+                    continue;
+
+                // Stand-alone parameters can have recipients
+                foreach (var recipient in param.Recipients)
+                {
+                    var targetDocObj = recipient.Attributes?.GetTopLevel?.DocObject;
+                    if (targetDocObj != null && guidToId.ContainsKey(targetDocObj.InstanceGuid))
+                    {
+                        // Find recipient parameter index
+                        int? recipientIndex = null;
+                        if (targetDocObj is IGH_Component targetComp)
+                        {
+                            // Target is a component - find input parameter index
+                            int idx = targetComp.Params.Input.IndexOf(recipient);
+                            recipientIndex = idx >= 0 ? idx : null;
+                        }
+                        else if (targetDocObj is IGH_Param)
+                        {
+                            // Target is a stand-alone parameter - single input at index 0
+                            recipientIndex = 0;
+                        }
+                        
+                        var connection = new ConnectionPairing
+                        {
+                            From = new Connection
+                            {
+                                Id = guidToId.ContainsKey(param.InstanceGuid)
+                                    ? guidToId[param.InstanceGuid]
+                                    : -1,
+                                ParamName = param.Name,
+                                ParamIndex = 0  // Stand-alone parameters have single output
+                            },
+                            To = new Connection
+                            {
+                                Id = guidToId[targetDocObj.InstanceGuid],
+                                ParamName = recipient.Name,
+                                ParamIndex = recipientIndex
+                            }
+                        };
+
+                        connections.Add(connection);
                     }
                 }
             }
@@ -503,11 +805,36 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
         /// </summary>
         private static DocumentMetadata CreateDocumentMetadata(List<IGH_ActiveObject> objects)
         {
+            // Get Grasshopper version from the assembly
+            var ghVersion = typeof(Instances).Assembly.GetName().Version?.ToString() ?? "Unknown";
+            
+            // Get Rhino version
+            var rhinoVersion = Rhino.RhinoApp.Version.ToString();
+            
+            // Count components and parameters separately
+            var componentCount = objects.OfType<IGH_Component>().Count();
+            var parameterCount = objects.OfType<IGH_Param>().Count();
+            
+            // Collect unique plugin dependencies from components
+            var dependencies = objects
+                .Select(obj => obj.GetType().Assembly.GetName().Name)
+                .Where(name => !name.StartsWith("Grasshopper") && 
+                              !name.StartsWith("RhinoCommon") && 
+                              !name.StartsWith("System") &&
+                              !name.StartsWith("mscorlib"))
+                .Distinct()
+                .OrderBy(name => name)
+                .ToList();
+            
             return new DocumentMetadata
             {
-                CreatedAt = DateTime.UtcNow.ToString("o"),
-                GrasshopperVersion = Instances.Settings.GetValue("AssemblyVersion", "Unknown"),
-                ComponentCount = objects.OfType<IGH_Component>().Count(),
+                Version = "1",
+                Created = DateTime.UtcNow.ToString("o"),
+                RhinoVersion = rhinoVersion,
+                GrasshopperVersion = ghVersion,
+                ComponentCount = componentCount,
+                ParameterCount = parameterCount,
+                Dependencies = dependencies.Count > 0 ? dependencies : null,
                 PluginVersion = typeof(GhJsonSerializer).Assembly.GetName().Version?.ToString()
             };
         }
@@ -546,6 +873,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 {
                     var groupInfo = new GroupInfo
                     {
+                        InstanceGuid = group.InstanceGuid,
                         Name = group.NickName,
                         Color = DataTypeSerializer.Serialize(group.Colour)
                     };
@@ -567,7 +895,12 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                     }
 
                     groupInfo.Members = memberIds;
-                    document.Groups.Add(groupInfo);
+                    
+                    // Only add groups that have members
+                    if (memberIds.Count > 0)
+                    {
+                        document.Groups.Add(groupInfo);
+                    }
                 }
             }
             catch (Exception ex)

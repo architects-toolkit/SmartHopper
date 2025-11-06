@@ -10,11 +10,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
 using SmartHopper.Core.Models.Serialization;
+using SmartHopper.Core.Serialization;
 
 namespace SmartHopper.Core.Models.Components
 {
@@ -34,18 +33,21 @@ namespace SmartHopper.Core.Models.Components
         /// Gets or sets the component library/category.
         /// </summary>
         [JsonProperty("library", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? Library { get; set; }
 
         /// <summary>
         /// Gets or sets the component type/subcategory.
         /// </summary>
         [JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? Type { get; set; }
 
         /// <summary>
         /// Gets or sets the nickname of the component.
         /// </summary>
         [JsonProperty("nickName", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? NickName { get; set; }
 
         /// <summary>
@@ -119,7 +121,7 @@ namespace SmartHopper.Core.Models.Components
         /// <summary>
         /// Gets or sets schema-specific properties (legacy format).
         /// </summary>
-        [JsonProperty("schemaProperties", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonProperty("properties", NullValueHandling = NullValueHandling.Ignore)]
         public Dictionary<string, object>? SchemaProperties { get; set; }
 
         /// <summary>

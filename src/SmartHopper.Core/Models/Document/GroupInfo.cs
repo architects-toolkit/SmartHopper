@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using SmartHopper.Core.Serialization;
 
 namespace SmartHopper.Core.Models.Document
 {
@@ -29,6 +30,7 @@ namespace SmartHopper.Core.Models.Document
         /// Gets or sets the name/nickname of the group.
         /// </summary>
         [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string Name { get; set; }
 
         /// <summary>

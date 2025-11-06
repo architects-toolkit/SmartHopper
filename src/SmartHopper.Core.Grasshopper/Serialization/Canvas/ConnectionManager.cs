@@ -74,30 +74,76 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
                 return false;
             }
 
-            if (sourceObj is not IGH_Component sourceComp || targetObj is not IGH_Component targetComp)
+            // Handle connections from stand-alone parameters
+            IGH_Param sourceParam = null;
+            if (sourceObj is IGH_Param standAloneParam)
             {
-                return false;
+                sourceParam = standAloneParam;
             }
-
-            // Find source output parameter
-            var sourceParam = sourceComp.Params.Output.FirstOrDefault(p => p.Name == connection.From.ParamName);
-            if (sourceParam == null)
+            else if (sourceObj is IGH_Component sourceComp)
             {
-                Debug.WriteLine($"[ConnectionManager] Source parameter '{connection.From.ParamName}' not found");
+                // Find source output parameter by index first, then fallback to name
+                if (connection.From.ParamIndex.HasValue && 
+                    connection.From.ParamIndex.Value >= 0 && 
+                    connection.From.ParamIndex.Value < sourceComp.Params.Output.Count)
+                {
+                    sourceParam = sourceComp.Params.Output[connection.From.ParamIndex.Value];
+                }
+                else
+                {
+                    sourceParam = sourceComp.Params.Output.FirstOrDefault(p => p.Name == connection.From.ParamName);
+                }
+                
+                if (sourceParam == null)
+                {
+                    Debug.WriteLine($"[ConnectionManager] Source parameter '{connection.From.ParamName}' (index: {connection.From.ParamIndex}) not found");
+                    return false;
+                }
+            }
+            else
+            {
                 return false;
             }
 
             // Find target input parameter
-            var targetParam = targetComp.Params.Input.FirstOrDefault(p => p.Name == connection.To.ParamName);
-            if (targetParam == null)
+            IGH_Param targetParam = null;
+
+            if (targetObj is IGH_Param standAloneTargetParam)
             {
-                Debug.WriteLine($"[ConnectionManager] Target parameter '{connection.To.ParamName}' not found");
+                // Target is a stand-alone parameter - it receives data directly
+                targetParam = standAloneTargetParam;
+            }
+            else if (targetObj is IGH_Component targetComp)
+            {
+                // Find target input parameter by index first, then fallback to name
+                if (connection.To.ParamIndex.HasValue && 
+                    connection.To.ParamIndex.Value >= 0 && 
+                    connection.To.ParamIndex.Value < targetComp.Params.Input.Count)
+                {
+                    targetParam = targetComp.Params.Input[connection.To.ParamIndex.Value];
+                }
+                else
+                {
+                    targetParam = targetComp.Params.Input.FirstOrDefault(p => p.Name == connection.To.ParamName);
+                }
+                
+                if (targetParam == null)
+                {
+                    Debug.WriteLine($"[ConnectionManager] Target parameter '{connection.To.ParamName}' (index: {connection.To.ParamIndex}) not found");
+                    return false;
+                }
+            }
+            else
+            {
                 return false;
             }
 
             // Create the connection
             targetParam.AddSource(sourceParam);
-            Debug.WriteLine($"[ConnectionManager] Connected {sourceComp.Name}.{sourceParam.Name} → {targetComp.Name}.{targetParam.Name}");
+            
+            string sourceName = sourceObj is IGH_Component sc ? sc.Name : sourceParam.Name;
+            string targetName = targetObj is IGH_Component tc ? tc.Name : targetParam.Name;
+            Debug.WriteLine($"[ConnectionManager] Connected {sourceName}.{sourceParam.Name} → {targetName}.{targetParam.Name}");
 
             return true;
         }

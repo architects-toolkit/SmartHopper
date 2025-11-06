@@ -10,6 +10,7 @@
 
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using SmartHopper.Core.Serialization;
 
 namespace SmartHopper.Core.Models.Components
 {
@@ -89,6 +90,7 @@ namespace SmartHopper.Core.Models.Components
         /// Gets or sets the list mode for value list components (e.g., "DropDown", "CheckList").
         /// </summary>
         [JsonProperty("listMode", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? ListMode { get; set; }
 
         /// <summary>
@@ -139,6 +141,7 @@ namespace SmartHopper.Core.Models.Components
         /// Values: "Round", "None", "Even", "Odd"
         /// </summary>
         [JsonProperty("rounding", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? Rounding { get; set; }
 
         /// <summary>

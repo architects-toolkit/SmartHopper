@@ -193,14 +193,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
         {
             // Register specialized handlers first (higher priority)
             RegisterHandler(new PersistentDataPropertyHandler());
+            RegisterHandler(new PanelPropertyHandler());
+            RegisterHandler(new ValueListItemsPropertyHandler());
+            RegisterHandler(new ValueListModePropertyHandler());
             RegisterHandler(new SliderCurrentValuePropertyHandler());
+            RegisterHandler(new SliderRoundingPropertyHandler());
             RegisterHandler(new ExpressionPropertyHandler());
             RegisterHandler(new ColorPropertyHandler());
             RegisterHandler(new FontPropertyHandler());
             RegisterHandler(new DataMappingPropertyHandler());
-            RegisterHandler(new AlignmentPropertyHandler());
 
-            // Register default handler last (lowest priority)
+            // Register default handler
             RegisterHandler(new DefaultPropertyHandler());
         }
 

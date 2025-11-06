@@ -104,6 +104,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             // Remove redundant properties based on documentation
             RemoveIrrelevantProperties(result, sourceObject);
 
+            // Rename PersistentData to VolatileData for parameters with sources (for AI context only)
+            if (result.ContainsKey("PersistentData") && sourceObject is IGH_Param param)
+            {
+                bool hasSources = param.Sources != null && param.Sources.Count > 0;
+                if (hasSources)
+                {
+                    result["VolatileData"] = result["PersistentData"];
+                    result.Remove("PersistentData");
+                }
+            }
+
             return result;
         }
 
@@ -275,11 +286,48 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                 return string.IsNullOrEmpty(value?.ToString()) || value.ToString() == ghObj.Name;
             }
 
-            // Remove PersistentData for sliders when CurrentValue exists (redundant)
-            // NOTE: Only remove for sliders, other components need PersistentData for proper deserialization
-            if (propertyName == "PersistentData" && sourceObject is GH_NumberSlider)
+            // Always exclude component-level UI state from schema properties.
+            // These are handled in componentState and should not appear in the 'properties' bag.
+            // This prevents duplication and maintains clear separation between UI state and component data.
+            if (propertyName == "Locked" || propertyName == "Hidden")
             {
-                return true; // CurrentValue contains the same information in a more compact format
+                return true;
+            }
+
+            // Exclude Button object expressions (handled in componentState.value)
+            if ((propertyName == "ExpressionNormal" || propertyName == "ExpressionPressed") && 
+                sourceObject.GetType().Name == "GH_ButtonObject")
+            {
+                return true;
+            }
+
+            // Remove PersistentData for special components that use componentState.value
+            // These components (Boolean Toggle, Colour Swatch, Button) are handled generically via universal value
+            if (propertyName == "PersistentData")
+            {
+                if (sourceObject is GH_BooleanToggle || sourceObject is GH_ColourSwatch)
+                {
+                    return true; // componentState.value contains the authoritative state
+                }
+                
+                // Button object (use type name check for compatibility)
+                if (sourceObject.GetType().Name == "GH_ButtonObject")
+                {
+                    return true; // componentState.value contains both expressions
+                }
+
+                // Remove PersistentData for value lists when ListItems exists (redundant and conflicts with selection)
+                // Value list output is derived from SelectedItems, so PersistentData application can override selection state
+                if (sourceObject is GH_ValueList)
+                {
+                    return true; // ListItems + ListMode contain the authoritative selection state
+                }
+
+                // Remove PersistentData for sliders
+                if (sourceObject is GH_NumberSlider)
+                {
+                    return true; // CurrentValue contains the same information in a more compact format
+                }
             }
 
             return false;

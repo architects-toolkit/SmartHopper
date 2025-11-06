@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed `IsPropertyInWhitelist()` method to properly check omitted properties before whitelist
   - Removed `Type` and `HumanReadable` properties from `ComponentProperty` model to reduce JSON size
 - **Enhanced GhJSON Schema**: Implemented component schema improvements following complete property reference specification:
-  - **Parameter Properties**: `parameterName`, `dataMapping`, `simplify`, `reverse`, `invert`, `expression`, `variableName`, `isPrincipal`, `locked`
+  - **Parameter Properties**: `parameterName`, `dataMapping`, `simplify`, `reverse`, `invert`, `unitize`, `expression`, `variableName`, `isPrincipal`, `locked`
   - **Component Properties**: `locked`, `hidden`, universal `value` property with type-specific mapping
   - **Value Consolidation**: Number Slider (`currentValue` → `value`), Panel (`userText` → `value`), Scribble (`text` → `value`), Script (`script` → `value`), Value List (`listItems` → `value`)
   - **Removed Properties**: `expressionContent` (use `expression`), `access`, `description`, `optional`, `type`, `objectType` (excluded as implicit/redundant), `humanReadable`, redundant slider properties
@@ -60,6 +60,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **ComponentProperty JSON Serialization**: Simple types (bool, int, string, double, etc.) now serialize directly without the `{"value": ...}` wrapper for cleaner, more compact JSON output. Complex types retain the wrapper structure for backward compatibility.
+- **Empty String Omission**: Empty string properties (e.g., group `name`, component `nickName`) are now omitted from JSON output for cleaner, more compact serialization. Only non-empty values are included.
+- **Document Metadata Improvements**:
+  - Fixed Grasshopper version detection (now reads from Instances assembly instead of settings)
+  - Added `schemaVersion` property (set to "1.0") to GrasshopperDocument
+  - Added `rhinoVersion` property to track Rhino version
+  - Added `parameterCount` property to track standalone parameters separately from components
+  - Changed `createdAt` to `created` for consistency
+  - Default document `version` to "1"
+  - Added `dependencies` array to track plugin dependencies (excludes system assemblies)
 - More robust GhJson schema, serialization and deserialization methods.
 - Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
 - Centralized error handling in AIReturn and tool calls.
@@ -78,7 +88,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `DocumentIntrospection.cs` to use `PropertyManagerV2` with `PropertyManagerFactory.CreateForAI()`
   - Updated `GhJsonPlacer.cs` to use `PropertyManagerV2` for property application
   - Updated `PropertyManagerTests.cs` to test the new `PropertyManagerV2` system instead of the old `PropertyManager`
-  - Migration utility `PropertyManagerMigration.cs` provides compatibility methods for gradual migration
 
 ### Fixed
 
@@ -87,6 +96,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Rectangle Serialization**: Fixed Rectangle3d serialization/deserialization to use center-based format (`rectangleCXY`) instead of origin-based (`rectangleOXY`), ensuring correct position and orientation after round-trip. Uses interval-based constructor to guarantee proper reconstruction.
 - **IsPrincipal Property Cleanup**: Removed `IsPrincipal` from appearing as a top-level property on standalone parameter components (Colour, Number, Text, etc.). It now only appears in `inputSettings`/`outputSettings` `additionalSettings` when set to `true`, reducing JSON clutter.
 - **Script Component Null Reference**: Fixed `ArgumentNullException` in `gh_get` tool when processing script components. Added null check in `ScriptComponentHelper.GetScriptLanguageType()` method before calling `.Contains()` on potentially null language name string.
+- **Stand-Alone Parameter Serialization**: Fixed `GhJsonSerializer` to properly serialize stand-alone parameters (e.g., `Param_Colour`, `Param_Number`, `Param_Box`, etc.). Previously only `IGH_Component` objects were serialized; now both `IGH_Component` and `IGH_Param` objects are processed. Stand-alone parameters (those without a parent component) are now included in the serialization output and their connections are properly extracted.
+- **PersistentData Deserialization**: Fixed `GhJsonDeserializer` to properly deserialize internalized data (PersistentData) for stand-alone parameters. The deserializer now uses `PropertyManagerV2` instead of simple reflection, which correctly handles the nested data tree structure and type-specific conversions for all parameter types (Color, Point, Vector, Line, Plane, Circle, Arc, Box, Rectangle, Interval, Number, Integer, Boolean, Text).
+- **Connection Matching by Index**: Fixed connection serialization/deserialization to use parameter index instead of parameter name. Connections now include `paramIndex` property for reliable matching regardless of display name settings (full names vs nicknames). The deserializer uses index-based matching with fallback to name-based matching for backward compatibility. Fixed stand-alone parameter to stand-alone parameter connections to properly set `paramIndex` to 0 (single input).
+- **Group InstanceGuid**: Fixed group serialization to include the actual `InstanceGuid` instead of all zeros. Groups now properly serialize their unique identifier for correct reconstruction.
+- **InstanceGuid Generation**: Fixed deserialization to always generate new InstanceGuids instead of reusing GUIDs from JSON. This prevents "An item with the same key has already been added" errors when placing components that already exist in the document. Grasshopper now automatically generates unique GUIDs for all deserialized components.
+- **Stand-Alone Parameter Connections**: Fixed `ConnectionManager` to support connections between stand-alone parameters (e.g., Colour → Panel). Previously only component-to-component and parameter-to-component connections were supported.
+- **Smart Pivot Handling in gh_put**: Improved component placement logic to intelligently handle positions:
+  - When pivots are present in GhJSON: Components are placed with their relative positions preserved, offset to prevent overlap with existing canvas components (positioned below the lowest existing component with 100px spacing)
+  - When pivots are absent: Uses `DependencyGraphUtils.CreateComponentGrid` algorithm (same as `gh_tidy_up`) to automatically calculate optimal grid layout based on component connections
+  - Removed `RecalculatePivots` option from `DeserializationOptions` and `gh_put` tool - pivot handling is now automatic based on GhJSON content
+- **Parameter Modifier Serialization**: Fixed `ParameterMapper` to properly extract and apply parameter modifiers (`Reverse`, `Simplify`, `Locked`) and `DataMapping` for component parameters. These settings are now serialized in the `additionalSettings` object and correctly restored during deserialization. Note: The `Invert` property does not exist in the `IGH_Param` interface and is reserved in `AdditionalParameterSettings` for future use or specific parameter type extensions.
+- **Removed Optional Property**: Removed redundant `optional` property from `ParameterSettings` model as it provides no useful information for serialization/deserialization.
 
 ## [1.0.0-alpha] - 2025-10-11
 

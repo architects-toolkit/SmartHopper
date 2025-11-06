@@ -9,6 +9,7 @@
  */
 
 using Newtonsoft.Json;
+using SmartHopper.Core.Serialization;
 
 namespace SmartHopper.Core.Models.Components
 {
@@ -28,19 +29,15 @@ namespace SmartHopper.Core.Models.Components
         /// Gets or sets the nickname of the parameter.
         /// </summary>
         [JsonProperty("nickName", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? NickName { get; set; }
 
         /// <summary>
         /// Gets or sets the description of the parameter.
         /// </summary>
         [JsonProperty("description", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? Description { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the parameter is optional.
-        /// </summary>
-        [JsonProperty("optional", NullValueHandling = NullValueHandling.Ignore)]
-        public bool? Optional { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether this is the principal parameter.
@@ -52,6 +49,7 @@ namespace SmartHopper.Core.Models.Components
         /// Gets or sets the data mapping mode for the parameter.
         /// </summary>
         [JsonProperty("dataMapping", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? DataMapping { get; set; }
 
         /// <summary>
@@ -65,24 +63,28 @@ namespace SmartHopper.Core.Models.Components
         /// The presence of this property implies hasExpression=true, making that flag redundant.
         /// </summary>
         [JsonProperty("expression", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? Expression { get; set; }
 
         /// <summary>
         /// Gets or sets the variable name for script parameters.
         /// </summary>
         [JsonProperty("variableName", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? VariableName { get; set; }
 
         /// <summary>
-        /// Gets or sets the access mode for the parameter (item, list, tree).
+        /// Gets or sets the access mode for the parameter (item, list, tree). Necessary for script components.
         /// </summary>
         [JsonProperty("access", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? Access { get; set; }
 
         /// <summary>
         /// Gets or sets the type hint for script parameters (e.g., "int", "double", "DataTree", etc.).
         /// </summary>
         [JsonProperty("typeHint", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string? TypeHint { get; set; }
 
         /// <summary>

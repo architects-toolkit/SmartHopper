@@ -43,9 +43,15 @@ namespace SmartHopper.Core.Models.Components
         public bool? Locked { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the parameter inverts boolean/numeric values.
+        /// Gets or sets a value indicating whether the parameter inverts boolean values (Param_Boolean only).
         /// </summary>
         [JsonProperty("invert", NullValueHandling = NullValueHandling.Ignore)]
         public bool? Invert { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether vectors should be unitized (Param_Vector only).
+        /// </summary>
+        [JsonProperty("unitize", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Unitize { get; set; }
     }
 }

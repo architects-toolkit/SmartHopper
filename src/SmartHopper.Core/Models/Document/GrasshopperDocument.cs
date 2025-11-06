@@ -14,6 +14,7 @@ using System.Linq;
 using Newtonsoft.Json;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Connections;
+using SmartHopper.Core.Serialization;
 
 namespace SmartHopper.Core.Models.Document
 {
@@ -26,6 +27,7 @@ namespace SmartHopper.Core.Models.Document
         /// Gets or sets the GhJSON schema version.
         /// </summary>
         [JsonProperty("schemaVersion", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonConverter(typeof(EmptyStringIgnoreConverter))]
         public string SchemaVersion { get; set; }
 
         /// <summary>

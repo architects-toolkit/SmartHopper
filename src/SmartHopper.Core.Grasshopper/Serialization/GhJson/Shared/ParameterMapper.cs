@@ -35,8 +35,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
 
             var settings = new ParameterSettings
             {
-                ParameterName = param.Name,
-                Access = AccessModeMapper.ToString(param.Access)
+                ParameterName = param.Name
             };
 
             bool hasSettings = false;
@@ -49,12 +48,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                 hasSettings = true;
             }
 
-            // Extract Description if present
-            if (!string.IsNullOrEmpty(param.Description))
-            {
-                settings.Description = param.Description;
-                hasSettings = true;
-            }
+            // Description is implicit from component definition - not serialized
 
             // Mark as principal if applicable
             if (isPrincipal)
@@ -63,33 +57,122 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                 hasSettings = true;
             }
 
-            // Extract optional flag
-            if (param.Optional)
+            // Extract DataMapping (None, Flatten, Graft)
+            if (param.DataMapping != GH_DataMapping.None)
             {
-                settings.Optional = true;
+                settings.DataMapping = param.DataMapping.ToString();
                 hasSettings = true;
             }
 
-            // Extract expression if it's a Grasshopper expression parameter
-            if (param is global::Grasshopper.Kernel.Parameters.Param_ScriptVariable scriptVar)
+            // Extract additional settings (modifiers)
+            var additionalSettings = ExtractAdditionalSettings(param);
+            if (additionalSettings != null)
             {
-                var expressionProp = scriptVar.GetType().GetProperty("Expression");
-                if (expressionProp != null)
+                settings.AdditionalSettings = additionalSettings;
+                hasSettings = true;
+            }
+
+            // Extract expression generically if parameter exposes an 'Expression' property
+            try
+            {
+                var expressionProp = param.GetType().GetProperty("Expression");
+                if (expressionProp != null && expressionProp.CanRead)
                 {
-                    var expressionObj = expressionProp.GetValue(scriptVar);
-                    if (expressionObj != null)
+                    var expressionObj = expressionProp.GetValue(param);
+                    var expressionStr = expressionObj?.ToString();
+                    if (!string.IsNullOrWhiteSpace(expressionStr))
                     {
-                        var expressionStr = expressionObj.ToString();
-                        if (!string.IsNullOrEmpty(expressionStr))
-                        {
-                            settings.Expression = expressionStr;
-                            hasSettings = true;
-                        }
+                        settings.Expression = expressionStr;
+                        hasSettings = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ParameterMapper] Error extracting expression from '{param.Name}': {ex.Message}");
+            }
+
+            return hasSettings ? settings : null;
+        }
+
+        /// <summary>
+        /// Extracts additional parameter settings (modifiers) from a Grasshopper parameter.
+        /// </summary>
+        private static AdditionalParameterSettings ExtractAdditionalSettings(IGH_Param param)
+        {
+            var additionalSettings = new AdditionalParameterSettings();
+            bool hasAdditionalSettings = false;
+
+            // Extract Reverse flag (reverses list order)
+            if (param.Reverse)
+            {
+                additionalSettings.Reverse = true;
+                hasAdditionalSettings = true;
+            }
+
+            // Extract Simplify flag (simplifies data tree paths)
+            if (param.Simplify)
+            {
+                additionalSettings.Simplify = true;
+                hasAdditionalSettings = true;
+            }
+
+            // Extract Locked flag
+            // NOTE: Don't extract locked state if it's inherited from the parent component
+            // When a component is locked, Grasshopper automatically locks all its parameters
+            // We only want to serialize explicit parameter-level locks, not inherited ones
+            if (param.Locked)
+            {
+                // Check if parent component is locked
+                bool isInheritedLock = false;
+                if (param.Attributes?.Parent != null)
+                {
+                    var parentDocObj = param.Attributes.Parent.DocObject;
+                    if (parentDocObj is IGH_ActiveObject parentActiveObj && parentActiveObj.Locked)
+                    {
+                        // This is an inherited lock from the parent component, don't serialize it
+                        isInheritedLock = true;
+                    }
+                }
+
+                if (!isInheritedLock)
+                {
+                    additionalSettings.Locked = true;
+                    hasAdditionalSettings = true;
+                }
+            }
+
+            // Extract Invert flag for Param_Boolean using reflection
+            if (param is global::Grasshopper.Kernel.Parameters.Param_Boolean)
+            {
+                var invertProp = param.GetType().GetProperty("Invert");
+                if (invertProp != null)
+                {
+                    var invertValue = (bool)invertProp.GetValue(param);
+                    if (invertValue)
+                    {
+                        additionalSettings.Invert = true;
+                        hasAdditionalSettings = true;
                     }
                 }
             }
 
-            return hasSettings ? settings : null;
+            // Extract Unitize flag for Param_Vector using reflection
+            if (param is global::Grasshopper.Kernel.Parameters.Param_Vector)
+            {
+                var unitizeProp = param.GetType().GetProperty("Unitize");
+                if (unitizeProp != null)
+                {
+                    var unitizeValue = (bool)unitizeProp.GetValue(param);
+                    if (unitizeValue)
+                    {
+                        additionalSettings.Unitize = true;
+                        hasAdditionalSettings = true;
+                    }
+                }
+            }
+
+            return hasAdditionalSettings ? additionalSettings : null;
         }
 
         /// <summary>
@@ -110,23 +193,34 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                     param.NickName = settings.NickName;
                 }
 
-                // Apply Description if provided
-                if (!string.IsNullOrEmpty(settings.Description))
+                // Description is implicit - not applied from settings
+
+                // Apply DataMapping if provided
+                if (!string.IsNullOrEmpty(settings.DataMapping))
                 {
-                    param.Description = settings.Description;
+                    if (Enum.TryParse<GH_DataMapping>(settings.DataMapping, true, out var dataMapping))
+                    {
+                        param.DataMapping = dataMapping;
+                    }
                 }
 
-                // Apply optional flag
-                if (settings.Optional.HasValue)
+                // Apply additional settings (modifiers)
+                if (settings.AdditionalSettings != null)
                 {
-                    param.Optional = settings.Optional.Value;
+                    ApplyAdditionalSettings(param, settings.AdditionalSettings);
                 }
 
-                // Apply access mode if provided
-                if (!string.IsNullOrEmpty(settings.Access))
+                // TODO: Apply IsPrincipal flag
+                // This determines parameter matching behavior but there's no direct API to set it
+                // Need to investigate how to set the principal parameter in IGH_Component
+                if (settings.IsPrincipal.HasValue && settings.IsPrincipal.Value)
                 {
-                    param.Access = AccessModeMapper.FromString(settings.Access);
+                    Debug.WriteLine($"[ParameterMapper] TODO: Apply IsPrincipal flag to parameter '{param.Name}'");
+                    // IGH_Component doesn't expose a SetPrincipalParameter method
+                    // May need to use reflection or component-specific logic
                 }
+
+                // Access mode is implicit from component type - not applied from settings
 
                 // Apply expression if it's a Grasshopper expression parameter
                 if (!string.IsNullOrEmpty(settings.Expression))
@@ -155,16 +249,23 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                 var expressionProp = param.GetType().GetProperty("Expression");
                 if (expressionProp != null && expressionProp.CanWrite)
                 {
-                    // Get the type of expression object needed
                     var exprType = expressionProp.PropertyType;
-                    
-                    // Try to create expression from string
+
+                    // If property is string, assign directly
+                    if (exprType == typeof(string))
+                    {
+                        expressionProp.SetValue(param, expression);
+                        Debug.WriteLine($"[ParameterMapper] Applied string expression '{expression}' to '{param.Name}'");
+                        return;
+                    }
+
+                    // Otherwise try Parse(string) factory
                     var parseMethod = exprType.GetMethod("Parse", new[] { typeof(string) });
                     if (parseMethod != null)
                     {
                         var exprObj = parseMethod.Invoke(null, new object[] { expression });
                         expressionProp.SetValue(param, exprObj);
-                        Debug.WriteLine($"[ParameterMapper] Applied expression '{expression}' to '{param.Name}'");
+                        Debug.WriteLine($"[ParameterMapper] Applied parsed expression '{expression}' to '{param.Name}'");
                     }
                 }
             }
@@ -190,9 +291,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                 !string.Equals(param.Name, param.NickName, StringComparison.Ordinal))
                 return true;
 
-            // Check for description
-            if (!string.IsNullOrEmpty(param.Description))
-                return true;
+            // Description is implicit - not checked
 
             // Principal parameters should be marked
             if (isPrincipal)
@@ -202,11 +301,61 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
             if (param.Optional)
                 return true;
 
-            // Check for expression
-            if (param is global::Grasshopper.Kernel.Parameters.Param_ScriptVariable)
-                return true;
+            // Check for expression property on any parameter
+            try
+            {
+                var expressionProp = param.GetType().GetProperty("Expression");
+                if (expressionProp != null && expressionProp.CanRead)
+                {
+                    var expressionObj = expressionProp.GetValue(param);
+                    if (expressionObj != null && !string.IsNullOrWhiteSpace(expressionObj.ToString()))
+                        return true;
+                }
+            }
+            catch (Exception) { }
 
             return false;
+        }
+
+        /// <summary>
+        /// Applies additional parameter settings (modifiers) to a Grasshopper parameter.
+        /// </summary>
+        private static void ApplyAdditionalSettings(IGH_Param param, AdditionalParameterSettings additionalSettings)
+        {
+            if (additionalSettings.Reverse.HasValue)
+            {
+                param.Reverse = additionalSettings.Reverse.Value;
+            }
+
+            if (additionalSettings.Simplify.HasValue)
+            {
+                param.Simplify = additionalSettings.Simplify.Value;
+            }
+
+            if (additionalSettings.Locked.HasValue)
+            {
+                param.Locked = additionalSettings.Locked.Value;
+            }
+
+            // Apply Invert flag for Param_Boolean using reflection
+            if (additionalSettings.Invert.HasValue && param is global::Grasshopper.Kernel.Parameters.Param_Boolean)
+            {
+                var invertProp = param.GetType().GetProperty("Invert");
+                if (invertProp != null && invertProp.CanWrite)
+                {
+                    invertProp.SetValue(param, additionalSettings.Invert.Value);
+                }
+            }
+
+            // Apply Unitize flag for Param_Vector using reflection
+            if (additionalSettings.Unitize.HasValue && param is global::Grasshopper.Kernel.Parameters.Param_Vector)
+            {
+                var unitizeProp = param.GetType().GetProperty("Unitize");
+                if (unitizeProp != null && unitizeProp.CanWrite)
+                {
+                    unitizeProp.SetValue(param, additionalSettings.Unitize.Value);
+                }
+            }
         }
     }
 }

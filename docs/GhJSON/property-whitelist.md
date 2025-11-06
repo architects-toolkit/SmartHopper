@@ -163,7 +163,8 @@ This unified approach provides:
 | `DataMapping` | String | Data mapping mode (None/Flatten/Graft) | Parameters |
 | `Expression` | String | Parameter expression | Parameters |
 | `VariableName` | String | Script parameter variable name | Script parameters |
-| `PersistentData` | Object | Internalized data in parameters | Parameters |
+| `PersistentData` | Object | Internalized data (params with NO sources - will be restored) | Parameters |
+| `VolatileData` | Object | Volatile data (params WITH sources - AI context only, NOT restored) | Parameters |
 
 ### Number Slider Properties
 
@@ -346,9 +347,13 @@ The following properties are globally blacklisted from all serialization context
 
 ## Special Handling
 
-### PersistentData
+### PersistentData vs VolatileData
 
-Internalized parameter data is serialized as a nested structure:
+**PersistentData**: Used for parameters with NO input connections. This data is **restored** during deserialization.
+
+**VolatileData**: Used for parameters WITH input connections. This data is included for **AI context only** and is **NOT restored** during deserialization (the actual data will come from connected sources).
+
+Both use the same nested structure format:
 
 ```json
 "PersistentData": {
@@ -412,7 +417,7 @@ public static readonly HashSet<string> GlobalBlacklist = new()
 // Core properties - essential for all objects  
 public static readonly HashSet<string> CoreProperties = new()
 {
-    "NickName", "Locked", "PersistentData"
+    "NickName", "Locked", "PersistentData", "VolatileData"
 };
 
 // Category-specific properties

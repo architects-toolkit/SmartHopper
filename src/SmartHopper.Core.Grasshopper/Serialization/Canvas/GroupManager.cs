@@ -107,12 +107,21 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
                     if (DataTypeSerializer.TryDeserializeFromPrefix(groupInfo.Color, out var colorObj) && colorObj is Color color)
                     {
                         group.Colour = color;
+                        Debug.WriteLine($"[GroupManager] Set group color to {color}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GroupManager] Failed to parse color '{groupInfo.Color}' - using default");
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[GroupManager] Error parsing color '{groupInfo.Color}': {ex.Message}");
                 }
+            }
+            else
+            {
+                Debug.WriteLine($"[GroupManager] No color specified - using default group color");
             }
 
             // Add members to group

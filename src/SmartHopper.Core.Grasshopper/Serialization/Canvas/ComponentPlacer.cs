@@ -15,9 +15,10 @@ using System.Drawing;
 using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
+using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Models.Serialization;
+using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
 {
@@ -54,23 +55,33 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
                 return placedNames;
             }
 
-            // Get starting position
-            var position = startPosition ?? CanvasAccess.StartPoint(spacing);
-
-            // Apply positions from GhJSON if available
             var componentProps = result.Document?.Components;
-            if (componentProps != null)
+            bool hasPivots = componentProps != null && componentProps.Any(p => !p.Pivot.IsEmpty);
+
+            // Calculate positions based on whether pivots exist in GhJSON
+            if (hasPivots)
             {
-                ApplyPositionsFromDocument(result.Components, componentProps, result.GuidMapping);
+                // Pivots exist: offset them to prevent overlap with existing components
+                var offset = CalculatePivotOffset(componentProps, startPosition);
+                ApplyOffsettedPositions(result.Components, componentProps, result.GuidMapping, offset);
+                Debug.WriteLine($"[ComponentPlacer] Applied pivot offset: ({offset.X}, {offset.Y})");
+            }
+            else
+            {
+                // No pivots: use tidy-up algorithm to calculate new positions
+                var layoutNodes = DependencyGraphUtils.CreateComponentGrid(result.Document, force: true);
+                var gridStartPosition = startPosition ?? CanvasAccess.StartPoint(spacing);
+                ApplyGridLayout(result.Components, layoutNodes, result.GuidMapping, gridStartPosition);
+                Debug.WriteLine($"[ComponentPlacer] Applied grid layout starting at ({gridStartPosition.X}, {gridStartPosition.Y})");
             }
 
-            // Add components to canvas
+            // Add components to canvas (positions already set above)
             foreach (var component in result.Components)
             {
                 try
                 {
-                    // Get position for this component
-                    var compPosition = GetComponentPosition(component, componentProps, result.GuidMapping, position);
+                    // Get position (already set by ApplyOffsettedPositions or ApplyGridLayout)
+                    var compPosition = GetComponentPosition(component);
 
                     // Add to canvas
                     CanvasAccess.AddObjectToCanvas(component, compPosition, redraw: false);
@@ -87,7 +98,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
             // Redraw canvas once at the end
             if (placedNames.Count > 0)
             {
-                document.NewSolution(false);
+                // Only refresh the canvas display, don't trigger a new solution
+                // NewSolution() can cause infinite loops by re-triggering AI components
                 Instances.ActiveCanvas?.Refresh();
             }
 
@@ -95,51 +107,84 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
         }
 
         /// <summary>
-        /// Applies positions from GhJSON document to component instances.
+        /// Calculates the offset to apply to pivots from GhJSON to prevent overlap.
+        /// Returns (0, lowestY) where lowestY is the lowest Y position on the current canvas.
         /// </summary>
-        private static void ApplyPositionsFromDocument(
+        private static PointF CalculatePivotOffset(
+            List<SmartHopper.Core.Models.Components.ComponentProperties> componentProps,
+            PointF? startPosition)
+        {
+            if (startPosition.HasValue)
+            {
+                // Use provided start position
+                var maxY = componentProps.Where(p => !p.Pivot.IsEmpty).Max(p => ((PointF)p.Pivot).Y);
+                return new PointF(startPosition.Value.X, startPosition.Value.Y + maxY);
+            }
+
+            // Find the lowest Y position on the current canvas
+            var currentObjects = CanvasAccess.GetCurrentObjects();
+            float lowestY = 0f;
+            
+            if (currentObjects.Any())
+            {
+                lowestY = currentObjects.Max(o => o.Attributes.Pivot.Y + o.Attributes.Bounds.Height);
+                lowestY += 100f; // Add spacing buffer
+            }
+
+            // Calculate offset to move the top of the new components to lowestY
+            var minComponentY = componentProps.Where(p => !p.Pivot.IsEmpty).Min(p => ((PointF)p.Pivot).Y);
+            return new PointF(0, lowestY - minComponentY);
+        }
+
+        /// <summary>
+        /// Applies offsetted positions from GhJSON to component instances.
+        /// </summary>
+        private static void ApplyOffsettedPositions(
             List<IGH_DocumentObject> components,
             List<SmartHopper.Core.Models.Components.ComponentProperties> componentProps,
-            Dictionary<Guid, IGH_DocumentObject> guidMapping)
+            Dictionary<Guid, IGH_DocumentObject> guidMapping,
+            PointF offset)
         {
             foreach (var props in componentProps)
             {
                 if (!props.Pivot.IsEmpty && guidMapping.TryGetValue(props.InstanceGuid, out var instance))
                 {
-                    var pivot = (PointF)props.Pivot;
-                    instance.Attributes.Pivot = pivot;
-                    Debug.WriteLine($"[ComponentPlacer] Set position for '{instance.Name}' to ({pivot.X}, {pivot.Y})");
+                    var originalPivot = (PointF)props.Pivot;
+                    var newPivot = new PointF(originalPivot.X + offset.X, originalPivot.Y + offset.Y);
+                    instance.Attributes.Pivot = newPivot;
+                    Debug.WriteLine($"[ComponentPlacer] Set position for '{instance.Name}' to ({newPivot.X}, {newPivot.Y})");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Applies grid layout calculated by DependencyGraphUtils to component instances.
+        /// </summary>
+        private static void ApplyGridLayout(
+            List<IGH_DocumentObject> components,
+            List<NodeGridComponent> layoutNodes,
+            Dictionary<Guid, IGH_DocumentObject> guidMapping,
+            PointF startPosition)
+        {
+            foreach (var node in layoutNodes)
+            {
+                if (guidMapping.TryGetValue(node.ComponentId, out var instance))
+                {
+                    var newPivot = new PointF(startPosition.X + node.Pivot.X, startPosition.Y + node.Pivot.Y);
+                    instance.Attributes.Pivot = newPivot;
+                    Debug.WriteLine($"[ComponentPlacer] Set grid position for '{instance.Name}' to ({newPivot.X}, {newPivot.Y})");
                 }
             }
         }
 
         /// <summary>
         /// Gets the position for a component.
+        /// This is called after positions have been set by ApplyOffsettedPositions or ApplyGridLayout.
         /// </summary>
-        private static PointF GetComponentPosition(
-            IGH_DocumentObject component,
-            List<SmartHopper.Core.Models.Components.ComponentProperties> componentProps,
-            Dictionary<Guid, IGH_DocumentObject> guidMapping,
-            PointF defaultPosition)
+        private static PointF GetComponentPosition(IGH_DocumentObject component)
         {
-            // Try to find position from props
-            if (componentProps != null)
-            {
-                var props = componentProps.FirstOrDefault(p => guidMapping.ContainsKey(p.InstanceGuid) && guidMapping[p.InstanceGuid] == component);
-                if (props != null && !props.Pivot.IsEmpty)
-                {
-                    return (PointF)props.Pivot;
-                }
-            }
-
-            // Check if component already has a position set
-            if (component.Attributes.Pivot != PointF.Empty)
-            {
-                return component.Attributes.Pivot;
-            }
-
-            // Use default position
-            return defaultPosition;
+            // Position should already be set by ApplyOffsettedPositions or ApplyGridLayout
+            return component.Attributes.Pivot;
         }
 
         /// <summary>
