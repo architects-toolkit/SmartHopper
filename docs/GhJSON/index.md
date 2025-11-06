@@ -11,22 +11,13 @@
 ### Core Documentation
 
 - **[Format Specification](./format-specification.md)**  
-  Complete schema reference for GhJSON format including component structure, properties, connections, and validation rules.
+  Complete schema reference for GhJSON format including component structure, connections, groups, and validation rules.
 
-- **[Property Management System](./property-whitelist.md)**  
-  Advanced property management with context-aware filtering, component categories, and flexible configuration system.
-
-- **[Property Management V2 - Implementation Status](./property-management-v2.md)**  
-  Detailed status of the new property management system implementation and alignment with roadmap goals.
+- **[Property Management (V2)](./property-management.md)**  
+  Modern property system with contexts and categories, including the Complete Property Reference and Core Data Types tables.
 
 - **[Examples](./examples.md)**  
   Practical examples of GhJSON format for common Grasshopper patterns and component types.
-
-- **[Roadmap](./roadmap.md)**  
-  Development roadmap with Phase 1 completed (Enhanced Schema and Metadata) and future plans.
-
-- **[Practical Implementation Plan](./practical-plan.md)**  
-  Step-by-step implementation plan with current status and next phases.
 
 ---
 
@@ -74,6 +65,15 @@ if (!isValid)
 
 ---
 
+## Status
+
+- Value consolidation: component values are stored in `componentState.value` (sliders, panels, scribbles, scripts, value lists).
+- Property Management V2: implemented and used by extraction.
+- Groups and document metadata: supported in models and extraction.
+- GhJSON-Lite, advanced validation levels, and diff utilities: not implemented.
+
+---
+
 ## Key Features
 
 ### Component Serialization
@@ -118,9 +118,9 @@ if (!isValid)
 - `GHJsonFixer`: Auto-repair for common issues
 
 **Grasshopper Integration** (`SmartHopper.Core.Grasshopper.Utils.Serialization`):
-- `DocumentIntrospection`: Extract GhJSON from live Grasshopper objects
+- `DocumentIntrospectionV2`: Extract GhJSON from live Grasshopper objects
 - `GhJsonValidator`: Grasshopper-specific validation (component existence, type compatibility)
-- `PropertyManager`: Property whitelist and serialization logic
+- `PropertyManagerV2`: Context-aware property extraction and filtering
 
 **Placement** (`SmartHopper.Core.Grasshopper.Utils.Internal`):
 - `GhJsonPlacer`: Place deserialized components on canvas with positioning and wiring
@@ -183,23 +183,26 @@ AI: Uses gh_get to retrieve all components and analyze distribution
 
 ## Future Development
 
-See the [Roadmap](./roadmap.md) for planned enhancements:
+Planned enhancements (high level):
 
-1. **Enhanced Metadata**: Component state, categories, descriptions
-2. **Wolf Format Integration**: Learn from Wolf Community Scripts dataset
-3. **GhJSON-Lite**: Lightweight variant for bulk operations and AI context optimization
-4. **Reliability Improvements**: Enhanced validation, error recovery, and testing
+- **Phase 2: GhJSON-Lite**
+- [ ] 2.1 Lite converter (structure-only)
+- [ ] 2.2 Type dictionary optimization
+- [ ] 2.3 Diff generation utility
+
+- **Phase 3: Reliability and Consistency**
+- [ ] 3.1 Validation framework (levels + JSON Schema)
+- [ ] 3.2 Error handling and recovery (graceful degradation, auto-repair)
+- [ ] 3.3 Consistency guarantees (deterministic ordering, idempotency)
+- [ ] 3.4 Undo support to gh_put
 
 ---
 
 ## Related Documentation
 
-- [Implementation Status](./implementation-status.md) - Current implementation progress and pending tasks
-- [GhJSON Roadmap](./roadmap.md) - Complete feature roadmap and vision
-- [Format Specification](./format-specification.md) - Current format specification
-- [Property Management V2](./property-management-v2.md) - Advanced property filtering system
-- [Property Whitelist](./property-whitelist.md) - Legacy property filtering (deprecated)
-- [Examples](./examples.md) - Usage examples
+- [Format Specification](./format-specification.md)
+- [Property Management (V2)](./property-management.md)
+- [Examples](./examples.md)
 - [AI Tools Documentation](../Tools/index.md)
 - [Component Base Classes](../Components/index.md)
 - [Architecture Overview](../Architecture.md)
