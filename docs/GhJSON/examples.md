@@ -341,8 +341,5 @@ Components organized into groups using integer ID references.
 
 ## Related Documentation
 
-- [Implementation Status](./implementation-status.md) - Current progress and pending tasks
 - [GhJSON Format Specification](./format-specification.md) - Complete schema reference
-- [Property Management V2](./property-management-v2.md) - Advanced property system
-- [Property Whitelist](./property-whitelist.md) - Legacy property filtering
-- [GhJSON Roadmap](./roadmap.md) - Future development plans
+- [Property Management (V2)](./property-management.md) - Property contexts, Complete Property Reference, and Core Data Types

@@ -1,6 +1,6 @@
 # GhJSON Format Specification
 
-> **📊 Implementation Status**: This specification describes the current implemented format. See [implementation-status.md](./implementation-status.md) for feature completion status and [roadmap.md](./roadmap.md) for planned enhancements.
+> This specification describes the current implemented format. For property details and data type encodings see [Property Management (V2)](./property-management.md).
 
 ## Overview
 
@@ -48,7 +48,6 @@ Each component in the `components` array represents a Grasshopper object (compon
   "instanceGuid": "f8e7d6c5-b4a3-9281-7065-43e1f2a9b8c7",
   "id": 1,
   "pivot": "150.0,200.0",
-  "properties": {},
   "selected": false,
   "warnings": [],
   "errors": []
@@ -64,7 +63,6 @@ Each component in the `components` array represents a Grasshopper object (compon
 | `instanceGuid` | GUID | Yes | Unique identifier for this specific instance |
 | `id` | Integer | No | Sequential integer ID for connections and group references |
 | `pivot` | String | No | Canvas position in compact "X,Y" format (e.g., "150.0,200.0") |
-| `properties` | Object | No | Dictionary of component-specific properties (legacy) |
 | `params` | Object | No | Simple key-value pairs for basic properties |
 | `inputSettings` | Array | No | Input parameter configuration |
 | `outputSettings` | Array | No | Output parameter configuration |
@@ -77,32 +75,10 @@ Each component in the `components` array represents a Grasshopper object (compon
 
 - **Integer IDs**: Components are assigned sequential integer IDs (1, 2, 3...) used for connections and group member references
 - **Compact Position**: The `pivot` property uses a compact string format "X,Y" instead of object format for efficiency
-- **Property Organization**: Properties are organized into `properties` (legacy), `params` (simple values), `inputSettings`/`outputSettings` (parameter config), and `componentState` (UI state)
+- **Property Organization**: Use `params` (simple values), `inputSettings`/`outputSettings` (parameter config), and `componentState` (UI state). The universal component value lives in `componentState.value`.
 
 ---
 
-## Properties Schema
-
-The `properties` object contains component-specific configuration.
-
-### Property Structure
-
-```json
-"properties": {
-  "Locked": {
-    "value": false
-  },
-  "CurrentValue": {
-    "value": "5.0<0.0,10.0>"
-  }
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `value` | Any | Yes | The actual property value (type inferred from JSON) |
-
----
 
 ## Connection Schema
 
@@ -199,8 +175,5 @@ AI can use simple integer strings as `instanceGuid` values (e.g., `"1"`, `"2"`),
 
 ## Related Documentation
 
-- [Implementation Status](./implementation-status.md) - Current progress and pending tasks
-- [GhJSON Roadmap](./roadmap.md) - Complete feature roadmap
-- [Property Management V2](./property-management-v2.md) - Advanced property system
-- [Property Whitelist](./property-whitelist.md) - Legacy property filtering
+- [Property Management (V2)](./property-management.md) - Property contexts, Complete Property Reference, and Core Data Types
 - [Examples](./examples.md) - Usage examples
