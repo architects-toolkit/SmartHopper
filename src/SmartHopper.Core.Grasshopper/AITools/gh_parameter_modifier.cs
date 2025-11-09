@@ -47,7 +47,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_flatten",
                 description: "Flatten a parameter's data tree into a single list",
-                category: "ComponentModification",
+                category: "Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -63,7 +63,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_graft",
                 description: "Graft a parameter to add an extra branch level to the data tree",
-                category: "ComponentModification",
+                category: "Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -79,7 +79,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_reverse",
                 description: "Reverse the order of items in a parameter",
-                category: "ComponentModification",
+                category: "Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -96,7 +96,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_simplify",
                 description: "Simplify geometry in a parameter (removes redundant control points)",
-                category: "ComponentModification",
+                category: "Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -113,7 +113,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_bulk_inputs",
                 description: "Apply data settings to all input parameters of a component",
-                category: "ComponentModification",
+                category: "Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -131,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_bulk_outputs",
                 description: "Apply data settings to all output parameters of a component",
-                category: "ComponentModification",
+                category: "Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
