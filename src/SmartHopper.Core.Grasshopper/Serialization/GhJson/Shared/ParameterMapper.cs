@@ -25,9 +25,9 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
         /// <summary>
         /// Extracts parameter settings from a Grasshopper parameter.
         /// </summary>
-        /// <param name="param">Parameter to extract settings from</param>
-        /// <param name="isPrincipal">Whether this is the principal parameter</param>
-        /// <returns>ParameterSettings or null if no relevant settings</returns>
+        /// <param name="param">The parameter to extract from</param>
+        /// <param name="isPrincipal">Whether this parameter is the principal/master input parameter (only valid for inputs)</param>
+        /// <returns>Parameter settings or null if no custom settings exist</returns>
         public static ParameterSettings ExtractSettings(IGH_Param param, bool isPrincipal = false)
         {
             if (param == null)
@@ -50,8 +50,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
 
             // Description is implicit from component definition - not serialized
 
-            // Mark as principal if applicable
-            if (isPrincipal)
+            // Mark as principal if applicable (only valid for inputs)
+            if (isPrincipal && param.Kind == GH_ParamKind.input)
             {
                 settings.IsPrincipal = true;
                 hasSettings = true;
@@ -70,6 +70,29 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
             {
                 settings.AdditionalSettings = additionalSettings;
                 hasSettings = true;
+            }
+
+            // Extract Required/Optional property (only for inputs)
+            if (param.Kind == GH_ParamKind.input)
+            {
+                try
+                {
+                    var optionalProp = param.GetType().GetProperty("Optional");
+                    if (optionalProp != null && optionalProp.CanRead)
+                    {
+                        var isOptional = optionalProp.GetValue(param) as bool?;
+                        if (isOptional.HasValue && !isOptional.Value)
+                        {
+                            // Only serialize if parameter is explicitly required (Optional=false)
+                            settings.Required = true;
+                            hasSettings = true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ParameterMapper] Error extracting Optional property from '{param.Name}': {ex.Message}");
+                }
             }
 
             // Extract expression generically if parameter exposes an 'Expression' property
@@ -210,22 +233,31 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                     ApplyAdditionalSettings(param, settings.AdditionalSettings);
                 }
 
-                // TODO: Apply IsPrincipal flag
-                // This determines parameter matching behavior but there's no direct API to set it
-                // Need to investigate how to set the principal parameter in IGH_Component
-                if (settings.IsPrincipal.HasValue && settings.IsPrincipal.Value)
-                {
-                    Debug.WriteLine($"[ParameterMapper] TODO: Apply IsPrincipal flag to parameter '{param.Name}'");
-                    // IGH_Component doesn't expose a SetPrincipalParameter method
-                    // May need to use reflection or component-specific logic
-                }
-
                 // Access mode is implicit from component type - not applied from settings
 
                 // Apply expression if it's a Grasshopper expression parameter
                 if (!string.IsNullOrEmpty(settings.Expression))
                 {
                     ApplyExpression(param, settings.Expression);
+                }
+
+                // Apply Required/Optional property (only for input parameters)
+                if (param.Kind == GH_ParamKind.input)
+                {
+                    try
+                    {
+                        var optionalProp = param.GetType().GetProperty("Optional");
+                        if (optionalProp != null && optionalProp.CanWrite)
+                        {
+                            bool isOptional = settings.Required.HasValue ? !settings.Required.Value : true;
+                            optionalProp.SetValue(param, isOptional);
+                            Debug.WriteLine($"[ParameterMapper] Set Optional={isOptional} (Required={settings.Required?.ToString() ?? "null"}) for '{param.Name}'");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[ParameterMapper] Error applying Optional property to '{param.Name}': {ex.Message}");
+                    }
                 }
 
                 Debug.WriteLine($"[ParameterMapper] Applied settings to parameter '{param.Name}'");
@@ -322,19 +354,24 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
         /// </summary>
         private static void ApplyAdditionalSettings(IGH_Param param, AdditionalParameterSettings additionalSettings)
         {
+            Debug.WriteLine($"[ParameterMapper] ApplyAdditionalSettings called for '{param.Name}' (Type: {param.GetType().Name})");
+            
             if (additionalSettings.Reverse.HasValue)
             {
                 param.Reverse = additionalSettings.Reverse.Value;
+                Debug.WriteLine($"[ParameterMapper]   Set Reverse = {additionalSettings.Reverse.Value}");
             }
 
             if (additionalSettings.Simplify.HasValue)
             {
                 param.Simplify = additionalSettings.Simplify.Value;
+                Debug.WriteLine($"[ParameterMapper]   Set Simplify = {additionalSettings.Simplify.Value}");
             }
 
             if (additionalSettings.Locked.HasValue)
             {
                 param.Locked = additionalSettings.Locked.Value;
+                Debug.WriteLine($"[ParameterMapper]   Set Locked = {additionalSettings.Locked.Value}");
             }
 
             // Apply Invert flag for Param_Boolean using reflection
@@ -344,6 +381,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                 if (invertProp != null && invertProp.CanWrite)
                 {
                     invertProp.SetValue(param, additionalSettings.Invert.Value);
+                    Debug.WriteLine($"[ParameterMapper]   Set Invert = {additionalSettings.Invert.Value}");
                 }
             }
 
@@ -354,8 +392,11 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                 if (unitizeProp != null && unitizeProp.CanWrite)
                 {
                     unitizeProp.SetValue(param, additionalSettings.Unitize.Value);
+                    Debug.WriteLine($"[ParameterMapper]   Set Unitize = {additionalSettings.Unitize.Value}");
                 }
             }
+            
+            Debug.WriteLine($"[ParameterMapper]   Verification - Reverse={param.Reverse}, Simplify={param.Simplify}, Locked={param.Locked}");
         }
     }
 }

@@ -40,10 +40,20 @@ namespace SmartHopper.Core.Models.Components
         public string? Description { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether this is the principal parameter.
+        /// Gets or sets whether this parameter is marked as the principal (master) input parameter.
+        /// For components, this affects parameter matching behavior and is indicated by a special icon.
+        /// Only valid for input parameters.
         /// </summary>
         [JsonProperty("isPrincipal", NullValueHandling = NullValueHandling.Ignore)]
         public bool? IsPrincipal { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether this parameter is required (cannot be removed by the user).
+        /// Applicable to VB Script and other variable parameter components.
+        /// When false or null, the parameter is optional and can be removed.
+        /// </summary>
+        [JsonProperty("required", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Required { get; set; }
 
         /// <summary>
         /// Gets or sets the data mapping mode for the parameter.
