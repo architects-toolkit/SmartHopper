@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Parameter settings applied via CreateParameter/DestroyParameter with VariableParameterMaintenance() call
   - Full support for custom input/output parameters with names, optional/required flags, and modifiers
   - **UI Thread Safety**: All VB Script parameter and code operations wrapped in `RhinoApp.InvokeOnUiThread()` to prevent UI blocking
+ - **New AI Tools for parameter and script modification**:
+   - Parameter tools: `gh_parameter_flatten`, `gh_parameter_graft`, `gh_parameter_reset_mapping`, `gh_parameter_reverse`, `gh_parameter_simplify`, `gh_parameter_bulk_inputs`, `gh_parameter_bulk_outputs`
+   - Script tools: `script_parameter_add_input`, `script_parameter_add_output`, `script_parameter_remove_input`, `script_parameter_remove_output`, `script_parameter_set_type_input`, `script_parameter_set_type_output`, `script_parameter_set_access`, `script_toggle_std_output`, `script_set_principal_input`, `script_parameter_set_optional`
 - **McNeel Forum AI Tools Enhancement**:
   - `mcneel_forum_search`: Enhanced search tool with configurable result limit (1-50 posts) and optional AI-generated summaries (limited to first 5 posts)
   - `mcneel_forum_get_post`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID

@@ -10,11 +10,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -144,7 +148,47 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var scriptCode = target.Text ?? string.Empty;
+                // Use GhJsonSerializer to extract component data (optional - provides structured data)
+                // For review, we primarily need the script code, but serializer gives us full context
+                string scriptCode = string.Empty;
+                string language = "unknown";
+                var componentData = new JObject();
+
+                try
+                {
+                    // Extract using GhJsonSerializer for consistency
+                    var componentsList = new List<IGH_ActiveObject> { (IGH_ActiveObject)target };
+                    var document = GhJsonSerializer.Serialize(componentsList, SerializationOptions.Standard);
+                    var props = document.Components.FirstOrDefault();
+
+                    if (props != null)
+                    {
+                        scriptCode = props.ComponentState?.Value?.ToString() ?? string.Empty;
+                        language = ScriptComponentFactory.DetectLanguage(target);
+
+                        // Build component context for AI (optional rich context)
+                        componentData["language"] = language;
+                        componentData["inputCount"] = props.InputSettings?.Count ?? 0;
+                        componentData["outputCount"] = props.OutputSettings?.Count ?? 0;
+                        componentData["codeLines"] = scriptCode.Split('\n').Length;
+
+                        Debug.WriteLine($"[script_review] Extracted via GhJsonSerializer: {language}, {scriptCode.Length} chars");
+                    }
+                    else
+                    {
+                        // Fallback to direct access
+                        scriptCode = target.Text ?? string.Empty;
+                        language = ScriptComponentFactory.DetectLanguage(target);
+                        Debug.WriteLine($"[script_review] Using fallback extraction");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Fallback if serialization fails
+                    scriptCode = target.Text ?? string.Empty;
+                    language = ScriptComponentFactory.DetectLanguage(target);
+                    Debug.WriteLine($"[script_review] Serialization failed, using fallback: {ex.Message}");
+                }
 
                 // Coded static checks by language
                 var codedIssues = new List<string>();
