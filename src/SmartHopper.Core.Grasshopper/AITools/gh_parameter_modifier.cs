@@ -36,7 +36,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// </summary>
     public class gh_parameter_modifier : IAIToolProvider
     {
-        private readonly string toolName = "gh_parameter_modifier";
         private readonly AICapability toolCapabilityRequirements = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput;
 
         /// <summary>

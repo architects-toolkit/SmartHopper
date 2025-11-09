@@ -35,7 +35,7 @@ body:
     attributes:
       label: Rhino Version
       description: What version of Rhino are you using?
-      placeholder: e.g. RH8.2
+      placeholder: e.g. RH8.24
     validations:
       required: true
   

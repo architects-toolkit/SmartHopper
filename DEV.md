@@ -56,8 +56,18 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_generate | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_edit | Modify the script from an existing component | ⚪ | 🟡 | - | - |
+| script_edit | Modify the script from an existing component | ⚪ | 🟡 | 🟠 | - |
 | script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
+| script_parameter_add_input | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
+| script_parameter_add_output | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
+| script_parameter_remove_input | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
+| script_parameter_remove_output | Remove an output parameter from a script component | ⚪ | 🟡 | - | - |
+| script_parameter_set_type_input | Set the type hint for a script input parameter | ⚪ | 🟡 | - | - |
+| script_parameter_set_type_output | Set the type hint for a script output parameter | ⚪ | 🟡 | - | - |
+| script_parameter_set_access | Set how a script input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
+| script_toggle_std_output | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
+| script_set_principal_input | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
+| script_parameter_set_optional | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
 | json_generate | Generate an AI response in strict JSON output | ⚪ | - | - | - |
 | web_generic_page_read | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
 | mcneel_forum_search | Search McNeel Discourse forum with configurable limit and optional AI summaries | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -76,9 +86,14 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | gh_generate | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
 | gh_connect | Connect Grasshopper components | ⚪ | 🟡 | - | - |
 | gh_group | Group components and set a meaningful title | ⚪ | 🟡 | - | - |
+| gh_parameter_flatten | Flatten a parameter's data tree into a single list | ⚪ | 🟡 | - | - |
+| gh_parameter_graft | Graft a parameter to add an extra branch level to the data tree | ⚪ | 🟡 | - | - |
+| gh_parameter_reverse | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
+| gh_parameter_simplify | Simplify geometry in a parameter (remove redundant structure) | ⚪ | 🟡 | - | - |
+| gh_parameter_bulk_inputs | Apply data settings to all input parameters of a component | ⚪ | 🟡 | - | - |
+| gh_parameter_bulk_outputs | Apply data settings to all output parameters of a component | ⚪ | 🟡 | - | - |
 | rhino_get_geometry | Retrieve geometry from Rhino | ⚪ | 🟡 | - | - |
 | rhino_read_3dm | Read a 3dm file from disk | ⚪ | 🟡 | - | - |
-
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
