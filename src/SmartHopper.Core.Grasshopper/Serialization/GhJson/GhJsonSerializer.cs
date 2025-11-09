@@ -465,13 +465,13 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
         {
             var settings = new List<ParameterSettings>();
             var paramList = parameters.ToList();
-            bool isScriptComponent = component is IScriptComponent;
+            bool isScriptComponent = component is IScriptComponent || IsVBScriptComponent(component);
 
             for (int i = 0; i < paramList.Count; i++)
             {
                 var param = paramList[i];
 
-                // Skip the standard output "out" parameter for script components
+                // Skip the standard output "out" parameter for script components (including VB Script)
                 // This is controlled by the UsingStandardOutputParam property in ComponentState
                 if (isScriptComponent && param.Kind == GH_ParamKind.output && 
                     param is Param_String && 
@@ -512,10 +512,17 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             bool isPrincipal,
             SerializationOptions options)
         {
-            // Check if owner is a script component
+            // Check if owner is a script component (C#, Python, IronPython)
             if (owner is IScriptComponent scriptComp)
             {
                 return ScriptParameterMapper.ExtractSettings(param, scriptComp, isPrincipal);
+            }
+
+            // Check if owner is VB Script (doesn't implement IScriptComponent but uses ScriptVariableParam)
+            else if (IsVBScriptComponent(owner))
+            {
+                // VB Script uses ScriptVariableParam but doesn't implement IScriptComponent
+                return ScriptParameterMapper.ExtractVBScriptSettings(param, isPrincipal);
             }
             else
             {
@@ -527,6 +534,20 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Checks if a component is a VB Script component.
+        /// VB Script components don't implement IScriptComponent but use ScriptVariableParam.
+        /// </summary>
+        private static bool IsVBScriptComponent(IGH_Component component)
+        {
+            if (component == null)
+                return false;
+
+            // Check if component name or type name contains "VB"
+            return component.Name.Contains("VB", StringComparison.OrdinalIgnoreCase) ||
+                   component.GetType().Name.Contains("VB", StringComparison.OrdinalIgnoreCase);
         }
 
         #endregion
@@ -578,8 +599,19 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             var universalValue = ExtractUniversalValue(originalObject, propertyManager);
             if (universalValue != null)
             {
-                state.Value = universalValue;
-                hasState = true;
+                // VB Script returns VBScriptCode object - store in VBCode property
+                if (universalValue is VBScriptCode vbCode)
+                {
+                    state.VBCode = vbCode;
+                    hasState = true;
+                    Debug.WriteLine($"[GhJsonSerializer] Stored VB Script 3 sections in ComponentState.VBCode");
+                }
+                else
+                {
+                    // Other components store value as-is
+                    state.Value = universalValue;
+                    hasState = true;
+                }
             }
 
             // Extract standard output visibility for script components
@@ -692,128 +724,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                          (component.Name.Contains("VB", StringComparison.OrdinalIgnoreCase) ||
                           component.GetType().Name.Contains("VB", StringComparison.OrdinalIgnoreCase)))
                 {
-                    try
-                    {
-                        var componentType = component.GetType();
-#if DEBUG
-                        // DETAILED TYPE INFORMATION FOR DOCUMENTATION LOOKUP
-                        Debug.WriteLine($"========== VB SCRIPT COMPONENT TYPE INFORMATION ==========");
-                        Debug.WriteLine($"Full Type Name: {componentType.FullName}");
-                        Debug.WriteLine($"Assembly: {componentType.Assembly.GetName().Name}");
-                        Debug.WriteLine($"Assembly Version: {componentType.Assembly.GetName().Version}");
-                        Debug.WriteLine($"Namespace: {componentType.Namespace}");
-                        
-                        // Base types
-                        Debug.WriteLine($"\n--- Base Types ---");
-                        var baseType = componentType.BaseType;
-                        while (baseType != null && baseType != typeof(object))
-                        {
-                            Debug.WriteLine($"  - {baseType.FullName}");
-                            baseType = baseType.BaseType;
-                        }
-                        
-                        // Interfaces
-                        Debug.WriteLine($"\n--- Implemented Interfaces ---");
-                        foreach (var iface in componentType.GetInterfaces())
-                        {
-                            Debug.WriteLine($"  - {iface.FullName}");
-                        }
-                        
-                        // All public properties with types
-                        Debug.WriteLine($"\n--- Public Properties ---");
-                        foreach (var prop in componentType.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
-                        {
-                            Debug.WriteLine($"  - {prop.PropertyType.Name} {prop.Name} [CanRead: {prop.CanRead}, CanWrite: {prop.CanWrite}]");
-                        }
-                        
-                        // All public methods (just names, not full signatures)
-                        Debug.WriteLine($"\n--- Public Methods (sample) ---");
-                        var methods = componentType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
-                            .Where(m => !m.Name.StartsWith("get_") && !m.Name.StartsWith("set_") && m.DeclaringType != typeof(object))
-                            .Take(20);
-                        foreach (var method in methods)
-                        {
-                            Debug.WriteLine($"  - {method.Name}");
-                        }
-                        
-                        Debug.WriteLine($"==========================================================\n");
-#endif
-
-                        // VB Script: Try multiple approaches to get code
-                        
-                        // Approach 1: Try Text property directly on component
-                        var textProp = componentType.GetProperty("Text");
-                        if (textProp != null && textProp.CanRead)
-                        {
-                            var textValue = textProp.GetValue(component) as string;
-                            if (!string.IsNullOrEmpty(textValue))
-                            {
-                                Debug.WriteLine($"[GhJsonSerializer] Found VB script code via Text property (length: {textValue.Length})");
-                                return textValue;
-                            }
-                        }
-                        
-                        // Approach 2: ScriptSource object
-                        var scriptSourceProp = componentType.GetProperty("ScriptSource");
-                        if (scriptSourceProp != null && scriptSourceProp.CanRead)
-                        {
-                            var scriptSourceObj = scriptSourceProp.GetValue(component);
-                            if (scriptSourceObj != null)
-                            {
-                                var scriptSourceType = scriptSourceObj.GetType();
-                                Debug.WriteLine($"[GhJsonSerializer] ScriptSource object type: {scriptSourceType.FullName}");
-                                
-                                // Try Text property on ScriptSource
-                                var scriptSourceTextProp = scriptSourceType.GetProperty("Text");
-                                if (scriptSourceTextProp != null && scriptSourceTextProp.CanRead)
-                                {
-                                    var scriptText = scriptSourceTextProp.GetValue(scriptSourceObj) as string;
-                                    if (!string.IsNullOrEmpty(scriptText))
-                                    {
-                                        Debug.WriteLine($"[GhJsonSerializer] Found VB script code via ScriptSource.Text (length: {scriptText.Length})");
-                                        return scriptText;
-                                    }
-                                }
-                                
-                                // Try combining UsingCode + ScriptCode + AdditionalCode
-                                var usingCodeProp = scriptSourceType.GetProperty("UsingCode");
-                                var scriptCodeProp = scriptSourceType.GetProperty("ScriptCode");
-                                var additionalCodeProp = scriptSourceType.GetProperty("AdditionalCode");
-                                
-                                var usingCode = usingCodeProp?.GetValue(scriptSourceObj) as string ?? "";
-                                var scriptCode = scriptCodeProp?.GetValue(scriptSourceObj) as string ?? "";
-                                var additionalCode = additionalCodeProp?.GetValue(scriptSourceObj) as string ?? "";
-                                
-                                Debug.WriteLine($"[GhJsonSerializer] VB ScriptSource parts: Using={usingCode.Length}, Script={scriptCode.Length}, Additional={additionalCode.Length}");
-                                
-                                // Combine non-empty parts
-                                var parts = new List<string>();
-                                if (!string.IsNullOrEmpty(usingCode)) parts.Add(usingCode);
-                                if (!string.IsNullOrEmpty(scriptCode)) parts.Add(scriptCode);
-                                if (!string.IsNullOrEmpty(additionalCode)) parts.Add(additionalCode);
-                                
-                                if (parts.Count > 0)
-                                {
-                                    var combined = string.Join("\r\n", parts);
-                                    Debug.WriteLine($"[GhJsonSerializer] Combined VB script code (length: {combined.Length})");
-                                    return combined;
-                                }
-                                
-                                Debug.WriteLine($"[GhJsonSerializer] No code found in ScriptSource properties");
-                            }
-                            else
-                            {
-                                Debug.WriteLine($"[GhJsonSerializer] ScriptSource is null");
-                            }
-                        }
-                        
-                        Debug.WriteLine($"[GhJsonSerializer] VB Script '{component.Name}' - No script code found");
-
-                    }
-                    catch (Exception reflectionEx)
-                    {
-                        Debug.WriteLine($"[GhJsonSerializer] Error accessing VB script via reflection: {reflectionEx.Message}");
-                    }
+                    return ExtractVBScriptCode(component);
                 }
             }
             catch (Exception ex)
@@ -821,6 +732,64 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 Debug.WriteLine($"[GhJsonSerializer] Error extracting universal value: {ex.Message}");
             }
 
+            return null;
+        }
+
+        /// <summary>
+        /// Extracts VB Script code as a VBScriptCode object with 3 separate sections.
+        /// </summary>
+        private static object ExtractVBScriptCode(IGH_Component component)
+        {
+            try
+            {
+                var componentType = component.GetType();
+                
+                // Access ScriptSource object via reflection
+                var scriptSourceProp = componentType.GetProperty("ScriptSource");
+                if (scriptSourceProp != null && scriptSourceProp.CanRead)
+                {
+                    var scriptSourceObj = scriptSourceProp.GetValue(component);
+                    if (scriptSourceObj != null)
+                    {
+                        var scriptSourceType = scriptSourceObj.GetType();
+                        
+                        // Extract the 3 code sections
+                        var usingCodeProp = scriptSourceType.GetProperty("UsingCode");
+                        var scriptCodeProp = scriptSourceType.GetProperty("ScriptCode");
+                        var additionalCodeProp = scriptSourceType.GetProperty("AdditionalCode");
+                        
+                        var usingCode = usingCodeProp?.GetValue(scriptSourceObj) as string;
+                        var scriptCode = scriptCodeProp?.GetValue(scriptSourceObj) as string;
+                        var additionalCode = additionalCodeProp?.GetValue(scriptSourceObj) as string;
+                        
+                        Debug.WriteLine($"[GhJsonSerializer] VB Script 3 sections extracted: " +
+                                      $"Imports={usingCode?.Length ?? 0}, Script={scriptCode?.Length ?? 0}, Additional={additionalCode?.Length ?? 0}");
+                        
+                        // Return VBScriptCode object with 3 sections
+                        var vbCode = new VBScriptCode
+                        {
+                            Imports = usingCode,
+                            Script = scriptCode,
+                            Additional = additionalCode
+                        };
+                        
+                        return vbCode;
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhJsonSerializer] VB Script ScriptSource is null");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] VB Script ScriptSource property not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GhJsonSerializer] Error extracting VB script 3 sections: {ex.Message}");
+            }
+            
             return null;
         }
 

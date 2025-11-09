@@ -82,10 +82,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Deserialize components
+                // Deserialize components on UI thread (required for parameter and attribute ops)
                 Debug.WriteLine("[gh_put] Deserializing components");
                 var options = DeserializationOptions.Standard;
-                var result = GhJsonDeserializer.Deserialize(document, options);
+                var tcs = new TaskCompletionSource<SmartHopper.Core.Grasshopper.Serialization.GhJson.DeserializationResult>();
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    try
+                    {
+                        var res = GhJsonDeserializer.Deserialize(document, options);
+                        tcs.SetResult(res);
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetException(ex);
+                    }
+                });
+                var result = await tcs.Task.ConfigureAwait(false);
                 
                 if (!result.IsSuccess)
                 {
@@ -93,17 +106,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Place components on canvas
-                Debug.WriteLine("[gh_put] Placing components on canvas");
-                var placed = ComponentPlacer.PlaceComponents(result);
+                // Place components + create connections + groups on UI thread
+                Debug.WriteLine("[gh_put] Placing components on canvas and creating connections/groups");
+                object placed = null;
+                var placeTcs = new TaskCompletionSource<bool>();
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    try
+                    {
+                        placed = ComponentPlacer.PlaceComponents(result);
+                        Debug.WriteLine("[gh_put] Creating connections");
+                        ConnectionManager.CreateConnections(result);
 
-                // Create wire connections
-                Debug.WriteLine("[gh_put] Creating connections");
-                ConnectionManager.CreateConnections(result);
+                        Debug.WriteLine("[gh_put] Recreating groups");
+                        GroupManager.CreateGroups(result);
 
-                // Recreate groups
-                Debug.WriteLine("[gh_put] Recreating groups");
-                GroupManager.CreateGroups(result);
+                        placeTcs.SetResult(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        placeTcs.SetException(ex);
+                    }
+                });
+                await placeTcs.Task.ConfigureAwait(false);
                 
                 Debug.WriteLine("[gh_put] Placement complete");
 

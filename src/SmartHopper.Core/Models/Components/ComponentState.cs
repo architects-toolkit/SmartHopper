@@ -26,11 +26,20 @@ namespace SmartHopper.Core.Models.Components
         /// - Number Slider: "5<2,10.000>" (value with range; highest decimal count determines precision)
         /// - Panel/Scribble: "Hello World" (plain text)
         /// - Value List: [{"Name":"A","Expression":"0"}] (array of items)
-        /// - Script: "import math\nprint(x)" (script code)
+        /// - Script (C#/Python): "import math\nprint(x)" (script code as string)
+        /// - VB Script: VBScriptCode object with 3 sections (imports, script, additional)
         /// - Multidimensional Slider: "1.0,2.0,3.0" (coordinate values)
         /// </summary>
         [JsonProperty("value", NullValueHandling = NullValueHandling.Ignore)]
         public object? Value { get; set; }
+
+        /// <summary>
+        /// Gets or sets the VB Script code with 3 separate sections.
+        /// This is an alternative to Value for VB Script components only.
+        /// When present, this takes precedence over Value for VB Script deserialization.
+        /// </summary>
+        [JsonProperty("vbCode", NullValueHandling = NullValueHandling.Ignore)]
+        public VBScriptCode? VBCode { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether the component is locked.

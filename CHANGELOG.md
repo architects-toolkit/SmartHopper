@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **VB Script Serialization Support**: Complete implementation of 3-section VB Script serialization/deserialization:
+  - **VBScriptCode Model**: New model class with separate properties for `imports`, `script`, and `additional` code sections
+  - **ComponentState Enhancement**: Added `vbCode` property to support VB Script 3-section structure alongside existing `value` property
+  - **GhJsonSerializer**: Extracts VB Script 3 sections separately via reflection using ScriptSource properties (UsingCode, ScriptCode, AdditionalCode)
+  - **GhJsonDeserializer**: Restores VB Script 3 sections to correct ScriptSource properties with proper section mapping
+  - **VB Parameter Management**: Implements IGH_VariableParameterComponent interface for proper parameter creation/destruction
+  - Parameter settings applied via CreateParameter/DestroyParameter with VariableParameterMaintenance() call
+  - Full support for custom input/output parameters with names, optional/required flags, and modifiers
+  - **UI Thread Safety**: All VB Script parameter and code operations wrapped in `RhinoApp.InvokeOnUiThread()` to prevent UI blocking
 - **McNeel Forum AI Tools Enhancement**:
   - `mcneel_forum_search`: Enhanced search tool with configurable result limit (1-50 posts) and optional AI-generated summaries (limited to first 5 posts)
   - `mcneel_forum_get_post`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID

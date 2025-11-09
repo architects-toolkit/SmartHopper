@@ -13,18 +13,15 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using RhinoCodePlatform.GH;
-using RhinoCodePluginGH.Parameters;
-using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Document;
-using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Core.Serialization.DataTypes;
 
 namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
@@ -56,7 +53,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 
             var result = new DeserializationResult
             {
-                Options = options
+                Options = options,
             };
 
             var guidMapping = new Dictionary<Guid, IGH_DocumentObject>();
@@ -207,7 +204,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             if (options.ApplyComponentState && props.ComponentState != null)
             {
                 ApplyComponentState(instance, props.ComponentState);
-                
+
                 // Apply universal value if present in state
                 if (props.ComponentState.Value != null)
                 {
@@ -277,10 +274,10 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                         if (param != null)
                         {
                             ghComp.Params.RegisterInputParam(param);
-                            
+
                             // Get the actual parameter from the collection (might be different from what we passed)
                             var registeredParam = ghComp.Params.Input[i];
-                            
+
                             // Re-apply type hint to registered parameter (Python/IronPython need this)
                             // ScriptVariableParam uses IScriptParameter.Converter property, not TypeHint
                             if (!string.IsNullOrEmpty(settings.TypeHint))
@@ -292,7 +289,17 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                             {
                                 Debug.WriteLine($"[GhJsonDeserializer] No TypeHint to apply for input '{registeredParam.Name}'");
                             }
-                            
+
+                            // Apply DataMapping (Flatten, Graft)
+                            if (!string.IsNullOrEmpty(settings.DataMapping))
+                            {
+                                if (Enum.TryParse<GH_DataMapping>(settings.DataMapping, true, out var dataMapping))
+                                {
+                                    registeredParam.DataMapping = dataMapping;
+                                    Debug.WriteLine($"[GhJsonDeserializer] Applied DataMapping={dataMapping} to input parameter '{registeredParam.Name}'");
+                                }
+                            }
+
                             // Apply additional settings (reverse, simplify) to the registered parameter
                             if (settings.AdditionalSettings != null)
                             {
@@ -307,11 +314,11 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                                     Debug.WriteLine($"[GhJsonDeserializer] Applied Simplify to input parameter '{registeredParam.Name}'");
                                 }
                             }
-                            
+
                             Debug.WriteLine($"[GhJsonDeserializer] Registered input parameter '{registeredParam.Name}'");
                         }
                     }
-                    
+
                     // Set principal (master) input if specified
                     for (int i = 0; i < Math.Min(props.InputSettings.Count, ghComp.Params.Input.Count); i++)
                     {
@@ -336,10 +343,10 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                         if (param != null)
                         {
                             ghComp.Params.RegisterOutputParam(param);
-                            
+
                             // Get the actual parameter from the collection (might be different from what we passed)
                             var registeredParam = ghComp.Params.Output[i];
-                            
+
                             // Re-apply type hint to registered parameter (Python/IronPython need this)
                             // ScriptVariableParam uses IScriptParameter.Converter property, not TypeHint
                             if (!string.IsNullOrEmpty(settings.TypeHint))
@@ -351,7 +358,17 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                             {
                                 Debug.WriteLine($"[GhJsonDeserializer] No TypeHint to apply for output '{registeredParam.Name}'");
                             }
-                            
+
+                            // Apply DataMapping (Flatten, Graft)
+                            if (!string.IsNullOrEmpty(settings.DataMapping))
+                            {
+                                if (Enum.TryParse<GH_DataMapping>(settings.DataMapping, true, out var dataMapping))
+                                {
+                                    registeredParam.DataMapping = dataMapping;
+                                    Debug.WriteLine($"[GhJsonDeserializer] Applied DataMapping={dataMapping} to output parameter '{registeredParam.Name}'");
+                                }
+                            }
+
                             // Apply additional settings (reverse, simplify) to the registered parameter
                             if (settings.AdditionalSettings != null)
                             {
@@ -360,13 +377,14 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                                     registeredParam.Reverse = true;
                                     Debug.WriteLine($"[GhJsonDeserializer] Applied Reverse to output parameter '{registeredParam.Name}'");
                                 }
+
                                 if (settings.AdditionalSettings.Simplify == true)
                                 {
                                     registeredParam.Simplify = true;
                                     Debug.WriteLine($"[GhJsonDeserializer] Applied Simplify to output parameter '{registeredParam.Name}'");
                                 }
                             }
-                            
+
                             Debug.WriteLine($"[GhJsonDeserializer] Registered output parameter '{registeredParam.Name}'");
                         }
                     }
@@ -391,7 +409,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                         {
                             usingStdOutputProp.SetValue(docObj, !desiredValue);
                             Debug.WriteLine($"[GhJsonDeserializer] Forced toggle UsingStandardOutputParam to {!desiredValue}");
-                            
+
                             if (ghComp is IGH_VariableParameterComponent varParamComp2)
                             {
                                 varParamComp2.VariableParameterMaintenance();
@@ -421,17 +439,11 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             Debug.WriteLine($"[GhJsonDeserializer] STEP 3: ApplyProperties={options.ApplyProperties}, SchemaProperties={(props.SchemaProperties != null ? $"{props.SchemaProperties.Count} properties" : "null")}, Params={(props.Params != null ? $"{props.Params.Count} params" : "null")}");
             if (options.ApplyProperties)
             {
-                // Try SchemaProperties first (modern format with "properties" key)
+                // SchemaProperties (modern format with "properties" key)
                 if (props.SchemaProperties != null && props.SchemaProperties.Count > 0)
                 {
                     Debug.WriteLine($"[GhJsonDeserializer] Applying {props.SchemaProperties.Count} schema properties");
                     ApplyBasicParams(docObj, props.SchemaProperties);
-                }
-                // Fallback to Params (legacy format with "params" key)
-                else if (props.Params != null && props.Params.Count > 0)
-                {
-                    Debug.WriteLine($"[GhJsonDeserializer] Applying {props.Params.Count} params (legacy)");
-                    ApplyBasicParams(docObj, props.Params);
                 }
                 else
                 {
@@ -469,60 +481,17 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 vbComp.NickName = props.NickName;
             }
 
-            // Apply parameter settings using generic mapper
-            if (options.ApplyParameterSettings)
+            // STEP 1: Set VB script code (3 sections) FIRST
+            // Code must be set before parameters so script signature is available
+            if (props.ComponentState?.VBCode != null)
             {
-                ApplyParameterSettings(vbComp, props.InputSettings, props.OutputSettings);
+                ApplyVBScriptCode(vbComp, props.ComponentState.VBCode);
             }
 
-            // Set VB script code via reflection
-            if (props.ComponentState?.Value != null)
+            // STEP 2: Configure parameters using ScriptVariableParam
+            if (options.ApplyParameterSettings)
             {
-                try
-                {
-                    var scriptCode = props.ComponentState.Value.ToString();
-                    var compType = vbComp.GetType();
-                    bool codeSet = false;
-
-                    // Approach 1: Try Text property directly
-                    var textProp = compType.GetProperty("Text");
-                    if (textProp != null && textProp.CanWrite)
-                    {
-                        textProp.SetValue(vbComp, scriptCode);
-                        Debug.WriteLine($"[GhJsonDeserializer] Set VB script code via Text property ({scriptCode.Length} chars)");
-                        codeSet = true;
-                    }
-
-                    // Approach 2: Try ScriptSource.ScriptCode
-                    if (!codeSet)
-                    {
-                        var scriptSourceProp = compType.GetProperty("ScriptSource");
-                        if (scriptSourceProp != null && scriptSourceProp.CanRead)
-                        {
-                            var scriptSourceObj = scriptSourceProp.GetValue(vbComp);
-                            if (scriptSourceObj != null)
-                            {
-                                var scriptSourceType = scriptSourceObj.GetType();
-                                var scriptCodeProp = scriptSourceType.GetProperty("ScriptCode");
-                                if (scriptCodeProp != null && scriptCodeProp.CanWrite)
-                                {
-                                    scriptCodeProp.SetValue(scriptSourceObj, scriptCode);
-                                    Debug.WriteLine($"[GhJsonDeserializer] Set VB script code via ScriptSource.ScriptCode ({scriptCode.Length} chars)");
-                                    codeSet = true;
-                                }
-                            }
-                        }
-                    }
-
-                    if (!codeSet)
-                    {
-                        Debug.WriteLine("[GhJsonDeserializer] Warning: Could not set VB script code - no writable property found");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[GhJsonDeserializer] Error setting VB script code: {ex.Message}");
-                }
+                ApplyVBScriptParameters(vbComp, props.InputSettings, props.OutputSettings);
             }
 
             // Apply component state
@@ -533,6 +502,216 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 
             // Recreate Attributes
             vbComp.CreateAttributes();
+        }
+
+        /// <summary>
+        /// Applies parameter settings to VB Script component by creating ScriptVariableParam parameters.
+        /// VB Script uses ScriptVariableParam like other script components.
+        /// </summary>
+        private static void ApplyVBScriptParameters(
+            IGH_Component vbComp,
+            List<ParameterSettings> inputSettings,
+            List<ParameterSettings> outputSettings)
+        {
+            // Clear and recreate input parameters
+            if (inputSettings != null && inputSettings.Any())
+            {
+                Debug.WriteLine($"[GhJsonDeserializer] Clearing {vbComp.Params.Input.Count} default VB input parameters");
+                vbComp.Params.Input.Clear();
+
+                for (int i = 0; i < inputSettings.Count; i++)
+                {
+                    var settings = inputSettings[i];
+                    var param = CreateVBScriptParameter(settings, "input");
+                    if (param != null)
+                    {
+                        vbComp.Params.RegisterInputParam(param);
+                        var registeredParam = vbComp.Params.Input[i];
+
+                        // Apply DataMapping (Flatten, Graft)
+                        if (!string.IsNullOrEmpty(settings.DataMapping))
+                        {
+                            if (Enum.TryParse<GH_DataMapping>(settings.DataMapping, true, out var dataMapping))
+                            {
+                                registeredParam.DataMapping = dataMapping;
+                                Debug.WriteLine($"[GhJsonDeserializer] Applied DataMapping={dataMapping} to VB input '{registeredParam.Name}'");
+                            }
+                        }
+
+                        // Apply modifiers
+                        if (settings.AdditionalSettings != null)
+                        {
+                            if (settings.AdditionalSettings.Reverse == true)
+                            {
+                                registeredParam.Reverse = true;
+                                Debug.WriteLine($"[GhJsonDeserializer] Applied Reverse to VB input '{registeredParam.Name}'");
+                            }
+                            if (settings.AdditionalSettings.Simplify == true)
+                            {
+                                registeredParam.Simplify = true;
+                                Debug.WriteLine($"[GhJsonDeserializer] Applied Simplify to VB input '{registeredParam.Name}'");
+                            }
+                        }
+
+                        Debug.WriteLine($"[GhJsonDeserializer] Registered VB input parameter '{registeredParam.Name}'");
+                    }
+                }
+
+                // Set principal (master) input if specified
+                for (int i = 0; i < Math.Min(inputSettings.Count, vbComp.Params.Input.Count); i++)
+                {
+                    if (inputSettings[i]?.IsPrincipal == true)
+                    {
+                        vbComp.MasterParameterIndex = i;
+                        Debug.WriteLine($"[GhJsonDeserializer] Set VB principal input parameter at index {i}");
+                        break;
+                    }
+                }
+            }
+
+            // Clear and recreate output parameters
+            if (outputSettings != null && outputSettings.Any())
+            {
+                Debug.WriteLine($"[GhJsonDeserializer] Clearing {vbComp.Params.Output.Count} default VB output parameters");
+                vbComp.Params.Output.Clear();
+
+                for (int i = 0; i < outputSettings.Count; i++)
+                {
+                    var settings = outputSettings[i];
+                    var param = CreateVBScriptParameter(settings, "output");
+                    if (param != null)
+                    {
+                        vbComp.Params.RegisterOutputParam(param);
+                        var registeredParam = vbComp.Params.Output[i];
+
+                        // Apply DataMapping (Flatten, Graft)
+                        if (!string.IsNullOrEmpty(settings.DataMapping))
+                        {
+                            if (Enum.TryParse<GH_DataMapping>(settings.DataMapping, true, out var dataMapping))
+                            {
+                                registeredParam.DataMapping = dataMapping;
+                                Debug.WriteLine($"[GhJsonDeserializer] Applied DataMapping={dataMapping} to VB output '{registeredParam.Name}'");
+                            }
+                        }
+
+                        // Apply modifiers
+                        if (settings.AdditionalSettings != null)
+                        {
+                            if (settings.AdditionalSettings.Reverse == true)
+                            {
+                                registeredParam.Reverse = true;
+                                Debug.WriteLine($"[GhJsonDeserializer] Applied Reverse to VB output '{registeredParam.Name}'");
+                            }
+                            if (settings.AdditionalSettings.Simplify == true)
+                            {
+                                registeredParam.Simplify = true;
+                                Debug.WriteLine($"[GhJsonDeserializer] Applied Simplify to VB output '{registeredParam.Name}'");
+                            }
+                        }
+
+                        Debug.WriteLine($"[GhJsonDeserializer] Registered VB output parameter '{registeredParam.Name}'");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates a Param_ScriptVariable for VB Script from settings.
+        /// </summary>
+        private static IGH_Param CreateVBScriptParameter(ParameterSettings settings, string defaultName)
+        {
+            if (settings == null)
+                return null;
+
+            var variableName = settings.VariableName ?? settings.ParameterName ?? defaultName;
+            var accessMode = AccessModeMapper.FromString(settings.Access);
+
+            // VB Script uses Param_ScriptVariable, not ScriptVariableParam
+            var param = new Param_ScriptVariable
+            {
+                Name = variableName,
+                NickName = variableName,
+                Description = string.Empty,
+                Access = accessMode,
+            };
+
+            // Apply Required/Optional property
+            try
+            {
+                var optionalProp = param.GetType().GetProperty("Optional");
+                if (optionalProp != null && optionalProp.CanWrite)
+                {
+                    bool isOptional = settings.Required.HasValue ? !settings.Required.Value : true;
+                    optionalProp.SetValue(param, isOptional);
+                    Debug.WriteLine($"[GhJsonDeserializer] Set Optional={isOptional} for VB parameter '{variableName}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GhJsonDeserializer] Error applying Optional to VB '{variableName}': {ex.Message}");
+            }
+
+            return param;
+        }
+
+        /// <summary>
+        /// Applies VB Script code from 3 separate sections (imports, script, additional).
+        /// IMPORTANT: Code modification must run on UI thread.
+        /// </summary>
+        private static void ApplyVBScriptCode(IGH_Component vbComp, VBScriptCode vbCode)
+        {
+            try
+            {
+                var compType = vbComp.GetType();
+                var scriptSourceProp = compType.GetProperty("ScriptSource");
+
+                if (scriptSourceProp != null && scriptSourceProp.CanRead)
+                {
+                    var scriptSourceObj = scriptSourceProp.GetValue(vbComp);
+                    if (scriptSourceObj != null)
+                    {
+                        var scriptSourceType = scriptSourceObj.GetType();
+
+                        // Set the 3 code sections
+                        var usingCodeProp = scriptSourceType.GetProperty("UsingCode");
+                        var scriptCodeProp = scriptSourceType.GetProperty("ScriptCode");
+                        var additionalCodeProp = scriptSourceType.GetProperty("AdditionalCode");
+
+                        if (usingCodeProp != null && usingCodeProp.CanWrite && vbCode.Imports != null)
+                        {
+                            usingCodeProp.SetValue(scriptSourceObj, vbCode.Imports);
+                            Debug.WriteLine($"[GhJsonDeserializer] Set VB imports section ({vbCode.Imports.Length} chars)");
+                        }
+
+                        if (scriptCodeProp != null && scriptCodeProp.CanWrite && vbCode.Script != null)
+                        {
+                            scriptCodeProp.SetValue(scriptSourceObj, vbCode.Script);
+                            Debug.WriteLine($"[GhJsonDeserializer] Set VB script section ({vbCode.Script.Length} chars)");
+                        }
+
+                        if (additionalCodeProp != null && additionalCodeProp.CanWrite && vbCode.Additional != null)
+                        {
+                            additionalCodeProp.SetValue(scriptSourceObj, vbCode.Additional);
+                            Debug.WriteLine($"[GhJsonDeserializer] Set VB additional code section ({vbCode.Additional.Length} chars)");
+                        }
+
+                        Debug.WriteLine("[GhJsonDeserializer] Successfully applied VB Script 3 sections");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[GhJsonDeserializer] VB Script ScriptSource is null");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("[GhJsonDeserializer] VB Script ScriptSource property not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GhJsonDeserializer] Error in ApplyVBScriptCode: {ex.Message}");
+                throw;
+            }
         }
 
         #endregion
@@ -552,7 +731,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             foreach (var kvp in properties)
             {
                 Debug.WriteLine($"[ApplySchemaProperties] Processing property '{kvp.Key}' for {instance.GetType().Name}, value type: {kvp.Value?.GetType().Name}");
-                
+
                 try
                 {
                     // Convert dictionary value to ComponentProperty
