@@ -15,6 +15,7 @@ using System.Globalization;
 using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
@@ -464,10 +465,22 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
         {
             var settings = new List<ParameterSettings>();
             var paramList = parameters.ToList();
+            bool isScriptComponent = component is IScriptComponent;
 
             for (int i = 0; i < paramList.Count; i++)
             {
                 var param = paramList[i];
+
+                // Skip the standard output "out" parameter for script components
+                // This is controlled by the UsingStandardOutputParam property in ComponentState
+                if (isScriptComponent && param.Kind == GH_ParamKind.output && 
+                    param is Param_String && 
+                    (param.Name.Equals("out", StringComparison.OrdinalIgnoreCase) || 
+                     param.NickName.Equals("out", StringComparison.OrdinalIgnoreCase)))
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Skipping standard output 'out' parameter for script component");
+                    continue;
+                }
 
                 // Determine if this parameter is the principal (master) input
                 int principalIndex = -1;
@@ -567,6 +580,31 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             {
                 state.Value = universalValue;
                 hasState = true;
+            }
+
+            // Extract standard output visibility for script components
+            if (originalObject is IScriptComponent)
+            {
+                try
+                {
+                    var compType = originalObject.GetType();
+                    var usingStdOutputProp = compType.GetProperty("UsingStandardOutputParam");
+                    if (usingStdOutputProp != null && usingStdOutputProp.CanRead)
+                    {
+                        var value = (bool)usingStdOutputProp.GetValue(originalObject);
+                        // Only serialize if true (non-default behavior)
+                        if (value)
+                        {
+                            state.ShowStandardOutput = true;
+                            hasState = true;
+                            Debug.WriteLine($"[GhJsonSerializer] Extracted UsingStandardOutputParam = {value}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[GhJsonSerializer] Error extracting UsingStandardOutputParam: {ex.Message}");
+                }
             }
 
             return hasState ? state : null;
@@ -701,7 +739,21 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                         Debug.WriteLine($"==========================================================\n");
 #endif
 
-                        // ScriptSource is an object, not a string - need to probe it
+                        // VB Script: Try multiple approaches to get code
+                        
+                        // Approach 1: Try Text property directly on component
+                        var textProp = componentType.GetProperty("Text");
+                        if (textProp != null && textProp.CanRead)
+                        {
+                            var textValue = textProp.GetValue(component) as string;
+                            if (!string.IsNullOrEmpty(textValue))
+                            {
+                                Debug.WriteLine($"[GhJsonSerializer] Found VB script code via Text property (length: {textValue.Length})");
+                                return textValue;
+                            }
+                        }
+                        
+                        // Approach 2: ScriptSource object
                         var scriptSourceProp = componentType.GetProperty("ScriptSource");
                         if (scriptSourceProp != null && scriptSourceProp.CanRead)
                         {
@@ -711,37 +763,43 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                                 var scriptSourceType = scriptSourceObj.GetType();
                                 Debug.WriteLine($"[GhJsonSerializer] ScriptSource object type: {scriptSourceType.FullName}");
                                 
-                                // List ALL properties of ScriptSource
-                                Debug.WriteLine($"[GhJsonSerializer] ScriptSource properties:");
-                                foreach (var prop in scriptSourceType.GetProperties())
+                                // Try Text property on ScriptSource
+                                var scriptSourceTextProp = scriptSourceType.GetProperty("Text");
+                                if (scriptSourceTextProp != null && scriptSourceTextProp.CanRead)
                                 {
-                                    Debug.WriteLine($"  - {prop.PropertyType.Name} {prop.Name}");
-                                }
-                                
-                                // Try ToString() first
-                                var toStringResult = scriptSourceObj.ToString();
-                                if (!string.IsNullOrEmpty(toStringResult) && toStringResult != scriptSourceType.FullName)
-                                {
-                                    Debug.WriteLine($"[GhJsonSerializer] ScriptSource.ToString() - Code length: {toStringResult.Length}");
-                                    return toStringResult;
-                                }
-                                
-                                // Try all string properties
-                                foreach (var prop in scriptSourceType.GetProperties())
-                                {
-                                    if (prop.CanRead && prop.PropertyType == typeof(string))
+                                    var scriptText = scriptSourceTextProp.GetValue(scriptSourceObj) as string;
+                                    if (!string.IsNullOrEmpty(scriptText))
                                     {
-                                        var value = prop.GetValue(scriptSourceObj) as string;
-                                        Debug.WriteLine($"[GhJsonSerializer] ScriptSource.{prop.Name} = \"{value?.Substring(0, Math.Min(50, value?.Length ?? 0))}...\" (length: {value?.Length ?? 0})");
-                                        if (!string.IsNullOrEmpty(value) && value.Length > 10)  // Assume code is longer than 10 chars
-                                        {
-                                            Debug.WriteLine($"[GhJsonSerializer] Returning VB script code from ScriptSource.{prop.Name}");
-                                            return value;
-                                        }
+                                        Debug.WriteLine($"[GhJsonSerializer] Found VB script code via ScriptSource.Text (length: {scriptText.Length})");
+                                        return scriptText;
                                     }
                                 }
                                 
-                                Debug.WriteLine($"[GhJsonSerializer] No code found in ScriptSource object");
+                                // Try combining UsingCode + ScriptCode + AdditionalCode
+                                var usingCodeProp = scriptSourceType.GetProperty("UsingCode");
+                                var scriptCodeProp = scriptSourceType.GetProperty("ScriptCode");
+                                var additionalCodeProp = scriptSourceType.GetProperty("AdditionalCode");
+                                
+                                var usingCode = usingCodeProp?.GetValue(scriptSourceObj) as string ?? "";
+                                var scriptCode = scriptCodeProp?.GetValue(scriptSourceObj) as string ?? "";
+                                var additionalCode = additionalCodeProp?.GetValue(scriptSourceObj) as string ?? "";
+                                
+                                Debug.WriteLine($"[GhJsonSerializer] VB ScriptSource parts: Using={usingCode.Length}, Script={scriptCode.Length}, Additional={additionalCode.Length}");
+                                
+                                // Combine non-empty parts
+                                var parts = new List<string>();
+                                if (!string.IsNullOrEmpty(usingCode)) parts.Add(usingCode);
+                                if (!string.IsNullOrEmpty(scriptCode)) parts.Add(scriptCode);
+                                if (!string.IsNullOrEmpty(additionalCode)) parts.Add(additionalCode);
+                                
+                                if (parts.Count > 0)
+                                {
+                                    var combined = string.Join("\r\n", parts);
+                                    Debug.WriteLine($"[GhJsonSerializer] Combined VB script code (length: {combined.Length})");
+                                    return combined;
+                                }
+                                
+                                Debug.WriteLine($"[GhJsonSerializer] No code found in ScriptSource properties");
                             }
                             else
                             {

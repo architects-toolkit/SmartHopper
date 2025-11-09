@@ -87,6 +87,13 @@ namespace SmartHopper.Core.Models.Components
         public bool? MarshOutputs { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the standard output/error parameter ("out") should be shown (for script components).
+        /// This corresponds to the contextual menu option "Standard Output/Error Parameter ("out")" in Grasshopper.
+        /// </summary>
+        [JsonProperty("showStandardOutput", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ShowStandardOutput { get; set; }
+
+        /// <summary>
         /// Gets or sets the list mode for value list components (e.g., "DropDown", "CheckList").
         /// </summary>
         [JsonProperty("listMode", NullValueHandling = NullValueHandling.Ignore)]

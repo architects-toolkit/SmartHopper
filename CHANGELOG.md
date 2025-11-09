@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Script Component "out" Parameter Handling**: The standard output/error parameter ("out") in script components is no longer serialized as a regular output parameter. Instead, its visibility state is controlled by the new `showStandardOutput` property in `ComponentState`, which maps to the component's `UsingStandardOutputParam` property. This prevents signature changes after deserialization.
 - **ComponentProperty JSON Serialization**: Simple types (bool, int, string, double, etc.) now serialize directly without the `{"value": ...}` wrapper for cleaner, more compact JSON output. Complex types retain the wrapper structure for backward compatibility.
 - **Empty String Omission**: Empty string properties (e.g., group `name`, component `nickName`) are now omitted from JSON output for cleaner, more compact serialization. Only non-empty values are included.
 - **Document Metadata Improvements**:
@@ -108,6 +109,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed `RecalculatePivots` option from `DeserializationOptions` and `gh_put` tool - pivot handling is now automatic based on GhJSON content
 - **Parameter Modifier Serialization**: Fixed `ParameterMapper` to properly extract and apply parameter modifiers (`Reverse`, `Simplify`, `Locked`) and `DataMapping` for component parameters. These settings are now serialized in the `additionalSettings` object and correctly restored during deserialization. Note: The `Invert` property does not exist in the `IGH_Param` interface and is reserved in `AdditionalParameterSettings` for future use or specific parameter type extensions.
 - **Removed Optional Property**: Removed redundant `optional` property from `ParameterSettings` model as it provides no useful information for serialization/deserialization.
+- **Script Component Parameter Modifiers**: Fixed issue where parameter modifiers (Reverse, Simplify, Locked, Invert) were not being serialized/deserialized for script component parameters. `ScriptParameterMapper.ExtractSettings()` now extracts `AdditionalSettings` just like regular `ParameterMapper`, ensuring modifiers are preserved during round-trip serialization.
+- **Script Component Type Hint Normalization**: Type hints with value "object" (case-insensitive) are no longer serialized or deserialized, as "object" is the default/generic type hint. This reduces JSON size, avoids case sensitivity issues (Object vs object), and eliminates redundant data.
+- **Generic Type Hint Handling**: Improved handling of generic type hints (e.g., `DataTree<Object>`, `List<Curve>`) by detecting `<>` syntax and extracting base types before applying, preventing `TypeHints.Select()` exceptions and reducing log noise.
 
 ## [1.0.0-alpha] - 2025-10-11
 

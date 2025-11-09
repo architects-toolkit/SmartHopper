@@ -221,15 +221,14 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
         #region Script Component Handling
 
         /// <summary>
-        /// Applies properties specific to script components.
-        /// Script components need parameters created from inputSettings/outputSettings,
-        /// then script code set. Parameters don't auto-generate from code - they must be explicitly created.
+        /// Applies properties specific to script components (Python, C#, IronPython).
         /// </summary>
         private static void ApplyScriptComponentProperties(
             IScriptComponent scriptComp,
             ComponentProperties props,
             DeserializationOptions options)
         {
+            var ghComp = scriptComp as IGH_Component;
             var docObj = scriptComp as IGH_DocumentObject;
 
             // Apply nickname
@@ -238,12 +237,35 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 docObj.NickName = props.NickName;
             }
 
-            // STEP 1: Clear default parameters and create custom ones from settings
-            // Script components come with default parameters (x, y, out, a) that need replacement
-            if (scriptComp is IGH_Component ghComp)
+            // STEP 1: Set script code FIRST (from componentState["value"])
+            // This is important because setting script code may trigger parameter regeneration
+            string scriptCode = null;
+            if (props.ComponentState?.Value != null)
             {
-                // Clear defaults and create parameters from settings
-                if (props.InputSettings != null && props.InputSettings.Any())
+                scriptCode = props.ComponentState.Value.ToString();
+                if (!string.IsNullOrEmpty(scriptCode))
+                {
+                    // Inject type hints into C# signatures if option enabled
+                    if (options.InjectScriptTypeHints)
+                    {
+                        scriptCode = ScriptSignatureParser.InjectTypeHintsIntoScript(
+                            scriptCode,
+                            props.InputSettings,
+                            props.OutputSettings,
+                            scriptComp);
+                    }
+
+                    scriptComp.Text = scriptCode;
+                    Debug.WriteLine($"[GhJsonDeserializer] Set script code for '{docObj?.Name}' ({scriptCode?.Length ?? 0} chars)");
+                }
+            }
+
+            // STEP 2: Configure parameters (inputs and outputs)
+            // For C# scripts, parameters are generated from the RunScript signature
+            // For Python/IronPython, we need to set type hints after script code is set
+            if (options.ApplyParameterSettings)
+            {
+                if (props.InputSettings != null && props.InputSettings.Any() && ghComp != null)
                 {
                     Debug.WriteLine($"[GhJsonDeserializer] Clearing {ghComp.Params.Input.Count} default input parameters");
                     ghComp.Params.Input.Clear();
@@ -258,6 +280,18 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                             
                             // Get the actual parameter from the collection (might be different from what we passed)
                             var registeredParam = ghComp.Params.Input[i];
+                            
+                            // Re-apply type hint to registered parameter (Python/IronPython need this)
+                            // ScriptVariableParam uses IScriptParameter.Converter property, not TypeHint
+                            if (!string.IsNullOrEmpty(settings.TypeHint))
+                            {
+                                Debug.WriteLine($"[GhJsonDeserializer] Attempting to re-apply TypeHint '{settings.TypeHint}' to input '{registeredParam.Name}'");
+                                ScriptParameterMapper.ApplyTypeHintToParameter(registeredParam, settings.TypeHint, scriptComp);
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"[GhJsonDeserializer] No TypeHint to apply for input '{registeredParam.Name}'");
+                            }
                             
                             // Apply additional settings (reverse, simplify) to the registered parameter
                             if (settings.AdditionalSettings != null)
@@ -290,7 +324,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                     }
                 }
 
-                if (props.OutputSettings != null && props.OutputSettings.Any())
+                if (props.OutputSettings != null && props.OutputSettings.Any() && ghComp != null)
                 {
                     Debug.WriteLine($"[GhJsonDeserializer] Clearing {ghComp.Params.Output.Count} default output parameters");
                     ghComp.Params.Output.Clear();
@@ -305,6 +339,18 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                             
                             // Get the actual parameter from the collection (might be different from what we passed)
                             var registeredParam = ghComp.Params.Output[i];
+                            
+                            // Re-apply type hint to registered parameter (Python/IronPython need this)
+                            // ScriptVariableParam uses IScriptParameter.Converter property, not TypeHint
+                            if (!string.IsNullOrEmpty(settings.TypeHint))
+                            {
+                                Debug.WriteLine($"[GhJsonDeserializer] Attempting to re-apply TypeHint '{settings.TypeHint}' to output '{registeredParam.Name}'");
+                                ScriptParameterMapper.ApplyTypeHintToParameter(registeredParam, settings.TypeHint, scriptComp);
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"[GhJsonDeserializer] No TypeHint to apply for output '{registeredParam.Name}'");
+                            }
                             
                             // Apply additional settings (reverse, simplify) to the registered parameter
                             if (settings.AdditionalSettings != null)
@@ -327,35 +373,79 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 }
             }
 
-            // STEP 2: Set script code (from componentState["value"])
-            string scriptCode = null;
-            if (props.ComponentState?.Value != null)
+            // STEP 2.5: Apply ShowStandardOutput state AFTER parameters are configured
+            // This controls the visibility of the "out" parameter in script components
+            if (options.ApplyComponentState && props.ComponentState?.ShowStandardOutput.HasValue == true)
             {
-                scriptCode = props.ComponentState.Value.ToString();
-                if (!string.IsNullOrEmpty(scriptCode))
+                try
                 {
-                    // Inject type hints if option enabled
-                    if (options.InjectScriptTypeHints)
+                    var compType = docObj?.GetType();
+                    var usingStdOutputProp = compType?.GetProperty("UsingStandardOutputParam");
+                    if (usingStdOutputProp != null && usingStdOutputProp.CanWrite)
                     {
-                        scriptCode = ScriptSignatureParser.InjectTypeHintsIntoScript(
-                            scriptCode,
-                            props.InputSettings,
-                            props.OutputSettings,
-                            scriptComp);
-                    }
+                        bool desiredValue = props.ComponentState.ShowStandardOutput.Value;
+                        bool currentValue = (bool)usingStdOutputProp.GetValue(docObj);
 
-                    scriptComp.Text = scriptCode;
-                    Debug.WriteLine($"[GhJsonDeserializer] Set script code for '{docObj?.Name}' ({scriptCode?.Length ?? 0} chars)");
+                        // Force application by toggling if values match
+                        if (currentValue == desiredValue)
+                        {
+                            usingStdOutputProp.SetValue(docObj, !desiredValue);
+                            Debug.WriteLine($"[GhJsonDeserializer] Forced toggle UsingStandardOutputParam to {!desiredValue}");
+                            
+                            if (ghComp is IGH_VariableParameterComponent varParamComp2)
+                            {
+                                varParamComp2.VariableParameterMaintenance();
+                            }
+                        }
+
+                        // Set to desired value
+                        usingStdOutputProp.SetValue(docObj, desiredValue);
+                        Debug.WriteLine($"[GhJsonDeserializer] Set UsingStandardOutputParam = {desiredValue}");
+
+                        // Trigger parameter maintenance to add/remove the "out" parameter
+                        if (ghComp is IGH_VariableParameterComponent varParamComp3)
+                        {
+                            varParamComp3.VariableParameterMaintenance();
+                            Debug.WriteLine($"[GhJsonDeserializer] Triggered VariableParameterMaintenance for 'out' parameter");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[GhJsonDeserializer] Error applying UsingStandardOutputParam: {ex.Message}");
                 }
             }
 
-            // STEP 3: Apply component state (locked, hidden, etc.)
+            // STEP 3: Apply properties (MarshInputs, MarshOutputs, etc.)
+            // NOTE: Properties are stored in SchemaProperties (JSON: "properties"), not Params (JSON: "params")
+            Debug.WriteLine($"[GhJsonDeserializer] STEP 3: ApplyProperties={options.ApplyProperties}, SchemaProperties={(props.SchemaProperties != null ? $"{props.SchemaProperties.Count} properties" : "null")}, Params={(props.Params != null ? $"{props.Params.Count} params" : "null")}");
+            if (options.ApplyProperties)
+            {
+                // Try SchemaProperties first (modern format with "properties" key)
+                if (props.SchemaProperties != null && props.SchemaProperties.Count > 0)
+                {
+                    Debug.WriteLine($"[GhJsonDeserializer] Applying {props.SchemaProperties.Count} schema properties");
+                    ApplyBasicParams(docObj, props.SchemaProperties);
+                }
+                // Fallback to Params (legacy format with "params" key)
+                else if (props.Params != null && props.Params.Count > 0)
+                {
+                    Debug.WriteLine($"[GhJsonDeserializer] Applying {props.Params.Count} params (legacy)");
+                    ApplyBasicParams(docObj, props.Params);
+                }
+                else
+                {
+                    Debug.WriteLine($"[GhJsonDeserializer] No properties to apply");
+                }
+            }
+
+            // STEP 4: Apply component state (locked, hidden, etc.)
             if (options.ApplyComponentState && props.ComponentState != null && docObj != null)
             {
                 ApplyComponentState(docObj, props.ComponentState);
             }
 
-            // STEP 4: Recreate Attributes after parameter manipulation
+            // STEP 5: Recreate Attributes after parameter manipulation
             // Parameter registration invalidates Attributes, so recreate them
             if (docObj != null)
             {
@@ -379,7 +469,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 vbComp.NickName = props.NickName;
             }
 
-            // Apply parameter settings - VB Script uses standard IGH_Component parameters
+            // Apply parameter settings using generic mapper
             if (options.ApplyParameterSettings)
             {
                 ApplyParameterSettings(vbComp, props.InputSettings, props.OutputSettings);
@@ -391,24 +481,42 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 try
                 {
                     var scriptCode = props.ComponentState.Value.ToString();
-                    var propertyNames = new[] { "ScriptCode", "Script", "Code", "ScriptSource" };
-                    
+                    var compType = vbComp.GetType();
                     bool codeSet = false;
-                    foreach (var propName in propertyNames)
+
+                    // Approach 1: Try Text property directly
+                    var textProp = compType.GetProperty("Text");
+                    if (textProp != null && textProp.CanWrite)
                     {
-                        var scriptProp = vbComp.GetType().GetProperty(propName);
-                        if (scriptProp != null && scriptProp.CanWrite)
-                        {
-                            scriptProp.SetValue(vbComp, scriptCode);
-                            Debug.WriteLine($"[GhJsonDeserializer] Set VB script code via property '{propName}'");
-                            codeSet = true;
-                            break;
-                        }
+                        textProp.SetValue(vbComp, scriptCode);
+                        Debug.WriteLine($"[GhJsonDeserializer] Set VB script code via Text property ({scriptCode.Length} chars)");
+                        codeSet = true;
                     }
-                    
+
+                    // Approach 2: Try ScriptSource.ScriptCode
                     if (!codeSet)
                     {
-                        Debug.WriteLine($"[GhJsonDeserializer] Could not find writable script property for VB component");
+                        var scriptSourceProp = compType.GetProperty("ScriptSource");
+                        if (scriptSourceProp != null && scriptSourceProp.CanRead)
+                        {
+                            var scriptSourceObj = scriptSourceProp.GetValue(vbComp);
+                            if (scriptSourceObj != null)
+                            {
+                                var scriptSourceType = scriptSourceObj.GetType();
+                                var scriptCodeProp = scriptSourceType.GetProperty("ScriptCode");
+                                if (scriptCodeProp != null && scriptCodeProp.CanWrite)
+                                {
+                                    scriptCodeProp.SetValue(scriptSourceObj, scriptCode);
+                                    Debug.WriteLine($"[GhJsonDeserializer] Set VB script code via ScriptSource.ScriptCode ({scriptCode.Length} chars)");
+                                    codeSet = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!codeSet)
+                    {
+                        Debug.WriteLine("[GhJsonDeserializer] Warning: Could not set VB script code - no writable property found");
                     }
                 }
                 catch (Exception ex)
@@ -488,8 +596,10 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             IGH_DocumentObject instance,
             Dictionary<string, object> basicParams)
         {
+            Debug.WriteLine($"[GhJsonDeserializer] ApplyBasicParams called for '{instance.Name}' with {basicParams.Count} properties");
             foreach (var kvp in basicParams)
             {
+                Debug.WriteLine($"[GhJsonDeserializer]   Attempting to set '{kvp.Key}' = '{kvp.Value}'");
                 try
                 {
                     var prop = instance.GetType().GetProperty(kvp.Key);
@@ -504,11 +614,16 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                         }
 
                         prop.SetValue(instance, value);
+                        Debug.WriteLine($"[GhJsonDeserializer]   ✓ Set '{kvp.Key}' = '{value}'");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[GhJsonDeserializer]   ✗ Property '{kvp.Key}' not found or not writable");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[GhJsonDeserializer] Error setting basic param '{kvp.Key}': {ex.Message}");
+                    Debug.WriteLine($"[GhJsonDeserializer]   ✗ Error setting basic param '{kvp.Key}': {ex.Message}");
                 }
             }
         }
