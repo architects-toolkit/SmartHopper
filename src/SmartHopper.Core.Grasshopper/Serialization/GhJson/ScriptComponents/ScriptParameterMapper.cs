@@ -26,6 +26,76 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
     public static class ScriptParameterMapper
     {
         /// <summary>
+        /// Extracts parameter settings from a VB Script component parameter.
+        /// VB Script doesn't implement IScriptComponent, so this method doesn't extract type hints.
+        /// </summary>
+        public static ParameterSettings ExtractVBScriptSettings(IGH_Param param, bool isPrincipal = false)
+        {
+            if (param == null)
+                return null;
+
+            var settings = new ParameterSettings
+            {
+                ParameterName = param.Name,
+                Access = param.Kind == GH_ParamKind.input
+                    ? AccessModeMapper.ToString(param.Access)
+                    : null,
+            };
+
+            bool hasSettings = true;
+
+            // Extract variable name from NickName
+            var variableName = param.NickName;
+            if (!string.IsNullOrEmpty(variableName) &&
+                !string.Equals(settings.ParameterName, variableName, StringComparison.Ordinal))
+            {
+                settings.VariableName = variableName;
+            }
+
+            // Mark as principal if applicable (only valid for inputs)
+            if (isPrincipal && param.Kind == GH_ParamKind.input)
+            {
+                settings.IsPrincipal = true;
+            }
+
+            // Extract Required/Optional property (only for inputs)
+            if (param.Kind == GH_ParamKind.input)
+            {
+                try
+                {
+                    var optionalProp = param.GetType().GetProperty("Optional");
+                    if (optionalProp != null && optionalProp.CanRead)
+                    {
+                        var isOptional = optionalProp.GetValue(param) as bool?;
+                        if (isOptional.HasValue && !isOptional.Value)
+                        {
+                            settings.Required = true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ScriptParameterMapper] Error extracting Optional from VB '{param.Name}': {ex.Message}");
+                }
+            }
+
+            // Extract DataMapping (Flatten, Graft)
+            if (param.DataMapping != GH_DataMapping.None)
+            {
+                settings.DataMapping = param.DataMapping.ToString();
+            }
+
+            // Extract additional settings (Reverse, Simplify, etc.)
+            var additionalSettings = ExtractAdditionalSettings(param);
+            if (additionalSettings != null)
+            {
+                settings.AdditionalSettings = additionalSettings;
+            }
+
+            return hasSettings ? settings : null;
+        }
+
+        /// <summary>
         /// Extracts parameter settings from a script component parameter.
         /// </summary>
         /// <param name="param">Script parameter to extract from</param>
@@ -131,6 +201,14 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                 {
                     Debug.WriteLine($"[ScriptParameterMapper] Error extracting Optional property from '{param.Name}': {ex.Message}");
                 }
+            }
+
+            // Extract DataMapping (Flatten, Graft)
+            if (param.DataMapping != GH_DataMapping.None)
+            {
+                settings.DataMapping = param.DataMapping.ToString();
+                hasSettings = true;
+                Debug.WriteLine($"[ScriptParameterMapper] Extracted DataMapping={param.DataMapping} for '{param.Name}'");
             }
 
             // Extract additional parameter settings (modifiers: Reverse, Simplify, Locked, etc.)
