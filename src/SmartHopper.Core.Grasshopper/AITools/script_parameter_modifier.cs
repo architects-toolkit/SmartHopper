@@ -184,7 +184,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""scriptGuid"", ""index""]
                 }",
                 execute: this.SetPrincipalInputAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements); // TODO: move to component modifiers
 
             yield return new AITool(
                 name: "script_parameter_set_optional",
