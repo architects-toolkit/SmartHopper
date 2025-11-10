@@ -44,8 +44,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "gh_parameter_flatten",
-                description: "Flatten a parameter's data tree into a single list",
+                name: "gh_parameter_data_mapping_none",
+                description: "Set a parameter's data mapping to None",
+                category: "Parameters",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""componentGuid"": { ""type"": ""string"", ""description"": ""GUID of the component"" },
+                        ""parameterIndex"": { ""type"": ""integer"", ""description"": ""Index of the parameter (0-based)"" },
+                        ""isInput"": { ""type"": ""boolean"", ""description"": ""true for input, false for output"", ""default"": true }
+                    },
+                    ""required"": [""componentGuid"", ""parameterIndex""]
+                }",
+                execute: this.FlattenParameterAsync,
+                requiredCapabilities: this.toolCapabilityRequirements);
+            
+            yield return new AITool(
+                name: "gh_parameter_data_mapping_flatten",
+                description: "Set a parameter's data mapping to Flatten",
                 category: "Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -60,8 +76,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 requiredCapabilities: this.toolCapabilityRequirements);
 
             yield return new AITool(
-                name: "gh_parameter_graft",
-                description: "Graft a parameter to add an extra branch level to the data tree",
+                name: "gh_parameter_data_mapping_graft",
+                description: "Set a parameter's data mapping to Graft",
                 category: "Parameters",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -107,42 +123,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.SimplifyParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
-
-            yield return new AITool(
-                name: "gh_parameter_bulk_inputs",
-                description: "Apply data settings to all input parameters of a component",
-                category: "Parameters",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""componentGuid"": { ""type"": ""string"", ""description"": ""GUID of the component"" },
-                        ""flatten"": { ""type"": ""boolean"", ""description"": ""Flatten all inputs"" },
-                        ""graft"": { ""type"": ""boolean"", ""description"": ""Graft all inputs"" },
-                        ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse all inputs"" },
-                        ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify all inputs"" }
-                    },
-                    ""required"": [""componentGuid""]
-                }",
-                execute: this.BulkModifyInputsAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
-
-            yield return new AITool(
-                name: "gh_parameter_bulk_outputs",
-                description: "Apply data settings to all output parameters of a component",
-                category: "Parameters",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""componentGuid"": { ""type"": ""string"", ""description"": ""GUID of the component"" },
-                        ""flatten"": { ""type"": ""boolean"", ""description"": ""Flatten all outputs"" },
-                        ""graft"": { ""type"": ""boolean"", ""description"": ""Graft all outputs"" },
-                        ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse all outputs"" },
-                        ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify all outputs"" }
-                    },
-                    ""required"": [""componentGuid""]
-                }",
-                execute: this.BulkModifyOutputsAsync,
                 requiredCapabilities: this.toolCapabilityRequirements);
         }
 
@@ -249,76 +229,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Instances.RedrawCanvas();
 
                 return $"{(enable ? "Enabled" : "Disabled")} simplify for {(isInput ? "input" : "output")} parameter '{param.Name}'";
-            });
-        }
-
-        private async Task<AIReturn> BulkModifyInputsAsync(AIToolCall toolCall)
-        {
-            return await ExecuteParameterModification(toolCall, "gh_parameter_bulk_inputs", (args) =>
-            {
-                var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
-                var flatten = args["flatten"]?.ToObject<bool?>();
-                var graft = args["graft"]?.ToObject<bool?>();
-                var reverse = args["reverse"]?.ToObject<bool?>();
-                var simplify = args["simplify"]?.ToObject<bool?>();
-
-                var obj = CanvasAccess.FindInstance(componentGuid);
-                if (obj == null) throw new ArgumentException("Component not found");
-                if (!(obj is IGH_Component component)) throw new ArgumentException("Object is not a component");
-
-                component.RecordUndoEvent("[SH] Bulk Modify Inputs");
-
-                GH_DataMapping? dataMapping = null;
-                if (flatten == true) dataMapping = GH_DataMapping.Flatten;
-                else if (graft == true) dataMapping = GH_DataMapping.Graft;
-
-                ParameterModifier.BulkApply(component.Params.Input, dataMapping: dataMapping, reverse: reverse, simplify: simplify);
-                component.ExpireSolution(true);
-                Instances.RedrawCanvas();
-
-                var actions = new List<string>();
-                if (flatten == true) actions.Add("flattened");
-                if (graft == true) actions.Add("grafted");
-                if (reverse == true) actions.Add("reversed");
-                if (simplify == true) actions.Add("simplified");
-
-                var actionStr = actions.Any() ? string.Join(", ", actions) : "no changes";
-                return $"Applied bulk settings ({actionStr}) to {component.Params.Input.Count} input parameters";
-            });
-        }
-
-        private async Task<AIReturn> BulkModifyOutputsAsync(AIToolCall toolCall)
-        {
-            return await ExecuteParameterModification(toolCall, "gh_parameter_bulk_outputs", (args) =>
-            {
-                var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
-                var flatten = args["flatten"]?.ToObject<bool?>();
-                var graft = args["graft"]?.ToObject<bool?>();
-                var reverse = args["reverse"]?.ToObject<bool?>();
-                var simplify = args["simplify"]?.ToObject<bool?>();
-
-                var obj = CanvasAccess.FindInstance(componentGuid);
-                if (obj == null) throw new ArgumentException("Component not found");
-                if (!(obj is IGH_Component component)) throw new ArgumentException("Object is not a component");
-
-                component.RecordUndoEvent("[SH] Bulk Modify Outputs");
-
-                GH_DataMapping? dataMapping = null;
-                if (flatten == true) dataMapping = GH_DataMapping.Flatten;
-                else if (graft == true) dataMapping = GH_DataMapping.Graft;
-
-                ParameterModifier.BulkApply(component.Params.Output, dataMapping: dataMapping, reverse: reverse, simplify: simplify);
-                component.ExpireSolution(true);
-                Instances.RedrawCanvas();
-
-                var actions = new List<string>();
-                if (flatten == true) actions.Add("flattened");
-                if (graft == true) actions.Add("grafted");
-                if (reverse == true) actions.Add("reversed");
-                if (simplify == true) actions.Add("simplified");
-
-                var actionStr = actions.Any() ? string.Join(", ", actions) : "no changes";
-                return $"Applied bulk settings ({actionStr}) to {component.Params.Output.Count} output parameters";
             });
         }
 
