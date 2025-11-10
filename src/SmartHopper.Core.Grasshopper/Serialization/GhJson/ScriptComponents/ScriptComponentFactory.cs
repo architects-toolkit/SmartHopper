@@ -29,22 +29,22 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
         /// <summary>
         /// Python 3 script component GUID.
         /// </summary>
-        public static readonly Guid Python3Guid = new Guid("410755b1-224a-4c1e-a407-bf32fb45ea7e");
+        public static readonly Guid Python3Guid = new Guid("719467e6-7cf5-4848-99b0-c5dd57e5442c");
 
         /// <summary>
         /// IronPython 2 script component GUID.
         /// </summary>
-        public static readonly Guid IronPython2Guid = new Guid("7f5c6c55-f846-4a08-a0a5-f934e4394e4e");
+        public static readonly Guid IronPython2Guid = new Guid("97aa26ef-88ae-4ba6-98a6-ed6ddeca11d1");
 
         /// <summary>
         /// C# script component GUID.
         /// </summary>
-        public static readonly Guid CSharpGuid = new Guid("c10b27b7-1318-4966-a3cb-c2a5c75e4cf4");
+        public static readonly Guid CSharpGuid = new Guid("b6ba1144-02d6-4a2d-b53c-ec62e290eeb7");
 
         /// <summary>
         /// VB.NET script component GUID.
         /// </summary>
-        public static readonly Guid VBNetGuid = new Guid("49b5fedf-f880-45c8-9d43-f04d8ed4c7d1");
+        public static readonly Guid VBNetGuid = new Guid("079bd9bd-54a0-41d4-98af-db999015f63d");
 
         #endregion
 
