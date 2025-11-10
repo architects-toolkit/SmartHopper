@@ -43,26 +43,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
-            yield return new AITool(
-                name: "gh_parameter_data_mapping_none",
-                description: "Set a parameter's data mapping to None",
-                category: "Parameters",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""componentGuid"": { ""type"": ""string"", ""description"": ""GUID of the component"" },
-                        ""parameterIndex"": { ""type"": ""integer"", ""description"": ""Index of the parameter (0-based)"" },
-                        ""isInput"": { ""type"": ""boolean"", ""description"": ""true for input, false for output"", ""default"": true }
-                    },
-                    ""required"": [""componentGuid"", ""parameterIndex""]
-                }",
-                execute: this.FlattenParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+            // yield return new AITool(
+            //     name: "gh_parameter_data_mapping_none",
+            //     description: "Set a parameter's data mapping to None",
+            //     category: "Parameters",
+            //     parametersSchema: @"{
+            //         ""type"": ""object"",
+            //         ""properties"": {
+            //             ""componentGuid"": { ""type"": ""string"", ""description"": ""GUID of the component"" },
+            //             ""parameterIndex"": { ""type"": ""integer"", ""description"": ""Index of the parameter (0-based)"" },
+            //             ""isInput"": { ""type"": ""boolean"", ""description"": ""true for input, false for output"", ""default"": true }
+            //         },
+            //         ""required"": [""componentGuid"", ""parameterIndex""]
+            //     }",
+            //     execute: this.DataMapperNoneParameterAsync, // Missing funciton
+            //     requiredCapabilities: this.toolCapabilityRequirements);
             
             yield return new AITool(
                 name: "gh_parameter_data_mapping_flatten",
                 description: "Set a parameter's data mapping to Flatten",
-                category: "Parameters",
+                // category: "Parameters",
+                category: "NotTested",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -78,7 +79,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_data_mapping_graft",
                 description: "Set a parameter's data mapping to Graft",
-                category: "Parameters",
+                // category: "Parameters",
+                category: "NotTested",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -94,7 +96,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_reverse",
                 description: "Reverse the order of items in a parameter",
-                category: "Parameters",
+                // category: "Parameters",
+                category: "NotTested",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -111,7 +114,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_simplify",
                 description: "Simplify geometry in a parameter (removes redundant control points)",
-                category: "Parameters",
+                // category: "Parameters",
+                category: "NotTested",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
