@@ -86,12 +86,11 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | gh_generate | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
 | gh_connect | Connect Grasshopper components | ⚪ | 🟡 | - | - |
 | gh_group | Group components and set a meaningful title | ⚪ | 🟡 | - | - |
-| gh_parameter_flatten | Flatten a parameter's data tree into a single list | ⚪ | 🟡 | - | - |
-| gh_parameter_graft | Graft a parameter to add an extra branch level to the data tree | ⚪ | 🟡 | - | - |
+| gh_parameter_data_mapping_none | Set a parameter's data mapping to None | ⚪ | 🟡 | - | - |
+| gh_parameter_data_mapping_flatten | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
+| gh_parameter_data_mapping_graft | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
 | gh_parameter_reverse | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
 | gh_parameter_simplify | Simplify geometry in a parameter (remove redundant structure) | ⚪ | 🟡 | - | - |
-| gh_parameter_bulk_inputs | Apply data settings to all input parameters of a component | ⚪ | 🟡 | - | - |
-| gh_parameter_bulk_outputs | Apply data settings to all output parameters of a component | ⚪ | 🟡 | - | - |
 | rhino_get_geometry | Retrieve geometry from Rhino | ⚪ | 🟡 | - | - |
 | rhino_read_3dm | Read a 3dm file from disk | ⚪ | 🟡 | - | - |
 
