@@ -29,7 +29,7 @@ namespace SmartHopper.Core.ComponentBase
     /// <summary>
     /// Base for components that support selecting objects via a "Select Components" button.
     /// </summary>
-    public abstract class SelectingComponentBase : GH_Component
+    public abstract class SelectingComponentBase : GH_Component, ISelectingComponent
     {
         /// <summary>
         /// Gets the currently selected Grasshopper objects for this component's selection mode.
@@ -37,9 +37,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public List<IGH_ActiveObject> SelectedObjects { get; private set; } = new();
 
-        private bool inSelectionMode;
-        private List<Guid> pendingSelectionGuids = new();
-        private bool hasPendingRestore;
+        private readonly SelectingComponentCore selectionCore;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectingComponentBase"/> class.
@@ -47,6 +45,8 @@ namespace SmartHopper.Core.ComponentBase
         protected SelectingComponentBase(string name, string nickname, string description, string category, string subcategory)
             : base(name, nickname, description, category, subcategory)
         {
+            this.selectionCore = new SelectingComponentCore(this, this);
+
             // Subscribe to document events for deferred selection restoration
             Instances.DocumentServer.DocumentAdded += this.OnDocumentAdded;
         }
@@ -65,7 +65,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public override void CreateAttributes()
         {
-            this.m_attributes = new SelectingComponentAttributes(this);
+            this.m_attributes = new SelectingComponentAttributes(this, this);
         }
 
         /// <summary>
@@ -73,43 +73,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public void EnableSelectionMode()
         {
-            this.SelectedObjects.Clear();
-            this.inSelectionMode = true;
-            var canvas = Instances.ActiveCanvas;
-            if (canvas == null)
-            {
-                return;
-            }
-
-            canvas.ContextMenuStrip?.Hide();
-            this.CanvasSelectionChanged();
-            this.ExpireSolution(true);
-        }
-
-        private void CanvasSelectionChanged()
-        {
-            if (!this.inSelectionMode)
-            {
-                return;
-            }
-
-            var canvas = Instances.ActiveCanvas;
-            if (canvas == null)
-            {
-                return;
-            }
-
-            // Get all selected objects that are active objects (includes components, parameters, and special objects like scribbles and panels)
-            this.SelectedObjects = canvas.Document.SelectedObjects()
-                .OfType<IGH_ActiveObject>()
-                .Where(obj => obj is IGH_Component ||
-                              obj is IGH_Param ||
-                              obj is Grasshopper.Kernel.Special.GH_Group || 
-                              obj.GetType().Name.Contains("Scribble") ||
-                              obj.GetType().Name.Contains("Panel"))
-                .ToList();
-            this.Message = $"{this.SelectedObjects.Count} selected";
-            this.ExpireSolution(true);
+            this.selectionCore.EnableSelectionMode();
         }
 
         /// <summary>
@@ -133,26 +97,7 @@ namespace SmartHopper.Core.ComponentBase
                 return false;
             }
 
-            try
-            {
-                // Store the count of selected objects
-                writer.SetInt32("SelectedObjectsCount", this.SelectedObjects.Count);
-
-                // Store each selected object's GUID
-                for (int i = 0; i < this.SelectedObjects.Count; i++)
-                {
-                    if (this.SelectedObjects[i] is IGH_DocumentObject docObj)
-                    {
-                        writer.SetGuid($"SelectedObject_{i}", docObj.InstanceGuid);
-                    }
-                }
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            return this.selectionCore.Write(writer);
         }
 
         /// <summary>
@@ -167,49 +112,7 @@ namespace SmartHopper.Core.ComponentBase
                 return false;
             }
 
-            try
-            {
-                // Clear existing selected objects and pending GUIDs
-                this.SelectedObjects.Clear();
-                this.pendingSelectionGuids.Clear();
-                this.hasPendingRestore = false;
-
-                // Read the count of selected objects
-                if (reader.ItemExists("SelectedObjectsCount"))
-                {
-                    int count = reader.GetInt32("SelectedObjectsCount");
-                    System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] Read: Loading {count} selected object GUIDs");
-
-                    // Read each selected object's GUID
-                    for (int i = 0; i < count; i++)
-                    {
-                        string key = $"SelectedObject_{i}";
-                        if (reader.ItemExists(key))
-                        {
-                            Guid objectGuid = reader.GetGuid(key);
-                            this.pendingSelectionGuids.Add(objectGuid);
-                            System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] Read: Stored GUID {objectGuid}");
-                        }
-                    }
-
-                    // Mark that we have pending restoration
-                    if (this.pendingSelectionGuids.Count > 0)
-                    {
-                        this.hasPendingRestore = true;
-                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] Read: Marked {this.pendingSelectionGuids.Count} GUIDs for deferred restoration");
-                    }
-
-                    // Try immediate restoration (works for copy/paste)
-                    this.TryRestoreSelection();
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] Read: Exception - {ex.Message}");
-                return false;
-            }
+            return this.selectionCore.Read(reader);
         }
 
         /// <summary>
@@ -217,53 +120,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void TryRestoreSelection()
         {
-            if (!this.hasPendingRestore || this.pendingSelectionGuids.Count == 0)
-            {
-                return;
-            }
-
-            var canvas = Instances.ActiveCanvas;
-            if (canvas?.Document == null)
-            {
-                System.Diagnostics.Debug.WriteLine("[SelectingComponentBase] TryRestoreSelection: No active canvas/document");
-                return;
-            }
-
-            int foundCount = 0;
-            var remainingGuids = new List<Guid>();
-
-            foreach (var objectGuid in this.pendingSelectionGuids)
-            {
-                var foundObject = canvas.Document.FindObject(objectGuid, true);
-                if (foundObject is IGH_ActiveObject activeObj)
-                {
-                    if (!this.SelectedObjects.Contains(activeObj))
-                    {
-                        this.SelectedObjects.Add(activeObj);
-                        foundCount++;
-                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] TryRestoreSelection: Found object {objectGuid}");
-                    }
-                }
-                else
-                {
-                    // Object not found yet, keep it for later
-                    remainingGuids.Add(objectGuid);
-                    System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] TryRestoreSelection: Object {objectGuid} not found yet");
-                }
-            }
-
-            // Update pending list
-            this.pendingSelectionGuids = remainingGuids;
-            this.hasPendingRestore = this.pendingSelectionGuids.Count > 0;
-
-            // Update the message
-            this.Message = $"{this.SelectedObjects.Count} selected";
-
-            if (foundCount > 0)
-            {
-                System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] TryRestoreSelection: Restored {foundCount} objects, {this.pendingSelectionGuids.Count} still pending");
-                this.ExpireSolution(true);
-            }
+            this.selectionCore.TryRestoreSelection();
         }
 
         /// <summary>
@@ -272,31 +129,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
         {
-            // Check if this is our document
-            if (doc != null && doc == this.OnPingDocument())
-            {
-                System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] OnDocumentAdded: Document loaded, attempting deferred restoration");
-                
-                // Schedule restoration after a short delay to ensure all objects are loaded
-                var timer = new Timer(100) { AutoReset = false };
-                timer.Elapsed += (s, e) =>
-                {
-                    try
-                    {
-                        // Must invoke on UI thread to access canvas
-                        Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
-                        {
-                            this.TryRestoreSelection();
-                        }));
-                        timer.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[SelectingComponentBase] OnDocumentAdded: Exception during deferred restoration - {ex.Message}");
-                    }
-                };
-                timer.Start();
-            }
+            this.selectionCore.OnDocumentAdded(doc);
         }
     }
 
@@ -305,7 +138,8 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public class SelectingComponentAttributes : GH_ComponentAttributes
     {
-        private readonly SelectingComponentBase owner;
+        private readonly GH_Component owner;
+        private readonly ISelectingComponent selectingComponent;
         private Rectangle buttonBounds;
         private bool isHovering;
         private bool isClicking;
@@ -315,10 +149,11 @@ namespace SmartHopper.Core.ComponentBase
         private Timer? selectDisplayTimer;
         private bool selectAutoHidden;
 
-        public SelectingComponentAttributes(SelectingComponentBase owner)
+        public SelectingComponentAttributes(GH_Component owner, ISelectingComponent selectingComponent)
             : base(owner)
         {
             this.owner = owner;
+            this.selectingComponent = selectingComponent;
             this.isHovering = false;
             this.isClicking = false;
         }
@@ -352,12 +187,12 @@ namespace SmartHopper.Core.ComponentBase
                 var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
                 graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
 
-                if (this.isHovering && !this.selectAutoHidden && this.owner.SelectedObjects.Count > 0)
+                if (this.isHovering && !this.selectAutoHidden && this.selectingComponent.SelectedObjects.Count > 0)
                 {
                     using (var pen = new Pen(Color.DodgerBlue, 2f))
                     {
                         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                        foreach (var obj in this.owner.SelectedObjects.OfType<IGH_DocumentObject>())
+                        foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
                         {
                             var b = obj.Attributes.Bounds;
                             var pad = 4f;
@@ -375,7 +210,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 this.isClicking = true;
                 this.owner.ExpireSolution(true);
-                this.owner.EnableSelectionMode();
+                this.selectingComponent.EnableSelectionMode();
                 return GH_ObjectResponse.Handled;
             }
 
