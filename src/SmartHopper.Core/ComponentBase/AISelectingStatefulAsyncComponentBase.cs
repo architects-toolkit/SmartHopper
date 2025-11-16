@@ -54,7 +54,7 @@ namespace SmartHopper.Core.ComponentBase
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
-            this.Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
+            Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
         }
 
         public override bool Write(GH_IO.Serialization.GH_IWriter writer)
