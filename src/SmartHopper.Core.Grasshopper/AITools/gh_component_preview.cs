@@ -27,12 +27,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// Tool provider for toggling Grasshopper component preview by GUID.
     /// </summary>
-    public class gh_toggle_lock : IAIToolProvider
+    public class gh_component_toggle_preview : IAIToolProvider
     {
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
-        private readonly string toolName = "gh_toggle_lock";
+        private readonly string toolName = "gh_component_toggle_preview";
+
         /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
@@ -41,7 +42,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Lock (disable) or unlock (enable) components. Locked components don't execute and show as grayed out. Use this to temporarily disable parts of a definition without deleting them. Requires component GUIDs from gh_get.",
+                description: "Show or hide component geometry preview in the Rhino viewport. Hiding preview improves performance for complex definitions. Only affects components that generate geometry. Requires component GUIDs from gh_get.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -49,43 +50,42 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""guids"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""List of component GUIDs to toggle lock state.""
+                            ""description"": ""List of component GUIDs to toggle preview.""
                         },
-                        ""locked"": {
+                        ""previewOn"": {
                             ""type"": ""boolean"",
-                            ""description"": ""True to lock (disable), false to unlock (enable) the component.""
+                            ""description"": ""True to enable preview, false to disable preview.""
                         }
                     },
-                    ""required"": [ ""guids"", ""locked"" ]
+                    ""required"": [ ""guids"", ""previewOn"" ]
                 }",
-                execute: this.GhToggleLockAsync);
+                execute: this.GhTogglePreviewAsync);
 
-            // Specialized wrapper: gh_lock_selected
+            // Specialized wrapper: gh_hide_preview_selected
             yield return new AITool(
-                name: "gh_lock_selected",
-                description: "Lock (disable) currently selected components. Quick way to disable selected items without needing to specify GUIDs manually. Locked components don't execute and show as grayed out.",
+                name: "gh_component_hide_preview_selected",
+                description: "Hide geometry preview for currently selected components. Quick way to hide preview for selected items without needing to specify GUIDs manually. Improves performance for complex definitions.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {}
                 }",
-                execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: true));
+                execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: false));
 
-            // Specialized wrapper: gh_unlock_selected
+            // Specialized wrapper: gh_show_preview_selected
             yield return new AITool(
-                name: "gh_unlock_selected",
-                description: "Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally.",
+                name: "gh_component_show_preview_selected",
+                description: "Show geometry preview for currently selected components. Quick way to enable preview for selected items without needing to specify GUIDs manually.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {}
                 }",
-                execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: false));
+                execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: true));
         }
 
-        private async Task<AIReturn> GhToggleLockAsync(AIToolCall toolCall)
+        private async Task<AIReturn> GhTogglePreviewAsync(AIToolCall toolCall)
         {
-            // Prepare the output
             var output = new AIReturn()
             {
                 Request = toolCall,
@@ -93,12 +93,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var locked = args["locked"]?.ToObject<bool>() ?? false;
-                Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
+                var previewOn = args["previewOn"]?.ToObject<bool>() ?? false;
+                Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");
                 var updated = new List<string>();
 
                 foreach (var s in guids)
@@ -107,8 +106,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (Guid.TryParse(s, out var guid))
                     {
                         Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
-                        ComponentManipulation.SetComponentLock(guid, locked);
-                        Debug.WriteLine($"[GhObjTools] Set lock to {locked} for GUID: {guid}");
+                        ComponentManipulation.SetComponentPreview(guid, previewOn);
+                        Debug.WriteLine($"[GhObjTools] Set preview to {previewOn} for GUID: {guid}");
                         updated.Add(guid.ToString());
                     }
                     else
@@ -117,10 +116,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                var toolResult = new JObject
-                {
-                    ["updated"] = JArray.FromObject(updated),
-                };
+                var toolResult = new JObject();
+                toolResult["updated"] = JToken.FromObject(updated);
                 var immutableBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)
                     .Build();
@@ -135,7 +132,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        private async Task<AIReturn> GhToggleLockSelectedAsync(AIToolCall toolCall, bool locked)
+        private async Task<AIReturn> GhTogglePreviewSelectedAsync(AIToolCall toolCall, bool previewOn)
         {
             // Get selected component GUIDs
             var selectedGuids = CanvasAccess.GetCurrentObjects()
@@ -155,7 +152,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             var modifiedArgs = new JObject
             {
                 ["guids"] = JArray.FromObject(selectedGuids),
-                ["locked"] = locked
+                ["previewOn"] = previewOn
             };
 
             // Create a new tool call with modified arguments
@@ -166,13 +163,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Body = AIBodyBuilder.Create()
                     .AddToolCall(
                         id: toolInfo.Id,
-                        name: toolInfo.Name ?? (locked ? "gh_lock_selected" : "gh_unlock_selected"),
+                        name: toolInfo.Name ?? (previewOn ? "gh_show_preview_selected" : "gh_hide_preview_selected"),
                         args: modifiedArgs)
                     .Build()
             };
 
             // Delegate to the general method
-            return await this.GhToggleLockAsync(modifiedToolCall);
+            return await this.GhTogglePreviewAsync(modifiedToolCall);
         }
     }
 }

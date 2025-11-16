@@ -93,8 +93,8 @@ namespace SmartHopper.Core.UI
             - gh_group: Create visual groups to organize/annotate components (requires GUIDs from gh_get)
             - gh_move: Reposition components (absolute or relative coordinates)
             - gh_tidy_up: Auto-arrange components in clean grid layout
-            - gh_toggle_lock: Enable/disable component execution
-            - gh_toggle_preview: Show/hide geometry preview
+            - gh_component_toggle_lock: Enable/disable component execution
+            - gh_component_toggle_preview: Show/hide geometry preview
             - gh_put: Add new components from GhJSON format
 
             ### Knowledge Base

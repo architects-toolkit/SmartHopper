@@ -72,6 +72,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Renamed AI Tools:
+  - `gh_toggle_preview` to `gh_component_toggle_preview`
+  - `gh_toggle_lock` to `gh_component_toggle_lock`
+  - `gh_lock_selected` to `gh_component_lock_selected`
+  - `gh_unlock_selected` to `gh_component_unlock_selected`
+  - `gh_hide_preview_selected` to `gh_component_hide_preview_selected`
+  - `gh_show_preview_selected` to `gh_component_show_preview_selected`
 - **Script Component "out" Parameter Handling**: The standard output/error parameter ("out") in script components is no longer serialized as a regular output parameter. Instead, its visibility state is controlled by the new `showStandardOutput` property in `ComponentState`, which maps to the component's `UsingStandardOutputParam` property. This prevents signature changes after deserialization.
 - **ComponentProperty JSON Serialization**: Simple types (bool, int, string, double, etc.) now serialize directly without the `{"value": ...}` wrapper for cleaner, more compact JSON output. Complex types retain the wrapper structure for backward compatibility.
 - **Empty String Omission**: Empty string properties (e.g., group `name`, component `nickName`) are now omitted from JSON output for cleaner, more compact serialization. Only non-empty values are included.

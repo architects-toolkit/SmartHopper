@@ -79,8 +79,12 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | gh_list_components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_get | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_put | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_toggle_lock | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_hide_preview_selected | Hide geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_show_preview_selected | Show geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_toggle_lock | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_lock_selected | Lock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_unlock_selected | Unlock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_move | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_tidy_up | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_generate | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
