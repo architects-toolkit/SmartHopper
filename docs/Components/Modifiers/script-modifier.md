@@ -291,15 +291,15 @@ public static void RenameOutput(IScriptComponent scriptComp, int index, string n
 ### Complete Script Update (AI Tools)
 
 ```csharp
-[AITool("script_edit")]
-public static async Task<AIReturn> EditScript(
+[AITool("script_generator")]
+public static async Task<AIReturn> GenerateOrEditScript(
     Guid componentGuid,
-    string prompt)
+    string instructions)
 {
     var scriptComp = FindScriptComponent(componentGuid);
     
     // Get AI-generated changes
-    var response = await GetAIResponse(prompt);
+    var response = await GetAIResponse(instructions);
     
     // Apply on UI thread
     var tcs = new TaskCompletionSource<bool>();
@@ -323,7 +323,7 @@ public static async Task<AIReturn> EditScript(
     });
     
     await tcs.Task;
-    return AIReturn.Success("Script updated");
+    return AIReturn.Success("Script generated or updated");
 }
 ```
 
