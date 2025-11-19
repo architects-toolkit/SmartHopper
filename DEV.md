@@ -26,8 +26,7 @@ This document aggregates development-facing information.
 | AI Text List Generate (AiTextListGenerate)<br><sub>Generate lists of text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Image Generate (AiImageGenerate)<br><sub>Generate images using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Script Review (AiScriptReview)<br><sub>Make a review of a script, using AI</sub> | ⚪ | - | - | - |
-| AI Script Edit (AiScriptEdit)<br><sub>Modify an existing script using AI</sub> | ⚪ | - | - | - |
-| AI Script New (AiScriptNew)<br><sub>Generate a script using AI</sub> | ⚪ | - | - | - |
+| AI Script Generator (AiScriptGenerator)<br><sub>Create or edit Grasshopper script components using AI</sub> | ⚪ | - | - | - |
 | AI List Evaluate (AiListEvaluate)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI JSON Generate (AiJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | ⚪ | - | - | - |
@@ -56,8 +55,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_generate | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_edit | Modify the script from an existing component | ⚪ | 🟡 | 🟠 | - |
-| script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
+| script_generator | Create or edit Grasshopper script components based on instructions and optional GUID | ⚪ | 🟡 | 🟠 | 🟢 |
 | script_parameter_add_input | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
 | script_parameter_add_output | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
 | script_parameter_remove_input | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |

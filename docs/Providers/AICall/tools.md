@@ -35,8 +35,8 @@ This page documents how tool calls are represented, executed, and orchestrated w
 var toolCall = new AIInteractionToolCall
 {
     Id = "call_123",
-    Name = "script_new",
-    Arguments = new JObject { ["prompt"] = "Create a 10x10 grid" }
+    Name = "script_generator",
+    Arguments = new JObject { ["instructions"] = "Create a 10x10 grid" }
 };
 
 var body = new AIBody

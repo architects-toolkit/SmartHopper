@@ -50,17 +50,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New AI Tools for component generation and connection:
   - `gh_generate`: Generate GhJSON from component specifications (name + parameters), returns valid GhJSON for gh_put.
   - `gh_connect`: Connect Grasshopper components by creating wires between outputs and inputs using component GUIDs.
-- New AI Tools for Rhino 3DM file analysis:
-  - `rhino_read_3dm`: Analyze .3dm files and extract metadata, object counts, layer information, and detailed object properties.
-  - `rhino_get_geometry`: Extract detailed geometry information from the active Rhino document (selected objects, by layer, or by type).
-- New AI Tools for script editing and creation:
-  - `script_edit`: Edit existing script components by GUID without locking the UI editor. Updates code, inputs, and outputs based on AI instructions.
-  - `script_new`: Create new Grasshopper scripts from AI-generated code (improved from previous releases).
+- New AI Tool for script editing and creation:
+  - `script_generator`: Unified tool that creates or edits Grasshopper script components based on natural language instructions and an optional component GUID. Replaces legacy `script_new` and `script_edit` tools.
 - New utility classes for centralized Grasshopper operations:
   - `GHConnectionUtils`: Connect components by creating wires between parameters.
   - `GHGenerateUtils`: Generate GhJSON component specifications.
   - `RhinoFileUtils`: Read and analyze .3dm files.
   - `RhinoGeometryUtils`: Extract geometry information from active Rhino document.
+- New AI Tools for Rhino 3DM file analysis:
+  - `rhino_read_3dm`: Analyze .3dm files and extract metadata, object counts, layer information, and detailed object properties.
+  - `rhino_get_geometry`: Extract detailed geometry information from the active Rhino document (selected objects, by layer, or by type).
 - New test project `SmartHopper.Core.Grasshopper.Tests` with comprehensive unit test coverage:
   - `AIResponseParserTests`: 40+ tests for parsing edge cases (JSON arrays, markdown blocks, ranges, text formats)
   - `PropertyManagerTests`: 30+ tests for type conversion, property setting, and persistent data handling
@@ -108,6 +107,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `DocumentIntrospection.cs` to use `PropertyManagerV2` with `PropertyManagerFactory.CreateForAI()`
   - Updated `GhJsonPlacer.cs` to use `PropertyManagerV2` for property application
   - Updated `PropertyManagerTests.cs` to test the new `PropertyManagerV2` system instead of the old `PropertyManager`
+
+- **Legacy script tools and components**:
+  - Removed `script_new` and `script_edit` AI tools in favor of the unified `script_generator` tool.
+  - Removed `AIScriptNewComponent` and `AIScriptEditComponent` Grasshopper components in favor of `AIScriptGeneratorComponent`.
 
 ### Fixed
 
