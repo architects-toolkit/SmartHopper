@@ -40,7 +40,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Search McNeel Discourse forum posts by query and optionally get summaries. Returns matching posts with optional AI-generated summaries.",
+                description: "Search McNeel Discourse forum posts by query and return matching posts as raw JSON objects.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -53,11 +53,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""integer"",
                             ""description"": ""Maximum number of posts to return (default: 10, max: 50)."",
                             ""default"": 10
-                        },
-                        ""summarize"": {
-                            ""type"": ""boolean"",
-                            ""description"": ""Whether to generate AI summaries for the posts. Limited to first 5 posts when enabled (default: false)."",
-                            ""default"": false
                         }
                     },
                     ""required"": [""query""]
@@ -76,10 +71,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Debug.WriteLine("[McNeelForumTools] Running Search tool");
 
-                // Extract provider and model from toolCall
-                string providerName = toolCall.Provider;
-                string modelName = toolCall.Model;
-
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
@@ -92,8 +83,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 int limit = args["limit"]?.Value<int>() ?? 10;
                 limit = Math.Max(1, Math.Min(limit, 50)); // Clamp between 1 and 50
-
-                bool summarize = args["summarize"]?.Value<bool>() ?? false;
 
                 // Fetch search results
                 using var httpClient = new HttpClient();
@@ -130,20 +119,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["cooked"] = p.Value<string>("cooked"),
                     };
 
-                    // Generate summary if requested and within limit
-                    if (summarize && i < 5)
-                    {
-                        try
-                        {
-                            string summary = await this.GenerateSummaryAsync(postId, providerName, modelName).ConfigureAwait(false);
-                            postObj["summary"] = summary;
-                        }
-                        catch (Exception ex)
-                        {
-                            postObj["summary"] = $"Summary generation failed: {ex.Message}";
-                        }
-                    }
-
                     result.Add(postObj);
                 }
 
@@ -152,7 +127,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["query"] = query,
                     ["results"] = result,
                     ["count"] = result.Count,
-                    ["summarized"] = summarize ? Math.Min(result.Count, 5) : 0,
                 };
 
                 var builder = AIBodyBuilder.Create();
@@ -168,41 +142,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
-        }
-
-        /// <summary>
-        /// Generates a summary for a post using the mcneel_forum_post_summarize subtool.
-        /// </summary>
-        private async Task<string> GenerateSummaryAsync(int postId, string providerName, string modelName)
-        {
-            // Create a tool call for the summarize subtool
-            var summarizeArgs = new JObject
-            {
-                ["id"] = postId,
-            };
-
-            var toolCallInteraction = new AIInteractionToolCall
-            {
-                Id = Guid.NewGuid().ToString(),
-                Name = "mcneel_forum_post_summarize",
-                Arguments = summarizeArgs,
-            };
-
-            var toolCallRequest = new AIToolCall();
-            toolCallRequest.Initialize(providerName, modelName, new List<IAIInteraction> { toolCallInteraction }, "mcneel_forum_post_summarize");
-            var result = await toolCallRequest.Exec().ConfigureAwait(false);
-
-            if (result.Status == AICallStatus.Finished)
-            {
-                var lastInteraction = result.Body?.Interactions?.LastOrDefault();
-                if (lastInteraction is AIInteractionToolResult toolResult)
-                {
-                    var resultJson = toolResult.Result as JObject;
-                    return resultJson?["summary"]?.ToString() ?? "No summary available.";
-                }
-            }
-
-            return "Summary generation failed.";
         }
     }
 }

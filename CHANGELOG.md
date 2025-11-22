@@ -21,9 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - **New AI Tools for parameter and script modification**:
    - Parameter tools: `gh_parameter_flatten`, `gh_parameter_graft`, `gh_parameter_reset_mapping`, `gh_parameter_reverse`, `gh_parameter_simplify`, `gh_parameter_bulk_inputs`, `gh_parameter_bulk_outputs`
    - Script tools: `script_parameter_add_input`, `script_parameter_add_output`, `script_parameter_remove_input`, `script_parameter_remove_output`, `script_parameter_set_type_input`, `script_parameter_set_type_output`, `script_parameter_set_access`, `script_toggle_std_output`, `script_set_principal_input`, `script_parameter_set_optional`
-- **McNeel Forum AI Tools Enhancement**:
-  - `mcneel_forum_search`: Enhanced search tool with configurable result limit (1-50 posts) and optional AI-generated summaries (limited to first 5 posts)
-  - `mcneel_forum_get_post`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID
+ - **McNeel Forum AI Tools Enhancement**:
+  - `mcneel_forum_search`: Enhanced search tool with configurable result limit (1-50 posts), returning matching posts as raw JSON objects
+  - `mcneel_forum_post_get`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID
   - `mcneel_forum_post_summarize`: New subtool that generates AI-powered summaries of forum posts using default provider/model
 - **Property Management System V2**: Complete refactoring of property management with modern, maintainable architecture:
   - **PropertyManagerV2**: New property management system with clean separation of concerns between filtering, extraction, and application
@@ -310,6 +310,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
   - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
   - AIListFilter: fix incorrect index array parsing
+  - `mcneel_forum_search` simplified: now only accepts `query` and `limit` parameters and returns raw `results` and `count` without automatic AI summaries; use `mcneel_forum_post_summarize` explicitly when summaries are needed.
 
 - Streaming behavior:
   - OpenAI provider: nested `OpenAIStreamingAdapter` now derives from `AIProviderStreamingAdapter` and reuses shared helpers; streaming behavior and statuses remain unchanged.

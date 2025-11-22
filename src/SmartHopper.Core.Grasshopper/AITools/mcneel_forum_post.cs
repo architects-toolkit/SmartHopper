@@ -27,12 +27,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// Provides AI tools for fetching and summarizing McNeel Discourse forum posts.
     /// </summary>
-    public class mcneel_forum_get_post : IAIToolProvider
+    public class mcneel_forum_post : IAIToolProvider
     {
         /// <summary>
         /// Name of the get post tool.
         /// </summary>
-        private readonly string getPostToolName = "mcneel_forum_get_post";
+        private readonly string getPostToolName = "mcneel_forum_post_get";
 
         /// <summary>
         /// Name of the summarize post tool.

@@ -99,7 +99,7 @@ namespace SmartHopper.Core.UI
 
             ### Knowledge Base
             - mcneel_forum_search: Search McNeel Discourse forum with optional summaries
-            - mcneel_forum_get_post: Retrieve full forum post by ID
+            - mcneel_forum_post_get: Retrieve full forum post by ID
             - mcneel_forum_post_summarize: Generate AI summary of a forum post
             - web_generic_page_read: Read any web page by URL
 
