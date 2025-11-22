@@ -109,14 +109,14 @@ namespace SmartHopper.Components.Knowledge
 
                     var toolCallInteraction = new AIInteractionToolCall
                     {
-                        Name = "mcneel_forum_get_post",
+                        Name = "mcneel_forum_post_get",
                         Arguments = parameters,
                         Agent = AIAgent.Assistant,
                     };
 
                     var toolCall = new AIToolCall
                     {
-                        Endpoint = "mcneel_forum_get_post",
+                        Endpoint = "mcneel_forum_post_get",
                     };
 
                     toolCall.FromToolCallInteraction(toolCallInteraction);
@@ -127,7 +127,7 @@ namespace SmartHopper.Components.Knowledge
 
                     if (toolResult == null)
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_get_post' returned no result.");
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_post_get' returned no result.");
                         return;
                     }
 
