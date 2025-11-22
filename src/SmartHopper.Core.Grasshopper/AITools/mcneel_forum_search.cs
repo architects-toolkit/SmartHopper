@@ -15,6 +15,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -95,6 +96,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 posts = new JArray(posts.Take(limit));
                 var topics = json["topics"] as JArray ?? new JArray();
 
+                int rawPostsCount = (json["posts"] as JArray)?.Count ?? 0;
+                Debug.WriteLine($"[McNeelForumTools] Search response parsed. RawPosts={rawPostsCount}, ClampedPosts={posts.Count}, Topics={topics.Count}");
+
                 // Build a map of topic ID to title
                 var topicTitles = topics
                     .Where(t => t["id"] != null)
@@ -106,20 +110,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 for (int i = 0; i < posts.Count; i++)
                 {
                     var p = posts[i];
-                    int postId = p.Value<int>("id");
                     int topicId = p.Value<int>("topic_id");
 
-                    var postObj = new JObject
-                    {
-                        ["id"] = postId,
-                        ["username"] = p.Value<string>("username"),
-                        ["topic_id"] = topicId,
-                        ["title"] = topicTitles.GetValueOrDefault(topicId, string.Empty),
-                        ["date"] = p.Value<string>("created_at"),
-                        ["cooked"] = p.Value<string>("cooked"),
-                    };
+                    var baseObject = (JObject)p.DeepClone();
+                    baseObject["title"] = topicTitles.GetValueOrDefault(topicId, string.Empty);
 
-                    result.Add(postObj);
+                    string filteredJson = McNeelForumUtils.FilterPostJson(baseObject.ToString(Newtonsoft.Json.Formatting.None));
+                    var filteredObject = JObject.Parse(filteredJson);
+
+                    result.Add(filteredObject);
                 }
 
                 var toolResult = new JObject
@@ -128,6 +127,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["results"] = result,
                     ["count"] = result.Count,
                 };
+
+                Debug.WriteLine($"[McNeelForumTools] Returning {result.Count} posts for query='{query}'");
 
                 var builder = AIBodyBuilder.Create();
                 builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);

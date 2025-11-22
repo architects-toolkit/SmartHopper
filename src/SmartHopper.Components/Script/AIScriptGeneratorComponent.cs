@@ -28,7 +28,7 @@ namespace SmartHopper.Components.Script
     {
         public override Guid ComponentGuid => new Guid("B9E66C95-2A7D-46AB-9E37-7C28F8202F4A");
 
-        protected override Bitmap Icon => Resources.textgenerate;
+        // protected override Bitmap Icon => Resources.textgenerate;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 

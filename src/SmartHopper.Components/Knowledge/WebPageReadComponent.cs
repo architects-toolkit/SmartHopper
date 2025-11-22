@@ -30,9 +30,9 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("C2E6B13A-6245-4A4F-8C8F-3B7616D33003");
 
-        protected override Bitmap Icon => Resources.context;
+        // protected override Bitmap Icon => Resources.context;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public WebPageReadComponent()
             : base(
@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Knowledge
                   "WebRead",
                   "Retrieve plain text content of a webpage at the given URL, excluding HTML, scripts, styles, and images.",
                   "SmartHopper",
-                  "Knowladge")
+                  "Knowledge")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -83,7 +83,7 @@ namespace SmartHopper.Components.Knowledge
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 string localUrl = null;
-                DA.GetData("Url", ref localUrl);
+                DA.GetData(0, ref localUrl);
 
                 this.url = localUrl ?? string.Empty;
                 this.hasWork = !string.IsNullOrWhiteSpace(this.url);
@@ -146,9 +146,6 @@ namespace SmartHopper.Components.Knowledge
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                DA.SetData("Content", this.resultContent);
-                DA.SetData("Url", this.resultUrl);
-                DA.SetData("Length", this.resultLength);
                 message = string.IsNullOrWhiteSpace(this.resultContent) ? "No content retrieved" : "Page content retrieved";
             }
         }
