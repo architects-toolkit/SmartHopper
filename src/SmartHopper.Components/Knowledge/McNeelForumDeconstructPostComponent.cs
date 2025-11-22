@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Knowledge
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        // protected override Bitmap Icon => Resources.context;
+        protected override Bitmap Icon => Resources.mcneelpostdeconstruct;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
