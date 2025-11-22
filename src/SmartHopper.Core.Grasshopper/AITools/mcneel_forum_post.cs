@@ -108,10 +108,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 int id = idNullable.Value;
-                var postJson = await this.FetchPostAsync(id).ConfigureAwait(false);
-
-                string filteredJson = McNeelForumUtils.FilterPostJson(postJson.ToString(Newtonsoft.Json.Formatting.None));
-                var filteredPost = JObject.Parse(filteredJson);
+                var filteredPost = await this.FetchFilteredPostAsync(id).ConfigureAwait(false);
 
                 var toolResult = new JObject
                 {
@@ -195,16 +192,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 foreach (int id in ids)
                 {
-                    var postJson = await this.FetchPostAsync(id).ConfigureAwait(false);
+                    var filteredPost = await this.FetchFilteredPostAsync(id).ConfigureAwait(false);
 
                     // Extract key information for summarization
-                    string username = postJson.Value<string>("username") ?? "Unknown";
-                    string cooked = postJson.Value<string>("cooked") ?? string.Empty;
-                    string createdAt = postJson.Value<string>("created_at") ?? string.Empty;
+                    string username = filteredPost.Value<string>("username") ?? "Unknown";
+                    string date = filteredPost.Value<string>("date") ?? string.Empty;
+                    string raw = filteredPost.Value<string>("raw") ?? string.Empty;
 
                     // Build user content with optional targeted instructions
                     string userContent =
-                        $"Summarize this forum post:\n\nAuthor: {username}\nDate: {createdAt}\nContent:\n{cooked}";
+                        $"Summarize this forum post:\n\nAuthor: {username}\nDate: {date}\nContent:\n{raw}";
 
                     if (!string.IsNullOrWhiteSpace(instructions))
                     {
@@ -259,7 +256,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["id"] = id,
                         ["summary"] = summary,
                         ["username"] = username,
-                        ["date"] = createdAt,
+                        ["date"] = date,
                     };
 
                     summariesArray.Add(summaryObject);
@@ -316,6 +313,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             return JObject.Parse(content);
+        }
+
+        private async Task<JObject> FetchFilteredPostAsync(int id)
+        {
+            var postJson = await this.FetchPostAsync(id).ConfigureAwait(false);
+            string filteredJson = McNeelForumUtils.FilterPostJson(postJson.ToString(Newtonsoft.Json.Formatting.None));
+            return JObject.Parse(filteredJson);
         }
     }
 }

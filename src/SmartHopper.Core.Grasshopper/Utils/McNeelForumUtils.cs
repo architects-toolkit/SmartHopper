@@ -99,5 +99,76 @@ namespace SmartHopper.Core.Grasshopper.Utils
                 return postJson;
             }
         }
+
+        public static string FilterSuggestedTopicJson(string topicJson)
+        {
+            if (string.IsNullOrWhiteSpace(topicJson))
+            {
+                return topicJson ?? string.Empty;
+            }
+
+            try
+            {
+                var topicObject = JObject.Parse(topicJson);
+
+                int id = topicObject["id"]?.Value<int?>() ?? 0;
+                string title = topicObject["title"]?.Value<string>() ?? string.Empty;
+
+                string createdAt = topicObject["created_at"]?.Value<string>() ?? string.Empty;
+                string lastPostedAt = topicObject["last_posted_at"]?.Value<string>() ?? string.Empty;
+
+                int postsCount = topicObject["posts_count"]?.Value<int?>() ?? 0;
+                int views = topicObject["views"]?.Value<int?>() ?? 0;
+                int likeCount = topicObject["like_count"]?.Value<int?>() ?? 0;
+
+                var filteredObject = new JObject
+                {
+                    ["id"] = id,
+                };
+
+                if (!string.IsNullOrWhiteSpace(title))
+                {
+                    filteredObject["title"] = title;
+                }
+
+                if (!string.IsNullOrWhiteSpace(createdAt))
+                {
+                    filteredObject["created_at"] = createdAt;
+                }
+
+                if (!string.IsNullOrWhiteSpace(lastPostedAt))
+                {
+                    filteredObject["last_posted_at"] = lastPostedAt;
+                }
+
+                if (postsCount > 0)
+                {
+                    filteredObject["posts_count"] = postsCount;
+                }
+
+                if (views > 0)
+                {
+                    filteredObject["views"] = views;
+                }
+
+                if (likeCount > 0)
+                {
+                    filteredObject["like_count"] = likeCount;
+                }
+
+                var tags = topicObject["tags"] as JArray;
+                if (tags != null && tags.Count > 0)
+                {
+                    filteredObject["tags"] = tags;
+                }
+
+                return filteredObject.ToString(Newtonsoft.Json.Formatting.None);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[McNeelForumUtils] Failed to filter suggested topic JSON: {ex.Message}");
+                return topicJson;
+            }
+        }
     }
 }

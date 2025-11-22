@@ -21,6 +21,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Knowledge
@@ -33,9 +34,9 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("B3C4D5E6-7890-4ABC-8123-4567DEF89012");
 
-        // protected override Bitmap Icon => Resources.context;
+        protected override Bitmap Icon => Resources.mcneeltopicsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
@@ -58,11 +59,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Topic Id", "T", "ID of the summarized forum topic.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum topic.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Title", "Ti", "Title of the topic.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Url", "U", "URL of the topic on discourse.mcneel.com.", GH_ParamAccess.tree);
-            pManager.AddIntegerParameter("Post Count", "P#", "Number of posts included in the summary.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -77,11 +74,7 @@ namespace SmartHopper.Components.Knowledge
             private string instructions;
             private bool hasWork;
 
-            private GH_Structure<GH_Integer> resultIds;
             private GH_Structure<GH_String> resultSummaries;
-            private GH_Structure<GH_String> resultTitles;
-            private GH_Structure<GH_String> resultUrls;
-            private GH_Structure<GH_Integer> resultPostCounts;
 
             public AIMcNeelForumTopicSummarizeWorker(
                 AIMcNeelForumTopicSummarizeComponent parent,
@@ -108,7 +101,20 @@ namespace SmartHopper.Components.Knowledge
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one valid Topic Id is required.");
                 }
 
-                dataCount = this.hasWork ? this.idsTree.PathCount : 0;
+                if (this.hasWork)
+                {
+                    var trees = new Dictionary<string, GH_Structure<GH_Integer>>
+                    {
+                        { "TopicId", this.idsTree },
+                    };
+
+                    var metrics = DataTreeProcessor.GetProcessingPathMetrics(trees);
+                    dataCount = metrics.dataCount;
+                }
+                else
+                {
+                    dataCount = 0;
+                }
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -208,55 +214,10 @@ namespace SmartHopper.Components.Knowledge
                         groupIdenticalBranches: false,
                         token: token).ConfigureAwait(false);
 
-                    this.resultIds = new GH_Structure<GH_Integer>();
                     this.resultSummaries = new GH_Structure<GH_String>();
-                    this.resultTitles = new GH_Structure<GH_String>();
-                    this.resultUrls = new GH_Structure<GH_String>();
-                    this.resultPostCounts = new GH_Structure<GH_Integer>();
-
-                    if (resultTrees.TryGetValue("TopicId", out var idTree))
-                    {
-                        foreach (var path in idTree.Paths)
-                        {
-                            var branch = idTree.get_Branch(path);
-                            foreach (var item in branch)
-                            {
-                                if (item is GH_String ghString && int.TryParse(ghString.Value, out int parsedId))
-                                {
-                                    this.resultIds.Append(new GH_Integer(parsedId), path);
-                                }
-                            }
-                        }
-                    }
-
                     if (resultTrees.TryGetValue("Summary", out var summaryTree))
                     {
                         this.resultSummaries = summaryTree;
-                    }
-
-                    if (resultTrees.TryGetValue("Title", out var titleTree))
-                    {
-                        this.resultTitles = titleTree;
-                    }
-
-                    if (resultTrees.TryGetValue("Url", out var urlTree))
-                    {
-                        this.resultUrls = urlTree;
-                    }
-
-                    if (resultTrees.TryGetValue("PostCount", out var postCountTree))
-                    {
-                        foreach (var path in postCountTree.Paths)
-                        {
-                            var branch = postCountTree.get_Branch(path);
-                            foreach (var item in branch)
-                            {
-                                if (item is GH_String ghString && int.TryParse(ghString.Value, out int parsedCount))
-                                {
-                                    this.resultPostCounts.Append(new GH_Integer(parsedCount), path);
-                                }
-                            }
-                        }
                     }
                 }
                 catch (Exception ex)
@@ -268,11 +229,7 @@ namespace SmartHopper.Components.Knowledge
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this.parent.SetPersistentOutput("Topic Id", this.resultIds ?? new GH_Structure<GH_Integer>(), DA);
                 this.parent.SetPersistentOutput("Summary", this.resultSummaries ?? new GH_Structure<GH_String>(), DA);
-                this.parent.SetPersistentOutput("Title", this.resultTitles ?? new GH_Structure<GH_String>(), DA);
-                this.parent.SetPersistentOutput("Url", this.resultUrls ?? new GH_Structure<GH_String>(), DA);
-                this.parent.SetPersistentOutput("Post Count", this.resultPostCounts ?? new GH_Structure<GH_Integer>(), DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
                 message = hasAnySummary ? "Topic(s) summarized" : "No summary available";

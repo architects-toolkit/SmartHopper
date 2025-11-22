@@ -21,6 +21,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Knowledge
@@ -33,9 +34,9 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("A6B8D7E2-2345-4F8A-9C10-3D4E5F6A7004");
 
-        // protected override Bitmap Icon => Resources.context;
+        protected override Bitmap Icon => Resources.mcneelpostsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
@@ -58,10 +59,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Post Id", "P", "ID of the summarized forum post.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum post.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Author", "A", "Username of the post author.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Date", "D", "Creation date of the post.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -76,10 +74,7 @@ namespace SmartHopper.Components.Knowledge
             private string instructions;
             private bool hasWork;
 
-            private GH_Structure<GH_Integer> resultIds;
             private GH_Structure<GH_String> resultSummaries;
-            private GH_Structure<GH_String> resultAuthors;
-            private GH_Structure<GH_String> resultDates;
 
             public AIMcNeelForumPostSummarizeWorker(
                 AIMcNeelForumPostSummarizeComponent parent,
@@ -106,7 +101,20 @@ namespace SmartHopper.Components.Knowledge
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one valid Id is required.");
                 }
 
-                dataCount = this.hasWork ? this.idsTree.PathCount : 0;
+                if (this.hasWork)
+                {
+                    var trees = new Dictionary<string, GH_Structure<GH_Integer>>
+                    {
+                        { "Id", this.idsTree },
+                    };
+
+                    var metrics = DataTreeProcessor.GetProcessingPathMetrics(trees);
+                    dataCount = metrics.dataCount;
+                }
+                else
+                {
+                    dataCount = 0;
+                }
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -129,10 +137,7 @@ namespace SmartHopper.Components.Knowledge
                         {
                             var outputs = new Dictionary<string, List<GH_String>>
                             {
-                                { "Id", new List<GH_String>() },
                                 { "Summary", new List<GH_String>() },
-                                { "Author", new List<GH_String>() },
-                                { "Date", new List<GH_String>() },
                             };
 
                             foreach (var kvp in branchInputs)
@@ -188,17 +193,10 @@ namespace SmartHopper.Components.Knowledge
                                 if (summariesArray == null || summariesArray.Count == 0)
                                 {
                                     // Backward compatibility: single summary at root
-                                    var singleId = toolResult["id"]?.ToObject<int?>();
                                     var singleSummary = toolResult["summary"]?.ToString() ?? string.Empty;
-                                    var singleAuthor = toolResult["username"]?.ToString() ?? string.Empty;
-                                    var singleDate = toolResult["date"]?.ToString() ?? string.Empty;
-
-                                    if (singleId.HasValue)
+                                    if (!string.IsNullOrWhiteSpace(singleSummary))
                                     {
-                                        outputs["Id"].Add(new GH_String(singleId.Value.ToString()));
                                         outputs["Summary"].Add(new GH_String(singleSummary));
-                                        outputs["Author"].Add(new GH_String(singleAuthor));
-                                        outputs["Date"].Add(new GH_String(singleDate));
                                     }
 
                                     continue;
@@ -206,17 +204,10 @@ namespace SmartHopper.Components.Knowledge
 
                                 foreach (var item in summariesArray.OfType<JObject>())
                                 {
-                                    var idValue = item["id"]?.ToObject<int?>();
                                     var summaryValue = item["summary"]?.ToString() ?? string.Empty;
-                                    var authorValue = item["username"]?.ToString() ?? string.Empty;
-                                    var dateValue = item["date"]?.ToString() ?? string.Empty;
-
-                                    if (idValue.HasValue)
+                                    if (!string.IsNullOrWhiteSpace(summaryValue))
                                     {
-                                        outputs["Id"].Add(new GH_String(idValue.Value.ToString()));
                                         outputs["Summary"].Add(new GH_String(summaryValue));
-                                        outputs["Author"].Add(new GH_String(authorValue));
-                                        outputs["Date"].Add(new GH_String(dateValue));
                                     }
                                 }
                             }
@@ -228,39 +219,11 @@ namespace SmartHopper.Components.Knowledge
                         token: token).ConfigureAwait(false);
 
                     // Map result trees back to strongly-typed structures
-                    this.resultIds = new GH_Structure<GH_Integer>();
                     this.resultSummaries = new GH_Structure<GH_String>();
-                    this.resultAuthors = new GH_Structure<GH_String>();
-                    this.resultDates = new GH_Structure<GH_String>();
-
-                    if (resultTrees.TryGetValue("Id", out var idTree))
-                    {
-                        foreach (var path in idTree.Paths)
-                        {
-                            var branch = idTree.get_Branch(path);
-                            foreach (var item in branch)
-                            {
-                                if (item is GH_String ghString && int.TryParse(ghString.Value, out int parsedId))
-                                {
-                                    this.resultIds.Append(new GH_Integer(parsedId), path);
-                                }
-                            }
-                        }
-                    }
 
                     if (resultTrees.TryGetValue("Summary", out var summaryTree))
                     {
                         this.resultSummaries = summaryTree;
-                    }
-
-                    if (resultTrees.TryGetValue("Author", out var authorTree))
-                    {
-                        this.resultAuthors = authorTree;
-                    }
-
-                    if (resultTrees.TryGetValue("Date", out var dateTree))
-                    {
-                        this.resultDates = dateTree;
                     }
                 }
                 catch (Exception ex)
@@ -272,10 +235,7 @@ namespace SmartHopper.Components.Knowledge
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this.parent.SetPersistentOutput("Post Id", this.resultIds ?? new GH_Structure<GH_Integer>(), DA);
                 this.parent.SetPersistentOutput("Summary", this.resultSummaries ?? new GH_Structure<GH_String>(), DA);
-                this.parent.SetPersistentOutput("Author", this.resultAuthors ?? new GH_Structure<GH_String>(), DA);
-                this.parent.SetPersistentOutput("Date", this.resultDates ?? new GH_Structure<GH_String>(), DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
                 message = hasAnySummary ? "Post(s) summarized" : "No summary available";
