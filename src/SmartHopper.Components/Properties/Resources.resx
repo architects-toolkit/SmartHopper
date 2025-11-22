@@ -154,8 +154,8 @@
   <data name="components" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\components.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="metrics" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\metrics.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="metricsdeconstruct" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\metricsdeconstruct.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="tidyup" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\tidyup.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -165,5 +165,35 @@
   </data>
   <data name="imgviewer" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\imgviewer.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneelforumsearch" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneelforumsearch.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneelpostdeconstruct" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneelpostdeconstruct.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneelpostget" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneelpostget.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneelpostopen" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneelpostopen.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneelpostsummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneelpostsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneeltopicrelated" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneeltopicrelated.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneeltopicsummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneeltopicsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="websummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\websummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="scriptgenerate" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\scriptgenerate.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="scriptreview" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\scriptreview.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>
