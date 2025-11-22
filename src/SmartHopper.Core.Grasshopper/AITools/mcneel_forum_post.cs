@@ -14,10 +14,12 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
@@ -62,17 +64,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             yield return new AITool(
                 name: this.summarizeToolName,
-                description: "Generate a concise summary of a McNeel Discourse forum post by ID. Returns a brief summary of the post content.",
+                description: "Generate a concise summary of one or more McNeel Discourse forum posts by ID. Returns a brief summary for each post.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""id"": {
-                            ""type"": ""integer"",
-                            ""description"": ""ID of the forum post to summarize.""
+                        ""ids"": {
+                            ""type"": ""array"",
+                            ""items"": {
+                                ""type"": ""integer""
+                            },
+                            ""description"": ""ID or list of forum post IDs to summarize.""
+                        },
+                        ""instructions"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional targeted summary instructions to focus on a specific question, target, or concern.""
                         }
                     },
-                    ""required"": [""id""]
+                    ""required"": [""ids""]
                 }",
                 execute: this.SummarizePostAsync);
         }
@@ -101,10 +110,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 int id = idNullable.Value;
                 var postJson = await this.FetchPostAsync(id).ConfigureAwait(false);
 
+                string filteredJson = McNeelForumUtils.FilterPostJson(postJson.ToString(Newtonsoft.Json.Formatting.None));
+                var filteredPost = JObject.Parse(filteredJson);
+
                 var toolResult = new JObject
                 {
                     ["id"] = id,
-                    ["post"] = postJson,
+                    ["post"] = filteredPost,
                 };
 
                 var builder = AIBodyBuilder.Create();
@@ -121,7 +133,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Generates a summary of a McNeel Discourse forum post by ID.
+        /// Generates a summary of one or more McNeel Discourse forum posts by ID.
         /// </summary>
         private async Task<AIReturn> SummarizePostAsync(AIToolCall toolCall)
         {
@@ -141,72 +153,144 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
+
+                // Collect IDs from optional "ids" array and legacy "id" field
+                var ids = new List<int>();
+
+                var idsToken = args["ids"];
+                if (idsToken is JArray idsArray)
+                {
+                    foreach (var token in idsArray)
+                    {
+                        if (token != null && token.Type == JTokenType.Integer)
+                        {
+                            ids.Add(token.Value<int>());
+                        }
+                    }
+                }
+
+                // When only one id is provided, add it to the list
+                else if (idsToken != null && idsToken.Type == JTokenType.Integer)
+                {
+                    ids.Add(idsToken.Value<int>());
+                }
+
                 int? idNullable = args["id"]?.Value<int>();
-                if (!idNullable.HasValue)
+                if (idNullable.HasValue && !ids.Contains(idNullable.Value))
                 {
-                    output.CreateToolError("Missing required parameter: id", toolCall);
+                    ids.Add(idNullable.Value);
+                }
+
+                if (ids.Count == 0)
+                {
+                    output.CreateToolError("Missing required parameter: ids", toolCall);
                     return output;
                 }
 
-                int id = idNullable.Value;
-                var postJson = await this.FetchPostAsync(id).ConfigureAwait(false);
+                string instructions = args["instructions"]?.ToString();
 
-                // Extract key information for summarization
-                string username = postJson.Value<string>("username") ?? "Unknown";
-                string cooked = postJson.Value<string>("cooked") ?? string.Empty;
-                string createdAt = postJson.Value<string>("created_at") ?? string.Empty;
+                var summariesArray = new JArray();
+                var accumulatedMetrics = new AIMetrics();
+                var allMessages = new List<AIRuntimeMessage>();
 
-                // Create the summary request body
-                var requestBody = AIBodyBuilder.Create()
-                    .AddText(
-                        AIAgent.Context,
-                        "You are a helpful assistant that summarizes forum posts concisely. Provide a brief 1-2 sentence summary of the main point or question.")
-                    .AddText(
-                        AIAgent.User,
-                        $"Summarize this forum post:\n\nAuthor: {username}\nDate: {createdAt}\nContent:\n{cooked}")
-                    .Build();
-
-                // Initiate AIRequestCall with explicit provider and model
-                var summaryRequest = new AIRequestCall();
-                summaryRequest.Initialize(
-                    provider: providerName,
-                    model: modelName,
-                    capability: AICapability.TextInput | AICapability.TextOutput,
-                    endpoint: endpoint,
-                    body: requestBody);
-
-                // Execute the AIRequestCall
-                var summaryResult = await summaryRequest.Exec().ConfigureAwait(false);
-
-                if (!summaryResult.Success)
+                foreach (int id in ids)
                 {
-                    // Propagate structured messages from AI call
-                    output.Messages = summaryResult.Messages;
-                    return output;
-                }
+                    var postJson = await this.FetchPostAsync(id).ConfigureAwait(false);
 
-                string summary = summaryResult.Body?.GetLastText() ?? "Failed to generate summary.";
+                    // Extract key information for summarization
+                    string username = postJson.Value<string>("username") ?? "Unknown";
+                    string cooked = postJson.Value<string>("cooked") ?? string.Empty;
+                    string createdAt = postJson.Value<string>("created_at") ?? string.Empty;
+
+                    // Build user content with optional targeted instructions
+                    string userContent =
+                        $"Summarize this forum post:\n\nAuthor: {username}\nDate: {createdAt}\nContent:\n{cooked}";
+
+                    if (!string.IsNullOrWhiteSpace(instructions))
+                    {
+                        userContent += $"\n\nFocus the summary on the following question/target/concern:\n{instructions}";
+                    }
+
+                    // Create the summary request body
+                    var bodyBuilder = AIBodyBuilder.Create()
+                        .AddText(
+                            AIAgent.Context,
+                            "You are a helpful assistant that summarizes forum posts concisely. Provide a brief 1-2 sentence summary of the main point or question.")
+                        .AddText(
+                            AIAgent.User,
+                            userContent)
+                        .WithContextFilter("-*");
+
+                    var requestBody = bodyBuilder.Build();
+
+                    // Initiate AIRequestCall with explicit provider and model
+                    var summaryRequest = new AIRequestCall();
+                    summaryRequest.Initialize(
+                        provider: providerName,
+                        model: modelName,
+                        capability: AICapability.TextInput | AICapability.TextOutput,
+                        endpoint: endpoint,
+                        body: requestBody);
+
+                    // Execute the AIRequestCall
+                    var summaryResult = await summaryRequest.Exec().ConfigureAwait(false);
+
+                    if (!summaryResult.Success)
+                    {
+                        // Propagate structured messages from AI call
+                        output.Messages = summaryResult.Messages;
+                        return output;
+                    }
+
+                    if (summaryResult.Metrics != null)
+                    {
+                        accumulatedMetrics.Combine(summaryResult.Metrics);
+                    }
+
+                    if (summaryResult.Messages != null && summaryResult.Messages.Count > 0)
+                    {
+                        allMessages.AddRange(summaryResult.Messages);
+                    }
+
+                    string summary = summaryResult.Body?.GetLastText() ?? "Failed to generate summary.";
+
+                    var summaryObject = new JObject
+                    {
+                        ["id"] = id,
+                        ["summary"] = summary,
+                        ["username"] = username,
+                        ["date"] = createdAt,
+                    };
+
+                    summariesArray.Add(summaryObject);
+                }
 
                 var toolResult = new JObject
                 {
-                    ["id"] = id,
-                    ["summary"] = summary,
-                    ["username"] = username,
-                    ["date"] = createdAt,
+                    ["summaries"] = summariesArray,
                 };
+
+                // Backward compatibility: expose first summary at root level when only one ID is provided
+                if (summariesArray.Count == 1 && summariesArray[0] is JObject firstSummary)
+                {
+                    toolResult["id"] = firstSummary["id"];
+                    toolResult["summary"] = firstSummary["summary"];
+                    toolResult["username"] = firstSummary["username"];
+                    toolResult["date"] = firstSummary["date"];
+                }
 
                 // Attach non-breaking result envelope
                 toolResult.WithEnvelope(
                     ToolResultEnvelope.Create(
                         tool: this.summarizeToolName,
-                        type: ToolResultContentType.Text,
-                        payloadPath: "summary",
+                        type: ToolResultContentType.List,
+                        payloadPath: "summaries",
                         provider: providerName,
                         model: modelName,
                         toolCallId: toolInfo?.Id));
 
                 var toolBody = AIBodyBuilder.Create()
-                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.summarizeToolName, metrics: summaryResult.Metrics, messages: summaryResult.Messages)
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.summarizeToolName, metrics: accumulatedMetrics, messages: allMessages)
                     .Build();
 
                 output.CreateSuccess(toolBody);

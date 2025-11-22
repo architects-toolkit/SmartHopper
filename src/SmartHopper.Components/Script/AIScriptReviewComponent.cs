@@ -29,7 +29,7 @@ namespace SmartHopper.Components.Script
     {
         public override Guid ComponentGuid => new Guid("9C82B8C7-7F66-4E6C-9F6E-0C58C1C2A345");
 
-        protected override Bitmap Icon => Resources.textevaluate;
+        // protected override Bitmap Icon => Resources.textevaluate;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
@@ -48,6 +48,7 @@ namespace SmartHopper.Components.Script
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            // TODO: use selecting component instead of guid input. Limit to just one component
             pManager.AddTextParameter("Guid", "G", "Optional GUID of the script component to review. If empty, uses the first selected script component.", GH_ParamAccess.item, string.Empty);
             pManager.AddTextParameter("Question", "Q", "Optional question or focus for the review.", GH_ParamAccess.item, string.Empty);
         }
