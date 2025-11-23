@@ -29,7 +29,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// </summary>
     public class DataTreeProcessorGroupIdenticalTestComponent : StatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("E6F7G8H9-0C1D-4E2F-1A3B-4C5D6E7F8G9H");
+        public override Guid ComponentGuid => new Guid("CEF161C9-36FC-4503-8BB0-9717EEA13865");
         protected override Bitmap Icon => null;
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
