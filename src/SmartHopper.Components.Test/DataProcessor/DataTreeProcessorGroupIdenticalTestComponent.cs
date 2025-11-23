@@ -96,7 +96,14 @@ namespace SmartHopper.Components.Test.DataProcessor
                         { "A", treeA },
                     };
 
-                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: false, groupIdenticalBranches: true);
+                    var options = new ProcessingOptions
+                    {
+                        Topology = ProcessingTopology.BranchToBranch,
+                        OnlyMatchingPaths = false,
+                        GroupIdenticalBranches = true,
+                    };
+
+                    var (dataCount, iterations) = DataTreeProcessor.CalculateProcessingMetrics(trees, options);
                     Debug.WriteLine($"[GroupIdentical] Iterations: {iterations}, DataCount: {dataCount}");
 
                     // Function that counts how many times it's called
@@ -113,13 +120,6 @@ namespace SmartHopper.Components.Test.DataProcessor
                         var doubled = aList.Select(item => new GH_Integer(item.Value * 2)).ToList();
                         return new Dictionary<string, List<GH_Integer>> { { "Double", doubled } };
                     }
-
-                    var options = new ProcessingOptions
-                    {
-                        Topology = ProcessingTopology.BranchToBranch,
-                        OnlyMatchingPaths = false,
-                        GroupIdenticalBranches = true,
-                    };
 
                     var result = await DataTreeProcessor.RunAsync<GH_Integer, GH_Integer>(
                         trees,

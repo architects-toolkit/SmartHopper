@@ -44,8 +44,9 @@ namespace SmartHopper.Core.DataTree
         #region BRANCH
 
         /// <summary>
-        /// Gets a branch from a data tree, handling cases where the tree is flat (single value or list) or structured.
-        /// If the tree is flat, returns the first branch for any path. If structured, returns the branch at the matching path.
+        /// Gets a branch from a data tree at the specified path.
+        /// Handles flat tree broadcasting: if the tree has only path {0} and a different path is requested,
+        /// returns the {0} branch (broadcasting the flat tree data to all structured paths).
         /// Returns empty list if no matching branch is found and preserveStructure is true.
         /// </summary>
         /// <typeparam name="T">Type of items contained in the data tree.</typeparam>
@@ -66,12 +67,12 @@ namespace SmartHopper.Core.DataTree
             if (branch != null && branch.Count > 0)
                 return branch.Cast<T>().ToList();
 
-            // If no branch at path, check if tree is flat (single branch)
-            if (tree.PathCount == 1)
+            // Flat tree broadcasting: if tree has only path {0}, broadcast it to any requested path
+            if (tree.PathCount == 1 && tree.Paths[0].ToString() == "{0}")
             {
-                var singleBranch = tree.Branches.FirstOrDefault();
-                if (singleBranch != null)
-                    return singleBranch.Cast<T>().ToList();
+                var flatBranch = tree.get_Branch(tree.Paths[0]);
+                if (flatBranch != null && flatBranch.Count > 0)
+                    return flatBranch.Cast<T>().ToList();
             }
 
             // Return empty list or null based on preserveStructure flag
@@ -155,24 +156,6 @@ namespace SmartHopper.Core.DataTree
             }
 
             return matchingPaths;
-        }
-
-        /// <summary>
-        /// Gets the amount of iterations (unique processing operations) and total data paths to process.
-        /// </summary>
-        /// <typeparam name="T">Type of items contained in the data trees.</typeparam>
-        /// <param name="trees">Dictionary of input data trees keyed by a logical name.</param>
-        /// <param name="onlyMatchingPaths">If true, only consider paths that exist in all trees (intersection); otherwise use union.</param>
-        /// <param name="groupIdenticalBranches">If true, group identical branches to reduce redundant processing.</param>
-        /// <returns>A tuple with <c>iterationCount</c> (unique operations) and <c>dataCount</c> (total affected paths).</returns>
-        [Obsolete("Use BuildProcessingPlan and component-level RunProcessingAsync instead.")]
-        public static (int iterationCount, int dataCount) GetProcessingPathMetrics<T>(Dictionary<string, GH_Structure<T>> trees, bool onlyMatchingPaths = false, bool groupIdenticalBranches = false) where T : IGH_Goo
-        {
-            var (allPaths, pathsToApplyMap) = GetProcessingPaths(trees, onlyMatchingPaths, groupIdenticalBranches);
-
-            Debug.WriteLine($"[DataTreeProcessor] Applying {pathsToApplyMap.Count} paths to a total of {pathsToApplyMap.Sum(p => p.Value.Count)} paths");
-
-            return (pathsToApplyMap.Count, pathsToApplyMap.Sum(p => p.Value.Count));
         }
 
         /// <summary>
@@ -430,6 +413,81 @@ namespace SmartHopper.Core.DataTree
             return new ProcessingPlan<T>(entries);
         }
 
+        /// <summary>
+        /// Calculates the number of processing units (iterations) that will be executed based on the processing plan and topology.
+        /// </summary>
+        /// <typeparam name="T">Type of items contained in the data trees.</typeparam>
+        /// <param name="trees">Dictionary of input data trees.</param>
+        /// <param name="options">Processing options specifying topology and path/grouping behavior.</param>
+        /// <returns>A tuple containing (dataCount, iterationCount) where dataCount is the number of output items and iterationCount is the number of function invocations.</returns>
+        public static (int dataCount, int iterationCount) CalculateProcessingMetrics<T>(
+            Dictionary<string, GH_Structure<T>> trees,
+            ProcessingOptions options)
+            where T : IGH_Goo
+        {
+            if (trees == null || options == null)
+            {
+                return (0, 0);
+            }
+
+            var plan = BuildProcessingPlan(trees, options.OnlyMatchingPaths, options.GroupIdenticalBranches);
+
+            bool isItemMode = options.Topology == ProcessingTopology.ItemToItem ||
+                              options.Topology == ProcessingTopology.ItemGraft;
+
+            if (isItemMode)
+            {
+                // Item mode: count total items across all branches
+                int totalItems = 0;
+                foreach (var entry in plan.Entries)
+                {
+                    int maxLength = GetMaxBranchLengthExcludingFlatTrees(trees, entry.PrimaryPath);
+                    totalItems += maxLength;
+                }
+
+                return (totalItems, totalItems);
+            }
+
+            if (options.Topology == ProcessingTopology.BranchFlatten)
+            {
+                // BranchFlatten: all branches flattened to a single output
+                return (1, 1);
+            }
+
+            // Branch mode: count branches and target paths
+            int iterationCount = plan.Entries.Count;
+            int dataCount = plan.Entries.Sum(e => e.TargetPaths.Count);
+            return (dataCount, iterationCount);
+        }
+
+        /// <summary>
+        /// Computes the maximum branch length for a given primary path, excluding flat trees (single-path trees at {0}).
+        /// Flat trees are treated as broadcast inputs and do not affect per-item iteration counts.
+        /// </summary>
+        private static int GetMaxBranchLengthExcludingFlatTrees<T>(Dictionary<string, GH_Structure<T>> trees, GH_Path primaryPath)
+            where T : IGH_Goo
+        {
+            int maxLength = 0;
+
+            foreach (var tree in trees.Values)
+            {
+                // Skip flat trees (trees with only path {0}) when calculating maxLength
+                // Flat trees are broadcast to all paths, not iterated per item
+                if (tree.PathCount == 1 && tree.Paths[0].ToString() == "{0}")
+                {
+                    continue;
+                }
+
+                var branch = GetBranchFromTree(tree, primaryPath, preserveStructure: true);
+                if (branch != null && branch.Count > maxLength)
+                {
+                    maxLength = branch.Count;
+                }
+            }
+
+            return maxLength;
+        }
+
         #endregion
 
         #region UNIFIED RUNNER
@@ -499,22 +557,24 @@ namespace SmartHopper.Core.DataTree
             // Build unified schedule based on topology
             var schedule = new List<ProcessingUnit<T>>();
             bool isItemMode = options.Topology == ProcessingTopology.ItemToItem || options.Topology == ProcessingTopology.ItemGraft;
+            bool isBranchFlatten = options.Topology == ProcessingTopology.BranchFlatten;
 
-            if (isItemMode)
+            if (isBranchFlatten)
+            {
+                // BranchFlatten: create a single ProcessingUnit with null path to indicate "all branches"
+                schedule.Add(new ProcessingUnit<T>
+                {
+                    InputPath = null,  // null indicates flatten all branches
+                    ItemIndex = null,
+                    TargetPaths = new List<GH_Path> { new GH_Path(0) },  // Output to path {0}
+                });
+            }
+            else if (isItemMode)
             {
                 // Item mode: create one ProcessingUnit per item
                 foreach (var entry in plan.Entries)
                 {
-                    // Find max branch length for this primary path
-                    int maxLength = 0;
-                    foreach (var tree in inputTrees.Values)
-                    {
-                        var branch = GetBranchFromTree(tree, entry.PrimaryPath, preserveStructure: true);
-                        if (branch != null && branch.Count > maxLength)
-                        {
-                            maxLength = branch.Count;
-                        }
-                    }
+                    int maxLength = GetMaxBranchLengthExcludingFlatTrees(inputTrees, entry.PrimaryPath);
 
                     // Add each item index to the schedule
                     for (int i = 0; i < maxLength; i++)
@@ -555,20 +615,43 @@ namespace SmartHopper.Core.DataTree
 
                 // Build input dictionary based on mode
                 var inputs = new Dictionary<string, List<T>>();
-                foreach (var kvp in inputTrees)
-                {
-                    var branch = GetBranchFromTree(kvp.Value, unit.InputPath, preserveStructure: true);
 
-                    if (unit.ItemIndex.HasValue)
+                if (options.Topology == ProcessingTopology.BranchFlatten)
+                {
+                    // BranchFlatten: flatten all branches from all paths
+                    foreach (var kvp in inputTrees)
                     {
-                        // Item mode: single-element list
-                        var item = (branch != null && unit.ItemIndex.Value < branch.Count) ? branch[unit.ItemIndex.Value] : default(T);
-                        inputs[kvp.Key] = new List<T> { item };
+                        var flattenedList = new List<T>();
+                        foreach (var path in kvp.Value.Paths)
+                        {
+                            var branch = kvp.Value.get_Branch(path);
+                            if (branch != null)
+                            {
+                                flattenedList.AddRange(branch.Cast<T>());
+                            }
+                        }
+
+                        inputs[kvp.Key] = flattenedList;
                     }
-                    else
+                }
+                else
+                {
+                    // Normal path-based processing
+                    foreach (var kvp in inputTrees)
                     {
-                        // Branch mode: full branch
-                        inputs[kvp.Key] = branch ?? new List<T>();
+                        var branch = GetBranchFromTree(kvp.Value, unit.InputPath, preserveStructure: true);
+
+                        if (unit.ItemIndex.HasValue)
+                        {
+                            // Item mode: single-element list
+                            var item = (branch != null && unit.ItemIndex.Value < branch.Count) ? branch[unit.ItemIndex.Value] : default(T);
+                            inputs[kvp.Key] = new List<T> { item };
+                        }
+                        else
+                        {
+                            // Branch mode: full branch
+                            inputs[kvp.Key] = branch ?? new List<T>();
+                        }
                     }
                 }
 
