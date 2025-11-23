@@ -73,7 +73,6 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | mcneel_forum_post_summarize | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
 | mcneel_forum_topic_get | Retrieve all posts in a McNeel Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | mcneel_forum_topic_summarize | Generate AI-powered summary of a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
-| mcneel_forum_topic_related | Retrieve suggested related topics for a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
 | get_input | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | get_output | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
 | gh_list_categories | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |

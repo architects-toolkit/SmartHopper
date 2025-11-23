@@ -16,7 +16,6 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -42,11 +41,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the summarize topic tool.
         /// </summary>
         private readonly string summarizeTopicToolName = "mcneel_forum_topic_summarize";
-
-        /// <summary>
-        /// Name of the related topics tool.
-        /// </summary>
-        private readonly string relatedTopicToolName = "mcneel_forum_topic_related";
 
         /// <summary>
         /// Capability requirements for topic summarization.
@@ -109,21 +103,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.SummarizeTopicAsync,
                 requiredCapabilities: this.summarizeCapabilityRequirements);
 
-            yield return new AITool(
-                name: this.relatedTopicToolName,
-                description: "Retrieve suggested related topics for a McNeel Discourse forum topic by ID.",
-                category: "Knowledge",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""topic_id"": {
-                            ""type"": ""integer"",
-                            ""description"": ""ID of the forum topic to get related topics for.""
-                        }
-                    },
-                    ""required"": [""topic_id""]
-                }",
-                execute: this.GetRelatedTopicsAsync);
         }
 
         /// <summary>
@@ -190,83 +169,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[mcneel_forum_topic_get] Error while fetching topic: {ex}.");
-                output.CreateError($"Error: {ex.Message}", toolCall);
-                return output;
-            }
-        }
-
-        private async Task<AIReturn> GetRelatedTopicsAsync(AIToolCall toolCall)
-        {
-            var output = new AIReturn
-            {
-                Request = toolCall,
-            };
-
-            try
-            {
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
-
-                int? topicIdNullable = args["topic_id"]?.Value<int>();
-                if (!topicIdNullable.HasValue)
-                {
-                    output.CreateError("Missing 'topic_id' parameter.");
-                    return output;
-                }
-
-                int topicId = topicIdNullable.Value;
-
-                Debug.WriteLine($"[mcneel_forum_topic_related] Fetching topic {topicId}.");
-
-                var topicJson = await this.FetchTopicWithQueryAsync(topicId, includeRaw: true, print: true).ConfigureAwait(false);
-
-                var suggestedTopics = topicJson["suggested_topics"] as JArray ?? new JArray();
-
-                Debug.WriteLine($"[mcneel_forum_topic_related] suggested_topics count={suggestedTopics.Count}.");
-
-                var filteredRelated = new JArray();
-                foreach (var topicToken in suggestedTopics.OfType<JObject>())
-                {
-                    string filteredJson = McNeelForumUtils.FilterSuggestedTopicJson(topicToken.ToString(Newtonsoft.Json.Formatting.None));
-                    try
-                    {
-                        var filteredObj = JObject.Parse(filteredJson);
-                        filteredRelated.Add(filteredObj);
-                    }
-                    catch
-                    {
-                        filteredRelated.Add(topicToken);
-                    }
-                }
-
-                Debug.WriteLine($"[mcneel_forum_topic_related] Filtered related topics count={filteredRelated.Count}.");
-
-                string title = topicJson.Value<string>("title") ?? string.Empty;
-                string url = this.BuildTopicUrl(topicId, topicJson);
-
-                var toolResult = new JObject
-                {
-                    ["topic_id"] = topicId,
-                    ["title"] = title,
-                    ["url"] = url,
-                    ["related_topics"] = filteredRelated,
-                };
-
-                var builder = AIBodyBuilder.Create();
-                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
-                var immutable = builder.Build();
-                output.CreateSuccess(immutable, toolCall);
-                return output;
-            }
-            catch (HttpRequestException httpEx)
-            {
-                Debug.WriteLine($"[mcneel_forum_topic_related] HTTP error while fetching related topics: {httpEx}.");
-                output.CreateNetworkError(httpEx.Message, toolCall);
-                return output;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[mcneel_forum_topic_related] Error while fetching related topics: {ex}.");
                 output.CreateError($"Error: {ex.Message}", toolCall);
                 return output;
             }
