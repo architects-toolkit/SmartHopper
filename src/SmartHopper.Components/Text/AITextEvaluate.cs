@@ -157,28 +157,64 @@ namespace SmartHopper.Components.Text
 
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
-                int i = 0;
-                foreach (var text in textTree)
+                for (int i = 0; i < textTree.Count; i++)
                 {
                     Debug.WriteLine($"[ProcessData] Processing text {i + 1}/{textTree.Count}");
+
+                    string textValue = textTree[i]?.Value ?? string.Empty;
+                    string questionValue = questionTree[i]?.Value ?? string.Empty;
+
+                    Debug.WriteLine($"[ProcessData] Text: '{textValue}', Question: '{questionValue}'");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject
                     {
-                        ["text"] = textTree[i]?.Value,
-                        ["question"] = questionTree[i]?.Value,
+                        ["text"] = textValue,
+                        ["question"] = questionValue,
                         ["contextFilter"] = "-*",
                     };
 
                     var toolResult = await parent.CallAiToolAsync("text_evaluate", parameters)
                         .ConfigureAwait(false);
 
-                    bool result = toolResult?["result"]?.ToObject<bool>() ?? false;
-                    outputs["Result"].Add(new GH_Boolean(result));
-                    i++;
+                    Debug.WriteLine($"[ProcessData] Tool result: {toolResult?.ToString() ?? "null"}");
+
+                    var resultToken = toolResult? ["result"];
+                    bool? parsedResult = ParseBooleanResult(resultToken);
+
+                    if (!parsedResult.HasValue)
+                    {
+                        outputs["Result"].Add(null);
+                        continue;
+                    }
+
+                    outputs["Result"].Add(new GH_Boolean(parsedResult.Value));
                 }
 
                 return outputs;
+            }
+
+            private static bool? ParseBooleanResult(JToken token)
+            {
+                if (token == null || token.Type == JTokenType.Null)
+                {
+                    return null;
+                }
+
+                if (token.Type == JTokenType.Boolean)
+                {
+                    return token.Value<bool>();
+                }
+
+                if (token.Type == JTokenType.String)
+                {
+                    if (bool.TryParse(token.Value<string>(), out bool result))
+                    {
+                        return result;
+                    }
+                }
+
+                return null;
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)

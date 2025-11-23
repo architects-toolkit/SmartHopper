@@ -42,6 +42,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly string summarizeToolName = "mcneel_forum_post_summarize";
 
         /// <summary>
+        /// System prompt template for summarizing forum posts.
+        /// </summary>
+        private readonly string summarizeSystemPromptTemplate =
+            "You are a helpful assistant that summarizes forum posts concisely. Provide a brief 1-2 sentence summary of the main point or question.";
+
+        /// <summary>
         /// Returns the list of tools provided by this class.
         /// </summary>
         public IEnumerable<AITool> GetTools()
@@ -212,7 +218,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var bodyBuilder = AIBodyBuilder.Create()
                         .AddText(
                             AIAgent.Context,
-                            "You are a helpful assistant that summarizes forum posts concisely. Provide a brief 1-2 sentence summary of the main point or question.")
+                            this.summarizeSystemPromptTemplate)
                         .AddText(
                             AIAgent.User,
                             userContent)

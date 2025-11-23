@@ -695,6 +695,25 @@ namespace SmartHopper.Core.DataTree
         #region UNIFIED RUNNER
 
         /// <summary>
+        /// Returns the item at the requested index, broadcasting the last available value when the branch is shorter.
+        /// </summary>
+        private static T GetItemWithBroadcastFallback<T>(List<T> branch, int index)
+            where T : IGH_Goo
+        {
+            if (branch == null || branch.Count == 0)
+            {
+                return default(T);
+            }
+
+            if (index < branch.Count)
+            {
+                return branch[index];
+            }
+
+            return branch[branch.Count - 1];
+        }
+
+        /// <summary>
         /// Represents a single unit of processing work (either an item or a branch).
         /// </summary>
         private struct ProcessingUnit<T> where T : IGH_Goo
@@ -845,8 +864,8 @@ namespace SmartHopper.Core.DataTree
 
                         if (unit.ItemIndex.HasValue)
                         {
-                            // Item mode: single-element list
-                            var item = (branch != null && unit.ItemIndex.Value < branch.Count) ? branch[unit.ItemIndex.Value] : default(T);
+                            // Item mode: single-element list with scalar broadcasting support
+                            var item = GetItemWithBroadcastFallback(branch, unit.ItemIndex.Value);
                             inputs[kvp.Key] = new List<T> { item };
                         }
                         else

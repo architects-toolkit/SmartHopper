@@ -54,6 +54,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly AICapability summarizeCapabilityRequirements = AICapability.TextInput | AICapability.TextOutput;
 
         /// <summary>
+        /// System prompt template for summarizing forum topics.
+        /// </summary>
+        private readonly string summarizeTopicSystemPromptTemplate =
+            "You are a helpful assistant that summarizes entire forum topics for users. Provide a concise summary of the main question or issue, key ideas discussed, and any conclusions or solutions. Keep the summary focused and clear.";
+
+        /// <summary>
         /// Returns the list of tools provided by this class.
         /// </summary>
         public IEnumerable<AITool> GetTools()
@@ -357,7 +363,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var bodyBuilder = AIBodyBuilder.Create()
                     .AddText(
                         AIAgent.Context,
-                        "You are a helpful assistant that summarizes entire forum topics for users. Provide a concise summary of the main question or issue, key ideas discussed, and any conclusions or solutions. Keep the summary focused and clear.")
+                        this.summarizeTopicSystemPromptTemplate)
                     .AddText(
                         AIAgent.User,
                         userContent)
