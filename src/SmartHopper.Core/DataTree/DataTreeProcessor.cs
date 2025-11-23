@@ -49,36 +49,80 @@ namespace SmartHopper.Core.DataTree
         /// </summary>
         /// <param name="flatTree">The single-path tree to evaluate for broadcasting.</param>
         /// <param name="requestedPath">The path being requested.</param>
-        /// <param name="allTreePaths">All unique paths from all input trees for topology analysis.</param>
+        /// <param name="otherTreePaths">All unique paths from the other input trees (excluding the flat tree itself).</param>
         /// <returns>True if the flat tree should broadcast to the requested path.</returns>
-        private static bool ShouldBroadcastFlatTree<T>(GH_Structure<T> flatTree, GH_Path requestedPath, List<GH_Path> allTreePaths) where T : IGH_Goo
+        private static bool ShouldBroadcastFlatTree<T>(GH_Structure<T> flatTree, GH_Path requestedPath, List<GH_Path> otherTreePaths) where T : IGH_Goo
         {
             if (flatTree == null || flatTree.PathCount != 1 || requestedPath == null)
+            {
                 return false;
+            }
+
+            // If there is no topology context from other trees, only allow non-{0} scalars to broadcast
+            if (otherTreePaths == null || otherTreePaths.Count == 0)
+            {
+                return flatTree.DataCount == 1
+                    && flatTree.PathCount == 1
+                    && flatTree.Paths[0].ToString() != "{0}";
+            }
 
             var flatPath = flatTree.Paths[0];
             var flatPathStr = flatPath.ToString();
             var requestedPathStr = requestedPath.ToString();
 
-            // Scalar trees (single item) always broadcast
+            // Scalar trees:
+            // - Non-{0} scalars (e.g. B:{1} in DIFF-1 / DIFF-3-1) always broadcast.
+            // - {0} scalars broadcast EXCEPT when Rule 4 applies (direct {0} match + deeper {0;...}).
             if (flatTree.DataCount == 1)
-                return true;
+            {
+                if (flatTree.PathCount == 1 && flatPathStr != "{0}")
+                {
+                    return true;
+                }
+
+                // {0} scalar: broadcast to all EXCEPT deeper {0;...} when Rule 4 applies
+                if (flatTree.PathCount == 1 && flatPathStr == "{0}")
+                {
+                    // Requested is {0}? No broadcasting, direct match
+                    if (requestedPathStr == "{0}")
+                    {
+                        return false;
+                    }
+
+                    // Check Rule 4: if other trees have {0} and requested is {0;...}, don't broadcast
+                    if (requestedPathStr.StartsWith("{0;"))
+                    {
+                        bool otherTreeHasZero = otherTreePaths.Any(p => p.ToString() == "{0}");
+                        if (otherTreeHasZero)
+                        {
+                            // Rule 4: direct {0} match takes precedence, don't broadcast to {0;...}
+                            return false;
+                        }
+                    }
+
+                    // Otherwise, scalar broadcasts (e.g. to {1}, {2}, or {1;0} if no {0} elsewhere)
+                    return true;
+                }
+            }
 
             // Only {0} flat trees have special broadcasting rules
             if (flatPathStr != "{0}")
+            {
                 return false;
+            }
 
             // Direct path match - no broadcasting needed
             if (requestedPathStr == "{0}")
+            {
                 return false;
+            }
 
-            // Analyze topology of all paths
+            // Analyze topology of other trees' paths
             int requestedDepth = requestedPath.Length;
-            bool hasMultipleSameDepthPaths = false;
             bool hasDeeperPaths = false;
             bool hasMatchingTopLevel = false;
 
-            foreach (var p in allTreePaths)
+            foreach (var p in otherTreePaths)
             {
                 if (p.ToString() == "{0}")
                 {
@@ -88,12 +132,6 @@ namespace SmartHopper.Core.DataTree
 
                 int pathDepth = p.Length;
 
-                if (pathDepth == requestedDepth)
-                {
-                    // Found another path at same depth as requested
-                    hasMultipleSameDepthPaths = true;
-                }
-
                 if (pathDepth > 1)
                 {
                     // Found a deeper path (contains ;)
@@ -101,12 +139,12 @@ namespace SmartHopper.Core.DataTree
                 }
             }
 
-            // Rule 4: Direct match takes precedence - if {0} exists in allTreePaths AND requested is deeper {0;...}
-            // Only broadcast if there are also multiple top-level paths (Rule 2 override)
+            // Rule 4: Direct match takes precedence - if another tree has {0} AND requested is deeper {0;...}
+            // Only broadcast if there are also multiple top-level paths (Rule 2 override).
             if (hasMatchingTopLevel && requestedPathStr.StartsWith("{0;"))
             {
-                // Check if there are multiple top-level paths (not just {0})
-                var topLevelCount = allTreePaths.Count(p => p.Length == 1);
+                // Check if there are multiple top-level paths (not just {0}) among other trees
+                var topLevelCount = otherTreePaths.Count(p => p.Length == 1);
                 if (topLevelCount == 1)
                 {
                     // Only {0} at top level, don't broadcast to deeper {0;...}
@@ -114,15 +152,14 @@ namespace SmartHopper.Core.DataTree
                 }
             }
 
-            // Rule 1: Same-depth single paths → no broadcasting
-            // If requested path is at depth 1 (top-level like {1}, {2}), check if there are multiple paths
+            // Rule 1 & 2: Same-depth paths at depth 1
             if (requestedDepth == 1)
             {
-                // Count top-level paths (excluding {0} which is the flat tree itself)
-                var topLevelPaths = allTreePaths.Where(p => p.Length == 1 && p.ToString() != "{0}").ToList();
+                // Count all top-level paths from other trees (including {0} if present)
+                var topLevelCount = otherTreePaths.Count(p => p.Length == 1);
 
-                // If only one other top-level path exists, no broadcasting (Rule 1)
-                if (topLevelPaths.Count == 1 && !hasDeeperPaths)
+                // If only one top-level path exists and there's no depth complexity, no broadcasting (Rule 1)
+                if (topLevelCount == 1 && !hasDeeperPaths)
                 {
                     return false;
                 }
@@ -148,15 +185,21 @@ namespace SmartHopper.Core.DataTree
         public static List<T> GetBranchFromTree<T>(GH_Structure<T> tree, GH_Path path, IEnumerable<GH_Structure<T>> allTrees, bool preserveStructure = true) where T : IGH_Goo
         {
             if (tree == null)
+            {
                 return preserveStructure ? new List<T>() : null;
+            }
 
             if (tree.DataCount == 0)
+            {
                 return preserveStructure ? new List<T>() : null;
+            }
 
             // Try to get the branch at the specified path
             var branch = tree.get_Branch(path);
             if (branch != null && branch.Count > 0)
+            {
                 return branch.Cast<T>().ToList();
+            }
 
             // Check for flat tree broadcasting
             if (tree.PathCount == 1)
@@ -164,10 +207,15 @@ namespace SmartHopper.Core.DataTree
                 var flatBranch = tree.get_Branch(tree.Paths[0]);
                 if (flatBranch != null && flatBranch.Count > 0)
                 {
-                    // Get all unique paths from all trees for topology analysis
-                    var allPaths = allTrees != null ? GetAllUniquePaths(allTrees) : new List<GH_Path> { path };
+                    // Collect topology only from other trees (exclude this tree)
+                    List<GH_Path> otherPaths = new List<GH_Path>();
+                    if (allTrees != null)
+                    {
+                        var otherTrees = allTrees.Where(t => !ReferenceEquals(t, tree));
+                        otherPaths = GetAllUniquePaths(otherTrees);
+                    }
 
-                    if (ShouldBroadcastFlatTree(tree, path, allPaths))
+                    if (ShouldBroadcastFlatTree(tree, path, otherPaths))
                     {
                         return flatBranch.Cast<T>().ToList();
                     }
@@ -286,37 +334,83 @@ namespace SmartHopper.Core.DataTree
 
             if (!onlyMatchingPaths)
             {
-                // Get the amount of items in each tree
-                var treeLengths = TreesLength(trees.Values);
-
                 allPaths = GetAllUniquePaths(trees.Values);
 
-                var firstTree = trees.Values.First();
+                Debug.WriteLine($"[DataTreeProcessor] All paths: {string.Join(", ", allPaths)}");
 
-                Debug.WriteLine($"[DataTreeProcessor] First tree with paths {string.Join(", ", firstTree.Paths)}");
-
-                // If a tree only has one path, remove it from allPaths because it will be applied to all the other paths later, except when there is only one path (allPaths.Count > 1)
+                // Remove paths from flat trees that are truly broadcast-only
                 if (allPaths.Count > 1)
                 {
-                    var singlePathTrees = new List<int>();
+                    var treeList = trees.Values.ToList();
+                    var pathsToRemove = new List<GH_Path>();
 
-                    // Are there more than one tree with a single value?
-                    if (treeLengths.Count(t => t.Value == 1) > 1)
+                    for (int i = 0; i < treeList.Count; i++)
                     {
-                        singlePathTrees = treeLengths.Where(t => t.Value == 1 && t.Key != 0 /*Omit the first tree*/).Select(t => t.Key).ToList();
+                        var tree = treeList[i];
+
+                        // Only consider single-path trees for broadcast-only removal
+                        if (tree.PathCount != 1)
+                        {
+                            continue;
+                        }
+
+                        var treePath = tree.Paths[0];
+
+                        // Get paths from other trees
+                        var otherTrees = treeList.Where((t, idx) => idx != i);
+                        var otherPaths = GetAllUniquePaths(otherTrees);
+
+                        // If there are no other paths, keep this tree's path
+                        if (otherPaths.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        // Check if this tree broadcasts to ALL other paths
+                        bool broadcastsToAll = true;
+                        foreach (var otherPath in otherPaths)
+                        {
+                            // Skip if this is the tree's own path in another tree
+                            if (otherPath.ToString() == treePath.ToString())
+                            {
+                                continue;
+                            }
+
+                            if (!ShouldBroadcastFlatTree(tree, otherPath, otherPaths))
+                            {
+                                broadcastsToAll = false;
+                                break;
+                            }
+                        }
+
+                        // If this tree broadcasts to all other paths and has no direct match elsewhere,
+                        // mark its path for removal (it's broadcast-only)
+                        if (broadcastsToAll && !otherPaths.Any(p => p.ToString() == treePath.ToString()))
+                        {
+                            Debug.WriteLine($"[DataTreeProcessor] Tree with path {treePath} is broadcast-only candidate");
+                            pathsToRemove.Add(treePath);
+                        }
+                    }
+
+                    // Only remove paths if it won't leave us with zero processing paths
+                    // When multiple scalars all broadcast to each other, keep the first tree's path
+                    if (pathsToRemove.Count < allPaths.Count)
+                    {
+                        foreach (var pathToRemove in pathsToRemove)
+                        {
+                            allPaths.RemoveAll(p => p.ToString() == pathToRemove.ToString());
+                            Debug.WriteLine($"[DataTreeProcessor] Removed broadcast-only path {pathToRemove}");
+                        }
                     }
                     else
                     {
-                        singlePathTrees = treeLengths.Where(t => t.Value == 1 /*Do not omit the first tree*/).Select(t => t.Key).ToList();
+                        // All paths would be removed - keep the first tree's path
+                        var firstTreePath = treeList[0].Paths[0];
+                        allPaths.RemoveAll(p => pathsToRemove.Contains(p) && p.ToString() != firstTreePath.ToString());
+                        Debug.WriteLine($"[DataTreeProcessor] All paths broadcast to each other, keeping first tree's path {firstTreePath}");
                     }
 
-                    Debug.WriteLine($"[DataTreeProcessor] Single path trees: {string.Join(", ", singlePathTrees)}");
-
-                    if (singlePathTrees.Any())
-                    {
-                        var singlePathTreePaths = singlePathTrees.Select(t => trees.Values.ElementAt(t).Paths.First()).ToList();
-                        allPaths = allPaths.Where(p => !singlePathTreePaths.Contains(p)).ToList();
-                    }
+                    Debug.WriteLine($"[DataTreeProcessor] Final processing paths: {string.Join(", ", allPaths)}");
                 }
             }
 
@@ -567,21 +661,26 @@ namespace SmartHopper.Core.DataTree
             where T : IGH_Goo
         {
             int maxLength = 0;
-            var allPaths = GetAllUniquePaths(trees.Values);
 
-            foreach (var tree in trees.Values)
+            // Materialize list once so we can derive "other" trees per candidate flat tree
+            var treeList = trees.Values.ToList();
+
+            foreach (var tree in treeList)
             {
-                // Skip flat trees that broadcast to this path (they don't contribute to item count)
+                // Skip flat trees that truly broadcast to this path (they don't contribute to item count)
                 if (tree.PathCount == 1 && !tree.PathExists(primaryPath))
                 {
-                    // Check if this flat tree would broadcast to the primary path
-                    if (ShouldBroadcastFlatTree(tree, primaryPath, allPaths))
+                    // Build topology context from the other trees only
+                    var otherTrees = treeList.Where(t => !ReferenceEquals(t, tree));
+                    var otherPaths = GetAllUniquePaths(otherTrees);
+
+                    if (ShouldBroadcastFlatTree(tree, primaryPath, otherPaths))
                     {
                         continue; // Skip broadcast-only trees
                     }
                 }
 
-                var branch = GetBranchFromTree(tree, primaryPath, trees.Values, preserveStructure: true);
+                var branch = GetBranchFromTree(tree, primaryPath, treeList, preserveStructure: true);
                 if (branch != null && branch.Count > maxLength)
                 {
                     maxLength = branch.Count;
