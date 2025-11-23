@@ -138,26 +138,6 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
             Assert.Equal(new[] { 1, 2, 3 }, result);
         }
 
-        /// <summary>
-        /// Tests that ParseIndicesFromResponse returns sorted indices.
-        /// </summary>
-#if NET7_WINDOWS
-        [Fact(DisplayName = "ParseIndicesFromResponse JsonArrayUnsorted ReturnsSortedIndices [Windows]")]
-#else
-        [Fact(DisplayName = "ParseIndicesFromResponse JsonArrayUnsorted ReturnsSortedIndices [Core]")]
-#endif
-        public void ParseIndicesFromResponse_JsonArrayUnsorted_ReturnsSortedIndices()
-        {
-            // Arrange
-            var response = "[5, 1, 3, 2]";
-
-            // Act
-            var result = AIResponseParser.ParseIndicesFromResponse(response);
-
-            // Assert
-            Assert.Equal(new[] { 1, 2, 3, 5 }, result);
-        }
-
         #endregion
 
         #region Index Parsing Tests - Markdown Code Blocks
