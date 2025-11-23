@@ -48,6 +48,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             "- You will receive some user prompts and you have to do what the user asks for.\n- Generate clear, relevant, and well-structured text based on the user's prompt.\n- Provide thoughtful and accurate responses that directly address what the user is asking for.\n- Keep answers very short.";
 
         /// <summary>
+        /// User prompt template for the AI tool provided by this class. Use <prompt> placeholder.
+        /// </summary>
+        private readonly string userPromptTemplate = "<prompt>";
+
+        /// <summary>
         /// Get all tools provided by this class.
         /// </summary>
         /// <returns>Collection of AI tools.</returns>
@@ -111,10 +116,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Use custom instructions if provided, otherwise use default system prompt
                 string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
 
+                // Prepare the user prompt with token replacement
+                var userPrompt = this.userPromptTemplate.Replace("<prompt>", prompt);
+
                 // Initiate immutable AIBody
                 var requestBody = AIBodyBuilder.Create()
                     .AddSystem(systemPrompt)
-                    .AddUser(prompt)
+                    .AddUser(userPrompt)
                     .WithContextFilter(contextFilter)
                     .Build();
 

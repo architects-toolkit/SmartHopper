@@ -117,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                     }
                 }
 
-                return DeduplicateAndSort(indices);
+                return DeduplicatePreserveOrder(indices);
             }
             catch
             {
@@ -132,13 +132,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                 // Check for common keys: indices, result, data
                 if (TryExtractIndicesFromObject(jobject, out var objIndices))
                 {
-                    return DeduplicateAndSort(objIndices);
+                    return DeduplicatePreserveOrder(objIndices);
                 }
 
                 // Check if it's a dictionary of index->bool/value
                 if (TryExtractIndicesFromDictionary(jobject, out var dictIndices))
                 {
-                    return DeduplicateAndSort(dictIndices);
+                    return DeduplicatePreserveOrder(dictIndices);
                 }
             }
             catch
@@ -161,7 +161,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                         }
                     }
 
-                    return DeduplicateAndSort(indices);
+                    return DeduplicatePreserveOrder(indices);
                 }
                 catch
                 {
@@ -184,7 +184,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                 }
             }
 
-            return DeduplicateAndSort(indices);
+            return DeduplicatePreserveOrder(indices);
         }
 
         /// <summary>
@@ -315,11 +315,22 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
         }
 
         /// <summary>
-        /// Deduplicates and sorts a list of indices.
+        /// Deduplicates indices while preserving the order they were provided in.
         /// </summary>
-        private static List<int> DeduplicateAndSort(List<int> indices)
+        private static List<int> DeduplicatePreserveOrder(IEnumerable<int> indices)
         {
-            return indices.Distinct().OrderBy(i => i).ToList();
+            var seen = new HashSet<int>();
+            var ordered = new List<int>();
+
+            foreach (var index in indices)
+            {
+                if (seen.Add(index))
+                {
+                    ordered.Add(index);
+                }
+            }
+
+            return ordered;
         }
 
         #endregion

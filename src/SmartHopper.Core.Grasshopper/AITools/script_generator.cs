@@ -45,6 +45,40 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly string toolName = "script_generator";
 
         /// <summary>
+        /// System prompt template for creating new script components.
+        /// </summary>
+        private readonly string createSystemPromptTemplate =
+            "You are a Grasshopper script component generator. Generate a complete script for a Grasshopper script component based on the user instructions.\n\n" +
+            "You MUST choose the scripting language and return it in the \"language\" field.\n" +
+            "The language MUST be one of: \"python\", \"ironpython\", \"c#\", \"vb\".\n" +
+            "Use \"python\" unless the user explicitly requests another language.\n\n" +
+            "Your response MUST be a valid JSON object with the following structure:\n" +
+            "- language: The scripting language to use (python, ironpython, c#, vb)\n" +
+            "- script: The complete script code\n" +
+            "- inputs: Array of input parameters with name, type, description, and access (item/list/tree)\n" +
+            "- outputs: Array of output parameters with name, type, and description\n\n" +
+            "The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.";
+
+        /// <summary>
+        /// System prompt template for editing existing script components. Use <language> placeholder.
+        /// </summary>
+        private readonly string editSystemPromptTemplate =
+            "You are a Grasshopper script component editor. Edit the existing <language> script based on the user's instructions.\n\n" +
+            "Your response MUST be a valid JSON object with the following structure:\n" +
+            "- script: The complete updated script code\n" +
+            "- inputs: Array of input parameters with name, type, description, and access (item/list/tree)\n" +
+            "- outputs: Array of output parameters with name, type, and description\n" +
+            "- changesSummary: Brief description of what was changed\n\n" +
+            "The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.";
+
+        /// <summary>
+        /// User prompt template for editing existing script components. Use <ghjson> and <instructions> placeholders.
+        /// </summary>
+        private readonly string editUserPromptTemplate =
+            "Current component GhJSON (the component script you are editing):\n```json\n<ghjson>\n```\n\n" +
+            "User instructions: <instructions>";
+
+        /// <summary>
         /// Returns the list of AI tools provided by this class.
         /// </summary>
         public IEnumerable<AITool> GetTools()
@@ -240,21 +274,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             var bodyBuilder = AIBodyBuilder.Create()
                 .WithJsonOutputSchema(jsonSchema)
                 .WithContextFilter(contextFilter)
-                .AddSystem("""
-                You are a Grasshopper script component generator. Generate a complete script for a Grasshopper script component based on the user instructions.
-
-                You MUST choose the scripting language and return it in the "language" field.
-                The language MUST be one of: "python", "ironpython", "c#", "vb".
-                Use "python" unless the user explicitly requests another language.
-
-                Your response MUST be a valid JSON object with the following structure:
-                - language: The scripting language to use (python, ironpython, c#, vb)
-                - script: The complete script code
-                - inputs: Array of input parameters with name, type, description, and access (item/list/tree)
-                - outputs: Array of output parameters with name, type, and description
-
-                The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
-                """)
+                .AddSystem(this.createSystemPromptTemplate)
                 .AddUser(instructions);
             var immutableRequestBody = bodyBuilder.Build();
 
@@ -436,25 +456,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             var bodyBuilder = AIBodyBuilder.Create()
                 .WithJsonOutputSchema(jsonSchema)
                 .WithContextFilter(contextFilter)
-                .AddSystem($"""
-                You are a Grasshopper script component editor. Edit the existing {language} script based on the user's instructions.
-
-                Your response MUST be a valid JSON object with the following structure:
-                - script: The complete updated script code
-                - inputs: Array of input parameters with name, type, description, and access (item/list/tree)
-                - outputs: Array of output parameters with name, type, and description
-                - changesSummary: Brief description of what was changed
-
-                The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
-                """)
-                .AddUser($"""
-                Current component GhJSON (the component script you are editing):
-                ```json
-                {ghJson}
-                ```
-
-                User instructions: {instructions}
-                """);
+                .AddSystem(this.editSystemPromptTemplate.Replace("<language>", language))
+                .AddUser(this.editUserPromptTemplate.Replace("<ghjson>", ghJson).Replace("<instructions>", instructions));
 
             var immutableRequestBody = bodyBuilder.Build();
 

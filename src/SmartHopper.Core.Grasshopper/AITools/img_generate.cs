@@ -31,13 +31,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class img_generate : IAIToolProvider
     {
         /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "img_generate";
+
+        /// <summary>
+        /// Defines the required capabilities for the AI tool provided by this class.
+        /// </summary>
+        private readonly AICapability toolCapabilityRequirements = AICapability.TextInput | AICapability.ImageOutput;
+        /// <summary>
         /// Get all tools provided by this class.
         /// </summary>
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
-                name: "img_generate",
+                name: this.toolName,
                 description: "Generates an image based on a text prompt using AI image generation models",
                 category: "ImageProcessing",
                 parametersSchema: @"{
@@ -66,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateImageToolWrapper,
-                requiredCapabilities: AICapability.TextInput | AICapability.ImageOutput);
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
 
@@ -114,7 +123,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 aiRequest.Initialize(
                     provider: providerName,
                     model: modelName,
-                    capability: AICapability.TextInput | AICapability.ImageOutput,
+                    capability: this.toolCapabilityRequirements,
                     endpoint: "/images/generations",
                     body: requestBody);
 
@@ -160,7 +169,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Attach non-breaking result envelope
                 toolResult.WithEnvelope(
                     ToolResultEnvelope.Create(
-                        tool: "img_generate",
+                        tool: this.toolName,
                         type: ToolResultContentType.Image,
                         payloadPath: "result",
                         provider: providerName,
@@ -168,7 +177,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         toolCallId: toolInfo?.Id));
 
                 var toolBody = AIBodyBuilder.Create()
-                    .AddToolResult(toolResult, id: toolInfo?.Id, name: "img_generate", metrics: result.Metrics, messages: result.Messages)
+                    .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
                     .Build();
 
                 output.CreateSuccess(toolBody);

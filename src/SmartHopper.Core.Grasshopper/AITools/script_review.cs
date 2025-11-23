@@ -75,6 +75,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private static partial Regex VBDebugRegex();
 
         #endregion
+
+        /// <summary>
+        /// System prompt template for the AI tool provided by this class.
+        /// </summary>
+        private readonly string systemPromptTemplate = "You are a code review assistant. Provide concise feedback on the code.";
+
+        /// <summary>
+        /// User prompt template for general review. Use <code> placeholder.
+        /// </summary>
+        private readonly string generalReviewPromptTemplate =
+            "Perform a general review of the following script code:\n```\n<code>\n```\n\nPlease: (1) describe the main purpose; (2) detect potential bugs or incoherences; (3) suggest an improved code block.";
+
+        /// <summary>
+        /// User prompt template for question-based review. Use <question> and <code> placeholders.
+        /// </summary>
+        private readonly string questionReviewPromptTemplate =
+            "Review the following script code with respect to this question: \"<question>\"\n```\n<code>\n```";
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
@@ -238,16 +255,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // AI-based code review using AIRequestCall/AIReturn flow with immutable body
                 var builder = AIBodyBuilder.Create()
                     .WithContextFilter(contextFilter)
-                    .AddSystem("You are a code review assistant. Provide concise feedback on the code.");
+                    .AddSystem(this.systemPromptTemplate);
 
                 string userPrompt;
                 if (string.IsNullOrWhiteSpace(question))
                 {
-                    userPrompt = $"Perform a general review of the following script code:\n```\n{scriptCode}\n```\n\nPlease: (1) describe the main purpose; (2) detect potential bugs or incoherences; (3) suggest an improved code block.";
+                    userPrompt = this.generalReviewPromptTemplate.Replace("<code>", scriptCode);
                 }
                 else
                 {
-                    userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
+                    userPrompt = this.questionReviewPromptTemplate.Replace("<question>", question);
+                    userPrompt = userPrompt.Replace("<code>", scriptCode);
                 }
 
                 builder.AddUser(userPrompt);
