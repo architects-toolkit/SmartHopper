@@ -40,16 +40,11 @@ jobs:
         with:
           branch: main
 
-      - name: Set Release Info
-        run: |
-          echo "RELEASE_VERSION=${{ steps.release_info.outputs.version }}" >> $GITHUB_ENV
-          echo "RELEASE_DESCRIPTION<<EOF" >> $GITHUB_ENV
-          echo "${{ github.event.pull_request.body }}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
       - name: Generate Release Notes
         id: issues
         uses: actions/github-script@v7
+        env:
+          RELEASE_VERSION: ${{ steps.release_info.outputs.version }}
         with:
           script: |
             // Generate release notes for the new release version
@@ -65,7 +60,7 @@ jobs:
       - name: Check Prerelease Status
         id: prerelease
         run: |
-          title="${{ env.RELEASE_VERSION }}"
+          title="${{ steps.release_info.outputs.version }}"
           if [[ "${title}" == *-* ]] || [[ "${title}" == *+* ]]; then
             echo "IS_PRERELEASE=true" >> $GITHUB_ENV
           else
@@ -77,10 +72,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.RELEASE_VERSION }}
-          name: "SmartHopper ${{ env.RELEASE_VERSION }}: <add an engaging title here>"
+          tag_name: ${{ steps.release_info.outputs.version }}
+          name: "SmartHopper ${{ steps.release_info.outputs.version }}: <add an engaging title here>"
           body: |
-            ${{ env.RELEASE_DESCRIPTION }}
+            ${{ github.event.pull_request.body }}
             
             ${{ steps.issues.outputs.changelog }}
           draft: true
