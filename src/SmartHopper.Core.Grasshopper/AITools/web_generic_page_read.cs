@@ -57,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Retrieve plain text or markdown content of a webpage at the given URL (supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages), excluding HTML, scripts, styles, and images. Respects robots.txt.",
+                description: "Retrieve plain text or markdown content of a webpage at the given URL (supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages), excluding HTML, scripts, styles, and images. Respects robots.txt. Use this when you already have a URL and need page content before reasoning or summarizing.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",

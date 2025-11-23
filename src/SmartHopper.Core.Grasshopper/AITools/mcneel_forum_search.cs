@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Search McNeel Discourse forum posts by query and return matching posts as raw JSON objects.",
+                description: "Search McNeel Discourse forum posts by query and return filtered post JSON objects. Typically call this first, then use mcneel_forum_topic_get or mcneel_forum_post_get / _summarize on interesting results.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
