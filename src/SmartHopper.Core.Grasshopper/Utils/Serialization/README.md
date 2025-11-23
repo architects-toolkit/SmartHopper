@@ -17,7 +17,7 @@ The new system provides a clean, flexible way to specify which properties should
 - Easy to add new component types
 - No more hardcoded property lists scattered throughout code
 
-### ✅ **Flexible** 
+### ✅ **Flexible**
 - Multiple serialization contexts (AI-optimized, full, compact, etc.)
 - Fluent builder API for custom configurations
 - Component category-based filtering
@@ -70,7 +70,7 @@ var results = aiManager.ApplyProperties(targetSlider, properties);
 var customManager = PropertyFilterBuilder
     .Create()
     .WithCore(true)                    // Include core properties
-    .WithParameters(true)              // Include parameter properties  
+    .WithParameters(true)              // Include parameter properties
     .WithCategories(ComponentCategory.Essential)  // Only essential components
     .Include("CustomProperty")         // Always include specific properties
     .Exclude("LegacyProperty")        // Always exclude specific properties
@@ -133,12 +133,12 @@ public enum ComponentCategory
 {
     None = 0,
     Panel = 1 << 0,           // GH_Panel properties
-    Scribble = 1 << 1,        // GH_Scribble properties  
+    Scribble = 1 << 1,        // GH_Scribble properties
     Slider = 1 << 2,          // GH_NumberSlider properties
     ValueList = 1 << 4,       // GH_ValueList properties
     Script = 1 << 6,          // Script component properties
     // ... more categories
-    
+
     // Convenience combinations
     Essential = Panel | Scribble | Slider | ValueList | Script,
     UI = Panel | Scribble | Button | ColorWheel,
@@ -152,7 +152,7 @@ public enum ComponentCategory
 // Include only UI components
 var uiManager = PropertyManagerFactory.CreateWithCategories(ComponentCategory.UI);
 
-// Include essential + data components  
+// Include essential + data components
 var dataManager = PropertyManagerFactory.CreateWithCategories(
     ComponentCategory.Essential | ComponentCategory.Data);
 
@@ -184,18 +184,18 @@ The system uses specialized handlers for different property types:
 public class CustomPropertyHandler : PropertyHandlerBase
 {
     public override int Priority => 50;
-    
+
     public override bool CanHandle(object sourceObject, string propertyName)
     {
         return propertyName == "MyCustomProperty";
     }
-    
+
     public override object ExtractProperty(object sourceObject, string propertyName)
     {
         // Custom extraction logic
         return ProcessCustomProperty(sourceObject);
     }
-    
+
     public override bool ApplyProperty(object targetObject, string propertyName, object value)
     {
         // Custom application logic
@@ -235,7 +235,7 @@ var conditionalManager = PropertyFilterBuilder
         {
             rule.AdditionalIncludes.Add("DebugInfo");
         }
-        
+
         if (DateTime.Now.DayOfWeek == DayOfWeek.Monday)
         {
             rule.IncludeCategories |= ComponentCategory.Advanced;
@@ -268,7 +268,7 @@ var oldManager = new PropertyManager();
 var isAllowed = oldManager.IsPropertyInWhitelist("CurrentValue");
 var properties = oldManager.ExtractProperties(obj);
 
-// NEW WAY ✅  
+// NEW WAY ✅
 var newManager = PropertyManagerFactory.CreateForAI();
 var isAllowed = newManager.ShouldIncludeProperty("CurrentValue", obj);
 var properties = newManager.ExtractProperties(obj);

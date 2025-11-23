@@ -10,13 +10,13 @@
 
 ### Core Documentation
 
-- **[Format Specification](./format-specification.md)**  
+- **[Format Specification](./format-specification.md)**
   Complete schema reference for GhJSON format including component structure, connections, groups, and validation rules.
 
-- **[Property Management (V2)](./property-management.md)**  
+- **[Property Management (V2)](./property-management.md)**
   Modern property system with contexts and categories, including the Complete Property Reference and Core Data Types tables.
 
-- **[Examples](./examples.md)**  
+- **[Examples](./examples.md)**
   Practical examples of GhJSON format for common Grasshopper patterns and component types.
 
 ---

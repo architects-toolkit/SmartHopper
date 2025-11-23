@@ -90,9 +90,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         {
             var propertiesToExtract = GetPropertiesToExtract(sourceObject);
             var extractedValues = _handlerRegistry.ExtractProperties(sourceObject, propertiesToExtract);
-            
+
             var result = new Dictionary<string, ComponentProperty>();
-            
+
             foreach (var kvp in extractedValues)
             {
                 if (ShouldIncludeProperty(kvp.Key, sourceObject))
@@ -144,7 +144,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         public Dictionary<string, bool> ApplyProperties(object targetObject, Dictionary<string, ComponentProperty> properties)
         {
             var valueDictionary = properties.ToDictionary(
-                kvp => kvp.Key, 
+                kvp => kvp.Key,
                 kvp => kvp.Value?.Value);
 
             return _handlerRegistry.ApplyProperties(targetObject, valueDictionary);
@@ -180,7 +180,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         /// <param name="sourceObject">The object that owns these properties.</param>
         /// <returns>Filtered properties dictionary.</returns>
         public Dictionary<string, ComponentProperty> FilterProperties(
-            Dictionary<string, ComponentProperty> properties, 
+            Dictionary<string, ComponentProperty> properties,
             object sourceObject)
         {
             return properties.FilterProperties(_filter, sourceObject);
@@ -273,7 +273,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     System.Enum e => Convert.ToInt32(e),
                     _ => -1
                 };
-                
+
                 if (mappingValue == 0)
                 {
                     return true;
@@ -295,7 +295,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
             }
 
             // Exclude Button object expressions (handled in componentState.value)
-            if ((propertyName == "ExpressionNormal" || propertyName == "ExpressionPressed") && 
+            if ((propertyName == "ExpressionNormal" || propertyName == "ExpressionPressed") &&
                 sourceObject.GetType().Name == "GH_ButtonObject")
             {
                 return true;
@@ -309,7 +309,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                 {
                     return true; // componentState.value contains the authoritative state
                 }
-                
+
                 // Button object (use type name check for compatibility)
                 if (sourceObject.GetType().Name == "GH_ButtonObject")
                 {

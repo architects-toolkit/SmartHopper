@@ -98,8 +98,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             if (string.IsNullOrWhiteSpace(identifier))
                 return false;
 
-            return identifier.StartsWith("@", StringComparison.Ordinal) && 
-                   identifier.Length > 1 && 
+            return identifier.StartsWith("@", StringComparison.Ordinal) &&
+                   identifier.Length > 1 &&
                    ReservedWords.Contains(identifier.Substring(1));
         }
     }

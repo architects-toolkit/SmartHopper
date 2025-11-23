@@ -83,8 +83,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
             else if (sourceObj is IGH_Component sourceComp)
             {
                 // Find source output parameter by index first, then fallback to name
-                if (connection.From.ParamIndex.HasValue && 
-                    connection.From.ParamIndex.Value >= 0 && 
+                if (connection.From.ParamIndex.HasValue &&
+                    connection.From.ParamIndex.Value >= 0 &&
                     connection.From.ParamIndex.Value < sourceComp.Params.Output.Count)
                 {
                     sourceParam = sourceComp.Params.Output[connection.From.ParamIndex.Value];
@@ -93,7 +93,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
                 {
                     sourceParam = sourceComp.Params.Output.FirstOrDefault(p => p.Name == connection.From.ParamName);
                 }
-                
+
                 if (sourceParam == null)
                 {
                     Debug.WriteLine($"[ConnectionManager] Source parameter '{connection.From.ParamName}' (index: {connection.From.ParamIndex}) not found");
@@ -116,8 +116,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
             else if (targetObj is IGH_Component targetComp)
             {
                 // Find target input parameter by index first, then fallback to name
-                if (connection.To.ParamIndex.HasValue && 
-                    connection.To.ParamIndex.Value >= 0 && 
+                if (connection.To.ParamIndex.HasValue &&
+                    connection.To.ParamIndex.Value >= 0 &&
                     connection.To.ParamIndex.Value < targetComp.Params.Input.Count)
                 {
                     targetParam = targetComp.Params.Input[connection.To.ParamIndex.Value];
@@ -126,7 +126,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
                 {
                     targetParam = targetComp.Params.Input.FirstOrDefault(p => p.Name == connection.To.ParamName);
                 }
-                
+
                 if (targetParam == null)
                 {
                     Debug.WriteLine($"[ConnectionManager] Target parameter '{connection.To.ParamName}' (index: {connection.To.ParamIndex}) not found");
@@ -140,7 +140,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
 
             // Create the connection
             targetParam.AddSource(sourceParam);
-            
+
             string sourceName = sourceObj is IGH_Component sc ? sc.Name : sourceParam.Name;
             string targetName = targetObj is IGH_Component tc ? tc.Name : targetParam.Name;
             Debug.WriteLine($"[ConnectionManager] Connected {sourceName}.{sourceParam.Name} → {targetName}.{targetParam.Name}");

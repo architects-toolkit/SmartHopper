@@ -25,7 +25,7 @@ Utils/
 
 ### ScriptModifier
 
-**Location**: `SmartHopper.Core.Grasshopper.Utils.Components.ScriptModifier`  
+**Location**: `SmartHopper.Core.Grasshopper.Utils.Components.ScriptModifier`
 **Purpose**: Modify script components (Python, C#, VB, IronPython)
 
 ```csharp
@@ -46,7 +46,7 @@ ScriptModifier.SetPrincipalInput(scriptComp, 0);
 
 ### ParameterModifier
 
-**Location**: `SmartHopper.Core.Grasshopper.Utils.Components.ParameterModifier`  
+**Location**: `SmartHopper.Core.Grasshopper.Utils.Components.ParameterModifier`
 **Purpose**: Modify parameter data settings on non-script components
 
 ```csharp
@@ -58,14 +58,14 @@ ParameterModifier.SetReverse(param, true);
 ParameterModifier.SetSimplify(param, true);
 
 // Bulk operations
-ParameterModifier.BulkApply(parameters, 
+ParameterModifier.BulkApply(parameters,
     dataMapping: GH_DataMapping.Graft,
     reverse: true);
 ```
 
 ### ComponentManipulation
 
-**Location**: `SmartHopper.Core.Grasshopper.Utils.Canvas.ComponentManipulation`  
+**Location**: `SmartHopper.Core.Grasshopper.Utils.Canvas.ComponentManipulation`
 **Purpose**: Component state operations
 
 ```csharp
@@ -128,7 +128,7 @@ public static AIReturn FlattenParameter(Guid componentGuid, int paramIndex)
     if (obj is IGH_Component comp && paramIndex < comp.Params.Input.Count)
     {
         ParameterModifier.SetDataMapping(
-            comp.Params.Input[paramIndex], 
+            comp.Params.Input[paramIndex],
             GH_DataMapping.Flatten);
         return AIReturn.Success("Parameter flattened");
     }
@@ -233,5 +233,5 @@ catch (ArgumentNullException ex)
 | **ParameterModifier** | ✅ Stable | 5 | Parameter data |
 | **ComponentManipulation** | ✅ Stable | 3 | State only |
 
-**Last Review**: November 2025  
+**Last Review**: November 2025
 **Breaking Changes**: None planned

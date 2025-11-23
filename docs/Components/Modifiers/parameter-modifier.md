@@ -1,6 +1,6 @@
 # ParameterModifier Reference
 
-**Namespace**: `SmartHopper.Core.Grasshopper.Utils.Components`  
+**Namespace**: `SmartHopper.Core.Grasshopper.Utils.Components`
 **Purpose**: Modify parameter data settings on non-script components
 
 ---
@@ -9,7 +9,7 @@
 
 `ParameterModifier` provides focused operations for parameter data manipulation settings. Use this for modifying how parameters handle data flow (flatten, graft, reverse, simplify).
 
-**Scope**: Non-script component parameters only  
+**Scope**: Non-script component parameters only
 **For Script Components**: Use `ScriptModifier` first to set up parameters, then `ParameterModifier` for data settings
 
 ---

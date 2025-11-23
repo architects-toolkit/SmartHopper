@@ -62,8 +62,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>The text content of the last AIInteractionText, or null if no text interaction exists.</returns>
         public static string GetLastText(this AIBody body)
         {
-            return body?.Interactions?.LastOrDefault(i => i is AIInteractionText) is AIInteractionText textInteraction 
-                ? textInteraction.Content 
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionText) is AIInteractionText textInteraction
+                ? textInteraction.Content
                 : null;
         }
 

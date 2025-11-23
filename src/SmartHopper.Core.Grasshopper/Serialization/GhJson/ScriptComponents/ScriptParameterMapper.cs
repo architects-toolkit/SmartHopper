@@ -159,7 +159,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
 
                 // Only serialize type hint if it's not "object" (case-insensitive)
                 // "object" is the default/generic type hint and doesn't need to be serialized
-                if (!string.IsNullOrEmpty(typeHint) && 
+                if (!string.IsNullOrEmpty(typeHint) &&
                     !string.Equals(typeHint, "object", StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(typeHint, "Object", StringComparison.OrdinalIgnoreCase))
                 {
@@ -327,7 +327,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                 }
             }
             catch { }
-#endif    
+#endif
 
             return param;
         }
@@ -366,7 +366,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
             }
 
             // Skip "object" type hints (case-insensitive) - it's the default and doesn't need to be applied
-            if (string.Equals(typeHint, "object", StringComparison.OrdinalIgnoreCase) || 
+            if (string.Equals(typeHint, "object", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(typeHint, "Object", StringComparison.OrdinalIgnoreCase))
             {
                 Debug.WriteLine($"[ScriptParameterMapper] Skipping default 'object' type hint for '{param.Name}'");
@@ -423,7 +423,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
             // Handle generic types like "List<Curve>" or "DataTree<Object>"
             int startBracket = typeHint.IndexOf('<');
             int endBracket = typeHint.LastIndexOf('>');
-            
+
             if (startBracket > 0 && endBracket > startBracket)
             {
                 // Extract content between < and >
@@ -483,9 +483,9 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
             try
             {
                 // Try to access _converter field via reflection (ScriptVariableParam implementation detail)
-                var converterField = param.GetType().GetField("_converter", 
+                var converterField = param.GetType().GetField("_converter",
                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
+
                 if (converterField != null)
                 {
                     var converter = converterField.GetValue(param);

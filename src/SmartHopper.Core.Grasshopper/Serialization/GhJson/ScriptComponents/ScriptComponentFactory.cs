@@ -159,7 +159,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
         /// </summary>
         public static bool IsLanguageSupported(string languageKey)
         {
-            return !string.IsNullOrEmpty(languageKey) && 
+            return !string.IsNullOrEmpty(languageKey) &&
                    LanguageMap.ContainsKey(languageKey.Trim());
         }
 

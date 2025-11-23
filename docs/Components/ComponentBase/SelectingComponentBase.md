@@ -8,24 +8,24 @@ Provide a consistent, shared schema for components that need the user to select 
 
 ## Key types
 
-- **`SelectingComponentBase`**  
+- **`SelectingComponentBase`**
   Non‑AI base: inherits `GH_Component` and implements `ISelectingComponent`.
 
-- **`AISelectingStatefulAsyncComponentBase`**  
+- **`AISelectingStatefulAsyncComponentBase`**
   AI base: inherits `AIStatefulAsyncComponentBase` and implements `ISelectingComponent`. Uses the same selection pipeline as `SelectingComponentBase`.
 
-- **`ISelectingComponent`**  
+- **`ISelectingComponent`**
   Small contract implemented by both bases:
   - `List<IGH_ActiveObject> SelectedObjects { get; }`
   - `void EnableSelectionMode()`
 
-- **`SelectingComponentCore`** (internal)  
+- **`SelectingComponentCore`** (internal)
   Shared helper that contains all selection logic:
   - Enters/leaves selection mode
   - Tracks selected objects on the canvas
   - Handles GUID‑based persistence and deferred restoration
 
-- **`SelectingComponentAttributes`**  
+- **`SelectingComponentAttributes`**
   Shared `GH_ComponentAttributes` that renders:
   - The "Select" button below the component
   - Dashed highlight rectangles around selected objects on hover
@@ -33,25 +33,25 @@ Provide a consistent, shared schema for components that need the user to select 
 
 ## Selection pipeline
 
-- **1. User clicks "Select" button**  
+- **1. User clicks "Select" button**
   `SelectingComponentAttributes` calls `ISelectingComponent.EnableSelectionMode()`.
 
-- **2. Enter selection mode**  
+- **2. Enter selection mode**
   `SelectingComponentCore.EnableSelectionMode()`:
   - Clears `SelectedObjects`
   - Sets an internal `inSelectionMode` flag
   - Hides the canvas context menu
   - Triggers a refresh to process current canvas selection
 
-- **3. Collect selected objects**  
+- **3. Collect selected objects**
   The core reads `Instances.ActiveCanvas.Document.SelectedObjects()` and filters to supported types (see below), populating `SelectedObjects` and updating the component message to `"N selected"`.
 
-- **4. Persist selection**  
+- **4. Persist selection**
   On `Write(...)` the core stores:
   - `SelectedObjectsCount`
   - `SelectedObject_0..N` as `InstanceGuid`s of each `IGH_DocumentObject`
 
-- **5. Restore selection**  
+- **5. Restore selection**
   On `Read(...)` and when the document finishes loading (`OnDocumentAdded`):
   - GUIDs are resolved back to document objects
   - Only existing objects are re‑added to `SelectedObjects`

@@ -327,7 +327,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 }
 
                 Debug.WriteLine($"[GhJsonSerializer] Set basic flags for {component.Name}");
-                
+
                 // Extract schema properties using property manager
                 try
                 {
@@ -473,9 +473,9 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 
                 // Skip the standard output "out" parameter for script components (including VB Script)
                 // This is controlled by the UsingStandardOutputParam property in ComponentState
-                if (isScriptComponent && param.Kind == GH_ParamKind.output && 
-                    param is Param_String && 
-                    (param.Name.Equals("out", StringComparison.OrdinalIgnoreCase) || 
+                if (isScriptComponent && param.Kind == GH_ParamKind.output &&
+                    param is Param_String &&
+                    (param.Name.Equals("out", StringComparison.OrdinalIgnoreCase) ||
                      param.NickName.Equals("out", StringComparison.OrdinalIgnoreCase)))
                 {
                     Debug.WriteLine($"[GhJsonSerializer] Skipping standard output 'out' parameter for script component");
@@ -720,7 +720,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 }
 
                 // VB Script components don't implement IScriptComponent - use reflection
-                else if (originalObject is IGH_Component component && 
+                else if (originalObject is IGH_Component component &&
                          (component.Name.Contains("VB", StringComparison.OrdinalIgnoreCase) ||
                           component.GetType().Name.Contains("VB", StringComparison.OrdinalIgnoreCase)))
                 {
@@ -743,7 +743,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             try
             {
                 var componentType = component.GetType();
-                
+
                 // Access ScriptSource object via reflection
                 var scriptSourceProp = componentType.GetProperty("ScriptSource");
                 if (scriptSourceProp != null && scriptSourceProp.CanRead)
@@ -752,19 +752,19 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                     if (scriptSourceObj != null)
                     {
                         var scriptSourceType = scriptSourceObj.GetType();
-                        
+
                         // Extract the 3 code sections
                         var usingCodeProp = scriptSourceType.GetProperty("UsingCode");
                         var scriptCodeProp = scriptSourceType.GetProperty("ScriptCode");
                         var additionalCodeProp = scriptSourceType.GetProperty("AdditionalCode");
-                        
+
                         var usingCode = usingCodeProp?.GetValue(scriptSourceObj) as string;
                         var scriptCode = scriptCodeProp?.GetValue(scriptSourceObj) as string;
                         var additionalCode = additionalCodeProp?.GetValue(scriptSourceObj) as string;
-                        
+
                         Debug.WriteLine($"[GhJsonSerializer] VB Script 3 sections extracted: " +
                                       $"Imports={usingCode?.Length ?? 0}, Script={scriptCode?.Length ?? 0}, Additional={additionalCode?.Length ?? 0}");
-                        
+
                         // Return VBScriptCode object with 3 sections
                         var vbCode = new VBScriptCode
                         {
@@ -772,7 +772,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                             Script = scriptCode,
                             Additional = additionalCode
                         };
-                        
+
                         return vbCode;
                     }
                     else
@@ -789,7 +789,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             {
                 Debug.WriteLine($"[GhJsonSerializer] Error extracting VB script 3 sections: {ex.Message}");
             }
-            
+
             return null;
         }
 
@@ -856,13 +856,13 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                                 // Target is a standalone parameter - single input at index 0
                                 recipientIndex = 0;
                             }
-                            
+
                             var connection = new ConnectionPairing
                             {
                                 From = new Connection
                                 {
-                                    Id = guidToId.ContainsKey(obj.InstanceGuid) 
-                                        ? guidToId[obj.InstanceGuid] 
+                                    Id = guidToId.ContainsKey(obj.InstanceGuid)
+                                        ? guidToId[obj.InstanceGuid]
                                         : -1,
                                     ParamName = outputParam.Name,
                                     ParamIndex = outIdx
@@ -907,7 +907,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                             // Target is a stand-alone parameter - single input at index 0
                             recipientIndex = 0;
                         }
-                        
+
                         var connection = new ConnectionPairing
                         {
                             From = new Connection
@@ -959,25 +959,25 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
         {
             // Get Grasshopper version from the assembly
             var ghVersion = typeof(Instances).Assembly.GetName().Version?.ToString() ?? "Unknown";
-            
+
             // Get Rhino version
             var rhinoVersion = Rhino.RhinoApp.Version.ToString();
-            
+
             // Count components and parameters separately
             var componentCount = objects.OfType<IGH_Component>().Count();
             var parameterCount = objects.OfType<IGH_Param>().Count();
-            
+
             // Collect unique plugin dependencies from components
             var dependencies = objects
                 .Select(obj => obj.GetType().Assembly.GetName().Name)
-                .Where(name => !name.StartsWith("Grasshopper") && 
-                              !name.StartsWith("RhinoCommon") && 
+                .Where(name => !name.StartsWith("Grasshopper") &&
+                              !name.StartsWith("RhinoCommon") &&
                               !name.StartsWith("System") &&
                               !name.StartsWith("mscorlib"))
                 .Distinct()
                 .OrderBy(name => name)
                 .ToList();
-            
+
             return new DocumentMetadata
             {
                 Version = "1",
@@ -1047,7 +1047,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                     }
 
                     groupInfo.Members = memberIds;
-                    
+
                     // Only add groups that have members
                     if (memberIds.Count > 0)
                     {
