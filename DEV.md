@@ -51,7 +51,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | text_evaluate | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
 | text_generate | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | img_generate | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| list_evaluate | Evaluates a list based on a natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
+| list_evaluate | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_generate | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -98,6 +98,8 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | gh_parameter_simplify | Simplify geometry in a parameter (remove redundant structure) | ⚪ | 🟡 | - | - |
 | rhino_get_geometry | Retrieve geometry from Rhino | ⚪ | 🟡 | - | - |
 | rhino_read_3dm | Read a 3dm file from disk | ⚪ | 🟡 | - | - |
+
+> **web_generic_page_read note:** Now supports dedicated flows for Wikipedia/Wikimedia APIs, Discourse raw markdown (`/posts/{id}.json`), GitHub/GitLab raw files, and Stack Exchange questions via the public API. Use it for AI-friendly text without extra HTML cleanup.
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 

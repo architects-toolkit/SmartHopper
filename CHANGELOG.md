@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `mcneel_forum_post_get`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID
   - `mcneel_forum_post_summarize`: New subtool that generates AI-powered summaries of forum posts using default provider/model
 - New Knowledge components for McNeel forum and web sources, enabling search, retrieval, and summarization workflows directly in Grasshopper.
+- **web_generic_page_read Enhancements**: Tool now delivers clean text for Wikipedia/Wikimedia articles, Discourse forums (raw markdown), GitHub/GitLab file URLs (raw/plain/markdown), and Stack Exchange questions via official APIs.
 - **Property Management System V2**: Complete refactoring of property management with modern, maintainable architecture:
   - **PropertyManagerV2**: New property management system with clean separation of concerns between filtering, extraction, and application
   - **PropertyFilter**: Intelligent property filtering based on object type and serialization context
