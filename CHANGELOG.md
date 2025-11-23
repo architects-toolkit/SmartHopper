@@ -70,6 +70,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Restores selected objects by GUID lookup during read operations
   - Updates component message to reflect restored selection count
   - Handles missing objects gracefully (objects deleted after selection)
+- New hotfix workflow system for emergency production fixes:
+  - **hotfix-0-new-branch.yml** - Creates `hotfix/X.X.X-description` branch from main with automatic patch version increment
+  - **hotfix-1-release-hotfix.yml** - Prepares `release/X.X.X-hotfix-description` branch with version updates, changelog, and PR to main
+  - Automatic version conflict resolution:
+    - All milestones with patch ≥ hotfix patch are incremented (updated from highest to lowest to prevent collisions)
+    - Dev branch version is bumped via PR if it conflicts (respects protected branch)
+  - Hotfix PRs trigger all existing validations (version check, code style, tests) before merging
+  - After merge to main, existing release workflows (release-3, release-4, release-5) handle GitHub Release creation, build, and Yak upload
+  - Comprehensive documentation in `.github/workflows/HOTFIX_WORKFLOW.md`
+- Comprehensive workflow documentation:
+  - **RELEASE_WORKFLOW.md** - Complete guide for regular milestone-based releases
+  - **HOTFIX_WORKFLOW.md** - Complete guide for emergency hotfix releases
 
 ### Changed
 
@@ -101,6 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Renamed utility classes for clarity (e.g., `GHCanvasUtils` → `CanvasAccess`, `GHComponentUtils` → `ComponentManipulation`)
   - Updated all internal references to use new organized namespaces
   - **Note:** This is an internal refactoring with no impact on public APIs or plugin functionality
+- Extended PR validation and CI test workflows to run on `hotfix/**` and `release/**` branches
+- **user-security-patch.yml** workflow is now obsolete, removed from workflows
 
 ### Removed
 
@@ -139,6 +153,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Script Component Parameter Modifiers**: Fixed issue where parameter modifiers (Reverse, Simplify, Locked, Invert) were not being serialized/deserialized for script component parameters. `ScriptParameterMapper.ExtractSettings()` now extracts `AdditionalSettings` just like regular `ParameterMapper`, ensuring modifiers are preserved during round-trip serialization.
 - **Script Component Type Hint Normalization**: Type hints with value "object" (case-insensitive) are no longer serialized or deserialized, as "object" is the default/generic type hint. This reduces JSON size, avoids case sensitivity issues (Object vs object), and eliminates redundant data.
 - **Generic Type Hint Handling**: Improved handling of generic type hints (e.g., `DataTree<Object>`, `List<Curve>`) by detecting `<>` syntax and extracting base types before applying, preventing `TypeHints.Select()` exceptions and reducing log noise.
+
+## [1.0.1-alpha] - 2025-10-13
+
+### Changed
+
+- Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
+- Centralized error handling in AIReturn and tool calls.
+- Accurately aggregate metrics in Conversation Session. Cases with multiple tool calls, multiple interactions, etc. Calculate completion time per interaction.
+- Improved AI Tool descriptions with better guided instructions. Also added specialized wrappers for targeted tool calls (gh_get_selected, gh_get_errors, gh_get_locked, gh_get_hidden, gh_get_visible, gh_get_by_guid, gh_lock_selected, gh_unlock_selected, gh_hide_preview_selected, gh_show_preview_selected, gh_group_selected, gh_tidy_up_selected).
+- Enhanced `list_filter` tool prompts to explicitly distinguish between indices (positions/keys) and values (item content), and expanded capabilities to support filtering, sorting, reordering, selecting, and other list manipulation operations based on natural language criteria.
+- Added more predefined models in the provider's database.
+
+### Fixed
+
+- Fixed model badge display: show "invalid model" badge when provider has no capable model instead of "model replaced" ([#332](https://github.com/architects-toolkit/SmartHopper/issues/332)) ([#329](https://github.com/architects-toolkit/SmartHopper/issues/329)).
+- Fixed provider errors (e.g., HTTP 400, token limit exceeded) not surfacing to WebChat UI: `ConversationSession` now surfaces `AIInteractionError` from error AIReturn bodies to observers before calling `OnError`, ensuring full error messages are displayed in the chat interface ([#334](https://github.com/architects-toolkit/SmartHopper/issues/334)).
+- Fixed `list_filter` tool automatically sorting and deduplicating indices, which prevented reordering and expansion operations from working correctly. Now preserves both order and duplicates as returned by the AI ([#335](https://github.com/architects-toolkit/SmartHopper/issues/335)).
 
 ## [1.0.0-alpha] - 2025-10-11
 
