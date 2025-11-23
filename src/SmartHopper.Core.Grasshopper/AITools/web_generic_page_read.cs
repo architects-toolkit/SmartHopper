@@ -12,11 +12,14 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -54,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Retrieve plain text content of a webpage at the given URL, excluding HTML, scripts, styles, and images. Respects robots.txt.",
+                description: "Retrieve plain text or markdown content of a webpage at the given URL (supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages), excluding HTML, scripts, styles, and images. Respects robots.txt.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -101,6 +104,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SmartHopper/1.0 (+https://github.com/architects-toolkit/SmartHopper)");
 
                 // Check robots.txt
                 Uri robotsUri = new(uri.GetLeftPart(UriPartial.Authority) + "/robots.txt");
@@ -123,122 +127,66 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Treat failure to fetch robots.txt as allowed
                 }
 
-                // Fetch page HTML
-                string html = string.Empty;
-                bool usedJson = false;
+                string? textContent = null;
+                string contentFormat = "markdown";
 
-                // Try JSON endpoint if available
-                try
+                if (IsWikimediaHost(uri))
                 {
-                    var jsonUriBuilder = new UriBuilder(uri);
-                    if (!jsonUriBuilder.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    textContent = await TryFetchWikimediaPlainTextAsync(uri, httpClient).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(textContent))
                     {
-                        jsonUriBuilder.Path = jsonUriBuilder.Path.TrimEnd('/') + ".json";
-                    }
-
-                    var jsonResponse = await httpClient.GetAsync(jsonUriBuilder.Uri).ConfigureAwait(false);
-                    if (jsonResponse.IsSuccessStatusCode)
-                    {
-                        var contentText = await jsonResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        Debug.WriteLine($"[WebTools] Fetched JSON from {jsonUriBuilder.Uri}. Length: {contentText.Length}");
-                        try
-                        {
-                            var jsonObj = JObject.Parse(contentText);
-                            var posts = jsonObj.SelectToken("post_stream.posts") as JArray;
-                            if (posts != null)
-                            {
-                                var cookedList = posts.Select(p => p["cooked"]?.ToString() ?? string.Empty);
-                                html = string.Concat(cookedList);
-                                usedJson = true;
-                            }
-                            else if (jsonObj["cooked"] != null)
-                            {
-                                html = jsonObj["cooked"].ToString();
-                                usedJson = true;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[WebTools] JSON parse failed: {ex.Message}");
-                            output.CreateError($"JSON parse failed: {ex.Message}");
-                            return output;
-                        }
+                        contentFormat = "plain_text";
                     }
                 }
-                catch (HttpRequestException)
+
+                if (string.IsNullOrWhiteSpace(textContent))
                 {
-                    // JSON endpoint unavailable; fallback to HTML
+                    var gitResult = await TryFetchGitHostContentAsync(uri, httpClient).ConfigureAwait(false);
+                    if (gitResult != null && !string.IsNullOrWhiteSpace(gitResult.Content))
+                    {
+                        textContent = gitResult.Content;
+                        contentFormat = gitResult.Format;
+                    }
                 }
 
-                if (!usedJson)
+                if (string.IsNullOrWhiteSpace(textContent))
                 {
-                    html = await httpClient.GetStringAsync(uri).ConfigureAwait(false);
+                    var stackExchangeContent = await TryFetchStackExchangeContentAsync(uri, httpClient).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(stackExchangeContent))
+                    {
+                        textContent = stackExchangeContent;
+                        contentFormat = "markdown";
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(textContent))
+                {
+                    var discourseRaw = await TryFetchDiscourseRawContentAsync(uri, httpClient).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(discourseRaw))
+                    {
+                        textContent = discourseRaw;
+                        contentFormat = "markdown";
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(textContent))
+                {
+                    var html = await httpClient.GetStringAsync(uri).ConfigureAwait(false);
                     Debug.WriteLine($"[WebTools] Fetched HTML from {url}. Length: {html.Length}");
+                    textContent = ConvertHtmlToMarkdown(html);
                 }
 
-                Debug.WriteLine($"[WebTools] Final HTML length used: {html.Length}");
-
-                // Parse and strip unwanted nodes
-                var doc = new HtmlDocument();
-                doc.LoadHtml(html);
-
-                string[] xpaths = new[]
+                if (string.IsNullOrWhiteSpace(textContent))
                 {
-                    "//script", "//style", "//img", "//noscript", "//header",
-                    "//footer", "//nav", "//aside", "//form", "//svg", "//canvas",
-                };
-                foreach (string xp in xpaths)
-                {
-                    var nodes = doc.DocumentNode.SelectNodes(xp);
-                    if (nodes != null)
-                    {
-                        foreach (var node in nodes)
-                        {
-                            node.Remove();
-                        }
-                    }
+                    output.CreateError("The requested page did not return any readable content.");
+                    return output;
                 }
-
-                // Preserve links: convert <a> tags to markdown [text](url)
-                var links = doc.DocumentNode.SelectNodes("//a[@href]");
-                if (links != null)
-                {
-                    foreach (var link in links.ToList())
-                    {
-                        var href = link.GetAttributeValue("href", string.Empty);
-                        var linkText = link.InnerText;
-                        var md = $"[{linkText}]({href})";
-                        var replacement = doc.CreateTextNode(md);
-                        link.ParentNode.ReplaceChild(replacement, link);
-                    }
-                }
-
-                // Convert headings to markdown format: <h1> to <h6>
-                var headingNodes = doc.DocumentNode.SelectNodes("//h1|//h2|//h3|//h4|//h5|//h6");
-                if (headingNodes != null)
-                {
-                    foreach (var heading in headingNodes.ToList())
-                    {
-                        int level = int.Parse(heading.Name.Substring(1), NumberStyles.Integer, CultureInfo.InvariantCulture);
-                        string headingText = heading.InnerText.Trim();
-                        string mdHeading = new string('#', level) + " " + headingText + Environment.NewLine;
-                        var mdNode = doc.CreateTextNode(mdHeading);
-                        heading.ParentNode.ReplaceChild(mdNode, heading);
-                    }
-                }
-
-                Debug.WriteLine($"[WebTools] Raw text length before normalization: {doc.DocumentNode.InnerText.Length}");
-                Debug.WriteLine($"[WebTools] Raw snippet: {doc.DocumentNode.InnerText.Substring(0, Math.Min(doc.DocumentNode.InnerText.Length, 200))}");
-
-                // Extract and normalize text
-                string text = doc.DocumentNode.InnerText;
-                text = WhitespaceRegex().Replace(text, " ").Trim();
-                Debug.WriteLine($"[WebTools] Normalized text length: {text.Length}");
-                Debug.WriteLine($"[WebTools] Normalized snippet: {text.Substring(0, Math.Min(text.Length, 200))}");
 
                 var toolResult = new JObject
                 {
-                    ["content"] = text,
+                    ["content"] = textContent,
+                    ["format"] = contentFormat,
+                    ["source"] = url,
                 };
 
                 var builder = AIBodyBuilder.Create();
@@ -254,5 +202,560 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return output;
             }
         }
+
+        /// <summary>
+        /// Attempts to retrieve clean plain text for Wikimedia-powered pages using their API.
+        /// </summary>
+        private static async Task<string?> TryFetchWikimediaPlainTextAsync(Uri pageUri, HttpClient httpClient)
+        {
+            if (!TryExtractWikimediaTitle(pageUri, out string? title))
+            {
+                return null;
+            }
+
+            var apiUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles={Uri.EscapeDataString(title)}");
+            try
+            {
+                var response = await httpClient.GetAsync(apiUri).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return null;
+                }
+
+                var payload = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var json = JObject.Parse(payload);
+                var pagesToken = json.SelectToken("query.pages");
+                if (pagesToken == null)
+                {
+                    return null;
+                }
+
+                foreach (var page in pagesToken.Children<JProperty>())
+                {
+                    var extract = page.Value?["extract"]?.ToString();
+                    if (!string.IsNullOrWhiteSpace(extract))
+                    {
+                        var titleValue = page.Value?["title"]?.ToString();
+                        var builder = new StringBuilder();
+                        if (!string.IsNullOrWhiteSpace(titleValue))
+                        {
+                            builder.Append('#').Append(' ').Append(titleValue.Trim()).AppendLine().AppendLine();
+                        }
+
+                        builder.Append(extract.Trim());
+                        return builder.ToString();
+                    }
+                }
+            }
+            catch (HttpRequestException)
+            {
+                return null;
+            }
+            catch (JsonReaderException)
+            {
+                return null;
+            }
+            catch (JsonSerializationException)
+            {
+                return null;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Attempts to fetch raw markdown posts from Discourse forums.
+        /// </summary>
+        private static async Task<string?> TryFetchDiscourseRawContentAsync(Uri uri, HttpClient httpClient)
+        {
+            if (!LooksLikeDiscourse(uri))
+            {
+                return null;
+            }
+
+            Uri? jsonUri = null;
+            if (TryGetDiscoursePostId(uri, out int postId))
+            {
+                jsonUri = new Uri($"{uri.Scheme}://{uri.Host}/posts/{postId}.json");
+            }
+            else
+            {
+                jsonUri = BuildDiscourseJsonUri(uri);
+            }
+
+            if (jsonUri == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                var jsonResponse = await httpClient.GetAsync(jsonUri).ConfigureAwait(false);
+                if (!jsonResponse.IsSuccessStatusCode)
+                {
+                    return null;
+                }
+
+                var contentText = await jsonResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var jsonObj = JObject.Parse(contentText);
+
+                if (jsonObj["raw"] != null)
+                {
+                    return jsonObj["raw"]?.ToString();
+                }
+
+                var posts = jsonObj.SelectToken("post_stream.posts") as JArray;
+                if (posts != null && posts.Count > 0)
+                {
+                    var builder = new StringBuilder();
+                    foreach (var post in posts)
+                    {
+                        var username = post?["username"]?.ToString();
+                        var created = post?["created_at"]?.ToString();
+                        var raw = post?["raw"]?.ToString();
+                        if (string.IsNullOrWhiteSpace(raw))
+                        {
+                            continue;
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(username) || !string.IsNullOrWhiteSpace(created))
+                        {
+                            builder.Append("## ");
+                            if (!string.IsNullOrWhiteSpace(username))
+                            {
+                                builder.Append(username);
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(created))
+                            {
+                                builder.Append(" – ").Append(created);
+                            }
+
+                            builder.AppendLine();
+                        }
+
+                        builder.AppendLine();
+                        builder.AppendLine(raw.Trim());
+                        builder.AppendLine();
+                    }
+
+                    var combined = builder.ToString().Trim();
+                    return string.IsNullOrWhiteSpace(combined) ? null : combined;
+                }
+
+                return null;
+            }
+            catch (HttpRequestException)
+            {
+                return null;
+            }
+            catch (JsonReaderException)
+            {
+                return null;
+            }
+            catch (JsonSerializationException)
+            {
+                return null;
+            }
+        }
+
+        private static async Task<GitContentResult?> TryFetchGitHostContentAsync(Uri uri, HttpClient httpClient)
+        {
+            if (!LooksLikeGitHost(uri))
+            {
+                return null;
+            }
+
+            Uri? rawUri = null;
+            if (uri.Host.Equals("raw.githubusercontent.com", StringComparison.OrdinalIgnoreCase))
+            {
+                rawUri = uri;
+            }
+            else if (uri.Host.Contains("github.com", StringComparison.OrdinalIgnoreCase))
+            {
+                rawUri = BuildGitHubRawUri(uri);
+            }
+            else if (uri.Host.Contains("gitlab.com", StringComparison.OrdinalIgnoreCase))
+            {
+                rawUri = BuildGitLabRawUri(uri);
+            }
+
+            if (rawUri == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                var response = await httpClient.GetAsync(rawUri).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return null;
+                }
+
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var format = DetectFormatFromExtension(rawUri.AbsolutePath);
+                return new GitContentResult(content, format);
+            }
+            catch (HttpRequestException)
+            {
+                return null;
+            }
+        }
+
+        private static async Task<string?> TryFetchStackExchangeContentAsync(Uri uri, HttpClient httpClient)
+        {
+            if (!TryExtractStackExchangeQuestion(uri, out string? site, out int questionId))
+            {
+                return null;
+            }
+
+            var apiUri = new Uri($"https://api.stackexchange.com/2.3/questions/{questionId}?order=desc&sort=activity&site={site}&filter=withbody");
+            try
+            {
+                var response = await httpClient.GetAsync(apiUri).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return null;
+                }
+
+                var payload = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var json = JObject.Parse(payload);
+                var items = json["items"] as JArray;
+                if (items == null || items.Count == 0)
+                {
+                    return null;
+                }
+
+                var question = items[0];
+                var title = question["title"]?.ToString();
+                var markdown = question["body_markdown"]?.ToString() ?? question["body"]?.ToString();
+                if (string.IsNullOrWhiteSpace(markdown))
+                {
+                    return null;
+                }
+
+                var builder = new StringBuilder();
+                if (!string.IsNullOrWhiteSpace(title))
+                {
+                    builder.Append("# ").AppendLine(title.Trim()).AppendLine();
+                }
+
+                builder.Append(markdown.Trim());
+                return builder.ToString();
+            }
+            catch (HttpRequestException)
+            {
+                return null;
+            }
+            catch (JsonReaderException)
+            {
+                return null;
+            }
+        }
+
+        private static bool LooksLikeDiscourse(Uri uri)
+        {
+            return uri.Host.Contains("discourse", StringComparison.OrdinalIgnoreCase)
+                   || uri.Host.Contains("mcneel", StringComparison.OrdinalIgnoreCase)
+                   || uri.AbsolutePath.StartsWith("/t/", StringComparison.OrdinalIgnoreCase)
+                   || uri.AbsolutePath.StartsWith("/p/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryGetDiscoursePostId(Uri uri, out int postId)
+        {
+            postId = 0;
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length >= 2)
+            {
+                if (segments[0].Equals("p", StringComparison.OrdinalIgnoreCase) || segments[0].Equals("posts", StringComparison.OrdinalIgnoreCase))
+                {
+                    return int.TryParse(segments[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out postId);
+                }
+            }
+
+            if (segments.Length >= 3 && segments[0].Equals("t", StringComparison.OrdinalIgnoreCase))
+            {
+                if (int.TryParse(segments[^1], NumberStyles.Integer, CultureInfo.InvariantCulture, out postId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Uri? BuildDiscourseJsonUri(Uri uri)
+        {
+            if (uri.AbsolutePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                return uri;
+            }
+
+            var builder = new UriBuilder(uri)
+            {
+                Path = uri.AbsolutePath.TrimEnd('/') + ".json",
+            };
+            return builder.Uri;
+        }
+
+        private static bool LooksLikeGitHost(Uri uri)
+        {
+            return uri.Host.Contains("github.com", StringComparison.OrdinalIgnoreCase)
+                   || uri.Host.Equals("raw.githubusercontent.com", StringComparison.OrdinalIgnoreCase)
+                   || uri.Host.Contains("gitlab.com", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Uri? BuildGitHubRawUri(Uri uri)
+        {
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length >= 5 && segments[2].Equals("blob", StringComparison.OrdinalIgnoreCase))
+            {
+                var owner = segments[0];
+                var repo = segments[1];
+                var branch = segments[3];
+                var filePath = string.Join('/', segments.Skip(4));
+                var rawUri = new Uri($"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{filePath}");
+                return rawUri;
+            }
+
+            return null;
+        }
+
+        private static Uri? BuildGitLabRawUri(Uri uri)
+        {
+            var builder = new UriBuilder(uri);
+            var path = builder.Path;
+            if (path.Contains("/-/blob/", StringComparison.OrdinalIgnoreCase))
+            {
+                path = path.Replace("/-/blob/", "/-/raw/", StringComparison.OrdinalIgnoreCase);
+            }
+            else if (path.Contains("/blob/", StringComparison.OrdinalIgnoreCase))
+            {
+                path = path.Replace("/blob/", "/raw/", StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                return null;
+            }
+
+            builder.Path = path;
+            builder.Query = "inline=false";
+            return builder.Uri;
+        }
+
+        private static string DetectFormatFromExtension(string path)
+        {
+            var extension = Path.GetExtension(path)?.ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(extension))
+            {
+                return "plain_text";
+            }
+
+            return extension switch
+            {
+                ".md" => "markdown",
+                ".markdown" => "markdown",
+                ".mdown" => "markdown",
+                ".rst" => "markdown",
+                _ => "plain_text",
+            };
+        }
+
+        private static bool TryExtractStackExchangeQuestion(Uri uri, out string? site, out int questionId)
+        {
+            site = null;
+            questionId = 0;
+
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length < 2)
+            {
+                return false;
+            }
+
+            int idIndex = -1;
+            if (segments[0].Equals("questions", StringComparison.OrdinalIgnoreCase))
+            {
+                idIndex = 1;
+            }
+            else if (segments[0].Equals("q", StringComparison.OrdinalIgnoreCase))
+            {
+                idIndex = 1;
+            }
+
+            if (idIndex == -1 || !int.TryParse(segments[idIndex], NumberStyles.Integer, CultureInfo.InvariantCulture, out questionId))
+            {
+                return false;
+            }
+
+            site = GetStackExchangeSiteToken(uri.Host);
+            return !string.IsNullOrWhiteSpace(site);
+        }
+
+        private static string? GetStackExchangeSiteToken(string host)
+        {
+            host = host.ToLowerInvariant();
+            if (host.EndsWith(".stackexchange.com", StringComparison.Ordinal))
+            {
+                return host[..host.IndexOf(".stackexchange.com", StringComparison.Ordinal)];
+            }
+
+            return host switch
+            {
+                "stackoverflow.com" => "stackoverflow",
+                "serverfault.com" => "serverfault",
+                "superuser.com" => "superuser",
+                "askubuntu.com" => "askubuntu",
+                "mathoverflow.net" => "mathoverflow",
+                "stackapps.com" => "stackapps",
+                _ => null,
+            };
+        }
+
+        private static bool TryExtractWikimediaTitle(Uri uri, out string? title)
+        {
+            title = null;
+            if (!IsWikimediaHost(uri))
+            {
+                return false;
+            }
+
+            var path = uri.AbsolutePath;
+            if (string.IsNullOrWhiteSpace(path) || path == "/")
+            {
+                return false;
+            }
+
+            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 0)
+            {
+                return false;
+            }
+
+            if (segments[0].Equals("wiki", StringComparison.OrdinalIgnoreCase) && segments.Length > 1)
+            {
+                title = string.Join('/', segments.Skip(1));
+            }
+            else
+            {
+                title = segments[^1];
+            }
+
+            title = Uri.UnescapeDataString(title);
+            return !string.IsNullOrWhiteSpace(title);
+        }
+
+        private static bool IsWikimediaHost(Uri uri)
+        {
+            string host = uri.Host;
+            foreach (var domain in WikimediaRootDomains)
+            {
+                if (host.EndsWith(domain, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string ConvertHtmlToMarkdown(string html)
+        {
+            if (string.IsNullOrWhiteSpace(html))
+            {
+                return string.Empty;
+            }
+
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            string[] xpaths =
+            {
+                "//script", "//style", "//img", "//noscript", "//header",
+                "//footer", "//nav", "//aside", "//form", "//svg", "//canvas",
+            };
+
+            foreach (string xp in xpaths)
+            {
+                var nodes = doc.DocumentNode.SelectNodes(xp);
+                if (nodes == null)
+                {
+                    continue;
+                }
+
+                foreach (var node in nodes)
+                {
+                    node.Remove();
+                }
+            }
+
+            var links = doc.DocumentNode.SelectNodes("//a[@href]");
+            if (links != null)
+            {
+                foreach (var link in links.ToList())
+                {
+                    var href = link.GetAttributeValue("href", string.Empty);
+                    var linkText = link.InnerText.Trim();
+                    if (string.IsNullOrWhiteSpace(linkText))
+                    {
+                        link.Remove();
+                        continue;
+                    }
+
+                    var md = $"[{linkText}]({href})";
+                    var replacement = doc.CreateTextNode(md);
+                    link.ParentNode?.ReplaceChild(replacement, link);
+                }
+            }
+
+            var headingNodes = doc.DocumentNode.SelectNodes("//h1|//h2|//h3|//h4|//h5|//h6");
+            if (headingNodes != null)
+            {
+                foreach (var heading in headingNodes.ToList())
+                {
+                    int level = int.Parse(heading.Name.Substring(1), NumberStyles.Integer, CultureInfo.InvariantCulture);
+                    string headingText = heading.InnerText.Trim();
+                    string mdHeading = new string('#', level) + " " + headingText + Environment.NewLine + Environment.NewLine;
+                    var mdNode = doc.CreateTextNode(mdHeading);
+                    heading.ParentNode?.ReplaceChild(mdNode, heading);
+                }
+            }
+
+            var paragraphNodes = doc.DocumentNode.SelectNodes("//p");
+            if (paragraphNodes != null)
+            {
+                foreach (var paragraph in paragraphNodes.ToList())
+                {
+                    var paragraphText = paragraph.InnerText.Trim();
+                    if (string.IsNullOrWhiteSpace(paragraphText))
+                    {
+                        paragraph.Remove();
+                        continue;
+                    }
+
+                    var mdParagraph = doc.CreateTextNode(paragraphText + Environment.NewLine + Environment.NewLine);
+                    paragraph.ParentNode?.ReplaceChild(mdParagraph, paragraph);
+                }
+            }
+
+            string text = doc.DocumentNode.InnerText;
+            text = WhitespaceRegex().Replace(text, " ").Trim();
+            return text;
+        }
+
+        private sealed record GitContentResult(string Content, string Format);
+
+        private static readonly string[] WikimediaRootDomains =
+        {
+            "wikipedia.org",
+            "wikimedia.org",
+            "wiktionary.org",
+            "wikibooks.org",
+            "wikinews.org",
+            "wikiquote.org",
+            "wikisource.org",
+            "wikiversity.org",
+            "wikivoyage.org",
+        };
     }
 }
