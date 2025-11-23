@@ -9,7 +9,7 @@ Breaking changes are acceptable; this is a forward-looking plan.
 - Single responsibility per module; move cross-cutting logic to reusable services.
 - Provider-agnostic orchestration in Infrastructure; provider specifics isolated in `SmartHopper.Providers.*`.
 - Immutable core data structures with builders for composition.
-- Explicit, composable policies for validation, security, retries, and telemetry.
+- Explicit, composable policies for validation, security, and retries.
 
 ## Current strengths (to keep)
 
@@ -148,7 +148,7 @@ Breaking changes are acceptable; this is a forward-looking plan.
 
 #### Integration points (S10)
 
-- `AIProvider.Call` wrapped by `RetryPolicy` and `RedactionPolicy` to ensure no sensitive data in telemetry.
+- `AIProvider.Call` wrapped by `RetryPolicy` and `RedactionPolicy` to ensure no sensitive data.
 - `IToolExecutor` consults `EgressPolicy` before performing file/network ops.
 - `JsonSchemaService` consults `SchemaWhitelistPolicy` before attaching schemas.
 

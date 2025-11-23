@@ -151,9 +151,9 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
-        internal static Bitmap metrics {
+        internal static Bitmap metricsdeconstruct {
             get {
-                object obj = ResourceManager.GetObject("metrics", resourceCulture);
+                object obj = ResourceManager.GetObject("metricsdeconstruct", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
@@ -175,6 +175,76 @@ namespace SmartHopper.Components.Properties {
         internal static Bitmap imgviewer {
             get {
                 object obj = ResourceManager.GetObject("imgviewer", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap mcneelforumsearch {
+            get {
+                object obj = ResourceManager.GetObject("mcneelforumsearch", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap mcneelpostdeconstruct {
+            get {
+                object obj = ResourceManager.GetObject("mcneelpostdeconstruct", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap mcneelpostget {
+            get {
+                object obj = ResourceManager.GetObject("mcneelpostget", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap mcneelpostopen {
+            get {
+                object obj = ResourceManager.GetObject("mcneelpostopen", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap mcneelpostsummarize {
+            get {
+                object obj = ResourceManager.GetObject("mcneelpostsummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap mcneeltopicrelated {
+            get {
+                object obj = ResourceManager.GetObject("mcneeltopicrelated", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap mcneeltopicsummarize {
+            get {
+                object obj = ResourceManager.GetObject("mcneeltopicsummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap websummarize {
+            get {
+                object obj = ResourceManager.GetObject("websummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap scriptgenerate {
+            get {
+                object obj = ResourceManager.GetObject("scriptgenerate", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap scriptreview {
+            get {
+                object obj = ResourceManager.GetObject("scriptreview", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }

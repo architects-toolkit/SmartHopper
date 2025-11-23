@@ -123,7 +123,12 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         /// <param name="other">The AIMetrics object to combine with.</param>
         public void Combine(AIMetrics other)
         {
-            Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
+            var skipLog = IsDefault(this) && IsDefault(other);
+
+            if (!skipLog)
+            {
+                Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
+            }
 
             if (other.Provider != null)
             {
@@ -145,6 +150,25 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             this.OutputTokensReasoning += other.OutputTokensReasoning;
             this.OutputTokensGeneration += other.OutputTokensGeneration;
             this.CompletionTime += other.CompletionTime;
+        }
+
+        private static bool IsDefault(AIMetrics metrics)
+        {
+            if (metrics == null)
+            {
+                return true;
+            }
+
+            var providerDefault = string.IsNullOrEmpty(metrics.Provider) || string.Equals(metrics.Provider, "Unknown", System.StringComparison.Ordinal);
+            var modelDefault = string.IsNullOrEmpty(metrics.Model);
+            var tokensZero = metrics.InputTokensCached == 0
+                             && metrics.InputTokensPrompt == 0
+                             && metrics.OutputTokensReasoning == 0
+                             && metrics.OutputTokensGeneration == 0;
+            var timeZero = metrics.CompletionTime == 0;
+            var finishDefault = string.IsNullOrEmpty(metrics.FinishReason);
+
+            return providerDefault && modelDefault && tokensZero && timeZero && finishDefault;
         }
     }
 }

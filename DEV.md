@@ -26,8 +26,7 @@ This document aggregates development-facing information.
 | AI Text List Generate (AiTextListGenerate)<br><sub>Generate lists of text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Image Generate (AiImageGenerate)<br><sub>Generate images using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Script Review (AiScriptReview)<br><sub>Make a review of a script, using AI</sub> | ⚪ | - | - | - |
-| AI Script Edit (AiScriptEdit)<br><sub>Modify an existing script using AI</sub> | ⚪ | - | - | - |
-| AI Script New (AiScriptNew)<br><sub>Generate a script using AI</sub> | ⚪ | - | - | - |
+| AI Script Generator (AiScriptGenerator)<br><sub>Create or edit Grasshopper script components using AI</sub> | ⚪ | - | - | - |
 | AI List Evaluate (AiListEvaluate)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI JSON Generate (AiJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | ⚪ | - | - | - |
@@ -52,27 +51,54 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | text_evaluate | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
 | text_generate | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | img_generate | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| list_evaluate | Evaluates a list based on a natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
+| list_evaluate | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | list_generate | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_edit | Modify the script from an existing component | ⚪ | 🟡 | - | - |
-| script_new | Place a new script component from a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
+| script_generator | Create or edit Grasshopper script components based on instructions and optional GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| script_parameter_add_input | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
+| script_parameter_add_output | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
+| script_parameter_remove_input | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
+| script_parameter_remove_output | Remove an output parameter from a script component | ⚪ | 🟡 | - | - |
+| script_parameter_set_type_input | Set the type hint for a script input parameter | ⚪ | 🟡 | - | - |
+| script_parameter_set_type_output | Set the type hint for a script output parameter | ⚪ | 🟡 | - | - |
+| script_parameter_set_access | Set how a script input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
+| script_toggle_std_output | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
+| script_set_principal_input | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
+| script_parameter_set_optional | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
 | json_generate | Generate an AI response in strict JSON output | ⚪ | - | - | - |
-| web_fetch_page_text | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
-| web_search_rhino_forum | Search Rhino Discourse forum posts by query and return matching results | ⚪ | 🟡 | 🟠 | 🟢 |
-| web_get_rhino_forum_post | Retrieve full JSON of a Rhino Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| web_generic_page_read | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
+| mcneel_forum_search | Search McNeel Discourse forum with configurable limit and optional AI summaries | ⚪ | 🟡 | 🟠 | 🟢 |
+| mcneel_forum_post_get | Retrieve full JSON of a McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| mcneel_forum_post_summarize | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
+| mcneel_forum_topic_get | Retrieve all posts in a McNeel Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| mcneel_forum_topic_summarize | Generate AI-powered summary of a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
 | get_input | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | get_output | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
+| gh_list_categories | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_list_components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_get | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_put | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_toggle_lock | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_move_obj | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_hide_preview_selected | Hide geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_show_preview_selected | Show geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_toggle_lock | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_lock_selected | Lock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_component_unlock_selected | Unlock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_move | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_tidy_up | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_generate | Generate Grasshopper definitions using AI | ⚪ | - | - | - |
-| gh_connect | Connect Grasshopper components | ⚪ | - | - | - |
-| gh_group | Group components and set a meaningful title | ⚪ | - | - | - |
+| gh_generate | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
+| gh_connect | Connect Grasshopper components | ⚪ | 🟡 | - | - |
+| gh_group | Group components and set a meaningful title | ⚪ | 🟡 | - | - |
+| gh_parameter_data_mapping_none | Set a parameter's data mapping to None | ⚪ | 🟡 | - | - |
+| gh_parameter_data_mapping_flatten | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
+| gh_parameter_data_mapping_graft | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
+| gh_parameter_reverse | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
+| gh_parameter_simplify | Simplify geometry in a parameter (remove redundant structure) | ⚪ | 🟡 | - | - |
+| rhino_get_geometry | Retrieve geometry from Rhino | ⚪ | 🟡 | - | - |
+| rhino_read_3dm | Read a 3dm file from disk | ⚪ | 🟡 | - | - |
+
+> **web_generic_page_read note:** Now supports dedicated flows for Wikipedia/Wikimedia APIs, Discourse raw markdown (`/posts/{id}.json`), GitHub/GitLab raw files, and Stack Exchange questions via the public API. Use it for AI-friendly text without extra HTML cleanup.
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
@@ -125,7 +151,7 @@ Notes:
 
 ## 🔢 Supported Data Types
 
-SmartHopper is designed to work with various Grasshopper-native data types. Additional geometric and complex data types will be added in future releases. Stay tuned for updates!
+SmartHopper registers the following data type serializers (see `src/SmartHopper.Core/Serialization/DataTypes/DataTypeRegistry.cs`). All listed types are fully supported end‑to‑end (serialization/deserialization and validation):
 
 | Data Type | Status |
 |-----------|:------:|
@@ -133,11 +159,23 @@ SmartHopper is designed to work with various Grasshopper-native data types. Addi
 | Number | ✅ Supported |
 | Integer | ✅ Supported |
 | Boolean | ✅ Supported |
-| Colour | 🔜 Planned |
-| Point | 🔜 Planned |
-| Plane | 🔜 Planned |
-| Line | 🔜 Planned |
-| Circle | 🔜 Planned |
+| Colour (Color) | ✅ Supported |
+| Point | ✅ Supported |
+| Vector | ✅ Supported |
+| Line | ✅ Supported |
+| Plane | ✅ Supported |
+| Circle | ✅ Supported |
+| Arc | ✅ Supported |
+| Box | ✅ Supported |
+| Rectangle | ✅ Supported |
+| Interval | ✅ Supported |
+| Path | 🔜 Planned |
+| File Path | 🔜 Planned |
+| Unit System | 🔜 Planned |
+| Time | 🔜 Planned |
+| Complex | 🔜 Planned |
+| Culture | 🔜 Planned |
+| Domain2D | 🔜 Planned |
 
 —
 

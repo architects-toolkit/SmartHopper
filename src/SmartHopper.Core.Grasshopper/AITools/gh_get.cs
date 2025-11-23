@@ -10,16 +10,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
-using SmartHopper.Core.Grasshopper.Utils;
-using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Core.Models.Connections;
+using SmartHopper.Core.Models.Document;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
@@ -69,6 +72,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""integer"",
                             ""default"": 0,
                             ""description"": ""Depth of connections to include: 0 (default) only matching components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        },
+                        ""includeMetadata"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""Whether to include document metadata (schema version, timestamps, Rhino/Grasshopper versions, plugin dependencies). Default is false.""
                         }
                     }
                 }",
@@ -205,7 +213,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Arguments may be null when calling gh_get with no parameters; default to empty filters
                 var args = toolInfo.Arguments ?? new JObject();
-                
+
                 // Use predefined filters if provided (for wrapper tools), otherwise use filters from arguments
                 var attrFilters = predefinedAttrFilters != null
                     ? new List<string>(predefinedAttrFilters)
@@ -213,7 +221,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var typeFilters = predefinedTypeFilters != null
                     ? new List<string>(predefinedTypeFilters)
                     : args["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                var objects = GHCanvasUtils.GetCurrentObjects();
+                var objects = CanvasAccess.GetCurrentObjects();
 
                 // Filter by manual UI selection if provided
                 var selectedGuids = args["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
@@ -224,8 +232,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
-                var (includeTypes, excludeTypes) = Get.ParseIncludeExclude(typeFilters, Get.TypeSynonyms);
-                var (includeTags, excludeTags) = Get.ParseIncludeExclude(attrFilters, Get.FilterSynonyms);
+                var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
+                var (includeTypes, excludeTypes) = ComponentRetriever.ParseIncludeExclude(typeFilters, ComponentRetriever.TypeSynonyms);
+                var (includeTags, excludeTags) = ComponentRetriever.ParseIncludeExclude(attrFilters, ComponentRetriever.FilterSynonyms);
 
                 // Apply typeFilters on base objects
                 var typeFiltered = new List<IGH_ActiveObject>(objects);
@@ -244,13 +253,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (includeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
-                        var tempDoc = GHDocumentUtils.GetObjectsDetails(objects);
+                        var serOptions1 = SerializationOptions.Standard;
+                        serOptions1.IncludeMetadata = false;
+                        serOptions1.IncludeGroups = false;
+                        var tempDoc = GhJsonSerializer.Serialize(objects, serOptions1);
+
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
                         foreach (var conn in tempDoc.Connections)
                         {
-                            outd[conn.From.InstanceId] = (outd.TryGetValue(conn.From.InstanceId, out var ov) ? ov : 0) + 1;
-                            incd[conn.To.InstanceId] = (incd.TryGetValue(conn.To.InstanceId, out var iv) ? iv : 0) + 1;
+                            if (conn.TryResolveGuids(tempDoc.GetIdToGuidMapping(), out var fromGuid, out var toGuid))
+                            {
+                                outd[fromGuid] = (outd.TryGetValue(fromGuid, out var ov) ? ov : 0) + 1;
+                                incd[toGuid] = (incd.TryGetValue(toGuid, out var iv) ? iv : 0) + 1;
+                            }
                         }
 
                         if (includeTypes.Contains("INPUT"))
@@ -296,13 +312,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (excludeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
                     {
-                        var tempDoc = GHDocumentUtils.GetObjectsDetails(typeFiltered);
+                        var serOptions2 = SerializationOptions.Standard;
+                        serOptions2.IncludeMetadata = false;
+                        serOptions2.IncludeGroups = false;
+                        var tempDoc = GhJsonSerializer.Serialize(typeFiltered, serOptions2);
+
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
                         foreach (var conn in tempDoc.Connections)
                         {
-                            outd[conn.From.InstanceId] = (outd.TryGetValue(conn.From.InstanceId, out var ov) ? ov : 0) + 1;
-                            incd[conn.To.InstanceId] = (incd.TryGetValue(conn.To.InstanceId, out var iv) ? iv : 0) + 1;
+                            if (conn.TryResolveGuids(tempDoc.GetIdToGuidMapping(), out var fromGuid, out var toGuid))
+                            {
+                                outd[fromGuid] = (outd.TryGetValue(fromGuid, out var ov) ? ov : 0) + 1;
+                                incd[toGuid] = (incd.TryGetValue(toGuid, out var iv) ? iv : 0) + 1;
+                            }
                         }
 
                         if (excludeTypes.Contains("INPUT"))
@@ -452,9 +475,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (connectionDepth > 0)
                 {
-                    var allObjects = GHCanvasUtils.GetCurrentObjects();
-                    var fullDoc = GHDocumentUtils.GetObjectsDetails(allObjects);
-                    var edges = fullDoc.Connections.Select(c => (c.From.InstanceId, c.To.InstanceId));
+                    var allObjects = CanvasAccess.GetCurrentObjects();
+                    var serOptions3 = SerializationOptions.Standard;
+                    serOptions3.IncludeMetadata = false;
+                    serOptions3.IncludeGroups = false;
+                    var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions3);
+                    var edges = fullDoc.Connections
+                        .Select(c => {
+                            if (c.TryResolveGuids(fullDoc.GetIdToGuidMapping(), out var from, out var to))
+                                return (from: from, to: to, valid: true);
+                            return (from: Guid.Empty, to: Guid.Empty, valid: false);
+                        })
+                        .Where(e => e.valid)
+                        .Select(e => (e.from, e.to));
                     var initialIds = resultObjects.Select(o => o.InstanceGuid);
                     var expandedIds = ConnectionGraphUtils.ExpandByDepth(edges, initialIds, connectionDepth);
                     var idMap = allObjects.ToDictionary(o => o.InstanceGuid, o => o);
@@ -464,18 +497,83 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                var document = GHDocumentUtils.GetObjectsDetails(resultObjects);
+                var serOptions = SerializationOptions.Standard;
+                serOptions.IncludeMetadata = includeMetadata;
+                serOptions.IncludeGroups = true;
+
+                Debug.WriteLine($"[gh_get] Starting serialization with {resultObjects.Count} objects");
+                Debug.WriteLine($"[gh_get] Objects: {string.Join(", ", resultObjects.Select(o => $"{o.Name}({o.InstanceGuid})"))}");
+
+                GrasshopperDocument document;
+                try
+                {
+                    document = GhJsonSerializer.Serialize(resultObjects, serOptions);
+                    Debug.WriteLine($"[gh_get] Serialization completed successfully");
+                }
+                catch (ArgumentNullException anex)
+                {
+                    Debug.WriteLine($"[gh_get] ArgumentNullException in serialization: {anex.Message}");
+                    Debug.WriteLine($"[gh_get] Stack trace: {anex.StackTrace}");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[gh_get] General exception in serialization: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
+
+                Debug.WriteLine($"[gh_get] Starting post-serialization processing");
+                Debug.WriteLine($"[gh_get] document.Components count: {document.Components?.Count ?? 0}");
+                Debug.WriteLine($"[gh_get] document.Connections count: {document.Connections?.Count ?? 0}");
 
                 // only keep connections where both components are in our filtered set
-                var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
-                document.Connections = document.Connections
-                    .Where(c => allowed.Contains(c.From.InstanceId)
-                            && allowed.Contains(c.To.InstanceId))
-                    .ToList();
+                try
+                {
+                    Debug.WriteLine($"[gh_get] Filtering connections...");
+                    var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
+                    Debug.WriteLine($"[gh_get] Allowed GUIDs count: {allowed.Count}");
+
+                    if (document.Connections != null)
+                    {
+                        document.Connections = document.Connections
+                            .Where(c => c.TryResolveGuids(document.GetIdToGuidMapping(), out var fromGuid, out var toGuid) &&
+                                        allowed.Contains(fromGuid) && allowed.Contains(toGuid))
+                            .ToList();
+                        Debug.WriteLine($"[gh_get] Filtered connections count: {document.Connections.Count}");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[gh_get] document.Connections is null, initializing empty list");
+                        document.Connections = new List<ConnectionPairing>();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[gh_get] Exception filtering connections: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
 
                 // Get names and guids
-                var names = document.Components.Select(c => c.Name).Distinct().ToList();
-                var guids = document.Components.Select(c => c.InstanceGuid.ToString()).Distinct().ToList();
+                List<string> names;
+                List<string> guids;
+                try
+                {
+                    Debug.WriteLine($"[gh_get] Extracting component names...");
+                    names = document.Components.Select(c => c.Name).Distinct().ToList();
+                    Debug.WriteLine($"[gh_get] Extracted {names.Count} unique names");
+
+                    Debug.WriteLine($"[gh_get] Extracting component GUIDs...");
+                    guids = document.Components.Select(c => c.InstanceGuid.ToString()).Distinct().ToList();
+                    Debug.WriteLine($"[gh_get] Extracted {guids.Count} unique GUIDs");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[gh_get] Exception extracting names/guids: {ex.GetType().Name}: {ex.Message}");
+                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
+                    throw;
+                }
 
                 // Serialize document
                 var json = JsonConvert.SerializeObject(document, Formatting.None);
