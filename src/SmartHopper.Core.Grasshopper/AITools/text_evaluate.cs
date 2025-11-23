@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -108,6 +108,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
+                    Debug.WriteLine($"[TextTools.EvaluateText] Missing required parameters - text: '{text ?? "null"}', question: '{question ?? "null"}'");
                     output.CreateError("Missing required parameters");
                     return output;
                 }
@@ -116,6 +117,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var userPrompt = this.userPrompt;
                 userPrompt = userPrompt.Replace("<question>", question);
                 userPrompt = userPrompt.Replace("<text>", text);
+
+                Debug.WriteLine($"[TextTools.EvaluateText] System prompt: {this.systemPrompt}");
+                Debug.WriteLine($"[TextTools.EvaluateText] User prompt: {userPrompt}");
 
                 // Initiate immutable AIBody
                 var requestBody = AIBodyBuilder.Create()
@@ -138,15 +142,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!result.Success)
                 {
+                    Debug.WriteLine($"[TextTools.EvaluateText] AI call failed. Messages: {result.Messages?.Count ?? 0}");
                     // Propagate structured messages from AI call
                     output.Messages = result.Messages;
                     return output;
                 }
 
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                Debug.WriteLine($"[TextTools.EvaluateText] AI response: '{response}'");
 
                 // Parse the boolean from the response
-                var parsedResult = ParsingTools.ParseBooleanFromResponse(response);
+                var parsedResult = AIResponseParser.ParseBooleanFromResponse(response);
 
                 if (parsedResult == null)
                 {

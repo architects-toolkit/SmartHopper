@@ -56,7 +56,7 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AITextGenerateWorker(this, this.AddRuntimeMessage);
+            return new AITextGenerateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class AITextGenerateWorker : AsyncWorkerBase
@@ -64,13 +64,16 @@ namespace SmartHopper.Components.Text
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;
             private readonly AITextGenerate parent;
+            private readonly ProcessingOptions processingOptions;
 
             public AITextGenerateWorker(
-            AITextGenerate parent,
-            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
-            : base(parent, addRuntimeMessage)
+                AITextGenerate parent,
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
+                : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
                 this.result = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Result", new GH_Structure<GH_String>() },
@@ -92,8 +95,7 @@ namespace SmartHopper.Components.Text
                 this.inputTree["Prompt"] = promptTree;
                 this.inputTree["Instructions"] = instructionsTree;
 
-                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
-                dataCount = metrics.dataCount;
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -104,15 +106,14 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await this.parent.RunDataTreeFunctionAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: true,
+                        this.processingOptions,
                         token).ConfigureAwait(false);
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");

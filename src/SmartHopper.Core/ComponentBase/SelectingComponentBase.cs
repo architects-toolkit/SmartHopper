@@ -29,7 +29,7 @@ namespace SmartHopper.Core.ComponentBase
     /// <summary>
     /// Base for components that support selecting objects via a "Select Components" button.
     /// </summary>
-    public abstract class SelectingComponentBase : GH_Component
+    public abstract class SelectingComponentBase : GH_Component, ISelectingComponent
     {
         /// <summary>
         /// Gets the currently selected Grasshopper objects for this component's selection mode.
@@ -37,7 +37,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public List<IGH_ActiveObject> SelectedObjects { get; private set; } = new();
 
-        private bool inSelectionMode;
+        private readonly SelectingComponentCore selectionCore;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectingComponentBase"/> class.
@@ -45,6 +45,19 @@ namespace SmartHopper.Core.ComponentBase
         protected SelectingComponentBase(string name, string nickname, string description, string category, string subcategory)
             : base(name, nickname, description, category, subcategory)
         {
+            this.selectionCore = new SelectingComponentCore(this, this);
+
+            // Subscribe to document events for deferred selection restoration
+            Instances.DocumentServer.DocumentAdded += this.OnDocumentAdded;
+        }
+
+        /// <summary>
+        /// Clean up event subscriptions.
+        /// </summary>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            base.RemovedFromDocument(document);
+            Instances.DocumentServer.DocumentAdded -= this.OnDocumentAdded;
         }
 
         /// <summary>
@@ -52,7 +65,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public override void CreateAttributes()
         {
-            this.m_attributes = new SelectingComponentAttributes(this);
+            this.m_attributes = new SelectingComponentAttributes(this, this);
         }
 
         /// <summary>
@@ -60,37 +73,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public void EnableSelectionMode()
         {
-            this.SelectedObjects.Clear();
-            this.inSelectionMode = true;
-            var canvas = Instances.ActiveCanvas;
-            if (canvas == null)
-            {
-                return;
-            }
-
-            canvas.ContextMenuStrip?.Hide();
-            this.CanvasSelectionChanged();
-            this.ExpireSolution(true);
-        }
-
-        private void CanvasSelectionChanged()
-        {
-            if (!this.inSelectionMode)
-            {
-                return;
-            }
-
-            var canvas = Instances.ActiveCanvas;
-            if (canvas == null)
-            {
-                return;
-            }
-
-            this.SelectedObjects = canvas.Document.SelectedObjects()
-                .OfType<IGH_ActiveObject>()
-                .ToList();
-            this.Message = $"{this.SelectedObjects.Count} selected";
-            this.ExpireSolution(true);
+            this.selectionCore.EnableSelectionMode();
         }
 
         /// <summary>
@@ -101,6 +84,53 @@ namespace SmartHopper.Core.ComponentBase
             base.AppendAdditionalComponentMenuItems(menu);
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
         }
+
+        /// <summary>
+        /// Writes the component's persistent data to the Grasshopper file, including selected objects.
+        /// </summary>
+        /// <param name="writer">The writer to use for serialization.</param>
+        /// <returns>True if the write operation succeeds, false if it fails or an exception occurs.</returns>
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer)
+        {
+            if (!base.Write(writer))
+            {
+                return false;
+            }
+
+            return this.selectionCore.Write(writer);
+        }
+
+        /// <summary>
+        /// Reads the component's persistent data from the Grasshopper file, including selected objects.
+        /// </summary>
+        /// <param name="reader">The reader to use for deserialization.</param>
+        /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs.</returns>
+        public override bool Read(GH_IO.Serialization.GH_IReader reader)
+        {
+            if (!base.Read(reader))
+            {
+                return false;
+            }
+
+            return this.selectionCore.Read(reader);
+        }
+
+        /// <summary>
+        /// Attempts to restore selected objects from pending GUIDs.
+        /// </summary>
+        private void TryRestoreSelection()
+        {
+            this.selectionCore.TryRestoreSelection();
+        }
+
+        /// <summary>
+        /// Called when a document is added to the DocumentServer.
+        /// Used to restore selections after document is fully loaded.
+        /// </summary>
+        private void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
+        {
+            this.selectionCore.OnDocumentAdded(doc);
+        }
     }
 
     /// <summary>
@@ -108,7 +138,8 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public class SelectingComponentAttributes : GH_ComponentAttributes
     {
-        private readonly SelectingComponentBase owner;
+        private readonly GH_Component owner;
+        private readonly ISelectingComponent selectingComponent;
         private Rectangle buttonBounds;
         private bool isHovering;
         private bool isClicking;
@@ -118,10 +149,11 @@ namespace SmartHopper.Core.ComponentBase
         private Timer? selectDisplayTimer;
         private bool selectAutoHidden;
 
-        public SelectingComponentAttributes(SelectingComponentBase owner)
+        public SelectingComponentAttributes(GH_Component owner, ISelectingComponent selectingComponent)
             : base(owner)
         {
             this.owner = owner;
+            this.selectingComponent = selectingComponent;
             this.isHovering = false;
             this.isClicking = false;
         }
@@ -155,12 +187,12 @@ namespace SmartHopper.Core.ComponentBase
                 var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
                 graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
 
-                if (this.isHovering && !this.selectAutoHidden && this.owner.SelectedObjects.Count > 0)
+                if (this.isHovering && !this.selectAutoHidden && this.selectingComponent.SelectedObjects.Count > 0)
                 {
                     using (var pen = new Pen(Color.DodgerBlue, 2f))
                     {
                         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                        foreach (var obj in this.owner.SelectedObjects.OfType<IGH_DocumentObject>())
+                        foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
                         {
                             var b = obj.Attributes.Bounds;
                             var pad = 4f;
@@ -178,7 +210,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 this.isClicking = true;
                 this.owner.ExpireSolution(true);
-                this.owner.EnableSelectionMode();
+                this.selectingComponent.EnableSelectionMode();
                 return GH_ObjectResponse.Handled;
             }
 

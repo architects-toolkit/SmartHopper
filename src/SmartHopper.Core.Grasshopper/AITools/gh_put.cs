@@ -14,7 +14,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Serialization.Canvas;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -70,7 +72,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.Arguments ?? new JObject();
                 var json = args["json"]?.ToString() ?? string.Empty;
 
-                GHJsonLocal.Validate(json, out analysisMsg);
+                GhJsonValidator.Validate(json, out analysisMsg);
                 var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
 
                 if (document?.Components == null || !document.Components.Any())
@@ -80,8 +82,55 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Placement & wiring using Put utils
-                var placed = Put.PutObjectsOnCanvas(document);
+                // Deserialize components on UI thread (required for parameter and attribute ops)
+                Debug.WriteLine("[gh_put] Deserializing components");
+                var options = DeserializationOptions.Standard;
+                var tcs = new TaskCompletionSource<SmartHopper.Core.Grasshopper.Serialization.GhJson.DeserializationResult>();
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    try
+                    {
+                        var res = GhJsonDeserializer.Deserialize(document, options);
+                        tcs.SetResult(res);
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetException(ex);
+                    }
+                });
+                var result = await tcs.Task.ConfigureAwait(false);
+                
+                if (!result.IsSuccess)
+                {
+                    output.CreateError($"Deserialization failed: {string.Join(", ", result.Errors)}");
+                    return output;
+                }
+
+                // Place components + create connections + groups on UI thread
+                Debug.WriteLine("[gh_put] Placing components on canvas and creating connections/groups");
+                object placed = null;
+                var placeTcs = new TaskCompletionSource<bool>();
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
+                {
+                    try
+                    {
+                        placed = ComponentPlacer.PlaceComponents(result);
+                        Debug.WriteLine("[gh_put] Creating connections");
+                        ConnectionManager.CreateConnections(result);
+
+                        Debug.WriteLine("[gh_put] Recreating groups");
+                        GroupManager.CreateGroups(result);
+
+                        placeTcs.SetResult(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        placeTcs.SetException(ex);
+                    }
+                });
+                await placeTcs.Task.ConfigureAwait(false);
+                
+                Debug.WriteLine("[gh_put] Placement complete");
 
                 var toolResult = new JObject
                 {
@@ -93,7 +142,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .AddToolResult(toolResult)
                     .Build();
 
+                Debug.WriteLine("[gh_put] Creating success output");
                 output.CreateSuccess(body, toolCall);
+                Debug.WriteLine("[gh_put] Returning from GhPutToolAsync");
                 return output;
             }
             catch (Exception ex)

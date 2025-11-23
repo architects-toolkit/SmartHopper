@@ -16,7 +16,8 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -94,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var nameFilter = args["nameFilter"]?.ToString() ?? string.Empty;
                 var includeDetails = args["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
                 var maxResults = args["maxResults"]?.ToObject<int>() ?? 100;
-                var (includeCats, excludeCats) = Get.ParseIncludeExclude(categoryFilters, Get.CategorySynonyms);
+                var (includeCats, excludeCats) = ComponentRetriever.ParseIncludeExclude(categoryFilters, ComponentRetriever.CategorySynonyms);
 
                 // Retrieve all component proxies in one call
                 var proxies = server.ObjectProxies.ToList();
@@ -129,12 +130,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var list = proxies.Select(p =>
                 {
-                    var instance = GHObjectFactory.CreateInstance(p);
+                    var instance = ObjectFactory.CreateInstance(p);
                     List<object> inputs;
                     List<object> outputs;
                     if (instance is IGH_Component comp)
                     {
-                        inputs = GHParameterUtils.GetAllInputs(comp)
+                        inputs = ParameterAccess.GetAllInputs(comp)
                             .Select(param => new
                             {
                                 name = param.Name,
@@ -145,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             })
                             .Cast<object>()
                             .ToList();
-                        outputs = GHParameterUtils.GetAllOutputs(comp)
+                        outputs = ParameterAccess.GetAllOutputs(comp)
                             .Select(param => new
                             {
                                 name = param.Name,

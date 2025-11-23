@@ -93,20 +93,23 @@ namespace SmartHopper.Core.UI
             - gh_group: Create visual groups to organize/annotate components (requires GUIDs from gh_get)
             - gh_move: Reposition components (absolute or relative coordinates)
             - gh_tidy_up: Auto-arrange components in clean grid layout
-            - gh_toggle_lock: Enable/disable component execution
-            - gh_toggle_preview: Show/hide geometry preview
+            - gh_component_toggle_lock: Enable/disable component execution
+            - gh_component_toggle_preview: Show/hide geometry preview
             - gh_put: Add new components from GhJSON format
 
             ### Knowledge Base
-            - web_rhino_forum_search: Search Rhino forum for discussions
-            - web_rhino_forum_read_post: Read specific forum posts
-            - web_generic_page_read: Read any web page by URL
+            - mcneel_forum_search: First, search McNeel Discourse forum posts by query; then use topic/post tools on interesting results.
+            - mcneel_forum_topic_summarize: Summarize a full topic into a short answer; usually call after mcneel_forum_topic_get when the thread is long.
+            - mcneel_forum_post_get: Retrieve a single forum post by ID (filtered JSON with raw markdown).
+            - mcneel_forum_post_summarize: Summarize one or more posts by ID (for example selected replies from search or topic_get).
+            - web_generic_page_read: Fetch readable text/markdown for any web page URL (Rhino docs, GitHub, StackExchange, Discourse, etc.) before reasoning about its content.
 
             ### Best Practices
             - Start with specialized tools (gh_get_selected, gh_get_errors) before using generic gh_get
             - Always request only needed fields in gh_list_components to minimize tokens
             - Use gh_list_categories before gh_list_components to narrow search
             - Chain tools logically: gh_get → gh_group/gh_move/gh_toggle_*
+            - For forum support: mcneel_forum_search → mcneel_forum_topic_summarize or mcneel_forum_post_summarize → final answer.
             """;
 
         // Private fields
@@ -730,7 +733,7 @@ namespace SmartHopper.Core.UI
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Components,ComponentsRetrieval,Knowledge", // Removed the Scripting tools since they are still under development. TODO: reenable scripting tools
+                    toolFilter: "Components,ComponentsRetrieval,Parameters,Knowledge",
                     componentId: CanvasChatDialogId,
                     progressReporter: null,
                     onUpdate: null,
