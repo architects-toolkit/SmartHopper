@@ -1,0 +1,345 @@
+# GhJSON Examples
+
+## Overview
+
+This document provides practical examples of GhJSON format for common Grasshopper patterns and component types.
+
+---
+
+## Example 1: Simple Addition
+
+A basic addition component with two number inputs.
+
+```json
+{
+  "components": [
+    {
+      "name": "Number Slider",
+      "componentGuid": "57da07bd-ecab-415d-9d86-af36d7073abc",
+      "instanceGuid": "a1111111-1111-1111-1111-111111111111",
+      "id": 1,
+      "pivot": "100.0,100.0",
+      "componentState": {
+        "value": "5.0<0.0,10.0>"
+      },
+      "params": {
+        "NickName": "A"
+      }
+    },
+    {
+      "name": "Number Slider",
+      "componentGuid": "57da07bd-ecab-415d-9d86-af36d7073abc",
+      "instanceGuid": "b2222222-2222-2222-2222-222222222222",
+      "id": 2,
+      "pivot": "100.0,150.0",
+      "componentState": {
+        "value": "3.0<0.0,10.0>"
+      },
+      "params": {
+        "NickName": "B"
+      }
+    },
+    {
+      "name": "Addition",
+      "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
+      "instanceGuid": "c3333333-3333-3333-3333-333333333333",
+      "id": 3,
+      "pivot": "250.0,125.0"
+    },
+    {
+      "name": "Panel",
+      "componentGuid": "59e0b89a-e487-49f8-bab8-b5bab16be14c",
+      "instanceGuid": "d4444444-4444-4444-4444-444444444444",
+      "id": 4,
+      "pivot": "400.0,125.0",
+      "componentState": {
+        "value": ""
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "id": 1,
+        "paramName": "Number Slider"
+      },
+      "to": {
+        "id": 3,
+        "paramName": "A"
+      }
+    },
+    {
+      "from": {
+        "id": 2,
+        "paramName": "Number Slider"
+      },
+      "to": {
+        "id": 3,
+        "paramName": "B"
+      }
+    },
+    {
+      "from": {
+        "id": 3,
+        "paramName": "Result"
+      },
+      "to": {
+        "id": 4,
+        "paramName": "Panel"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Example 2: Python Script Component
+
+A Python script component with custom inputs and outputs.
+
+```json
+{
+  "components": [
+    {
+      "name": "Python Script",
+      "componentGuid": "410755b1-224a-4c1e-a407-bf32fb45ea7e",
+      "instanceGuid": "e5555555-5555-5555-5555-555555555555",
+      "id": 1,
+      "pivot": "200.0,200.0",
+      "componentState": {
+        "value": "import math\n\nresult = math.sqrt(x ** 2 + y ** 2)\nprint(f'Distance: {result}')",
+        "marshInputs": true,
+        "marshOutputs": true
+      },
+      "inputSettings": [
+        {
+          "parameterName": "X",
+          "variableName": "x",
+          "dataMapping": "None"
+        },
+        {
+          "parameterName": "Y",
+          "variableName": "y",
+          "dataMapping": "None"
+        }
+      ],
+      "outputSettings": [
+        {
+          "parameterName": "Distance",
+          "variableName": "result",
+          "dataMapping": "None"
+        }
+      ]
+    }
+  ],
+  "connections": []
+}
+```
+
+---
+
+## Example 3: Component with Errors
+
+A component with runtime error messages.
+
+```json
+{
+  "components": [
+    {
+      "name": "Division",
+      "componentGuid": "c4811991-5c5f-4f61-9882-c7f2e1f3b7a7",
+      "instanceGuid": "f6666666-6666-6666-6666-666666666666",
+      "id": 1,
+      "pivot": "300.0,150.0",
+      "selected": true,
+      "componentState": {
+        "locked": false
+      },
+      "errors": [
+        "1. Runtime error (ZeroDivisionError): Division by zero"
+      ]
+    }
+  ],
+  "connections": []
+}
+```
+
+---
+
+## Example 4: Parameter with Internalized Data
+
+A number parameter with internalized (persistent) data.
+
+```json
+{
+  "components": [
+    {
+      "name": "Number",
+      "componentGuid": "3581f42a-9592-4549-bd6b-1c0fc39d067b",
+      "instanceGuid": "g7777777-7777-7777-7777-777777777777",
+      "id": 1,
+      "pivot": "150.0,100.0",
+      "componentState": {
+        "value": {
+          "{0}": {
+            "0": {"value": 1.5},
+            "1": {"value": 2.5},
+            "2": {"value": 3.5}
+          }
+        }
+      },
+      "outputSettings": [
+        {
+          "parameterName": "Number",
+          "additionalSettings": {
+            "simplify": false,
+            "reverse": false
+          }
+        }
+      ]
+    }
+  ],
+  "connections": []
+}
+```
+
+---
+
+## Example 5: Value List
+
+A value list component with selectable items.
+
+```json
+{
+  "components": [
+    {
+      "name": "Value List",
+      "componentGuid": "6c24e2c6-02d7-4ada-bcbf-d50ad804d120",
+      "instanceGuid": "h8888888-8888-8888-8888-888888888888",
+      "id": 1,
+      "pivot": "100.0,200.0",
+      "params": {
+        "NickName": "Options"
+      },
+      "componentState": {
+        "value": [
+          {"Name": "Option A", "Expression": "0"},
+          {"Name": "Option B", "Expression": "1"},
+          {"Name": "Option C", "Expression": "2"}
+        ],
+        "listMode": "DropDown"
+      }
+    }
+  ],
+  "connections": []
+}
+```
+
+---
+
+## Example 6: AI-Generated with Integer IDs
+
+Components generated by AI using integer string IDs as instanceGuid (auto-converted to proper GUIDs).
+
+```json
+{
+  "components": [
+    {
+      "name": "Point",
+      "componentGuid": "3581f42a-9592-4549-bd6b-1c0fc39d067b",
+      "instanceGuid": "1",
+      "id": 1
+    },
+    {
+      "name": "Circle",
+      "componentGuid": "5ec4df20-2f3b-4ae2-a047-b95c9e5c6f3e",
+      "instanceGuid": "2",
+      "id": 2
+    },
+    {
+      "name": "Extrude",
+      "componentGuid": "9c2f8e8f-b9b0-4d3e-b0d8-d8e8f8f8f8f8",
+      "instanceGuid": "3",
+      "id": 3
+    }
+  ],
+  "connections": [
+    {
+      "from": {"id": 1, "paramName": "Point"},
+      "to": {"id": 2, "paramName": "Plane"}
+    },
+    {
+      "from": {"id": 2, "paramName": "Circle"},
+      "to": {"id": 3, "paramName": "Base"}
+    }
+  ]
+}
+```
+
+**Note**: Integer string values for `instanceGuid` (e.g., `"1"`, `"2"`, `"3"`) are automatically converted to proper GUIDs during deserialization. The `id` field is used for connection references.
+
+---
+
+## Example 7: With Groups
+
+Components organized into groups using integer ID references.
+
+```json
+{
+  "components": [
+    {
+      "name": "Number Slider",
+      "componentGuid": "57da07bd-ecab-415d-9d86-af36d7073abc",
+      "instanceGuid": "a1111111-1111-1111-1111-111111111111",
+      "id": 1,
+      "pivot": "100.0,100.0"
+    },
+    {
+      "name": "Number Slider",
+      "componentGuid": "57da07bd-ecab-415d-9d86-af36d7073abc",
+      "instanceGuid": "b2222222-2222-2222-2222-222222222222",
+      "id": 2,
+      "pivot": "100.0,150.0"
+    },
+    {
+      "name": "Addition",
+      "componentGuid": "a0d62394-a118-422d-abb3-6af115c75b25",
+      "instanceGuid": "c3333333-3333-3333-3333-333333333333",
+      "id": 3,
+      "pivot": "250.0,125.0"
+    }
+  ],
+  "connections": [
+    {
+      "from": {"id": 1, "paramName": "Number Slider"},
+      "to": {"id": 3, "paramName": "A"}
+    },
+    {
+      "from": {"id": 2, "paramName": "Number Slider"},
+      "to": {"id": 3, "paramName": "B"}
+    }
+  ],
+  "groups": [
+    {
+      "instanceGuid": "g1111111-1111-1111-1111-111111111111",
+      "name": "Input Parameters",
+      "color": "100,150,200,255",
+      "members": [1, 2]
+    },
+    {
+      "instanceGuid": "g2222222-2222-2222-2222-222222222222",
+      "name": "Processing",
+      "color": "100,255,200,150",
+      "members": [3]
+    }
+  ]
+}
+```
+
+---
+
+## Related Documentation
+
+- [GhJSON Format Specification](./format-specification.md) - Complete schema reference
+- [Property Management (V2)](./property-management.md) - Property contexts, Complete Property Reference, and Core Data Types

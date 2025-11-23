@@ -114,32 +114,18 @@ namespace SmartHopper.Core.Models.Serialization
                                 warnings.Add($"components[{i}].instanceGuid '{ig}' is not a valid GUID.");
                             }
                         }
-
-                        if (comp["type"] == null || comp["type"].Type == JTokenType.Null)
-                        {
-                            infos.Add($"components[{i}].type is missing or null.");
-                        }
-
-                        if (comp["objectType"] == null || comp["objectType"].Type == JTokenType.Null)
-                        {
-                            infos.Add($"components[{i}].objectType is missing or null.");
-                        }
                     }
                 }
 
                 if (connections != null)
                 {
-                    // Verify connection 'instanceId' references existing component instanceGuids
-                    var definedIds = new HashSet<string>();
+                    // Build lookup for new integer id references
+                    var definedIntIds = new HashSet<int>();
                     foreach (var token in components)
                     {
-                        if (token is JObject compObj)
+                        if (token is JObject compObj && compObj["id"]?.Type == JTokenType.Integer)
                         {
-                            var inst = compObj["instanceGuid"]?.ToString();
-                            if (!string.IsNullOrEmpty(inst))
-                            {
-                                definedIds.Add(inst);
-                            }
+                            definedIntIds.Add(compObj["id"].Value<int>());
                         }
                     }
 
@@ -159,22 +145,17 @@ namespace SmartHopper.Core.Models.Serialization
                                 continue;
                             }
 
-                            if (ep["instanceId"] == null || ep["instanceId"].Type == JTokenType.Null)
+                            // New schema: require integer 'id' referencing components[].id
+                            if (ep["id"] == null || ep["id"].Type != JTokenType.Integer)
                             {
-                                errors.Add($"connections[{i}].{endPoint}.instanceId is missing or null.");
+                                errors.Add($"connections[{i}].{endPoint}.id is missing or not an integer.");
+                                continue;
                             }
-                            else
-                            {
-                                var cid = ep["instanceId"].ToString();
-                                if (!Guid.TryParse(cid, out _))
-                                {
-                                    warnings.Add($"connections[{i}].{endPoint}.instanceId '{cid}' is not a valid GUID.");
-                                }
 
-                                if (!definedIds.Contains(cid))
-                                {
-                                    errors.Add($"connections[{i}].{endPoint}.instanceId '{cid}' is not defined in components[].instanceGuid.");
-                                }
+                            var intId = ep["id"].Value<int>();
+                            if (!definedIntIds.Contains(intId))
+                            {
+                                errors.Add($"connections[{i}].{endPoint}.id '{intId}' is not defined in components[].id.");
                             }
                         }
                     }

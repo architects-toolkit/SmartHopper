@@ -22,7 +22,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.List
@@ -36,6 +36,13 @@ namespace SmartHopper.Components.List
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
+
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.BranchToBranch,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
 
         public AIListFilter()
             : base("AI List Filter", "AIListFilter",
@@ -57,7 +64,7 @@ namespace SmartHopper.Components.List
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListFilterWorker(this, this.AddRuntimeMessage);
+            return new AIListFilterWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class AIListFilterWorker : AsyncWorkerBase
@@ -65,13 +72,16 @@ namespace SmartHopper.Components.List
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;
             private readonly AIListFilter parent;
+            private readonly ProcessingOptions processingOptions;
 
             public AIListFilterWorker(
             AIListFilter parent,
-            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+            ProcessingOptions processingOptions)
             : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
                 this.result = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Result", new GH_Structure<GH_String>() },
@@ -98,8 +108,9 @@ namespace SmartHopper.Components.List
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Criteria"] = criteriaTree;
 
-                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
-                dataCount = metrics.dataCount;
+                // dataCount will be calculated automatically by RunProcessingAsync based on ProcessingOptions
+                // (centralized logic in DataTreeProcessor.BuildProcessingPlan)
+                dataCount = this.inputTree.Values.Sum(t => t.DataCount);
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -110,15 +121,14 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await this.parent.RunDataTreeFunctionAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: true,
+                        this.processingOptions,
                         token).ConfigureAwait(false);
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
@@ -144,7 +154,7 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"], "array");
+                var listAsJson = AIResponseParser.ConcatenateItemsToJson(branches["List"], "array");
                 var criteriaTree = branches["Criteria"];
 
                 // Normalize tree lengths
@@ -171,15 +181,32 @@ namespace SmartHopper.Components.List
                 foreach (var criterion in normalizedCriteriaTree)
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
+                    var listToken = normalizedListTree[i];
+                    var criterionValue = criterion?.Value;
 
-                    Debug.WriteLine($"[ProcessData] List: {normalizedListTree[i].Value}");
-                    Debug.WriteLine($"[ProcessData] Criterion: {criterion.Value}");
+                    // Skip entries where we do not have valid list JSON or criteria text
+                    if (listToken == null || string.IsNullOrWhiteSpace(listToken.Value))
+                    {
+                        Debug.WriteLine($"[ProcessData] Skipping index {i}: list JSON is null or empty");
+                        i++;
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(criterionValue))
+                    {
+                        Debug.WriteLine($"[ProcessData] Skipping index {i}: criterion is null or empty");
+                        i++;
+                        continue;
+                    }
+
+                    Debug.WriteLine($"[ProcessData] List: {listToken.Value}");
+                    Debug.WriteLine($"[ProcessData] Criterion: {criterionValue}");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject
                     {
-                        ["list"] = JArray.Parse(normalizedListTree[i].Value),
-                        ["criteria"] = criterion.Value,
+                        ["list"] = JArray.Parse(listToken.Value),
+                        ["criteria"] = criterionValue,
                         ["contextFilter"] = "-*",
                     };
 
@@ -192,7 +219,11 @@ namespace SmartHopper.Components.List
                     var indices = toolResult?["result"]?.ToObject<List<int>>() ?? new List<int>();
                     var filteredItems = indices
                         .Where(idx => idx >= 0 && idx < branches["List"].Count)
-                        .Select(idx => new GH_String(branches["List"][idx].Value));
+                        .Select(idx =>
+                        {
+                            var sourceItem = branches["List"][idx];
+                            return new GH_String(sourceItem != null ? sourceItem.Value : string.Empty);
+                        });
                     outputs["Result"].AddRange(filteredItems);
 
                     i++;

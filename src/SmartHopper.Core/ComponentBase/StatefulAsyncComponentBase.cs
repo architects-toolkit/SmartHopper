@@ -36,6 +36,7 @@ using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Core.IO;
 using SmartHopper.Infrastructure.Settings;
 using Timer = System.Threading.Timer;
@@ -68,6 +69,18 @@ namespace SmartHopper.Core.ComponentBase
         /// Default is true for backward compatibility.
         /// </summary>
         protected virtual bool AutoRestorePersistentOutputs => true;
+
+        /// <summary>
+        /// Gets the default processing options used for data tree processing.
+        /// Derived components should override this property only if they need different options.
+        /// Default: ItemToItem topology, OnlyMatchingPaths=false, GroupIdenticalBranches=true.
+        /// </summary>
+        protected virtual ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.ItemToItem,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
 
         #region CONSTRUCTOR
 
@@ -743,51 +756,41 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Runs a function on all branches of multiple data trees with automatic progress tracking.
-        /// This is a convenience wrapper around DataTreeProcessor.RunFunctionAsync that automatically
-        /// handles progress reporting for this component.
+        /// Runs data-tree processing using the unified runner with explicit ProcessingTopology.
+        /// Handles metrics tracking and progress reporting automatically.
         /// </summary>
         /// <typeparam name="T">Type of input tree items.</typeparam>
         /// <typeparam name="U">Type of output tree items.</typeparam>
         /// <param name="trees">Dictionary of input data trees.</param>
-        /// <param name="function">Function to run on each branch.</param>
-        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees.</param>
-        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing.</param>
+        /// <param name="function">Function to run on each logical unit (item or branch).</param>
+        /// <param name="options">Processing options specifying topology and path/grouping behavior.</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>Dictionary of output data trees.</returns>
-        protected async Task<Dictionary<string, GH_Structure<U>>> RunDataTreeFunctionAsync<T, U>(
+        protected async Task<Dictionary<string, GH_Structure<U>>> RunProcessingAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
             Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
-            bool onlyMatchingPaths = false,
-            bool groupIdenticalBranches = false,
+            DataTree.ProcessingOptions options,
             CancellationToken token = default)
             where T : IGH_Goo
             where U : IGH_Goo
         {
-            var result = await DataTree.DataTreeProcessor.RunFunctionAsync(
+            // Calculate processing metrics using centralized logic in DataTreeProcessor
+            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, options);
+
+            // Set metrics and initialize progress
+            this.SetDataCount(dataCount);
+            this.InitializeProgress(iterationCount);
+
+            // Run the unified processor
+            var result = await DataTree.DataTreeProcessor.RunAsync(
                 trees,
                 function,
+                options,
                 progressCallback: (current, total) =>
                 {
-                    Debug.WriteLine($"[{this.GetType().Name}] Progress callback received: current={current}, total={total}");
-
-                    // Initialize progress on first call
-                    if (this.ProgressInfo.Total == 0)
-                    {
-                        Debug.WriteLine($"[{this.GetType().Name}] Initializing progress with total={total}");
-                        this.InitializeProgress(total);
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"[{this.GetType().Name}] Progress already initialized: ProgressInfo.Total={this.ProgressInfo.Total}");
-                    }
-
-                    // Update progress
                     this.UpdateProgress(current);
                 },
-                onlyMatchingPaths: onlyMatchingPaths,
-                groupIdenticalBranches: groupIdenticalBranches,
-                token: token).ConfigureAwait(false);
+                token).ConfigureAwait(false);
 
             return result;
         }
