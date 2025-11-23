@@ -37,6 +37,13 @@ namespace SmartHopper.Components.List
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.BranchToBranch,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
+
         public AIListEvaluate()
             : base("AI List Evaluate", "AIListEvaluate",
                   "Use natural language to evaluate a list and output a TRUE/FALSE answer.\nThis components takes the list as a whole. This means that every question will return True or False for each provided list (not for each individual items).\nIf a tree structure is provided, questions and lists will only match within the same branch paths.",
@@ -57,7 +64,7 @@ namespace SmartHopper.Components.List
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListEvaluateWorker(this, this.AddRuntimeMessage);
+            return new AIListEvaluateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class AIListEvaluateWorker : AsyncWorkerBase
@@ -65,13 +72,16 @@ namespace SmartHopper.Components.List
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_Boolean>> result;
             private readonly AIListEvaluate parent;
+            private readonly ProcessingOptions processingOptions;
 
             public AIListEvaluateWorker(
             AIListEvaluate parent,
-            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+            ProcessingOptions processingOptions)
             : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
                 this.result = new Dictionary<string, GH_Structure<GH_Boolean>>
                 {
                     { "Result", new GH_Structure<GH_Boolean>() },
@@ -114,8 +124,7 @@ namespace SmartHopper.Components.List
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: true,
+                        this.processingOptions,
                         token).ConfigureAwait(false);
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");

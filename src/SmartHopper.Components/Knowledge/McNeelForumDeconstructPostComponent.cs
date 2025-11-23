@@ -57,7 +57,7 @@ namespace SmartHopper.Components.Knowledge
             pManager.AddTextParameter("Username", "U", "Author username of the forum post.", GH_ParamAccess.list);
             pManager.AddIntegerParameter("Topic Id", "T", "Topic ID that the post belongs to.", GH_ParamAccess.list);
             pManager.AddTextParameter("Title", "Ti", "Title of the topic.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Post URL", "URL", "Full URL to the forum post on discourse.mcneel.com.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Post URL", "Url", "Full URL to the forum post on discourse.mcneel.com.", GH_ParamAccess.list);
             pManager.AddTextParameter("Date", "D", "Post creation date as a string.", GH_ParamAccess.list);
             pManager.AddTextParameter("Content", "C", "Raw content of the post, in Markdown.", GH_ParamAccess.list);
             pManager.AddIntegerParameter("Reads", "R", "Number of reads for this post, if available.", GH_ParamAccess.list);

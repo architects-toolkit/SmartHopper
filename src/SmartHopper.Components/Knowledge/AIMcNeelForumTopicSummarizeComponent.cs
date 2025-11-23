@@ -40,8 +40,6 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
-        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
-
         public AIMcNeelForumTopicSummarizeComponent()
             : base(
                   "AI McNeel Forum Topic Summarize",
@@ -66,12 +64,13 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIMcNeelForumTopicSummarizeWorker(this, this.AddRuntimeMessage);
+            return new AIMcNeelForumTopicSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class AIMcNeelForumTopicSummarizeWorker : AsyncWorkerBase
         {
             private readonly AIMcNeelForumTopicSummarizeComponent parent;
+            private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_Integer> idsTree;
             private string instructions;
             private bool hasWork;
@@ -80,10 +79,12 @@ namespace SmartHopper.Components.Knowledge
 
             public AIMcNeelForumTopicSummarizeWorker(
                 AIMcNeelForumTopicSummarizeComponent parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -199,9 +200,8 @@ namespace SmartHopper.Components.Knowledge
 
                             return outputs;
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: false,
-                        token: token).ConfigureAwait(false);
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
 
                     this.resultSummaries = new GH_Structure<GH_String>();
                     if (resultTrees.TryGetValue("Summary", out var summaryTree))

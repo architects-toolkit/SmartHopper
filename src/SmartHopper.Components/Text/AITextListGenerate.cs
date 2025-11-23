@@ -33,7 +33,12 @@ namespace SmartHopper.Components.Text
 
         protected override AICapability RequiredCapability => AICapability.Text2Json;
 
-        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.ItemGraft,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
 
         public AITextListGenerate()
             : base(
@@ -57,7 +62,7 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AITextListGenerateWorker(this, this.AddRuntimeMessage);
+            return new AITextListGenerateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class AITextListGenerateWorker : AsyncWorkerBase
@@ -65,13 +70,16 @@ namespace SmartHopper.Components.Text
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;
             private readonly AITextListGenerate parent;
+            private readonly ProcessingOptions processingOptions;
 
             public AITextListGenerateWorker(
                 AITextListGenerate parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
                 this.result = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Result", new GH_Structure<GH_String>() },
@@ -99,6 +107,7 @@ namespace SmartHopper.Components.Text
                 try
                 {
                     Debug.WriteLine($"[AITextListGenerate] Starting DoWorkAsync");
+
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
@@ -106,8 +115,7 @@ namespace SmartHopper.Components.Text
                             Debug.WriteLine($"[AITextListGenerate] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: true,
+                        this.processingOptions,
                         token).ConfigureAwait(false);
                     Debug.WriteLine($"[AITextListGenerate] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }

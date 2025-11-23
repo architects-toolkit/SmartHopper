@@ -24,17 +24,18 @@ using SmartHopper.Core.DataTree;
 namespace SmartHopper.Components.Test.DataProcessor
 {
     /// <summary>
-    /// Test component: two inputs, first input three items, second input one item, different paths.
+    /// Test component for GroupIdenticalBranches flag: identical branches are grouped and processed only once.
+    /// When branches have identical content across inputs, they should be processed only once.
     /// </summary>
-    public class DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorGroupIdenticalTestComponent : StatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("7A6E5F0B-9D3C-4A0C-8B2E-1F3A4D5C6B7E");
+        public override Guid ComponentGuid => new Guid("E6F7G8H9-0C1D-4E2F-1A3B-4C5D6E7F8G9H");
         protected override Bitmap Icon => null;
-        public override GH_Exposure Exposure => GH_Exposure.senary;
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
 
-        public DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent()
-            : base("Test DataTreeProcessor (Different Paths, 3 + 1 items)", "TEST-DTP-DIFF-3-1",
-                  "Tests DataTreeProcessor with different paths where A has 3 items and B has 1 item.",
+        public DataTreeProcessorGroupIdenticalTestComponent()
+            : base("Test DataTreeProcessor (GroupIdentical)", "TEST-DTP-GROUP",
+                  "Tests DataTreeProcessor with GroupIdenticalBranches=true where identical branches are processed only once.",
                   "SmartHopper", "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
@@ -51,7 +52,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, this.AddRuntimeMessage);
+            return new Worker(this, AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -59,9 +60,10 @@ namespace SmartHopper.Components.Test.DataProcessor
             private GH_Structure<GH_Integer> _resultTree = new GH_Structure<GH_Integer>();
             private GH_Boolean _success = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
-            private readonly DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent _parent;
+            private readonly DataTreeProcessorGroupIdenticalTestComponent _parent;
+            private int _processCount = 0;
 
-            public Worker(DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            public Worker(DataTreeProcessorGroupIdenticalTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
@@ -76,53 +78,47 @@ namespace SmartHopper.Components.Test.DataProcessor
             {
                 try
                 {
-                    var pathA = new GH_Path(0);
-                    var pathB = new GH_Path(1);
+                    var path0 = new GH_Path(0);
+                    var path1 = new GH_Path(1);
+                    var path2 = new GH_Path(2);
 
+                    // Create a tree with three paths, where path0 and path2 have identical content [1,2]
                     var treeA = new GH_Structure<GH_Integer>();
-                    treeA.Append(new GH_Integer(1), pathA);
-                    treeA.Append(new GH_Integer(2), pathA);
-                    treeA.Append(new GH_Integer(3), pathA);
-
-                    var treeB = new GH_Structure<GH_Integer>();
-                    treeB.Append(new GH_Integer(5), pathB); // 1 item at {1}
+                    treeA.Append(new GH_Integer(1), path0);
+                    treeA.Append(new GH_Integer(2), path0);
+                    treeA.Append(new GH_Integer(3), path1);
+                    treeA.Append(new GH_Integer(4), path1);
+                    treeA.Append(new GH_Integer(1), path2); // Identical to path0
+                    treeA.Append(new GH_Integer(2), path2); // Identical to path0
 
                     var trees = new Dictionary<string, GH_Structure<GH_Integer>>
                     {
                         { "A", treeA },
-                        { "B", treeB },
                     };
 
-                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: false, groupIdenticalBranches: false);
-                    Debug.WriteLine($"[DiffPaths3+1] Iterations: {iterations}, DataCount: {dataCount}");
+                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: false, groupIdenticalBranches: true);
+                    Debug.WriteLine($"[GroupIdentical] Iterations: {iterations}, DataCount: {dataCount}");
 
+                    // Function that counts how many times it's called
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)
                     {
                         await Task.Yield();
+                        _processCount++;
+                        
                         var aList = branches.ContainsKey("A") ? branches["A"] : null;
-                        var bList = branches.ContainsKey("B") ? branches["B"] : null;
-                        if (aList == null || bList == null || aList.Count == 0 || bList.Count == 0)
-                            return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer>() } };
+                        if (aList == null || aList.Count == 0)
+                            return new Dictionary<string, List<GH_Integer>> { { "Double", new List<GH_Integer>() } };
 
-                        var normalized = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_Integer>> { aList, bList });
-                        var aNorm = normalized[0];
-                        var bNorm = normalized[1];
-                        var sums = new List<GH_Integer>();
-                        for (int i = 0; i < Math.Max(aList.Count, bList.Count); i++)
-                        {
-                            int ai = aNorm[i]?.Value ?? 0;
-                            int bi = bNorm[i]?.Value ?? 0;
-                            sums.Add(new GH_Integer(ai + bi));
-                        }
-
-                        return new Dictionary<string, List<GH_Integer>> { { "Sum", sums } };
+                        // Double each value
+                        var doubled = aList.Select(item => new GH_Integer(item.Value * 2)).ToList();
+                        return new Dictionary<string, List<GH_Integer>> { { "Double", doubled } };
                     }
 
                     var options = new ProcessingOptions
                     {
                         Topology = ProcessingTopology.BranchToBranch,
                         OnlyMatchingPaths = false,
-                        GroupIdenticalBranches = false,
+                        GroupIdenticalBranches = true,
                     };
 
                     var result = await DataTreeProcessor.RunAsync<GH_Integer, GH_Integer>(
@@ -132,23 +128,32 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Sum", out var sumTree) && sumTree != null)
-                        _resultTree = sumTree;
+                    if (result != null && result.TryGetValue("Double", out var doubleTree) && doubleTree != null)
+                        _resultTree = doubleTree;
                     else
                         _resultTree = new GH_Structure<GH_Integer>();
 
-                    // With different paths and A having multiple items, expect broadcast of B's single item across A's three items at pathA
+                    // With GroupIdenticalBranches=true, function should be called only twice (not three times)
+                    // because path0 and path2 have identical content
+                    // Results should still appear at all three paths
                     bool ok =
+                        _processCount == 2 &&
                         _resultTree != null &&
-                        _resultTree.PathCount == 1 &&
-                        _resultTree.get_Branch(pathA) != null &&
-                        _resultTree.get_Branch(pathA).Count == 3 &&
-                        _resultTree.get_Branch(pathA)[0] is GH_Integer gi0 && gi0.Value == (1 + 5) &&
-                        _resultTree.get_Branch(pathA)[1] is GH_Integer gi1 && gi1.Value == (2 + 5) &&
-                        _resultTree.get_Branch(pathA)[2] is GH_Integer gi2 && gi2.Value == (3 + 5);
+                        _resultTree.PathCount == 3 &&
+                        _resultTree.get_Branch(path0) != null && _resultTree.get_Branch(path0).Count == 2 &&
+                        _resultTree.get_Branch(path0)[0] is GH_Integer gi00 && gi00.Value == 2 &&
+                        _resultTree.get_Branch(path0)[1] is GH_Integer gi01 && gi01.Value == 4 &&
+                        _resultTree.get_Branch(path1) != null && _resultTree.get_Branch(path1).Count == 2 &&
+                        _resultTree.get_Branch(path1)[0] is GH_Integer gi10 && gi10.Value == 6 &&
+                        _resultTree.get_Branch(path1)[1] is GH_Integer gi11 && gi11.Value == 8 &&
+                        _resultTree.get_Branch(path2) != null && _resultTree.get_Branch(path2).Count == 2 &&
+                        _resultTree.get_Branch(path2)[0] is GH_Integer gi20 && gi20.Value == 2 &&
+                        _resultTree.get_Branch(path2)[1] is GH_Integer gi21 && gi21.Value == 4;
 
                     _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Different paths A={pathA} (3 items), B={pathB} (1 item). Expected broadcast at {pathA}: [6,7,8]."));
+                    _messages.Add(new GH_String($"GroupIdenticalBranches=true. Input has 3 branches, but {path0} and {path2} are identical [1,2]."));
+                    _messages.Add(new GH_String($"Function was called {_processCount} times (expected 2, not 3)."));
+                    _messages.Add(new GH_String($"Results appear at all 3 paths: {{{path0}}}=[2,4], {{{path1}}}=[6,8], {{{path2}}}=[2,4]."));
                     _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
@@ -170,7 +175,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 _parent.SetPersistentOutput("Result", _resultTree, DA);
                 _parent.SetPersistentOutput("Success", _success, DA);
                 _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Processed different-path trees (3+1) successfully" : "Processing failed";
+                message = _success.Value ? "Processed with GroupIdenticalBranches successfully" : "Processing failed";
             }
         }
     }

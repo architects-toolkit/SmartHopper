@@ -22,6 +22,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Img
@@ -49,7 +50,14 @@ namespace SmartHopper.Components.Img
 
         protected override AICapability RequiredCapability => AICapability.Text2Image;
 
-        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.ItemGraft,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
+
+        // This component uses ItemGraft topology to create separate branches for each prompt's generated images
 
         /// <summary>
         /// Initializes a new instance of the AIImgGenerateComponent class.
@@ -92,7 +100,7 @@ namespace SmartHopper.Components.Img
         /// <returns>The async worker instance.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIImgGenerateWorker(this, this.AddRuntimeMessage, progressReporter);
+            return new AIImgGenerateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         /// <summary>
@@ -100,22 +108,24 @@ namespace SmartHopper.Components.Img
         /// </summary>
         private sealed class AIImgGenerateWorker : AsyncWorkerBase
         {
-            private readonly AIImgGenerateComponent _parent;
-            private readonly Action<string> _progressReporter;
-            private readonly Dictionary<string, object> _result = new Dictionary<string, object>();
-            private GH_Structure<GH_String> _prompts;
-            private GH_Structure<GH_String> _sizes;
-            private GH_Structure<GH_String> _qualities;
-            private GH_Structure<GH_String> _styles;
+            private readonly AIImgGenerateComponent parent;
+            private readonly ProcessingOptions processingOptions;
+            private Dictionary<string, GH_Structure<GH_String>> inputTrees;
+            private bool hasWork;
+
+            private GH_Structure<IGH_Goo> imageResults;
+            private GH_Structure<IGH_Goo> revisedPromptResults;
+            private bool success;
+            private string errorMessage;
 
             public AIImgGenerateWorker(
                 AIImgGenerateComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
-                Action<string> progressReporter)
+                ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
             {
-                this._parent = parent;
-                this._progressReporter = progressReporter;
+                this.parent = parent;
+                this.processingOptions = processingOptions;
             }
 
             /// <summary>
@@ -124,10 +134,10 @@ namespace SmartHopper.Components.Img
             /// <param name="DA">Data access object.</param>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                this._prompts = new GH_Structure<GH_String>();
-                this._sizes = new GH_Structure<GH_String>();
-                this._qualities = new GH_Structure<GH_String>();
-                this._styles = new GH_Structure<GH_String>();
+                var prompts = new GH_Structure<GH_String>();
+                var sizes = new GH_Structure<GH_String>();
+                var qualities = new GH_Structure<GH_String>();
+                var styles = new GH_Structure<GH_String>();
 
                 // Parameter indices:
                 // 0: Prompt (tree access)
@@ -136,7 +146,7 @@ namespace SmartHopper.Components.Img
                 // 3: Style (tree access)
 
                 // Prompt parameter index
-                if (!DA.GetDataTree(0, out this._prompts))
+                if (!DA.GetDataTree(0, out prompts))
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Failed to get Prompt input");
                     dataCount = 0;
@@ -144,27 +154,45 @@ namespace SmartHopper.Components.Img
                 }
 
                 // Size parameter index
-                if (!DA.GetDataTree(1, out this._sizes))
+                if (!DA.GetDataTree(1, out sizes) || sizes == null || sizes.DataCount == 0)
                 {
                     // Use default if not provided
-                    this._sizes.Append(new GH_String("1024x1024"), new GH_Path(0));
+                    sizes = new GH_Structure<GH_String>();
+                    sizes.Append(new GH_String("1024x1024"), new GH_Path(0));
                 }
 
                 // Quality parameter index
-                if (!DA.GetDataTree(2, out this._qualities))
+                if (!DA.GetDataTree(2, out qualities) || qualities == null || qualities.DataCount == 0)
                 {
                     // Use default if not provided
-                    this._qualities.Append(new GH_String("standard"), new GH_Path(0));
+                    qualities = new GH_Structure<GH_String>();
+                    qualities.Append(new GH_String("standard"), new GH_Path(0));
                 }
 
                 // Style parameter index
-                if (!DA.GetDataTree(3, out this._styles))
+                if (!DA.GetDataTree(3, out styles) || styles == null || styles.DataCount == 0)
                 {
                     // Use default if not provided
-                    this._styles.Append(new GH_String("vivid"), new GH_Path(0));
+                    styles = new GH_Structure<GH_String>();
+                    styles.Append(new GH_String("vivid"), new GH_Path(0));
                 }
 
-                dataCount = 1;
+                this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
+                {
+                    { "Prompt", prompts },
+                    { "Size", sizes },
+                    { "Quality", qualities },
+                    { "Style", styles },
+                };
+
+                this.hasWork = prompts != null && prompts.DataCount > 0;
+                if (!this.hasWork)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Prompt is required.");
+                }
+
+                // Data count is computed centrally in RunProcessingAsync for item-based metrics.
+                dataCount = 0;
             }
 
             /// <summary>
@@ -174,184 +202,213 @@ namespace SmartHopper.Components.Img
             /// <returns>Async task.</returns>
             public override async Task DoWorkAsync(CancellationToken token)
             {
-                // Data tree structures to store the results
-                var imageResults = new GH_Structure<IGH_Goo>();
-                var revisedPromptResults = new GH_Structure<GH_String>();
+                this.imageResults = new GH_Structure<IGH_Goo>();
+                this.revisedPromptResults = new GH_Structure<IGH_Goo>();
+                this.success = false;
+                this.errorMessage = null;
+
+                if (!this.hasWork)
+                {
+                    return;
+                }
 
                 try
                 {
                     // Get the current AI provider settings
-                    var providerName = this._parent.GetActualAIProviderName();
-                    var model = this._parent.GetModel();
+                    var providerName = this.parent.GetActualAIProviderName();
+                    var model = this.parent.GetModel();
 
                     if (string.IsNullOrEmpty(providerName))
                     {
                         this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No AI provider selected");
+                        this.errorMessage = "No AI provider selected";
                         return;
                     }
 
-                    var totalPaths = this._prompts.Paths.Count;
-                    var processedPaths = 0;
-
-                    // Process each path in the data tree
-                    foreach (var path in this._prompts.Paths)
-                    {
-                        token.ThrowIfCancellationRequested();
-
-                        // Update progress
-                        processedPaths++;
-                        this._progressReporter?.Invoke($"Process {processedPaths}/{totalPaths}");
-
-                        var promptBranch = this._prompts.get_Branch(path);
-                        var sizeBranch = this._sizes.PathExists(path) ? this._sizes.get_Branch(path) : this._sizes.get_Branch(new GH_Path(0));
-                        var qualityBranch = this._qualities.PathExists(path) ? this._qualities.get_Branch(path) : this._qualities.get_Branch(new GH_Path(0));
-                        var styleBranch = this._styles.PathExists(path) ? this._styles.get_Branch(path) : this._styles.get_Branch(new GH_Path(0));
-
-                        var branchResults = new List<IGH_Goo>();
-                        var branchRevisedPrompts = new List<GH_String>();
-
-                        // Process each item in the branch
-                        for (int i = 0; i < promptBranch.Count; i++)
+                    var resultTrees = await this.parent.RunProcessingAsync<GH_String, IGH_Goo>(
+                        this.inputTrees,
+                        async branchInputs =>
                         {
-                            token.ThrowIfCancellationRequested();
-
-                            var prompt = (promptBranch[i] as GH_String)?.Value ?? string.Empty;
-                            var size = (i < sizeBranch.Count ? (sizeBranch[i] as GH_String)?.Value : (sizeBranch.Count > 0 ? (sizeBranch[sizeBranch.Count - 1] as GH_String)?.Value : null)) ?? "1024x1024";
-                            var quality = (i < qualityBranch.Count ? (qualityBranch[i] as GH_String)?.Value : (qualityBranch.Count > 0 ? (qualityBranch[qualityBranch.Count - 1] as GH_String)?.Value : null)) ?? "standard";
-                            var style = (i < styleBranch.Count ? (styleBranch[i] as GH_String)?.Value : (styleBranch.Count > 0 ? (styleBranch[styleBranch.Count - 1] as GH_String)?.Value : null)) ?? "vivid";
-
-                            if (string.IsNullOrEmpty(prompt))
+                            var outputs = new Dictionary<string, List<IGH_Goo>>
                             {
-                                branchResults.Add(new GH_String(""));
-                                branchRevisedPrompts.Add(new GH_String(""));
-                                continue;
+                                { "Image", new List<IGH_Goo>() },
+                                { "RevisedPrompt", new List<IGH_Goo>() },
+                            };
+
+                            if (!branchInputs.TryGetValue("Prompt", out var promptBranch) || promptBranch == null || promptBranch.Count == 0)
+                            {
+                                return outputs;
                             }
 
-                            try
+                            branchInputs.TryGetValue("Size", out var sizeBranch);
+                            branchInputs.TryGetValue("Quality", out var qualityBranch);
+                            branchInputs.TryGetValue("Style", out var styleBranch);
+
+                            var normalized = DataTreeProcessor.NormalizeBranchLengths(
+                                new List<List<GH_String>>
+                                {
+                                    promptBranch,
+                                    sizeBranch ?? new List<GH_String>(),
+                                    qualityBranch ?? new List<GH_String>(),
+                                    styleBranch ?? new List<GH_String>(),
+                                });
+
+                            var prompts = normalized[0];
+                            var sizes = normalized[1];
+                            var qualities = normalized[2];
+                            var styles = normalized[3];
+
+                            for (int i = 0; i < prompts.Count; i++)
                             {
-                                // Execute the AI tool
-                                var parameters = new JObject
+                                token.ThrowIfCancellationRequested();
+
+                                var prompt = prompts[i]?.Value ?? string.Empty;
+                                var size = sizes[i]?.Value ?? "1024x1024";
+                                var quality = qualities[i]?.Value ?? "standard";
+                                var style = styles[i]?.Value ?? "vivid";
+
+                                if (string.IsNullOrEmpty(prompt))
                                 {
-                                    ["prompt"] = prompt,
-                                    ["size"] = size,
-                                    ["quality"] = quality,
-                                    ["style"] = style,
-                                };
+                                    outputs["Image"].Add(new GH_String(string.Empty));
+                                    outputs["RevisedPrompt"].Add(new GH_String(string.Empty));
+                                    continue;
+                                }
 
-                                var toolResult = await this._parent.CallAiToolAsync(
-                                    "img_generate", parameters)
-                                    .ConfigureAwait(false);
-
-                                // Treat missing 'success' as true (CallAiToolAsync returns direct result without 'success' on success)
-                                // Check for errors in messages array
-                                var hasErrors = toolResult?["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
-                                if (toolResult != null && ((toolResult["success"]?.Value<bool?>() ?? true) && !hasErrors))
+                                try
                                 {
-                                    // Get the image result (could be URL or base64 data)
-                                    string imageResult = toolResult["result"]?.ToString() ?? string.Empty;
-
-                                    // Get revised prompt - now returned directly from new schema
-                                    string revisedPrompt = toolResult["revisedPrompt"]?.ToString() ?? prompt;
-
-                                    // Process the image result (URL or base64)
-                                    if (!string.IsNullOrEmpty(imageResult))
+                                    // Execute the AI tool
+                                    var parameters = new JObject
                                     {
-                                        try
+                                        ["prompt"] = prompt,
+                                        ["size"] = size,
+                                        ["quality"] = quality,
+                                        ["style"] = style,
+                                    };
+
+                                    var toolResult = await this.parent.CallAiToolAsync(
+                                        "img_generate", parameters)
+                                        .ConfigureAwait(false);
+
+                                    // Treat missing 'success' as true (CallAiToolAsync returns direct result without 'success' on success)
+                                    // Check for errors in messages array
+                                    var hasErrors = toolResult?["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
+                                    if (toolResult != null && ((toolResult["success"]?.Value<bool?>() ?? true) && !hasErrors))
+                                    {
+                                        // Get the image result (could be URL or base64 data)
+                                        string imageResult = toolResult["result"]?.ToString() ?? string.Empty;
+
+                                        // Get revised prompt - now returned directly from new schema
+                                        string revisedPrompt = toolResult["revisedPrompt"]?.ToString() ?? prompt;
+
+                                        // Process the image result (URL or base64)
+                                        if (!string.IsNullOrEmpty(imageResult))
                                         {
-                                            Bitmap bitmap;
-
-                                            // Check if it's a URL or base64 data
-                                            if (imageResult.StartsWith("http://") || imageResult.StartsWith("https://"))
+                                            try
                                             {
-                                                // Download from URL
-                                                using var httpClient = new HttpClient();
-                                                var imageData = await httpClient.GetByteArrayAsync(imageResult).ConfigureAwait(false);
-                                                using var stream = new MemoryStream(imageData);
-                                                bitmap = new Bitmap(stream);
-                                            }
-                                            else
-                                            {
-                                                // Convert from base64
-                                                var base64Data = imageResult.StartsWith("data:image/")
-                                                    ? imageResult.Substring(imageResult.IndexOf(",") + 1)
-                                                    : imageResult;
-                                                var imageBytes = Convert.FromBase64String(base64Data);
-                                                using var stream = new MemoryStream(imageBytes);
-                                                bitmap = new Bitmap(stream);
-                                            }
+                                                Bitmap bitmap;
 
-                                            // Wrap the bitmap in a Grasshopper-compatible image object
-                                            branchResults.Add(new GH_ObjectWrapper(bitmap));
-                                            branchRevisedPrompts.Add(new GH_String(revisedPrompt));
+                                                // Check if it's a URL or base64 data
+                                                if (imageResult.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || imageResult.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    // Download from URL
+                                                    using var httpClient = new HttpClient();
+                                                    var imageData = await httpClient.GetByteArrayAsync(imageResult).ConfigureAwait(false);
+                                                    using var stream = new MemoryStream(imageData);
+                                                    bitmap = new Bitmap(stream);
+                                                }
+                                                else
+                                                {
+                                                    // Convert from base64
+                                                    var base64Data = imageResult.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+                                                        ? imageResult.Substring(imageResult.IndexOf(",", StringComparison.Ordinal) + 1)
+                                                        : imageResult;
+                                                    var imageBytes = Convert.FromBase64String(base64Data);
+                                                    using var stream = new MemoryStream(imageBytes);
+                                                    bitmap = new Bitmap(stream);
+                                                }
+
+                                                // Wrap the bitmap in a Grasshopper-compatible image object
+                                                outputs["Image"].Add(new GH_ObjectWrapper(bitmap));
+                                                outputs["RevisedPrompt"].Add(new GH_String(revisedPrompt));
+                                            }
+                                            catch (Exception processEx)
+                                            {
+                                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to process image: {processEx.Message}");
+                                                outputs["Image"].Add(new GH_ObjectWrapper(null));
+                                                outputs["RevisedPrompt"].Add(new GH_String(revisedPrompt));
+                                            }
                                         }
-                                        catch (Exception processEx)
+                                        else
                                         {
-                                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to process image: {processEx.Message}");
-                                            branchResults.Add(new GH_ObjectWrapper(null));
-                                            branchRevisedPrompts.Add(new GH_String(revisedPrompt));
+                                            outputs["Image"].Add(new GH_ObjectWrapper(null));
+                                            outputs["RevisedPrompt"].Add(new GH_String(revisedPrompt));
                                         }
                                     }
                                     else
                                     {
-                                        branchResults.Add(new GH_ObjectWrapper(null));
-                                        branchRevisedPrompts.Add(new GH_String(revisedPrompt));
-                                    }
-                                }
-                                else
-                                {
-                                    // Surface all error messages from the messages array
-                                    var hasErrorsLocal = false;
-                                    if (toolResult?["messages"] is JArray msgs)
-                                    {
-                                        foreach (var msg in msgs.Where(m => m["severity"]?.ToString() == "Error"))
+                                        // Surface all error messages from the messages array
+                                        var hasErrorsLocal = false;
+                                        if (toolResult?["messages"] is JArray msgs)
                                         {
-                                            var errorText = msg["message"]?.ToString();
-                                            var origin = msg["origin"]?.ToString();
-                                            if (!string.IsNullOrEmpty(errorText))
+                                            foreach (var msg in msgs.Where(m => m["severity"]?.ToString() == "Error"))
                                             {
-                                                var prefix = !string.IsNullOrEmpty(origin) ? $"[{origin}] " : string.Empty;
-                                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"{prefix}{errorText}");
-                                                hasErrorsLocal = true;
+                                                var errorText = msg["message"]?.ToString();
+                                                var origin = msg["origin"]?.ToString();
+                                                if (!string.IsNullOrEmpty(errorText))
+                                                {
+                                                    var prefix = !string.IsNullOrEmpty(origin) ? $"[{origin}] " : string.Empty;
+                                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"{prefix}{errorText}");
+                                                    hasErrorsLocal = true;
+                                                }
                                             }
                                         }
-                                    }
 
-                                    if (!hasErrorsLocal)
-                                    {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Image generation failed: Unknown error occurred");
-                                    }
+                                        if (!hasErrorsLocal)
+                                        {
+                                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Image generation failed: Unknown error occurred");
+                                        }
 
-                                    branchResults.Add(new GH_ObjectWrapper(null));
-                                    branchRevisedPrompts.Add(new GH_String(""));
+                                        outputs["Image"].Add(new GH_ObjectWrapper(null));
+                                        outputs["RevisedPrompt"].Add(new GH_String(string.Empty));
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Error processing item: {ex.Message}");
+                                    outputs["Image"].Add(new GH_ObjectWrapper(null));
+                                    outputs["RevisedPrompt"].Add(new GH_String(string.Empty));
                                 }
                             }
-                            catch (Exception ex)
-                            {
-                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Error processing item: {ex.Message}");
-                                branchResults.Add(new GH_ObjectWrapper(null));
-                                branchRevisedPrompts.Add(new GH_String(""));
-                            }
-                        }
 
-                        // Add results to output structures
-                        imageResults.AppendRange(branchResults, path);
-                        revisedPromptResults.AppendRange(branchRevisedPrompts, path);
+                            return outputs;
+                        },
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
+
+                    this.imageResults = new GH_Structure<IGH_Goo>();
+                    this.revisedPromptResults = new GH_Structure<IGH_Goo>();
+
+                    if (resultTrees.TryGetValue("Image", out var images))
+                    {
+                        this.imageResults = images;
                     }
 
-                    // Store results for SetOutput
-                    this._result["Images"] = imageResults;
-                    this._result["RevisedPrompts"] = revisedPromptResults;
-                    this._result["Success"] = true;
+                    if (resultTrees.TryGetValue("RevisedPrompt", out var revisedPrompts))
+                    {
+                        this.revisedPromptResults = revisedPrompts;
+                    }
+
+                    this.success = true;
                 }
                 catch (OperationCanceledException)
                 {
-                    this._result["Success"] = false;
-                    this._result["Error"] = "Operation was cancelled";
+                    this.success = false;
+                    this.errorMessage = "Operation was cancelled";
                 }
                 catch (Exception ex)
                 {
-                    this._result["Success"] = false;
-                    this._result["Error"] = ex.Message;
+                    this.success = false;
+                    this.errorMessage = ex.Message;
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error in image generation: {ex.Message}");
                 }
             }
@@ -363,24 +420,19 @@ namespace SmartHopper.Components.Img
             /// <param name="message">Output message.</param>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                if (this._result.TryGetValue("Success", out var success) && (bool)success)
+                if (this.success)
                 {
-                    if (this._result.TryGetValue("Images", out var images) && images is GH_Structure<IGH_Goo> imageTree)
-                    {
-                        this._parent.SetPersistentOutput("Image", imageTree, DA);
-                    }
+                    var imagesTree = this.imageResults ?? new GH_Structure<IGH_Goo>();
+                    var revisedTree = this.revisedPromptResults ?? new GH_Structure<IGH_Goo>();
 
-                    if (this._result.TryGetValue("RevisedPrompts", out var revisedPrompts) && revisedPrompts is GH_Structure<GH_String> promptTree)
-                    {
-                        this._parent.SetPersistentOutput("Revised Prompt", promptTree, DA);
-                    }
+                    this.parent.SetPersistentOutput("Image", imagesTree, DA);
+                    this.parent.SetPersistentOutput("Revised Prompt", revisedTree, DA);
 
                     message = "Image generation completed successfully";
                 }
                 else
                 {
-                    this._result.TryGetValue("Error", out var error);
-                    message = $"Error: {error ?? "Unknown error"}";
+                    message = $"Error: {this.errorMessage ?? "Unknown error"}";
                 }
             }
         }

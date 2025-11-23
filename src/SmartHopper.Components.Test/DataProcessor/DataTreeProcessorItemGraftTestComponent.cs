@@ -24,45 +24,25 @@ using SmartHopper.Core.DataTree;
 namespace SmartHopper.Components.Test.DataProcessor
 {
     /// <summary>
-    /// Test component to validate DataTreeProcessor with two trees having equal paths (three items each).
-    /// Uses internal data; outputs result tree, success flag, and messages.
+    /// Test component for ItemGraft topology: each item is grafted into its own separate branch.
+    /// Each item from input trees is processed independently, and results are grafted into separate branches.
     /// </summary>
-    public class DataTreeProcessorEqualPathsThreeItemsTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorItemGraftTestComponent : StatefulAsyncComponentBase
     {
-        /// <summary>
-        /// Gets the unique component identifier.
-        /// </summary>
-        public override Guid ComponentGuid => new Guid("1F4D5C1B-8E6D-49B4-B55F-1A3F5E2E6B31");
-
-        /// <summary>
-        /// Gets the component icon (not used for test components).
-        /// </summary>
+        public override Guid ComponentGuid => new Guid("D5E6F7G8-9B0C-4D1E-0F2A-3B4C5D6E7F8G");
         protected override Bitmap Icon => null;
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
 
-        /// <summary>
-        /// Gets the exposure level for this component in the toolbar.
-        /// </summary>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DataTreeProcessorEqualPathsThreeItemsTestComponent"/> class.
-        /// </summary>
-        public DataTreeProcessorEqualPathsThreeItemsTestComponent()
-            : base("Test DataTreeProcessor (Equal Paths, 3 items)", "TEST-DTP-EQ-3",
-                  "Tests DataTreeProcessor with two input trees that share equal branch paths (three items each).",
+        public DataTreeProcessorItemGraftTestComponent()
+            : base("Test DataTreeProcessor (ItemGraft)", "TEST-DTP-GRAFT",
+                  "Tests DataTreeProcessor with ItemGraft topology where each item result is grafted into a separate branch.",
                   "SmartHopper", "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
 
-        /// <summary>
-        /// Registers additional input parameters (none for this test component).
-        /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager) { }
 
-        /// <summary>
-        /// Registers output parameters for the test results.
-        /// </summary>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddIntegerParameter("Result", "R", "Result data tree produced by DataTreeProcessor.", GH_ParamAccess.tree);
@@ -70,22 +50,19 @@ namespace SmartHopper.Components.Test.DataProcessor
             pManager.AddTextParameter("Messages", "M", "Diagnostic messages.", GH_ParamAccess.list);
         }
 
-        /// <summary>
-        /// Creates the worker that performs the asynchronous test logic.
-        /// </summary>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new Worker(this, AddRuntimeMessage);
         }
 
-        private class Worker : AsyncWorkerBase
+        private sealed class Worker : AsyncWorkerBase
         {
             private GH_Structure<GH_Integer> _resultTree = new GH_Structure<GH_Integer>();
             private GH_Boolean _success = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
-            private readonly DataTreeProcessorEqualPathsThreeItemsTestComponent _parent;
+            private readonly DataTreeProcessorItemGraftTestComponent _parent;
 
-            public Worker(DataTreeProcessorEqualPathsThreeItemsTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            public Worker(DataTreeProcessorItemGraftTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
@@ -102,15 +79,14 @@ namespace SmartHopper.Components.Test.DataProcessor
                 {
                     var path = new GH_Path(0);
 
+                    // Create two trees: A=[1,2], B=[10,20] at same path
                     var treeA = new GH_Structure<GH_Integer>();
                     treeA.Append(new GH_Integer(1), path);
                     treeA.Append(new GH_Integer(2), path);
-                    treeA.Append(new GH_Integer(3), path);
 
                     var treeB = new GH_Structure<GH_Integer>();
-                    treeB.Append(new GH_Integer(4), path);
-                    treeB.Append(new GH_Integer(5), path);
-                    treeB.Append(new GH_Integer(6), path);
+                    treeB.Append(new GH_Integer(10), path);
+                    treeB.Append(new GH_Integer(20), path);
 
                     var trees = new Dictionary<string, GH_Structure<GH_Integer>>
                     {
@@ -118,37 +94,29 @@ namespace SmartHopper.Components.Test.DataProcessor
                         { "B", treeB },
                     };
 
-                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: true, groupIdenticalBranches: false);
-                    Debug.WriteLine($"[EqualPaths3Items] Iterations: {iterations}, DataCount: {dataCount}");
+                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: false, groupIdenticalBranches: false);
+                    Debug.WriteLine($"[ItemGraft] Iterations: {iterations}, DataCount: {dataCount}");
 
-                    async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)
+                    // ItemGraft: function receives one item from each tree at a time
+                    async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> items)
                     {
                         await Task.Yield();
-                        var aList = branches.ContainsKey("A") ? branches["A"] : null;
-                        var bList = branches.ContainsKey("B") ? branches["B"] : null;
-                        if (aList == null || bList == null || aList.Count == 0 || bList.Count == 0)
-                        {
+                        
+                        // In ItemGraft, each dictionary contains exactly one item per input tree
+                        var aItem = items.ContainsKey("A") && items["A"].Count > 0 ? items["A"][0] : null;
+                        var bItem = items.ContainsKey("B") && items["B"].Count > 0 ? items["B"][0] : null;
+
+                        if (aItem == null || bItem == null)
                             return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer>() } };
-                        }
 
-                        var normalized = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_Integer>> { aList, bList });
-                        var aNorm = normalized[0];
-                        var bNorm = normalized[1];
-                        var sums = new List<GH_Integer>();
-                        for (int i = 0; i < Math.Max(aList.Count, bList.Count); i++)
-                        {
-                            int ai = aNorm[i]?.Value ?? 0;
-                            int bi = bNorm[i]?.Value ?? 0;
-                            sums.Add(new GH_Integer(ai + bi));
-                        }
-
-                        return new Dictionary<string, List<GH_Integer>> { { "Sum", sums } };
+                        int sum = aItem.Value + bItem.Value;
+                        return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer> { new GH_Integer(sum) } } };
                     }
 
                     var options = new ProcessingOptions
                     {
-                        Topology = ProcessingTopology.BranchToBranch,
-                        OnlyMatchingPaths = true,
+                        Topology = ProcessingTopology.ItemGraft,
+                        OnlyMatchingPaths = false,
                         GroupIdenticalBranches = false,
                     };
 
@@ -164,17 +132,23 @@ namespace SmartHopper.Components.Test.DataProcessor
                     else
                         _resultTree = new GH_Structure<GH_Integer>();
 
+                    // ItemGraft should graft each result into separate branches:
+                    // {0;0} = [11], {0;1} = [22]
+                    var expectedPath0 = new GH_Path(0, 0);
+                    var expectedPath1 = new GH_Path(0, 1);
+
                     bool ok =
                         _resultTree != null &&
-                        _resultTree.PathCount == 1 &&
-                        _resultTree.get_Branch(path) != null &&
-                        _resultTree.get_Branch(path).Count == 3 &&
-                        _resultTree.get_Branch(path)[0] is GH_Integer gi0 && gi0.Value == (1 + 4) &&
-                        _resultTree.get_Branch(path)[1] is GH_Integer gi1 && gi1.Value == (2 + 5) &&
-                        _resultTree.get_Branch(path)[2] is GH_Integer gi2 && gi2.Value == (3 + 6);
+                        _resultTree.PathCount == 2 &&
+                        _resultTree.get_Branch(expectedPath0) != null &&
+                        _resultTree.get_Branch(expectedPath0).Count == 1 &&
+                        _resultTree.get_Branch(expectedPath0)[0] is GH_Integer gi0 && gi0.Value == 11 &&
+                        _resultTree.get_Branch(expectedPath1) != null &&
+                        _resultTree.get_Branch(expectedPath1).Count == 1 &&
+                        _resultTree.get_Branch(expectedPath1)[0] is GH_Integer gi1 && gi1.Value == 22;
 
                     _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Equal paths {path}. A=[1,2,3], B=[4,5,6]. Expected pairwise sums [5,7,9]."));
+                    _messages.Add(new GH_String($"ItemGraft topology at path {path}. A=[1,2], B=[10,20]. Expected grafted results: {{{expectedPath0}}}=[11], {{{expectedPath1}}}=[22]."));
                     _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
@@ -196,7 +170,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 _parent.SetPersistentOutput("Result", _resultTree, DA);
                 _parent.SetPersistentOutput("Success", _success, DA);
                 _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Processed equal-path trees (3 items) successfully" : "Processing failed";
+                message = _success.Value ? "Processed ItemGraft topology successfully" : "Processing failed";
             }
         }
     }
