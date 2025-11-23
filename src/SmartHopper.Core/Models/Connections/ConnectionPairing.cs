@@ -8,6 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
+using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 
@@ -42,18 +44,20 @@ namespace SmartHopper.Core.Models.Connections
         }
 
         /// <summary>
-        /// Creates a new ConnectionPairing from source and target parameters.
+        /// Resolves the connection endpoints from integer IDs to GUIDs using the provided mapping.
         /// </summary>
-        /// <param name="source">The source parameter.</param>
-        /// <param name="target">The target parameter.</param>
-        /// <returns>A new ConnectionPairing connecting the specified parameters.</returns>
-        public static ConnectionPairing Create(IGH_Param source, IGH_Param target)
+        /// <param name="idToGuidMapping">Mapping from integer ID to GUID.</param>
+        /// <param name="fromGuid">Output: The resolved source component GUID.</param>
+        /// <param name="toGuid">Output: The resolved target component GUID.</param>
+        /// <returns>True if both endpoints were successfully resolved.</returns>
+        public bool TryResolveGuids(Dictionary<int, Guid> idToGuidMapping, out Guid fromGuid, out Guid toGuid)
         {
-            return new ConnectionPairing
-            {
-                From = Connection.FromParameter(source),
-                To = Connection.FromParameter(target),
-            };
+            fromGuid = Guid.Empty;
+            toGuid = Guid.Empty;
+
+            return idToGuidMapping.TryGetValue(this.From.Id, out fromGuid) &&
+                   idToGuidMapping.TryGetValue(this.To.Id, out toGuid);
         }
+
     }
 }

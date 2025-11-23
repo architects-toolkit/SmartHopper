@@ -1,6 +1,6 @@
 # SmartHopper - AI-Powered Tools and Assistant for Grasshopper3D
 
-[![Version](https://img.shields.io/badge/version-1.0.2--dev.251014-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-1.1.0--dev.251123-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Ready to use](https://img.shields.io/badge/ready_to_use-YES-brightgreen?style=for-the-badge)](https://smarthopper.xyz/#installation)
@@ -38,7 +38,14 @@ SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered co
 
 Install, enable a provider, and set up an API key.
 
-[![Quickstart ▶](./img/video-installation.png)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
+> **System requirements**
+>
+> - Rhino 8.24 or newer
+> - Distributed through the Rhino Package Manager on Windows only
+> - macOS support not yet tested
+> - You need to have a provider API key to use most of SmartHopper features
+
+[![Quickstart ▶](./img/video-installation.jpg)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
 
 [View the video on Vimeo](https://vimeo.com/1126454690)
 

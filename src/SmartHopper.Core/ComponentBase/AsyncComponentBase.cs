@@ -51,6 +51,17 @@ namespace SmartHopper.Core.ComponentBase
         protected int DataCount => this._dataCount;
 
         /// <summary>
+        /// Sets the number of data items to output. Intended for higher-level
+        /// component bases (e.g., stateful async components) that centralise
+        /// data count calculation based on shared processing plans.
+        /// </summary>
+        /// <param name="value">The computed data count.</param>
+        protected void SetDataCount(int value)
+        {
+            this._dataCount = value;
+        }
+
+        /// <summary>
         /// Tracks the state of worker task completion:
         /// - Starts at 0 when component initializes
         /// - Increments when a worker task completes

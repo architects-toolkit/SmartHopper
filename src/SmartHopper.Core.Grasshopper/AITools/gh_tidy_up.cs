@@ -16,7 +16,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -114,7 +116,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     origin = new PointF(sx, sy);
                 }
 
-                var currentObjs = GHCanvasUtils.GetCurrentObjects();
+                var currentObjs = CanvasAccess.GetCurrentObjects();
                 var selected = currentObjs.Where(o => guids.Contains(o.InstanceGuid.ToString())).ToList();
                     if (!selected.Any())
                     {
@@ -123,7 +125,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var doc = GHDocumentUtils.GetObjectsDetails(selected);
+                var doc = GhJsonSerializer.Serialize(selected, SerializationOptions.Standard);
                 var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
 
                 if (!hasStart)
@@ -141,7 +143,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var guid = node.ComponentId;
                     var rel = node.Pivot;
                     var target = new PointF(origin.X + rel.X, origin.Y + rel.Y);
-                    var ok = GHCanvasUtils.MoveInstance(guid, target, relative: false);
+                    var ok = CanvasAccess.MoveInstance(guid, target, relative: false);
                     Debug.WriteLine(ok
                         ? $"[GhObjTools] GhTidyUpAsync: Moved {guid} to ({target.X},{target.Y})"
                         : $"[GhObjTools] GhTidyUpAsync: Failed to move {guid}, not found");
@@ -169,7 +171,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private async Task<AIReturn> GhTidyUpSelectedAsync(AIToolCall toolCall)
         {
             // Get selected component GUIDs
-            var selectedGuids = GHCanvasUtils.GetCurrentObjects()
+            var selectedGuids = CanvasAccess.GetCurrentObjects()
                 .Where(o => o.Attributes.Selected)
                 .Select(o => o.InstanceGuid.ToString())
                 .ToList();

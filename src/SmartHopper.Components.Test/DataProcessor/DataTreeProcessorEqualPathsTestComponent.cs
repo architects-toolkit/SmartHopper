@@ -96,10 +96,6 @@ namespace SmartHopper.Components.Test.DataProcessor
                         { "B", treeB },
                     };
 
-                    // Optional: log metrics
-                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: true, groupIdenticalBranches: false);
-                    Debug.WriteLine($"[DataTreeProcessorEqualPathsTest] Iterations: {iterations}, DataCount: {dataCount}");
-
                     // Define processing function: pairwise/broadcasted sums using NormalizeBranchLengths
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)
                     {
@@ -125,14 +121,20 @@ namespace SmartHopper.Components.Test.DataProcessor
                         return new Dictionary<string, List<GH_Integer>> { { "Sum", sums } };
                     }
 
+                    var options = new ProcessingOptions
+                    {
+                        Topology = ProcessingTopology.BranchToBranch,
+                        OnlyMatchingPaths = true,
+                        GroupIdenticalBranches = false,
+                    };
+
                     // Execute
-                    var result = await DataTreeProcessor.RunFunctionAsync<GH_Integer, GH_Integer>(
+                    var result = await DataTreeProcessor.RunAsync<GH_Integer, GH_Integer>(
                         trees,
                         Func,
+                        options,
                         progressCallback: null,
-                        onlyMatchingPaths: true,
-                        groupIdenticalBranches: false,
-                        token: token);
+                        token: token).ConfigureAwait(false);
 
                     // Extract result tree
                     if (result != null && result.TryGetValue("Sum", out var sumTree) && sumTree != null)

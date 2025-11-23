@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -138,7 +138,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Convert to GH_String list
                 var ghStringList = items.Select(s => new GH_String(s)).ToList();
 
-                string itemsJsonDict = ParsingTools.ConcatenateItemsToJson(ghStringList);
+                string itemsJsonDict = AIResponseParser.ConcatenateItemsToJson(ghStringList);
 
                 // Prepare the AI request
                 var userPrompt = this.userPrompt;
@@ -174,7 +174,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
 
                 // Parse indices from response
-                var indices = ParsingTools.ParseIndicesFromResponse(response);
+                var indices = AIResponseParser.ParseIndicesFromResponse(response);
 
                 if (indices == null)
                 {
@@ -217,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
 
             var raw = token?.ToString();
-            return ParsingTools.ParseStringArrayFromResponse(raw);
+            return AIResponseParser.ParseStringArrayFromResponse(raw);
         }
     }
 }

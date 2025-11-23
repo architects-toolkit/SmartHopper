@@ -22,7 +22,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.List
@@ -36,6 +36,13 @@ namespace SmartHopper.Components.List
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
+
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.BranchToBranch,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
 
         public AIListEvaluate()
             : base("AI List Evaluate", "AIListEvaluate",
@@ -57,7 +64,7 @@ namespace SmartHopper.Components.List
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListEvaluateWorker(this, this.AddRuntimeMessage);
+            return new AIListEvaluateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class AIListEvaluateWorker : AsyncWorkerBase
@@ -65,13 +72,16 @@ namespace SmartHopper.Components.List
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_Boolean>> result;
             private readonly AIListEvaluate parent;
+            private readonly ProcessingOptions processingOptions;
 
             public AIListEvaluateWorker(
             AIListEvaluate parent,
-            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+            ProcessingOptions processingOptions)
             : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
                 this.result = new Dictionary<string, GH_Structure<GH_Boolean>>
                 {
                     { "Result", new GH_Structure<GH_Boolean>() },
@@ -96,8 +106,7 @@ namespace SmartHopper.Components.List
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Question"] = questionTree;
 
-                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
-                dataCount = metrics.dataCount;
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -108,15 +117,14 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await this.parent.RunDataTreeFunctionAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: true,
+                        this.processingOptions,
                         token).ConfigureAwait(false);
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
@@ -142,7 +150,7 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listAsJson = ParsingTools.ConcatenateItemsToJson(branches["List"], "array");
+                var listAsJson = AIResponseParser.ConcatenateItemsToJson(branches["List"], "array");
                 var questionTree = branches["Question"];
 
                 // Normalize tree lengths

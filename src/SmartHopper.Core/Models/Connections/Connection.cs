@@ -8,8 +8,6 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
-using Grasshopper.Kernel;
 using Newtonsoft.Json;
 
 namespace SmartHopper.Core.Models.Connections
@@ -20,45 +18,34 @@ namespace SmartHopper.Core.Models.Connections
     public class Connection
     {
         /// <summary>
-        /// Gets or sets the ID of the component that this connection endpoint belongs to.
+        /// Gets or sets the integer ID of the component.
         /// </summary>
-        [JsonProperty("instanceId")]
+        [JsonProperty("id", Order = 1)]
         [JsonRequired]
-        public Guid InstanceId { get; set; }
+        public required int Id { get; set; }
 
         /// <summary>
         /// Gets or sets the name of the parameter on the component.
         /// </summary>
-        [JsonProperty("paramName")]
+        [JsonProperty("paramName", Order = 2)]
         [JsonRequired]
         public required string ParamName { get; set; }
 
         /// <summary>
-        /// Checks if the connection has valid component ID and parameter name.
+        /// Gets or sets the zero-based index of the parameter.
+        /// Used for reliable parameter matching regardless of display name settings.
         /// </summary>
-        /// <returns>True if the connection has a non-empty GUID and parameter name.</returns>
-        public bool IsValid()
-        {
-            return this.InstanceId != Guid.Empty && !string.IsNullOrEmpty(this.ParamName);
-        }
+        [JsonProperty("paramIndex", Order = 3)]
+        public int? ParamIndex { get; set; }
 
         /// <summary>
-        /// Creates a new Connection from a Grasshopper parameter.
+        /// Checks if the connection has valid component ID and parameter name.
         /// </summary>
-        /// <param name="param">The Grasshopper parameter to create the connection from.</param>
-        /// <returns>A new Connection object representing the parameter.</returns>
-        public static Connection? FromParameter(IGH_Param param)
+        /// <returns>True if the connection has a valid ID and parameter name.</returns>
+        public bool IsValid()
         {
-            if (param == null)
-            {
-                return null;
-            }
-
-            return new Connection
-            {
-                InstanceId = param.InstanceGuid,
-                ParamName = param.Name,
-            };
+            return this.Id > 0 && !string.IsNullOrEmpty(this.ParamName);
         }
+
     }
 }

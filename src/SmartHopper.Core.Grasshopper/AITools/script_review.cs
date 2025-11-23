@@ -10,12 +10,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
-using SmartHopper.Core.Grasshopper.Utils;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson;
+using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -71,6 +75,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private static partial Regex VBDebugRegex();
 
         #endregion
+
+        /// <summary>
+        /// System prompt template for the AI tool provided by this class.
+        /// </summary>
+        private readonly string systemPromptTemplate = "You are a code review assistant. Provide concise feedback on the code.";
+
+        /// <summary>
+        /// User prompt template for general review. Use <code> placeholder.
+        /// </summary>
+        private readonly string generalReviewPromptTemplate =
+            "Perform a general review of the following script code:\n```\n<code>\n```\n\nPlease: (1) describe the main purpose; (2) detect potential bugs or incoherences; (3) suggest an improved code block.";
+
+        /// <summary>
+        /// User prompt template for question-based review. Use <question> and <code> placeholders.
+        /// </summary>
+        private readonly string questionReviewPromptTemplate =
+            "Review the following script code with respect to this question: \"<question>\"\n```\n<code>\n```";
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
@@ -136,7 +157,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 // Retrieve the script component from the current canvas
-                var objects = GHCanvasUtils.GetCurrentObjects();
+                var objects = CanvasAccess.GetCurrentObjects();
                 var target = objects.FirstOrDefault(o => o.InstanceGuid == scriptGuid) as IScriptComponent;
                 if (target == null)
                 {
@@ -144,7 +165,47 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var scriptCode = target.Text ?? string.Empty;
+                // Use GhJsonSerializer to extract component data (optional - provides structured data)
+                // For review, we primarily need the script code, but serializer gives us full context
+                string scriptCode = string.Empty;
+                string language = "unknown";
+                var componentData = new JObject();
+
+                try
+                {
+                    // Extract using GhJsonSerializer for consistency
+                    var componentsList = new List<IGH_ActiveObject> { (IGH_ActiveObject)target };
+                    var document = GhJsonSerializer.Serialize(componentsList, SerializationOptions.Standard);
+                    var props = document.Components.FirstOrDefault();
+
+                    if (props != null)
+                    {
+                        scriptCode = props.ComponentState?.Value?.ToString() ?? string.Empty;
+                        language = ScriptComponentFactory.DetectLanguage(target);
+
+                        // Build component context for AI (optional rich context)
+                        componentData["language"] = language;
+                        componentData["inputCount"] = props.InputSettings?.Count ?? 0;
+                        componentData["outputCount"] = props.OutputSettings?.Count ?? 0;
+                        componentData["codeLines"] = scriptCode.Split('\n').Length;
+
+                        Debug.WriteLine($"[script_review] Extracted via GhJsonSerializer: {language}, {scriptCode.Length} chars");
+                    }
+                    else
+                    {
+                        // Fallback to direct access
+                        scriptCode = target.Text ?? string.Empty;
+                        language = ScriptComponentFactory.DetectLanguage(target);
+                        Debug.WriteLine($"[script_review] Using fallback extraction");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Fallback if serialization fails
+                    scriptCode = target.Text ?? string.Empty;
+                    language = ScriptComponentFactory.DetectLanguage(target);
+                    Debug.WriteLine($"[script_review] Serialization failed, using fallback: {ex.Message}");
+                }
 
                 // Coded static checks by language
                 var codedIssues = new List<string>();
@@ -194,16 +255,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // AI-based code review using AIRequestCall/AIReturn flow with immutable body
                 var builder = AIBodyBuilder.Create()
                     .WithContextFilter(contextFilter)
-                    .AddSystem("You are a code review assistant. Provide concise feedback on the code.");
+                    .AddSystem(this.systemPromptTemplate);
 
                 string userPrompt;
                 if (string.IsNullOrWhiteSpace(question))
                 {
-                    userPrompt = $"Perform a general review of the following script code:\n```\n{scriptCode}\n```\n\nPlease: (1) describe the main purpose; (2) detect potential bugs or incoherences; (3) suggest an improved code block.";
+                    userPrompt = this.generalReviewPromptTemplate.Replace("<code>", scriptCode);
                 }
                 else
                 {
-                    userPrompt = $"Review the following script code with respect to this question: \"{question}\"\n```\n{scriptCode}\n```";
+                    userPrompt = this.questionReviewPromptTemplate.Replace("<question>", question);
+                    userPrompt = userPrompt.Replace("<code>", scriptCode);
                 }
 
                 builder.AddUser(userPrompt);

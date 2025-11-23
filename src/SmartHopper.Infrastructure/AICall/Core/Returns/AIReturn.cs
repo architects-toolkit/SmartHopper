@@ -157,7 +157,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     "Request must not be null"));
             }
 
-            if (this.Metrics == null)
+            var metrics = this.Metrics;
+
+            if (metrics == null)
             {
                 errors.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
@@ -166,7 +168,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             }
             else
             {
-                var (mOk, mErr) = this.Metrics.IsValid();
+                var (mOk, mErr) = metrics.IsValid();
                 if (mErr != null)
                 {
                     errors.AddRange(mErr);

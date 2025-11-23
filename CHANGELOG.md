@@ -9,6 +9,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **VB Script Serialization Support**: Complete implementation of 3-section VB Script serialization/deserialization:
+  - **VBScriptCode Model**: New model class with separate properties for `imports`, `script`, and `additional` code sections
+  - **ComponentState Enhancement**: Added `vbCode` property to support VB Script 3-section structure alongside existing `value` property
+  - **GhJsonSerializer**: Extracts VB Script 3 sections separately via reflection using ScriptSource properties (UsingCode, ScriptCode, AdditionalCode)
+  - **GhJsonDeserializer**: Restores VB Script 3 sections to correct ScriptSource properties with proper section mapping
+  - **VB Parameter Management**: Implements IGH_VariableParameterComponent interface for proper parameter creation/destruction
+  - Parameter settings applied via CreateParameter/DestroyParameter with VariableParameterMaintenance() call
+  - Full support for custom input/output parameters with names, optional/required flags, and modifiers
+  - **UI Thread Safety**: All VB Script parameter and code operations wrapped in `RhinoApp.InvokeOnUiThread()` to prevent UI blocking
+ - **New AI Tools for parameter and script modification**:
+   - Parameter tools: `gh_parameter_flatten`, `gh_parameter_graft`, `gh_parameter_reset_mapping`, `gh_parameter_reverse`, `gh_parameter_simplify`, `gh_parameter_bulk_inputs`, `gh_parameter_bulk_outputs`
+   - Script tools: `script_parameter_add_input`, `script_parameter_add_output`, `script_parameter_remove_input`, `script_parameter_remove_output`, `script_parameter_set_type_input`, `script_parameter_set_type_output`, `script_parameter_set_access`, `script_toggle_std_output`, `script_set_principal_input`, `script_parameter_set_optional`
+ - **McNeel Forum AI Tools Enhancement**:
+  - `mcneel_forum_search`: Enhanced search tool with configurable result limit (1-50 posts), returning matching posts as raw JSON objects
+  - `mcneel_forum_post_get`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID
+  - `mcneel_forum_post_summarize`: New subtool that generates AI-powered summaries of forum posts using default provider/model
+- New Knowledge components for McNeel forum and web sources, enabling search, retrieval, and summarization workflows directly in Grasshopper.
+- **web_generic_page_read Enhancements**: Tool now delivers clean text for Wikipedia/Wikimedia articles, Discourse forums (raw markdown), GitHub/GitLab file URLs (raw/plain/markdown), and Stack Exchange questions via official APIs.
+- **Property Management System V2**: Complete refactoring of property management with modern, maintainable architecture:
+  - **PropertyManagerV2**: New property management system with clean separation of concerns between filtering, extraction, and application
+  - **PropertyFilter**: Intelligent property filtering based on object type and serialization context
+  - **PropertyHandlers**: Specialized handlers for different property types (PersistentData, SliderCurrentValue, Expression, etc.)
+  - **PropertyFilterConfig**: Centralized configuration for property whitelists, blacklists, and category-specific properties
+  - **SerializationContext**: Support for different contexts (AIOptimized, FullSerialization, CompactSerialization, ParametersOnly)
+  - **ComponentCategory**: Proper categorization of components (Panel, Slider, Script, etc.) for targeted property extraction
+  - **PropertyManagerFactory**: Factory methods for creating PropertyManagerV2 instances with common configurations
+- **GhJSON Optimization**: Reduced irrelevant data in serialization output:
+  - Groups now only include members present in the current GhJSON components selection
+  - Removed runtime-only properties: `VolatileData`, `IsValid`, `IsValidWhyNot`, `TypeDescription`, `TypeName`, `Boundingbox`, `ClippingBox`, `ReferenceID`, `IsReferencedGeometry`, `IsGeometryLoaded`, `QC_Type`
+  - Fixed contradictory property handling where `VolatileData` and `DataType` were in both omitted and whitelist
+  - Fixed `IsPropertyInWhitelist()` method to properly check omitted properties before whitelist
+  - Removed `Type` and `HumanReadable` properties from `ComponentProperty` model to reduce JSON size
+- **Enhanced GhJSON Schema**: Implemented component schema improvements following complete property reference specification:
+  - **Parameter Properties**: `parameterName`, `dataMapping`, `simplify`, `reverse`, `invert`, `unitize`, `expression`, `variableName`, `isPrincipal`, `locked`
+  - **Component Properties**: `locked`, `hidden`, universal `value` property with type-specific mapping
+  - **Value Consolidation**: Number Slider (`currentValue` → `value`), Panel (`userText` → `value`), Scribble (`text` → `value`), Script (`script` → `value`), Value List (`listItems` → `value`)
+  - **Removed Properties**: `expressionContent` (use `expression`), `access`, `description`, `optional`, `type`, `objectType` (excluded as implicit/redundant), `humanReadable`, redundant slider properties
+  - Extended `ComponentProperties` with new schema properties: `Id`, `Params`, `InputSettings`, `OutputSettings`, `ComponentState`
+  - **BREAKING**: New schema format is now the default for all `gh_get` and `gh_put` operations
+  - Kept legacy `Pivot` format for compactness and compatibility
+- New AI Tools for component generation and connection:
+  - `gh_generate`: Generate GhJSON from component specifications (name + parameters), returns valid GhJSON for gh_put.
+  - `gh_connect`: Connect Grasshopper components by creating wires between outputs and inputs using component GUIDs.
+- New AI Tool for script editing and creation:
+  - `script_generator`: Unified tool that creates or edits Grasshopper script components based on natural language instructions and an optional component GUID. Replaces legacy `script_new` and `script_edit` tools.
+- New utility classes for centralized Grasshopper operations:
+  - `GHConnectionUtils`: Connect components by creating wires between parameters.
+  - `GHGenerateUtils`: Generate GhJSON component specifications.
+  - `RhinoFileUtils`: Read and analyze .3dm files.
+  - `RhinoGeometryUtils`: Extract geometry information from active Rhino document.
+- New AI Tools for Rhino 3DM file analysis:
+  - `rhino_read_3dm`: Analyze .3dm files and extract metadata, object counts, layer information, and detailed object properties.
+  - `rhino_get_geometry`: Extract detailed geometry information from the active Rhino document (selected objects, by layer, or by type).
+- New test project `SmartHopper.Core.Grasshopper.Tests` with comprehensive unit test coverage:
+  - `AIResponseParserTests`: 40+ tests for parsing edge cases (JSON arrays, markdown blocks, ranges, text formats)
+  - `PropertyManagerTests`: 30+ tests for type conversion, property setting, and persistent data handling
+- **SelectingComponentBase Persistence**: Selected objects list now persists when saving and loading Grasshopper files
+  - Stores selected object GUIDs during write operations
+  - Restores selected objects by GUID lookup during read operations
+  - Updates component message to reflect restored selection count
+  - Handles missing objects gracefully (objects deleted after selection)
 - New hotfix workflow system for emergency production fixes:
   - **hotfix-0-new-branch.yml** - Creates `hotfix/X.X.X-description` branch from main with automatic patch version increment
   - **hotfix-1-release-hotfix.yml** - Prepares `release/X.X.X-hotfix-description` branch with version updates, changelog, and PR to main
@@ -24,8 +85,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Renamed AI Tools:
+  - `gh_toggle_preview` to `gh_component_toggle_preview`
+  - `gh_toggle_lock` to `gh_component_toggle_lock`
+  - `gh_lock_selected` to `gh_component_lock_selected`
+  - `gh_unlock_selected` to `gh_component_unlock_selected`
+  - `gh_hide_preview_selected` to `gh_component_hide_preview_selected`
+  - `gh_show_preview_selected` to `gh_component_show_preview_selected`
+- **Script Component "out" Parameter Handling**: The standard output/error parameter ("out") in script components is no longer serialized as a regular output parameter. Instead, its visibility state is controlled by the new `showStandardOutput` property in `ComponentState`, which maps to the component's `UsingStandardOutputParam` property. This prevents signature changes after deserialization.
+- **ComponentProperty JSON Serialization**: Simple types (bool, int, string, double, etc.) now serialize directly without the `{"value": ...}` wrapper for cleaner, more compact JSON output. Complex types retain the wrapper structure for backward compatibility.
+- **Empty String Omission**: Empty string properties (e.g., group `name`, component `nickName`) are now omitted from JSON output for cleaner, more compact serialization. Only non-empty values are included.
+- **Document Metadata Improvements**:
+  - Fixed Grasshopper version detection (now reads from Instances assembly instead of settings)
+  - Added `schemaVersion` property (set to "1.0") to GrasshopperDocument
+  - Added `rhinoVersion` property to track Rhino version
+  - Added `parameterCount` property to track standalone parameters separately from components
+  - Changed `createdAt` to `created` for consistency
+  - Default document `version` to "1"
+  - Added `dependencies` array to track plugin dependencies (excludes system assemblies)
+- More robust GhJson schema, serialization and deserialization methods.
+- Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
+- Centralized error handling in AIReturn and tool calls.
+- Accurately aggregate metrics in Conversation Session. Cases with multiple tool calls, multiple interactions, etc. Calculate completion time per interaction.
+- Improved AI Tool descriptions with better guided instructions. Also added specialized wrappers for targeted tool calls (gh_get_selected, gh_get_errors, gh_get_locked, gh_get_hidden, gh_get_visible, gh_get_by_guid, gh_lock_selected, gh_unlock_selected, gh_hide_preview_selected, gh_show_preview_selected, gh_group_selected, gh_tidy_up_selected).
+- **BREAKING (Internal):** Reorganized `SmartHopper.Core.Grasshopper.Utils` namespace structure for better maintainability:
+  - Created organized subfolders: `Canvas/`, `Serialization/`, `Parsing/`, `Rhino/`, `Internal/`
+  - Renamed utility classes for clarity (e.g., `GHCanvasUtils` → `CanvasAccess`, `GHComponentUtils` → `ComponentManipulation`)
+  - Updated all internal references to use new organized namespaces
+  - **Note:** This is an internal refactoring with no impact on public APIs or plugin functionality
 - Extended PR validation and CI test workflows to run on `hotfix/**` and `release/**` branches
 - **user-security-patch.yml** workflow is now obsolete, removed from workflows
+
+### Removed
+
+- **Legacy PropertyManager**: Removed obsolete `PropertyManager.cs` and all references to the old property management system:
+  - Removed `PropertyManager.IsPropertyInWhitelist()`, `PropertyManager.SetProperties()`, `PropertyManager.IsPropertyOmitted()`, and `PropertyManager.GetChildProperties()` methods
+  - Updated `DocumentIntrospection.cs` to use `PropertyManagerV2` with `PropertyManagerFactory.CreateForAI()`
+  - Updated `GhJsonPlacer.cs` to use `PropertyManagerV2` for property application
+  - Updated `PropertyManagerTests.cs` to test the new `PropertyManagerV2` system instead of the old `PropertyManager`
+
+- **Legacy script tools and components**:
+  - Removed `script_new` and `script_edit` AI tools in favor of the unified `script_generator` tool.
+  - Removed `AIScriptNewComponent` and `AIScriptEditComponent` Grasshopper components in favor of `AIScriptGeneratorComponent`.
+
+### Fixed
+
+- **DataTreeProcessor Bug Fixes**:
+  - Fixed `GetBranchFromTree` incorrectly returning branches from different paths when tree had single path (flat tree fallback bug). Now strictly returns only branches matching the requested path.
+  - Fixed `BranchFlatten` topology creating one processing unit per path instead of flattening all branches together. Now correctly creates single processing unit with all items from all branches flattened into one list.
+- Fixed model badge display: show "invalid model" badge when provider has no capable model instead of "model replaced" ([#332](https://github.com/architects-toolkit/SmartHopper/issues/332)).
+- Fixed provider errors (e.g., HTTP 400, token limit exceeded) not surfacing to WebChat UI: `ConversationSession` now surfaces `AIInteractionError` from error AIReturn bodies to observers before calling `OnError`, ensuring full error messages are displayed in the chat interface ([#334](https://github.com/architects-toolkit/SmartHopper/issues/334)).
+- **Rectangle Serialization**: Fixed Rectangle3d serialization/deserialization to use center-based format (`rectangleCXY`) instead of origin-based (`rectangleOXY`), ensuring correct position and orientation after round-trip. Uses interval-based constructor to guarantee proper reconstruction.
+- **IsPrincipal Property Cleanup**: Removed `IsPrincipal` from appearing as a top-level property on standalone parameter components (Colour, Number, Text, etc.). It now only appears in `inputSettings`/`outputSettings` `additionalSettings` when set to `true`, reducing JSON clutter.
+- **Script Component Null Reference**: Fixed `ArgumentNullException` in `gh_get` tool when processing script components. Added null check in `ScriptComponentHelper.GetScriptLanguageType()` method before calling `.Contains()` on potentially null language name string.
+- **Stand-Alone Parameter Serialization**: Fixed `GhJsonSerializer` to properly serialize stand-alone parameters (e.g., `Param_Colour`, `Param_Number`, `Param_Box`, etc.). Previously only `IGH_Component` objects were serialized; now both `IGH_Component` and `IGH_Param` objects are processed. Stand-alone parameters (those without a parent component) are now included in the serialization output and their connections are properly extracted.
+- **PersistentData Deserialization**: Fixed `GhJsonDeserializer` to properly deserialize internalized data (PersistentData) for stand-alone parameters. The deserializer now uses `PropertyManagerV2` instead of simple reflection, which correctly handles the nested data tree structure and type-specific conversions for all parameter types (Color, Point, Vector, Line, Plane, Circle, Arc, Box, Rectangle, Interval, Number, Integer, Boolean, Text).
+- **Connection Matching by Index**: Fixed connection serialization/deserialization to use parameter index instead of parameter name. Connections now include `paramIndex` property for reliable matching regardless of display name settings (full names vs nicknames). The deserializer uses index-based matching with fallback to name-based matching for backward compatibility. Fixed stand-alone parameter to stand-alone parameter connections to properly set `paramIndex` to 0 (single input).
+- **Group InstanceGuid**: Fixed group serialization to include the actual `InstanceGuid` instead of all zeros. Groups now properly serialize their unique identifier for correct reconstruction.
+- **InstanceGuid Generation**: Fixed deserialization to always generate new InstanceGuids instead of reusing GUIDs from JSON. This prevents "An item with the same key has already been added" errors when placing components that already exist in the document. Grasshopper now automatically generates unique GUIDs for all deserialized components.
+- **Stand-Alone Parameter Connections**: Fixed `ConnectionManager` to support connections between stand-alone parameters (e.g., Colour → Panel). Previously only component-to-component and parameter-to-component connections were supported.
+- **Smart Pivot Handling in gh_put**: Improved component placement logic to intelligently handle positions:
+  - When pivots are present in GhJSON: Components are placed with their relative positions preserved, offset to prevent overlap with existing canvas components (positioned below the lowest existing component with 100px spacing)
+  - When pivots are absent: Uses `DependencyGraphUtils.CreateComponentGrid` algorithm (same as `gh_tidy_up`) to automatically calculate optimal grid layout based on component connections
+  - Removed `RecalculatePivots` option from `DeserializationOptions` and `gh_put` tool - pivot handling is now automatic based on GhJSON content
+- **Parameter Modifier Serialization**: Fixed `ParameterMapper` to properly extract and apply parameter modifiers (`Reverse`, `Simplify`, `Locked`) and `DataMapping` for component parameters. These settings are now serialized in the `additionalSettings` object and correctly restored during deserialization. Note: The `Invert` property does not exist in the `IGH_Param` interface and is reserved in `AdditionalParameterSettings` for future use or specific parameter type extensions.
+- **Removed Optional Property**: Removed redundant `optional` property from `ParameterSettings` model as it provides no useful information for serialization/deserialization.
+- **Script Component Parameter Modifiers**: Fixed issue where parameter modifiers (Reverse, Simplify, Locked, Invert) were not being serialized/deserialized for script component parameters. `ScriptParameterMapper.ExtractSettings()` now extracts `AdditionalSettings` just like regular `ParameterMapper`, ensuring modifiers are preserved during round-trip serialization.
+- **Script Component Type Hint Normalization**: Type hints with value "object" (case-insensitive) are no longer serialized or deserialized, as "object" is the default/generic type hint. This reduces JSON size, avoids case sensitivity issues (Object vs object), and eliminates redundant data.
+- **Generic Type Hint Handling**: Improved handling of generic type hints (e.g., `DataTree<Object>`, `List<Curve>`) by detecting `<>` syntax and extracting base types before applying, preventing `TypeHints.Select()` exceptions and reducing log noise.
 
 ## [1.0.1-alpha] - 2025-10-13
 
@@ -116,6 +243,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Utilities:
   - Shared `HttpHeadersHelper.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` utility under `src/SmartHopper.Infrastructure/Utils/` to centralize extra header application across streaming and non‑streaming calls (excludes reserved headers).
+  - Centralized sanitization utilities with tests for GhJSON, script content, and AI responses to ensure consistent cleanup of malformed or unsafe content.
 
 - Providers:
   - New `Anthropic` and `OpenRouter` providers.
@@ -190,6 +318,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
   - Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
   - Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
+  - Standardized async data-tree processing in stateful components via shared `RunProcessingAsync` pipelines and configurable `ProcessingUnitMode`, improving consistency and enabling better progress tracking for item-based workflows.
 
 - Model management and selection:
   - Simplified model selection policy in `ModelManager.SelectBestModel`: capability-first ordering using defaults for requested capability → best-of-rest; removed the separate "default-compatible" tier; selection is now fully centralized in `ModelManager` with no registry-level fallback or wildcard resolution.
@@ -218,7 +347,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `CurrentAIReturnSnapshot` to keep chat history and metrics consistent.
   - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
   - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
+  - Disabled several untested or experimental AI tools/components by excluding them from the build (prefixed filenames with `_`) to keep the default toolbox focused on stable features.
+  - Reorganized Grasshopper AI tool and component categories (including testing/experimental groups) for clearer grouping and discoverability inside Grasshopper.
   - AIListFilter: fix incorrect index array parsing
+  - `mcneel_forum_search` simplified: now only accepts `query` and `limit` parameters and returns raw `results` and `count` without automatic AI summaries; use `mcneel_forum_post_summarize` explicitly when summaries are needed.
 
 - Streaming behavior:
   - OpenAI provider: nested `OpenAIStreamingAdapter` now derives from `AIProviderStreamingAdapter` and reuses shared helpers; streaming behavior and statuses remain unchanged.
@@ -295,6 +427,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tools:
   - Fixed incorrect result output in `list_generate` tool.
   - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
+  - Corrected script component GUIDs to match Grasshopper runtime values, ensuring tools and GhJSON generation can reliably create and reference script components.
 
 - WebChat and streaming UI:
   - Prevent assistant replies from overwriting previous assistant messages: final assistant bubble now re-keys from the streaming key to the interaction's dedup key, so each turn is preserved in order.
