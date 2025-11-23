@@ -44,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         {
             var builder = new PropertyFilterBuilder();
             var baseRule = PropertyFilterConfig.ContextRules[context];
-            
+
             builder._rule.IncludeCore = baseRule.IncludeCore;
             builder._rule.IncludeParameters = baseRule.IncludeParameters;
             builder._rule.IncludeComponents = baseRule.IncludeComponents;
@@ -327,9 +327,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         /// </summary>
         public static PropertyFilterBuilder ExcludeRuntime(this PropertyFilterBuilder builder)
         {
-            return builder.Exclude("VolatileData", "IsValid", "IsValidWhyNot", 
-                                 "TypeDescription", "TypeName", "Boundingbox", 
-                                 "ClippingBox", "ReferenceID", "IsReferencedGeometry", 
+            return builder.Exclude("VolatileData", "IsValid", "IsValidWhyNot",
+                                 "TypeDescription", "TypeName", "Boundingbox",
+                                 "ClippingBox", "ReferenceID", "IsReferencedGeometry",
                                  "IsGeometryLoaded", "QC_Type");
         }
     }

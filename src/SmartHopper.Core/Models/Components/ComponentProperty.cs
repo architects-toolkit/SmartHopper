@@ -41,8 +41,8 @@ namespace SmartHopper.Core.Models.Components
             }
 
             // For simple types (bool, int, string, double), write the value directly
-            if (value.Value is bool || 
-                value.Value is int || 
+            if (value.Value is bool ||
+                value.Value is int ||
                 value.Value is long ||
                 value.Value is double ||
                 value.Value is float ||

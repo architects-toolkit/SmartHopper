@@ -168,7 +168,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             }
 
             // Handle VB Script components (don't implement IScriptComponent)
-            if (instance is IGH_Component ghComp && 
+            if (instance is IGH_Component ghComp &&
                 (instance.Name.Contains("VB", StringComparison.OrdinalIgnoreCase) ||
                  instance.GetType().Name.Contains("VB", StringComparison.OrdinalIgnoreCase)))
             {

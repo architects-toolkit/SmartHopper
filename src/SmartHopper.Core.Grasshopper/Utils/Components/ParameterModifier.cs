@@ -19,7 +19,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
     /// <summary>
     /// Provides methods for modifying parameters on non-script components.
     /// Focuses on parameter-level operations: data mapping, reverse, simplify, etc.
-    /// 
+    ///
     /// For script component modifications, see <see cref="ScriptModifier"/>.
     /// For component-level operations (lock, preview, bounds), see ComponentManipulation in Utils.Canvas.
     /// </summary>

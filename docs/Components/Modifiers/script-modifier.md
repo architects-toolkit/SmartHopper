@@ -1,6 +1,6 @@
 # ScriptModifier Reference
 
-**Namespace**: `SmartHopper.Core.Grasshopper.Utils.Components`  
+**Namespace**: `SmartHopper.Core.Grasshopper.Utils.Components`
 **Purpose**: Comprehensive modification of script components (Python, C#, VB, IronPython)
 
 ---
@@ -297,10 +297,10 @@ public static async Task<AIReturn> GenerateOrEditScript(
     string instructions)
 {
     var scriptComp = FindScriptComponent(componentGuid);
-    
+
     // Get AI-generated changes
     var response = await GetAIResponse(instructions);
-    
+
     // Apply on UI thread
     var tcs = new TaskCompletionSource<bool>();
     RhinoApp.InvokeOnUiThread(() =>
@@ -312,7 +312,7 @@ public static async Task<AIReturn> GenerateOrEditScript(
                 response.Code,
                 response.Inputs,
                 response.Outputs);
-            
+
             scriptComp.ExpireSolution(true);
             tcs.SetResult(true);
         }
@@ -321,7 +321,7 @@ public static async Task<AIReturn> GenerateOrEditScript(
             tcs.SetException(ex);
         }
     });
-    
+
     await tcs.Task;
     return AIReturn.Success("Script generated or updated");
 }

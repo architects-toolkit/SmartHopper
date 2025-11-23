@@ -36,8 +36,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
         /// <param name="scriptComp">Script component instance</param>
         /// <returns>Type hint string or null if not found</returns>
         public static string ExtractTypeHintFromSignature(
-            string scriptCode, 
-            string variableName, 
+            string scriptCode,
+            string variableName,
             bool isInput,
             IScriptComponent scriptComp)
         {
@@ -104,7 +104,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
 
         private static string ExtractFromCSharpSignature(string scriptCode, string variableName, bool isInput)
         {
-            var match = Regex.Match(scriptCode, 
+            var match = Regex.Match(scriptCode,
                 @"private\s+void\s+RunScript\s*\((.*?)\)",
                 RegexOptions.Singleline);
 
@@ -117,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
             foreach (var param in parameters)
             {
                 var trimmed = param.Trim();
-                
+
                 // C# format: "Type varName" or "ref Type varName" (outputs use ref)
                 var isRef = trimmed.StartsWith("ref ", StringComparison.Ordinal);
                 if (isRef != !isInput) // ref params are outputs, non-ref are inputs
@@ -129,7 +129,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                     var paramName = parts[parts.Length - 1].Trim();
                     var cleanParamName = paramName.TrimStart('@');
                     var cleanVariableName = variableName.TrimStart('@');
-                    
+
                     if (cleanParamName.Equals(cleanVariableName, StringComparison.Ordinal))
                     {
                         // Type is everything except the last part (variable name) and "ref" if present
@@ -186,7 +186,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                     continue;
 
                 var isRef = trimmed.StartsWith("ref ", StringComparison.Ordinal);
-                var settings = isRef 
+                var settings = isRef
                     ? (outputIndex < outputSettings?.Count ? outputSettings[outputIndex++] : null)
                     : (inputIndex < inputSettings?.Count ? inputSettings[inputIndex++] : null);
 

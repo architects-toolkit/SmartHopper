@@ -33,22 +33,22 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             "TypeDescription",
             "TypeName",
             "Boundingbox",
-            "ClippingBox", 
+            "ClippingBox",
             "ReferenceID",
             "IsReferencedGeometry",
             "IsGeometryLoaded",
             "QC_Type",
-            
+
             // GH_ValueListItem UI/runtime properties (handled by specialized handler)
             "BoxName",
             "BoxLeft",
             "BoxRight",
             "Value",
             "IsVisible",
-            
+
             // Redundant metadata
             "humanReadable",
-            
+
             // Internal framework properties
             "Properties" // Legacy properties dictionary
         };
@@ -73,7 +73,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         public static readonly HashSet<string> ParameterProperties = new()
         {
             "DataMapping",
-            "Simplify", 
+            "Simplify",
             "Reverse",
             "Expression",
             "Invert",
@@ -109,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             [ComponentCategory.Scribble] = new()
             {
                 "Text",
-                "Font", 
+                "Font",
                 "Corners",
             },
 
@@ -117,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             {
                 "CurrentValue",
                 "Minimum",
-                "Maximum", 
+                "Maximum",
                 "Range",
                 "Decimals",
                 "Rounding",
@@ -129,7 +129,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             {
                 "SliderMode",
                 "XInterval",
-                "YInterval", 
+                "YInterval",
                 "ZInterval",
                 "X",
                 "Y",
@@ -171,7 +171,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             {
                 "LayerFilter",
                 "NameFilter",
-                "TypeFilter", 
+                "TypeFilter",
                 "IncludeLocked",
                 "IncludeHidden",
                 "GroupByLayer",

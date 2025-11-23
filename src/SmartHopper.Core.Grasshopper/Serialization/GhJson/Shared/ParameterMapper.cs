@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
             bool hasSettings = false;
 
             // Extract NickName if different from Name
-            if (!string.IsNullOrEmpty(param.NickName) && 
+            if (!string.IsNullOrEmpty(param.NickName) &&
                 !string.Equals(param.Name, param.NickName, StringComparison.Ordinal))
             {
                 settings.NickName = param.NickName;
@@ -319,7 +319,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                 return false;
 
             // Check for custom nickname
-            if (!string.IsNullOrEmpty(param.NickName) && 
+            if (!string.IsNullOrEmpty(param.NickName) &&
                 !string.Equals(param.Name, param.NickName, StringComparison.Ordinal))
                 return true;
 
@@ -355,7 +355,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
         private static void ApplyAdditionalSettings(IGH_Param param, AdditionalParameterSettings additionalSettings)
         {
             Debug.WriteLine($"[ParameterMapper] ApplyAdditionalSettings called for '{param.Name}' (Type: {param.GetType().Name})");
-            
+
             if (additionalSettings.Reverse.HasValue)
             {
                 param.Reverse = additionalSettings.Reverse.Value;
@@ -395,7 +395,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared
                     Debug.WriteLine($"[ParameterMapper]   Set Unitize = {additionalSettings.Unitize.Value}");
                 }
             }
-            
+
             Debug.WriteLine($"[ParameterMapper]   Verification - Reverse={param.Reverse}, Simplify={param.Simplify}, Locked={param.Locked}");
         }
     }

@@ -213,7 +213,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Arguments may be null when calling gh_get with no parameters; default to empty filters
                 var args = toolInfo.Arguments ?? new JObject();
-                
+
                 // Use predefined filters if provided (for wrapper tools), otherwise use filters from arguments
                 var attrFilters = predefinedAttrFilters != null
                     ? new List<string>(predefinedAttrFilters)
@@ -533,11 +533,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Debug.WriteLine($"[gh_get] Filtering connections...");
                     var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
                     Debug.WriteLine($"[gh_get] Allowed GUIDs count: {allowed.Count}");
-                    
+
                     if (document.Connections != null)
                     {
                         document.Connections = document.Connections
-                            .Where(c => c.TryResolveGuids(document.GetIdToGuidMapping(), out var fromGuid, out var toGuid) && 
+                            .Where(c => c.TryResolveGuids(document.GetIdToGuidMapping(), out var fromGuid, out var toGuid) &&
                                         allowed.Contains(fromGuid) && allowed.Contains(toGuid))
                             .ToList();
                         Debug.WriteLine($"[gh_get] Filtered connections count: {document.Connections.Count}");
@@ -563,7 +563,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     Debug.WriteLine($"[gh_get] Extracting component names...");
                     names = document.Components.Select(c => c.Name).Distinct().ToList();
                     Debug.WriteLine($"[gh_get] Extracted {names.Count} unique names");
-                    
+
                     Debug.WriteLine($"[gh_get] Extracting component GUIDs...");
                     guids = document.Components.Select(c => c.InstanceGuid.ToString()).Distinct().ToList();
                     Debug.WriteLine($"[gh_get] Extracted {guids.Count} unique GUIDs");

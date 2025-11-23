@@ -180,7 +180,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Colour paramColour:
                     var pDataColour = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object colorResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object colorResult)
                             && colorResult is Color color)
                         {
                             return new GH_Colour(color);
@@ -193,7 +193,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Point paramPoint:
                     var pDataPoint = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object pointResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object pointResult)
                             && pointResult is Point3d point)
                         {
                             return new GH_Point(point);
@@ -206,7 +206,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Vector paramVector:
                     var pDataVector = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object vectorResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object vectorResult)
                             && vectorResult is Vector3d vector)
                         {
                             return new GH_Vector(vector);
@@ -219,7 +219,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Line paramLine:
                     var pDataLine = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object lineResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object lineResult)
                             && lineResult is Line line)
                         {
                             return new GH_Line(line);
@@ -232,7 +232,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Plane paramPlane:
                     var pDataPlane = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object planeResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object planeResult)
                             && planeResult is Plane plane)
                         {
                             return new GH_Plane(plane);
@@ -245,7 +245,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Arc paramArc:
                     var pDataArc = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object arcResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object arcResult)
                             && arcResult is Arc arc)
                         {
                             return new GH_Arc(arc);
@@ -258,7 +258,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Box paramBox:
                     var pDataBox = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object boxResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object boxResult)
                             && boxResult is Box box)
                         {
                             return new GH_Box(box);
@@ -271,7 +271,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Circle paramCircle:
                     var pDataCircle = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object circleResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object circleResult)
                             && circleResult is Circle circle)
                         {
                             return new GH_Circle(circle);
@@ -284,7 +284,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Rectangle paramRectangle:
                     var pDataRectangle = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object rectangleResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object rectangleResult)
                             && rectangleResult is Rectangle3d rectangle)
                         {
                             return new GH_Rectangle(rectangle);
@@ -297,7 +297,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 case Param_Interval paramInterval:
                     var pDataInterval = DataTreeConverter.JObjectToIGHStructure(arrayData, token =>
                     {
-                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object intervalResult) 
+                        if (DataTypeSerializer.TryDeserializeFromPrefix(token.ToString(), out object intervalResult)
                             && intervalResult is Interval interval)
                         {
                             return new GH_Interval(interval);
@@ -576,7 +576,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
             switch (code.Trim().ToUpperInvariant())
             {
                 case "R": return "Float";
-                case "N": return "Integer"; 
+                case "N": return "Integer";
                 case "E": return "Even";
                 case "O": return "Odd";
                 default: return "Float";
@@ -746,7 +746,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
         public override bool ApplyProperty(object targetObject, string propertyName, object value)
         {
             System.Diagnostics.Debug.WriteLine($"[ValueListItemsPropertyHandler] ApplyProperty called: targetObject={targetObject?.GetType().Name}, propertyName={propertyName}, value type={value?.GetType().Name}");
-            
+
             if (targetObject is GH_ValueList valueList && value != null)
             {
                 try
@@ -763,7 +763,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                     {
                         itemsArray = listItemsObj["value"] as JArray;
                     }
-                    
+
                     if (itemsArray != null)
                     {
                         // Clear default items
@@ -856,7 +856,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
         public override bool ApplyProperty(object targetObject, string propertyName, object value)
         {
             System.Diagnostics.Debug.WriteLine($"[ValueListModePropertyHandler] ApplyProperty called: targetObject={targetObject?.GetType().Name}, propertyName={propertyName}, value={value}");
-            
+
             if (targetObject is GH_ValueList valueList && value != null)
             {
                 try
