@@ -60,7 +60,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.getTopicToolName,
-                description: "Retrieve all posts in a McNeel Discourse forum topic by topic ID.",
+                description: "Retrieve all posts in a McNeel Discourse forum topic by topic ID (title, URL, posts array). Typically use after mcneel_forum_search when you want full thread context.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -80,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             yield return new AITool(
                 name: this.summarizeTopicToolName,
-                description: "Generate a concise summary of a McNeel Discourse forum topic by ID, based on its posts.",
+                description: "Generate a concise summary of a McNeel Discourse forum topic by ID, based on its posts. Best used after mcneel_forum_search or mcneel_forum_topic_get when the thread is long and you need a quick overview. Recommended to provide a 'instructions' parameter to focus on a specific question, target, or concern.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
