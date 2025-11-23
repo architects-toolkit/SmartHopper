@@ -96,8 +96,7 @@ namespace SmartHopper.Components.List
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Question"] = questionTree;
 
-                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
-                dataCount = metrics.dataCount;
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -108,7 +107,7 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await this.parent.RunDataTreeFunctionAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {

@@ -98,8 +98,7 @@ namespace SmartHopper.Components.List
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Criteria"] = criteriaTree;
 
-                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
-                dataCount = metrics.dataCount;
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -110,7 +109,7 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await this.parent.RunDataTreeFunctionAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
@@ -171,15 +170,32 @@ namespace SmartHopper.Components.List
                 foreach (var criterion in normalizedCriteriaTree)
                 {
                     Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{normalizedCriteriaTree.Count}");
+                    var listToken = normalizedListTree[i];
+                    var criterionValue = criterion?.Value;
 
-                    Debug.WriteLine($"[ProcessData] List: {normalizedListTree[i].Value}");
-                    Debug.WriteLine($"[ProcessData] Criterion: {criterion.Value}");
+                    // Skip entries where we do not have valid list JSON or criteria text
+                    if (listToken == null || string.IsNullOrWhiteSpace(listToken.Value))
+                    {
+                        Debug.WriteLine($"[ProcessData] Skipping index {i}: list JSON is null or empty");
+                        i++;
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(criterionValue))
+                    {
+                        Debug.WriteLine($"[ProcessData] Skipping index {i}: criterion is null or empty");
+                        i++;
+                        continue;
+                    }
+
+                    Debug.WriteLine($"[ProcessData] List: {listToken.Value}");
+                    Debug.WriteLine($"[ProcessData] Criterion: {criterionValue}");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject
                     {
-                        ["list"] = JArray.Parse(normalizedListTree[i].Value),
-                        ["criteria"] = criterion.Value,
+                        ["list"] = JArray.Parse(listToken.Value),
+                        ["criteria"] = criterionValue,
                         ["contextFilter"] = "-*",
                     };
 
@@ -192,7 +208,11 @@ namespace SmartHopper.Components.List
                     var indices = toolResult?["result"]?.ToObject<List<int>>() ?? new List<int>();
                     var filteredItems = indices
                         .Where(idx => idx >= 0 && idx < branches["List"].Count)
-                        .Select(idx => new GH_String(branches["List"][idx].Value));
+                        .Select(idx =>
+                        {
+                            var sourceItem = branches["List"][idx];
+                            return new GH_String(sourceItem != null ? sourceItem.Value : string.Empty);
+                        });
                     outputs["Result"].AddRange(filteredItems);
 
                     i++;

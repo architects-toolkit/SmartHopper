@@ -36,6 +36,8 @@ namespace SmartHopper.Components.Text
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
+        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
+
         public AITextGenerate()
             : base("AI Text Generate", "AITextGenerate",
                   "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
@@ -91,9 +93,10 @@ namespace SmartHopper.Components.Text
                 // The first defined tree is the one that overrides paths in case they don't match between trees
                 this.inputTree["Prompt"] = promptTree;
                 this.inputTree["Instructions"] = instructionsTree;
-
-                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
-                dataCount = metrics.dataCount;
+                // Phase 1: data count is now computed centrally in RunProcessingAsync
+                // based on the shared ProcessingPlan. Worker no longer needs to
+                // calculate dataCount here.
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -103,8 +106,7 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Starting DoWorkAsync");
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
-
-                    this.result = await this.parent.RunDataTreeFunctionAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {

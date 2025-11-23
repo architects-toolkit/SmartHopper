@@ -36,6 +36,8 @@ namespace SmartHopper.Components.Text
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
+        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
+
         public AITextEvaluate()
             : base("AI Text Evaluate", "AITextEvaluate",
                   "Use natural language to ask a TRUE or FALSE question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
@@ -92,8 +94,7 @@ namespace SmartHopper.Components.Text
                 this.inputTree["Text"] = textTree;
                 this.inputTree["Question"] = questionTree;
 
-                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
-                dataCount = metrics.dataCount;
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -104,7 +105,7 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await this.parent.RunDataTreeFunctionAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
