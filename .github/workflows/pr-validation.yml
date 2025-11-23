@@ -16,6 +16,8 @@ on:
     branches: 
       - main
       - dev
+      - 'hotfix/**'
+      - 'release/**'
 
 permissions:
   contents: read
