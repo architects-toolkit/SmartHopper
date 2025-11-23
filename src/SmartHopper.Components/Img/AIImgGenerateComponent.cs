@@ -44,9 +44,12 @@ namespace SmartHopper.Components.Img
         /// <summary>
         /// Gets the exposure level of this component in the ribbon.
         /// </summary>
+        /// <value>The exposure level.</value>
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override AICapability RequiredCapability => AICapability.Text2Image;
+
+        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
 
         /// <summary>
         /// Initializes a new instance of the AIImgGenerateComponent class.

@@ -328,6 +328,19 @@ namespace SmartHopper.Core.ComponentBase
         // Implement State Management
         #region STATE
 
+        /// <summary>
+        /// Defines how this component conceptually processes its inputs.
+        /// Items is the default for most AI components; Branches is reserved
+        /// for components that treat each branch as a single logical unit.
+        /// </summary>
+        protected internal enum ProcessingUnitMode
+        {
+            Items,
+            Branches,
+        }
+
+        protected virtual ProcessingUnitMode UnitMode => ProcessingUnitMode.Branches;
+
         // PRIVATE FIELDS
 
         // Default state, field to store the current state
@@ -755,6 +768,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing.</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>Dictionary of output data trees.</returns>
+        [Obsolete("Use RunProcessingAsync instead, which is based on ProcessingPlan and centralised metrics.")]
         protected async Task<Dictionary<string, GH_Structure<U>>> RunDataTreeFunctionAsync<T, U>(
             Dictionary<string, GH_Structure<T>> trees,
             Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
@@ -788,6 +802,151 @@ namespace SmartHopper.Core.ComponentBase
                 onlyMatchingPaths: onlyMatchingPaths,
                 groupIdenticalBranches: groupIdenticalBranches,
                 token: token).ConfigureAwait(false);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Runs a function on the processing plan generated for the provided data trees,
+        /// using centralised branch-based metrics and progress tracking. This method
+        /// replaces direct use of GetProcessingPathMetrics + RunDataTreeFunctionAsync
+        /// for branch-oriented components.
+        /// </summary>
+        /// <typeparam name="T">Type of input tree items.</typeparam>
+        /// <typeparam name="U">Type of output tree items.</typeparam>
+        /// <param name="trees">Dictionary of input data trees.</param>
+        /// <param name="function">Asynchronous function to run for each primary branch.</param>
+        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees.</param>
+        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Dictionary of output data trees.</returns>
+        protected async Task<Dictionary<string, GH_Structure<U>>> RunProcessingAsync<T, U>(
+            Dictionary<string, GH_Structure<T>> trees,
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
+            bool onlyMatchingPaths = false,
+            bool groupIdenticalBranches = false,
+            CancellationToken token = default)
+            where T : IGH_Goo
+            where U : IGH_Goo
+        {
+            var plan = DataTree.DataTreeProcessor.BuildProcessingPlan(
+                trees,
+                onlyMatchingPaths,
+                groupIdenticalBranches);
+
+            var result = new Dictionary<string, GH_Structure<U>>();
+
+            if (this.UnitMode == ProcessingUnitMode.Items)
+            {
+                var perEntryItemCounts = new List<int>(plan.Entries.Count);
+                int totalItems = 0;
+
+                foreach (var entry in plan.Entries)
+                {
+                    int branchMaxLength = 0;
+
+                    foreach (var tree in trees.Values)
+                    {
+                        var branch = DataTree.DataTreeProcessor.GetBranchFromTree(tree, entry.PrimaryPath, preserveStructure: true);
+                        if (branch != null && branch.Count > branchMaxLength)
+                        {
+                            branchMaxLength = branch.Count;
+                        }
+                    }
+
+                    perEntryItemCounts.Add(branchMaxLength);
+                    totalItems += branchMaxLength;
+                }
+
+                this.SetDataCount(totalItems);
+                this.InitializeProgress(totalItems);
+
+                int processedItems = 0;
+
+                for (int i = 0; i < plan.Entries.Count; i++)
+                {
+                    var entry = plan.Entries[i];
+
+                    token.ThrowIfCancellationRequested();
+
+                    var branches = trees.ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => DataTree.DataTreeProcessor.GetBranchFromTree(kvp.Value, entry.PrimaryPath, preserveStructure: true));
+
+                    var branchResult = await function(branches).ConfigureAwait(false);
+
+                    foreach (var targetPath in entry.TargetPaths)
+                    {
+                        foreach (var kvp in branchResult)
+                        {
+                            if (!result.TryGetValue(kvp.Key, out var structure) || structure == null)
+                            {
+                                structure = new GH_Structure<U>();
+                                result[kvp.Key] = structure;
+                            }
+
+                            if (kvp.Value != null)
+                            {
+                                structure.AppendRange(kvp.Value, targetPath);
+                            }
+                        }
+                    }
+
+                    processedItems += perEntryItemCounts[i];
+                    if (processedItems > 0)
+                    {
+                        this.UpdateProgress(processedItems);
+                    }
+                }
+
+                return result;
+            }
+
+            int iterationCount = plan.Entries.Count;
+            int dataCount = 0;
+            foreach (var entry in plan.Entries)
+            {
+                dataCount += entry.TargetPaths.Count;
+            }
+
+            // Store metrics in the async base and initialise progress
+            this.SetDataCount(dataCount);
+            this.InitializeProgress(iterationCount);
+
+            int currentIteration = 0;
+
+            foreach (var entry in plan.Entries)
+            {
+                token.ThrowIfCancellationRequested();
+
+                // Build per-key branches for the primary path
+                var branches = trees.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => DataTree.DataTreeProcessor.GetBranchFromTree(kvp.Value, entry.PrimaryPath, preserveStructure: true));
+
+                var branchResult = await function(branches).ConfigureAwait(false);
+
+                // Apply results to all target paths mapped to this primary path
+                foreach (var targetPath in entry.TargetPaths)
+                {
+                    foreach (var kvp in branchResult)
+                    {
+                        if (!result.TryGetValue(kvp.Key, out var structure) || structure == null)
+                        {
+                            structure = new GH_Structure<U>();
+                            result[kvp.Key] = structure;
+                        }
+
+                        if (kvp.Value != null)
+                        {
+                            structure.AppendRange(kvp.Value, targetPath);
+                        }
+                    }
+                }
+
+                currentIteration++;
+                this.UpdateProgress(currentIteration);
+            }
 
             return result;
         }

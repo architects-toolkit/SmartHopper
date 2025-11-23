@@ -148,6 +148,7 @@ namespace SmartHopper.Core.DataTree
         /// <param name="onlyMatchingPaths">If true, only consider paths that exist in all trees (intersection); otherwise use union.</param>
         /// <param name="groupIdenticalBranches">If true, group identical branches to reduce redundant processing.</param>
         /// <returns>A tuple with <c>iterationCount</c> (unique operations) and <c>dataCount</c> (total affected paths).</returns>
+        [Obsolete("Use BuildProcessingPlan and component-level RunProcessingAsync instead.")]
         public static (int iterationCount, int dataCount) GetProcessingPathMetrics<T>(Dictionary<string, GH_Structure<T>> trees, bool onlyMatchingPaths = false, bool groupIdenticalBranches = false) where T : IGH_Goo
         {
             var (allPaths, pathsToApplyMap) = GetProcessingPaths(trees, onlyMatchingPaths, groupIdenticalBranches);
@@ -334,6 +335,82 @@ namespace SmartHopper.Core.DataTree
             }
 
             return (processingPaths, pathsToApplyMap);
+        }
+
+        #endregion
+
+        #region PLAN
+
+        /// <summary>
+        /// Describes the processing plan for a set of Grasshopper data trees.
+        /// Each entry represents a unique primary path and the set of target paths
+        /// that should receive the computed results (taking identical branch grouping into account).
+        /// </summary>
+        internal sealed class ProcessingPlan<T> where T : IGH_Goo
+        {
+            public ProcessingPlan(IReadOnlyList<PlanEntry<T>> entries)
+            {
+                this.Entries = entries ?? throw new ArgumentNullException(nameof(entries));
+            }
+
+            public IReadOnlyList<PlanEntry<T>> Entries { get; }
+        }
+
+        /// <summary>
+        /// Represents a single primary processing path and the target paths that should
+        /// receive the computed results for that primary branch.
+        /// </summary>
+        internal sealed class PlanEntry<T> where T : IGH_Goo
+        {
+            public PlanEntry(GH_Path primaryPath, IReadOnlyList<GH_Path> targetPaths)
+            {
+                this.PrimaryPath = primaryPath ?? throw new ArgumentNullException(nameof(primaryPath));
+                this.TargetPaths = targetPaths ?? throw new ArgumentNullException(nameof(targetPaths));
+            }
+
+            public GH_Path PrimaryPath { get; }
+
+            public IReadOnlyList<GH_Path> TargetPaths { get; }
+        }
+
+        /// <summary>
+        /// Builds a processing plan for the provided data trees, taking into account
+        /// matching paths and identical branch grouping rules.
+        /// </summary>
+        /// <typeparam name="T">Type of items contained in the data trees.</typeparam>
+        /// <param name="trees">Dictionary of input data trees keyed by a logical name.</param>
+        /// <param name="onlyMatchingPaths">If true, only consider paths that exist in all trees (intersection); otherwise use union.</param>
+        /// <param name="groupIdenticalBranches">If true, group identical branches to reduce redundant processing.</param>
+        /// <returns>A <see cref="ProcessingPlan{T}"/> describing how branches should be processed.</returns>
+        internal static ProcessingPlan<T> BuildProcessingPlan<T>(
+            Dictionary<string, GH_Structure<T>> trees,
+            bool onlyMatchingPaths = false,
+            bool groupIdenticalBranches = false)
+            where T : IGH_Goo
+        {
+            if (trees == null)
+            {
+                throw new ArgumentNullException(nameof(trees));
+            }
+
+            var (processingPaths, pathsToApplyMap) = GetProcessingPaths(
+                trees,
+                onlyMatchingPaths,
+                groupIdenticalBranches);
+
+            var entries = new List<PlanEntry<T>>(processingPaths.Count);
+
+            foreach (var path in processingPaths)
+            {
+                if (!pathsToApplyMap.TryGetValue(path, out var targets) || targets == null || targets.Count == 0)
+                {
+                    targets = new List<GH_Path> { path };
+                }
+
+                entries.Add(new PlanEntry<T>(path, targets));
+            }
+
+            return new ProcessingPlan<T>(entries);
         }
 
         #endregion

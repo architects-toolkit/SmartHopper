@@ -40,6 +40,8 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
+        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
+
         public AIMcNeelForumPostSummarizeComponent()
             : base(
                   "AI McNeel Forum Post Summarize",
@@ -101,20 +103,7 @@ namespace SmartHopper.Components.Knowledge
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one valid Id is required.");
                 }
 
-                if (this.hasWork)
-                {
-                    var trees = new Dictionary<string, GH_Structure<GH_Integer>>
-                    {
-                        { "Id", this.idsTree },
-                    };
-
-                    var metrics = DataTreeProcessor.GetProcessingPathMetrics(trees);
-                    dataCount = metrics.dataCount;
-                }
-                else
-                {
-                    dataCount = 0;
-                }
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -131,7 +120,7 @@ namespace SmartHopper.Components.Knowledge
                         { "Id", this.idsTree },
                     };
 
-                    var resultTrees = await this.parent.RunDataTreeFunctionAsync<GH_Integer, GH_String>(
+                    var resultTrees = await this.parent.RunProcessingAsync<GH_Integer, GH_String>(
                         trees,
                         async branchInputs =>
                         {

@@ -33,6 +33,8 @@ namespace SmartHopper.Components.Text
 
         protected override AICapability RequiredCapability => AICapability.Text2Json;
 
+        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
+
         public AITextListGenerate()
             : base(
                   "AI Text List Generate",
@@ -89,8 +91,7 @@ namespace SmartHopper.Components.Text
                 this.inputTree["Prompt"] = promptTree;
                 this.inputTree["Count"] = countTree;
 
-                var metrics = DataTreeProcessor.GetProcessingPathMetrics(this.inputTree);
-                dataCount = metrics.dataCount;
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -98,7 +99,7 @@ namespace SmartHopper.Components.Text
                 try
                 {
                     Debug.WriteLine($"[AITextListGenerate] Starting DoWorkAsync");
-                    this.result = await this.parent.RunDataTreeFunctionAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
