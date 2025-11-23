@@ -42,6 +42,8 @@ namespace SmartHopper.Components.Knowledge
         /// </summary>
         protected override Bitmap Icon => Resources.mcneelpostdeconstruct;
 
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter(
