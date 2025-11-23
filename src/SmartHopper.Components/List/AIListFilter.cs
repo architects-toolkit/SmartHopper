@@ -108,7 +108,9 @@ namespace SmartHopper.Components.List
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Criteria"] = criteriaTree;
 
-                dataCount = 0;
+                // dataCount will be calculated automatically by RunProcessingAsync based on ProcessingOptions
+                // (centralized logic in DataTreeProcessor.BuildProcessingPlan)
+                dataCount = this.inputTree.Values.Sum(t => t.DataCount);
             }
 
             public override async Task DoWorkAsync(CancellationToken token)

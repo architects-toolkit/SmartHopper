@@ -115,6 +115,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DataTreeProcessor Bug Fixes**:
+  - Fixed `GetBranchFromTree` incorrectly returning branches from different paths when tree had single path (flat tree fallback bug). Now strictly returns only branches matching the requested path.
+  - Fixed `BranchFlatten` topology creating one processing unit per path instead of flattening all branches together. Now correctly creates single processing unit with all items from all branches flattened into one list.
 - Fixed model badge display: show "invalid model" badge when provider has no capable model instead of "model replaced" ([#332](https://github.com/architects-toolkit/SmartHopper/issues/332)).
 - Fixed provider errors (e.g., HTTP 400, token limit exceeded) not surfacing to WebChat UI: `ConversationSession` now surfaces `AIInteractionError` from error AIReturn bodies to observers before calling `OnError`, ensuring full error messages are displayed in the chat interface ([#334](https://github.com/architects-toolkit/SmartHopper/issues/334)).
 - **Rectangle Serialization**: Fixed Rectangle3d serialization/deserialization to use center-based format (`rectangleCXY`) instead of origin-based (`rectangleOXY`), ensuring correct position and orientation after round-trip. Uses interval-based constructor to guarantee proper reconstruction.

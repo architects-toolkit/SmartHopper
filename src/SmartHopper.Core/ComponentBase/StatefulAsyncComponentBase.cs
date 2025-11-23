@@ -774,45 +774,8 @@ namespace SmartHopper.Core.ComponentBase
             where T : IGH_Goo
             where U : IGH_Goo
         {
-            // Build processing plan to compute metrics
-            var plan = DataTree.DataTreeProcessor.BuildProcessingPlan(
-                trees,
-                options.OnlyMatchingPaths,
-                options.GroupIdenticalBranches);
-
-            // Compute data count and iteration count based on topology
-            int dataCount;
-            int iterationCount;
-
-            bool isItemMode = options.Topology == DataTree.ProcessingTopology.ItemToItem ||
-                              options.Topology == DataTree.ProcessingTopology.ItemGraft;
-
-            if (isItemMode)
-            {
-                // Item mode: count total items across all branches
-                int totalItems = 0;
-                foreach (var entry in plan.Entries)
-                {
-                    int maxLength = 0;
-                    foreach (var tree in trees.Values)
-                    {
-                        var branch = DataTree.DataTreeProcessor.GetBranchFromTree(tree, entry.PrimaryPath, preserveStructure: true);
-                        if (branch != null && branch.Count > maxLength)
-                            maxLength = branch.Count;
-                    }
-
-                    totalItems += maxLength;
-                }
-
-                dataCount = totalItems;
-                iterationCount = totalItems;
-            }
-            else
-            {
-                // Branch mode: count branches and target paths
-                iterationCount = plan.Entries.Count;
-                dataCount = plan.Entries.Sum(e => e.TargetPaths.Count);
-            }
+            // Calculate processing metrics using centralized logic in DataTreeProcessor
+            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, options);
 
             // Set metrics and initialize progress
             this.SetDataCount(dataCount);

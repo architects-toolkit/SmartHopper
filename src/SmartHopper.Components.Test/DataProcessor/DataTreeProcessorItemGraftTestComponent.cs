@@ -94,7 +94,14 @@ namespace SmartHopper.Components.Test.DataProcessor
                         { "B", treeB },
                     };
 
-                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: false, groupIdenticalBranches: false);
+                    var options = new ProcessingOptions
+                    {
+                        Topology = ProcessingTopology.ItemGraft,
+                        OnlyMatchingPaths = false,
+                        GroupIdenticalBranches = false,
+                    };
+
+                    var (dataCount, iterations) = DataTreeProcessor.CalculateProcessingMetrics(trees, options);
                     Debug.WriteLine($"[ItemGraft] Iterations: {iterations}, DataCount: {dataCount}");
 
                     // ItemGraft: function receives one item from each tree at a time
@@ -112,13 +119,6 @@ namespace SmartHopper.Components.Test.DataProcessor
                         int sum = aItem.Value + bItem.Value;
                         return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer> { new GH_Integer(sum) } } };
                     }
-
-                    var options = new ProcessingOptions
-                    {
-                        Topology = ProcessingTopology.ItemGraft,
-                        OnlyMatchingPaths = false,
-                        GroupIdenticalBranches = false,
-                    };
 
                     var result = await DataTreeProcessor.RunAsync<GH_Integer, GH_Integer>(
                         trees,

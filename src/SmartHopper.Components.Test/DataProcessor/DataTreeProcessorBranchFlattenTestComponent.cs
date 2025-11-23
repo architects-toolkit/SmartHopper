@@ -93,7 +93,14 @@ namespace SmartHopper.Components.Test.DataProcessor
                         { "A", treeA },
                     };
 
-                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: false, groupIdenticalBranches: false);
+                    var options = new ProcessingOptions
+                    {
+                        Topology = ProcessingTopology.BranchFlatten,
+                        OnlyMatchingPaths = false,
+                        GroupIdenticalBranches = false,
+                    };
+
+                    var (dataCount, iterations) = DataTreeProcessor.CalculateProcessingMetrics(trees, options);
                     Debug.WriteLine($"[BranchFlatten] Iterations: {iterations}, DataCount: {dataCount}");
 
                     // BranchFlatten: function receives ALL items from ALL branches as a single flattened list
@@ -110,13 +117,6 @@ namespace SmartHopper.Components.Test.DataProcessor
                         int sum = aList.Sum(item => item?.Value ?? 0);
                         return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer> { new GH_Integer(sum) } } };
                     }
-
-                    var options = new ProcessingOptions
-                    {
-                        Topology = ProcessingTopology.BranchFlatten,
-                        OnlyMatchingPaths = false,
-                        GroupIdenticalBranches = false,
-                    };
 
                     var result = await DataTreeProcessor.RunAsync<GH_Integer, GH_Integer>(
                         trees,
