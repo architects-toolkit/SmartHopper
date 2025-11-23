@@ -239,8 +239,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject
                 {
                     ["content"] = text,
-                    ["url"] = url,
-                    ["length"] = text.Length,
                 };
 
                 var builder = AIBodyBuilder.Create();

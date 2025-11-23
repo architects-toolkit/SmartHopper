@@ -15,10 +15,12 @@ using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -35,6 +37,13 @@ namespace SmartHopper.Components.Knowledge
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.ItemGraft,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
+
         public McNeelForumSearchComponent()
             : base(
                   "McNeel Forum Search",
@@ -48,56 +57,63 @@ namespace SmartHopper.Components.Knowledge
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Query", "Q", "REQUIRED search query for the McNeel Discourse forum.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Limit", "L", "Maximum number of posts to return (default: 10, max: 50).", GH_ParamAccess.item, 10);
+            pManager.AddTextParameter("Query", "Q", "REQUIRED search query or queries for the McNeel Discourse forum.", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Limit", "L", "Maximum number of posts to return per query (default: 10, max: 50).", GH_ParamAccess.item, 10);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("McNeel Forum Posts", "McP", "List of JSON objects, one per matching forum post.", GH_ParamAccess.list);
+            pManager.AddTextParameter("McNeel Forum Posts", "McP", "Tree of JSON objects, one per matching forum post.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new McNeelForumSearchWorker(this, this.AddRuntimeMessage);
+            return new McNeelForumSearchWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class McNeelForumSearchWorker : AsyncWorkerBase
         {
             private readonly McNeelForumSearchComponent parent;
-            private string query;
+            private readonly ProcessingOptions processingOptions;
+            private Dictionary<string, GH_Structure<GH_String>> inputTrees;
             private int limit;
             private bool hasWork;
 
-            private readonly List<GH_String> resultPosts = new List<GH_String>();
+            private GH_Structure<GH_String> resultPosts;
 
             public McNeelForumSearchWorker(
                 McNeelForumSearchComponent parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                string localQuery = null;
-                DA.GetData(0, ref localQuery);
+                var queryTree = new GH_Structure<GH_String>();
+                DA.GetDataTree("Query", out queryTree);
                 int localLimit = 10;
                 DA.GetData(1, ref localLimit);
 
-                this.query = localQuery ?? string.Empty;
+                this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
+                {
+                    { "Query", queryTree ?? new GH_Structure<GH_String>() },
+                };
+
                 this.limit = localLimit;
 
-                this.hasWork = !string.IsNullOrWhiteSpace(this.query);
+                this.hasWork = queryTree != null && queryTree.DataCount > 0;
                 if (!this.hasWork)
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Query is required.");
                 }
 
-                Debug.WriteLine($"[McNeelForumSearchWorker] GatherInput - Query='{this.query}', Limit={this.limit}, HasWork={this.hasWork}");
+                Debug.WriteLine($"[McNeelForumSearchWorker] GatherInput - QueryTreeCount={queryTree?.DataCount ?? 0}, Limit={this.limit}, HasWork={this.hasWork}");
 
-                dataCount = this.hasWork ? 1 : 0;
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -110,57 +126,102 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    Debug.WriteLine($"[McNeelForumSearchWorker] DoWorkAsync starting. Query='{this.query}', Limit={this.limit}");
-                    var parameters = new JObject
-                    {
-                        ["query"] = this.query,
-                        ["limit"] = this.limit,
-                    };
+                    var resultTrees = await this.parent.RunProcessingAsync<GH_String, GH_String>(
+                        this.inputTrees,
+                        async branchInputs =>
+                        {
+                            var outputs = new Dictionary<string, List<GH_String>>
+                            {
+                                { "McNeelForumPosts", new List<GH_String>() },
+                            };
 
-                    var toolCallInteraction = new AIInteractionToolCall
-                    {
-                        Name = "mcneel_forum_search",
-                        Arguments = parameters,
-                        Agent = AIAgent.Assistant,
-                    };
+                            if (!branchInputs.TryGetValue("Query", out var queries) || queries == null || queries.Count == 0)
+                            {
+                                return outputs;
+                            }
 
-                    var toolCall = new AIToolCall
-                    {
-                        Endpoint = "mcneel_forum_search",
-                    };
+                            foreach (var ghQuery in queries)
+                            {
+                                var queryValue = ghQuery?.Value ?? string.Empty;
+                                if (string.IsNullOrWhiteSpace(queryValue))
+                                {
+                                    continue;
+                                }
 
-                    toolCall.FromToolCallInteraction(toolCallInteraction);
+                                Debug.WriteLine($"[McNeelForumSearchWorker] DoWorkAsync starting. Query='{queryValue}', Limit={this.limit}");
+                                var parameters = new JObject
+                                {
+                                    ["query"] = queryValue,
+                                    ["limit"] = this.limit,
+                                };
 
-                    AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                    Debug.WriteLine($"[McNeelForumSearchWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
-                    if (aiResult?.Body != null)
-                    {
-                        Debug.WriteLine($"[McNeelForumSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
-                    }
+                                var toolCallInteraction = new AIInteractionToolCall
+                                {
+                                    Name = "mcneel_forum_search",
+                                    Arguments = parameters,
+                                    Agent = AIAgent.Assistant,
+                                };
 
-                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                    if (toolResultInteraction == null)
-                    {
-                        Debug.WriteLine("[McNeelForumSearchWorker] toolResultInteraction is null.");
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"[McNeelForumSearchWorker] toolResultInteraction.Result is {(toolResultInteraction.Result == null ? "null" : "non-null")}.");
-                    }
-                    var toolResult = toolResultInteraction?.Result;
+                                var toolCall = new AIToolCall
+                                {
+                                    Endpoint = "mcneel_forum_search",
+                                };
 
-                    if (toolResult == null)
-                    {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_search' returned no result.");
-                        return;
-                    }
+                                toolCall.FromToolCallInteraction(toolCallInteraction);
 
-                    var resultsArray = toolResult["results"] as JArray ?? new JArray();
-                    Debug.WriteLine($"[McNeelForumSearchWorker] Parsed results array. Count={resultsArray.Count}");
-                    this.resultPosts.Clear();
-                    foreach (var post in resultsArray)
+                                AIReturn aiResult;
+                                try
+                                {
+                                    aiResult = await toolCall.Exec().ConfigureAwait(false);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"[McNeelForumSearchWorker] Error executing tool: {ex}");
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                                    continue;
+                                }
+
+                                Debug.WriteLine($"[McNeelForumSearchWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
+                                if (aiResult?.Body != null)
+                                {
+                                    Debug.WriteLine($"[McNeelForumSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
+                                }
+
+                                var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                                if (toolResultInteraction == null)
+                                {
+                                    Debug.WriteLine("[McNeelForumSearchWorker] toolResultInteraction is null.");
+                                }
+                                else
+                                {
+                                    Debug.WriteLine($"[McNeelForumSearchWorker] toolResultInteraction.Result is {(toolResultInteraction.Result == null ? "null" : "non-null")}.");
+                                }
+
+                                var toolResult = toolResultInteraction?.Result;
+
+                                if (toolResult == null)
+                                {
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_search' returned no result.");
+                                    continue;
+                                }
+
+                                var resultsArray = toolResult["results"] as JArray ?? new JArray();
+                                Debug.WriteLine($"[McNeelForumSearchWorker] Parsed results array. Count={resultsArray.Count}");
+                                foreach (var post in resultsArray)
+                                {
+                                    outputs["McNeelForumPosts"].Add(new GH_String(post?.ToString() ?? string.Empty));
+                                }
+                            }
+
+                            return outputs;
+                        },
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
+
+                    this.resultPosts = new GH_Structure<GH_String>();
+                    if (resultTrees.TryGetValue("McNeelForumPosts", out var postsTree))
                     {
-                        this.resultPosts.Add(new GH_String(post?.ToString() ?? string.Empty));
+                        this.resultPosts = postsTree;
                     }
                 }
                 catch (Exception ex)
@@ -172,9 +233,10 @@ namespace SmartHopper.Components.Knowledge
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                Debug.WriteLine($"[McNeelForumSearchWorker] SetOutput - resultPosts.Count={this.resultPosts.Count}");
-                this.parent.SetPersistentOutput("McNeel Forum Posts", this.resultPosts, DA);
-                message = this.resultPosts.Count == 0 ? "No search executed" : "Search completed";
+                var postsTree = this.resultPosts ?? new GH_Structure<GH_String>();
+                Debug.WriteLine($"[McNeelForumSearchWorker] SetOutput - resultPosts.DataCount={postsTree.DataCount}");
+                this.parent.SetPersistentOutput("McNeel Forum Posts", postsTree, DA);
+                message = postsTree.DataCount == 0 ? "No search executed" : "Search completed";
             }
         }
     }

@@ -133,13 +133,19 @@ namespace SmartHopper.Components.Test.DataProcessor
                         return new Dictionary<string, List<GH_Integer>> { { "Result", new List<GH_Integer>() } };
                     }
 
-                    var result = await DataTreeProcessor.RunFunctionAsync<GH_Integer, GH_Integer>(
+                    var options = new ProcessingOptions
+                    {
+                        Topology = ProcessingTopology.BranchToBranch,
+                        OnlyMatchingPaths = false,
+                        GroupIdenticalBranches = false,
+                    };
+
+                    var result = await DataTreeProcessor.RunAsync<GH_Integer, GH_Integer>(
                         trees,
                         Func,
+                        options,
                         progressCallback: null,
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: false,
-                        token: token);
+                        token: token).ConfigureAwait(false);
 
                     if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
                         _resultTree = outTree;

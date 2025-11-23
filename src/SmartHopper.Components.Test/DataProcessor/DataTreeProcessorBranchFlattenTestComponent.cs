@@ -24,45 +24,25 @@ using SmartHopper.Core.DataTree;
 namespace SmartHopper.Components.Test.DataProcessor
 {
     /// <summary>
-    /// Test component to validate DataTreeProcessor with two trees having equal paths (three items each).
-    /// Uses internal data; outputs result tree, success flag, and messages.
+    /// Test component for BranchFlatten topology: all items from all branches are flattened into a single list,
+    /// processed together, and the results are placed in a single output branch.
     /// </summary>
-    public class DataTreeProcessorEqualPathsThreeItemsTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorBranchFlattenTestComponent : StatefulAsyncComponentBase
     {
-        /// <summary>
-        /// Gets the unique component identifier.
-        /// </summary>
-        public override Guid ComponentGuid => new Guid("1F4D5C1B-8E6D-49B4-B55F-1A3F5E2E6B31");
-
-        /// <summary>
-        /// Gets the component icon (not used for test components).
-        /// </summary>
+        public override Guid ComponentGuid => new Guid("F7G8H9I0-1D2E-4F3A-2B4C-5D6E7F8G9H0I");
         protected override Bitmap Icon => null;
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
 
-        /// <summary>
-        /// Gets the exposure level for this component in the toolbar.
-        /// </summary>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DataTreeProcessorEqualPathsThreeItemsTestComponent"/> class.
-        /// </summary>
-        public DataTreeProcessorEqualPathsThreeItemsTestComponent()
-            : base("Test DataTreeProcessor (Equal Paths, 3 items)", "TEST-DTP-EQ-3",
-                  "Tests DataTreeProcessor with two input trees that share equal branch paths (three items each).",
+        public DataTreeProcessorBranchFlattenTestComponent()
+            : base("Test DataTreeProcessor (BranchFlatten)", "TEST-DTP-FLATTEN",
+                  "Tests DataTreeProcessor with BranchFlatten topology where all branches are flattened and processed together.",
                   "SmartHopper", "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
 
-        /// <summary>
-        /// Registers additional input parameters (none for this test component).
-        /// </summary>
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager) { }
 
-        /// <summary>
-        /// Registers output parameters for the test results.
-        /// </summary>
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddIntegerParameter("Result", "R", "Result data tree produced by DataTreeProcessor.", GH_ParamAccess.tree);
@@ -70,22 +50,20 @@ namespace SmartHopper.Components.Test.DataProcessor
             pManager.AddTextParameter("Messages", "M", "Diagnostic messages.", GH_ParamAccess.list);
         }
 
-        /// <summary>
-        /// Creates the worker that performs the asynchronous test logic.
-        /// </summary>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new Worker(this, AddRuntimeMessage);
         }
 
-        private class Worker : AsyncWorkerBase
+        private sealed class Worker : AsyncWorkerBase
         {
             private GH_Structure<GH_Integer> _resultTree = new GH_Structure<GH_Integer>();
             private GH_Boolean _success = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
-            private readonly DataTreeProcessorEqualPathsThreeItemsTestComponent _parent;
+            private readonly DataTreeProcessorBranchFlattenTestComponent _parent;
+            private int _functionCallCount = 0;
 
-            public Worker(DataTreeProcessorEqualPathsThreeItemsTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            public Worker(DataTreeProcessorBranchFlattenTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
                 _parent = parent;
@@ -100,55 +78,43 @@ namespace SmartHopper.Components.Test.DataProcessor
             {
                 try
                 {
-                    var path = new GH_Path(0);
+                    var path0 = new GH_Path(0);
+                    var path1 = new GH_Path(1);
 
+                    // Create a tree with two branches: {0}=[1,2], {1}=[3,4]
                     var treeA = new GH_Structure<GH_Integer>();
-                    treeA.Append(new GH_Integer(1), path);
-                    treeA.Append(new GH_Integer(2), path);
-                    treeA.Append(new GH_Integer(3), path);
-
-                    var treeB = new GH_Structure<GH_Integer>();
-                    treeB.Append(new GH_Integer(4), path);
-                    treeB.Append(new GH_Integer(5), path);
-                    treeB.Append(new GH_Integer(6), path);
+                    treeA.Append(new GH_Integer(1), path0);
+                    treeA.Append(new GH_Integer(2), path0);
+                    treeA.Append(new GH_Integer(3), path1);
+                    treeA.Append(new GH_Integer(4), path1);
 
                     var trees = new Dictionary<string, GH_Structure<GH_Integer>>
                     {
                         { "A", treeA },
-                        { "B", treeB },
                     };
 
-                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: true, groupIdenticalBranches: false);
-                    Debug.WriteLine($"[EqualPaths3Items] Iterations: {iterations}, DataCount: {dataCount}");
+                    var (iterations, dataCount) = DataTreeProcessor.GetProcessingPathMetrics(trees, onlyMatchingPaths: false, groupIdenticalBranches: false);
+                    Debug.WriteLine($"[BranchFlatten] Iterations: {iterations}, DataCount: {dataCount}");
 
+                    // BranchFlatten: function receives ALL items from ALL branches as a single flattened list
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)
                     {
                         await Task.Yield();
+                        _functionCallCount++;
+                        
                         var aList = branches.ContainsKey("A") ? branches["A"] : null;
-                        var bList = branches.ContainsKey("B") ? branches["B"] : null;
-                        if (aList == null || bList == null || aList.Count == 0 || bList.Count == 0)
-                        {
+                        if (aList == null || aList.Count == 0)
                             return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer>() } };
-                        }
 
-                        var normalized = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_Integer>> { aList, bList });
-                        var aNorm = normalized[0];
-                        var bNorm = normalized[1];
-                        var sums = new List<GH_Integer>();
-                        for (int i = 0; i < Math.Max(aList.Count, bList.Count); i++)
-                        {
-                            int ai = aNorm[i]?.Value ?? 0;
-                            int bi = bNorm[i]?.Value ?? 0;
-                            sums.Add(new GH_Integer(ai + bi));
-                        }
-
-                        return new Dictionary<string, List<GH_Integer>> { { "Sum", sums } };
+                        // Sum all values together
+                        int sum = aList.Sum(item => item?.Value ?? 0);
+                        return new Dictionary<string, List<GH_Integer>> { { "Sum", new List<GH_Integer> { new GH_Integer(sum) } } };
                     }
 
                     var options = new ProcessingOptions
                     {
-                        Topology = ProcessingTopology.BranchToBranch,
-                        OnlyMatchingPaths = true,
+                        Topology = ProcessingTopology.BranchFlatten,
+                        OnlyMatchingPaths = false,
                         GroupIdenticalBranches = false,
                     };
 
@@ -164,17 +130,22 @@ namespace SmartHopper.Components.Test.DataProcessor
                     else
                         _resultTree = new GH_Structure<GH_Integer>();
 
+                    // BranchFlatten should:
+                    // 1. Call function only ONCE with all items flattened: [1,2,3,4]
+                    // 2. Result sum = 1+2+3+4 = 10
+                    // 3. Output placed in single branch {0}
                     bool ok =
+                        _functionCallCount == 1 &&
                         _resultTree != null &&
                         _resultTree.PathCount == 1 &&
-                        _resultTree.get_Branch(path) != null &&
-                        _resultTree.get_Branch(path).Count == 3 &&
-                        _resultTree.get_Branch(path)[0] is GH_Integer gi0 && gi0.Value == (1 + 4) &&
-                        _resultTree.get_Branch(path)[1] is GH_Integer gi1 && gi1.Value == (2 + 5) &&
-                        _resultTree.get_Branch(path)[2] is GH_Integer gi2 && gi2.Value == (3 + 6);
+                        _resultTree.get_Branch(path0) != null &&
+                        _resultTree.get_Branch(path0).Count == 1 &&
+                        _resultTree.get_Branch(path0)[0] is GH_Integer gi && gi.Value == 10;
 
                     _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Equal paths {path}. A=[1,2,3], B=[4,5,6]. Expected pairwise sums [5,7,9]."));
+                    _messages.Add(new GH_String($"BranchFlatten topology. Input: {{{path0}}}=[1,2], {{{path1}}}=[3,4]."));
+                    _messages.Add(new GH_String($"Function called {_functionCallCount} time(s) (expected 1)."));
+                    _messages.Add(new GH_String($"Expected flattened sum [10] at {{{path0}}}."));
                     _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
@@ -196,7 +167,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 _parent.SetPersistentOutput("Result", _resultTree, DA);
                 _parent.SetPersistentOutput("Success", _success, DA);
                 _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Processed equal-path trees (3 items) successfully" : "Processing failed";
+                message = _success.Value ? "Processed BranchFlatten topology successfully" : "Processing failed";
             }
         }
     }

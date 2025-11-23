@@ -19,6 +19,23 @@ using Grasshopper.Kernel.Types;
 
 namespace SmartHopper.Core.DataTree
 {
+    public enum ProcessingTopology
+    {
+        ItemToItem,
+        ItemGraft,
+        BranchFlatten,
+        BranchToBranch,
+    }
+
+    public sealed class ProcessingOptions
+    {
+        public ProcessingTopology Topology { get; set; }
+
+        public bool OnlyMatchingPaths { get; set; }
+
+        public bool GroupIdenticalBranches { get; set; }
+    }
+
     /// <summary>
     /// Provides utility methods for processing Grasshopper data trees.
     /// </summary>
@@ -415,120 +432,209 @@ namespace SmartHopper.Core.DataTree
 
         #endregion
 
-        #region EXEC
+        #region UNIFIED RUNNER
 
         /// <summary>
-        /// Runs a function on all branches of multiple data trees with progress reporting.
+        /// Represents a single unit of processing work (either an item or a branch).
+        /// </summary>
+        private struct ProcessingUnit<T> where T : IGH_Goo
+        {
+            /// <summary>
+            /// The input path from which to read data.
+            /// </summary>
+            public GH_Path InputPath { get; set; }
+
+            /// <summary>
+            /// The item index within the branch. Null for branch mode (process entire branch).
+            /// </summary>
+            public int? ItemIndex { get; set; }
+
+            /// <summary>
+            /// The target paths where results should be written.
+            /// </summary>
+            public IReadOnlyList<GH_Path> TargetPaths { get; set; }
+        }
+
+        /// <summary>
+        /// Unified runner that processes data trees based on a specified topology.
+        /// Handles item-to-item, item-graft, branch-flatten, and branch-to-branch processing modes.
         /// </summary>
         /// <typeparam name="T">Type of input tree items.</typeparam>
         /// <typeparam name="U">Type of output tree items.</typeparam>
-        /// <param name="trees">Dictionary of input data trees.</param>
-        /// <param name="function">Asynchronous function to run on each unique processing branch. Receives a dictionary of branch lists by key and returns a dictionary of output lists by key.</param>
+        /// <param name="inputTrees">Dictionary of input data trees.</param>
+        /// <param name="function">Function to run on each logical unit (item or branch). Receives Dictionary&lt;string, List&lt;T&gt;&gt; and returns Dictionary&lt;string, List&lt;U&gt;&gt;.</param>
+        /// <param name="options">Processing options specifying topology and path/grouping behavior.</param>
         /// <param name="progressCallback">Optional callback to report progress (current, total).</param>
-        /// <param name="onlyMatchingPaths">If true, only process paths that exist in all trees.</param>
-        /// <param name="groupIdenticalBranches">If true, group identical branches to avoid redundant processing.</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>Dictionary of output data trees keyed by the same keys as the input dictionary.</returns>
-        public static async Task<Dictionary<string, GH_Structure<U>>> RunFunctionAsync<T, U>(
-            Dictionary<string, GH_Structure<T>> trees,
+        public static async Task<Dictionary<string, GH_Structure<U>>> RunAsync<T, U>(
+            Dictionary<string, GH_Structure<T>> inputTrees,
             Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
+            ProcessingOptions options,
             Action<int, int> progressCallback = null,
-            bool onlyMatchingPaths = false,
-            bool groupIdenticalBranches = false,
             CancellationToken token = default)
             where T : IGH_Goo
             where U : IGH_Goo
         {
-            Dictionary<string, GH_Structure<U>> result = new Dictionary<string, GH_Structure<U>>();
-
-            // Get the amount of items in each tree
-            var treeLengths = TreesLength<T>(trees.Values);
-
-            Debug.WriteLine($"[DataTreeProcessor] Tree lengths: {string.Join(", ", treeLengths.Select(x => $"{x.Key}: {x.Value}"))}");
-
-            foreach (var kvp in trees)
+            if (inputTrees == null)
             {
-                Debug.WriteLine($"[DataTreeProcessor] Tree key: {kvp.Key}, Paths: {string.Join(", ", kvp.Value.Paths)}");
+                throw new ArgumentNullException(nameof(inputTrees));
             }
 
-            var (allPaths, pathsToApplyMap) = GetProcessingPaths(trees, onlyMatchingPaths, groupIdenticalBranches);
-
-            // Initialize progress tracking
-            int totalPaths = pathsToApplyMap.Count;
-            int currentPathIndex = 1;
-            Debug.WriteLine($"[DataTreeProcessor] Progress tracking initialized: {currentPathIndex}/{totalPaths} (unique processing operations)");
-            progressCallback?.Invoke(currentPathIndex, totalPaths);
-
-            foreach (var path in allPaths)
+            if (function == null)
             {
-                Debug.WriteLine($"[DataTreeProcessor] GENERATING RESULTS FOR PATH: {path}");
+                throw new ArgumentNullException(nameof(function));
+            }
 
-                // Check for cancellation
+            if (options == null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
+
+            var result = new Dictionary<string, GH_Structure<U>>();
+            var plan = BuildProcessingPlan(inputTrees, options.OnlyMatchingPaths, options.GroupIdenticalBranches);
+
+            Debug.WriteLine($"[DataTreeProcessor.RunAsync] Topology: {options.Topology}, Plan entries: {plan.Entries.Count}");
+
+            // Build unified schedule based on topology
+            var schedule = new List<ProcessingUnit<T>>();
+            bool isItemMode = options.Topology == ProcessingTopology.ItemToItem || options.Topology == ProcessingTopology.ItemGraft;
+
+            if (isItemMode)
+            {
+                // Item mode: create one ProcessingUnit per item
+                foreach (var entry in plan.Entries)
+                {
+                    // Find max branch length for this primary path
+                    int maxLength = 0;
+                    foreach (var tree in inputTrees.Values)
+                    {
+                        var branch = GetBranchFromTree(tree, entry.PrimaryPath, preserveStructure: true);
+                        if (branch != null && branch.Count > maxLength)
+                        {
+                            maxLength = branch.Count;
+                        }
+                    }
+
+                    // Add each item index to the schedule
+                    for (int i = 0; i < maxLength; i++)
+                    {
+                        schedule.Add(new ProcessingUnit<T>
+                        {
+                            InputPath = entry.PrimaryPath,
+                            ItemIndex = i,
+                            TargetPaths = entry.TargetPaths,
+                        });
+                    }
+                }
+            }
+            else
+            {
+                // Branch mode: create one ProcessingUnit per branch
+                foreach (var entry in plan.Entries)
+                {
+                    schedule.Add(new ProcessingUnit<T>
+                    {
+                        InputPath = entry.PrimaryPath,
+                        ItemIndex = null,  // null indicates branch mode
+                        TargetPaths = entry.TargetPaths,
+                    });
+                }
+            }
+
+            int totalUnits = schedule.Count;
+            int currentUnit = 0;
+
+            Debug.WriteLine($"[DataTreeProcessor.RunAsync] Total units: {totalUnits}");
+            progressCallback?.Invoke(currentUnit, totalUnits);
+
+            // Process each unit in the schedule
+            foreach (var unit in schedule)
+            {
                 token.ThrowIfCancellationRequested();
 
-                // For each tree, get the branch corresponding to the path, preserving the original dictionary keys
-                var branches = trees
-                    .ToDictionary(
-                        kvp => kvp.Key,
-                        kvp => GetBranchFromTree(kvp.Value, path, preserveStructure: true));
-
-                // Check for empty branches
-                var emptyBranches = branches.Where(kvp => !kvp.Value.Any()).ToList();
-
-                // If there are any empty branches...
-                if (emptyBranches.Any())
+                // Build input dictionary based on mode
+                var inputs = new Dictionary<string, List<T>>();
+                foreach (var kvp in inputTrees)
                 {
-                    // If the branch is empty because that tree only has one branch and one item, copy that branch to the current path
-                    foreach (var emptyBranch in emptyBranches)
+                    var branch = GetBranchFromTree(kvp.Value, unit.InputPath, preserveStructure: true);
+
+                    if (unit.ItemIndex.HasValue)
                     {
-                        if (treeLengths[trees.Keys.ToList().IndexOf(emptyBranch.Key)] == 1)
-                        {
-                            branches[emptyBranch.Key] = GetBranchFromTree(trees[emptyBranch.Key], trees[emptyBranch.Key].Paths.First(), preserveStructure: true);
-                        }
+                        // Item mode: single-element list
+                        var item = (branch != null && unit.ItemIndex.Value < branch.Count) ? branch[unit.ItemIndex.Value] : default(T);
+                        inputs[kvp.Key] = new List<T> { item };
+                    }
+                    else
+                    {
+                        // Branch mode: full branch
+                        inputs[kvp.Key] = branch ?? new List<T>();
                     }
                 }
 
-                try
+                // Invoke function
+                var outputs = await function(inputs).ConfigureAwait(false);
+
+                // Determine output paths and append results based on topology
+                if (options.Topology == ProcessingTopology.BranchFlatten)
                 {
-                    // Get the paths to apply the result to (could be multiple if they have identical branch data)
-                    var pathsToApply = pathsToApplyMap[path];
-
-                    // Apply the function to the current branch and await its completion
-                    var branchResult = await function(branches);
-
-                    // For each path in pathsToApply, convert the branch result to a GH_Structure<T> with the appropriate paths
-                    foreach (var applyPath in pathsToApply)
+                    // BranchFlatten: all branches flatten to [0]
+                    var flatPath = new GH_Path(0);
+                    foreach (var kvp in outputs)
                     {
-                        foreach (var kvp in branchResult)
+                        if (!result.TryGetValue(kvp.Key, out var structure))
                         {
-                            if (!result.ContainsKey(kvp.Key))
+                            structure = new GH_Structure<U>();
+                            result[kvp.Key] = structure;
+                        }
+
+                        if (kvp.Value != null)
+                        {
+                            structure.AppendRange(kvp.Value, flatPath);
+                        }
+                    }
+                }
+                else
+                {
+                    // ItemToItem, ItemGraft, or BranchToBranch: use target paths
+                    foreach (var targetPath in unit.TargetPaths)
+                    {
+                        GH_Path outputPath;
+
+                        if (options.Topology == ProcessingTopology.ItemGraft && unit.ItemIndex.HasValue)
+                        {
+                            // ItemGraft: append item index to path -> [q0,q1,q2,i]
+                            outputPath = targetPath.AppendElement(unit.ItemIndex.Value);
+                            Debug.WriteLine($"[DataTreeProcessor.RunAsync] ItemGraft: {targetPath} + [{unit.ItemIndex.Value}] -> {outputPath}");
+                        }
+                        else
+                        {
+                            // ItemToItem or BranchToBranch: keep same path
+                            outputPath = targetPath;
+                        }
+
+                        // Append outputs to result structures
+                        foreach (var kvp in outputs)
+                        {
+                            if (!result.TryGetValue(kvp.Key, out var structure))
                             {
-                                result[kvp.Key] = new GH_Structure<U>();
-                                Debug.WriteLine($"[DataTreeProcessor] Created new structure for key: {kvp.Key}");
+                                structure = new GH_Structure<U>();
+                                result[kvp.Key] = structure;
                             }
 
                             if (kvp.Value != null)
                             {
-                                Debug.WriteLine($"[DataTreeProcessor] Appending {kvp.Value.Count} items to path {applyPath} for key {kvp.Key}");
-                                result[kvp.Key].AppendRange(kvp.Value, applyPath);
+                                structure.AppendRange(kvp.Value, outputPath);
                             }
                         }
                     }
                 }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[DataTreeProcessor] Error processing path {path}: {ex.Message}");
-                    throw;
-                }
-                finally
-                {
-                    // Update progress after processing each path
-                    currentPathIndex++;
-                    progressCallback?.Invoke(currentPathIndex, totalPaths);
-                }
+
+                currentUnit++;
+                progressCallback?.Invoke(currentUnit, totalUnits);
             }
 
-            Debug.WriteLine($"[DataTreeProcessor] Finished processing all paths. Result keys: {string.Join(", ", result.Keys)}");
+            Debug.WriteLine($"[DataTreeProcessor.RunAsync] Finished. Output keys: {string.Join(", ", result.Keys)}");
             return result;
         }
 

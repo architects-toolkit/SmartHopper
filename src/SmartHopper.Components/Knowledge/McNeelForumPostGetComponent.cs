@@ -20,6 +20,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -35,8 +36,6 @@ namespace SmartHopper.Components.Knowledge
         protected override Bitmap Icon => Resources.mcneelpostget;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
-
-        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
 
         public McNeelForumPostGetComponent()
             : base(
@@ -61,12 +60,13 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new McNeelForumGetPostWorker(this, this.AddRuntimeMessage);
+            return new McNeelForumGetPostWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class McNeelForumGetPostWorker : AsyncWorkerBase
         {
             private readonly McNeelForumPostGetComponent parent;
+            private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_Integer> idsTree;
             private bool hasWork;
 
@@ -74,10 +74,12 @@ namespace SmartHopper.Components.Knowledge
 
             public McNeelForumGetPostWorker(
                 McNeelForumPostGetComponent parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -169,9 +171,8 @@ namespace SmartHopper.Components.Knowledge
 
                             return outputs;
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: false,
-                        token: token).ConfigureAwait(false);
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
 
                     this.resultPosts = new GH_Structure<GH_String>();
 

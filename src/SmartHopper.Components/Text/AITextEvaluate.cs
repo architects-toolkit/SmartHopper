@@ -36,8 +36,6 @@ namespace SmartHopper.Components.Text
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
-        protected override ProcessingUnitMode UnitMode => ProcessingUnitMode.Items;
-
         public AITextEvaluate()
             : base("AI Text Evaluate", "AITextEvaluate",
                   "Use natural language to ask a TRUE or FALSE question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
@@ -58,21 +56,24 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AITextEvaluateWorker(this, this.AddRuntimeMessage);
+            return new AITextEvaluateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class AITextEvaluateWorker : AsyncWorkerBase
         {
             private readonly AITextEvaluate parent;
+            private readonly ProcessingOptions processingOptions;
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_Boolean>> result;
 
             public AITextEvaluateWorker(
-            AITextEvaluate parent,
-            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
-            : base(parent, addRuntimeMessage)
+                AITextEvaluate parent,
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
+                : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
                 this.result = new Dictionary<string, GH_Structure<GH_Boolean>>
                 {
                     { "Result", new GH_Structure<GH_Boolean>() },
@@ -112,8 +113,7 @@ namespace SmartHopper.Components.Text
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: true,
+                        this.processingOptions,
                         token).ConfigureAwait(false);
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");

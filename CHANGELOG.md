@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `mcneel_forum_search`: Enhanced search tool with configurable result limit (1-50 posts), returning matching posts as raw JSON objects
   - `mcneel_forum_post_get`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID
   - `mcneel_forum_post_summarize`: New subtool that generates AI-powered summaries of forum posts using default provider/model
+- New Knowledge components for McNeel forum and web sources, enabling search, retrieval, and summarization workflows directly in Grasshopper.
 - **Property Management System V2**: Complete refactoring of property management with modern, maintainable architecture:
   - **PropertyManagerV2**: New property management system with clean separation of concerns between filtering, extraction, and application
   - **PropertyFilter**: Intelligent property filtering based on object type and serialization context
@@ -207,6 +208,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Utilities:
   - Shared `HttpHeadersHelper.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` utility under `src/SmartHopper.Infrastructure/Utils/` to centralize extra header application across streaming and non‑streaming calls (excludes reserved headers).
+  - Centralized sanitization utilities with tests for GhJSON, script content, and AI responses to ensure consistent cleanup of malformed or unsafe content.
 
 - Providers:
   - New `Anthropic` and `OpenRouter` providers.
@@ -281,6 +283,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
   - Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
   - Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
+  - Standardized async data-tree processing in stateful components via shared `RunProcessingAsync` pipelines and configurable `ProcessingUnitMode`, improving consistency and enabling better progress tracking for item-based workflows.
 
 - Model management and selection:
   - Simplified model selection policy in `ModelManager.SelectBestModel`: capability-first ordering using defaults for requested capability → best-of-rest; removed the separate "default-compatible" tier; selection is now fully centralized in `ModelManager` with no registry-level fallback or wildcard resolution.
@@ -309,6 +312,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `CurrentAIReturnSnapshot` to keep chat history and metrics consistent.
   - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
   - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
+  - Disabled several untested or experimental AI tools/components by excluding them from the build (prefixed filenames with `_`) to keep the default toolbox focused on stable features.
+  - Reorganized Grasshopper AI tool and component categories (including testing/experimental groups) for clearer grouping and discoverability inside Grasshopper.
   - AIListFilter: fix incorrect index array parsing
   - `mcneel_forum_search` simplified: now only accepts `query` and `limit` parameters and returns raw `results` and `count` without automatic AI summaries; use `mcneel_forum_post_summarize` explicitly when summaries are needed.
 
@@ -387,6 +392,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tools:
   - Fixed incorrect result output in `list_generate` tool.
   - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
+  - Corrected script component GUIDs to match Grasshopper runtime values, ensuring tools and GhJSON generation can reliably create and reference script components.
 
 - WebChat and streaming UI:
   - Prevent assistant replies from overwriting previous assistant messages: final assistant bubble now re-keys from the streaming key to the interaction's dedup key, so each turn is preserved in order.

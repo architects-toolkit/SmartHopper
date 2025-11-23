@@ -37,6 +37,13 @@ namespace SmartHopper.Components.List
 
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.BranchToBranch,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
+
         public AIListFilter()
             : base("AI List Filter", "AIListFilter",
                   "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nThis components takes the list as a whole. This means that each criterion will filter each full list.\nIf a tree structure is provided, criteria and lists will only match within the same branch paths.",
@@ -57,7 +64,7 @@ namespace SmartHopper.Components.List
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListFilterWorker(this, this.AddRuntimeMessage);
+            return new AIListFilterWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class AIListFilterWorker : AsyncWorkerBase
@@ -65,13 +72,16 @@ namespace SmartHopper.Components.List
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;
             private readonly AIListFilter parent;
+            private readonly ProcessingOptions processingOptions;
 
             public AIListFilterWorker(
             AIListFilter parent,
-            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+            ProcessingOptions processingOptions)
             : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
                 this.result = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Result", new GH_Structure<GH_String>() },
@@ -116,8 +126,7 @@ namespace SmartHopper.Components.List
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
-                        onlyMatchingPaths: false,
-                        groupIdenticalBranches: true,
+                        this.processingOptions,
                         token).ConfigureAwait(false);
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");

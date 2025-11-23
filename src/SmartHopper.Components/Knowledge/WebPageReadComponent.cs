@@ -9,15 +9,18 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -47,52 +50,56 @@ namespace SmartHopper.Components.Knowledge
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Url", "U", "REQUIRED URL of the webpage to fetch.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Url", "Url", "REQUIRED URL or URLs of the webpage(s) to fetch.", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Content", "C", "Plain text content of the webpage.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Url", "U", "Final URL that was fetched.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Length", "L", "Length of the returned text content.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Content", "C", "Plain text content of the webpage.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new WebPageReadWorker(this, this.AddRuntimeMessage);
+            return new WebPageReadWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class WebPageReadWorker : AsyncWorkerBase
         {
             private readonly WebPageReadComponent parent;
-            private string url;
+            private readonly ProcessingOptions processingOptions;
+            private Dictionary<string, GH_Structure<GH_String>> inputTrees;
             private bool hasWork;
 
-            private string resultContent;
-            private string resultUrl;
-            private int resultLength;
+            private GH_Structure<GH_String> resultContent;
 
             public WebPageReadWorker(
                 WebPageReadComponent parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                string localUrl = null;
-                DA.GetData(0, ref localUrl);
+                var urlTree = new GH_Structure<GH_String>();
+                DA.GetDataTree("Url", out urlTree);
 
-                this.url = localUrl ?? string.Empty;
-                this.hasWork = !string.IsNullOrWhiteSpace(this.url);
+                this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
+                {
+                    { "Url", urlTree ?? new GH_Structure<GH_String>() },
+                };
+
+                this.hasWork = urlTree != null && urlTree.DataCount > 0;
                 if (!this.hasWork)
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Url is required.");
                 }
 
-                dataCount = this.hasWork ? 1 : 0;
+                // Data count is computed centrally in RunProcessingAsync for item-based metrics.
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -104,38 +111,84 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    var parameters = new JObject
+                    var resultTrees = await this.parent.RunProcessingAsync<GH_String, GH_String>(
+                        this.inputTrees,
+                        async branchInputs =>
+                        {
+                            var outputs = new Dictionary<string, List<GH_String>>
+                            {
+                                { "Content", new List<GH_String>() },
+                            };
+
+                            if (!branchInputs.TryGetValue("Url", out var urls) || urls == null || urls.Count == 0)
+                            {
+                                return outputs;
+                            }
+
+                            foreach (var ghUrl in urls)
+                            {
+                                var urlValue = ghUrl?.Value ?? string.Empty;
+                                if (string.IsNullOrWhiteSpace(urlValue))
+                                {
+                                    continue;
+                                }
+
+                                var parameters = new JObject
+                                {
+                                    ["url"] = urlValue,
+                                };
+
+                                var toolCallInteraction = new AIInteractionToolCall
+                                {
+                                    Name = "web_generic_page_read",
+                                    Arguments = parameters,
+                                    Agent = AIAgent.Assistant,
+                                };
+
+                                var toolCall = new AIToolCall
+                                {
+                                    Endpoint = "web_generic_page_read",
+                                };
+
+                                toolCall.FromToolCallInteraction(toolCallInteraction);
+
+                                AIReturn aiResult;
+                                try
+                                {
+                                    aiResult = await toolCall.Exec().ConfigureAwait(false);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"[AIWebPageReadWorker] Error executing tool: {ex.Message}");
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                                    continue;
+                                }
+
+                                var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                                var toolResult = toolResultInteraction?.Result;
+
+                                if (toolResult == null)
+                                {
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'web_generic_page_read' returned no result.");
+                                    continue;
+                                }
+
+                                string content = toolResult["content"]?.ToString() ?? string.Empty;
+
+                                outputs["Content"].Add(new GH_String(content));
+                            }
+
+                            return outputs;
+                        },
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
+
+                    this.resultContent = new GH_Structure<GH_String>();
+
+                    if (resultTrees.TryGetValue("Content", out var contentTree))
                     {
-                        ["url"] = this.url,
-                    };
-
-                    var toolCallInteraction = new AIInteractionToolCall
-                    {
-                        Name = "web_generic_page_read",
-                        Arguments = parameters,
-                        Agent = AIAgent.Assistant,
-                    };
-
-                    var toolCall = new AIToolCall
-                    {
-                        Endpoint = "web_generic_page_read",
-                    };
-
-                    toolCall.FromToolCallInteraction(toolCallInteraction);
-
-                    AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                    var toolResult = toolResultInteraction?.Result;
-
-                    if (toolResult == null)
-                    {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'web_generic_page_read' returned no result.");
-                        return;
+                        this.resultContent = contentTree;
                     }
-
-                    this.resultContent = toolResult["content"]?.ToString() ?? string.Empty;
-                    this.resultUrl = toolResult["url"]?.ToString() ?? this.url;
-                    this.resultLength = toolResult["length"]?.ToObject<int?>() ?? this.resultContent.Length;
                 }
                 catch (Exception ex)
                 {
@@ -146,7 +199,11 @@ namespace SmartHopper.Components.Knowledge
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                message = string.IsNullOrWhiteSpace(this.resultContent) ? "No content retrieved" : "Page content retrieved";
+                var contentTree = this.resultContent ?? new GH_Structure<GH_String>();
+                this.parent.SetPersistentOutput("Content", contentTree, DA);
+
+                var hasAnyContent = contentTree.DataCount > 0;
+                message = hasAnyContent ? "Page content retrieved" : "No content retrieved";
             }
         }
     }

@@ -12,13 +12,16 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -46,13 +49,20 @@ namespace SmartHopper.Components.Knowledge
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.ItemGraft,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
+
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddIntegerParameter(
                 "Topic Id",
                 "T",
-                "REQUIRED ID of the forum topic whose related topics will be retrieved.",
-                GH_ParamAccess.item);
+                "REQUIRED ID or list/tree of forum topic IDs whose related topics will be retrieved.",
+                GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -66,40 +76,44 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new McNeelForumTopicRelatedWorker(this, this.AddRuntimeMessage);
+            return new McNeelForumTopicRelatedWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         private sealed class McNeelForumTopicRelatedWorker : AsyncWorkerBase
         {
             private readonly McNeelForumTopicRelatedComponent parent;
-            private int topicId;
+            private readonly ProcessingOptions processingOptions;
+            private GH_Structure<GH_Integer> topicIdsTree;
             private bool hasWork;
 
-            private readonly List<GH_String> resultTopics = new List<GH_String>();
+            private GH_Structure<GH_String> resultTopics;
 
             public McNeelForumTopicRelatedWorker(
                 McNeelForumTopicRelatedComponent parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                int localTopicId = 0;
-                DA.GetData(0, ref localTopicId);
-                this.topicId = localTopicId;
+                var localTopicIds = new GH_Structure<GH_Integer>();
+                DA.GetDataTree(0, out localTopicIds);
 
-                this.hasWork = this.topicId > 0;
+                this.topicIdsTree = localTopicIds ?? new GH_Structure<GH_Integer>();
+                this.hasWork = this.topicIdsTree != null && this.topicIdsTree.PathCount > 0 && this.topicIdsTree.DataCount > 0;
                 if (!this.hasWork)
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A valid Topic Id (> 0) is required.");
                 }
 
-                Debug.WriteLine($"[McNeelForumTopicRelatedWorker] GatherInput - TopicId={this.topicId}, HasWork={this.hasWork}");
+                Debug.WriteLine($"[McNeelForumTopicRelatedWorker] GatherInput - TopicIdsTreeCount={this.topicIdsTree?.DataCount ?? 0}, HasWork={this.hasWork}");
 
-                dataCount = this.hasWork ? 1 : 0;
+                // Metrics are computed centrally in RunProcessingAsync for item-based mode.
+                dataCount = 0;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -112,92 +126,143 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    Debug.WriteLine($"[McNeelForumTopicRelatedWorker] DoWorkAsync starting. TopicId={this.topicId}");
-
-                    var parameters = new JObject
+                    var trees = new Dictionary<string, GH_Structure<GH_Integer>>
                     {
-                        ["topic_id"] = this.topicId,
+                        { "TopicId", this.topicIdsTree },
                     };
 
-                    var toolCallInteraction = new AIInteractionToolCall
-                    {
-                        Name = "mcneel_forum_topic_related",
-                        Arguments = parameters,
-                        Agent = AIAgent.Assistant,
-                    };
-
-                    var toolCall = new AIToolCall
-                    {
-                        Endpoint = "mcneel_forum_topic_related",
-                    };
-
-                    toolCall.FromToolCallInteraction(toolCallInteraction);
-
-                    AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                    Debug.WriteLine($"[McNeelForumTopicRelatedWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
-
-                    if (aiResult != null)
-                    {
-                        var messages = aiResult.Messages;
-                        Debug.WriteLine($"[McNeelForumTopicRelatedWorker] AIReturn messages count={messages?.Count ?? 0}");
-
-                        if (messages != null)
+                    var resultTrees = await this.parent.RunProcessingAsync<GH_Integer, GH_String>(
+                        trees,
+                        async branchInputs =>
                         {
-                            foreach (var m in messages)
+                            var outputs = new Dictionary<string, List<GH_String>>
                             {
-                                if (m == null)
+                                { "RelatedTopics", new List<GH_String>() },
+                            };
+
+                            foreach (var kvp in branchInputs)
+                            {
+                                var ids = kvp.Value
+                                    .Where(g => g != null && g.Value > 0)
+                                    .Select(g => g.Value)
+                                    .ToList();
+
+                                if (ids.Count == 0)
                                 {
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[McNeelForumTopicRelatedWorker] AIReturn message: Severity={m.Severity}, Origin={m.Origin}, Text='{m.Message}'");
-                            }
-                        }
-
-                        if (!aiResult.Success && messages != null)
-                        {
-                            foreach (var m in messages)
-                            {
-                                if (m == null || string.IsNullOrWhiteSpace(m.Message))
+                                foreach (int id in ids)
                                 {
-                                    continue;
-                                }
+                                    Debug.WriteLine($"[McNeelForumTopicRelatedWorker] DoWorkAsync starting. TopicId={id}");
 
-                                GH_RuntimeMessageLevel level;
-                                switch (m.Severity)
-                                {
-                                    case AIRuntimeMessageSeverity.Error:
-                                        level = GH_RuntimeMessageLevel.Error;
-                                        break;
-                                    case AIRuntimeMessageSeverity.Warning:
-                                        level = GH_RuntimeMessageLevel.Warning;
-                                        break;
-                                    default:
-                                        level = GH_RuntimeMessageLevel.Remark;
-                                        break;
-                                }
+                                    var parameters = new JObject
+                                    {
+                                        ["topic_id"] = id,
+                                    };
 
-                                this.AddRuntimeMessage(level, m.Message);
+                                    var toolCallInteraction = new AIInteractionToolCall
+                                    {
+                                        Name = "mcneel_forum_topic_related",
+                                        Arguments = parameters,
+                                        Agent = AIAgent.Assistant,
+                                    };
+
+                                    var toolCall = new AIToolCall
+                                    {
+                                        Endpoint = "mcneel_forum_topic_related",
+                                    };
+
+                                    toolCall.FromToolCallInteraction(toolCallInteraction);
+
+                                    AIReturn aiResult;
+                                    try
+                                    {
+                                        aiResult = await toolCall.Exec().ConfigureAwait(false);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Debug.WriteLine($"[McNeelForumTopicRelatedWorker] Error executing tool: {ex}");
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                                        continue;
+                                    }
+
+                                    Debug.WriteLine($"[McNeelForumTopicRelatedWorker] Tool call completed. Success={aiResult?.Success}, Status={aiResult?.Status}, HasBody={aiResult?.Body != null}");
+
+                                    if (aiResult != null)
+                                    {
+                                        var messages = aiResult.Messages;
+                                        Debug.WriteLine($"[McNeelForumTopicRelatedWorker] AIReturn messages count={messages?.Count ?? 0}");
+
+                                        if (messages != null)
+                                        {
+                                            foreach (var m in messages)
+                                            {
+                                                if (m == null)
+                                                {
+                                                    continue;
+                                                }
+
+                                                Debug.WriteLine($"[McNeelForumTopicRelatedWorker] AIReturn message: Severity={m.Severity}, Origin={m.Origin}, Text='{m.Message}'");
+                                            }
+                                        }
+
+                                        if (!aiResult.Success && messages != null)
+                                        {
+                                            foreach (var m in messages)
+                                            {
+                                                if (m == null || string.IsNullOrWhiteSpace(m.Message))
+                                                {
+                                                    continue;
+                                                }
+
+                                                GH_RuntimeMessageLevel level;
+                                                switch (m.Severity)
+                                                {
+                                                    case AIRuntimeMessageSeverity.Error:
+                                                        level = GH_RuntimeMessageLevel.Error;
+                                                        break;
+                                                    case AIRuntimeMessageSeverity.Warning:
+                                                        level = GH_RuntimeMessageLevel.Warning;
+                                                        break;
+                                                    default:
+                                                        level = GH_RuntimeMessageLevel.Remark;
+                                                        break;
+                                                }
+
+                                                this.AddRuntimeMessage(level, m.Message);
+                                            }
+                                        }
+                                    }
+
+                                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                                    var toolResult = toolResultInteraction?.Result;
+
+                                    if (toolResult == null)
+                                    {
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_topic_related' returned no result.");
+                                        continue;
+                                    }
+
+                                    var resultsArray = toolResult["related_topics"] as JArray ?? new JArray();
+                                    Debug.WriteLine($"[McNeelForumTopicRelatedWorker] Parsed related_topics array. Count={resultsArray.Count}");
+
+                                    foreach (var topic in resultsArray)
+                                    {
+                                        outputs["RelatedTopics"].Add(new GH_String(topic?.ToString() ?? string.Empty));
+                                    }
+                                }
                             }
-                        }
-                    }
 
-                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                    var toolResult = toolResultInteraction?.Result;
+                            return outputs;
+                        },
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
 
-                    if (toolResult == null)
+                    this.resultTopics = new GH_Structure<GH_String>();
+                    if (resultTrees.TryGetValue("RelatedTopics", out var topicsTree))
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_topic_related' returned no result.");
-                        return;
-                    }
-
-                    var resultsArray = toolResult["related_topics"] as JArray ?? new JArray();
-                    Debug.WriteLine($"[McNeelForumTopicRelatedWorker] Parsed related_topics array. Count={resultsArray.Count}");
-
-                    this.resultTopics.Clear();
-                    foreach (var topic in resultsArray)
-                    {
-                        this.resultTopics.Add(new GH_String(topic?.ToString() ?? string.Empty));
+                        this.resultTopics = topicsTree;
                     }
                 }
                 catch (Exception ex)
@@ -209,9 +274,10 @@ namespace SmartHopper.Components.Knowledge
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                Debug.WriteLine($"[McNeelForumTopicRelatedWorker] SetOutput - resultTopics.Count={this.resultTopics.Count}");
-                this.parent.SetPersistentOutput("Related Topics", this.resultTopics, DA);
-                message = this.resultTopics.Count == 0 ? "No related topics found" : "Related topics retrieved";
+                var topicsTree = this.resultTopics ?? new GH_Structure<GH_String>();
+                Debug.WriteLine($"[McNeelForumTopicRelatedWorker] SetOutput - resultTopics.DataCount={topicsTree.DataCount}");
+                this.parent.SetPersistentOutput("Related Topics", topicsTree, DA);
+                message = topicsTree.DataCount == 0 ? "No related topics found" : "Related topics retrieved";
             }
         }
     }
