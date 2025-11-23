@@ -38,7 +38,7 @@ SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered co
 
 Install, enable a provider, and set up an API key.
 
-[![Quickstart ▶](./img/video-installation.png)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
+[![Quickstart ▶](./img/video-installation.jpg)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
 
 [View the video on Vimeo](https://vimeo.com/1126454690)
 
