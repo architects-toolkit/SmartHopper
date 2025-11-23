@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-alpha] - 2025-11-23
+
 ### Added
 
 - **VB Script Serialization Support**: Complete implementation of 3-section VB Script serialization/deserialization:
@@ -153,6 +155,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Script Component Parameter Modifiers**: Fixed issue where parameter modifiers (Reverse, Simplify, Locked, Invert) were not being serialized/deserialized for script component parameters. `ScriptParameterMapper.ExtractSettings()` now extracts `AdditionalSettings` just like regular `ParameterMapper`, ensuring modifiers are preserved during round-trip serialization.
 - **Script Component Type Hint Normalization**: Type hints with value "object" (case-insensitive) are no longer serialized or deserialized, as "object" is the default/generic type hint. This reduces JSON size, avoids case sensitivity issues (Object vs object), and eliminates redundant data.
 - **Generic Type Hint Handling**: Improved handling of generic type hints (e.g., `DataTree<Object>`, `List<Curve>`) by detecting `<>` syntax and extracting base types before applying, preventing `TypeHints.Select()` exceptions and reducing log noise.
+- (automatically added) Fixes "script_edit tool freezes the script editor" ([#209](https://github.com/architects-toolkit/SmartHopper/issues/209)).
 
 ## [1.0.1-alpha] - 2025-10-13
 
