@@ -67,16 +67,6 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistral-small",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
-                    SupportsStreaming = true,
-                    Verified = true,
-                    Rank = 90,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "mistral-medium-latest",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
                     SupportsStreaming = true,
