@@ -27,6 +27,7 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Streaming;
 using SmartHopper.Infrastructure.Utils;
@@ -137,6 +138,8 @@ namespace SmartHopper.Providers.Anthropic
                 // Default version if not provided by caller
                 request.Headers["anthropic-version"] = "2023-06-01";
             }
+
+            this.ApplyStructuredOutputsBetaHeader(request);
 
             return request;
         }
@@ -379,6 +382,8 @@ namespace SmartHopper.Providers.Anthropic
 
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
+            bool requiresJsonOutput = !string.IsNullOrWhiteSpace(jsonSchema);
+            bool supportsStructuredOutputs = requiresJsonOutput && SupportsStructuredOutputs(request.Model);
 
             Debug.WriteLine($"[Anthropic] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
@@ -502,7 +507,7 @@ namespace SmartHopper.Providers.Anthropic
             };
 
             // Add JSON schema if provided (centralized wrapping)
-            if (!string.IsNullOrWhiteSpace(jsonSchema))
+            if (requiresJsonOutput)
             {
                 try
                 {
@@ -511,12 +516,18 @@ namespace SmartHopper.Providers.Anthropic
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
                     svc.SetCurrentWrapperInfo(wrapperInfo);
 
-                    // Anthropic supports json_object response format; we also add a system instruction for strictness
-                    requestBody["response_format"] = new JObject { ["type"] = "json_object" };
-
                     // Add schema constraint as a top-level system instruction (merged with other system texts)
                     var schemaInstructionText = "The response must be a valid JSON object that strictly follows this schema: " + wrappedSchema.ToString(Formatting.None);
                     systemTexts.Add(schemaInstructionText);
+
+                    if (supportsStructuredOutputs)
+                    {
+                        requestBody["output_format"] = new JObject
+                        {
+                            ["type"] = "json_schema",
+                            ["schema"] = wrappedSchema,
+                        };
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1031,6 +1042,46 @@ namespace SmartHopper.Providers.Anthropic
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }
+        }
+
+        private void ApplyStructuredOutputsBetaHeader(AIRequestCall request)
+        {
+            if (request?.Body?.RequiresJsonOutput != true)
+            {
+                return;
+            }
+
+            if (!SupportsStructuredOutputs(request.Model))
+            {
+                return;
+            }
+
+            const string betaHeaderName = "anthropic-beta";
+            const string betaValue = "structured-outputs-2025-11-13";
+
+            if (!request.Headers.TryGetValue(betaHeaderName, out var existing) || string.IsNullOrWhiteSpace(existing))
+            {
+                request.Headers[betaHeaderName] = betaValue;
+                return;
+            }
+
+            if (!existing.Contains(betaValue, StringComparison.OrdinalIgnoreCase))
+            {
+                request.Headers[betaHeaderName] = existing.EndsWith(",", StringComparison.Ordinal)
+                    ? existing + betaValue
+                    : string.Concat(existing, ",", betaValue);
+            }
+        }
+
+        private static bool SupportsStructuredOutputs(string model)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                return false;
+            }
+
+            var caps = ModelManager.Instance.GetCapabilities("Anthropic", model);
+            return caps?.HasCapability(AICapability.Text2Json) == true;
         }
     }
 }
