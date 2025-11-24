@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Providers – Anthropic:
+  - Added explicit Claude 3.x/4.x dated model identifiers to the Anthropic provider registry while keeping shorthand model names.
+  - Switched the default Anthropic text/tool/json model to `claude-haiku-4-5`.
+
 ## [1.1.0-alpha] - 2025-11-23
 
 ### Added

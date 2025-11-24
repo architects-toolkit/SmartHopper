@@ -91,10 +91,93 @@ namespace SmartHopper.Providers.Anthropic
                     Provider = providerName,
                     Model = "claude-3-5-haiku-latest",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 90,
+                },
+
+                // New models (2025-11-24)
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-haiku-4-5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 95,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-3-5-haiku-20241022",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 90,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-3-7-sonnet-20250219",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-3-haiku-20240307",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 70,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-haiku-4-5-20251001",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 85,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-1-20250805",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 20,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-20250514",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 20,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-sonnet-4-20250514",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 75,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-sonnet-4-5-20250929",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
                 },
             };
 
