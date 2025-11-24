@@ -45,7 +45,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-opus-4-1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 20,
@@ -54,7 +54,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-opus-4-0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 20,
@@ -63,7 +63,8 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-sonnet-4-5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 80,
@@ -72,7 +73,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-sonnet-4-0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
@@ -81,16 +82,17 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-3-7-sonnet-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 90,
                 },
                 new AIModelCapabilities
                 {
                     Provider = providerName,
                     Model = "claude-3-5-haiku-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 90,
@@ -101,8 +103,8 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-haiku-4-5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 95,
@@ -111,7 +113,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-3-5-haiku-20241022",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 90,
@@ -120,16 +122,17 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-3-7-sonnet-20250219",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 80,
                 },
                 new AIModelCapabilities
                 {
                     Provider = providerName,
                     Model = "claude-3-haiku-20240307",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
@@ -138,7 +141,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-haiku-4-5-20251001",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 85,
@@ -147,7 +150,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-opus-4-1-20250805",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 20,
@@ -156,7 +159,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-opus-4-20250514",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 20,
@@ -165,7 +168,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-sonnet-4-20250514",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
@@ -174,7 +177,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-sonnet-4-5-20250929",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 80,
