@@ -525,11 +525,7 @@ namespace SmartHopper.Providers.Anthropic
                         requestBody["output_format"] = new JObject
                         {
                             ["type"] = "json_schema",
-                            ["json_schema"] = new JObject
-                            {
-                                ["name"] = "response_schema",
-                                ["schema"] = wrappedSchema,
-                            },
+                            ["schema"] = wrappedSchema,
                         };
                     }
                 }
