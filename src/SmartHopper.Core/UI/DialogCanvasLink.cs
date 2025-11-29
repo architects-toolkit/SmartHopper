@@ -362,8 +362,21 @@ namespace SmartHopper.Core.UI
                         var dx = endClient.X - startClient.X;
                         var controlOffset = Math.Min(Math.Abs(dx) * 0.5f, 150f);
 
-                        var control1 = new PointF(startClient.X + controlOffset, startClient.Y);
-                        var control2 = new PointF(endClient.X - controlOffset, endClient.Y);
+                        PointF control1;
+                        PointF control2;
+
+                        if (dx >= 0)
+                        {
+                            // Left-to-right: pull control points inward from each side
+                            control1 = new PointF(startClient.X + controlOffset, startClient.Y);
+                            control2 = new PointF(endClient.X - controlOffset, endClient.Y);
+                        }
+                        else
+                        {
+                            // Right-to-left: invert tangents so the curve still bows between start and end
+                            control1 = new PointF(startClient.X - controlOffset, startClient.Y);
+                            control2 = new PointF(endClient.X + controlOffset, endClient.Y);
+                        }
 
                         path.AddBezier(startClient, control1, control2, endClient);
 
