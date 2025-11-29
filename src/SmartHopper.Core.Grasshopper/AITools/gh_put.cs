@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Serialization.Canvas;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
@@ -87,6 +88,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var existingPositions = new Dictionary<Guid, PointF>();
                 var componentsToReplace = new List<Guid>();
 
+                // Captured document: serialized old components with connections (for merge)
+                GrasshopperDocument capturedDocument = null;
+
                 if (editMode && document?.Components != null)
                 {
                     foreach (var compProps in document.Components)
@@ -156,6 +160,53 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
 
                         Debug.WriteLine($"[gh_put] Final replacement count: {componentsToReplace.Count}");
+
+                        // Capture components with depth=1 connections (on UI thread)
+                        if (componentsToReplace.Count > 0)
+                        {
+                            var captureTcs = new TaskCompletionSource<GrasshopperDocument>();
+                            Rhino.RhinoApp.InvokeOnUiThread(() =>
+                            {
+                                try
+                                {
+                                    // Get all canvas objects and serialize to get connection graph
+                                    var allObjects = CanvasAccess.GetCurrentObjects();
+                                    var serOptions = SerializationOptions.Standard;
+                                    serOptions.IncludeMetadata = false;
+                                    serOptions.IncludeGroups = false;
+
+                                    var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions);
+
+                                    // Build edges for depth expansion
+                                    var idToGuidMap = fullDoc.GetIdToGuidMapping();
+                                    var edges = fullDoc.Connections?
+                                        .Select(c => c.TryResolveGuids(idToGuidMap, out var from, out var to)
+                                            ? (from, to, valid: true)
+                                            : (Guid.Empty, Guid.Empty, valid: false))
+                                        .Where(e => e.valid)
+                                        .Select(e => (e.from, e.to))
+                                        ?? Enumerable.Empty<(Guid, Guid)>();
+
+                                    // Expand to depth=1 (include directly connected components)
+                                    var expandedGuids = ConnectionGraphUtils.ExpandByDepth(edges, componentsToReplace, depth: 1);
+
+                                    // Serialize only the expanded components
+                                    var expandedObjects = allObjects
+                                        .Where(o => expandedGuids.Contains(o.InstanceGuid))
+                                        .ToList();
+
+                                    capturedDocument = GhJsonSerializer.Serialize(expandedObjects, serOptions);
+                                    Debug.WriteLine($"[gh_put] Captured {capturedDocument.Components?.Count ?? 0} components, {capturedDocument.Connections?.Count ?? 0} connections");
+                                    captureTcs.SetResult(capturedDocument);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"[gh_put] Error capturing connections: {ex.Message}");
+                                    captureTcs.SetResult(null);
+                                }
+                            });
+                            capturedDocument = await captureTcs.Task.ConfigureAwait(false);
+                        }
                     }
                 }
 
@@ -164,6 +215,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var msg = analysisMsg ?? "JSON must contain a non-empty components array";
                     output.CreateError(msg);
                     return output;
+                }
+
+                // Merge captured document into the incoming document (before deserialization)
+                HashSet<Guid> externalComponentGuids = null;
+                if (capturedDocument != null)
+                {
+                    var mergeResult = GhJsonMerger.Merge(document, capturedDocument);
+                    externalComponentGuids = mergeResult.ExternalComponentGuids;
+                    Debug.WriteLine($"[gh_put] Merged: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections ({mergeResult.ConnectionsDuplicated} dupes)");
                 }
 
                 // Deserialize components on UI thread (required for parameter and attribute ops)
@@ -204,24 +264,33 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var placeTcs = new TaskCompletionSource<bool>();
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
+                    GH_Document ghDoc = null;
+                    bool wasEnabled = true;
+
                     try
                     {
-                        // Remove existing components that will be replaced
-                        if (componentsToReplace.Count > 0)
-                        {
-                            var ghDoc = Instances.ActiveCanvas?.Document;
-                            if (ghDoc != null)
-                            {
-                                // Record undo event for component replacement
-                                ghDoc.UndoUtil.RecordRemoveObjectEvent($"[SH] Replace {componentsToReplace.Count} component(s)", existingComponents.Values);
+                        ghDoc = Instances.ActiveCanvas?.Document;
 
-                                foreach (var guid in componentsToReplace)
+                        // Disable document to prevent solution recalculation during replacement
+                        if (ghDoc != null && componentsToReplace.Count > 0)
+                        {
+                            wasEnabled = ghDoc.Enabled;
+                            ghDoc.Enabled = false;
+                            Debug.WriteLine("[gh_put] Disabled document to prevent solution during replacement");
+                        }
+
+                        // Remove existing components that will be replaced
+                        if (componentsToReplace.Count > 0 && ghDoc != null)
+                        {
+                            // Record undo event for component replacement
+                            ghDoc.UndoUtil.RecordRemoveObjectEvent($"[SH] Replace {componentsToReplace.Count} component(s)", existingComponents.Values);
+
+                            foreach (var guid in componentsToReplace)
+                            {
+                                if (existingComponents.TryGetValue(guid, out var existing))
                                 {
-                                    if (existingComponents.TryGetValue(guid, out var existing))
-                                    {
-                                        ghDoc.RemoveObject(existing, false);
-                                        Debug.WriteLine($"[gh_put] Removed existing component '{existing.Name}' with GUID {guid}");
-                                    }
+                                    ghDoc.RemoveObject(existing, false);
+                                    Debug.WriteLine($"[gh_put] Removed existing component '{existing.Name}' with GUID {guid}");
                                 }
                             }
                         }
@@ -230,8 +299,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         bool useExactPositions = componentsToReplace.Count > 0 && existingPositions.Count > 0;
                         placed = ComponentPlacer.PlaceComponents(result, useExactPositions: useExactPositions);
 
-                        Debug.WriteLine("[gh_put] Creating connections");
-                        ConnectionManager.CreateConnections(result);
+                        // Create all connections (including merged external connections)
+                        Debug.WriteLine("[gh_put] Creating connections from merged GhJSON");
+                        ConnectionManager.CreateConnections(result, externalComponentGuids);
 
                         Debug.WriteLine("[gh_put] Recreating groups");
                         GroupManager.CreateGroups(result);
@@ -241,6 +311,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     catch (Exception ex)
                     {
                         placeTcs.SetException(ex);
+                    }
+                    finally
+                    {
+                        // Re-enable document and schedule solution only if it was enabled before
+                        if (ghDoc != null && wasEnabled && componentsToReplace.Count > 0)
+                        {
+                            ghDoc.Enabled = true;
+                            ghDoc.NewSolution(false);
+                            Debug.WriteLine("[gh_put] Re-enabled document and scheduled new solution");
+                        }
                     }
                 });
                 await placeTcs.Task.ConfigureAwait(false);
