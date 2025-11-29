@@ -248,7 +248,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""description"": ""A brief summary (1-3 sentences) of what the component does and key design decisions made""
                     }
                 },
-                ""required"": [""language"", ""script"", ""inputs"", ""outputs"", ""summary""],
+                ""required"": [""language"", ""script"", ""inputs"", ""outputs"", ""nickname"", ""summary""],
                 ""additionalProperties"": false
             }";
         }
