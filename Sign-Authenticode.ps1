@@ -158,14 +158,13 @@ if ($Generate) {
         exit 1
     }
 
-    # Determine items to sign: explicit DLL or provider assemblies directory
+    # Determine items to sign: explicit DLL or all SmartHopper assemblies in directory
     if ((Test-Path $Sign -PathType Leaf) -and ([IO.Path]::GetExtension($Sign) -ieq ".dll")) {
         Write-Host "Signing explicit DLL: $Sign"
         $items = @(Get-Item $Sign)
     } elseif (Test-Path $Sign -PathType Container) {
-        Write-Host "Signing assemblies under directory: $Sign"
-        $items = Get-ChildItem -Path $Sign -Recurse -Filter "*.dll" |
-            Where-Object { $_.Name -like "SmartHopper.Providers.*.dll" -or $_.Name -eq "SmartHopper.Infrastructure.dll" }
+        Write-Host "Signing all SmartHopper assemblies under directory: $Sign"
+        $items = Get-ChildItem -Path $Sign -Recurse -Filter "SmartHopper*.dll"
     } else {
         Write-Error "Path '$Sign' is not a .dll file or directory"
         exit 1
