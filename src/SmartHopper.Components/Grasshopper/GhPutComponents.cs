@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,7 +35,7 @@ namespace SmartHopper.Components.Grasshopper
         /// Initializes a new instance of the <see cref="GhPutComponents"/> class.
         /// </summary>
         public GhPutComponents()
-            : base("Place Components", "GhPut", "Convert GhJSON to a Grasshopper components in this file.\n\nNew components will be added at the bottom of the canvas.", "SmartHopper", "Grasshopper")
+            : base("Place GhJSON", "GhPut", "Convert GhJSON to a Grasshopper components on the canvas.\n\nNew components will be added at the bottom of the canvas.", "SmartHopper", "Grasshopper")
         {
             // Always run when Run is true, even if inputs haven't changed
             // This allows re-placing the same JSON multiple times if needed
@@ -139,25 +140,47 @@ namespace SmartHopper.Components.Grasshopper
                         Endpoint = "gh_put",
                     };
                     toolCall.FromToolCallInteraction(toolCallInteraction);
+                    toolCall.SkipMetricsValidation = true;
 
                     var aiResult = await toolCall.Exec().ConfigureAwait(false);
 
                     token.ThrowIfCancellationRequested();
 
+                    // If the tool call itself failed, surface detailed error information
+                    if (!aiResult.Success)
+                    {
+                        var parts = new List<string>();
+
+                        if (aiResult.Messages != null)
+                        {
+                            foreach (var msg in aiResult.Messages)
+                            {
+                                if (!string.IsNullOrWhiteSpace(msg?.Message))
+                                {
+                                    parts.Add($"{msg.Severity}: {msg.Message}");
+                                }
+                            }
+                        }
+
+                        var errorInteraction = aiResult.Body?.GetLastInteraction(AIAgent.Error) as AIInteractionError;
+                        var errorPayload = errorInteraction?.Content;
+                        if (!string.IsNullOrWhiteSpace(errorPayload))
+                        {
+                            parts.Add(errorPayload);
+                        }
+
+                        var combined = parts.Count > 0 ? string.Join(" \n", parts) : "gh_put execution failed";
+                        Debug.WriteLine($"[GhPutComponents] gh_put Exec failed: {combined}");
+                        this.error = combined;
+                        return;
+                    }
+
+                    // Success path: read tool result payload from gh_put
                     var toolResultInteraction = aiResult.Body?.GetLastInteraction() as AIInteractionToolResult;
                     var toolResult = toolResultInteraction?.Result;
 
-                    var success = toolResult?["success"]?.ToObject<bool>() ?? false;
                     this.analysis = toolResult?["analysis"]?.ToString();
-
-                    if (success)
-                    {
-                        this.componentNames = toolResult["components"]?.ToObject<List<string>>() ?? new List<string>();
-                    }
-                    else
-                    {
-                        this.error = !string.IsNullOrWhiteSpace(this.analysis) ? this.analysis : "gh_put execution failed";
-                    }
+                    this.componentNames = toolResult?["components"]?.ToObject<List<string>>() ?? new List<string>();
                 }
                 catch (OperationCanceledException)
                 {
@@ -195,13 +218,16 @@ namespace SmartHopper.Components.Grasshopper
                         }
                         else if (trimmed.StartsWith("- "))
                         {
-                            this.AddRuntimeMessage(currentLevel, trimmed.Substring(2));
+                            var msgText = trimmed.Substring(2);
+                            Debug.WriteLine($"[GhPutComponents] RuntimeMessage from analysis: Level={currentLevel}, Message={msgText}");
+                            this.AddRuntimeMessage(currentLevel, msgText);
                         }
                     }
                 }
 
                 if (!string.IsNullOrEmpty(this.error))
                 {
+                    Debug.WriteLine($"[GhPutComponents] RuntimeMessage error: Level={GH_RuntimeMessageLevel.Error}, Message={this.error}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, this.error);
                     return;
                 }

@@ -80,6 +80,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// </summary>
         public virtual int TimeoutSeconds { get; set; } = 120;
 
+        /// <summary>
+        /// When true, skips AIMetrics.IsValid() checks for this request's results.
+        /// Use this for local-only tool calls that do not rely on provider/model/finish_reason
+        /// (for example, Grasshopper canvas utilities like gh_put or gh_get).
+        /// </summary>
+        public bool SkipMetricsValidation { get; set; }
+
         /// <inheritdoc/>
         public List<AIRuntimeMessage> Messages
         {

@@ -70,6 +70,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
+                // Local tool: skip metrics validation (provider/model/finish_reason not required)
+                toolCall.SkipMetricsValidation = true;
+
                 Debug.WriteLine("[McNeelForumTools] Running Search tool");
 
                 // Extract parameters

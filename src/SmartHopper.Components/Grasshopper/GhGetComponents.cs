@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Grasshopper
         private string lastJsonOutput = "";
 
         public GhGetComponents()
-            : base("Get Components", "GhGet",
+            : base("Get GhJSON", "GhGet",
                   "Convert Grasshopper components to GhJSON format, with optional filters",
                   "SmartHopper", "Grasshopper")
         {
@@ -128,6 +128,7 @@ namespace SmartHopper.Components.Grasshopper
                 var toolCall = new AIToolCall();
                 toolCall.Endpoint = "gh_get";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
+                toolCall.SkipMetricsValidation = true;
 
                 var aiResult = toolCall.Exec().GetAwaiter().GetResult();
                 var toolResultInteraction = aiResult.Body.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
