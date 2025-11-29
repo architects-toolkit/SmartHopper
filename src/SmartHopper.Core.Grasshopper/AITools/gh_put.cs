@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Serialization.Canvas;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
@@ -88,8 +87,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var existingPositions = new Dictionary<Guid, PointF>();
                 var componentsToReplace = new List<Guid>();
 
-                // Captured document: serialized old components with connections (for merge)
-                GrasshopperDocument capturedDocument = null;
+                // Captured external connections: source/target component + parameter names
+                var capturedConnections = new List<(Guid sourceGuid, string sourceParam, Guid targetGuid, string targetParam)>();
 
                 if (editMode && document?.Components != null)
                 {
@@ -161,51 +160,53 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                         Debug.WriteLine($"[gh_put] Final replacement count: {componentsToReplace.Count}");
 
-                        // Capture components with depth=1 connections (on UI thread)
+                        // Capture external connections for replaced components (on UI thread, before removal)
                         if (componentsToReplace.Count > 0)
                         {
-                            var captureTcs = new TaskCompletionSource<GrasshopperDocument>();
+                            var captureTcs = new TaskCompletionSource<bool>();
                             Rhino.RhinoApp.InvokeOnUiThread(() =>
                             {
                                 try
                                 {
-                                    // Get all canvas objects and serialize to get connection graph
                                     var allObjects = CanvasAccess.GetCurrentObjects();
                                     var serOptions = SerializationOptions.Standard;
                                     serOptions.IncludeMetadata = false;
                                     serOptions.IncludeGroups = false;
 
                                     var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions);
-
-                                    // Build edges for depth expansion
                                     var idToGuidMap = fullDoc.GetIdToGuidMapping();
-                                    var edges = fullDoc.Connections?
-                                        .Select(c => c.TryResolveGuids(idToGuidMap, out var from, out var to)
-                                            ? (from, to, valid: true)
-                                            : (Guid.Empty, Guid.Empty, valid: false))
-                                        .Where(e => e.valid)
-                                        .Select(e => (e.from, e.to))
-                                        ?? Enumerable.Empty<(Guid, Guid)>();
+                                    var replaceSet = new HashSet<Guid>(componentsToReplace);
 
-                                    // Expand to depth=1 (include directly connected components)
-                                    var expandedGuids = ConnectionGraphUtils.ExpandByDepth(edges, componentsToReplace, depth: 1);
+                                    if (fullDoc.Connections != null)
+                                    {
+                                        foreach (var conn in fullDoc.Connections)
+                                        {
+                                            if (conn.TryResolveGuids(idToGuidMap, out var fromGuid, out var toGuid))
+                                            {
+                                                // Keep connections where one end is being replaced
+                                                if (replaceSet.Contains(fromGuid) || replaceSet.Contains(toGuid))
+                                                {
+                                                    capturedConnections.Add((
+                                                        sourceGuid: fromGuid,
+                                                        sourceParam: conn.From.ParamName,
+                                                        targetGuid: toGuid,
+                                                        targetParam: conn.To.ParamName));
+                                                }
+                                            }
+                                        }
+                                    }
 
-                                    // Serialize only the expanded components
-                                    var expandedObjects = allObjects
-                                        .Where(o => expandedGuids.Contains(o.InstanceGuid))
-                                        .ToList();
-
-                                    capturedDocument = GhJsonSerializer.Serialize(expandedObjects, serOptions);
-                                    Debug.WriteLine($"[gh_put] Captured {capturedDocument.Components?.Count ?? 0} components, {capturedDocument.Connections?.Count ?? 0} connections");
-                                    captureTcs.SetResult(capturedDocument);
+                                    Debug.WriteLine($"[gh_put] Captured {capturedConnections.Count} external connections");
+                                    captureTcs.SetResult(true);
                                 }
                                 catch (Exception ex)
                                 {
                                     Debug.WriteLine($"[gh_put] Error capturing connections: {ex.Message}");
-                                    captureTcs.SetResult(null);
+                                    captureTcs.SetResult(false);
                                 }
                             });
-                            capturedDocument = await captureTcs.Task.ConfigureAwait(false);
+
+                            await captureTcs.Task.ConfigureAwait(false);
                         }
                     }
                 }
@@ -215,15 +216,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var msg = analysisMsg ?? "JSON must contain a non-empty components array";
                     output.CreateError(msg);
                     return output;
-                }
-
-                // Merge captured document into the incoming document (before deserialization)
-                HashSet<Guid> externalComponentGuids = null;
-                if (capturedDocument != null)
-                {
-                    var mergeResult = GhJsonMerger.Merge(document, capturedDocument);
-                    externalComponentGuids = mergeResult.ExternalComponentGuids;
-                    Debug.WriteLine($"[gh_put] Merged: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections ({mergeResult.ConnectionsDuplicated} dupes)");
                 }
 
                 // Deserialize components on UI thread (required for parameter and attribute ops)
@@ -299,9 +291,40 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         bool useExactPositions = componentsToReplace.Count > 0 && existingPositions.Count > 0;
                         placed = ComponentPlacer.PlaceComponents(result, useExactPositions: useExactPositions);
 
-                        // Create all connections (including merged external connections)
-                        Debug.WriteLine("[gh_put] Creating connections from merged GhJSON");
-                        ConnectionManager.CreateConnections(result, externalComponentGuids);
+                        // Create connections from GhJSON
+                        Debug.WriteLine("[gh_put] Creating connections from GhJSON");
+                        ConnectionManager.CreateConnections(result);
+
+                        // Restore captured external connections
+                        if (capturedConnections.Count > 0)
+                        {
+                            Debug.WriteLine("[gh_put] Restoring captured external connections");
+                            int restored = 0;
+
+                            foreach (var conn in capturedConnections)
+                            {
+                                try
+                                {
+                                    var success = ConnectionBuilder.ConnectComponents(
+                                        sourceGuid: conn.sourceGuid,
+                                        targetGuid: conn.targetGuid,
+                                        sourceParamName: conn.sourceParam,
+                                        targetParamName: conn.targetParam,
+                                        redraw: false);
+
+                                    if (success)
+                                    {
+                                        restored++;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"[gh_put] Error restoring connection {conn.sourceGuid}.{conn.sourceParam} → {conn.targetGuid}.{conn.targetParam}: {ex.Message}");
+                                }
+                            }
+
+                            Debug.WriteLine($"[gh_put] Restored {restored}/{capturedConnections.Count} external connections");
+                        }
 
                         Debug.WriteLine("[gh_put] Recreating groups");
                         GroupManager.CreateGroups(result);

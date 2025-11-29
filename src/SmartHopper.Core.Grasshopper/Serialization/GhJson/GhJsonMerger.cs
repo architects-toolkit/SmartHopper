@@ -184,23 +184,22 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             {
                 foreach (var sourceGroup in source.Groups)
                 {
-                    // Remap component IDs in group
-                    var remappedComponentIds = sourceGroup.ComponentIds?
+                    // Remap component IDs in group (Members = component IDs in compact form)
+                    var remappedMemberIds = sourceGroup.Members?
                         .Select(id => RemapId(id, result.IdRemapping))
-                        .ToList();
+                        .ToList() ?? new List<int>();
 
                     var mergedGroup = new GroupInfo
                     {
+                        InstanceGuid = sourceGroup.InstanceGuid,
                         Name = sourceGroup.Name,
-                        NickName = sourceGroup.NickName,
-                        Description = sourceGroup.Description,
-                        Colour = sourceGroup.Colour,
-                        ComponentIds = remappedComponentIds
+                        Color = sourceGroup.Color,
+                        Members = remappedMemberIds,
                     };
 
                     target.Groups.Add(mergedGroup);
                     result.GroupsAdded++;
-                    Debug.WriteLine($"[GhJsonMerger] Added group: {mergedGroup.NickName ?? mergedGroup.Name}");
+                    Debug.WriteLine($"[GhJsonMerger] Added group: {mergedGroup.Name}");
                 }
             }
 
