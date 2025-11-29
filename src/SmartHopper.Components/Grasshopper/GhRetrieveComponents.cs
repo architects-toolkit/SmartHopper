@@ -113,7 +113,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 var names = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
                 var guids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var json = toolResult["json"]?.ToString() ?? string.Empty;
+                var json = toolResult["ghjson"]?.ToString() ?? string.Empty;
 
                 this.lastNames = names;
                 this.lastGuids = guids;

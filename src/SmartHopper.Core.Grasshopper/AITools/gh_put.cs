@@ -49,9 +49,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""json"": { ""type"": ""string"", ""description"": ""GhJSON document string"" }
+                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string"" }
                     },
-                    ""required"": [""json""]
+                    ""required"": [""ghjson""]
                 }",
                 execute: this.GhPutToolAsync);
         }
@@ -70,7 +70,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
-                var json = args["json"]?.ToString() ?? string.Empty;
+                var json = args["ghjson"]?.ToString() ?? string.Empty;
 
                 GhJsonValidator.Validate(json, out analysisMsg);
                 var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);

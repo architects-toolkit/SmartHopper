@@ -212,7 +212,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["count"] = list.Count,
                     ["names"] = JArray.FromObject(names),
                     ["guids"] = JArray.FromObject(guids),
-                    ["json"] = json,
+                    ["ghjson"] = json,
                 };
 
                 // Attach non-breaking result envelope
@@ -220,7 +220,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ToolResultEnvelope.Create(
                         tool: this.toolName,
                         type: ToolResultContentType.Object,
-                        payloadPath: "json"));
+                        payloadPath: "ghjson"));
 
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)

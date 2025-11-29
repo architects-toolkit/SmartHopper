@@ -140,7 +140,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 var componentNames = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
                 var componentGuids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var json = toolResult["json"]?.ToString() ?? string.Empty;
+                var json = toolResult["ghjson"]?.ToString() ?? string.Empty;
                 this.lastComponentNames = componentNames;
                 this.lastComponentGuids = componentGuids;
                 this.lastJsonOutput = json;
