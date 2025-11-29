@@ -9,8 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Security:
-  - Enhanced `AIToolManager.ExecuteTool` with caller assembly signature verification. Only assemblies signed with the same Authenticode certificate and strong-name public key token as the host assembly can execute AI tools.
 - Dialog canvas link visualization:
   - Added `DialogCanvasLink` utility class that draws a visual connection line from a dialog to a linked Grasshopper component, similar to the script editor anchor.
   - `StyledMessageDialog` methods (`ShowInfo`, `ShowWarning`, `ShowError`, `ShowConfirmation`) now accept optional `linkedInstanceGuid` and `linkLineColor` parameters to enable canvas linking.
