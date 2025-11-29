@@ -16,10 +16,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Script
@@ -27,6 +29,7 @@ namespace SmartHopper.Components.Script
     /// <summary>
     /// Grasshopper component that reviews script components using AI.
     /// Performs static code analysis and AI-based review using the script_review tool.
+    /// Supports reviewing multiple selected components, with questions matched first-first, second-second, etc.
     /// </summary>
     public class AIScriptReviewComponent : AISelectingStatefulAsyncComponentBase
     {
@@ -49,7 +52,7 @@ namespace SmartHopper.Components.Script
             : base(
                   "AI Script Review",
                   "AIScriptReview",
-                  "Review an existing Grasshopper script component and get coded checks plus an AI review.",
+                  "Review existing Grasshopper script components and get coded checks plus an AI review.\nSupports multiple selected components. Questions are matched to selected components in order.",
                   "SmartHopper",
                   "Script")
         {
@@ -59,15 +62,16 @@ namespace SmartHopper.Components.Script
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Question", "Q", "Optional question or focus for the review.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Question", "Q", "Optional question or focus for the review. Multiple questions are matched to selected components in order.", GH_ParamAccess.list);
+            pManager[0].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Success", "S", "True if the review succeeded.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Coded Issues", "C", "List of coded static issues detected in the script.", GH_ParamAccess.list);
-            pManager.AddTextParameter("AI Review", "R", "Full AI review text.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Success", "S", "True if the review succeeded. One branch per component.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Coded Issues", "C", "List of coded static issues detected in the script. One branch per component.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("AI Review", "R", "Full AI review text. One branch per component.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -82,12 +86,13 @@ namespace SmartHopper.Components.Script
         private sealed class AIScriptReviewWorker : AsyncWorkerBase
         {
             private readonly AIScriptReviewComponent parent;
-            private string guid;
-            private string question;
+            private List<GH_String> normalizedGuids;
+            private List<GH_String> normalizedQuestions;
             private bool hasWork;
-            private bool success;
-            private readonly List<GH_String> codedIssues = new List<GH_String>();
-            private GH_String aiReview;
+            private int iterationCount;
+            private readonly GH_Structure<GH_Boolean> resultSuccess = new GH_Structure<GH_Boolean>();
+            private readonly GH_Structure<GH_String> resultCodedIssues = new GH_Structure<GH_String>();
+            private readonly GH_Structure<GH_String> resultAiReview = new GH_Structure<GH_String>();
 
             public AIScriptReviewWorker(
                 AIScriptReviewComponent parent,
@@ -100,22 +105,39 @@ namespace SmartHopper.Components.Script
             /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                string localQuestion = string.Empty;
-                DA.GetData("Question", ref localQuestion);
+                var questions = new List<string>();
+                DA.GetDataList("Question", questions);
 
-                // Get GUID from selection (via selecting button)
-                var first = this.parent.SelectedObjects.FirstOrDefault();
-                this.guid = first != null ? first.InstanceGuid.ToString() : string.Empty;
+                // Get GUIDs from selection (via selecting button)
+                var guids = this.parent.SelectedObjects
+                    .Select(obj => obj.InstanceGuid.ToString())
+                    .ToList();
 
-                this.question = localQuestion;
-
-                this.hasWork = !string.IsNullOrWhiteSpace(this.guid);
+                this.hasWork = guids.Count > 0;
                 if (!this.hasWork)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No component selected. Use the selecting button to select a script component.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No component selected. Use the selecting button to select script component(s).");
+                    dataCount = 0;
+                    return;
                 }
 
-                dataCount = this.hasWork ? 1 : 0;
+                // Convert to GH_String for normalization
+                // If no questions provided, use empty string as default
+                var questionsAsGhString = questions.Count > 0
+                    ? questions.Select(q => new GH_String(q ?? string.Empty)).ToList()
+                    : new List<GH_String> { new GH_String(string.Empty) };
+                var guidsAsGhString = guids.Select(g => new GH_String(g)).ToList();
+
+                // Normalize lengths to match questions to components
+                // Uses DataTreeProcessor.NormalizeBranchLengths for first-first, second-second matching
+                var normalized = DataTreeProcessor.NormalizeBranchLengths(
+                    new List<List<GH_String>> { questionsAsGhString, guidsAsGhString });
+
+                this.normalizedQuestions = normalized[0];
+                this.normalizedGuids = normalized[1];
+                this.iterationCount = this.normalizedGuids.Count;
+
+                dataCount = this.iterationCount;
             }
 
             /// <inheritdoc/>
@@ -128,102 +150,104 @@ namespace SmartHopper.Components.Script
 
                 try
                 {
-                    Debug.WriteLine($"[AIScriptReviewWorker] Reviewing component: {this.guid}");
-
-                    var parameters = new JObject
+                    for (int i = 0; i < this.iterationCount; i++)
                     {
-                        ["guid"] = this.guid,
-                        ["contextFilter"] = "-*",
-                    };
-
-                    if (!string.IsNullOrWhiteSpace(this.question))
-                    {
-                        parameters["question"] = this.question;
-                    }
-
-                    var toolResult = await this.parent.CallAiToolAsync("script_review", parameters).ConfigureAwait(false);
-
-                    if (toolResult == null)
-                    {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'script_review' returned no result.");
-                        this.success = false;
-                        return;
-                    }
-
-                    // Check for errors in result
-                    var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
-                    if (hasErrors)
-                    {
-                        foreach (var msg in (JArray)toolResult["messages"])
+                        if (token.IsCancellationRequested)
                         {
-                            if (msg["severity"]?.ToString() == "Error")
-                            {
-                                var text = msg["message"]?.ToString();
-                                if (!string.IsNullOrWhiteSpace(text))
-                                {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
-                                }
-                            }
+                            break;
                         }
 
-                        this.success = false;
-                        return;
-                    }
+                        var path = new GH_Path(i);
+                        var guid = this.normalizedGuids[i]?.Value ?? string.Empty;
+                        var question = this.normalizedQuestions[i]?.Value ?? string.Empty;
 
-                    this.success = toolResult["success"]?.ToObject<bool>() ?? true;
+                        Debug.WriteLine($"[AIScriptReviewWorker] Reviewing component {i + 1}/{this.iterationCount}: {guid}");
 
-                    // Extract coded issues
-                    if (toolResult["codedIssues"] is JArray issuesArray)
-                    {
-                        foreach (var issue in issuesArray)
+                        var parameters = new JObject
                         {
-                            var text = issue?.ToString();
-                            if (!string.IsNullOrWhiteSpace(text))
-                            {
-                                this.codedIssues.Add(new GH_String(text));
-                            }
+                            ["guid"] = guid,
+                            ["contextFilter"] = "-*",
+                        };
+
+                        if (!string.IsNullOrWhiteSpace(question))
+                        {
+                            parameters["question"] = question;
                         }
+
+                        var toolResult = await this.parent.CallAiToolAsync("script_review", parameters).ConfigureAwait(false);
+                        this.StoreResult(path, toolResult);
                     }
-
-                    // Extract AI review
-                    string review = toolResult["aiReview"]?.ToString() ?? string.Empty;
-                    this.aiReview = new GH_String(review);
-
-                    Debug.WriteLine($"[AIScriptReviewWorker] Review completed: {this.codedIssues.Count} coded issues, review length: {review.Length}");
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIScriptReviewWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
-                    this.success = false;
                 }
+            }
+
+            /// <summary>
+            /// Stores the result from a tool call into the output trees.
+            /// </summary>
+            private void StoreResult(GH_Path path, JObject toolResult)
+            {
+                if (toolResult == null)
+                {
+                    this.resultSuccess.Append(new GH_Boolean(false), path);
+                    this.resultAiReview.Append(new GH_String("Tool 'script_review' returned no result."), path);
+                    return;
+                }
+
+                // Check for errors in result
+                var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
+                if (hasErrors)
+                {
+                    foreach (var msg in (JArray)toolResult["messages"])
+                    {
+                        if (msg["severity"]?.ToString() == "Error")
+                        {
+                            var text = msg["message"]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(text))
+                            {
+                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
+                            }
+                        }
+                    }
+
+                    this.resultSuccess.Append(new GH_Boolean(false), path);
+                    return;
+                }
+
+                var success = toolResult["success"]?.ToObject<bool>() ?? true;
+                this.resultSuccess.Append(new GH_Boolean(success), path);
+
+                // Extract coded issues
+                if (toolResult["codedIssues"] is JArray issuesArray)
+                {
+                    foreach (var issue in issuesArray)
+                    {
+                        var text = issue?.ToString();
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            this.resultCodedIssues.Append(new GH_String(text), path);
+                        }
+                    }
+                }
+
+                // Extract AI review
+                string review = toolResult["aiReview"]?.ToString() ?? string.Empty;
+                this.resultAiReview.Append(new GH_String(review), path);
+
+                Debug.WriteLine($"[AIScriptReviewWorker] Review completed for branch {path}");
             }
 
             /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                // Index-based access to match registered output parameters:
-                // 0: Success (bool), 1: Coded Issues (list), 2: AI Review (text).
-                DA.SetData(0, this.success);
+                this.parent.SetPersistentOutput("Success", this.resultSuccess, DA);
+                this.parent.SetPersistentOutput("Coded Issues", this.resultCodedIssues, DA);
+                this.parent.SetPersistentOutput("AI Review", this.resultAiReview, DA);
 
-                if (this.codedIssues.Count > 0)
-                {
-                    DA.SetDataList(1, this.codedIssues);
-                }
-                else
-                {
-                    DA.SetDataList(1, new List<string>());
-                }
-
-                if (this.aiReview != null)
-                {
-                    this.parent.SetPersistentOutput("AI Review", this.aiReview, DA);
-                    message = this.success ? "Review completed" : "Review failed";
-                }
-                else
-                {
-                    message = "No review available";
-                }
+                message = $"Reviewed {this.iterationCount} component(s)";
             }
         }
     }
