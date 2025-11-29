@@ -11,11 +11,15 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using Grasshopper;
+using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Serialization.Canvas;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -24,6 +28,7 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -49,7 +54,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string"" }
+                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string"" },
+                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, components with matching instanceGuid on canvas will be replaced. User will be prompted for confirmation."" }
                     },
                     ""required"": [""ghjson""]
                 }",
@@ -71,9 +77,69 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 var json = args["ghjson"]?.ToString() ?? string.Empty;
+                var editMode = args["editMode"]?.ToObject<bool>() ?? false;
 
                 GhJsonValidator.Validate(json, out analysisMsg);
                 var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
+
+                // In edit mode, check for existing components that match instanceGuids
+                var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();
+                var existingPositions = new Dictionary<Guid, PointF>();
+                var componentsToReplace = new List<Guid>();
+
+                if (editMode && document?.Components != null)
+                {
+                    foreach (var compProps in document.Components)
+                    {
+                        if (compProps.InstanceGuid != Guid.Empty)
+                        {
+                            var existing = CanvasAccess.FindInstance(compProps.InstanceGuid);
+                            if (existing != null)
+                            {
+                                existingComponents[compProps.InstanceGuid] = existing;
+                                existingPositions[compProps.InstanceGuid] = existing.Attributes.Pivot;
+                                componentsToReplace.Add(compProps.InstanceGuid);
+                            }
+                        }
+                    }
+
+                    // Prompt user for confirmation if there are components to replace
+                    if (componentsToReplace.Count > 0)
+                    {
+                        var confirmTcs = new TaskCompletionSource<bool>();
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            try
+                            {
+                                var message = $"Found {componentsToReplace.Count} component(s) with matching instanceGuid on canvas.\n\n" +
+                                              "Do you want to replace them with the new definitions?\n\n" +
+                                              "Click 'Yes' to replace existing components.\n" +
+                                              "Click 'No' to create new components instead.";
+                                var result = StyledMessageDialog.ShowConfirmation(message, "Replace Components?");
+                                confirmTcs.SetResult(result);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[gh_put] Error showing confirmation dialog: {ex.Message}");
+                                confirmTcs.SetResult(false);
+                            }
+                        });
+
+                        var shouldReplace = await confirmTcs.Task.ConfigureAwait(false);
+
+                        if (!shouldReplace)
+                        {
+                            // User chose not to replace - clear the replace list
+                            componentsToReplace.Clear();
+                            existingComponents.Clear();
+                            Debug.WriteLine("[gh_put] User chose to create new components instead of replacing");
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[gh_put] User confirmed replacement of {componentsToReplace.Count} components");
+                        }
+                    }
+                }
 
                 if (document?.Components == null || !document.Components.Any())
                 {
@@ -106,6 +172,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
+                // For replacement mode: restore original InstanceGuids before adding to canvas
+                // This must happen BEFORE components are added to the document
+                if (componentsToReplace.Count > 0)
+                {
+                    var guidRestored = GhJsonHelpers.RestoreInstanceGuids(result, componentsToReplace);
+                    Debug.WriteLine($"[gh_put] Restored InstanceGuids for {guidRestored} replacement component(s)");
+                }
+
                 // Place components + create connections + groups on UI thread
                 Debug.WriteLine("[gh_put] Placing components on canvas and creating connections/groups");
                 object placed = null;
@@ -114,7 +188,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
-                        placed = ComponentPlacer.PlaceComponents(result);
+                        // Remove existing components that will be replaced
+                        if (componentsToReplace.Count > 0)
+                        {
+                            var ghDoc = Instances.ActiveCanvas?.Document;
+                            if (ghDoc != null)
+                            {
+                                // Record undo event for component replacement
+                                ghDoc.UndoUtil.RecordRemoveObjectEvent($"[SH] Replace {componentsToReplace.Count} component(s)", existingComponents.Values);
+
+                                foreach (var guid in componentsToReplace)
+                                {
+                                    if (existingComponents.TryGetValue(guid, out var existing))
+                                    {
+                                        ghDoc.RemoveObject(existing, false);
+                                        Debug.WriteLine($"[gh_put] Removed existing component '{existing.Name}' with GUID {guid}");
+                                    }
+                                }
+                            }
+                        }
+
+                        // Use exact positions for replacement mode (skip offset calculation)
+                        bool useExactPositions = componentsToReplace.Count > 0 && existingPositions.Count > 0;
+                        placed = ComponentPlacer.PlaceComponents(result, useExactPositions: useExactPositions);
+
                         Debug.WriteLine("[gh_put] Creating connections");
                         ConnectionManager.CreateConnections(result);
 

@@ -55,6 +55,7 @@ namespace SmartHopper.Components.Grasshopper
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("JSON", "J", "JSON", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Edit Mode", "E", "When true, existing components will be replaced instead of creating new ones. User will be prompted for confirmation.", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item, false);
         }
 
@@ -76,7 +77,7 @@ namespace SmartHopper.Components.Grasshopper
         {
             // 1. Read "Run?" switch
             bool run = false;
-            if (!DA.GetData(1, ref run)) return;
+            if (!DA.GetData(2, ref run)) return;
             if (!run)
             {
                 if (this.lastComponentNames.Count > 0)
@@ -98,8 +99,16 @@ namespace SmartHopper.Components.Grasshopper
 
             try
             {
-                // 3. Call the AI tool
-                var parameters = new JObject { ["ghjson"] = json };
+                // 3. Read Edit Mode
+                bool editMode = false;
+                DA.GetData(1, ref editMode);
+
+                // 4. Call the AI tool
+                var parameters = new JObject
+                {
+                    ["ghjson"] = json,
+                    ["editMode"] = editMode,
+                };
 
                 // Create AIToolCall and execute
                 var toolCallInteraction = new AIInteractionToolCall
