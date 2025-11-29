@@ -281,6 +281,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// <summary>
         /// Verifies that the calling assembly is signed with the same certificate as the host assembly.
         /// This provides security by ensuring only trusted SmartHopper assemblies can execute tools.
+        /// All assemblies must be properly signed - no development mode bypasses.
         /// </summary>
         /// <param name="callerAssembly">The assembly to verify.</param>
         /// <exception cref="SecurityException">Thrown when the caller assembly is not properly signed.</exception>
@@ -292,27 +293,23 @@ namespace SmartHopper.Infrastructure.AITools
             }
 
             var callerName = callerAssembly.GetName().Name;
+            var callerPath = callerAssembly.Location;
+
+            if (string.IsNullOrEmpty(callerPath))
+            {
+                throw new SecurityException($"Cannot verify dynamic assembly '{callerName}' for tool execution.");
+            }
 
             // Verify Authenticode signature (certificate thumbprint match)
             try
             {
-                var callerPath = callerAssembly.Location;
-                if (string.IsNullOrEmpty(callerPath))
+                var hostThumbprint = _hostThumbprint.Value;
+                if (string.IsNullOrEmpty(hostThumbprint))
                 {
-                    // Dynamic assemblies have no location - reject them
-                    throw new SecurityException($"Cannot verify dynamic assembly '{callerName}' for tool execution.");
+                    throw new SecurityException("Host assembly is not Authenticode-signed. Tool execution denied.");
                 }
 
                 var callerCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(callerPath));
-                var hostThumbprint = _hostThumbprint.Value;
-
-                if (string.IsNullOrEmpty(hostThumbprint))
-                {
-                    // Host is not signed - in development mode, allow all callers
-                    Debug.WriteLine($"[AIToolManager] Host assembly not signed, allowing caller {callerName} (development mode)");
-                    return;
-                }
-
                 if (!string.Equals(callerCert.Thumbprint, hostThumbprint, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new SecurityException($"Authenticode certificate mismatch for assembly '{callerName}'. Tool execution denied.");
@@ -330,16 +327,13 @@ namespace SmartHopper.Infrastructure.AITools
             // Verify strong-name signature (public key token match)
             try
             {
-                var callerToken = callerAssembly.GetName().GetPublicKeyToken();
                 var hostToken = _hostPublicKeyToken.Value;
-
                 if (hostToken == null || hostToken.Length == 0)
                 {
-                    // Host is not strong-named - in development mode, allow all callers
-                    Debug.WriteLine($"[AIToolManager] Host assembly not strong-named, allowing caller {callerName} (development mode)");
-                    return;
+                    throw new SecurityException("Host assembly is not strong-named. Tool execution denied.");
                 }
 
+                var callerToken = callerAssembly.GetName().GetPublicKeyToken();
                 if (callerToken == null || callerToken.Length == 0)
                 {
                     throw new SecurityException($"Assembly '{callerName}' is not strong-named. Tool execution denied.");
