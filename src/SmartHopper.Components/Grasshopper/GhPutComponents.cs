@@ -99,7 +99,7 @@ namespace SmartHopper.Components.Grasshopper
             try
             {
                 // 3. Call the AI tool
-                var parameters = new JObject { ["json"] = json };
+                var parameters = new JObject { ["ghjson"] = json };
 
                 // Create AIToolCall and execute
                 var toolCallInteraction = new AIInteractionToolCall

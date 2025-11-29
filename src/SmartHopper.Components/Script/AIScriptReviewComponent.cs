@@ -16,7 +16,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
@@ -25,16 +24,27 @@ using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Script
 {
+    /// <summary>
+    /// Grasshopper component that reviews script components using AI.
+    /// Performs static code analysis and AI-based review using the script_review tool.
+    /// </summary>
     public class AIScriptReviewComponent : AISelectingStatefulAsyncComponentBase
     {
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("9C82B8C7-7F66-4E6C-9F6E-0C58C1C2A345");
 
+        /// <inheritdoc/>
         protected override Bitmap Icon => Resources.scriptreview;
 
+        /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
+        /// <inheritdoc/>
         protected override AICapability RequiredCapability => AICapability.Text2Text;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AIScriptReviewComponent"/> class.
+        /// </summary>
         public AIScriptReviewComponent()
             : base(
                   "AI Script Review",
@@ -46,13 +56,13 @@ namespace SmartHopper.Components.Script
             this.RunOnlyOnInputChanges = false;
         }
 
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            // TODO: use selecting component instead of guid input. Limit to just one component
-            pManager.AddTextParameter("Guid", "G", "Optional GUID of the script component to review. If empty, uses the first selected script component.", GH_ParamAccess.item, string.Empty);
             pManager.AddTextParameter("Question", "Q", "Optional question or focus for the review.", GH_ParamAccess.item, string.Empty);
         }
 
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddBooleanParameter("Success", "S", "True if the review succeeded.", GH_ParamAccess.item);
@@ -60,11 +70,15 @@ namespace SmartHopper.Components.Script
             pManager.AddTextParameter("AI Review", "R", "Full AI review text.", GH_ParamAccess.item);
         }
 
+        /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIScriptReviewWorker(this, this.AddRuntimeMessage);
         }
 
+        /// <summary>
+        /// Worker class that performs script review using the script_review AI tool.
+        /// </summary>
         private sealed class AIScriptReviewWorker : AsyncWorkerBase
         {
             private readonly AIScriptReviewComponent parent;
@@ -83,34 +97,28 @@ namespace SmartHopper.Components.Script
                 this.parent = parent;
             }
 
+            /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                string guidInput = string.Empty;
-                DA.GetData("Guid", ref guidInput);
                 string localQuestion = string.Empty;
                 DA.GetData("Question", ref localQuestion);
 
-                if (string.IsNullOrWhiteSpace(guidInput))
-                {
-                    var first = this.parent.SelectedObjects.FirstOrDefault();
-                    this.guid = first != null ? first.InstanceGuid.ToString() : string.Empty;
-                }
-                else
-                {
-                    this.guid = guidInput;
-                }
+                // Get GUID from selection (via selecting button)
+                var first = this.parent.SelectedObjects.FirstOrDefault();
+                this.guid = first != null ? first.InstanceGuid.ToString() : string.Empty;
 
                 this.question = localQuestion;
 
                 this.hasWork = !string.IsNullOrWhiteSpace(this.guid);
                 if (!this.hasWork)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No GUID provided and no component selected.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No component selected. Use the selecting button to select a script component.");
                 }
 
                 dataCount = this.hasWork ? 1 : 0;
             }
 
+            /// <inheritdoc/>
             public override async Task DoWorkAsync(CancellationToken token)
             {
                 if (!this.hasWork)
@@ -120,21 +128,29 @@ namespace SmartHopper.Components.Script
 
                 try
                 {
+                    Debug.WriteLine($"[AIScriptReviewWorker] Reviewing component: {this.guid}");
+
                     var parameters = new JObject
                     {
                         ["guid"] = this.guid,
-                        ["question"] = string.IsNullOrWhiteSpace(this.question) ? null : this.question,
                         ["contextFilter"] = "-*",
                     };
+
+                    if (!string.IsNullOrWhiteSpace(this.question))
+                    {
+                        parameters["question"] = this.question;
+                    }
 
                     var toolResult = await this.parent.CallAiToolAsync("script_review", parameters).ConfigureAwait(false);
 
                     if (toolResult == null)
                     {
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'script_review' returned no result.");
                         this.success = false;
                         return;
                     }
 
+                    // Check for errors in result
                     var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
                     if (hasErrors)
                     {
@@ -156,6 +172,7 @@ namespace SmartHopper.Components.Script
 
                     this.success = toolResult["success"]?.ToObject<bool>() ?? true;
 
+                    // Extract coded issues
                     if (toolResult["codedIssues"] is JArray issuesArray)
                     {
                         foreach (var issue in issuesArray)
@@ -168,33 +185,40 @@ namespace SmartHopper.Components.Script
                         }
                     }
 
+                    // Extract AI review
                     string review = toolResult["aiReview"]?.ToString() ?? string.Empty;
                     this.aiReview = new GH_String(review);
+
+                    Debug.WriteLine($"[AIScriptReviewWorker] Review completed: {this.codedIssues.Count} coded issues, review length: {review.Length}");
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIScriptReviewWorker] Error: {ex.Message}");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                     this.success = false;
                 }
             }
 
+            /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                DA.SetData("Success", this.success);
+                // Index-based access to match registered output parameters:
+                // 0: Success (bool), 1: Coded Issues (list), 2: AI Review (text).
+                DA.SetData(0, this.success);
 
                 if (this.codedIssues.Count > 0)
                 {
-                    DA.SetDataList("Coded Issues", this.codedIssues);
+                    DA.SetDataList(1, this.codedIssues);
                 }
                 else
                 {
-                    DA.SetDataList("Coded Issues", new List<string>());
+                    DA.SetDataList(1, new List<string>());
                 }
 
                 if (this.aiReview != null)
                 {
                     this.parent.SetPersistentOutput("AI Review", this.aiReview, DA);
-                    message = "Review completed";
+                    message = this.success ? "Review completed" : "Review failed";
                 }
                 else
                 {

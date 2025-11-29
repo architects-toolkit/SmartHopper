@@ -583,7 +583,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["names"] = JArray.FromObject(names),
                     ["guids"] = JArray.FromObject(guids),
-                    ["json"] = json,
+                    ["ghjson"] = json,
                 };
 
                 var body = AIBodyBuilder.Create()
