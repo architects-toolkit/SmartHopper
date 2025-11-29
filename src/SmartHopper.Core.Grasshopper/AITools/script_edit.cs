@@ -43,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             "- script: The complete updated script code\n" +
             "- inputs: Array of input parameters with name, type, description, and access (item/list/tree)\n" +
             "- outputs: Array of output parameters with name, type, and description\n" +
-            "- changesSummary: Brief description of what was changed\n" +
+            "- changesSummary: Brief description of what was changed and design decisions made\n" +
             "- nickname: Optional updated nickname for the component\n\n" +
             "The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.";
 

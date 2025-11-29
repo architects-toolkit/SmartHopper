@@ -67,7 +67,7 @@ namespace SmartHopper.Components.Script
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("GhJSON", "J", "GhJSON representation of the script component. Use GH Put to place on canvas.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Summary", "Sm", "Brief summary of what changed (edit mode).", GH_ParamAccess.item);
+            pManager.AddTextParameter("Summary", "Sm", "Brief summary of the generated script and design decisions.", GH_ParamAccess.item);
             pManager.AddTextParameter("Information", "I", "Informational message from the operation.", GH_ParamAccess.item);
         }
 
@@ -153,7 +153,7 @@ namespace SmartHopper.Components.Script
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIScriptGeneratorWorker] Error: {ex.Message}");
-                    this.result["Message"] = new GH_String($"Error: {ex.Message}");
+                    this.result["Information"] = new GH_String($"Error: {ex.Message}");
                 }
             }
 
@@ -206,7 +206,7 @@ namespace SmartHopper.Components.Script
                 if (string.IsNullOrWhiteSpace(existingGhJson))
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Could not retrieve GhJSON for component {this.guid}");
-                    this.result["Message"] = new GH_String("Failed to retrieve existing component.");
+                    this.result["Information"] = new GH_String("Failed to retrieve existing component.");
                     return null;
                 }
 
@@ -237,7 +237,7 @@ namespace SmartHopper.Components.Script
             {
                 if (toolResult == null)
                 {
-                    this.result["Message"] = new GH_String($"Tool '{toolName}' returned no result.");
+                    this.result["Information"] = new GH_String($"Tool '{toolName}' returned no result.");
                     return false;
                 }
 
@@ -256,7 +256,7 @@ namespace SmartHopper.Components.Script
                         }
                     }
 
-                    this.result["Message"] = new GH_String($"Tool '{toolName}' failed. See runtime errors.");
+                    this.result["Information"] = new GH_String($"Tool '{toolName}' failed. See runtime errors.");
                     return false;
                 }
 
@@ -276,20 +276,20 @@ namespace SmartHopper.Components.Script
                 }
                 else
                 {
-                    this.result["Message"] = new GH_String("Script tool returned no GhJSON.");
+                    this.result["Information"] = new GH_String("Script tool returned no GhJSON.");
                     return;
                 }
 
-                // Summary (edit mode)
-                var changesSummary = toolResult["changesSummary"]?.ToString();
-                if (!string.IsNullOrEmpty(changesSummary))
+                // Summary (from script_generate or changesSummary from script_edit)
+                var summary = toolResult["summary"]?.ToString() ?? toolResult["changesSummary"]?.ToString();
+                if (!string.IsNullOrEmpty(summary))
                 {
-                    this.result["Summary"] = new GH_String(changesSummary);
+                    this.result["Summary"] = new GH_String(summary);
                 }
 
                 // Message
                 var message = toolResult["message"]?.ToString() ?? (this.isEditMode ? "Script edited successfully." : "Script generated successfully.");
-                this.result["Message"] = new GH_String(message);
+                this.result["Information"] = new GH_String(message);
             }
 
             /// <inheritdoc/>

@@ -45,7 +45,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             "- script: The complete script code\n" +
             "- inputs: Array of input parameters with name, type, description, and access (item/list/tree)\n" +
             "- outputs: Array of output parameters with name, type, and description\n" +
-            "- nickname: Optional short name for the component\n\n" +
+            "- nickname: Optional short name for the component\n" +
+            "- summary: A brief summary (1-3 sentences) of what the component does and key design decisions made\n\n" +
             "The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.";
 
         /// <inheritdoc/>
@@ -134,6 +135,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var inputs = responseJson["inputs"] as JArray ?? new JArray();
                 var outputs = responseJson["outputs"] as JArray ?? new JArray();
                 var nickname = responseJson["nickname"]?.ToString() ?? "AI Script";
+                var summary = responseJson["summary"]?.ToString() ?? string.Empty;
 
                 // Validate language
                 var componentInfo = ScriptComponentFactory.GetComponentInfo(language);
@@ -178,6 +180,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["instanceGuid"] = comp.InstanceGuid.ToString(),
                     ["inputCount"] = inputs.Count,
                     ["outputCount"] = outputs.Count,
+                    ["summary"] = summary,
                     ["message"] = "Script component GhJSON generated successfully. Use gh_put to place it on the canvas.",
                 };
 
@@ -239,9 +242,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""nickname"": {
                         ""type"": ""string"",
                         ""description"": ""Optional short name for the component""
+                    },
+                    ""summary"": {
+                        ""type"": ""string"",
+                        ""description"": ""A brief summary (1-3 sentences) of what the component does and key design decisions made""
                     }
                 },
-                ""required"": [""language"", ""script"", ""inputs"", ""outputs""],
+                ""required"": [""language"", ""script"", ""inputs"", ""outputs"", ""summary""],
                 ""additionalProperties"": false
             }";
         }
