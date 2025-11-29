@@ -13,9 +13,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Security;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -34,10 +31,6 @@ namespace SmartHopper.Infrastructure.AITools
 
         // Flag to track if tools have been discovered
         private static bool _toolsDiscovered;
-
-        // Cache the host assembly's certificate thumbprint and public key token for caller verification
-        private static readonly Lazy<string> _hostThumbprint = new Lazy<string>(GetHostCertificateThumbprint);
-        private static readonly Lazy<byte[]> _hostPublicKeyToken = new Lazy<byte[]>(GetHostPublicKeyToken);
 
         /// <summary>
         /// Register a single tool
@@ -60,18 +53,12 @@ namespace SmartHopper.Infrastructure.AITools
         }
 
         /// <summary>
-        /// Execute a tool with its parameters.
-        /// For security, this method can only be called from assemblies signed with the same certificate as the host assembly.
+        /// Execute a tool with its parameters
         /// </summary>
-        /// <param name="toolCall">The tool call to execute.</param>
-        /// <returns>The result of the tool execution.</returns>
-        /// <exception cref="SecurityException">Thrown when the calling assembly is not properly signed.</exception>
-        [MethodImpl(MethodImplOptions.NoInlining)]
+        /// <param name="toolCall">The tool call to execute</param>
+        /// <returns>The result of the tool execution</returns>
         public static async Task<AIReturn> ExecuteTool(AIToolCall toolCall)
         {
-            // Security: Verify caller assembly is signed with the same certificate
-            VerifyCallerAssembly(Assembly.GetCallingAssembly());
-
             // Ensure tools are discovered
             DiscoverTools();
 
@@ -239,120 +226,6 @@ namespace SmartHopper.Infrastructure.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[AIToolManager] Error during tool discovery: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Gets the Authenticode certificate thumbprint of the host assembly.
-        /// </summary>
-        /// <returns>The certificate thumbprint, or null if not signed.</returns>
-        private static string GetHostCertificateThumbprint()
-        {
-            try
-            {
-                var hostPath = Assembly.GetExecutingAssembly().Location;
-                var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(hostPath));
-                return cert.Thumbprint;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AIToolManager] Could not get host certificate thumbprint: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Gets the strong-name public key token of the host assembly.
-        /// </summary>
-        /// <returns>The public key token, or null if not signed.</returns>
-        private static byte[] GetHostPublicKeyToken()
-        {
-            try
-            {
-                return Assembly.GetExecutingAssembly().GetName().GetPublicKeyToken();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AIToolManager] Could not get host public key token: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Verifies that the calling assembly is signed with the same certificate as the host assembly.
-        /// This provides security by ensuring only trusted SmartHopper assemblies can execute tools.
-        /// All assemblies must be properly signed - no development mode bypasses.
-        /// </summary>
-        /// <param name="callerAssembly">The assembly to verify.</param>
-        /// <exception cref="SecurityException">Thrown when the caller assembly is not properly signed.</exception>
-        private static void VerifyCallerAssembly(Assembly callerAssembly)
-        {
-            if (callerAssembly == null)
-            {
-                throw new SecurityException("Cannot verify null caller assembly for tool execution.");
-            }
-
-            var callerName = callerAssembly.GetName().Name;
-            var callerPath = callerAssembly.Location;
-
-            if (string.IsNullOrEmpty(callerPath))
-            {
-                throw new SecurityException($"Cannot verify dynamic assembly '{callerName}' for tool execution.");
-            }
-
-            // Verify Authenticode signature (certificate thumbprint match)
-            try
-            {
-                var hostThumbprint = _hostThumbprint.Value;
-                if (string.IsNullOrEmpty(hostThumbprint))
-                {
-                    throw new SecurityException("Host assembly is not Authenticode-signed. Tool execution denied.");
-                }
-
-                var callerCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(callerPath));
-                if (!string.Equals(callerCert.Thumbprint, hostThumbprint, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new SecurityException($"Authenticode certificate mismatch for assembly '{callerName}'. Tool execution denied.");
-                }
-            }
-            catch (SecurityException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new SecurityException($"Authenticode signature verification failed for assembly '{callerName}': {ex.Message}", ex);
-            }
-
-            // Verify strong-name signature (public key token match)
-            try
-            {
-                var hostToken = _hostPublicKeyToken.Value;
-                if (hostToken == null || hostToken.Length == 0)
-                {
-                    throw new SecurityException("Host assembly is not strong-named. Tool execution denied.");
-                }
-
-                var callerToken = callerAssembly.GetName().GetPublicKeyToken();
-                if (callerToken == null || callerToken.Length == 0)
-                {
-                    throw new SecurityException($"Assembly '{callerName}' is not strong-named. Tool execution denied.");
-                }
-
-                if (!callerToken.SequenceEqual(hostToken))
-                {
-                    throw new SecurityException($"Strong-name public key token mismatch for assembly '{callerName}'. Tool execution denied.");
-                }
-
-                Debug.WriteLine($"[AIToolManager] Caller assembly {callerName} verified successfully");
-            }
-            catch (SecurityException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new SecurityException($"Strong-name signature verification failed for assembly '{callerName}': {ex.Message}", ex);
             }
         }
     }
