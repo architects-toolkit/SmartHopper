@@ -281,6 +281,32 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             {
                                 if (existingComponents.TryGetValue(guid, out var existing))
                                 {
+                                    // Disconnect all connections before removing the component
+                                    // This prevents "object expired during solution" errors in external components
+                                    if (existing is IGH_Component comp)
+                                    {
+                                        foreach (var input in comp.Params.Input)
+                                        {
+                                            input.RemoveAllSources();
+                                        }
+
+                                        foreach (var output in comp.Params.Output)
+                                        {
+                                            foreach (var recipient in output.Recipients.ToList())
+                                            {
+                                                recipient.RemoveSource(output);
+                                            }
+                                        }
+                                    }
+                                    else if (existing is IGH_Param param)
+                                    {
+                                        param.RemoveAllSources();
+                                        foreach (var recipient in param.Recipients.ToList())
+                                        {
+                                            recipient.RemoveSource(param);
+                                        }
+                                    }
+
                                     ghDoc.RemoveObject(existing, false);
                                     Debug.WriteLine($"[gh_put] Removed existing component '{existing.Name}' with GUID {guid}");
                                 }
@@ -337,12 +363,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                     finally
                     {
-                        // Re-enable document and schedule solution only if it was enabled before
+                        // Re-enable document only if it was enabled before
+                        // Do NOT call NewSolution here - it causes re-entrancy when called from
+                        // sync-over-async contexts like GhPutComponents.SolveInstance
+                        // Grasshopper will automatically schedule a solution when components are modified
                         if (ghDoc != null && wasEnabled && componentsToReplace.Count > 0)
                         {
                             ghDoc.Enabled = true;
-                            ghDoc.NewSolution(false);
-                            Debug.WriteLine("[gh_put] Re-enabled document and scheduled new solution");
+                            Debug.WriteLine("[gh_put] Re-enabled document (solution will be scheduled automatically)");
                         }
                     }
                 });
