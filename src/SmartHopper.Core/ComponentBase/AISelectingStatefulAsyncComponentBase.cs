@@ -43,7 +43,7 @@ namespace SmartHopper.Core.ComponentBase
 
         public override void CreateAttributes()
         {
-            this.m_attributes = new SelectingComponentAttributes(this, this);
+            this.m_attributes = new AISelectingComponentAttributes(this, this);
         }
 
         public void EnableSelectionMode()

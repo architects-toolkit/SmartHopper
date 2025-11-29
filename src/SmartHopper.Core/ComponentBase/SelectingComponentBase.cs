@@ -282,4 +282,167 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
     }
+
+    public class AISelectingComponentAttributes : ComponentBadgesAttributes
+    {
+        private readonly AIProviderComponentBase owner;
+        private readonly ISelectingComponent selectingComponent;
+        private Rectangle buttonBounds;
+        private bool isHovering;
+        private bool isClicking;
+
+        // Timer-based auto-hide of the visual highlight for selected objects.
+        // Purpose: ensure the dashed highlight disappears after 5s even if the cursor stays hovered.
+        private Timer? selectDisplayTimer;
+        private bool selectAutoHidden;
+
+        public AISelectingComponentAttributes(AIProviderComponentBase owner, ISelectingComponent selectingComponent)
+            : base(owner)
+        {
+            this.owner = owner;
+            this.selectingComponent = selectingComponent;
+            this.isHovering = false;
+            this.isClicking = false;
+        }
+
+        protected override void Layout()
+        {
+            base.Layout();
+
+            const int margin = 5;
+            const int buttonHeight = 24;
+            var extraHeight = buttonHeight + margin;
+
+            var bounds = this.Bounds;
+            bounds.Height += extraHeight;
+            this.Bounds = bounds;
+
+            var providerTop = this.Bounds.Bottom - PROVIDERSTRIPHEIGHT;
+            var width = (int)this.Bounds.Width - (2 * margin);
+            var x = (int)this.Bounds.X + margin;
+            var y = (int)(providerTop - margin - buttonHeight);
+            this.buttonBounds = new Rectangle(x, y, width, buttonHeight);
+        }
+
+        protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
+        {
+            base.Render(canvas, graphics, channel);
+            if (channel == GH_CanvasChannel.Objects)
+            {
+                var palette = this.isClicking ? GH_Palette.White : (this.isHovering ? GH_Palette.Grey : GH_Palette.Black);
+                var capsule = GH_Capsule.CreateCapsule(this.buttonBounds, palette);
+                capsule.Render(graphics, this.Selected, this.owner.Locked, false);
+                capsule.Dispose();
+
+                var font = GH_FontServer.Standard;
+                var text = "Select";
+                var size = graphics.MeasureString(text, font);
+                var tx = this.buttonBounds.X + ((this.buttonBounds.Width - size.Width) / 2);
+                var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
+                graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
+
+                if (this.isHovering && !this.selectAutoHidden && this.selectingComponent.SelectedObjects.Count > 0)
+                {
+                    using (var pen = new Pen(Color.DodgerBlue, 2f))
+                    {
+                        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
+                        {
+                            var b = obj.Attributes.Bounds;
+                            var pad = 4f;
+                            var hb = RectangleF.Inflate(b, pad, pad);
+                            graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
+                        }
+                    }
+                }
+
+                // Draw the provider tooltip last so it stays above the button and selection overlays.
+                this.RenderDeferredProviderLabel(graphics);
+            }
+        }
+
+        public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            if (e.Button == MouseButtons.Left && this.buttonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y))
+            {
+                this.isClicking = true;
+                this.owner.ExpireSolution(true);
+                this.selectingComponent.EnableSelectionMode();
+                return GH_ObjectResponse.Handled;
+            }
+
+            return base.RespondToMouseDown(sender, e);
+        }
+
+        public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            var was = this.isHovering;
+            this.isHovering = this.buttonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y);
+            if (was != this.isHovering)
+            {
+                // Start/stop 5s auto-hide timer based on hover transitions
+                if (this.isHovering)
+                {
+                    this.selectAutoHidden = false;
+                    this.StartSelectDisplayTimer();
+                }
+                else
+                {
+                    this.StopSelectDisplayTimer();
+                    this.selectAutoHidden = false; // reset for next hover
+                }
+
+                // Use display invalidation for hover-only visual changes
+                this.owner.OnDisplayExpired(false);
+            }
+
+            return base.RespondToMouseMove(sender, e);
+        }
+
+        public override GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
+        {
+            if (this.isClicking)
+            {
+                this.isClicking = false;
+                this.owner.ExpireSolution(true);
+            }
+
+            return base.RespondToMouseUp(sender, e);
+        }
+
+        /// <summary>
+        /// Starts a one-shot 5s timer to auto-hide the selection highlight and request a repaint.
+        /// </summary>
+        private void StartSelectDisplayTimer()
+        {
+            this.StopSelectDisplayTimer();
+            this.selectDisplayTimer = new Timer(5000) { AutoReset = false };
+            this.selectDisplayTimer.Elapsed += (_, __) =>
+            {
+                this.selectAutoHidden = true;
+                try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
+                this.StopSelectDisplayTimer();
+            };
+            this.selectDisplayTimer.Start();
+        }
+
+        /// <summary>
+        /// Stops and disposes the selection display timer if active.
+        /// </summary>
+        private void StopSelectDisplayTimer()
+        {
+            if (this.selectDisplayTimer != null)
+            {
+                try { this.selectDisplayTimer.Stop(); } catch { /* ignore */ }
+                try { this.selectDisplayTimer.Dispose(); } catch { /* ignore */ }
+                this.selectDisplayTimer = null;
+            }
+        }
+
+        protected override bool ShouldDeferProviderLabelRendering()
+        {
+            // Defer tooltip rendering so it draws over the Select button UI elements.
+            return true;
+        }
+    }
 }
