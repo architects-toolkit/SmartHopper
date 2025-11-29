@@ -22,6 +22,7 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
+using SmartHopper.Core.UI;
 using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase
@@ -193,14 +194,35 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (this.isHovering && !this.selectAutoHidden && this.cachedSelectedBounds != null && this.cachedSelectedBounds.Count > 0)
                 {
-                    using (var pen = new Pen(Color.DodgerBlue, 2f))
+                    var highlightColor = DialogCanvasLink.DefaultLineColor;
+                    var highlightWidth = 2f;
+                    using (var pen = new Pen(highlightColor, highlightWidth))
                     {
                         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        var union = RectangleF.Empty;
+                        var hasUnion = false;
                         foreach (var bounds in this.cachedSelectedBounds.Values)
                         {
                             var pad = 4f;
                             var hb = RectangleF.Inflate(bounds, pad, pad);
                             graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
+                            if (!hasUnion)
+                            {
+                                union = hb;
+                                hasUnion = true;
+                            }
+                            else
+                            {
+                                union = RectangleF.Union(union, hb);
+                            }
+                        }
+
+                        if (hasUnion)
+                        {
+                            var selectionCenter = new PointF(union.X + (union.Width / 2f), union.Y + (union.Height / 2f));
+                            var buttonCenter = new PointF(this.buttonBounds.X + (this.buttonBounds.Width / 2f), this.buttonBounds.Y + (this.buttonBounds.Height / 2f));
+
+                            DialogCanvasLink.DrawLinkOnCanvas(canvas, graphics, selectionCenter, buttonCenter, highlightColor, highlightWidth);
                         }
                     }
                 }
@@ -266,15 +288,13 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StartSelectDisplayTimer()
         {
-            this.StopSelectDisplayTimer();
-            this.selectDisplayTimer = new Timer(5000) { AutoReset = false };
-            this.selectDisplayTimer.Elapsed += (_, __) =>
-            {
-                this.selectAutoHidden = true;
-                try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
-                this.StopSelectDisplayTimer();
-            };
-            this.selectDisplayTimer.Start();
+            SelectingComponentCore.RestartSelectDisplayTimer(
+                ref this.selectDisplayTimer,
+                () =>
+                {
+                    this.selectAutoHidden = true;
+                    try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
+                });
         }
 
         /// <summary>
@@ -282,12 +302,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StopSelectDisplayTimer()
         {
-            if (this.selectDisplayTimer != null)
-            {
-                try { this.selectDisplayTimer.Stop(); } catch { /* ignore */ }
-                try { this.selectDisplayTimer.Dispose(); } catch { /* ignore */ }
-                this.selectDisplayTimer = null;
-            }
+            SelectingComponentCore.StopSelectDisplayTimer(ref this.selectDisplayTimer);
         }
 
         /// <summary>
@@ -296,14 +311,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void CacheSelectedBounds()
         {
-            this.cachedSelectedBounds = new Dictionary<Guid, RectangleF>();
-            foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
-            {
-                if (obj.Attributes != null)
-                {
-                    this.cachedSelectedBounds[obj.InstanceGuid] = obj.Attributes.Bounds;
-                }
-            }
+            this.cachedSelectedBounds = SelectingComponentCore.BuildSelectedBounds(this.selectingComponent);
         }
     }
 
@@ -371,14 +379,35 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (this.isHovering && !this.selectAutoHidden && this.cachedSelectedBounds != null && this.cachedSelectedBounds.Count > 0)
                 {
-                    using (var pen = new Pen(Color.DodgerBlue, 2f))
+                    var highlightColor = DialogCanvasLink.DefaultLineColor;
+                    var highlightWidth = 2f;
+                    using (var pen = new Pen(highlightColor, highlightWidth))
                     {
                         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        var union = RectangleF.Empty;
+                        var hasUnion = false;
                         foreach (var bounds in this.cachedSelectedBounds.Values)
                         {
                             var pad = 4f;
                             var hb = RectangleF.Inflate(bounds, pad, pad);
                             graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
+                            if (!hasUnion)
+                            {
+                                union = hb;
+                                hasUnion = true;
+                            }
+                            else
+                            {
+                                union = RectangleF.Union(union, hb);
+                            }
+                        }
+
+                        if (hasUnion)
+                        {
+                            var selectionCenter = new PointF(union.X + (union.Width / 2f), union.Y + (union.Height / 2f));
+                            var buttonCenter = new PointF(this.buttonBounds.X + (this.buttonBounds.Width / 2f), this.buttonBounds.Y + (this.buttonBounds.Height / 2f));
+
+                            DialogCanvasLink.DrawLinkOnCanvas(canvas, graphics, selectionCenter, buttonCenter, highlightColor, highlightWidth);
                         }
                     }
                 }
@@ -447,15 +476,13 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StartSelectDisplayTimer()
         {
-            this.StopSelectDisplayTimer();
-            this.selectDisplayTimer = new Timer(5000) { AutoReset = false };
-            this.selectDisplayTimer.Elapsed += (_, __) =>
-            {
-                this.selectAutoHidden = true;
-                try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
-                this.StopSelectDisplayTimer();
-            };
-            this.selectDisplayTimer.Start();
+            SelectingComponentCore.RestartSelectDisplayTimer(
+                ref this.selectDisplayTimer,
+                () =>
+                {
+                    this.selectAutoHidden = true;
+                    try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
+                });
         }
 
         /// <summary>
@@ -463,12 +490,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StopSelectDisplayTimer()
         {
-            if (this.selectDisplayTimer != null)
-            {
-                try { this.selectDisplayTimer.Stop(); } catch { /* ignore */ }
-                try { this.selectDisplayTimer.Dispose(); } catch { /* ignore */ }
-                this.selectDisplayTimer = null;
-            }
+            SelectingComponentCore.StopSelectDisplayTimer(ref this.selectDisplayTimer);
         }
 
         /// <summary>
@@ -477,14 +499,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void CacheSelectedBounds()
         {
-            this.cachedSelectedBounds = new Dictionary<Guid, RectangleF>();
-            foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
-            {
-                if (obj.Attributes != null)
-                {
-                    this.cachedSelectedBounds[obj.InstanceGuid] = obj.Attributes.Bounds;
-                }
-            }
+            this.cachedSelectedBounds = SelectingComponentCore.BuildSelectedBounds(this.selectingComponent);
         }
 
         protected override bool ShouldDeferProviderLabelRendering()

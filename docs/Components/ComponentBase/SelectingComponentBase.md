@@ -29,6 +29,7 @@ Provide a consistent, shared schema for components that need the user to select 
   Shared `GH_ComponentAttributes` that renders:
   - The "Select" button below the component
   - Dashed highlight rectangles around selected objects on hover
+  - A connector line from the combined selection center to the "Select" button using the same color as dialog links
   It works with any `GH_Component` that also implements `ISelectingComponent`.
 
 ## Selection pipeline
