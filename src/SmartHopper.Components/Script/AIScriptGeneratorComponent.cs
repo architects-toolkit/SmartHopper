@@ -16,10 +16,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Script
@@ -28,6 +30,8 @@ namespace SmartHopper.Components.Script
     /// Grasshopper component that creates or edits script components using AI tools.
     /// Uses script_generate for new scripts and script_edit for existing ones.
     /// Outputs GhJSON that can be placed on canvas using GhPutComponents.
+    /// Supports multiple prompts (create mode) or multiple selected components (edit mode).
+    /// In edit mode, prompts and components are matched first-first, second-second, etc.
     /// </summary>
     public class AIScriptGeneratorComponent : AISelectingStatefulAsyncComponentBase
     {
@@ -50,7 +54,7 @@ namespace SmartHopper.Components.Script
             : base(
                   "AI Script Generator",
                   "AIScriptGen",
-                  "Create or edit Grasshopper script components from natural language instructions. Outputs GhJSON that can be placed on canvas using GH Put.",
+                  "Create or edit Grasshopper script components from natural language instructions. Outputs GhJSON that can be placed on canvas using GH Put.\nIn create mode: processes each prompt as a separate branch.\nIn edit mode: matches prompts to selected components in order.",
                   "SmartHopper",
                   "Script")
         {
@@ -60,15 +64,15 @@ namespace SmartHopper.Components.Script
         /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Prompt", "P", "REQUIRED instructions describing how to create or edit the script.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Prompt", "P", "REQUIRED instructions describing how to create or edit the script. In edit mode, prompts are matched to selected components in order.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("GhJSON", "J", "GhJSON representation of the script component. Use GH Put to place on canvas.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Summary", "Sm", "Brief summary of the generated script and design decisions.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Information", "I", "Informational message from the operation.", GH_ParamAccess.item);
+            pManager.AddTextParameter("GhJSON", "J", "GhJSON representation of the script component. Use GH Put to place on canvas. One branch per input.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Summary", "Sm", "Brief summary of the generated script and design decisions. One branch per input.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Information", "I", "Informational message from the operation. One branch per input.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -83,11 +87,14 @@ namespace SmartHopper.Components.Script
         private sealed class AIScriptGeneratorWorker : AsyncWorkerBase
         {
             private readonly AIScriptGeneratorComponent parent;
-            private string guid;
-            private string prompt;
+            private List<GH_String> normalizedGuids;
+            private List<GH_String> normalizedPrompts;
             private bool hasWork;
             private bool isEditMode;
-            private readonly Dictionary<string, GH_String> result = new Dictionary<string, GH_String>();
+            private int iterationCount;
+            private readonly GH_Structure<GH_String> resultGhJson = new GH_Structure<GH_String>();
+            private readonly GH_Structure<GH_String> resultSummary = new GH_Structure<GH_String>();
+            private readonly GH_Structure<GH_String> resultInfo = new GH_Structure<GH_String>();
 
             public AIScriptGeneratorWorker(
                 AIScriptGeneratorComponent parent,
@@ -100,23 +107,52 @@ namespace SmartHopper.Components.Script
             /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                string localPrompt = null;
-                DA.GetData("Prompt", ref localPrompt);
+                var prompts = new List<string>();
+                DA.GetDataList("Prompt", prompts);
 
-                // Get GUID from selection (via selecting button)
-                var first = this.parent.SelectedObjects.FirstOrDefault();
-                this.guid = first != null ? first.InstanceGuid.ToString() : string.Empty;
+                // Get GUIDs from selection (via selecting button)
+                var guids = this.parent.SelectedObjects
+                    .Select(obj => obj.InstanceGuid.ToString())
+                    .ToList();
 
-                this.prompt = localPrompt ?? string.Empty;
-                this.isEditMode = !string.IsNullOrWhiteSpace(this.guid);
+                this.isEditMode = guids.Count > 0;
 
-                this.hasWork = !string.IsNullOrWhiteSpace(this.prompt);
-                if (!this.hasWork)
+                // Validate inputs
+                prompts = prompts.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+
+                if (prompts.Count == 0)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Prompt is required.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one prompt is required.");
+                    this.hasWork = false;
+                    dataCount = 0;
+                    return;
                 }
 
-                dataCount = this.hasWork ? 1 : 0;
+                // Convert to GH_String for normalization
+                var promptsAsGhString = prompts.Select(p => new GH_String(p)).ToList();
+                var guidsAsGhString = guids.Select(g => new GH_String(g)).ToList();
+
+                if (this.isEditMode)
+                {
+                    // Edit mode: normalize lengths to match prompts to components
+                    // Uses DataTreeProcessor.NormalizeBranchLengths for first-first, second-second matching
+                    var normalized = DataTreeProcessor.NormalizeBranchLengths(
+                        new List<List<GH_String>> { promptsAsGhString, guidsAsGhString });
+
+                    this.normalizedPrompts = normalized[0];
+                    this.normalizedGuids = normalized[1];
+                    this.iterationCount = this.normalizedPrompts.Count;
+                }
+                else
+                {
+                    // Create mode: iterate over prompts only
+                    this.normalizedPrompts = promptsAsGhString;
+                    this.normalizedGuids = new List<GH_String>();
+                    this.iterationCount = this.normalizedPrompts.Count;
+                }
+
+                this.hasWork = true;
+                dataCount = this.iterationCount;
             }
 
             /// <inheritdoc/>
@@ -129,118 +165,52 @@ namespace SmartHopper.Components.Script
 
                 try
                 {
-                    JObject scriptToolResult;
-
-                    if (this.isEditMode)
+                    for (int i = 0; i < this.iterationCount; i++)
                     {
-                        // Edit mode: get existing component GhJSON, then edit it
-                        scriptToolResult = await this.EditExistingScriptAsync(token).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        // Create mode: generate new script component
-                        scriptToolResult = await this.GenerateNewScriptAsync(token).ConfigureAwait(false);
-                    }
+                        if (token.IsCancellationRequested)
+                        {
+                            break;
+                        }
 
-                    if (scriptToolResult == null)
-                    {
-                        return; // Error already set
-                    }
+                        var path = new GH_Path(i);
+                        var prompt = this.normalizedPrompts[i]?.Value ?? string.Empty;
 
-                    // Set outputs from tool result
-                    this.SetResultsFromToolOutput(scriptToolResult);
+                        if (this.isEditMode)
+                        {
+                            var guid = this.normalizedGuids[i]?.Value ?? string.Empty;
+                            Debug.WriteLine($"[AIScriptGeneratorWorker] Edit mode: processing {i + 1}/{this.iterationCount} (guid={guid})");
+
+                            var result = await this.EditExistingScriptAsync(guid, prompt, token).ConfigureAwait(false);
+                            this.StoreResult(path, result, isEdit: true);
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"[AIScriptGeneratorWorker] Create mode: processing prompt {i + 1}/{this.iterationCount}");
+
+                            var result = await this.GenerateNewScriptAsync(prompt, token).ConfigureAwait(false);
+                            this.StoreResult(path, result, isEdit: false);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIScriptGeneratorWorker] Error: {ex.Message}");
-                    this.result["Information"] = new GH_String($"Error: {ex.Message}");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             /// <summary>
-            /// Generates a new script component using script_generate tool.
+            /// Stores the result from a tool call into the output trees.
             /// </summary>
-            private async Task<JObject> GenerateNewScriptAsync(CancellationToken token)
-            {
-                Debug.WriteLine("[AIScriptGeneratorWorker] Create mode: calling script_generate");
-
-                var parameters = new JObject
-                {
-                    ["instructions"] = this.prompt,
-                    ["contextFilter"] = "-*",
-                };
-
-                var toolResult = await this.parent.CallAiToolAsync("script_generate", parameters).ConfigureAwait(false);
-
-                if (!this.ValidateToolResult(toolResult, "script_generate"))
-                {
-                    return null;
-                }
-
-                return toolResult;
-            }
-
-            /// <summary>
-            /// Edits an existing script component using gh_get + script_edit tools.
-            /// </summary>
-            private async Task<JObject> EditExistingScriptAsync(CancellationToken token)
-            {
-                Debug.WriteLine($"[AIScriptGeneratorWorker] Edit mode: getting GhJSON for {this.guid}");
-
-                // Step 1: Get existing component GhJSON using gh_get with guidFilter
-                var getParams = new JObject
-                {
-                    ["guidFilter"] = new JArray(this.guid),
-                    ["contextFilter"] = "-*",
-                };
-
-                var getResult = await this.parent.CallAiToolAsync("gh_get", getParams).ConfigureAwait(false);
-
-                if (!this.ValidateToolResult(getResult, "gh_get"))
-                {
-                    return null;
-                }
-
-                // gh_get returns GhJSON in the "ghjson" field
-                var existingGhJson = getResult["ghjson"]?.ToString();
-                if (string.IsNullOrWhiteSpace(existingGhJson))
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Could not retrieve GhJSON for component {this.guid}");
-                    this.result["Information"] = new GH_String("Failed to retrieve existing component.");
-                    return null;
-                }
-
-                Debug.WriteLine($"[AIScriptGeneratorWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
-
-                // Step 2: Edit the script using script_edit
-                var editParams = new JObject
-                {
-                    ["ghjson"] = existingGhJson,
-                    ["instructions"] = this.prompt,
-                    ["contextFilter"] = "-*",
-                };
-
-                var editResult = await this.parent.CallAiToolAsync("script_edit", editParams).ConfigureAwait(false);
-
-                if (!this.ValidateToolResult(editResult, "script_edit"))
-                {
-                    return null;
-                }
-
-                return editResult;
-            }
-
-            /// <summary>
-            /// Validates a tool result and surfaces any errors.
-            /// </summary>
-            private bool ValidateToolResult(JObject toolResult, string toolName)
+            private void StoreResult(GH_Path path, JObject toolResult, bool isEdit)
             {
                 if (toolResult == null)
                 {
-                    this.result["Information"] = new GH_String($"Tool '{toolName}' returned no result.");
-                    return false;
+                    this.resultInfo.Append(new GH_String("Tool returned no result."), path);
+                    return;
                 }
 
+                // Check for errors
                 var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
                 if (hasErrors)
                 {
@@ -256,64 +226,115 @@ namespace SmartHopper.Components.Script
                         }
                     }
 
-                    this.result["Information"] = new GH_String($"Tool '{toolName}' failed. See runtime errors.");
-                    return false;
+                    this.resultInfo.Append(new GH_String("Tool failed. See runtime errors."), path);
+                    return;
                 }
 
-                return true;
-            }
-
-            /// <summary>
-            /// Sets result dictionary from tool output.
-            /// </summary>
-            private void SetResultsFromToolOutput(JObject toolResult)
-            {
                 // GhJSON
                 var ghJson = toolResult["ghjson"]?.ToString();
                 if (!string.IsNullOrEmpty(ghJson))
                 {
-                    this.result["GhJSON"] = new GH_String(ghJson);
+                    this.resultGhJson.Append(new GH_String(ghJson), path);
                 }
                 else
                 {
-                    this.result["Information"] = new GH_String("Script tool returned no GhJSON.");
+                    this.resultInfo.Append(new GH_String("Script tool returned no GhJSON."), path);
                     return;
                 }
 
-                // Summary (from script_generate or changesSummary from script_edit)
+                // Summary
                 var summary = toolResult["summary"]?.ToString() ?? toolResult["changesSummary"]?.ToString();
                 if (!string.IsNullOrEmpty(summary))
                 {
-                    this.result["Summary"] = new GH_String(summary);
+                    this.resultSummary.Append(new GH_String(summary), path);
                 }
 
                 // Message
-                var message = toolResult["message"]?.ToString() ?? (this.isEditMode ? "Script edited successfully." : "Script generated successfully.");
-                this.result["Information"] = new GH_String(message);
+                var message = toolResult["message"]?.ToString() ?? (isEdit ? "Script edited successfully." : "Script generated successfully.");
+                this.resultInfo.Append(new GH_String(message), path);
+            }
+
+            /// <summary>
+            /// Generates a new script component using script_generate tool.
+            /// </summary>
+            private async Task<JObject> GenerateNewScriptAsync(string prompt, CancellationToken token)
+            {
+                Debug.WriteLine("[AIScriptGeneratorWorker] Create mode: calling script_generate");
+
+                var parameters = new JObject
+                {
+                    ["instructions"] = prompt,
+                    ["contextFilter"] = "-*",
+                };
+
+                return await this.parent.CallAiToolAsync("script_generate", parameters).ConfigureAwait(false);
+            }
+
+            /// <summary>
+            /// Edits an existing script component using gh_get + script_edit tools.
+            /// </summary>
+            private async Task<JObject> EditExistingScriptAsync(string guid, string prompt, CancellationToken token)
+            {
+                Debug.WriteLine($"[AIScriptGeneratorWorker] Edit mode: getting GhJSON for {guid}");
+
+                // Step 1: Get existing component GhJSON using gh_get with guidFilter
+                var getParams = new JObject
+                {
+                    ["guidFilter"] = new JArray(guid),
+                    ["contextFilter"] = "-*",
+                };
+
+                var getResult = await this.parent.CallAiToolAsync("gh_get", getParams).ConfigureAwait(false);
+
+                if (getResult == null)
+                {
+                    return new JObject
+                    {
+                        ["messages"] = new JArray(new JObject
+                        {
+                            ["severity"] = "Error",
+                            ["message"] = $"gh_get returned no result for {guid}",
+                        }),
+                    };
+                }
+
+                // gh_get returns GhJSON in the "ghjson" field
+                var existingGhJson = getResult["ghjson"]?.ToString();
+                if (string.IsNullOrWhiteSpace(existingGhJson))
+                {
+                    return new JObject
+                    {
+                        ["messages"] = new JArray(new JObject
+                        {
+                            ["severity"] = "Error",
+                            ["message"] = $"Could not retrieve GhJSON for component {guid}",
+                        }),
+                    };
+                }
+
+                Debug.WriteLine($"[AIScriptGeneratorWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
+
+                // Step 2: Edit the script using script_edit
+                var editParams = new JObject
+                {
+                    ["ghjson"] = existingGhJson,
+                    ["instructions"] = prompt,
+                    ["contextFilter"] = "-*",
+                };
+
+                return await this.parent.CallAiToolAsync("script_edit", editParams).ConfigureAwait(false);
             }
 
             /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                if (this.result.TryGetValue("GhJSON", out GH_String ghJsonValue))
-                {
-                    this.parent.SetPersistentOutput("GhJSON", ghJsonValue, DA);
-                }
+                this.parent.SetPersistentOutput("GhJSON", this.resultGhJson, DA);
+                this.parent.SetPersistentOutput("Summary", this.resultSummary, DA);
+                this.parent.SetPersistentOutput("Information", this.resultInfo, DA);
 
-                if (this.result.TryGetValue("Summary", out GH_String summaryValue))
-                {
-                    this.parent.SetPersistentOutput("Summary", summaryValue, DA);
-                }
-
-                if (this.result.TryGetValue("Information", out GH_String msgValue))
-                {
-                    this.parent.SetPersistentOutput("Information", msgValue, DA);
-                    message = msgValue.Value;
-                }
-                else
-                {
-                    message = "No script operation performed";
-                }
+                message = this.isEditMode
+                    ? $"Edited {this.iterationCount} script(s)"
+                    : $"Generated {this.iterationCount} script(s)";
             }
         }
     }
