@@ -116,32 +116,38 @@ namespace SmartHopper.Infrastructure.Dialogs
             titleLabel.TextColor = prefixColor;
 
             // Calculate required height based on message content
-            const int dialogWidth = 380;
-            const int textWidth = 340;
-            const int lineHeight = 20; // Approximate line height for 12pt font
-            const int charsPerLine = 45; // Approximate characters per line at textWidth
+            const int dialogWidth = 400;
+            const int textWidth = 360;
+            const int lineHeight = 24; // Line height for 12pt font with spacing
+            const int charsPerLine = 42; // Conservative estimate for wrapped text
 
             // Count actual lines (including newlines and wrapped text)
             var lines = message.Split('\n');
             var totalLines = 0;
             foreach (var line in lines)
             {
-                // Empty lines count as 1
+                // Empty lines count as 1 (paragraph spacing)
                 if (string.IsNullOrEmpty(line))
                 {
                     totalLines++;
                 }
                 else
                 {
-                    // Calculate wrapped lines
+                    // Calculate wrapped lines with conservative estimate
                     totalLines += Math.Max(1, (int)Math.Ceiling((double)line.Length / charsPerLine));
                 }
             }
 
-            // Calculate content height: header (~50) + message + spacing + buttons (~50) + padding
+            // Calculate content height:
+            // - Header (logo + title): ~60px
+            // - Message area: lines * lineHeight
+            // - Spacing between sections: ~20px
+            // - Button row: ~50px
+            // - Dialog padding (top + bottom): ~40px
+            // - Extra buffer for word wrapping variance: ~20px
             var messageHeight = totalLines * lineHeight;
-            var contentHeight = 50 + messageHeight + 30 + 50 + 60; // header + message + spacing + buttons + padding
-            var dialogHeight = Math.Max(220, Math.Min(contentHeight, 500)); // Clamp between 220 and 500
+            var contentHeight = 60 + messageHeight + 20 + 50 + 40 + 20;
+            var dialogHeight = Math.Max(240, Math.Min(contentHeight, 600)); // Clamp between 240 and 600
 
             this.Size = new Size(dialogWidth, dialogHeight);
             this.MinimumSize = new Size(350, 200);

@@ -55,7 +55,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {
                         ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string"" },
-                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, components with matching instanceGuid on canvas will be replaced. User will be prompted for confirmation."" }
+                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, existing components on canvas will be replaced. User will be prompted for confirmation."" }
                     },
                     ""required"": [""ghjson""]
                 }",
@@ -103,45 +103,59 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
 
-                    // Prompt user for confirmation if there are components to replace
+                    // Prompt user for confirmation for each component to replace
                     if (componentsToReplace.Count > 0)
                     {
-                        var confirmTcs = new TaskCompletionSource<bool>();
+                        var confirmedReplacements = new List<Guid>();
 
-                        // Get the first component's GUID to link the dialog to on the canvas
-                        var linkToGuid = componentsToReplace.FirstOrDefault();
-
-                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        foreach (var guid in componentsToReplace)
                         {
-                            try
+                            var confirmTcs = new TaskCompletionSource<bool>();
+                            var componentName = existingComponents.TryGetValue(guid, out var comp) ? comp.Name : "Unknown";
+
+                            Rhino.RhinoApp.InvokeOnUiThread(() =>
                             {
-                                var message = $"Found {componentsToReplace.Count} component(s) with matching instanceGuid on canvas.\n\n" +
-                                              "Do you want to replace them with the new definitions?\n\n" +
-                                              "Click 'Yes' to replace existing components.\n" +
-                                              "Click 'No' to create new components instead.";
-                                var result = StyledMessageDialog.ShowConfirmation(message, "Replace Components?", linkToGuid);
-                                confirmTcs.SetResult(result);
-                            }
-                            catch (Exception ex)
+                                try
+                                {
+                                    var message = $"Do you want to replace component '{componentName} with the new definition'?\n\n" +
+                                                  "Click 'Yes' to replace this component.\n" +
+                                                  "Click 'No' to create a new component instead.";
+                                    var result = StyledMessageDialog.ShowConfirmation(message, "Replace", guid);
+                                    confirmTcs.SetResult(result);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"[gh_put] Error showing confirmation dialog: {ex.Message}");
+                                    confirmTcs.SetResult(false);
+                                }
+                            });
+
+                            var shouldReplace = await confirmTcs.Task.ConfigureAwait(false);
+
+                            if (shouldReplace)
                             {
-                                Debug.WriteLine($"[gh_put] Error showing confirmation dialog: {ex.Message}");
-                                confirmTcs.SetResult(false);
+                                confirmedReplacements.Add(guid);
+                                Debug.WriteLine($"[gh_put] User confirmed replacement of component '{componentName}' ({guid})");
                             }
-                        });
-
-                        var shouldReplace = await confirmTcs.Task.ConfigureAwait(false);
-
-                        if (!shouldReplace)
-                        {
-                            // User chose not to replace - clear the replace list
-                            componentsToReplace.Clear();
-                            existingComponents.Clear();
-                            Debug.WriteLine("[gh_put] User chose to create new components instead of replacing");
+                            else
+                            {
+                                Debug.WriteLine($"[gh_put] User chose to create new component instead of replacing '{componentName}' ({guid})");
+                            }
                         }
-                        else
+
+                        // Update the lists to only include confirmed replacements
+                        componentsToReplace.Clear();
+                        componentsToReplace.AddRange(confirmedReplacements);
+
+                        // Remove non-confirmed components from tracking dictionaries
+                        var guidsToRemove = existingComponents.Keys.Except(confirmedReplacements).ToList();
+                        foreach (var guid in guidsToRemove)
                         {
-                            Debug.WriteLine($"[gh_put] User confirmed replacement of {componentsToReplace.Count} components");
+                            existingComponents.Remove(guid);
+                            existingPositions.Remove(guid);
                         }
+
+                        Debug.WriteLine($"[gh_put] Final replacement count: {componentsToReplace.Count}");
                     }
                 }
 

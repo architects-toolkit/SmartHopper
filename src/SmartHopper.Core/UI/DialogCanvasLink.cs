@@ -51,13 +51,21 @@ namespace SmartHopper.Core.UI
         }
 
         /// <summary>
+        /// Callback to center the canvas view on a component. Set by SmartHopper.Core.Grasshopper at initialization.
+        /// Signature: (Guid instanceGuid, float horizontalPosition) => bool (returns true if canvas was panned).
+        /// horizontalPosition: 0 = left edge, 0.5 = center, 1 = right edge.
+        /// </summary>
+        public static Func<Guid, float, bool> CenterCanvasOnComponentCallback { get; set; }
+
+        /// <summary>
         /// Registers a dialog to be visually linked to a component on the canvas.
         /// </summary>
         /// <param name="dialog">The dialog window to link.</param>
         /// <param name="instanceGuid">The GUID of the component to link to.</param>
-        /// <param name="lineColor">Optional custom line color. Defaults to a semi-transparent orange.</param>
+        /// <param name="lineColor">Optional custom line color. Defaults to a semi-transparent SmartHopper green.</param>
         /// <param name="lineWidth">Optional line width. Defaults to 3.</param>
-        public static void RegisterLink(Window dialog, Guid instanceGuid, Color? lineColor = null, float lineWidth = 3f)
+        /// <param name="centerCanvas">If true, centers the canvas view on the component before showing the dialog.</param>
+        public static void RegisterLink(Window dialog, Guid instanceGuid, Color? lineColor = null, float lineWidth = 3f, bool centerCanvas = true)
         {
             Debug.WriteLine($"[DialogCanvasLink] RegisterLink called: dialog={dialog != null}, guid={instanceGuid}");
 
@@ -71,6 +79,13 @@ namespace SmartHopper.Core.UI
             {
                 Debug.WriteLine("[DialogCanvasLink] RegisterLink aborted: instanceGuid is empty");
                 return;
+            }
+
+            // Center canvas on the component if requested (before showing dialog)
+            // Position at 1/3 from left so the dialog (which appears on the right) doesn't hide the component
+            if (centerCanvas && CenterCanvasOnComponentCallback != null)
+            {
+                CenterCanvasOnComponentCallback(instanceGuid, 1f / 3f);
             }
 
             lock (LockObject)
@@ -293,9 +308,9 @@ namespace SmartHopper.Core.UI
                 var location = dialog.Location;
                 var size = dialog.Size;
 
-                // Return the left-center point of the dialog
+                // Return the center point of the dialog
                 return new Eto.Drawing.PointF(
-                    location.X,
+                    location.X + (size.Width / 2),
                     location.Y + (size.Height / 2));
             }
             catch
