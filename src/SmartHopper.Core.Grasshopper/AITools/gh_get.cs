@@ -208,6 +208,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
+                // Local tool: we don't need provider/model/finish_reason metrics for validation
+                toolCall.SkipMetricsValidation = true;
+
                 // Parse filters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
 

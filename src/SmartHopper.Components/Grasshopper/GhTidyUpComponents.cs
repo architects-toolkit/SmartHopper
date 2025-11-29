@@ -147,6 +147,7 @@ namespace SmartHopper.Components.Grasshopper
                 var toolCall = new AIToolCall();
                 toolCall.Endpoint = "gh_tidy_up";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
+                toolCall.SkipMetricsValidation = true;
 
                 var aiResult = toolCall.Exec().GetAwaiter().GetResult();
                 var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;

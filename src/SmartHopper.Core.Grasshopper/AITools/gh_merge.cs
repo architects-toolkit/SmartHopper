@@ -62,6 +62,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
+                // Local tool: skip metrics validation (provider/model/finish_reason not required)
+                toolCall.SkipMetricsValidation = true;
+
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();

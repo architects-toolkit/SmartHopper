@@ -158,6 +158,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             }
 
             var metrics = this.Metrics;
+            var skipMetricsValidation = (this.Request as AIRequestBase)?.SkipMetricsValidation == true;
 
             if (metrics == null)
             {
@@ -166,7 +167,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     AIRuntimeMessageOrigin.Return,
                     "Metrics must not be null"));
             }
-            else
+            else if (!skipMetricsValidation)
             {
                 var (mOk, mErr) = metrics.IsValid();
                 if (mErr != null)

@@ -93,6 +93,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
+                // Local tool: metrics such as provider/model/finish_reason are not meaningful here
+                toolCall.SkipMetricsValidation = true;
+
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
