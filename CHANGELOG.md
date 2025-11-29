@@ -9,10 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Component replacement mode:
+  - Added "Edit Mode" input parameter to `GhPutComponents` for component replacement functionality.
+  - When Edit Mode is enabled and GhJSON contains valid instanceGuids that exist on canvas, users are prompted via `StyledMessageDialog` to choose between replacing existing components or creating new ones.
+  - The `gh_put` AI tool now accepts an optional `editMode` parameter to support component replacement.
+  - Replacement components preserve original `InstanceGuid` and exact canvas position.
+  - Undo support included for component replacement operations.
+- GhJSON helpers:
+  - Added `GhJsonHelpers` utility class with methods for applying pivots and restoring InstanceGuids on deserialized components.
 - Script tools:
   - Introduced GhJSON-based AI tools `script_generate`, `script_edit`, and `script_fix` for Grasshopper script components.
   - All script tools now validate GhJSON input/output via `GHJsonAnalyzer.Validate` and use `ScriptComponentFactory` for component construction.
-
 
 ### Changed
 

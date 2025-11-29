@@ -138,6 +138,9 @@ namespace SmartHopper.Components.Script
                 this.iterationCount = this.normalizedGuids.Count;
 
                 dataCount = this.iterationCount;
+
+                // Initialize progress tracking
+                this.parent.InitializeProgress(this.iterationCount);
             }
 
             /// <inheritdoc/>
@@ -156,6 +159,9 @@ namespace SmartHopper.Components.Script
                         {
                             break;
                         }
+
+                        // Update progress (1-based)
+                        this.parent.UpdateProgress(i + 1);
 
                         var path = new GH_Path(i);
                         var guid = this.normalizedGuids[i]?.Value ?? string.Empty;
