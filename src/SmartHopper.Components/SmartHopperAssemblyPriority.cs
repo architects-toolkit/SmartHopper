@@ -11,6 +11,8 @@
 using Grasshopper;
 using Grasshopper.Kernel;
 using SmartHopper.Components.Properties;
+using SmartHopper.Core.UI;
+using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Components
 {
@@ -22,6 +24,12 @@ namespace SmartHopper.Components
             Instances.ComponentServer.AddCategoryIcon("SmartHopper", Resources.smarthopper);
             Instances.ComponentServer.AddCategoryShortName("SmartHopper", "SH");
             Instances.ComponentServer.AddCategorySymbolName("SmartHopper", 'S');
+
+            // Register the canvas link callback for StyledMessageDialog
+            StyledMessageDialog.RegisterCanvasLinkCallback = (dialog, guid, color) =>
+            {
+                DialogCanvasLink.RegisterLink(dialog, guid, color);
+            };
 
             return GH_LoadingInstruction.Proceed;
         }
