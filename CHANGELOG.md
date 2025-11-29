@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Undo support included for component replacement operations.
 - GhJSON helpers:
   - Added `GhJsonHelpers` utility class with methods for applying pivots and restoring InstanceGuids on deserialized components.
+- GhJSON merge:
+  - Added `GhJsonMerger` utility to merge two GhJSON `GrasshopperDocument` instances, with the target document taking priority on component GUID conflicts and automatic ID remapping for connections and groups.
+  - Introduced `gh_merge` AI tool to merge two arbitrary GhJSON strings using `GhJsonMerger`, returning the merged GhJSON together with merge statistics (components/connections/groups added and deduplicated).
+  - Added `GhMergeComponents` Grasshopper component ("Merge GhJSON") to merge two GhJSON documents directly on the canvas, exposing merged GhJSON and basic merge counters as outputs.
 - Script tools:
   - Introduced GhJSON-based AI tools `script_generate`, `script_edit`, and `script_fix` for Grasshopper script components.
   - All script tools now validate GhJSON input/output via `GHJsonAnalyzer.Validate` and use `ScriptComponentFactory` for component construction.

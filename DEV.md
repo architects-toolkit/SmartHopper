@@ -17,6 +17,7 @@ This document aggregates development-facing information.
 |-----------|:-------:|:-----------:|:-------:|:------------------------:|
 | Grasshopper Get Components (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format. Optionally filter them by runtime messages: errors, warnings, remarks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Grasshopper Put Components (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Grasshopper Merge GhJSON (GhMerge)<br><sub>Merge two GhJSON documents into one, with the target document taking priority on conflicts.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Grasshopper Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | Grasshopper Tidy Up (GhTidyUp)<br><sub>Reorganize selected components into a clear, dependency-based grid.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
@@ -79,6 +80,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | gh_list_components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_get | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_put | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
+| gh_merge | Merge two GhJSON documents into one (target takes priority on conflicts) | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_component_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_component_hide_preview_selected | Hide geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
 | gh_component_show_preview_selected | Show geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
