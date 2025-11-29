@@ -393,7 +393,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 
             // STEP 2.5: Apply ShowStandardOutput state AFTER parameters are configured
             // This controls the visibility of the "out" parameter in script components
-            if (options.ApplyComponentState && props.ComponentState?.ShowStandardOutput.HasValue == true)
+            // Default to true for script components when not specified in GhJSON
+            if (options.ApplyComponentState)
             {
                 try
                 {
@@ -401,7 +402,8 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                     var usingStdOutputProp = compType?.GetProperty("UsingStandardOutputParam");
                     if (usingStdOutputProp != null && usingStdOutputProp.CanWrite)
                     {
-                        bool desiredValue = props.ComponentState.ShowStandardOutput.Value;
+                        // Default to true if not specified in GhJSON
+                        bool desiredValue = props.ComponentState?.ShowStandardOutput ?? true;
                         bool currentValue = (bool)usingStdOutputProp.GetValue(docObj);
 
                         // Force application by toggling if values match
