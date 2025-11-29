@@ -180,52 +180,23 @@ namespace SmartHopper.Core.ComponentBase
             base.Render(canvas, graphics, channel);
             if (channel == GH_CanvasChannel.Objects)
             {
-                var palette = this.isClicking ? GH_Palette.White : (this.isHovering ? GH_Palette.Grey : GH_Palette.Black);
-                var capsule = GH_Capsule.CreateCapsule(this.buttonBounds, palette);
-                capsule.Render(graphics, this.Selected, this.owner.Locked, false);
-                capsule.Dispose();
-
-                var font = GH_FontServer.Standard;
-                var text = "Select";
-                var size = graphics.MeasureString(text, font);
-                var tx = this.buttonBounds.X + ((this.buttonBounds.Width - size.Width) / 2);
-                var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
-                graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
-
-                if (this.isHovering && !this.selectAutoHidden && this.cachedSelectedBounds != null && this.cachedSelectedBounds.Count > 0)
-                {
-                    var highlightColor = DialogCanvasLink.DefaultLineColor;
-                    var highlightWidth = 2f;
-                    using (var pen = new Pen(highlightColor, highlightWidth))
-                    {
-                        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                        var union = RectangleF.Empty;
-                        var hasUnion = false;
-                        foreach (var bounds in this.cachedSelectedBounds.Values)
-                        {
-                            var pad = 4f;
-                            var hb = RectangleF.Inflate(bounds, pad, pad);
-                            graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
-                            if (!hasUnion)
-                            {
-                                union = hb;
-                                hasUnion = true;
-                            }
-                            else
-                            {
-                                union = RectangleF.Union(union, hb);
-                            }
-                        }
-
-                        if (hasUnion)
-                        {
-                            var selectionCenter = new PointF(union.X + (union.Width / 2f), union.Y + (union.Height / 2f));
-                            var buttonCenter = new PointF(this.buttonBounds.X + (this.buttonBounds.Width / 2f), this.buttonBounds.Y + (this.buttonBounds.Height / 2f));
-
-                            DialogCanvasLink.DrawLinkOnCanvas(canvas, graphics, selectionCenter, buttonCenter, highlightColor, highlightWidth);
-                        }
-                    }
-                }
+                SelectingComponentCore.RenderSelectButton(
+                    canvas,
+                    graphics,
+                    this.buttonBounds,
+                    this.isHovering,
+                    this.isClicking,
+                    this.Selected,
+                    this.owner.Locked);
+            }
+            else if (channel == GH_CanvasChannel.Overlay)
+            {
+                SelectingComponentCore.RenderSelectionOverlay(
+                    canvas,
+                    graphics,
+                    this.buttonBounds,
+                    this.cachedSelectedBounds,
+                    this.selectAutoHidden);
             }
         }
 
@@ -365,52 +336,23 @@ namespace SmartHopper.Core.ComponentBase
             base.Render(canvas, graphics, channel);
             if (channel == GH_CanvasChannel.Objects)
             {
-                var palette = this.isClicking ? GH_Palette.White : (this.isHovering ? GH_Palette.Grey : GH_Palette.Black);
-                var capsule = GH_Capsule.CreateCapsule(this.buttonBounds, palette);
-                capsule.Render(graphics, this.Selected, this.owner.Locked, false);
-                capsule.Dispose();
-
-                var font = GH_FontServer.Standard;
-                var text = "Select";
-                var size = graphics.MeasureString(text, font);
-                var tx = this.buttonBounds.X + ((this.buttonBounds.Width - size.Width) / 2);
-                var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
-                graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
-
-                if (this.isHovering && !this.selectAutoHidden && this.cachedSelectedBounds != null && this.cachedSelectedBounds.Count > 0)
-                {
-                    var highlightColor = DialogCanvasLink.DefaultLineColor;
-                    var highlightWidth = 2f;
-                    using (var pen = new Pen(highlightColor, highlightWidth))
-                    {
-                        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                        var union = RectangleF.Empty;
-                        var hasUnion = false;
-                        foreach (var bounds in this.cachedSelectedBounds.Values)
-                        {
-                            var pad = 4f;
-                            var hb = RectangleF.Inflate(bounds, pad, pad);
-                            graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
-                            if (!hasUnion)
-                            {
-                                union = hb;
-                                hasUnion = true;
-                            }
-                            else
-                            {
-                                union = RectangleF.Union(union, hb);
-                            }
-                        }
-
-                        if (hasUnion)
-                        {
-                            var selectionCenter = new PointF(union.X + (union.Width / 2f), union.Y + (union.Height / 2f));
-                            var buttonCenter = new PointF(this.buttonBounds.X + (this.buttonBounds.Width / 2f), this.buttonBounds.Y + (this.buttonBounds.Height / 2f));
-
-                            DialogCanvasLink.DrawLinkOnCanvas(canvas, graphics, selectionCenter, buttonCenter, highlightColor, highlightWidth);
-                        }
-                    }
-                }
+                SelectingComponentCore.RenderSelectButton(
+                    canvas,
+                    graphics,
+                    this.buttonBounds,
+                    this.isHovering,
+                    this.isClicking,
+                    this.Selected,
+                    this.owner.Locked);
+            }
+            else if (channel == GH_CanvasChannel.Overlay)
+            {
+                SelectingComponentCore.RenderSelectionOverlay(
+                    canvas,
+                    graphics,
+                    this.buttonBounds,
+                    this.cachedSelectedBounds,
+                    this.selectAutoHidden);
 
                 // Draw the provider tooltip last so it stays above the button and selection overlays.
                 this.RenderDeferredProviderLabel(graphics);
