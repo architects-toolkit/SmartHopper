@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
@@ -213,6 +214,47 @@ namespace SmartHopper.Core.ComponentBase
 
             this.owner.Message = $"{this.selectingComponent.SelectedObjects.Count} selected";
             this.owner.ExpireSolution(true);
+        }
+
+        internal static Dictionary<Guid, RectangleF> BuildSelectedBounds(ISelectingComponent selectingComponent)
+        {
+            var result = new Dictionary<Guid, RectangleF>();
+            foreach (var obj in selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
+            {
+                if (obj.Attributes != null)
+                {
+                    result[obj.InstanceGuid] = obj.Attributes.Bounds;
+                }
+            }
+
+            return result;
+        }
+
+        internal static void RestartSelectDisplayTimer(ref Timer? selectDisplayTimer, Action onElapsed)
+        {
+            StopSelectDisplayTimer(ref selectDisplayTimer);
+
+            var timer = new Timer(5000) { AutoReset = false };
+            selectDisplayTimer = timer;
+
+            timer.Elapsed += (_, __) =>
+            {
+                onElapsed();
+                try { timer.Stop(); } catch { }
+                try { timer.Dispose(); } catch { }
+            };
+
+            timer.Start();
+        }
+
+        internal static void StopSelectDisplayTimer(ref Timer? selectDisplayTimer)
+        {
+            if (selectDisplayTimer != null)
+            {
+                try { selectDisplayTimer.Stop(); } catch { }
+                try { selectDisplayTimer.Dispose(); } catch { }
+                selectDisplayTimer = null;
+            }
         }
     }
 }

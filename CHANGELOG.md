@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Components UI:
   - AI-selecting stateful components now use combined attributes that show both the "Select" button and AI provider badges, with the button rendered above the provider strip.
+  - Selecting components now use the dialog link line color for hover highlights and draw a connector line from the combined selection center to the "Select" button.
 - Script components:
   - `AIScriptGeneratorComponent` now orchestrates `script_generate` / `script_edit` together with `gh_get` / `gh_put` instead of the legacy `script_generator` tool, and exposes `GhJSON`, `Guid`, `Summary`, and `Message` outputs only.
   - `AIScriptGeneratorComponent` and `AIScriptReviewComponent` no longer expose a `Guid` input; the target component is always provided via the selecting button.

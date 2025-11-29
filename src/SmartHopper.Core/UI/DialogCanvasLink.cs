@@ -39,6 +39,11 @@ namespace SmartHopper.Core.UI
         private static bool isHooked;
 
         /// <summary>
+        /// The default line color used for links.
+        /// </summary>
+        public static Color DefaultLineColor { get; } = Color.FromArgb(200, 32, 152, 72); // Semi-transparent SmartHopper green
+
+        /// <summary>
         /// Information about a dialog-component link.
         /// </summary>
         private class LinkInfo
@@ -97,7 +102,7 @@ namespace SmartHopper.Core.UI
                 ActiveLinks[dialog] = new LinkInfo
                 {
                     InstanceGuid = instanceGuid,
-                    LineColor = lineColor ?? Color.FromArgb(200, 32, 152, 72), // Semi-transparent SmartHopper green
+                    LineColor = lineColor ?? DefaultLineColor,
                     LineWidth = lineWidth,
                 };
 
@@ -281,21 +286,14 @@ namespace SmartHopper.Core.UI
 
                     Debug.WriteLine($"[DialogCanvasLink] Canvas positions: component={componentCenter}, dialog={dialogCanvasPos}");
 
-                    // Draw the connection line
-                    DrawConnectionLine(
-                        canvas.Graphics,
+                    // Draw the connection with anchor dots at both ends
+                    DrawLinkOnCanvas(
                         canvas,
+                        canvas.Graphics,
                         componentCenter,
                         dialogCanvasPos,
                         linkInfo.LineColor,
                         linkInfo.LineWidth);
-
-                    // Draw a dot at the component end
-                    DrawAnchorDot(
-                        canvas.Graphics,
-                        canvas,
-                        componentCenter,
-                        linkInfo.LineColor);
                 }
             }
         }
@@ -317,6 +315,24 @@ namespace SmartHopper.Core.UI
             {
                 return null;
             }
+        }
+
+        public static void DrawLinkOnCanvas(
+            GH_Canvas canvas,
+            Graphics graphics,
+            PointF start,
+            PointF end,
+            Color color,
+            float width)
+        {
+            if (canvas == null || graphics == null)
+            {
+                return;
+            }
+
+            DrawConnectionLine(graphics, canvas, start, end, color, width);
+            DrawAnchorDot(graphics, canvas, start, color);
+            DrawAnchorDot(graphics, canvas, end, color);
         }
 
         private static void DrawConnectionLine(
