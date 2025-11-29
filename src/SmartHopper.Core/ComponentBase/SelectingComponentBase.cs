@@ -149,6 +149,10 @@ namespace SmartHopper.Core.ComponentBase
         private Timer? selectDisplayTimer;
         private bool selectAutoHidden;
 
+        // Cached bounds for selected objects during hover session.
+        // Computed once when hover starts, cleared when hover ends.
+        private Dictionary<Guid, RectangleF>? cachedSelectedBounds;
+
         public SelectingComponentAttributes(GH_Component owner, ISelectingComponent selectingComponent)
             : base(owner)
         {
@@ -187,16 +191,15 @@ namespace SmartHopper.Core.ComponentBase
                 var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
                 graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
 
-                if (this.isHovering && !this.selectAutoHidden && this.selectingComponent.SelectedObjects.Count > 0)
+                if (this.isHovering && !this.selectAutoHidden && this.cachedSelectedBounds != null && this.cachedSelectedBounds.Count > 0)
                 {
                     using (var pen = new Pen(Color.DodgerBlue, 2f))
                     {
                         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                        foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
+                        foreach (var bounds in this.cachedSelectedBounds.Values)
                         {
-                            var b = obj.Attributes.Bounds;
                             var pad = 4f;
-                            var hb = RectangleF.Inflate(b, pad, pad);
+                            var hb = RectangleF.Inflate(bounds, pad, pad);
                             graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
                         }
                     }
@@ -211,6 +214,9 @@ namespace SmartHopper.Core.ComponentBase
                 this.isClicking = true;
                 this.owner.ExpireSolution(true);
                 this.selectingComponent.EnableSelectionMode();
+
+                // Refresh cache after selection completes
+                this.CacheSelectedBounds();
                 return GH_ObjectResponse.Handled;
             }
 
@@ -227,12 +233,14 @@ namespace SmartHopper.Core.ComponentBase
                 if (this.isHovering)
                 {
                     this.selectAutoHidden = false;
+                    this.CacheSelectedBounds();
                     this.StartSelectDisplayTimer();
                 }
                 else
                 {
                     this.StopSelectDisplayTimer();
                     this.selectAutoHidden = false; // reset for next hover
+                    this.cachedSelectedBounds = null; // clear cache on hover end
                 }
 
                 // Use display invalidation for hover-only visual changes
@@ -281,6 +289,22 @@ namespace SmartHopper.Core.ComponentBase
                 this.selectDisplayTimer = null;
             }
         }
+
+        /// <summary>
+        /// Caches the current bounds of all selected objects.
+        /// Called once when hover starts to get fresh positions.
+        /// </summary>
+        private void CacheSelectedBounds()
+        {
+            this.cachedSelectedBounds = new Dictionary<Guid, RectangleF>();
+            foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
+            {
+                if (obj.Attributes != null)
+                {
+                    this.cachedSelectedBounds[obj.InstanceGuid] = obj.Attributes.Bounds;
+                }
+            }
+        }
     }
 
     public class AISelectingComponentAttributes : ComponentBadgesAttributes
@@ -295,6 +319,10 @@ namespace SmartHopper.Core.ComponentBase
         // Purpose: ensure the dashed highlight disappears after 5s even if the cursor stays hovered.
         private Timer? selectDisplayTimer;
         private bool selectAutoHidden;
+
+        // Cached bounds for selected objects during hover session.
+        // Computed once when hover starts, cleared when hover ends.
+        private Dictionary<Guid, RectangleF>? cachedSelectedBounds;
 
         public AISelectingComponentAttributes(AIProviderComponentBase owner, ISelectingComponent selectingComponent)
             : base(owner)
@@ -341,16 +369,15 @@ namespace SmartHopper.Core.ComponentBase
                 var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
                 graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
 
-                if (this.isHovering && !this.selectAutoHidden && this.selectingComponent.SelectedObjects.Count > 0)
+                if (this.isHovering && !this.selectAutoHidden && this.cachedSelectedBounds != null && this.cachedSelectedBounds.Count > 0)
                 {
                     using (var pen = new Pen(Color.DodgerBlue, 2f))
                     {
                         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                        foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
+                        foreach (var bounds in this.cachedSelectedBounds.Values)
                         {
-                            var b = obj.Attributes.Bounds;
                             var pad = 4f;
-                            var hb = RectangleF.Inflate(b, pad, pad);
+                            var hb = RectangleF.Inflate(bounds, pad, pad);
                             graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
                         }
                     }
@@ -368,6 +395,9 @@ namespace SmartHopper.Core.ComponentBase
                 this.isClicking = true;
                 this.owner.ExpireSolution(true);
                 this.selectingComponent.EnableSelectionMode();
+
+                // Refresh cache after selection completes
+                this.CacheSelectedBounds();
                 return GH_ObjectResponse.Handled;
             }
 
@@ -384,12 +414,14 @@ namespace SmartHopper.Core.ComponentBase
                 if (this.isHovering)
                 {
                     this.selectAutoHidden = false;
+                    this.CacheSelectedBounds();
                     this.StartSelectDisplayTimer();
                 }
                 else
                 {
                     this.StopSelectDisplayTimer();
                     this.selectAutoHidden = false; // reset for next hover
+                    this.cachedSelectedBounds = null; // clear cache on hover end
                 }
 
                 // Use display invalidation for hover-only visual changes
@@ -436,6 +468,22 @@ namespace SmartHopper.Core.ComponentBase
                 try { this.selectDisplayTimer.Stop(); } catch { /* ignore */ }
                 try { this.selectDisplayTimer.Dispose(); } catch { /* ignore */ }
                 this.selectDisplayTimer = null;
+            }
+        }
+
+        /// <summary>
+        /// Caches the current bounds of all selected objects.
+        /// Called once when hover starts to get fresh positions.
+        /// </summary>
+        private void CacheSelectedBounds()
+        {
+            this.cachedSelectedBounds = new Dictionary<Guid, RectangleF>();
+            foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
+            {
+                if (obj.Attributes != null)
+                {
+                    this.cachedSelectedBounds[obj.InstanceGuid] = obj.Attributes.Bounds;
+                }
             }
         }
 
