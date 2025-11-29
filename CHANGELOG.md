@@ -40,12 +40,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `AIScriptGeneratorComponent` and `AIScriptReviewComponent` to support processing multiple inputs in parallel.
 - `GhJsonDeserializer`:
   - Changed deserialization logic to default the UsingStandardOutputParam property to true when ShowStandardOutput is not present in the GhJSON ComponentState.
+- Providers:
+  - Added new Claude Opus 4.5 model to the Anthropic provider registry.
 
 ### Fixed
 
 - `gh_put` tool:
   - Fixed infinite loop when using `GhPutComponents` with replacement mode. The `NewSolution` call inside the tool caused re-entrancy when the component blocked with `.GetAwaiter().GetResult()`, which pumps Windows messages and allows the new solution to start immediately.
-  - Fixed "object expired during solution" error when replacing components. Now properly disconnects all connections from a component before removing it, preventing external components from retaining stale source references.
+  - Fixed "object expired during solution" error when replacing components. Removed the document disable/enable logic which was causing components to be in an invalid state. Uses `IsolateObject()` to properly clean up connections before component removal.
 
 ## [1.1.1-alpha] - 2025-11-24
 

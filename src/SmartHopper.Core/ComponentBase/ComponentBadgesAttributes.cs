@@ -216,31 +216,38 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Draw a simple orange warning triangle for Deprecated.
+        /// Draw a warning for Deprecated.
         /// </summary>
         private static void DrawDeprecatedBadge(Graphics g, float x, float y)
         {
-            using (var bg = new SolidBrush(Color.FromArgb(230, 126, 34))) // orange
+            using (var bg = new SolidBrush(Color.FromArgb(155, 89, 182))) // purple
             using (var pen = new Pen(Color.White, 1.5f))
             {
+                // Circular badge background
+                var rect = new RectangleF(x, y, BADGE_SIZE, BADGE_SIZE);
+                g.FillEllipse(bg, rect);
+
                 var cx = x + BADGE_SIZE / 2f;
                 var cy = y + BADGE_SIZE / 2f;
-                var r = BADGE_SIZE * 0.45f;
 
-                // Triangle points
-                var p1 = new PointF(cx, cy - r);
-                var p2 = new PointF(cx - r * 0.866f, cy + r * 0.5f);
-                var p3 = new PointF(cx + r * 0.866f, cy + r * 0.5f);
+                // Arrow shaft (line-based, tall inside circle)
+                float radius = BADGE_SIZE * 0.5f;
+                float shaftTopY = cy - radius * 0.65f;
+                float tipY = cy + radius * 0.75f;
+                float shaftBottomY = cy + radius * 0.80f; // extend slightly past tip to avoid gap
+                pen.StartCap = System.Drawing.Drawing2D.LineCap.Flat;
+                pen.EndCap = System.Drawing.Drawing2D.LineCap.Flat;
+                g.DrawLine(pen, new PointF(cx, shaftTopY), new PointF(cx, shaftBottomY));
 
-                var path = new System.Drawing.Drawing2D.GraphicsPath();
-                path.AddPolygon(new[] { p1, p2, p3 });
-                g.FillPath(bg, path);
+                // Arrow head (two diagonal lines forming a V)
+                float arrowHalfWidth = radius * 0.6f;
+                float headTopY = cy + radius * 0.1f;
+                var tip = new PointF(cx, tipY);
+                var left = new PointF(cx - arrowHalfWidth, headTopY);
+                var right = new PointF(cx + arrowHalfWidth, headTopY);
 
-                // Exclamation mark
-                var lineTop = new PointF(cx, cy - r * 0.2f);
-                var lineBottom = new PointF(cx, cy + r * 0.3f);
-                g.DrawLine(pen, lineTop, lineBottom);
-                g.DrawEllipse(pen, cx - 1.5f, cy + r * 0.4f, 3f, 3f);
+                g.DrawLine(pen, tip, left);
+                g.DrawLine(pen, tip, right);
             }
         }
 
