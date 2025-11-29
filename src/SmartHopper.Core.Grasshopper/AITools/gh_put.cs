@@ -107,6 +107,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (componentsToReplace.Count > 0)
                     {
                         var confirmTcs = new TaskCompletionSource<bool>();
+
+                        // Get the first component's GUID to link the dialog to on the canvas
+                        var linkToGuid = componentsToReplace.FirstOrDefault();
+
                         Rhino.RhinoApp.InvokeOnUiThread(() =>
                         {
                             try
@@ -115,7 +119,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                               "Do you want to replace them with the new definitions?\n\n" +
                                               "Click 'Yes' to replace existing components.\n" +
                                               "Click 'No' to create new components instead.";
-                                var result = StyledMessageDialog.ShowConfirmation(message, "Replace Components?");
+                                var result = StyledMessageDialog.ShowConfirmation(message, "Replace Components?", linkToGuid);
                                 confirmTcs.SetResult(result);
                             }
                             catch (Exception ex)

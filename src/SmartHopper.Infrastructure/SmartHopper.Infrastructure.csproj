@@ -1,7 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="$(SolutionDir)Solution.props" Condition="Exists('$(SolutionDir)Solution.props')" />
-  
   <PropertyGroup>
     <TargetFrameworks>net7.0-windows;net7.0</TargetFrameworks>
     <EnableDynamicLoading>true</EnableDynamicLoading>
@@ -9,7 +8,6 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
-  
   <PropertyGroup>
     <Version>$(SolutionVersion)</Version>
     <Title>SmartHopper Infrastructure</Title>
@@ -18,11 +16,9 @@
     <Authors>Marc Roca Musach + SmartHopper Community</Authors>
     <Copyright>Copyright (c) 2024 Marc Roca Musach</Copyright>
   </PropertyGroup>
-
   <PropertyGroup>
     <OutputPath>$(SolutionDir)bin/$(SolutionVersion)/$(Configuration)</OutputPath>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
@@ -35,24 +31,20 @@
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
   </ItemGroup>
-
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows'))">
     <UseWindowsForms>true</UseWindowsForms>
     <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
   </PropertyGroup>
-
   <!-- Reference WinForms for .NET 7.0 on macOS -->
   <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
     <!-- Rhino 8.11 and later you can use this -->
     <!-- <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" /> -->
-
     <!-- Rhino 8.10 and earlier -->
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" ExcludeAssets="all" GeneratePathProperty="true" />
     <Reference Include="$(PkgMicrosoft_NETFramework_ReferenceAssemblies_net48)\build\.NETFramework\v4.8\System.Windows.Forms.dll" Private="False" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.11" ExcludeAssets="runtime" />
   </ItemGroup>
-
   <ItemGroup>
     <EditorConfigFiles Remove="..\.editorconfig" />
   </ItemGroup>
@@ -74,5 +66,31 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\smarthopper.ico" />
+  </ItemGroup>
+  <!-- 
+    Generate InternalsVisibleTo attributes at build time.
+    This grants internal access to official SmartHopper assemblies only,
+    preventing external third-party code from using internal types like StyledMessageDialog.
+    
+    The PublicKey is updated by tools/Update-InternalsVisibleTo.ps1 which extracts it from signing.snk.
+    Run that script after generating or updating the signing key.
+  -->
+  <PropertyGroup>
+    <SmartHopperPublicKey>002400000480000094000000060200000024000052534131000400000100010069165e13512147191d79b5ea632a909a528291f5516b656c3094b31b26294d19f22a039bf2d959886df1426cb71fd872d787df82c7c79d1239c93f70098a6595fc0faa21b85ed781edd83ba809f445018f2022ffd96f919d23e72bf5b442e3b7d0b464d4b1e8717a3d5b09b8169655a6c97f18f3164ab65004815ada7b1dd2df</SmartHopperPublicKey>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Core assemblies -->
+    <InternalsVisibleTo Include="SmartHopper.Core, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Core.Grasshopper, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Components, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Menu, PublicKey=$(SmartHopperPublicKey)" />
+    <!-- Built-in providers -->
+    <InternalsVisibleTo Include="SmartHopper.Providers.Anthropic, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.DeepSeek, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.MistralAI, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.OpenAI, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.OpenRouter, PublicKey=$(SmartHopperPublicKey)" />
+    <!-- Test assemblies -->
+    <InternalsVisibleTo Include="SmartHopper.Infrastructure.Tests, PublicKey=$(SmartHopperPublicKey)" />
   </ItemGroup>
 </Project>
