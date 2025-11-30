@@ -300,7 +300,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""description"": ""Optional updated nickname for the component""
                     }
                 },
-                ""required"": [""script"", ""inputs"", ""outputs"", ""changesSummary""],
+                ""required"": [""script"", ""inputs"", ""outputs"", ""changesSummary"", ""nickname""],
                 ""additionalProperties"": false
             }";
         }

@@ -49,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gh_put` tool:
   - Fixed infinite loop when using `GhPutComponents` with replacement mode. The `NewSolution` call inside the tool caused re-entrancy when the component blocked with `.GetAwaiter().GetResult()`, which pumps Windows messages and allows the new solution to start immediately.
   - Fixed "object expired during solution" error when replacing components. Removed the document disable/enable logic which was causing components to be in an invalid state. Uses `IsolateObject()` to properly clean up connections before component removal.
+- `script_new` and `script_edit` tools:
+  - Fixed crashing: nickname is required to comply with OpenAI's structured-output requirements.
 
 ## [1.1.1-alpha] - 2025-11-24
 
