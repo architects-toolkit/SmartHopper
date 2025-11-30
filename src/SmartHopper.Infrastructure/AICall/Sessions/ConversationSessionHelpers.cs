@@ -25,6 +25,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Metrics;
     using SmartHopper.Infrastructure.AICall.Tools;
+    using SmartHopper.Infrastructure.AICall.Utilities;
+    using SmartHopper.Infrastructure.Streaming;
 
     /// <summary>
     /// Helper methods supporting <see cref="ConversationSession"/> orchestration logic.
@@ -275,6 +277,25 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 Debug.WriteLine($"[ConversationSession.Stream] INFO: {pendingAfterStream} tool call(s) remain unresolved after streaming. They will be processed in subsequent passes.");
             }
+        }
+
+        private async Task<(AIReturn Result, bool ShouldBreak)> ExecuteNonStreamingProviderFollowUpAsync(string turnId, CancellationToken ct)
+        {
+            var followUp = await this.ExecProviderAsync(ct).ConfigureAwait(false);
+            if (followUp == null)
+            {
+                var err = this.CreateError("Provider returned no response");
+                this.NotifyFinal(err);
+                return (err, true);
+            }
+
+            var followUpNew = followUp.Body?.GetNewInteractions();
+            InteractionUtility.EnsureTurnId(followUpNew, turnId);
+            this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
+            this._lastReturn = followUp;
+            this.UpdateLastReturn();
+            this.NotifyInteractionCompleted(followUp);
+            return (followUp, false);
         }
 
         /// <summary>
@@ -550,7 +571,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     AIInteractionText txt => $"Text(agent={txt.Agent}, turnId={txt.TurnId}, content='{txt.Content?.Substring(0, Math.Min(50, txt.Content?.Length ?? 0))}...')",
                     AIInteractionToolResult tr => $"ToolResult(name={tr.Name}, id={tr.Id}, turnId={tr.TurnId})",
-                    AIInteractionToolCall tc => $"ToolCall(name={tc.Name}, id={tc.Id}, turnId={tc.TurnId})",
+                    AIInteractionToolCall tc => $"ToolCall(name={tc.Name}, id={tc.Id}, turnId={tc.TurnId}, argsLen={tc.Arguments?.ToString()?.Length ?? 0})",
                     _ => $"{interaction.GetType().Name}(agent={interaction.Agent}, turnId={interaction.TurnId})"
                 };
                 Debug.WriteLine($"[ConversationSession.AppendToSessionHistory] {preview}");
@@ -574,6 +595,76 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // debug-only logging, ignore failures
             }
 #endif
+        }
+
+        /// <summary>
+        /// Updates an existing tool call in session history with new arguments.
+        /// Used during streaming when tool call arguments arrive incrementally.
+        /// </summary>
+        /// <param name="updatedToolCall">The tool call with updated arguments.</param>
+        /// <returns>True if the tool call was found and updated; false otherwise.</returns>
+        private bool UpdateToolCallInHistory(AIInteractionToolCall updatedToolCall)
+        {
+            if (updatedToolCall == null || string.IsNullOrWhiteSpace(updatedToolCall.Id))
+            {
+                return false;
+            }
+
+            var interactions = this.Request?.Body?.Interactions;
+            if (interactions == null || interactions.Count == 0)
+            {
+                return false;
+            }
+
+            // Find the existing tool call by ID
+            var existingIndex = -1;
+            for (int i = 0; i < interactions.Count; i++)
+            {
+                if (interactions[i] is AIInteractionToolCall tc &&
+                    string.Equals(tc.Id, updatedToolCall.Id, StringComparison.Ordinal))
+                {
+                    existingIndex = i;
+                    break;
+                }
+            }
+
+            if (existingIndex < 0)
+            {
+                return false;
+            }
+
+            // Only update if the new arguments are more complete
+            var existingTc = (AIInteractionToolCall)interactions[existingIndex];
+            var existingArgsLen = existingTc.Arguments?.ToString()?.Length ?? 0;
+            var newArgsLen = updatedToolCall.Arguments?.ToString()?.Length ?? 0;
+
+            if (newArgsLen <= existingArgsLen)
+            {
+                // New arguments are not more complete, skip update
+                return false;
+            }
+
+#if DEBUG
+            Debug.WriteLine($"[ConversationSession.UpdateToolCallInHistory] Updating tool call {updatedToolCall.Id}: argsLen {existingArgsLen} -> {newArgsLen}");
+#endif
+
+            // Replace the interaction at the existing index
+            var newInteractions = new List<IAIInteraction>(interactions);
+            newInteractions[existingIndex] = updatedToolCall;
+
+            // Rebuild from scratch with updated list
+            var newBuilder = AIBodyBuilder.Create()
+                .WithToolFilter(this.Request.Body?.ToolFilter)
+                .WithJsonOutputSchema(this.Request.Body?.JsonOutputSchema)
+                .AsHistory();
+
+            foreach (var interaction in newInteractions)
+            {
+                newBuilder.Add(interaction, markAsNew: false);
+            }
+
+            this.Request.Body = newBuilder.Build();
+            return true;
         }
 
 #if DEBUG

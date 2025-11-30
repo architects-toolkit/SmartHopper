@@ -605,7 +605,18 @@ namespace SmartHopper.Core.UI.Chat
                                 aggregated.Content = finalAssistant.Content;
                             }
 
-                            aggregated.Metrics = finalAssistant.Metrics;
+                            // Use aggregated turn metrics (includes tool calls, tool results, and assistant messages)
+                            // This gives users an accurate picture of total token consumption for the turn
+                            var turnId = finalAssistant.TurnId;
+                            if (!string.IsNullOrWhiteSpace(turnId))
+                            {
+                                aggregated.Metrics = this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics;
+                            }
+                            else
+                            {
+                                aggregated.Metrics = finalAssistant.Metrics;
+                            }
+
                             aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
 
                             // Ensure reasoning present on final render: prefer the provider's final reasoning
@@ -616,6 +627,16 @@ namespace SmartHopper.Core.UI.Chat
                         }
 
                         var toRender = aggregated ?? finalAssistant;
+                        
+                        // For non-aggregated renders, also apply turn metrics if available
+                        if (toRender != null && aggregated == null && finalAssistant != null)
+                        {
+                            var turnId = finalAssistant.TurnId;
+                            if (!string.IsNullOrWhiteSpace(turnId))
+                            {
+                                toRender.Metrics = this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics;
+                            }
+                        }
                         if (toRender != null)
                         {
                             // Prefer the segmented key only when a streaming aggregate exists.
