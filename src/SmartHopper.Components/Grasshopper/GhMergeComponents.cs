@@ -12,6 +12,7 @@ using System;
 using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Components.Properties;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
