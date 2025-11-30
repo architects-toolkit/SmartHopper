@@ -58,6 +58,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""items"": { ""type"": ""string"" },
                             ""description"": ""Optional array of attribute filter tokens. '+' includes, '-' excludes. Defaults to all components. Available tags:\n  selected/unselected: component selection state on canvas;\n  enabled/disabled: whether the component can run (enabled = unlocked);\n  error/warning/remark: runtime message levels;\n  previewcapable/notpreviewcapable: supports geometry preview;\n  previewon/previewoff: current preview toggle.\nSynonyms: locked→disabled, unlocked→enabled, remarks/info→remark, warn/warnings→warning, errors→error, visible→previewon, hidden→previewoff. Examples: '+error' → only components with errors; '+error +warning' → errors OR warnings; '+error -warning' → errors excluding warnings; '+error -previewoff' → errors with preview on; no filter → all components.""
                         },
+                        ""categoryFilter"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""description"": ""Optionally filter components by Grasshopper category or subcategory. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo, Script. E.g. ['+Vector','-Curve','+Script'].""
+                        },
                         ""typeFilter"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
@@ -224,6 +229,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var typeFilters = predefinedTypeFilters != null
                     ? new List<string>(predefinedTypeFilters)
                     : args["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
+                var categoryFilters = args["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
                 var objects = CanvasAccess.GetCurrentObjects();
 
                 // Filter by manual UI selection if provided
@@ -238,6 +244,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var (includeTypes, excludeTypes) = ComponentRetriever.ParseIncludeExclude(typeFilters, ComponentRetriever.TypeSynonyms);
                 var (includeTags, excludeTags) = ComponentRetriever.ParseIncludeExclude(attrFilters, ComponentRetriever.FilterSynonyms);
+                var (includeCats, excludeCats) = ComponentRetriever.ParseIncludeExclude(categoryFilters, ComponentRetriever.CategorySynonyms);
 
                 // Apply typeFilters on base objects
                 var typeFiltered = new List<IGH_ActiveObject>(objects);
@@ -354,6 +361,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 objects = typeFiltered;
+
+                // Apply category filters (by Category and SubCategory) only to components.
+                // Non-component objects (e.g. parameters) are left untouched here so that
+                // attribute filters (attrFilters) can still apply to them.
+                if (includeCats.Any() || excludeCats.Any())
+                {
+                    objects = objects
+                        .Where(o =>
+                        {
+                            if (o is GH_Component comp)
+                            {
+                                return ComponentRetriever.PassesCategoryFilters(
+                                    comp.Category,
+                                    comp.SubCategory,
+                                    includeCats,
+                                    excludeCats);
+                            }
+
+                            // Leave non-component objects for subsequent filters.
+                            return true;
+                        })
+                        .ToList();
+                }
 
                 // Apply includes
                 List<IGH_ActiveObject> resultObjects;

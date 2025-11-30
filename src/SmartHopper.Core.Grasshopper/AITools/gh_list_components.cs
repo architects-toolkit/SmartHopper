@@ -103,16 +103,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Retrieve all component proxies in one call
                 var proxies = server.ObjectProxies.ToList();
 
-                // Apply include filters
-                if (includeCats.Any())
+                // Apply category filters (match against Category and SubCategory)
+                if (includeCats.Any() || excludeCats.Any())
                 {
-                    proxies = proxies.Where(p => p.Desc.Category != null && includeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
-                }
-
-                // Apply exclude filters
-                if (excludeCats.Any())
-                {
-                    proxies = proxies.Where(p => p.Desc.Category == null || !excludeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
+                    proxies = proxies
+                        .Where(p => ComponentRetriever.PassesCategoryFilters(
+                            p.Desc.Category,
+                            p.Desc.SubCategory,
+                            includeCats,
+                            excludeCats))
+                        .ToList();
                 }
 
                 // Apply name filter if provided
