@@ -362,25 +362,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 objects = typeFiltered;
 
-                // Apply category filters (by Category and SubCategory) only to components.
-                // Non-component objects (e.g. parameters) are left untouched here so that
-                // attribute filters (attrFilters) can still apply to them.
+                // Apply category filters (by Category and SubCategory) to all document
+                // objects that expose Category/SubCategory (components, parameters, etc.).
+                // Objects without category information are only kept when there is no
+                // include list, so '+Script' will correctly exclude non-script objects
+                // such as generic panels.
                 if (includeCats.Any() || excludeCats.Any())
                 {
                     objects = objects
                         .Where(o =>
                         {
-                            if (o is GH_Component comp)
+                            if (o is GH_DocumentObject doc)
                             {
                                 return ComponentRetriever.PassesCategoryFilters(
-                                    comp.Category,
-                                    comp.SubCategory,
+                                    doc.Category,
+                                    doc.SubCategory,
                                     includeCats,
                                     excludeCats);
                             }
 
-                            // Leave non-component objects for subsequent filters.
-                            return true;
+                            // Fallback for exotic objects without category info:
+                            // keep them only when no include list is specified.
+                            return !includeCats.Any();
                         })
                         .ToList();
                 }
