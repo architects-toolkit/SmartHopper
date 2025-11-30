@@ -128,7 +128,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Replace("<ghjson>", ghJsonInput)
                     .Replace("<instructions>", instructions);
 
-                var systemPrompt = this.systemPromptTemplate + $"\n\nThe current script uses the '{existingLanguage}' language.";
+                var systemPrompt = this.systemPromptTemplate + $"\n\nThe current script is written in '{existingLanguage}'.";
 
                 var jsonSchema = GetJsonSchema();
 
