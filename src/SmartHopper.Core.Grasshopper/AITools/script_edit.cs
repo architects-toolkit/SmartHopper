@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -34,6 +35,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class script_edit : IAIToolProvider
     {
         private readonly string toolName = "script_edit";
+        private readonly string wrapperToolName = "script_edit_and_replace_on_canvas";
 
         private readonly string systemPromptTemplate =
             "You are a Grasshopper script component editor. Edit the existing script based on the user's instructions.\n\n" +
@@ -57,7 +59,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Edit an existing Grasshopper script component based on instructions. Takes GhJSON input and returns updated GhJSON (does not modify canvas).",
-                category: "Scripting",
+                category: "Hidden",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -73,6 +75,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""ghjson"", ""instructions""]
                 }",
                 execute: this.ExecuteAsync,
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
+
+            // Wrapper tool that edits and replaces the component on canvas in one call
+            yield return new AITool(
+                name: this.wrapperToolName,
+                description: "Edit an existing Grasshopper script component and replace it on the canvas. This is a convenience wrapper that combines script_edit and gh_put in a single call, saving tokens. The user will be prompted to confirm the replacement.",
+                category: "Scripting",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""ghjson"": {
+                            ""type"": ""string"",
+                            ""description"": ""GhJSON string representing the script component to edit. Retrieve it using gh_get[categoryFilter=[+Script]], gh_get[guidFilter=[<guid>]] or gh_get_selected if the user is asking about the currently selected component.""
+                        },
+                        ""instructions"": {
+                            ""type"": ""string"",
+                            ""description"": ""Natural language instructions describing how to edit the script.""
+                        }
+                    },
+                    ""required"": [""ghjson"", ""instructions""]
+                }",
+                execute: this.ExecuteEditAndReplaceAsync,
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
         }
 
@@ -225,6 +249,132 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[script_edit] Error: {ex.Message}");
+                output.CreateError(ex.Message);
+                return output;
+            }
+        }
+
+        /// <summary>
+        /// Wrapper that edits the script and replaces it on the canvas in one call.
+        /// Internally calls script_edit then gh_put with editMode=true.
+        /// </summary>
+        private async Task<AIReturn> ExecuteEditAndReplaceAsync(AIToolCall toolCall)
+        {
+            var output = new AIReturn { Request = toolCall };
+
+            try
+            {
+                // Step 1: Call script_edit to get the updated GhJSON
+                Debug.WriteLine($"[{this.wrapperToolName}] Step 1: Calling script_edit");
+                var editResult = await this.ExecuteAsync(toolCall).ConfigureAwait(false);
+
+                if (!editResult.Success)
+                {
+                    Debug.WriteLine($"[{this.wrapperToolName}] script_edit failed");
+                    output.Messages = editResult.Messages;
+                    return output;
+                }
+
+                // Extract the updated GhJSON from the script_edit result
+                var editToolResult = editResult.Body?.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                if (editToolResult?.Result == null)
+                {
+                    output.CreateError("script_edit did not return a valid result.");
+                    return output;
+                }
+
+                var updatedGhJson = editToolResult.Result["ghjson"]?.ToString();
+                if (string.IsNullOrWhiteSpace(updatedGhJson))
+                {
+                    output.CreateError("script_edit did not return updated GhJSON.");
+                    return output;
+                }
+
+                Debug.WriteLine($"[{this.wrapperToolName}] Step 2: Calling gh_put with editMode=true");
+
+                // Step 2: Call gh_put internally using AIToolManager
+                var ghPutArgs = new JObject
+                {
+                    ["ghjson"] = updatedGhJson,
+                    ["editMode"] = true,
+                };
+
+                var ghPutToolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_put",
+                    Arguments = ghPutArgs,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var ghPutToolCall = new AIToolCall
+                {
+                    Provider = toolCall.Provider,
+                    Model = toolCall.Model,
+                    Endpoint = "gh_put",
+                    SkipMetricsValidation = true,
+                };
+                ghPutToolCall.Body = AIBodyBuilder.Create()
+                    .Add(ghPutToolCallInteraction)
+                    .Build();
+
+                var ghPutResult = await AIToolManager.ExecuteTool(ghPutToolCall).ConfigureAwait(false);
+
+                if (!ghPutResult.Success)
+                {
+                    Debug.WriteLine($"[{this.wrapperToolName}] gh_put failed");
+
+                    // Return combined result with edit success but put failure
+                    var partialResult = new JObject
+                    {
+                        ["success"] = false,
+                        ["editSuccess"] = true,
+                        ["ghjson"] = updatedGhJson,
+                        ["putSuccess"] = false,
+                        ["putError"] = ghPutResult.Messages?.FirstOrDefault()?.Message ?? "gh_put failed",
+                        ["message"] = "Script was edited successfully but failed to replace on canvas.",
+                    };
+
+                    var partialBody = AIBodyBuilder.Create()
+                        .AddToolResult(partialResult, toolCall.GetToolCall().Id, this.wrapperToolName, editResult.Metrics, ghPutResult.Messages)
+                        .Build();
+                    output.CreateSuccess(partialBody, toolCall);
+                    return output;
+                }
+
+                Debug.WriteLine($"[{this.wrapperToolName}] Both steps completed successfully");
+
+                // Combine results from both operations
+                var ghPutToolResult = ghPutResult.Body?.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                var combinedResult = new JObject
+                {
+                    ["success"] = true,
+                    ["ghjson"] = updatedGhJson,
+                    ["instanceGuid"] = editToolResult.Result["instanceGuid"],
+                    ["language"] = editToolResult.Result["language"],
+                    ["inputCount"] = editToolResult.Result["inputCount"],
+                    ["outputCount"] = editToolResult.Result["outputCount"],
+                    ["changesSummary"] = editToolResult.Result["changesSummary"],
+                    ["components"] = ghPutToolResult?.Result?["components"],
+                    ["message"] = "Script component edited and replaced on canvas successfully.",
+                };
+
+                // Combine metrics from both operations
+                var combinedMetrics = editResult.Metrics;
+
+                var outBuilder = AIBodyBuilder.Create();
+                outBuilder.AddToolResult(combinedResult, toolCall.GetToolCall().Id, this.wrapperToolName, combinedMetrics, editResult.Messages);
+                output.CreateSuccess(outBuilder.Build(), toolCall);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.wrapperToolName}] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }

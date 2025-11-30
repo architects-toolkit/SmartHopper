@@ -110,7 +110,7 @@ namespace SmartHopper.Core.UI
             #### Tools
             - script_generate: Create a new script component from natural language instructions. Returns GhJSON with a single script component (not placed on the canvas).
             - script_review: Review an existing script component by GUID. Returns a concise review plus a list of potential issues and risky patterns.
-            - script_edit: Edit an existing script component using GhJSON and natural language instructions. Returns updated GhJSON that can be applied back to the canvas.
+            - script_edit_and_replace_on_canvas: Edit an existing script component using GhJSON and natural language instructions and replace it on the canvas in a single call. Internally combines script_edit and gh_put with editMode=true to reduce token usage.
 
             #### Required workflows
 
@@ -120,14 +120,12 @@ namespace SmartHopper.Core.UI
 
             - Edit an EXISTING script component in-place (user refers to a selected script or says "this script"):
               1. gh_get_selected (preferred) or gh_get_by_guid or gh_get with categoryFilter=['+Script']: Retrieve GhJSON for the target script component (preserve its InstanceGuid).
-              2. script_edit: Update the script based on the user instructions while keeping the same InstanceGuid.
-              3. gh_put with editMode=true: Replace the existing component on the canvas using the updated GhJSON.
+              2. script_edit_and_replace_on_canvas: Update the script based on the user instructions and replace the existing component on the canvas in a single call (internally uses script_edit and gh_put with editMode=true).
 
             - Fix BUGS in an existing script component:
               1. gh_get_errors or gh_get with categoryFilter=['+Script']: Locate the script component(s) with errors and obtain their GhJSON.
               2. script_review: Analyze the script to identify bugs and risky patterns.
-              3. script_edit: Apply the fixes suggested by the review and refine the script.
-              4. gh_put with editMode=true: Apply the fixed script component back to the canvas.
+              3. script_edit_and_replace_on_canvas: Apply the fixes suggested by the review, refine the script, and replace the script component on the canvas in a single call (internally uses script_edit and gh_put with editMode=true).
 
             Do NOT answer that you lack tools to modify scripts. You ALWAYS have access to these scripting tools and canvas tools in this environment; use them whenever the user asks you to change a script component.
 
