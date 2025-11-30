@@ -95,7 +95,7 @@ namespace SmartHopper.Core.UI
             - gh_tidy_up: Auto-arrange components in clean grid layout
             - gh_component_toggle_lock: Enable/disable component execution
             - gh_component_toggle_preview: Show/hide geometry preview
-            - gh_put: Add new components from GhJSON format
+            - gh_put: Add new components from GhJSON format, or when instanceGuid matches an existing component, replace it (after user confirmation, preserving positions and external connections when possible)
 
             ### Knowledge Base
             - mcneel_forum_search: First, search McNeel Discourse forum posts by query; then use topic/post tools on interesting results.
@@ -103,6 +103,29 @@ namespace SmartHopper.Core.UI
             - mcneel_forum_post_get: Retrieve a single forum post by ID (filtered JSON with raw markdown).
             - mcneel_forum_post_summarize: Summarize one or more posts by ID (for example selected replies from search or topic_get).
             - web_generic_page_read: Fetch readable text/markdown for any web page URL (Rhino docs, GitHub, StackExchange, Discourse, etc.) before reasoning about its content.
+
+            ### Scripting
+            Use these tools to generate, review, and edit script components:
+            - script_generate: Create a new script component from natural language instructions. Returns GhJSON with a single script component (not placed on the canvas).
+            - script_review: Review an existing script component by GUID. Returns a concise review plus a list of potential issues and risky patterns.
+            - script_edit: Edit an existing script component using GhJSON and natural language instructions. Returns updated GhJSON that can be applied back to the canvas.
+
+            Example workflows:
+
+            - Create a new script component:
+              1. script_generate: Generate GhJSON for the new script component.
+              2. gh_put (editMode=false): Place the generated component on the canvas.
+
+            - Edit an existing script component in-place:
+              1. gh_get with categoryFilter=['+Script'] or gh_get_by_guid: Retrieve GhJSON for the target script component (preserve its InstanceGuid).
+              2. script_edit: Update the script based on user instructions while keeping the same InstanceGuid.
+              3. gh_put with editMode=true: Replace the existing component on the canvas using the updated GhJSON.
+
+            - Fix coding issues in an existing script component:
+              1. gh_get_errors or gh_get with categoryFilter=['+Script']: Locate the script component(s) with errors and obtain their GhJSON.
+              2. script_review: Analyze the script to identify bugs and risky patterns.
+              3. script_edit: Apply the fixes suggested by the review and refine the script.
+              4. gh_put with editMode=true: Apply the fixed script component back to the canvas.
 
             ### Best Practices
             - Start with specialized tools (gh_get_selected, gh_get_errors) before using generic gh_get
