@@ -52,8 +52,7 @@ namespace SmartHopper.Components.Grasshopper
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        /// <remarks>TODO: Add ghmerge icon to Resources.</remarks>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.ghmerge;
 
         /// <summary>
         /// Registers the input parameters for this component.
