@@ -24,6 +24,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Streaming;
@@ -207,7 +208,54 @@ namespace SmartHopper.Providers.OpenRouter
                 }
             }
 
-            // Note: schema/response_format can be added later once mapped for OpenRouter
+            // Attach structured output schema when JSON output is requested
+            var jsonSchema = request.Body?.JsonOutputSchema;
+            if (!string.IsNullOrWhiteSpace(jsonSchema))
+            {
+                try
+                {
+                    var schemaObj = JObject.Parse(jsonSchema);
+                    var svc = JsonSchemaService.Instance;
+                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+
+                    // Store wrapper info so response validators can unwrap consistently
+                    svc.SetCurrentWrapperInfo(wrapperInfo);
+
+                    body["response_format"] = new JObject
+                    {
+                        ["type"] = "json_schema",
+                        ["json_schema"] = new JObject
+                        {
+                            ["name"] = "response_schema",
+                            ["strict"] = true,
+                            ["schema"] = wrappedSchema,
+                        },
+                    };
+
+                    // Hint to OpenRouter that structured outputs are required
+                    body["structured_outputs"] = true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OpenRouter] Failed to attach JSON schema: {ex.Message}");
+
+                    // Fall back to unstructured output; clear wrapper info to avoid inconsistent unwrapping
+                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo
+                    {
+                        IsWrapped = false,
+                        ProviderName = this.Name,
+                    });
+                }
+            }
+            else
+            {
+                // Ensure wrapper info is reset for non-JSON-output requests
+                JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo
+                {
+                    IsWrapped = false,
+                    ProviderName = this.Name,
+                });
+            }
 
 #if DEBUG
             try
@@ -356,21 +404,27 @@ namespace SmartHopper.Providers.OpenRouter
                 var result = new AIInteractionText();
                 result.SetResult(agent: AIAgent.Assistant, content: content);
 
-                // Extract usage metrics if present
+                // Extract metrics (tokens, model, finish reason) if present
+                var metrics = new Infrastructure.AICall.Metrics.AIMetrics
+                {
+                    Provider = this.Name,
+                    Model = response["model"]?.ToString(),
+                };
+
                 var usage = response["usage"] as JObject;
                 if (usage != null)
                 {
-                    result.Metrics = new Infrastructure.AICall.Metrics.AIMetrics
-                    {
-                        Provider = this.Name,
-                        InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? 0,
-                        OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? 0,
-                    };
+                    metrics.InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? 0;
+                    metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? 0;
                 }
-                else
+
+                var finishReason = firstChoice?["finish_reason"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(finishReason))
                 {
-                    result.Metrics = new Infrastructure.AICall.Metrics.AIMetrics { Provider = this.Name };
+                    metrics.FinishReason = finishReason;
                 }
+
+                result.Metrics = metrics;
 
                 interactions.Add(result);
 
