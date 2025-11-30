@@ -124,6 +124,9 @@
   <data name="ghput" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\ghput.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="ghmerge" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ghmerge.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="listevaluate" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\listevaluate.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
