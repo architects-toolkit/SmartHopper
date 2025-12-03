@@ -67,7 +67,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\smarthopper.ico" />
   </ItemGroup>
-  <!-- 
+  <!--
     Generate InternalsVisibleTo attributes at build time.
     This grants internal access to official SmartHopper assemblies only,
     preventing external third-party code from using internal types like StyledMessageDialog.
