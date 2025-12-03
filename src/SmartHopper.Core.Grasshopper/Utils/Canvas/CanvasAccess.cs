@@ -260,5 +260,93 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             // return new PointF(bounds.X, bounds.Bottom+span);
             return new PointF(50, bounds.Bottom + span);
         }
+
+        /// <summary>
+        /// Pans the canvas view to position a component at a specified horizontal location.
+        /// If the component is already within the central 2/3 of the viewport, no panning occurs.
+        /// </summary>
+        /// <param name="instanceGuid">The GUID of the component to focus on.</param>
+        /// <param name="horizontalPosition">
+        /// Horizontal position in the viewport where the component should be placed.
+        /// 0 = left edge, 0.5 = center, 1 = right edge. Default is 0.5 (centered).
+        /// </param>
+        /// <returns>True if the canvas was panned, false if no panning was needed or an error occurred.</returns>
+        public static bool CenterViewOnComponent(Guid instanceGuid, float horizontalPosition = 0.5f)
+        {
+            if (instanceGuid == Guid.Empty)
+            {
+                return false;
+            }
+
+            // Clamp horizontal position to valid range
+            horizontalPosition = Math.Max(0f, Math.Min(1f, horizontalPosition));
+
+            try
+            {
+                var canvas = Instances.ActiveCanvas;
+                if (canvas?.Document == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[CanvasAccess] CenterViewOnComponent: No active canvas");
+                    return false;
+                }
+
+                var component = canvas.Document.FindObject(instanceGuid, true);
+                if (component == null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[CanvasAccess] CenterViewOnComponent: Component not found: {instanceGuid}");
+                    return false;
+                }
+
+                // Get component bounds in canvas coordinates
+                var componentBounds = component.Attributes.Bounds;
+                var componentCenter = new PointF(
+                    componentBounds.X + (componentBounds.Width / 2),
+                    componentBounds.Y + (componentBounds.Height / 2));
+
+                // Get current viewport bounds in canvas coordinates
+                var viewportBounds = canvas.Viewport.VisibleRegion;
+
+                // Calculate the central 2/3 region for the "already visible" check
+                var centralWidth = viewportBounds.Width * 2f / 3f;
+                var centralHeight = viewportBounds.Height * 2f / 3f;
+                var centralLeft = viewportBounds.X + ((viewportBounds.Width - centralWidth) / 2f);
+                var centralTop = viewportBounds.Y + ((viewportBounds.Height - centralHeight) / 2f);
+                var centralRegion = new RectangleF(centralLeft, centralTop, centralWidth, centralHeight);
+
+                // Check if component is already within the central 2/3
+                if (centralRegion.Contains(componentCenter))
+                {
+                    System.Diagnostics.Debug.WriteLine("[CanvasAccess] Component already in central region, no pan needed");
+                    return false;
+                }
+
+                // Calculate the target X position in the viewport based on horizontalPosition
+                // horizontalPosition: 0 = left edge, 0.5 = center, 1 = right edge
+                var targetViewportX = viewportBounds.X + (viewportBounds.Width * horizontalPosition);
+
+                // Calculate the offset needed to position the component at the target horizontal position
+                // and center it vertically
+                var viewportCenterY = viewportBounds.Y + (viewportBounds.Height / 2);
+
+                var offsetX = componentCenter.X - targetViewportX;
+                var offsetY = componentCenter.Y - viewportCenterY;
+
+                // Pan the viewport
+                var newMidpoint = new PointF(
+                    canvas.Viewport.MidPoint.X + offsetX,
+                    canvas.Viewport.MidPoint.Y + offsetY);
+
+                canvas.Viewport.MidPoint = newMidpoint;
+                canvas.Refresh();
+
+                System.Diagnostics.Debug.WriteLine($"[CanvasAccess] Positioned component {instanceGuid} at horizontal {horizontalPosition:P0}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CanvasAccess] Error centering canvas: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

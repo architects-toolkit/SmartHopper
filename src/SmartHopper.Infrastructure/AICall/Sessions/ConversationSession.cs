@@ -300,15 +300,24 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         }
                                         else if (interaction is AIInteractionToolCall tc)
                                         {
-                                            // Check if this tool call already exists in history to prevent duplicates
+                                            // Check if this tool call already exists in history
                                             var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
                                                 .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
 
                                             if (!exists)
                                             {
-                                                // Persist tool call only if not already in history
+                                                // Persist tool call if not already in history
                                                 this.AppendToSessionHistory(interaction);
                                                 nonTextInteractions.Add(interaction);
+                                            }
+                                            else
+                                            {
+                                                // Tool call exists - update it with more complete arguments (streaming accumulation)
+                                                if (this.UpdateToolCallInHistory(tc))
+                                                {
+                                                    // Arguments were updated, notify UI
+                                                    nonTextInteractions.Add(interaction);
+                                                }
                                             }
                                         }
                                         else
@@ -547,6 +556,33 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
+        /// Aggregates metrics from all interactions belonging to a specific turn.
+        /// A turn is defined as all interactions sharing the same TurnId.
+        /// This includes assistant messages, tool calls, and tool results within the turn.
+        /// </summary>
+        /// <param name="turnId">The TurnId to aggregate metrics for.</param>
+        /// <returns>Combined <see cref="AIMetrics"/> for the specified turn, or empty metrics if turnId is null/empty or no matching interactions found.</returns>
+        public AIMetrics GetTurnMetrics(string turnId)
+        {
+            var combined = new AIMetrics();
+
+            if (string.IsNullOrWhiteSpace(turnId))
+            {
+                return combined;
+            }
+
+            var interactions = this.GetHistoryInteractionList();
+
+            foreach (var interaction in interactions
+                .Where(i => i?.Metrics != null && string.Equals(i.TurnId, turnId, StringComparison.Ordinal)))
+            {
+                combined.Combine(interaction.Metrics);
+            }
+
+            return combined;
+        }
+
+        /// <summary>
         /// Generates an AI greeting using the special turn system.
         /// </summary>
         /// <param name="streamChunks">When true, uses streaming mode for greeting generation.</param>
@@ -739,7 +775,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     }
                                     else if (interaction is AIInteractionToolCall tc)
                                     {
-                                        // Check if this tool call already exists in history to prevent duplicates
+                                        // Check if this tool call already exists in history
                                         var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
                                             .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
 
@@ -751,6 +787,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                             // Notify with persisted interaction
                                             var tcDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { interaction });
                                             this.NotifyInteractionCompleted(tcDeltaReturn);
+                                        }
+                                        else
+                                        {
+                                            // Tool call exists - update it with more complete arguments (streaming accumulation)
+                                            if (this.UpdateToolCallInHistory(tc))
+                                            {
+                                                // Arguments were updated, notify UI
+                                                var tcDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { interaction });
+                                                this.NotifyInteractionCompleted(tcDeltaReturn);
+                                            }
                                         }
                                     }
                                     else
@@ -774,82 +820,31 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             break;
                         }
                         
-                        // Persist final aggregated text with metrics from the last delta
-                        if (accumulatedText != null && !string.IsNullOrWhiteSpace(accumulatedText.Content))
-                        {
-                            accumulatedText.TurnId = turnId;
-                            
-                            // Transfer final metrics from the provider's last delta
-                            var finalAssistant = lastDelta?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
-                            if (finalAssistant != null)
-                            {
-                                if (finalAssistant.Metrics != null)
-                                {
-                                    accumulatedText.Metrics = finalAssistant.Metrics;
-
-                                    // Override with actual measured streaming time
-                                    accumulatedText.Metrics.CompletionTime = followUpStopwatch.Elapsed.TotalSeconds;
-                                }
-
-                                if (finalAssistant.Time != default)
-                                {
-                                    accumulatedText.Time = finalAssistant.Time;
-                                }
-
-                                if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
-                                {
-                                    accumulatedText.Reasoning = finalAssistant.Reasoning;
-                                }
-                            }
-                            
-                            this.AppendToSessionHistory(accumulatedText);
-                        }
-                        
-                        // Update last return to use session body with correct TurnIds
-                        this.UpdateLastReturn();
+                        // Persist final aggregated text and update last return snapshot using shared helper
+                        this.PersistStreamingSnapshot(lastDelta, lastDelta, turnId, accumulatedText, followUpStopwatch.Elapsed.TotalSeconds);
                         this.NotifyInteractionCompleted(this._lastReturn);
                         preparedYields.Add(this._lastReturn);
                     }
                     else
                     {
                         // Fallback to non-streaming if adapter not available
-                        var followUp = await this.ExecProviderAsync(ct).ConfigureAwait(false);
-                        if (followUp == null)
+                        var (result, shouldBreak) = await this.ExecuteNonStreamingProviderFollowUpAsync(turnId, ct).ConfigureAwait(false);
+                        preparedYields.Add(result);
+                        if (shouldBreak)
                         {
-                            var err = this.CreateError("Provider returned no response");
-                            this.NotifyFinal(err);
-                            preparedYields.Add(err);
                             break;
                         }
-                        
-                        var followUpNew = followUp.Body?.GetNewInteractions();
-                        InteractionUtility.EnsureTurnId(followUpNew, turnId);
-                        this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
-                        this._lastReturn = followUp;
-                        this.UpdateLastReturn();
-                        this.NotifyInteractionCompleted(followUp);
-                        preparedYields.Add(followUp);
                     }
                 }
                 else
                 {
                     // Non-streaming path (original behavior)
-                    var followUp = await this.ExecProviderAsync(ct).ConfigureAwait(false);
-                    if (followUp == null)
+                    var (result, shouldBreak) = await this.ExecuteNonStreamingProviderFollowUpAsync(turnId, ct).ConfigureAwait(false);
+                    preparedYields.Add(result);
+                    if (shouldBreak)
                     {
-                        var err = this.CreateError("Provider returned no response");
-                        this.NotifyFinal(err);
-                        preparedYields.Add(err);
                         break;
                     }
-                    
-                    var followUpNew = followUp.Body?.GetNewInteractions();
-                    InteractionUtility.EnsureTurnId(followUpNew, turnId);
-                    this.MergeNewToSessionBody(followUpNew, toolsOnly: false);
-                    this._lastReturn = followUp;
-                    this.UpdateLastReturn();
-                    this.NotifyInteractionCompleted(followUp);
-                    preparedYields.Add(followUp);
                 }
 
                 if (this.Request.Body.PendingToolCallsCount() == 0)

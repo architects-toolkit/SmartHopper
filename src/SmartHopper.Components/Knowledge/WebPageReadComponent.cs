@@ -151,6 +151,7 @@ namespace SmartHopper.Components.Knowledge
                                 };
 
                                 toolCall.FromToolCallInteraction(toolCallInteraction);
+                                toolCall.SkipMetricsValidation = true;
 
                                 AIReturn aiResult;
                                 try

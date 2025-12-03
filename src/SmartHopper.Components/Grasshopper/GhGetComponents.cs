@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Grasshopper
         private string lastJsonOutput = "";
 
         public GhGetComponents()
-            : base("Get Components", "GhGet",
+            : base("Get GhJSON", "GhGet",
                   "Convert Grasshopper components to GhJSON format, with optional filters",
                   "SmartHopper", "Grasshopper")
         {
@@ -50,6 +50,7 @@ namespace SmartHopper.Components.Grasshopper
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'inputcomponents', 'outputcomponents', 'processingcomponents', 'isolatedcomponents'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddTextParameter("Category Filter", "C", "Optional list of category filters by Grasshopper category or subcategory (e.g. 'Maths', 'Params', 'Script'). Use '+name' to include and '-name' to exclude.", GH_ParamAccess.list, "");
             pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
             pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
             pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (schema version, timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
@@ -67,13 +68,13 @@ namespace SmartHopper.Components.Grasshopper
         {
             // get input run
             object runObject = null;
-            if (!DA.GetData(4, ref runObject)) return;
+            if (!DA.GetData(5, ref runObject)) return;
 
             int connectionDepth = 0;
-            DA.GetData(2, ref connectionDepth);
+            DA.GetData(3, ref connectionDepth);
 
             bool includeMetadata = false;
-            DA.GetData(3, ref includeMetadata);
+            DA.GetData(4, ref includeMetadata);
 
             if (!(runObject is GH_Boolean run))
             {
@@ -105,13 +106,16 @@ namespace SmartHopper.Components.Grasshopper
             try
             {
                 var filters = new List<string>();
-                DA.GetDataList(1, filters);
+                DA.GetDataList(2, filters);
                 var typeFilters = new List<string>();
                 DA.GetDataList(0, typeFilters);
+                var categoryFilters = new List<string>();
+                DA.GetDataList(1, categoryFilters);
                 var parameters = new JObject
                 {
                     ["attrFilters"] = JArray.FromObject(filters),
                     ["typeFilter"] = JArray.FromObject(typeFilters),
+                    ["categoryFilter"] = JArray.FromObject(categoryFilters),
                     ["connectionDepth"] = connectionDepth,
                     ["includeMetadata"] = includeMetadata,
                     ["guidFilter"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
@@ -128,6 +132,7 @@ namespace SmartHopper.Components.Grasshopper
                 var toolCall = new AIToolCall();
                 toolCall.Endpoint = "gh_get";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
+                toolCall.SkipMetricsValidation = true;
 
                 var aiResult = toolCall.Exec().GetAwaiter().GetResult();
                 var toolResultInteraction = aiResult.Body.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
@@ -140,7 +145,7 @@ namespace SmartHopper.Components.Grasshopper
 
                 var componentNames = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
                 var componentGuids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
-                var json = toolResult["json"]?.ToString() ?? string.Empty;
+                var json = toolResult["ghjson"]?.ToString() ?? string.Empty;
                 this.lastComponentNames = componentNames;
                 this.lastComponentGuids = componentGuids;
                 this.lastJsonOutput = json;

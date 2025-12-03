@@ -10,121 +10,196 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
     /// Grasshopper component for placing components from JSON data.
+    /// Uses StatefulAsyncComponentBase to properly manage async execution, state, and prevent re-entrancy.
     /// </summary>
-    public class GhPutComponents : GH_Component
+    public class GhPutComponents : StatefulAsyncComponentBase
     {
-        private List<string> lastComponentNames = new ();
-
         /// <summary>
         /// Initializes a new instance of the <see cref="GhPutComponents"/> class.
         /// </summary>
         public GhPutComponents()
-            : base("Place Components", "GhPut", "Convert GhJSON to a Grasshopper components in this file.\n\nNew components will be added at the bottom of the canvas.", "SmartHopper", "Grasshopper")
+            : base("Place GhJSON", "GhPut", "Convert GhJSON to a Grasshopper components on the canvas.\n\nNew components will be added at the bottom of the canvas.", "SmartHopper", "Grasshopper")
         {
+            // Always run when Run is true, even if inputs haven't changed
+            // This allows re-placing the same JSON multiple times if needed
+            this.RunOnlyOnInputChanges = false;
         }
 
-        /// <summary>
-        /// Gets the unique identifier for this component.
-        /// </summary>
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new ("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
 
-        /// <summary>
-        /// Gets the component's icon.
-        /// </summary>
+        /// <inheritdoc/>
         protected override Bitmap Icon => Resources.ghput;
 
-        /// <summary>
-        /// Registers the input parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register inputs with.</param>
-        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        /// <inheritdoc/>
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON", "J", "JSON", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("JSON", "J", "GhJSON document to place on canvas", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Edit Mode", "E", "When true, existing components will be replaced instead of creating new ones. User will be prompted for confirmation.", GH_ParamAccess.item, false);
+        }
+
+        /// <inheritdoc/>
+        protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("Components", "C", "List of placed component names", GH_ParamAccess.list);
+        }
+
+        /// <inheritdoc/>
+        protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
+        {
+            return new GhPutWorker(this, this.AddRuntimeMessage, progressReporter);
         }
 
         /// <summary>
-        /// Registers the output parameters for this component.
+        /// Worker that executes the gh_put tool asynchronously.
         /// </summary>
-        /// <param name="pManager">The parameter manager to register outputs with.</param>
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        private class GhPutWorker : AsyncWorkerBase
         {
-            // The list of component names output parameter.
-            pManager.AddTextParameter("Components", "C", "List of components", GH_ParamAccess.list);
-        }
+            private readonly Action<string> progressReporter;
 
-        /// <summary>
-        /// Solves the component for the given data access.
-        /// </summary>
-        /// <param name="DA">The data access object for input/output operations.</param>
-        protected override void SolveInstance(IGH_DataAccess DA)
-        {
-            // 1. Read "Run?" switch
-            bool run = false;
-            if (!DA.GetData(1, ref run)) return;
-            if (!run)
+            // Input data
+            private string json;
+            private bool editMode;
+
+            // Output data
+            private List<string> componentNames;
+            private string analysis;
+            private string error;
+
+            public GhPutWorker(
+                GH_Component parent,
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                Action<string> progressReporter)
+                : base(parent, addRuntimeMessage)
             {
-                if (this.lastComponentNames.Count > 0)
-                {
-                    DA.SetDataList(0, this.lastComponentNames);
-                }
-                else
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to place components");
-                }
-
-                return;
+                this.progressReporter = progressReporter;
+                this.componentNames = new List<string>();
             }
 
-            // 2. Clear previous results and get JSON input
-            this.lastComponentNames.Clear();
-            string json = null;
-            if (!DA.GetData(0, ref json)) return;
-
-            try
+            /// <inheritdoc/>
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                // 3. Call the AI tool
-                var parameters = new JObject { ["json"] = json };
+                dataCount = 1;
 
-                // Create AIToolCall and execute
-                var toolCallInteraction = new AIInteractionToolCall
+                // Read JSON (index 0, Run is added last by StatefulAsyncComponentBase)
+                this.json = null;
+                DA.GetData(0, ref this.json);
+
+                // Read Edit Mode (index 1)
+                this.editMode = false;
+                DA.GetData(1, ref this.editMode);
+            }
+
+            /// <inheritdoc/>
+            public override async Task DoWorkAsync(CancellationToken token)
+            {
+                if (string.IsNullOrEmpty(this.json))
                 {
-                    Name = "gh_put",
-                    Arguments = parameters,
-                    Agent = AIAgent.Assistant,
-                };
+                    this.error = "No JSON provided";
+                    return;
+                }
 
-                var toolCall = new AIToolCall();
-                toolCall.Endpoint = "gh_put";
-                toolCall.FromToolCallInteraction(toolCallInteraction);
+                this.progressReporter?.Invoke("Placing...");
 
-                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
-                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
-                var toolResult = toolResultInteraction?.Result;
+                try
+                {
+                    token.ThrowIfCancellationRequested();
 
-                var success = toolResult?["success"]?.ToObject<bool>() ?? false;
-                var analysis = toolResult?["analysis"]?.ToString();
+                    var parameters = new JObject
+                    {
+                        ["ghjson"] = this.json,
+                        ["editMode"] = this.editMode,
+                    };
 
-                // Display analysis messages
-                if (!string.IsNullOrEmpty(analysis))
+                    var toolCallInteraction = new AIInteractionToolCall
+                    {
+                        Name = "gh_put",
+                        Arguments = parameters,
+                        Agent = AIAgent.Assistant,
+                    };
+
+                    var toolCall = new AIToolCall
+                    {
+                        Endpoint = "gh_put",
+                    };
+                    toolCall.FromToolCallInteraction(toolCallInteraction);
+                    toolCall.SkipMetricsValidation = true;
+
+                    var aiResult = await toolCall.Exec().ConfigureAwait(false);
+
+                    token.ThrowIfCancellationRequested();
+
+                    // If the tool call itself failed, surface detailed error information
+                    if (!aiResult.Success)
+                    {
+                        var parts = new List<string>();
+
+                        if (aiResult.Messages != null)
+                        {
+                            parts.AddRange(
+                                aiResult.Messages
+                                    .Where(msg => !string.IsNullOrWhiteSpace(msg?.Message))
+                                    .Select(msg => $"{msg.Severity}: {msg.Message}"));
+                        }
+
+                        var errorInteraction = aiResult.Body?.GetLastInteraction(AIAgent.Error) as AIInteractionError;
+                        var errorPayload = errorInteraction?.Content;
+                        if (!string.IsNullOrWhiteSpace(errorPayload))
+                        {
+                            parts.Add(errorPayload);
+                        }
+
+                        var combined = parts.Count > 0 ? string.Join(" \n", parts) : "gh_put execution failed";
+                        Debug.WriteLine($"[GhPutComponents] gh_put Exec failed: {combined}");
+                        this.error = combined;
+                        return;
+                    }
+
+                    // Success path: read tool result payload from gh_put
+                    var toolResultInteraction = aiResult.Body?.GetLastInteraction() as AIInteractionToolResult;
+                    var toolResult = toolResultInteraction?.Result;
+
+                    this.analysis = toolResult?["analysis"]?.ToString();
+                    this.componentNames = toolResult?["components"]?.ToObject<List<string>>() ?? new List<string>();
+                }
+                catch (OperationCanceledException)
+                {
+                    this.error = "Operation cancelled";
+                }
+                catch (Exception ex)
+                {
+                    this.error = ex.Message;
+                }
+            }
+
+            /// <inheritdoc/>
+            public override void SetOutput(IGH_DataAccess DA, out string message)
+            {
+                message = null;
+
+                // Surface analysis messages
+                if (!string.IsNullOrEmpty(this.analysis))
                 {
                     GH_RuntimeMessageLevel currentLevel = GH_RuntimeMessageLevel.Remark;
-                    foreach (var line in analysis.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                    foreach (var line in this.analysis.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
                     {
                         var trimmed = line.Trim();
                         if (trimmed == "Errors:")
@@ -141,22 +216,26 @@ namespace SmartHopper.Components.Grasshopper
                         }
                         else if (trimmed.StartsWith("- "))
                         {
-                            this.AddRuntimeMessage(currentLevel, trimmed.Substring(2));
+                            var msgText = trimmed.Substring(2);
+                            Debug.WriteLine($"[GhPutComponents] RuntimeMessage from analysis: Level={currentLevel}, Message={msgText}");
+                            this.AddRuntimeMessage(currentLevel, msgText);
                         }
                     }
                 }
 
-                if (!success) return;
+                if (!string.IsNullOrEmpty(this.error))
+                {
+                    Debug.WriteLine($"[GhPutComponents] RuntimeMessage error: Level={GH_RuntimeMessageLevel.Error}, Message={this.error}");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, this.error);
+                    return;
+                }
 
-                // 5. Extract and output component names
-                var componentNames = toolResult["components"]
-                    ?.ToObject<List<string>>() ?? new List<string>();
-                this.lastComponentNames = componentNames;
-                DA.SetDataList(0, componentNames);
-            }
-            catch (Exception ex)
-            {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                // Output component names
+                if (this.componentNames.Count > 0)
+                {
+                    DA.SetDataList(0, this.componentNames);
+                    message = $"Placed {this.componentNames.Count}";
+                }
             }
         }
     }

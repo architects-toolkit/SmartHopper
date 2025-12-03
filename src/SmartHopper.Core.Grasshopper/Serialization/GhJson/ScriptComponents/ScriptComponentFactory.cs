@@ -117,7 +117,40 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                         VariableName = input["name"]?.ToString() ?? "input",
                         Access = input["access"]?.ToString()?.ToLowerInvariant() ?? "item",
                         TypeHint = input["type"]?.ToString(),
+                        Description = input["description"]?.ToString(),
+                        DataMapping = input["dataMapping"]?.ToString(),
+                        Expression = input["expression"]?.ToString(),
+                        IsPrincipal = input["isPrincipal"]?.Value<bool>(),
+                        Required = input["required"]?.Value<bool>(),
                     };
+
+                    // Map additional settings (reverse, simplify, invert)
+                    var hasAdditionalSettings = false;
+                    var additionalSettings = new AdditionalParameterSettings();
+
+                    if (input["reverse"] != null && input["reverse"].Value<bool>())
+                    {
+                        additionalSettings.Reverse = true;
+                        hasAdditionalSettings = true;
+                    }
+
+                    if (input["simplify"] != null && input["simplify"].Value<bool>())
+                    {
+                        additionalSettings.Simplify = true;
+                        hasAdditionalSettings = true;
+                    }
+
+                    if (input["invert"] != null && input["invert"].Value<bool>())
+                    {
+                        additionalSettings.Invert = true;
+                        hasAdditionalSettings = true;
+                    }
+
+                    if (hasAdditionalSettings)
+                    {
+                        paramSettings.AdditionalSettings = additionalSettings;
+                    }
+
                     inputSettings.Add(paramSettings);
                 }
             }
@@ -133,7 +166,37 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                         ParameterName = output["name"]?.ToString() ?? "output",
                         VariableName = output["name"]?.ToString() ?? "output",
                         TypeHint = output["type"]?.ToString(),
+                        Description = output["description"]?.ToString(),
+                        DataMapping = output["dataMapping"]?.ToString(),
                     };
+
+                    // Map additional settings (reverse, simplify, invert) for outputs
+                    var hasAdditionalSettings = false;
+                    var additionalSettings = new AdditionalParameterSettings();
+
+                    if (output["reverse"] != null && output["reverse"].Value<bool>())
+                    {
+                        additionalSettings.Reverse = true;
+                        hasAdditionalSettings = true;
+                    }
+
+                    if (output["simplify"] != null && output["simplify"].Value<bool>())
+                    {
+                        additionalSettings.Simplify = true;
+                        hasAdditionalSettings = true;
+                    }
+
+                    if (output["invert"] != null && output["invert"].Value<bool>())
+                    {
+                        additionalSettings.Invert = true;
+                        hasAdditionalSettings = true;
+                    }
+
+                    if (hasAdditionalSettings)
+                    {
+                        paramSettings.AdditionalSettings = additionalSettings;
+                    }
+
                     outputSettings.Add(paramSettings);
                 }
             }

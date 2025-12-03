@@ -104,6 +104,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
+                // Local tool: skip metrics validation (provider/model/finish_reason not required)
+                toolCall.SkipMetricsValidation = true;
+
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 int? idNullable = args["id"]?.Value<int>();
