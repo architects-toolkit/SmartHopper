@@ -97,24 +97,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.ExecuteAsync,
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
 
-            // Wrapper tool that edits and replaces the component on canvas in one call
+            // Wrapper tool that edits and replaces the component on canvas in one call.
+            // Uses instanceGuid to automatically retrieve GhJSON, call script_edit, and then gh_put.
             yield return new AITool(
                 name: this.wrapperToolName,
-                description: "Edit an existing Grasshopper script component and replace it on the canvas. This is a convenience wrapper that combines script_edit and gh_put in a single call, saving tokens. The user will be prompted to confirm the replacement.",
+                description: "Edit an existing Grasshopper script component by instance GUID and replace it on the canvas. This wrapper automatically retrieves the component GhJSON (gh_get_by_guid), calls script_edit, and then gh_put with editMode=true.",
                 category: "Scripting",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""ghjson"": {
+                        ""instanceGuid"": {
                             ""type"": ""string"",
-                            ""description"": ""GhJSON string representing the script component to edit. Retrieve it using gh_get[categoryFilter=[+Script]], gh_get[guidFilter=[<guid>]] or gh_get_selected if the user is asking about the currently selected component.""
+                            ""description"": ""Instance GUID of the script component to edit (retrieve it using gh_get or variants).""
                         },
                         ""instructions"": {
                             ""type"": ""string"",
                             ""description"": ""Natural language instructions describing how to edit the script.""
                         }
                     },
-                    ""required"": [""ghjson"", ""instructions""]
+                    ""required"": [""instanceGuid"", ""instructions""]
                 }",
                 execute: this.ExecuteEditAndReplaceAsync,
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
@@ -284,9 +285,106 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                // Step 1: Call script_edit to get the updated GhJSON
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 1: Calling script_edit");
-                var editResult = await this.ExecuteAsync(toolCall).ConfigureAwait(false);
+                // Parse wrapper arguments (instanceGuid + instructions)
+                var wrapperToolInfo = toolCall.GetToolCall();
+                var wrapperArgs = wrapperToolInfo.Arguments ?? new JObject();
+                var instanceGuidText = wrapperArgs["instanceGuid"]?.ToString();
+                var instructions = wrapperArgs["instructions"]?.ToString();
+
+                if (string.IsNullOrWhiteSpace(instanceGuidText))
+                {
+                    output.CreateError("Missing required 'instanceGuid' parameter.");
+                    return output;
+                }
+
+                if (!Guid.TryParse(instanceGuidText, out var instanceGuid))
+                {
+                    output.CreateError("The provided 'instanceGuid' is not a valid GUID.");
+                    return output;
+                }
+
+                if (string.IsNullOrWhiteSpace(instructions))
+                {
+                    output.CreateError("Missing required 'instructions' parameter.");
+                    return output;
+                }
+
+                // Step 1: Call gh_get_by_guid to retrieve GhJSON for the target component
+                Debug.WriteLine($"[{this.wrapperToolName}] Step 1: Calling gh_get_by_guid for {instanceGuid}");
+
+                var ghGetArgs = new JObject
+                {
+                    ["guidFilter"] = new JArray(instanceGuidText),
+                    ["connectionDepth"] = 0,
+                };
+
+                var ghGetInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_get_by_guid",
+                    Arguments = ghGetArgs,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var ghGetToolCall = new AIToolCall
+                {
+                    Provider = toolCall.Provider,
+                    Model = toolCall.Model,
+                    Endpoint = "gh_get_by_guid",
+                    SkipMetricsValidation = true,
+                };
+
+                ghGetToolCall.Body = AIBodyBuilder.Create()
+                    .Add(ghGetInteraction)
+                    .Build();
+
+                var ghGetResult = await AIToolManager.ExecuteTool(ghGetToolCall).ConfigureAwait(false);
+
+                if (!ghGetResult.Success)
+                {
+                    output.Messages = ghGetResult.Messages;
+                    output.CreateError("gh_get_by_guid failed to retrieve the target component.");
+                    return output;
+                }
+
+                var ghGetToolResult = ghGetResult.Body?.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                var ghJsonInput = ghGetToolResult?.Result?["ghjson"]?.ToString();
+                if (string.IsNullOrWhiteSpace(ghJsonInput))
+                {
+                    output.CreateError("gh_get_by_guid did not return valid GhJSON for the specified instanceGuid.");
+                    return output;
+                }
+
+                // Step 2: Call script_edit with the retrieved GhJSON and original instructions
+                Debug.WriteLine($"[{this.wrapperToolName}] Step 2: Calling script_edit");
+
+                var scriptEditArgs = new JObject
+                {
+                    ["ghjson"] = ghJsonInput,
+                    ["instructions"] = instructions,
+                };
+
+                var scriptEditInteraction = new AIInteractionToolCall
+                {
+                    Name = this.toolName,
+                    Arguments = scriptEditArgs,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var scriptEditToolCall = new AIToolCall
+                {
+                    Provider = toolCall.Provider,
+                    Model = toolCall.Model,
+                    Endpoint = this.toolName,
+                };
+
+                scriptEditToolCall.Body = AIBodyBuilder.Create()
+                    .Add(scriptEditInteraction)
+                    .Build();
+
+                var editResult = await this.ExecuteAsync(scriptEditToolCall).ConfigureAwait(false);
 
                 if (!editResult.Success)
                 {
@@ -313,9 +411,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[{this.wrapperToolName}] Step 2: Calling gh_put with editMode=true");
+                Debug.WriteLine($"[{this.wrapperToolName}] Step 3: Calling gh_put with editMode=true");
 
-                // Step 2: Call gh_put internally using AIToolManager
+                // Step 3: Call gh_put internally using AIToolManager
                 var ghPutArgs = new JObject
                 {
                     ["ghjson"] = updatedGhJson,
@@ -439,19 +537,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""items"": {
                             ""type"": ""object"",
                             ""properties"": {
-                                ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)"" },
-                                ""type"": { ""type"": ""string"", ""description"": ""Type hint (e.g., int, double, string, Point3d, Curve, etc.)"" },
-                                ""description"": { ""type"": ""string"", ""description"": ""Parameter description"" },
-                                ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""], ""description"": ""Data access mode"" },
-                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation"" },
-                                ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse list order"" },
-                                ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify data tree paths"" },
-                                ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type)"" },
-                                ""isPrincipal"": { ""type"": ""boolean"", ""description"": ""Mark as principal/master parameter for data matching"" },
-                                ""required"": { ""type"": ""boolean"", ""description"": ""If true, parameter cannot be removed (default: false)"" },
-                                ""expression"": { ""type"": ""string"", ""description"": ""Mathematical expression to transform data (e.g., 'x * 2')"" }
+                                ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)."" },
+                                ""type"": { ""type"": ""string"", ""description"": ""Type hint (e.g., int, double, string, Point3d, Curve, etc.). Use 'object' when unsure."" },
+                                ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
+                                ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""], ""description"": ""Data access mode. Use 'item' when unsure."" },
+                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation. Use 'None' when no mapping is needed."" },
+                                ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse list order. Use false when not needed."" },
+                                ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify data tree paths. Use false when not needed."" },
+                                ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type). Use false when not needed."" },
+                                ""required"": { ""type"": ""boolean"", ""description"": ""If true, parameter cannot be removed. Use false for optional parameters."" },
+                                ""expression"": { ""type"": ""string"", ""description"": ""Mathematical expression to transform data (e.g., 'x * 2'). Use empty string when no expression is needed."" }
                             },
-                            ""required"": [""name""],
+                            ""required"": [""name"", ""type"", ""description"", ""access"", ""dataMapping"", ""reverse"", ""simplify"", ""invert"", ""required"", ""expression""],
                             ""additionalProperties"": false
                         }
                     },
@@ -460,15 +557,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""items"": {
                             ""type"": ""object"",
                             ""properties"": {
-                                ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)"" },
-                                ""type"": { ""type"": ""string"", ""description"": ""Expected output type hint"" },
-                                ""description"": { ""type"": ""string"", ""description"": ""Parameter description"" },
-                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation"" },
-                                ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse output list order"" },
-                                ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify output data tree paths"" },
-                                ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type)"" }
+                                ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)."" },
+                                ""type"": { ""type"": ""string"", ""description"": ""Expected output type hint. Use 'object' when unsure."" },
+                                ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
+                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation. Use 'None' when no mapping is needed."" },
+                                ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse output list order. Use false when not needed."" },
+                                ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify output data tree paths. Use false when not needed."" },
+                                ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type). Use false when not needed."" }
                             },
-                            ""required"": [""name""],
+                            ""required"": [""name"", ""type"", ""description"", ""dataMapping"", ""reverse"", ""simplify"", ""invert""],
                             ""additionalProperties"": false
                         }
                     },
