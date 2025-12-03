@@ -95,7 +95,7 @@ namespace SmartHopper.Core.UI
             - gh_tidy_up: Auto-arrange components in clean grid layout
             - gh_component_toggle_lock: Enable/disable component execution
             - gh_component_toggle_preview: Show/hide geometry preview
-            - gh_put: Add new components from GhJSON format
+            - gh_put: Add new components from GhJSON format, or when instanceGuid matches an existing component, replace it (after user confirmation, preserving positions and external connections when possible)
 
             ### Knowledge Base
             - mcneel_forum_search: First, search McNeel Discourse forum posts by query; then use topic/post tools on interesting results.
@@ -104,12 +104,46 @@ namespace SmartHopper.Core.UI
             - mcneel_forum_post_summarize: Summarize one or more posts by ID (for example selected replies from search or topic_get).
             - web_generic_page_read: Fetch readable text/markdown for any web page URL (Rhino docs, GitHub, StackExchange, Discourse, etc.) before reasoning about its content.
 
+            ### Scripting
+            When the user asks to CREATE or MODIFY a Grasshopper script component, you MUST use the scripting tools below instead of replying only in natural language.
+
+            All scripting happens inside Grasshopper3D script components, not in a standalone programming or test environment.
+            - Do NOT propose or rely on traditional unit tests or external test projects; the user validates behavior directly in Grasshopper.
+            - For the user to manually check a script, instruct the user to double-click the script component in Grasshopper to open in the code editor instead of pasting the full script into the chat.
+            - Avoid copying full scripts from the canvas (for example via gh_get) into the conversation; this makes the context too long and noisy.
+            - Use fenced code blocks only when:
+              - discussing how to implement or refactor a specific piece of code, or
+              - an edit/generation operation fails and you provide the user with the full code snippet to manually apply.
+            - Do NOT wrap entire successful scripts or scripts directly read from the canvas in code blocks; refer to them descriptively instead (by component name, for example).
+
+            #### Tools
+            - script_generate: Create a new script component from natural language instructions. Returns GhJSON with a single script component (not placed on the canvas).
+            - script_review: Review an existing script component by GUID. Returns a concise review plus a list of potential issues and risky patterns.
+            - script_edit_and_replace_on_canvas: Edit an existing script component using GhJSON and natural language instructions and replace it on the canvas in a single call. Internally combines script_edit and gh_put with editMode=true to reduce token usage.
+
+            #### Required workflows
+
+            - Create a NEW script component (no existing script selected):
+              1. script_generate: Generate GhJSON for the new script component.
+              2. gh_put (editMode=false): Place the generated component on the canvas.
+
+            - Edit an EXISTING script component in-place (user refers to a selected script or says "this script"):
+              1. gh_get_selected (preferred) or gh_get_by_guid or gh_get with categoryFilter=['+Script']: Retrieve GhJSON for the target script component (preserve its InstanceGuid).
+              2. script_edit_and_replace_on_canvas: Update the script based on the user instructions and replace the existing component on the canvas in a single call (internally uses script_edit and gh_put with editMode=true).
+
+            - Fix BUGS in an existing script component:
+              1. gh_get_errors or gh_get with categoryFilter=['+Script']: Locate the script component(s) with errors and obtain their GhJSON.
+              2. script_review: Analyze the script to identify bugs and risky patterns.
+              3. script_edit_and_replace_on_canvas: Apply the fixes suggested by the review, refine the script, and replace the script component on the canvas in a single call (internally uses script_edit and gh_put with editMode=true).
+
+            Do NOT answer that you lack tools to modify scripts. You ALWAYS have access to these scripting tools and canvas tools in this environment; use them whenever the user asks you to change a script component.
+
             ### Best Practices
             - Start with specialized tools (gh_get_selected, gh_get_errors) before using generic gh_get
             - Always request only needed fields in gh_list_components to minimize tokens
             - Use gh_list_categories before gh_list_components to narrow search
-            - Chain tools logically: gh_get → gh_group/gh_move/gh_toggle_*
-            - For forum support: mcneel_forum_search → mcneel_forum_topic_summarize or mcneel_forum_post_summarize → final answer.
+            - Chain tools logically: gh_get > gh_group/gh_move/gh_toggle_*
+            - For forum support: mcneel_forum_search > mcneel_forum_topic_summarize > mcneel_forum_post_summarize > final answer.
             """;
 
         // Private fields
@@ -733,7 +767,7 @@ namespace SmartHopper.Core.UI
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Components,ComponentsRetrieval,Parameters,Knowledge",
+                    toolFilter: "Components,ComponentsRetrieval,Parameters,Knowledge,Scripting",
                     componentId: CanvasChatDialogId,
                     progressReporter: null,
                     onUpdate: null,

@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Knowledge
 
         public McNeelForumPostGetComponent()
             : base(
-                  "McNeel Forum Post Get",
+                  "McNeelForum Post Get",
                   "McNeelPostGet",
                   "Retrieve a full McNeel Discourse forum post by its numeric ID.",
                   "SmartHopper",
@@ -55,7 +55,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("McNeel Forum Post", "McP", "JSON object representing the full forum post as returned by the tool.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("McNeelForum Post", "McP", "JSON object representing the full forum post as returned by the tool.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -152,6 +152,7 @@ namespace SmartHopper.Components.Knowledge
                                     };
 
                                     toolCall.FromToolCallInteraction(toolCallInteraction);
+                                    toolCall.SkipMetricsValidation = true;
 
                                     AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
                                     var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
@@ -190,7 +191,7 @@ namespace SmartHopper.Components.Knowledge
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this.parent.SetPersistentOutput("McNeel Forum Post", this.resultPosts ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("McNeelForum Post", this.resultPosts ?? new GH_Structure<GH_String>(), DA);
 
                 var hasAnyPost = this.resultPosts != null && this.resultPosts.DataCount > 0;
                 message = hasAnyPost ? "Post(s) retrieved" : "No post retrieved";

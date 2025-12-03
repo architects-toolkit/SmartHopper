@@ -13,6 +13,7 @@
  * Provides styled Eto.Forms dialogs with SmartHopper branding for error, warning, info messages, and confirmations.
  */
 
+using System;
 using System.IO;
 using System.Reflection;
 using Eto.Drawing;
@@ -25,9 +26,17 @@ namespace SmartHopper.Infrastructure.Dialogs
     /// <summary>
     /// Provides styled Eto.Forms dialogs for displaying info, warning, error messages, and confirmations with the SmartHopper logo.
     /// </summary>
-    public class StyledMessageDialog : Dialog
+    internal class StyledMessageDialog : Dialog
     {
         private bool _result;
+        private readonly Guid _linkedInstanceGuid = Guid.Empty;
+        private readonly System.Drawing.Color? _linkLineColor;
+
+        /// <summary>
+        /// Callback to register a dialog-component canvas link. Set by SmartHopper.Core at initialization.
+        /// Signature: (Window dialog, Guid instanceGuid, Color? lineColor) => void
+        /// </summary>
+        public static Action<Window, Guid, System.Drawing.Color?>? RegisterCanvasLinkCallback { get; set; }
 
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
         private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
@@ -46,13 +55,13 @@ namespace SmartHopper.Infrastructure.Dialogs
             }
         }
 
-        private StyledMessageDialog(string title, string message, DialogType dialogType, bool isConfirmation)
+        private StyledMessageDialog(string title, string message, DialogType dialogType, bool isConfirmation, Guid linkedInstanceGuid = default, System.Drawing.Color? linkLineColor = null)
         {
+            this._linkedInstanceGuid = linkedInstanceGuid;
+            this._linkLineColor = linkLineColor;
             this.Title = title;
             this.Resizable = true;
             this.Padding = new Padding(20);
-            this.Size = new Size(400, 300);
-            this.MinimumSize = new Size(400, 300);
 
             // Set window icon from embedded resource
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
@@ -106,6 +115,43 @@ namespace SmartHopper.Infrastructure.Dialogs
             titleLabel.Text = prefixText + titleLabel.Text;
             titleLabel.TextColor = prefixColor;
 
+            // Calculate required height based on message content
+            const int dialogWidth = 400;
+            const int textWidth = 360;
+            const int lineHeight = 24; // Line height for 12pt font with spacing
+            const int charsPerLine = 42; // Conservative estimate for wrapped text
+
+            // Count actual lines (including newlines and wrapped text)
+            var lines = message.Split('\n');
+            var totalLines = 0;
+            foreach (var line in lines)
+            {
+                // Empty lines count as 1 (paragraph spacing)
+                if (string.IsNullOrEmpty(line))
+                {
+                    totalLines++;
+                }
+                else
+                {
+                    // Calculate wrapped lines with conservative estimate
+                    totalLines += Math.Max(1, (int)Math.Ceiling((double)line.Length / charsPerLine));
+                }
+            }
+
+            // Calculate content height:
+            // - Header (logo + title): ~60px
+            // - Message area: lines * lineHeight
+            // - Spacing between sections: ~20px
+            // - Button row: ~50px
+            // - Dialog padding (top + bottom): ~40px
+            // - Extra buffer for word wrapping variance: ~20px
+            var messageHeight = totalLines * lineHeight;
+            var contentHeight = 60 + messageHeight + 20 + 50 + 40 + 20;
+            var dialogHeight = Math.Max(240, Math.Min(contentHeight, 600)); // Clamp between 240 and 600
+
+            this.Size = new Size(dialogWidth, dialogHeight);
+            this.MinimumSize = new Size(350, 200);
+
             var bodyLabel = new Label
             {
                 Text = message,
@@ -113,6 +159,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Font = new Font(SystemFont.Default, 12),
                 TextColor = Colors.Black,
                 TextAlignment = TextAlignment.Left,
+                Width = textWidth,
             };
 
             // Message container with only the body
@@ -165,11 +212,11 @@ namespace SmartHopper.Infrastructure.Dialogs
                 this.DefaultButton = okButton;
             }
 
-            // Main content layout
+            // Main content layout - use ScaleHeight on message row to expand vertically
             this.Content = new TableLayout
             {
                 Padding = new Padding(10),
-                Spacing = new Size(25, 20),
+                Spacing = new Size(10, 15),
                 Rows =
                 {
                     // Header row centered
@@ -181,15 +228,15 @@ namespace SmartHopper.Infrastructure.Dialogs
                                 Items = { headerLayout }
                             })),
 
-                    // Message row left-aligned (default)
-                    new TableRow(messageContainer),
+                    // Message row left-aligned - use ScaleHeight to allow vertical expansion
+                    new TableRow(messageContainer) { ScaleHeight = true },
 
-                    // Button row right-aligned with extra top padding
+                    // Button row right-aligned
                     new TableRow(
                         new TableCell(
                             new StackLayout
                             {
-                                Padding = new Padding(0, 20, 0, 0),
+                                Padding = new Padding(0, 10, 0, 0),
                                 HorizontalContentAlignment = HorizontalAlignment.Right,
                                 Items = { buttonLayout }
                             }))
@@ -212,10 +259,12 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// </summary>
         /// <param name="message">The message to display in the dialog body.</param>
         /// <param name="title">The dialog window title.</param>
-        public static void ShowInfo(string message, string title = "SmartHopper")
+        /// <param name="linkedInstanceGuid">Optional GUID of a component to visually link to on the canvas.</param>
+        /// <param name="linkLineColor">Optional custom color for the link line.</param>
+        public static void ShowInfo(string message, string title = "SmartHopper", Guid linkedInstanceGuid = default, System.Drawing.Color? linkLineColor = null)
         {
-            var dlg = new StyledMessageDialog(title, message, DialogType.Info, false);
-            dlg.ShowModal(RhinoEtoApp.MainWindow);
+            var dlg = new StyledMessageDialog(title, message, DialogType.Info, false, linkedInstanceGuid, linkLineColor);
+            dlg.ShowWithLink(RhinoEtoApp.MainWindow);
         }
 
         /// <summary>
@@ -223,10 +272,12 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// </summary>
         /// <param name="message">The message to display in the dialog body.</param>
         /// <param name="title">The dialog window title.</param>
-        public static void ShowWarning(string message, string title = "SmartHopper")
+        /// <param name="linkedInstanceGuid">Optional GUID of a component to visually link to on the canvas.</param>
+        /// <param name="linkLineColor">Optional custom color for the link line.</param>
+        public static void ShowWarning(string message, string title = "SmartHopper", Guid linkedInstanceGuid = default, System.Drawing.Color? linkLineColor = null)
         {
-            var dlg = new StyledMessageDialog(title, message, DialogType.Warning, false);
-            dlg.ShowModal(RhinoEtoApp.MainWindow);
+            var dlg = new StyledMessageDialog(title, message, DialogType.Warning, false, linkedInstanceGuid, linkLineColor);
+            dlg.ShowWithLink(RhinoEtoApp.MainWindow);
         }
 
         /// <summary>
@@ -234,10 +285,12 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// </summary>
         /// <param name="message">The message to display in the dialog body.</param>
         /// <param name="title">The dialog window title.</param>
-        public static void ShowError(string message, string title = "SmartHopper")
+        /// <param name="linkedInstanceGuid">Optional GUID of a component to visually link to on the canvas.</param>
+        /// <param name="linkLineColor">Optional custom color for the link line.</param>
+        public static void ShowError(string message, string title = "SmartHopper", Guid linkedInstanceGuid = default, System.Drawing.Color? linkLineColor = null)
         {
-            var dlg = new StyledMessageDialog(title, message, DialogType.Error, false);
-            dlg.ShowModal(RhinoEtoApp.MainWindow);
+            var dlg = new StyledMessageDialog(title, message, DialogType.Error, false, linkedInstanceGuid, linkLineColor);
+            dlg.ShowWithLink(RhinoEtoApp.MainWindow);
         }
 
         /// <summary>
@@ -246,11 +299,31 @@ namespace SmartHopper.Infrastructure.Dialogs
         /// <returns>True if Yes was clicked; otherwise, false.</returns>
         /// <param name="message">The message to display in the dialog body.</param>
         /// <param name="title">The dialog window title.</param>
-        public static bool ShowConfirmation(string message, string title = "SmartHopper")
+        /// <param name="linkedInstanceGuid">Optional GUID of a component to visually link to on the canvas.</param>
+        /// <param name="linkLineColor">Optional custom color for the link line.</param>
+        public static bool ShowConfirmation(string message, string title = "SmartHopper", Guid linkedInstanceGuid = default, System.Drawing.Color? linkLineColor = null)
         {
-            var dlg = new StyledMessageDialog(title, message, DialogType.Info, true);
-            dlg.ShowModal(RhinoEtoApp.MainWindow);
+            var dlg = new StyledMessageDialog(title, message, DialogType.Info, true, linkedInstanceGuid, linkLineColor);
+            dlg.ShowWithLink(RhinoEtoApp.MainWindow);
             return dlg._result;
+        }
+
+        /// <summary>
+        /// Shows the dialog with optional canvas link visualization.
+        /// </summary>
+        /// <param name="parent">The parent window.</param>
+        private void ShowWithLink(Window parent)
+        {
+            // Register link if we have a valid instance GUID and the callback is set
+            if (this._linkedInstanceGuid != Guid.Empty && RegisterCanvasLinkCallback != null)
+            {
+                RegisterCanvasLinkCallback(this, this._linkedInstanceGuid, this._linkLineColor);
+            }
+
+            // Show the dialog
+            this.ShowModal(parent);
+
+            // Link is automatically unregistered when dialog closes via DialogCanvasLink.OnDialogClosed
         }
     }
 }

@@ -81,6 +81,13 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
+        internal static Bitmap ghmerge {
+            get {
+                object obj = ResourceManager.GetObject("ghmerge", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
         internal static Bitmap listevaluate {
             get {
                 object obj = ResourceManager.GetObject("listevaluate", resourceCulture);

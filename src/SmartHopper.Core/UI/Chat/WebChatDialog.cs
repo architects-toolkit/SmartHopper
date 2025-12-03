@@ -23,6 +23,7 @@ using Eto.Drawing;
 using Eto.Forms;
 using Newtonsoft.Json;
 using Rhino;
+using Rhino.UI;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -86,6 +87,13 @@ namespace SmartHopper.Core.UI.Chat
             try
             {
                 this._generateGreeting = generateGreeting;
+
+                var mainWindow = RhinoEtoApp.MainWindow;
+                if (mainWindow != null)
+                {
+                    this.Owner = mainWindow;
+                    this.ShowInTaskbar = false;
+                }
 
                 // Create session with attached observer from the start
                 this._currentSession = new ConversationSession(request, new WebChatObserver(this), generateGreeting: this._generateGreeting);

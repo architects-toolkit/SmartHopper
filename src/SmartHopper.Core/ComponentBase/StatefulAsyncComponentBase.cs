@@ -653,6 +653,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="transitionToError">If true and level is Error, transitions to Error state.</param>
         protected void SetPersistentRuntimeMessage(string key, GH_RuntimeMessageLevel level, string message, bool transitionToError = true)
         {
+            Debug.WriteLine($"[{this.GetType().Name}] [PersistentMessage] key='{key}', level={level}, transitionToError={transitionToError}, message='{message}'");
             this.runtimeMessages[key] = (level, message);
 
             if (transitionToError && level == GH_RuntimeMessageLevel.Error)

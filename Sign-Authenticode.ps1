@@ -158,14 +158,37 @@ if ($Generate) {
         exit 1
     }
 
-    # Determine items to sign: explicit DLL or provider assemblies directory
+    # Determine items to sign: explicit DLL or specific SmartHopper assemblies in directory
+    # Security: Use explicit allowlist to prevent signing unintended/malicious assemblies
+    $allowedAssemblies = @(
+        "SmartHopper.Core.dll",
+        "SmartHopper.Core.Grasshopper.dll",
+        "SmartHopper.Components.dll",
+        "SmartHopper.Infrastructure.dll",
+        "SmartHopper.Menu.dll",
+        "SmartHopper.Providers.OpenAI.dll",
+        "SmartHopper.Providers.MistralAI.dll",
+        "SmartHopper.Providers.DeepSeek.dll",
+        "SmartHopper.Providers.OpenRouter.dll",
+        "SmartHopper.Providers.Anthropic.dll"
+    )
+    
     if ((Test-Path $Sign -PathType Leaf) -and ([IO.Path]::GetExtension($Sign) -ieq ".dll")) {
+        $fileName = [IO.Path]::GetFileName($Sign)
+        if ($fileName -notlike "SmartHopper*.dll") {
+            Write-Error "File '$fileName' is not a SmartHopper assembly"
+            exit 1
+        }
         Write-Host "Signing explicit DLL: $Sign"
         $items = @(Get-Item $Sign)
     } elseif (Test-Path $Sign -PathType Container) {
-        Write-Host "Signing assemblies under directory: $Sign"
-        $items = Get-ChildItem -Path $Sign -Recurse -Filter "*.dll" |
-            Where-Object { $_.Name -like "SmartHopper.Providers.*.dll" -or $_.Name -eq "SmartHopper.Infrastructure.dll" }
+        Write-Host "Signing SmartHopper assemblies under directory: $Sign"
+        Write-Host "Allowed assemblies: $($allowedAssemblies -join ', ')"
+        $items = Get-ChildItem -Path $Sign -Recurse -Filter "SmartHopper*.dll" |
+            Where-Object { $allowedAssemblies -contains $_.Name }
+        if ($items.Count -eq 0) {
+            Write-Warning "No allowed SmartHopper assemblies found in '$Sign'"
+        }
     } else {
         Write-Error "Path '$Sign' is not a .dll file or directory"
         exit 1

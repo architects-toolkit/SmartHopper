@@ -23,7 +23,7 @@ using SmartHopper.Core.ComponentBase;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
-    /// Opens the McNeel forum page for a given post JSON in the default browser.
+    /// Opens the McNeelForum page for a given post JSON in the default browser.
     /// </summary>
     public class McNeelForumPostOpenComponent : StatefulAsyncComponentBase
     {
@@ -35,7 +35,7 @@ namespace SmartHopper.Components.Knowledge
 
         public McNeelForumPostOpenComponent()
             : base(
-                  "McNeel Forum Post Open",
+                  "McNeelForum Post Open",
                   "McNeelPostOpen",
                   "Open the McNeel Discourse webpage for a forum post JSON in the default browser.",
                   "SmartHopper",
@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter(
-                "McNeel Forum Post",
+                "McNeelForum Post",
                 "McP",
                 "JSON object representing the full forum post (e.g. from McNeelForumPostGetComponent).",
                 GH_ParamAccess.item);
@@ -87,7 +87,7 @@ namespace SmartHopper.Components.Knowledge
                 this.hasWork = !string.IsNullOrWhiteSpace(this.postJson);
                 if (!this.hasWork)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "McNeel Forum Post is required.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "McNeelForum Post is required.");
                 }
 
                 dataCount = this.hasWork ? 1 : 0;

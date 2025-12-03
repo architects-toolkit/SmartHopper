@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Knowledge
 
         public AIMcNeelForumPostSummarizeComponent()
             : base(
-                  "AI McNeel Forum Post Summarize",
+                  "AI McNeelForum Post Summarize",
                   "AIMcNeelPostSumm",
                   "Generate a concise summary of a McNeel Discourse forum post by ID using the configured AI provider.",
                   "SmartHopper",

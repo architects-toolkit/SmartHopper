@@ -3,15 +3,19 @@
 name: SmartHopper
 version: {{VERSION}}
 description: >
-  SmartHopper supercharges your Grasshopper workflow with AI-powered components.
+  SmartHopper brings new AI-powered components and an AI chat to Grasshopper3D.
 
-  NOTE: This is an alpha release and you might (will) find some bugs :/ Please, report them at https://github.com/architects-toolkit/SmartHopper/issues. Your feedback is essential in shaping future updates!
+  ----
+
+  NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>
+
+  ----
 
   REQUIREMENTS: (1) Internet connection (2) Valid API key from a supported AI provider (3) Rhino 8.24 or later
 
 authors:
   - Marc Roca Musach
-url: https://github.com/architects-toolkit/SmartHopper
+url: https://smarthopper.xyz
 keywords:
   - smarthopper
   - ai
@@ -20,9 +24,18 @@ keywords:
   - forum
   - chat
   - gpt
-  - scripting
   - assistant
   - help
+  - scripting
+  - programming
+  - code
+  - codex
+  - python
+  - visual-basic
+  - vb
+  - c#
+  - csharp
+  - ironpython
   - open-ai
   - mistral
   - deepseek

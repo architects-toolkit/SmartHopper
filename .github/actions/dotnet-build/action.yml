@@ -62,6 +62,12 @@ runs:
           Write-Host "signing.snk already exists"
         }
 
+    - name: 'Update InternalsVisibleTo with public key'
+      shell: pwsh
+      run: |
+        Write-Host "Updating InternalsVisibleTo entries with public key from signing.snk"
+        pwsh tools/Update-InternalsVisibleTo.ps1
+
     - name: 'Checkout unlicensed lib'
       uses: actions/checkout@v4
       with:
