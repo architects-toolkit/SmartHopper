@@ -43,10 +43,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
             "Your response MUST be a valid JSON object with the following structure:\n" +
             "- language: The scripting language to use (python, ironpython, c#, vb)\n" +
             "- script: The complete script code\n" +
-            "- inputs: Array of input parameters with name, type, description, and access (item/list/tree)\n" +
-            "- outputs: Array of output parameters with name, type, and description\n" +
+            "- inputs: Array of input parameters (see input parameter schema below)\n" +
+            "- outputs: Array of output parameters (see output parameter schema below)\n" +
             "- nickname: Optional short name for the component\n" +
             "- summary: A brief summary (1-3 sentences) of what the component does and key design decisions made\n\n" +
+            "INPUT PARAMETER SCHEMA (all fields except name are optional):\n" +
+            "  - name: Parameter name (required)\n" +
+            "  - type: Type hint (e.g., int, double, string, bool, Point3d, Curve, Surface, Brep, Mesh, Vector3d, Plane, Line, etc.)\n" +
+            "  - description: Parameter description\n" +
+            "  - access: Data access mode - 'item' (single value), 'list' (list of values), 'tree' (data tree). Default: 'item'\n" +
+            "  - dataMapping: Data tree manipulation - 'None', 'Flatten' (collapse tree to list), 'Graft' (wrap each item in branch)\n" +
+            "  - reverse: If true, reverses the order of items in lists\n" +
+            "  - simplify: If true, simplifies data tree paths by removing unnecessary branches\n" +
+            "  - invert: If true, inverts boolean values (true becomes false, vice versa). Only for boolean parameters.\n" +
+            "  - isPrincipal: If true, marks this as the principal/master parameter for component data matching\n" +
+            "  - required: If true, parameter is required before calculation (default: false = optional)\n" +
+            "  - expression: Mathematical expression to transform input data (e.g., 'x * 2', 'Math.Sin(x)')\n\n" +
+            "OUTPUT PARAMETER SCHEMA (all fields except name are optional):\n" +
+            "  - name: Parameter name (required)\n" +
+            "  - type: Type hint for expected output type\n" +
+            "  - description: Parameter description\n" +
+            "  - dataMapping: Data tree manipulation - 'None', 'Flatten', 'Graft'\n" +
+            "  - reverse: If true, reverses the order of output items\n" +
+            "  - simplify: If true, simplifies output data tree paths\n" +
+            "  - invert: If true, inverts boolean values (true becomes false, vice versa). Only for boolean parameters.\n\n" +
             "The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.";
 
         /// <inheritdoc/>
@@ -217,12 +237,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""items"": {
                             ""type"": ""object"",
                             ""properties"": {
-                                ""name"": { ""type"": ""string"" },
-                                ""type"": { ""type"": ""string"" },
-                                ""description"": { ""type"": ""string"" },
-                                ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""] }
+                                ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)"" },
+                                ""type"": { ""type"": ""string"", ""description"": ""Type hint (e.g., int, double, string, Point3d, Curve, etc.)"" },
+                                ""description"": { ""type"": ""string"", ""description"": ""Parameter description"" },
+                                ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""], ""description"": ""Data access mode"" },
+                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation"" },
+                                ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse list order"" },
+                                ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify data tree paths"" },
+                                ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type)"" },
+                                ""isPrincipal"": { ""type"": ""boolean"", ""description"": ""Mark as principal/master parameter for data matching"" },
+                                ""required"": { ""type"": ""boolean"", ""description"": ""If true, parameter cannot be removed (default: false)"" },
+                                ""expression"": { ""type"": ""string"", ""description"": ""Mathematical expression to transform data (e.g., 'x * 2')"" }
                             },
-                            ""required"": [""name"", ""type"", ""description"", ""access""],
+                            ""required"": [""name""],
                             ""additionalProperties"": false
                         }
                     },
@@ -231,11 +258,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""items"": {
                             ""type"": ""object"",
                             ""properties"": {
-                                ""name"": { ""type"": ""string"" },
-                                ""type"": { ""type"": ""string"" },
-                                ""description"": { ""type"": ""string"" }
+                                ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)"" },
+                                ""type"": { ""type"": ""string"", ""description"": ""Expected output type hint"" },
+                                ""description"": { ""type"": ""string"", ""description"": ""Parameter description"" },
+                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation"" },
+                                ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse output list order"" },
+                                ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify output data tree paths"" },
+                                ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type)"" }
                             },
-                            ""required"": [""name"", ""type"", ""description""],
+                            ""required"": [""name""],
                             ""additionalProperties"": false
                         }
                     },
