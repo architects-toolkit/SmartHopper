@@ -26,10 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Introduced `gh_merge` AI tool to merge two arbitrary GhJSON strings using `GhJsonMerger`, returning the merged GhJSON together with merge statistics (components/connections/groups added and deduplicated).
   - Added `GhMergeComponents` Grasshopper component ("Merge GhJSON") to merge two GhJSON documents directly on the canvas, exposing merged GhJSON and basic merge counters as outputs.
 - Script tools:
-  - Introduced GhJSON-based AI tools `script_generate`, `script_edit`, and `script_fix` for Grasshopper script components.
+  - Introduced GhJSON-based AI tools `script_generate` and `script_edit` for Grasshopper script components.
   - All script tools now validate GhJSON input/output via `GHJsonAnalyzer.Validate` and use `ScriptComponentFactory` for component construction.
   - Added `script_edit_and_replace_on_canvas` wrapper tool that combines `script_edit` and `gh_put` in a single call, reducing token consumption by eliminating the need for the AI to call both tools separately.
   - Enhanced `script_generate` and `script_edit` tools to support all parameter modifiers: `dataMapping` (Flatten/Graft), `reverse`, `simplify`, `invert`, `isPrincipal`, `required`, and `expression` for inputs; `dataMapping`, `reverse`, `simplify`, `invert` for outputs.
+- `gh_get` tool:
+  - Added `categoryFilter` parameter and extended category-based filtering from components to all document objects.
 
 ### Changed
 
@@ -41,11 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AIScriptGeneratorComponent` and `AIScriptReviewComponent` no longer expose a `Guid` input; the target component is always provided via the selecting button.
   - Removed the monolithic `script_generator` AI tool in favor of smaller, focused tools that operate purely on GhJSON.
   - Updated `AIScriptGeneratorComponent` and `AIScriptReviewComponent` to support processing multiple inputs in parallel.
+  - Renamed `script_fix` tool to `script_review` to better reflect its review-focused behavior.
 - `GhJsonDeserializer`:
   - Changed deserialization logic to default the UsingStandardOutputParam property to true when ShowStandardOutput is not present in the GhJSON ComponentState.
 - Providers:
   - Added new Claude Opus 4.5 model to the Anthropic provider registry.
   - OpenRouter provider: added structured output support via `response_format: json_schema` / `structured_outputs` for JsonOutput requests and now populates `finish_reason` and `model` in metrics for chat completions.
+- Script parameter modifier tools:
+  - Moved all script parameter modifier AI tools to the `NotTested` category to clarify their experimental status.
+- Component icons:
+  - Updated McNeel forum and script component icons to outlined variants for better visual consistency.
+  - Added `ghmerge` icon and refreshed `ghget` / `ghput` icons to align with the new GhJSON merge workflows.
+- Canvas button:
+  - Improved the default SmartHopper assistant prompt used by `CanvasButton` to guide users toward in-viewport scripting workflows and avoid unnecessary external code blocks or testing patterns, resulting in a smoother first-time UX.
 
 ### Fixed
 
@@ -59,8 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gh_put` tool:
   - Fixed infinite loop when using `GhPutComponents` with replacement mode. The `NewSolution` call inside the tool caused re-entrancy when the component blocked with `.GetAwaiter().GetResult()`, which pumps Windows messages and allows the new solution to start immediately.
   - Fixed "object expired during solution" error when replacing components. Removed the document disable/enable logic which was causing components to be in an invalid state. Uses `IsolateObject()` to properly clean up connections before component removal.
-- `script_new` and `script_edit` tools:
-  - Fixed crashing: nickname is required to comply with OpenAI's structured-output requirements.
+- Script tools:
+  - Updated `script_generate` and `script_edit` tool schemas to require `nickname`, fixing crashes with OpenAI structured-output mode.
 
 ## [1.1.1-alpha] - 2025-11-24
 
