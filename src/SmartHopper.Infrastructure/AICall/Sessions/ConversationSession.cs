@@ -573,13 +573,10 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             var interactions = this.GetHistoryInteractionList();
 
-            foreach (var interaction in interactions)
+            foreach (var interaction in interactions
+                .Where(i => i?.Metrics != null && string.Equals(i.TurnId, turnId, StringComparison.Ordinal)))
             {
-                if (interaction?.Metrics != null &&
-                    string.Equals(interaction.TurnId, turnId, StringComparison.Ordinal))
-                {
-                    combined.Combine(interaction.Metrics);
-                }
+                combined.Combine(interaction.Metrics);
             }
 
             return combined;

@@ -29,8 +29,8 @@ namespace SmartHopper.Infrastructure.Dialogs
     internal class StyledMessageDialog : Dialog
     {
         private bool _result;
-        private Guid _linkedInstanceGuid = Guid.Empty;
-        private System.Drawing.Color? _linkLineColor;
+        private readonly Guid _linkedInstanceGuid = Guid.Empty;
+        private readonly System.Drawing.Color? _linkLineColor;
 
         /// <summary>
         /// Callback to register a dialog-component canvas link. Set by SmartHopper.Core at initialization.

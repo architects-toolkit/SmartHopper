@@ -231,8 +231,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Preserve the original instance GUID for gh_put to update in place
                 updatedComp.InstanceGuid = existingInstanceGuid;
 
-                // Preserve pivot if available
-                if (existingComp.Pivot.X != 0 || existingComp.Pivot.Y != 0)
+                // Preserve pivot if available (use tolerance for floating point comparison)
+                const float tolerance = 0.001f;
+                if (Math.Abs(existingComp.Pivot.X) > tolerance || Math.Abs(existingComp.Pivot.Y) > tolerance)
                 {
                     updatedComp.Pivot = existingComp.Pivot;
                 }

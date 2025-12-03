@@ -95,17 +95,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (editMode && document?.Components != null)
                 {
-                    foreach (var compProps in document.Components)
+                    foreach (var compProps in document.Components.Where(c => c.InstanceGuid != Guid.Empty))
                     {
-                        if (compProps.InstanceGuid != Guid.Empty)
+                        var existing = CanvasAccess.FindInstance(compProps.InstanceGuid);
+                        if (existing != null)
                         {
-                            var existing = CanvasAccess.FindInstance(compProps.InstanceGuid);
-                            if (existing != null)
-                            {
-                                existingComponents[compProps.InstanceGuid] = existing;
-                                existingPositions[compProps.InstanceGuid] = existing.Attributes.Pivot;
-                                componentsToReplace.Add(compProps.InstanceGuid);
-                            }
+                            existingComponents[compProps.InstanceGuid] = existing;
+                            existingPositions[compProps.InstanceGuid] = existing.Attributes.Pivot;
+                            componentsToReplace.Add(compProps.InstanceGuid);
                         }
                     }
 
@@ -189,26 +186,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                             return cached;
                                         }
 
-                                        IGH_DocumentObject owner = null;
-
                                         // Stand-alone parameters appear directly in the active object list
-                                        owner = allObjects.FirstOrDefault(o => ReferenceEquals(o, param));
+                                        IGH_DocumentObject owner = allObjects.FirstOrDefault(o => ReferenceEquals(o, param));
 
                                         // Otherwise, look for a component that owns this parameter
-                                        if (owner == null)
-                                        {
-                                            foreach (var obj in allObjects)
-                                            {
-                                                if (obj is IGH_Component comp)
-                                                {
-                                                    if (comp.Params.Input.Contains(param) || comp.Params.Output.Contains(param))
-                                                    {
-                                                        owner = comp;
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        owner ??= allObjects
+                                            .OfType<IGH_Component>()
+                                            .FirstOrDefault(comp => comp.Params.Input.Contains(param) || comp.Params.Output.Contains(param));
 
                                         ownerCache[param] = owner;
                                         return owner;

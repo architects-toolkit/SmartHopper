@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -153,13 +154,10 @@ namespace SmartHopper.Components.Grasshopper
 
                         if (aiResult.Messages != null)
                         {
-                            foreach (var msg in aiResult.Messages)
-                            {
-                                if (!string.IsNullOrWhiteSpace(msg?.Message))
-                                {
-                                    parts.Add($"{msg.Severity}: {msg.Message}");
-                                }
-                            }
+                            parts.AddRange(
+                                aiResult.Messages
+                                    .Where(msg => !string.IsNullOrWhiteSpace(msg?.Message))
+                                    .Select(msg => $"{msg.Severity}: {msg.Message}"));
                         }
 
                         var errorInteraction = aiResult.Body?.GetLastInteraction(AIAgent.Error) as AIInteractionError;

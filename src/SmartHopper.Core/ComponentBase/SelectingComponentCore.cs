@@ -221,16 +221,10 @@ namespace SmartHopper.Core.ComponentBase
 
         internal static Dictionary<Guid, RectangleF> BuildSelectedBounds(ISelectingComponent selectingComponent)
         {
-            var result = new Dictionary<Guid, RectangleF>();
-            foreach (var obj in selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
-            {
-                if (obj.Attributes != null)
-                {
-                    result[obj.InstanceGuid] = obj.Attributes.Bounds;
-                }
-            }
-
-            return result;
+            return selectingComponent.SelectedObjects
+                .OfType<IGH_DocumentObject>()
+                .Where(obj => obj.Attributes != null)
+                .ToDictionary(obj => obj.InstanceGuid, obj => obj.Attributes.Bounds);
         }
 
         internal static void RenderSelectButton(
@@ -310,8 +304,23 @@ namespace SmartHopper.Core.ComponentBase
             timer.Elapsed += (_, __) =>
             {
                 onElapsed();
-                try { timer.Stop(); } catch { }
-                try { timer.Dispose(); } catch { }
+                try
+                {
+                    timer.Stop();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Timer already disposed, ignore
+                }
+
+                try
+                {
+                    timer.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Timer already disposed, ignore
+                }
             };
 
             timer.Start();
@@ -321,8 +330,24 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (selectDisplayTimer != null)
             {
-                try { selectDisplayTimer.Stop(); } catch { }
-                try { selectDisplayTimer.Dispose(); } catch { }
+                try
+                {
+                    selectDisplayTimer.Stop();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Timer already disposed, ignore
+                }
+
+                try
+                {
+                    selectDisplayTimer.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Timer already disposed, ignore
+                }
+
                 selectDisplayTimer = null;
             }
         }

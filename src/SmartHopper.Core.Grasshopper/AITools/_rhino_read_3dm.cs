@@ -94,14 +94,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 HashSet<ObjectType> typeFilter = null;
                 if (typeFilterArray != null && typeFilterArray.Any())
                 {
-                    typeFilter = new HashSet<ObjectType>();
-                    foreach (var typeStr in typeFilterArray)
-                    {
-                        if (Enum.TryParse<ObjectType>(typeStr.ToString(), true, out var objType))
-                        {
-                            typeFilter.Add(objType);
-                        }
-                    }
+                    typeFilter = typeFilterArray
+                        .Select(typeStr => (success: Enum.TryParse<ObjectType>(typeStr.ToString(), true, out var objType), objType))
+                        .Where(x => x.success)
+                        .Select(x => x.objType)
+                        .ToHashSet();
                 }
 
                 // Use utility to read 3DM file
