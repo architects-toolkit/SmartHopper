@@ -96,12 +96,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse object type if specified
                 ObjectType? objectType = null;
-                if (!string.IsNullOrEmpty(objectTypeStr))
+                if (!string.IsNullOrEmpty(objectTypeStr) &&
+                    Enum.TryParse<ObjectType>(objectTypeStr, true, out var objType))
                 {
-                    if (Enum.TryParse<ObjectType>(objectTypeStr, true, out var objType))
-                    {
-                        objectType = objType;
-                    }
+                    objectType = objType;
                 }
 
                 // Use utility to get geometry

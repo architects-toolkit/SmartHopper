@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using SmartHopper.Core.Models.Serialization;
 
 namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
@@ -35,17 +36,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 return 0;
             }
 
-            int updated = 0;
-
-            foreach (var kvp in positions)
-            {
-                if (ApplyPivotByInstanceGuid(result, kvp.Key, kvp.Value))
-                {
-                    updated++;
-                }
-            }
-
-            return updated;
+            return positions.Count(kvp => ApplyPivotByInstanceGuid(result, kvp.Key, kvp.Value));
         }
 
         /// <summary>
@@ -63,17 +54,15 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 return false;
             }
 
-            foreach (var compProps in result.Document.Components)
+            var compProps = result.Document.Components.FirstOrDefault(c => c.InstanceGuid == instanceGuid);
+            if (compProps == null)
             {
-                if (compProps.InstanceGuid == instanceGuid)
-                {
-                    compProps.Pivot = new CompactPosition(position.X, position.Y);
-                    Debug.WriteLine($"[GhJsonHelpers] Applied pivot ({position.X}, {position.Y}) to document component '{compProps.Name}' (GUID: {instanceGuid})");
-                    return true;
-                }
+                return false;
             }
 
-            return false;
+            compProps.Pivot = new CompactPosition(position.X, position.Y);
+            Debug.WriteLine($"[GhJsonHelpers] Applied pivot ({position.X}, {position.Y}) to document component '{compProps.Name}' (GUID: {instanceGuid})");
+            return true;
         }
 
         /// <summary>
@@ -90,20 +79,17 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 return 0;
             }
 
-            int updated = 0;
-
-            foreach (var kvp in positions)
-            {
-                if (result.GuidMapping.TryGetValue(kvp.Key, out var component))
+            return positions
+                .Where(kvp => result.GuidMapping.TryGetValue(kvp.Key, out _))
+                .Select(kvp =>
                 {
+                    var component = result.GuidMapping[kvp.Key];
                     component.Attributes.Pivot = kvp.Value;
                     component.Attributes.ExpireLayout();
                     Debug.WriteLine($"[GhJsonHelpers] Applied pivot ({kvp.Value.X}, {kvp.Value.Y}) directly to component instance '{component.Name}'");
-                    updated++;
-                }
-            }
-
-            return updated;
+                    return 1;
+                })
+                .Sum();
         }
 
         /// <summary>
@@ -120,28 +106,27 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 return 0;
             }
 
-            int restored = 0;
-
-            foreach (var originalGuid in guidsToRestore)
-            {
-                if (result.GuidMapping.TryGetValue(originalGuid, out var component))
+            return guidsToRestore
+                .Where(originalGuid => result.GuidMapping.TryGetValue(originalGuid, out _))
+                .Select(originalGuid =>
                 {
+                    var component = result.GuidMapping[originalGuid];
+
                     // The GuidMapping uses the original GUID as key, but the component has a new GUID
                     // We need to set the component's InstanceGuid to the original value
                     try
                     {
                         component.NewInstanceGuid(originalGuid);
                         Debug.WriteLine($"[GhJsonHelpers] Restored InstanceGuid {originalGuid} to component '{component.Name}'");
-                        restored++;
+                        return 1;
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[GhJsonHelpers] Failed to restore InstanceGuid {originalGuid}: {ex.Message}");
+                        return 0;
                     }
-                }
-            }
-
-            return restored;
+                })
+                .Sum();
         }
     }
 }

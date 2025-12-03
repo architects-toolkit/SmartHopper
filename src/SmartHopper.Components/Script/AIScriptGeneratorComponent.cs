@@ -220,16 +220,12 @@ namespace SmartHopper.Components.Script
                 var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
                 if (hasErrors)
                 {
-                    foreach (var msg in (JArray)toolResult["messages"])
+                    foreach (var text in ((JArray)toolResult["messages"])
+                        .Where(msg => msg["severity"]?.ToString() == "Error")
+                        .Select(msg => msg["message"]?.ToString())
+                        .Where(text => !string.IsNullOrWhiteSpace(text)))
                     {
-                        if (msg["severity"]?.ToString() == "Error")
-                        {
-                            var text = msg["message"]?.ToString();
-                            if (!string.IsNullOrWhiteSpace(text))
-                            {
-                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
-                            }
-                        }
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
                     }
 
                     this.resultInfo.Append(new GH_String("Tool failed. See runtime errors."), path);

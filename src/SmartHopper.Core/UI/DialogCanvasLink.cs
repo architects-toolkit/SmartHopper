@@ -308,8 +308,8 @@ namespace SmartHopper.Core.UI
 
                 // Return the center point of the dialog
                 return new Eto.Drawing.PointF(
-                    location.X + (size.Width / 2),
-                    location.Y + (size.Height / 2));
+                    location.X + (size.Width / 2f),
+                    location.Y + (size.Height / 2f));
             }
             catch
             {

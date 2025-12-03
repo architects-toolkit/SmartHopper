@@ -608,14 +608,9 @@ namespace SmartHopper.Core.UI.Chat
                             // Use aggregated turn metrics (includes tool calls, tool results, and assistant messages)
                             // This gives users an accurate picture of total token consumption for the turn
                             var turnId = finalAssistant.TurnId;
-                            if (!string.IsNullOrWhiteSpace(turnId))
-                            {
-                                aggregated.Metrics = this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics;
-                            }
-                            else
-                            {
-                                aggregated.Metrics = finalAssistant.Metrics;
-                            }
+                            aggregated.Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics
+                                : finalAssistant.Metrics;
 
                             aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
 
@@ -632,10 +627,9 @@ namespace SmartHopper.Core.UI.Chat
                         if (toRender != null && aggregated == null && finalAssistant != null)
                         {
                             var turnId = finalAssistant.TurnId;
-                            if (!string.IsNullOrWhiteSpace(turnId))
-                            {
-                                toRender.Metrics = this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics;
-                            }
+                            toRender.Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics
+                                : toRender.Metrics;
                         }
                         if (toRender != null)
                         {

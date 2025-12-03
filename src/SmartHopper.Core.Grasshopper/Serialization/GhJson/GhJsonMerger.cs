@@ -81,13 +81,10 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             var targetGuidToId = new Dictionary<Guid, int>();
             int maxId = 0;
 
-            foreach (var comp in target.Components)
+            foreach (var comp in target.Components.Where(c => c.Id.HasValue))
             {
-                if (comp.Id.HasValue)
-                {
-                    targetGuidToId[comp.InstanceGuid] = comp.Id.Value;
-                    maxId = Math.Max(maxId, comp.Id.Value);
-                }
+                targetGuidToId[comp.InstanceGuid] = comp.Id.Value;
+                maxId = Math.Max(maxId, comp.Id.Value);
             }
 
             // Merge components from source
@@ -95,12 +92,12 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             {
                 foreach (var sourceComp in source.Components)
                 {
-                    if (targetGuidToId.ContainsKey(sourceComp.InstanceGuid))
+                    if (targetGuidToId.TryGetValue(sourceComp.InstanceGuid, out var existingId))
                     {
                         // Component already exists in target - target wins, just remap source ID to target ID
                         if (sourceComp.Id.HasValue)
                         {
-                            result.IdRemapping[sourceComp.Id.Value] = targetGuidToId[sourceComp.InstanceGuid];
+                            result.IdRemapping[sourceComp.Id.Value] = existingId;
                         }
 
                         result.ComponentsDuplicated++;
@@ -130,12 +127,9 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             }
 
             // Build existing connections key set for deduplication
-            var existingConnectionKeys = new HashSet<string>();
-            foreach (var conn in target.Connections)
-            {
-                var key = GetConnectionKey(conn);
-                existingConnectionKeys.Add(key);
-            }
+            var existingConnectionKeys = target.Connections
+                .Select(conn => GetConnectionKey(conn))
+                .ToHashSet();
 
             // Merge connections from source (with ID remapping)
             if (source.Connections != null)
