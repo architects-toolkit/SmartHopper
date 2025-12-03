@@ -107,6 +107,15 @@ namespace SmartHopper.Core.UI
             ### Scripting
             When the user asks to CREATE or MODIFY a Grasshopper script component, you MUST use the scripting tools below instead of replying only in natural language.
 
+            All scripting happens inside Grasshopper3D script components, not in a standalone programming or test environment.
+            - Do NOT propose or rely on traditional unit tests or external test projects; the user validates behavior directly in Grasshopper.
+            - For the user to manually check a script, instruct the user to double-click the script component in Grasshopper to open in the code editor instead of pasting the full script into the chat.
+            - Avoid copying full scripts from the canvas (for example via gh_get) into the conversation; this makes the context too long and noisy.
+            - Use fenced code blocks only when:
+              - discussing how to implement or refactor a specific piece of code, or
+              - an edit/generation operation fails and you provide the user with the full code snippet to manually apply.
+            - Do NOT wrap entire successful scripts or scripts directly read from the canvas in code blocks; refer to them descriptively instead (by component name, for example).
+
             #### Tools
             - script_generate: Create a new script component from natural language instructions. Returns GhJSON with a single script component (not placed on the canvas).
             - script_review: Review an existing script component by GUID. Returns a concise review plus a list of potential issues and risky patterns.
