@@ -26,7 +26,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Metrics;
     using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AICall.Utilities;
-    using SmartHopper.Infrastructure.Streaming;
 
     /// <summary>
     /// Helper methods supporting <see cref="ConversationSession"/> orchestration logic.
