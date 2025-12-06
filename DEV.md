@@ -100,7 +100,9 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | rhino_get_geometry | Retrieve geometry from Rhino | ⚪ | 🟡 | - | - |
 | rhino_read_3dm | Read a 3dm file from disk | ⚪ | 🟡 | - | - |
 
-> **web_generic_page_read note:** Now supports dedicated flows for Wikipedia/Wikimedia APIs, Discourse raw markdown (`/posts/{id}.json`), GitHub/GitLab raw files, and Stack Exchange questions via the public API. Use it for AI-friendly text without extra HTML cleanup.
+Notes:
+
+- **web_generic_page_read** Supports dedicated flows for Wikipedia/Wikimedia APIs, Discourse raw markdown (`/posts/{id}.json`), GitHub/GitLab raw files, and Stack Exchange questions via the public API. Use it for AI-friendly text without extra HTML cleanup.
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
@@ -143,13 +145,23 @@ Notes:
 | OpenAI | gpt-5-nano | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | gpt-5-mini | ⭐ | ✅ | - | ToolChat; Text2Json; ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | dall-e-3 | ⭐ | - | - | Text2Image | TextInput, ImageOutput |
-| OpenAI | gpt-image-1 | - | - | - | Text2Image; Image2Image | TextInput, ImageInput, ImageOutput |
-| MistralAI | mistral-small-latest | ⭐ | ✅ | - | Text2Text; ToolChat; Text2Json | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput |
+| OpenAI | gpt-image-1-mini | - | - | - | Text2Image; Image2Image | TextInput, ImageInput, ImageOutput |
+| MistralAI | mistral-small | ⭐ | ✅ | - | Text2Text; ToolChat; Text2Json | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput |
 | MistralAI | magistral-small-latest | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | DeepSeek | deepseek-reasoner | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | DeepSeek | deepseek-chat | - | ✅ | - | Text2Text; ToolChat | TextInput, TextOutput, JsonOutput, FunctionCalling |
-| Anthropic | claude-3-5-haiku-latest | - | ✅ | - | Text2Text; ToolChat; Text2Json | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| Anthropic | claude-sonnet-4-5 | ⭐ | ✅ | - | Text2Text; Text2Json; ReasoningChat; ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| Anthropic | claude-haiku-4-5 | - | ✅ | - | Text2Text; ReasoningChat; ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, Reasoning |
 | OpenRouter | openai/gpt-5-mini | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+
+### Discouraged models for script tools
+
+Some models are still supported but **not recommended** for script‑oriented tools due to quality and stability trade‑offs. These models are marked with `DiscouragedForTools` in the provider registries and surface in the UI as a "Not Recommended" badge when used with those tools.
+
+- **MistralAI**
+  - `mistral-small-latest`/`mistral-small` → discouraged for: `script_generate`, `script_edit`
+- **Anthropic**
+  - `claude-haiku-4-5`/`claude-haiku-4-5-20251001`/`claude-3-5-haiku-latest`/`claude-3-5-haiku-20241022`/`claude-3-haiku-20240307` → discouraged for: `script_generate`, `script_edit`
 
 ## 🔢 Supported Data Types
 
@@ -161,7 +173,7 @@ SmartHopper registers the following data type serializers (see `src/SmartHopper.
 | Number | ✅ Supported |
 | Integer | ✅ Supported |
 | Boolean | ✅ Supported |
-| Colour (Color) | ✅ Supported |
+| Colour | ✅ Supported |
 | Point | ✅ Supported |
 | Vector | ✅ Supported |
 | Line | ✅ Supported |
