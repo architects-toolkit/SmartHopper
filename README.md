@@ -1,6 +1,6 @@
 # SmartHopper - AI-Powered Tools and Assistant for Grasshopper3D
 
-[![Version](https://img.shields.io/badge/version-1.2.0--dev.251203-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-1.2.0--dev.251206-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#installation)
@@ -10,7 +10,7 @@
 
 [![SmartHopper](./img/smarthopper.png)](https://smarthopper.xyz)
 
-**Design with AI directly on your Grasshopper canvas — chat, generate, organize, and build smarter definitions faster.**
+**Design with AI directly on your Grasshopper canvas — chat, code, organize, and build smarter definitions faster.**
 
 </div>
 
@@ -18,11 +18,14 @@
 
 SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered components into Grasshopper3D.
 
-- 🔧 **AI‑powered components**
-  Use Grasshopper in a way that was impossible before AI — generate text, generate and sort lists based on prompt, create images, and more.
-
 - 💬 **Canvas assistant**
   An on‑canvas AI chat truly aware of your components and connected to the McNeel forum for real answers.
+
+- 📝 **Script generator**
+  Get help creating, editing and fixing Script components in Python, IronPython, C#, and VB<span>.NET</span>.
+
+- 🔧 **AI‑powered components**
+  Use Grasshopper in a way that was impossible before AI — generate text, generate and sort lists based on prompt, create images, and more.
 
 - 🤝 Multiple compatible providers (check the [full provider feature matrix](DEV.md#➡️-available-providers) for details)
 
@@ -38,12 +41,12 @@ SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered co
 
 Install, enable a provider, and set up an API key.
 
-> **System requirements**
->
-> - Rhino 8.24 or newer
-> - Distributed through the Rhino Package Manager on Windows only
-> - macOS support not yet tested
-> - You need to have a provider API key to use most of SmartHopper features
+**System requirements:**
+
+- Rhino 8.24 or newer
+- Distributed through the Rhino Package Manager on Windows only
+- macOS support not yet tested
+- You need to have a provider API key to use most of SmartHopper features
 
 [![Quickstart ▶](./img/video-installation.jpg)](https://vimeo.com/1126454690 "Quickstart ▶ — click to watch on Vimeo")
 
@@ -58,6 +61,14 @@ Start a chat, ask for help, search the McNeel forum, or talk about life.
 [![Canvas Assistant ▶](./img/video-chat.png)](https://vimeo.com/1126454713 "Canvas Assistant ▶ — click to watch on Vimeo")
 
 [View the video on Vimeo](https://vimeo.com/1126454713)
+
+### Generate and Edit Script Components
+
+Generate and edit Script components with AI.
+
+[![Generate and Edit Script Components ▶](./img/video-scripting.jpg)](https://vimeo.com/1144166204 "Generate and Edit Script Components ▶ — click to watch on Vimeo")
+
+[View the video on Vimeo](https://vimeo.com/1144166204)
 
 ### AI-powered components
 
