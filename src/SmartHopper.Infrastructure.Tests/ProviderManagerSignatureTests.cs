@@ -541,17 +541,23 @@ namespace SmartHopper.Infrastructure.Tests
 
         /// <summary>
         /// Runs a PowerShell script with provided arguments and asserts success.
+        /// Uses -Command so that any expressions in <paramref name="args"/> (for example
+        /// ConvertTo-SecureString) are evaluated before binding to script parameters.
         /// </summary>
         private void RunPowerShell(string scriptPath, string args)
         {
             var workingDir = Path.GetDirectoryName(scriptPath);
-            var psi = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" {args}")
+            var escapedScriptPath = scriptPath.Replace("'", "''");
+            var command = $"& '{escapedScriptPath}' {args}";
+
+            var psi = new ProcessStartInfo("pwsh", $"-NoProfile -ExecutionPolicy Bypass -Command \"{command}\"")
             {
                 WorkingDirectory = workingDir,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
+
             var proc = Process.Start(psi);
             proc.WaitForExit();
             this.output.WriteLine(proc.StandardOutput.ReadToEnd());
@@ -590,7 +596,11 @@ namespace SmartHopper.Infrastructure.Tests
         /// </summary>
         private void GeneratePfx(string scriptPath, string pfxPath, string password)
         {
-            this.RunPowerShell(scriptPath, $"-Generate -Password {password} -PfxPath \"{pfxPath}\"");
+            var escapedPassword = password.Replace("'", "''");
+            var passwordExpression = $"(ConvertTo-SecureString '{escapedPassword}' -AsPlainText -Force)";
+            var escapedPfxPath = pfxPath.Replace("'", "''");
+
+            this.RunPowerShell(scriptPath, $"-Generate -Password {passwordExpression} -PfxPath '{escapedPfxPath}'");
         }
 
         /// <summary>
@@ -602,7 +612,22 @@ namespace SmartHopper.Infrastructure.Tests
             var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             var solutionDir = Path.GetFullPath(Path.Combine(assemblyDir, "../../../../.."));
             var scriptPath = Path.Combine(solutionDir, "tools", "Sign-Authenticode.ps1");
-            this.RunPowerShell(scriptPath, $"-Sign \"{targetFile}\" -Password {password} -PfxPath \"{pfxPath}\"");
+
+            var escapedPassword = password.Replace("'", "''");
+            var passwordExpression = $"(ConvertTo-SecureString '{escapedPassword}' -AsPlainText -Force)";
+            var escapedTargetFile = targetFile.Replace("'", "''");
+            var escapedPfxPath = pfxPath.Replace("'", "''");
+
+            var previous = Environment.GetEnvironmentVariable("SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING");
+            try
+            {
+                Environment.SetEnvironmentVariable("SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING", "1");
+                this.RunPowerShell(scriptPath, $"-Sign '{escapedTargetFile}' -Password {passwordExpression} -PfxPath '{escapedPfxPath}'");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING", previous);
+            }
         }
 
         private static string? FindExecutable(string exeName)
