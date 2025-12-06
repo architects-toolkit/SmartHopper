@@ -151,6 +151,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             {
                 _rule.AdditionalIncludes.Add(property);
             }
+
             return this;
         }
 
@@ -165,6 +166,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             {
                 _rule.AdditionalExcludes.Add(property);
             }
+
             return this;
         }
 

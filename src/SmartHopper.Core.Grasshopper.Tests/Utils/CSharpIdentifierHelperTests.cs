@@ -169,7 +169,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils
             var original = "out";
             var sanitized = CSharpIdentifierHelper.SanitizeIdentifier(original);
             var unsanitized = CSharpIdentifierHelper.UnsanitizeIdentifier(sanitized);
-            
+
             Assert.Equal("@out", sanitized);
             Assert.Equal(original, unsanitized);
         }
@@ -183,7 +183,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils
             var original = "myVariable";
             var sanitized = CSharpIdentifierHelper.SanitizeIdentifier(original);
             var unsanitized = CSharpIdentifierHelper.UnsanitizeIdentifier(sanitized);
-            
+
             Assert.Equal(original, sanitized);
             Assert.Equal(original, unsanitized);
         }
@@ -195,41 +195,41 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils
         public static void RunBasicTests()
         {
             Console.WriteLine("=== CSharpIdentifierHelper Tests ===");
-            
+
             // Test reserved word sanitization
             var sanitized = CSharpIdentifierHelper.SanitizeIdentifier("out");
             Console.WriteLine($"'out' -> '{sanitized}' (expected: '@out')");
             System.Diagnostics.Debug.Assert(sanitized == "@out");
-            
+
             var unsanitized = CSharpIdentifierHelper.UnsanitizeIdentifier("@out");
             Console.WriteLine($"'@out' -> '{unsanitized}' (expected: 'out')");
             System.Diagnostics.Debug.Assert(unsanitized == "out");
-            
+
             // Test non-reserved words (should remain unchanged)
             var normal = CSharpIdentifierHelper.SanitizeIdentifier("myVariable");
             Console.WriteLine($"'myVariable' -> '{normal}' (expected: 'myVariable')");
             System.Diagnostics.Debug.Assert(normal == "myVariable");
-            
+
             var normalUn = CSharpIdentifierHelper.UnsanitizeIdentifier("myVariable");
             Console.WriteLine($"'myVariable' -> '{normalUn}' (expected: 'myVariable')");
             System.Diagnostics.Debug.Assert(normalUn == "myVariable");
-            
+
             // Test invalid character handling
             var invalid = CSharpIdentifierHelper.SanitizeIdentifier("my-variable");
             Console.WriteLine($"'my-variable' -> '{invalid}' (expected: 'my_variable')");
             System.Diagnostics.Debug.Assert(invalid == "my_variable");
-            
+
             // Test digit prefix handling
             var digit = CSharpIdentifierHelper.SanitizeIdentifier("123var");
             Console.WriteLine($"'123var' -> '{digit}' (expected: '_123var')");
             System.Diagnostics.Debug.Assert(digit == "_123var");
-            
+
             // Test helper methods
             Console.WriteLine($"IsReservedWord('out'): {CSharpIdentifierHelper.IsReservedWord("out")} (expected: True)");
             Console.WriteLine($"IsReservedWord('myVar'): {CSharpIdentifierHelper.IsReservedWord("myVar")} (expected: False)");
             Console.WriteLine($"IsSanitized('@out'): {CSharpIdentifierHelper.IsSanitized("@out")} (expected: True)");
             Console.WriteLine($"IsSanitized('myVar'): {CSharpIdentifierHelper.IsSanitized("myVar")} (expected: False)");
-            
+
             Console.WriteLine("=== All tests passed! ===");
         }
     }

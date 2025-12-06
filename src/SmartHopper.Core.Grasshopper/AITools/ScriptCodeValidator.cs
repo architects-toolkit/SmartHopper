@@ -528,11 +528,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 **INCORRECT SCRIPT FORMAT (DO NOT DO THIS):**
                 ```csharp
+
                 // WRONG - do not include method declaration
                 private void RunScript(List<Point3d> grid, double radius, ref object A)
                 {
                     // ...
                 }
+
                 ```
 
                 **Variables and Data Types:**

@@ -124,7 +124,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             filter._rule.IncludeCategories = customRule.IncludeCategories;
             filter._rule.AdditionalIncludes.UnionWith(customRule.AdditionalIncludes);
             filter._rule.AdditionalExcludes.UnionWith(customRule.AdditionalExcludes);
-            
+
             return filter;
         }
 
@@ -176,6 +176,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 GH_PathMapper => ComponentCategory.PathMapper,
                 GH_ColourWheel => ComponentCategory.ColorWheel,
                 GH_DataRecorder => ComponentCategory.DataRecorder,
+
                 //GH_ItemSelector => ComponentCategory.ItemPicker,
                 _ => ComponentCategory.None
             };

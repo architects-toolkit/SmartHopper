@@ -229,6 +229,7 @@ namespace SmartHopper.Providers.Anthropic
             {
                 Debug.WriteLine($"[Anthropic] SortContentBlocks: Reordered {textBlocks.Count} text + {toolUseBlocks.Count} tool_use blocks");
             }
+
 #endif
 
             return sorted;
@@ -692,9 +693,9 @@ namespace SmartHopper.Providers.Anthropic
                 var interaction = new AIInteractionText();
                 interaction.SetResult(agent: AIAgent.Assistant, content: contentText, reasoning: null);
                 interaction.Metrics = this.DecodeMetrics(response);
-                
+
                 Debug.WriteLine($"[Anthropic] Decode creating text interaction: content='{contentText.Substring(0, Math.Min(50, contentText.Length))}...', toolCalls={toolCalls.Count}, toolResults={toolResults.Count}");
-                
+
                 interactions.Add(interaction);
 
                 if (toolCalls.Count > 0)
@@ -708,7 +709,7 @@ namespace SmartHopper.Providers.Anthropic
                     Debug.WriteLine($"[Anthropic] Decode adding {toolResults.Count} tool results");
                     interactions.AddRange(toolResults.Cast<IAIInteraction>());
                 }
-                
+
                 Debug.WriteLine($"[Anthropic] Decode returning {interactions.Count} total interactions");
             }
             catch (Exception ex)
@@ -851,7 +852,7 @@ namespace SmartHopper.Providers.Anthropic
                 var textBuffer = new StringBuilder();
                 var streamMetrics = new AIMetrics { Provider = this.provider.Name, Model = request.Model };
                 string? lastFinishReason = null;
-                
+
                 // Track tool calls being built during streaming
                 var toolCalls = new List<AIInteractionToolCall>();
                 AIInteractionToolCall? currentToolCall = null;
@@ -896,7 +897,7 @@ namespace SmartHopper.Providers.Anthropic
                                 Arguments = new JObject(), // Will be populated from input_json_delta events
                                 Agent = AIAgent.ToolCall,
                             };
-                            
+
                             toolArgsBuffer.Clear();
                             Debug.WriteLine($"[Anthropic] Tool call initialized: id={currentToolCall.Id}, name={currentToolCall.Name}, currentToolCall set to non-null");
                         }
@@ -905,7 +906,7 @@ namespace SmartHopper.Providers.Anthropic
                     {
                         var delta = parsed["delta"] as JObject;
                         var deltaType = delta?["type"]?.ToString();
-                        
+
                         // Handle text deltas
                         if (string.Equals(deltaType, "text_delta", StringComparison.OrdinalIgnoreCase))
                         {
@@ -928,6 +929,7 @@ namespace SmartHopper.Providers.Anthropic
                                 yield return deltaRet;
                             }
                         }
+
                         // Handle tool input deltas (partial arguments)
                         else if (string.Equals(deltaType, "input_json_delta", StringComparison.OrdinalIgnoreCase))
                         {
@@ -943,13 +945,13 @@ namespace SmartHopper.Providers.Anthropic
                     {
                         var blockIndex = parsed["index"]?.Value<int>();
                         Debug.WriteLine($"[Anthropic] content_block_stop: index={blockIndex}, hasCurrentToolCall={currentToolCall != null}");
-                        
+
                         // Tool arguments are complete - parse and store
                         if (currentToolCall != null)
                         {
                             var argsJson = toolArgsBuffer.ToString();
                             Debug.WriteLine($"[Anthropic] Tool arguments complete: {argsJson}");
-                            
+
                             try
                             {
                                 currentToolCall.Arguments = string.IsNullOrEmpty(argsJson) ? new JObject() : JObject.Parse(argsJson);
@@ -959,15 +961,15 @@ namespace SmartHopper.Providers.Anthropic
                                 Debug.WriteLine($"[Anthropic] Failed to parse tool arguments: {ex.Message}");
                                 currentToolCall.Arguments = new JObject();
                             }
-                            
+
                             toolCalls.Add(currentToolCall);
                             Debug.WriteLine($"[Anthropic] Added tool call to list: id={currentToolCall.Id}, name={currentToolCall.Name}, args={currentToolCall.Arguments}");
-                            
+
                             // Yield the tool call
                             var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
                             tcDelta.SetBody(new List<IAIInteraction> { currentToolCall });
                             yield return tcDelta;
-                            
+
                             currentToolCall = null;
                             toolArgsBuffer.Clear();
                         }
@@ -1010,7 +1012,7 @@ namespace SmartHopper.Providers.Anthropic
                 var finalStatus = string.Equals(lastFinishReason, "tool_use", StringComparison.OrdinalIgnoreCase)
                     ? AICallStatus.CallingTools
                     : AICallStatus.Finished;
-                
+
                 var final = new AIReturn { Request = request, Status = finalStatus };
                 streamMetrics.FinishReason = lastFinishReason ?? streamMetrics.FinishReason;
 
@@ -1018,7 +1020,7 @@ namespace SmartHopper.Providers.Anthropic
 
                 // Build final body with text and tool calls
                 var finalBuilder = AIBodyBuilder.Create();
-                
+
                 // Add text if present
                 if (textBuffer.Length > 0)
                 {
@@ -1031,14 +1033,14 @@ namespace SmartHopper.Providers.Anthropic
                     };
                     finalBuilder.Add(finalInteraction, markAsNew: false);
                 }
-                
+
                 // Add tool calls if present (already marked as NOT new since they were yielded)
                 foreach (var tc in toolCalls)
                 {
                     Debug.WriteLine($"[Anthropic] Including tool call in final: {tc.Name}");
                     finalBuilder.Add(tc, markAsNew: false);
                 }
-                
+
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }

@@ -252,6 +252,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!validationResult.IsValid)
                 {
                     Debug.WriteLine($"[script_generate] Script validation failed after {retryCount} retries: {string.Join("; ", validationResult.Issues)}");
+
                     // Continue with the script but log a warning - it may still work
                 }
 

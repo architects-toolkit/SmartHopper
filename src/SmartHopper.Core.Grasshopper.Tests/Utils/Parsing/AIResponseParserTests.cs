@@ -812,6 +812,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
 
             // Assert
             Assert.Equal(2, result.Count);
+
             // JSON parsing unescapes the quotes, so the actual string contains literal quotes
             Assert.Equal("He said \"hello\"", result[0]);
             Assert.Equal("normal", result[1]);

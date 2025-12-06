@@ -40,6 +40,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Extract detailed geometry information from objects in the active Rhino document. Can retrieve selected objects, objects by layer, or objects by type. Returns geometry properties, coordinates, and metadata.",
+
                 // category: "Rhino",
                 category: "NotTested",
                 parametersSchema: @"{
