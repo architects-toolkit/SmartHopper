@@ -62,7 +62,6 @@ The workflow automatically:
 2. Ensure all validations pass:
    - ✅ Version Check
    - ✅ Code Style Check
-   - ✅ Using Directives Check
    - ✅ Changelog Check
    - ✅ .NET CI Tests
 3. Merge the PR to `dev`
@@ -161,7 +160,6 @@ All PRs (release → dev, dev → main) run:
 
 - Version format validation
 - Code style checks
-- Using directives validation
 - Changelog update verification
 - .NET build and tests
 
