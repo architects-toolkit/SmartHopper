@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clarified that output parameters do NOT have 'access' settings and documented proper list output patterns per language (Python 3 requires .NET `List[T]`, IronPython can use Python lists, C# uses `List<T>`, VB.NET uses `List(Of T)`).
 - `gh_get` tool:
   - Added `categoryFilter` parameter and extended category-based filtering from components to all document objects.
+- Model compatibility badges:
+  - Added "Not Recommended" badge (orange octagon with exclamation mark) displayed when the selected model is discouraged for the AI tools used by a component.
+  - Added `DiscouragedForTools` property to `AIModelCapabilities` to specify tool names for which a model is not recommended.
+  - Added `UsingAiTools` property to `AIStatefulAsyncComponentBase` allowing components to declare which AI tools they use.
+  - Added `EffectiveRequiredCapability` property that merges component's required capability with capabilities required by its AI tools.
+  - The "Not Recommended" badge suppresses the "Verified" badge when active (priority: Replaced > Invalid > NotRecommended > Verified).
 
 ### Changed
 

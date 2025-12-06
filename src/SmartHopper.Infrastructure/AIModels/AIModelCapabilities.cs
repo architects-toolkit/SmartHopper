@@ -82,6 +82,12 @@ namespace SmartHopper.Infrastructure.AIModels
         public string CacheKeyStrategy { get; set; } = string.Empty;
 
         /// <summary>
+        /// List of AI tool names for which this model is discouraged.
+        /// When a component uses any of these tools, a "not recommended" badge will be displayed.
+        /// </summary>
+        public List<string> DiscouragedForTools { get; set; } = new List<string>();
+
+        /// <summary>
         /// Checks if this model supports a specific capability.
         /// </summary>
         /// <param name="capability">The capability to check for.</param>
@@ -103,6 +109,22 @@ namespace SmartHopper.Infrastructure.AIModels
         public string GetKey()
         {
             return $"{this.Provider.ToLowerInvariant()}.{this.Model.ToLowerInvariant()}";
+        }
+
+        /// <summary>
+        /// Checks if this model is discouraged for any of the specified tools.
+        /// </summary>
+        /// <param name="toolNames">List of tool names to check against.</param>
+        /// <returns>True if any of the specified tools are in the discouraged list.</returns>
+        public bool IsDiscouragedForAnyTool(IEnumerable<string> toolNames)
+        {
+            if (toolNames == null || this.DiscouragedForTools == null || this.DiscouragedForTools.Count == 0)
+            {
+                return false;
+            }
+
+            return toolNames.Any(t => this.DiscouragedForTools.Any(d =>
+                string.Equals(d, t, StringComparison.OrdinalIgnoreCase)));
         }
     }
 }
