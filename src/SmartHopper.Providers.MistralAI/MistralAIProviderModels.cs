@@ -49,22 +49,13 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-small-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
-                    SupportsStreaming = true,
-                    Verified = true,
-                    Rank = 90,
-                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistral-small",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 90,
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
+                    Aliases = new List<string> { "mistral-small" },
                 },
                 new AIModelCapabilities
                 {
@@ -74,15 +65,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 80,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistral-medium",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    Verified = true,
-                    Rank = 80,
+                    Aliases = new List<string> { "mistral-medium" },
                 },
                 new AIModelCapabilities
                 {
@@ -92,6 +75,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 60,
+                    Aliases = new List<string> { "mistral-large" },
                 },
                 new AIModelCapabilities
                 {

@@ -53,10 +53,10 @@ runs:
         if (-not (Test-Path signing.snk)) {
           if ("${{ inputs.signing_snk_base64 }}" -ne "") {
             Write-Host "Decoding signing.snk from Base64 secret"
-            pwsh Sign-StrongNames.ps1 -Base64 "${{ inputs.signing_snk_base64 }}"
+            pwsh tools/Sign-StrongNames.ps1 -Base64 "${{ inputs.signing_snk_base64 }}"
           } else {
             Write-Host "Generating signing.snk"
-            pwsh Sign-StrongNames.ps1 -Generate
+            pwsh tools/Sign-StrongNames.ps1 -Generate
           }
         } else {
           Write-Host "signing.snk already exists"
@@ -116,7 +116,7 @@ runs:
         }
         
         Write-Host "Decoding Authenticode PFX from secrets..."
-        pwsh ./Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password "${{ inputs.signing_pfx_password }}"
+        pwsh ./tools/Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password "${{ inputs.signing_pfx_password }}"
 
     - name: Authenticode-sign provider assemblies
       shell: pwsh
@@ -153,5 +153,5 @@ runs:
         }
         
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
-        & ./Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ inputs.signing_pfx_password }}"
+        & ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ inputs.signing_pfx_password }}"
         if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }
