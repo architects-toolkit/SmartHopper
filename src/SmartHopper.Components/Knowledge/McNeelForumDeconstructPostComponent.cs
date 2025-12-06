@@ -20,16 +20,16 @@ using SmartHopper.Components.Properties;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
-    /// Deconstructs McNeel forum post JSON objects (as returned by McNeelForumSearchComponent)
+    /// Deconstructs McNeelForum post JSON objects (as returned by McNeelForumSearchComponent)
     /// into individual Grasshopper-friendly fields.
     /// </summary>
     public class McNeelForumDeconstructPostComponent : GH_Component
     {
         public McNeelForumDeconstructPostComponent()
             : base(
-                  "Deconstruct McNeel Forum Post",
+                  "Deconstruct McNeelForum Post",
                   "DeconstructMcNeelPost",
-                  "Deconstruct McNeel forum post JSON into id, username, topic id, title, date, and cooked content.",
+                  "Deconstruct McNeelForum post JSON into id, username, topic id, title, date, and cooked content.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -47,9 +47,9 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter(
-                "McNeel Forum Post",
+                "McNeelForum Post",
                 "McP",
-                "JSON representation of McNeel forum posts as returned by McNeel Forum Search Component.",
+                "JSON representation of McNeelForum posts as returned by McNeelForum Search Component.",
                 GH_ParamAccess.list);
         }
 

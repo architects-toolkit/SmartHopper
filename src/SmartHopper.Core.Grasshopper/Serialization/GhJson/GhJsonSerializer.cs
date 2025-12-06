@@ -69,6 +69,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                     Debug.WriteLine($"[GhJsonSerializer] ERROR: objects[{i}] is null");
                     throw new ArgumentNullException($"objects[{i}]");
                 }
+
                 Debug.WriteLine($"[GhJsonSerializer] Object {i}: {obj?.Name} ({obj?.InstanceGuid})");
             }
 
@@ -624,6 +625,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                     if (usingStdOutputProp != null && usingStdOutputProp.CanRead)
                     {
                         var value = (bool)usingStdOutputProp.GetValue(originalObject);
+
                         // Only serialize if true (non-default behavior)
                         if (value)
                         {

@@ -64,7 +64,6 @@ This workflow will:
 2. Ensure all validations pass:
    - ✅ Version Check
    - ✅ Code Style Check
-   - ✅ Using Directives Check
    - ✅ Changelog Check
    - ✅ .NET CI Tests
 3. Merge the PR to `main`
@@ -147,7 +146,6 @@ All PRs to `main` (including hotfixes) run:
 
 - Version format validation
 - Code style checks
-- Using directives validation
 - Changelog update verification
 - .NET build and tests
 

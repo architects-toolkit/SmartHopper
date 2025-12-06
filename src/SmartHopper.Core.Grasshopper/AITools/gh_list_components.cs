@@ -87,6 +87,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
+                // Local tool: metrics such as provider/model/finish_reason are not meaningful here
+                toolCall.SkipMetricsValidation = true;
+
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
@@ -100,16 +103,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Retrieve all component proxies in one call
                 var proxies = server.ObjectProxies.ToList();
 
-                // Apply include filters
-                if (includeCats.Any())
+                // Apply category filters (match against Category and SubCategory)
+                if (includeCats.Any() || excludeCats.Any())
                 {
-                    proxies = proxies.Where(p => p.Desc.Category != null && includeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
-                }
-
-                // Apply exclude filters
-                if (excludeCats.Any())
-                {
-                    proxies = proxies.Where(p => p.Desc.Category == null || !excludeCats.Contains(p.Desc.Category.ToUpperInvariant())).ToList();
+                    proxies = proxies
+                        .Where(p => ComponentRetriever.PassesCategoryFilters(
+                            p.Desc.Category,
+                            p.Desc.SubCategory,
+                            includeCats,
+                            excludeCats))
+                        .ToList();
                 }
 
                 // Apply name filter if provided
@@ -212,7 +215,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["count"] = list.Count,
                     ["names"] = JArray.FromObject(names),
                     ["guids"] = JArray.FromObject(guids),
-                    ["json"] = json,
+                    ["ghjson"] = json,
                 };
 
                 // Attach non-breaking result envelope
@@ -220,7 +223,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ToolResultEnvelope.Create(
                         tool: this.toolName,
                         type: ToolResultContentType.Object,
-                        payloadPath: "json"));
+                        payloadPath: "ghjson"));
 
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)

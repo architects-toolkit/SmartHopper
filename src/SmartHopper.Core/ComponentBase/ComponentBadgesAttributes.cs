@@ -111,13 +111,14 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            if (!stateful.TryGetCachedBadgeFlags(out bool showVerified, out bool showDeprecated, out bool showInvalid, out bool showReplaced))
+            if (!stateful.TryGetCachedBadgeFlags(out bool showVerified, out bool showDeprecated, out bool showInvalid, out bool showReplaced, out bool showNotRecommended))
             {
                 return;
             }
 
             // Collect badges using single-primary policy for built-ins.
-            // Priority: Replaced > Invalid > Verified. Deprecated can co-exist.
+            // Priority: Replaced > Invalid > NotRecommended > Verified. Deprecated can co-exist.
+            // NotRecommended suppresses Verified badge.
             // In addition, render any custom badges contributed by derived attributes
             // via GetAdditionalBadges().
             var items = new List<(System.Action<Graphics, float, float> draw, string label)>();
@@ -131,6 +132,11 @@ namespace SmartHopper.Core.ComponentBase
             else if (showInvalid)
             {
                 primary = (DrawInvalidBadge, "Invalid model");
+            }
+            else if (showNotRecommended)
+            {
+                // NotRecommended takes priority over Verified
+                primary = (DrawNotRecommendedBadge, "Model not recommended for this component");
             }
             else if (showVerified)
             {
@@ -216,31 +222,38 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Draw a simple orange warning triangle for Deprecated.
+        /// Draw a warning for Deprecated.
         /// </summary>
         private static void DrawDeprecatedBadge(Graphics g, float x, float y)
         {
-            using (var bg = new SolidBrush(Color.FromArgb(230, 126, 34))) // orange
+            using (var bg = new SolidBrush(Color.FromArgb(155, 89, 182))) // purple
             using (var pen = new Pen(Color.White, 1.5f))
             {
+                // Circular badge background
+                var rect = new RectangleF(x, y, BADGE_SIZE, BADGE_SIZE);
+                g.FillEllipse(bg, rect);
+
                 var cx = x + BADGE_SIZE / 2f;
                 var cy = y + BADGE_SIZE / 2f;
-                var r = BADGE_SIZE * 0.45f;
 
-                // Triangle points
-                var p1 = new PointF(cx, cy - r);
-                var p2 = new PointF(cx - r * 0.866f, cy + r * 0.5f);
-                var p3 = new PointF(cx + r * 0.866f, cy + r * 0.5f);
+                // Arrow shaft (line-based, tall inside circle)
+                float radius = BADGE_SIZE * 0.5f;
+                float shaftTopY = cy - radius * 0.65f;
+                float tipY = cy + radius * 0.75f;
+                float shaftBottomY = cy + radius * 0.80f; // extend slightly past tip to avoid gap
+                pen.StartCap = System.Drawing.Drawing2D.LineCap.Flat;
+                pen.EndCap = System.Drawing.Drawing2D.LineCap.Flat;
+                g.DrawLine(pen, new PointF(cx, shaftTopY), new PointF(cx, shaftBottomY));
 
-                var path = new System.Drawing.Drawing2D.GraphicsPath();
-                path.AddPolygon(new[] { p1, p2, p3 });
-                g.FillPath(bg, path);
+                // Arrow head (two diagonal lines forming a V)
+                float arrowHalfWidth = radius * 0.6f;
+                float headTopY = cy + radius * 0.1f;
+                var tip = new PointF(cx, tipY);
+                var left = new PointF(cx - arrowHalfWidth, headTopY);
+                var right = new PointF(cx + arrowHalfWidth, headTopY);
 
-                // Exclamation mark
-                var lineTop = new PointF(cx, cy - r * 0.2f);
-                var lineBottom = new PointF(cx, cy + r * 0.3f);
-                g.DrawLine(pen, lineTop, lineBottom);
-                g.DrawEllipse(pen, cx - 1.5f, cy + r * 0.4f, 3f, 3f);
+                g.DrawLine(pen, tip, left);
+                g.DrawLine(pen, tip, right);
             }
         }
 
@@ -263,6 +276,45 @@ namespace SmartHopper.Core.ComponentBase
                 var p4 = new PointF(x + inset, y + BADGE_SIZE - inset);
                 g.DrawLine(pen, p1, p2);
                 g.DrawLine(pen, p3, p4);
+            }
+        }
+
+        /// <summary>
+        /// Draw an orange octagon with a white exclamation mark for Not Recommended model.
+        /// </summary>
+        private static void DrawNotRecommendedBadge(Graphics g, float x, float y)
+        {
+            using (var bg = new SolidBrush(Color.FromArgb(230, 126, 34))) // orange
+            using (var pen = new Pen(Color.White, 1.5f))
+            {
+                // Draw octagon
+                var cx = x + BADGE_SIZE / 2f;
+                var cy = y + BADGE_SIZE / 2f;
+                float r = BADGE_SIZE / 2f;
+
+                // 8 vertices for octagon
+                var points = new PointF[8];
+                for (int i = 0; i < 8; i++)
+                {
+                    double angle = Math.PI / 8 + i * Math.PI / 4; // start at 22.5 degrees
+                    points[i] = new PointF(
+                        cx + r * (float)Math.Cos(angle),
+                        cy + r * (float)Math.Sin(angle));
+                }
+
+                g.FillPolygon(bg, points);
+
+                // Draw exclamation mark
+                float lineTop = cy - r * 0.45f;
+                float lineBottom = cy + r * 0.15f;
+                float dotY = cy + r * 0.45f;
+                float dotRadius = r * 0.12f;
+
+                // Line part of exclamation
+                g.DrawLine(pen, cx, lineTop, cx, lineBottom);
+
+                // Dot part of exclamation
+                g.FillEllipse(Brushes.White, cx - dotRadius, dotY - dotRadius, dotRadius * 2, dotRadius * 2);
             }
         }
 

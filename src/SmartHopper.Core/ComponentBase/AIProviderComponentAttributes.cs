@@ -28,11 +28,15 @@ namespace SmartHopper.Core.ComponentBase
         private readonly AIProviderComponentBase owner;
         private const int BADGESIZE = 16; // Size of the provider logo badge
         private const float MINZOOMTHRESHOLD = 0.5f; // Minimum zoom level to show the badge
-        private const int PROVIDERSTRIPHEIGHT = 20; // Height of the provider strip
+        protected const int PROVIDERSTRIPHEIGHT = 20; // Height of the provider strip
 
         // Hover state for inline provider label
         private RectangleF providerIconRect = RectangleF.Empty;
         private bool hoverProviderIcon;
+
+        // Deferred label rendering support so derived classes can draw tooltips on top of their overlays
+        private RectangleF? deferredLabelRect;
+        private string deferredLabelText;
 
         // Timer-based auto-hide for inline label (disappears after 5s even if still hovered)
         // Purpose: avoid sticky labels when the cursor remains stationary.
@@ -56,6 +60,9 @@ namespace SmartHopper.Core.ComponentBase
         protected override void Layout()
         {
             base.Layout();
+
+            this.deferredLabelRect = null;
+            this.deferredLabelText = null;
 
             // Only extend bounds if we have a valid provider
             if (!string.IsNullOrEmpty(this.owner.GetActualAIProviderName()))
@@ -130,7 +137,17 @@ namespace SmartHopper.Core.ComponentBase
                 if (this.hoverProviderIcon && !this.providerLabelAutoHidden && this.providerIconRect.Width > 0 && canvas.Viewport.Zoom >= MINZOOMTHRESHOLD)
                 {
                     var label = $"Connected to {actualProviderName}";
-                    InlineLabelRenderer.DrawInlineLabel(graphics, this.providerIconRect, label);
+                    if (this.ShouldDeferProviderLabelRendering())
+                    {
+                        this.deferredLabelRect = this.providerIconRect;
+                        this.deferredLabelText = label;
+                    }
+                    else
+                    {
+                        InlineLabelRenderer.DrawInlineLabel(graphics, this.providerIconRect, label);
+                        this.deferredLabelRect = null;
+                        this.deferredLabelText = null;
+                    }
                 }
             }
         }
@@ -199,6 +216,29 @@ namespace SmartHopper.Core.ComponentBase
                 try { this.providerLabelTimer.Stop(); } catch { /* ignore */ }
                 try { this.providerLabelTimer.Dispose(); } catch { /* ignore */ }
                 this.providerLabelTimer = null;
+            }
+        }
+
+        /// <summary>
+        /// Derived classes can override to defer provider label rendering until after they finish custom drawing.
+        /// </summary>
+        /// <returns>True to delay tooltip rendering; otherwise false to draw immediately.</returns>
+        protected virtual bool ShouldDeferProviderLabelRendering()
+        {
+            return false;
+        }
+
+        /// <summary>
+        /// Draws the provider tooltip if rendering was deferred for foreground priority.
+        /// </summary>
+        /// <param name="graphics">Graphics context to draw on.</param>
+        protected void RenderDeferredProviderLabel(Graphics graphics)
+        {
+            if (this.deferredLabelRect.HasValue && !string.IsNullOrEmpty(this.deferredLabelText))
+            {
+                InlineLabelRenderer.DrawInlineLabel(graphics, this.deferredLabelRect.Value, this.deferredLabelText);
+                this.deferredLabelRect = null;
+                this.deferredLabelText = null;
             }
         }
     }

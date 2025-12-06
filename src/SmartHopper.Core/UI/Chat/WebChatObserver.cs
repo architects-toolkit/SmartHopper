@@ -74,6 +74,7 @@ namespace SmartHopper.Core.UI.Chat
                     // Boundary pending: would increment
                     seg = seg + 1;
                 }
+
                 // else: use current committed seg
 
                 return $"{baseKey}:seg{seg}";
@@ -148,6 +149,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (!state.Started || state.Aggregated is not AIInteractionText)
                 {
                     state.Started = true;
+
                     // Initialize with null metrics - will be applied in OnFinal
                     state.Aggregated = TextStreamCoalescer.Coalesce(null, incoming, incoming?.TurnId, preserveMetrics: true);
                     if (state.Aggregated is AIInteractionText agg)
@@ -276,11 +278,13 @@ namespace SmartHopper.Core.UI.Chat
                                     Debug.WriteLine($"[WebChatObserver] OnDelta: boundary pending -> rolling over to next segment for baseKey={baseKey}");
                                     this.CommitSegment(baseKey, turnKey); // consumes boundary and increments segment
                                     var segKey = this.GetCurrentSegmentedKey(baseKey);
+
                                     // Initialize fresh stream state for the new segment
                                     if (!this._streams.ContainsKey(segKey))
                                     {
                                         this._streams[segKey] = new StreamState { Started = false, Aggregated = null };
                                     }
+
                                     targetKey = segKey;
                                 }
                                 else
@@ -419,7 +423,7 @@ namespace SmartHopper.Core.UI.Chat
                                         agg.Reasoning = tt.Reasoning;
                                         agg.Time = tt.Time;
                                         this._dialog.UpsertMessageByKey(activeSegKey, agg, source: "OnInteractionCompletedStreamingFinal");
-                                        
+
                                         // Mark boundary: next text in this turn gets a new segment
                                         this.SetBoundaryFlag(turnKey);
                                         return;
@@ -441,7 +445,7 @@ namespace SmartHopper.Core.UI.Chat
                                         this._preStreamAggregates.Remove(baseKey);
 
                                         this._dialog.UpsertMessageByKey(segKey, agg, source: "OnInteractionCompletedPreCommitFinal");
-                                        
+
                                         // Mark boundary: next text in this turn gets a new segment
                                         this.SetBoundaryFlag(turnKey);
                                         return;
@@ -458,7 +462,7 @@ namespace SmartHopper.Core.UI.Chat
                                 var state = new StreamState { Started = true, Aggregated = tt };
                                 this._streams[finalSegKey] = state;
                                 this._dialog.UpsertMessageByKey(finalSegKey, tt, source: "OnInteractionCompletedNonStreaming");
-                                
+
                                 // Mark boundary: next text in this turn gets a new segment
                                 this.SetBoundaryFlag(turnKey);
 
@@ -473,7 +477,7 @@ namespace SmartHopper.Core.UI.Chat
 #if DEBUG
                                 Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
 #endif
-                                
+
                                 if (string.IsNullOrWhiteSpace(streamKey))
                                 {
                                     // Fallback: append if keyless (should be rare)
@@ -594,6 +598,7 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             aggregated = agg;
                         }
+
                         // Do not fallback to arbitrary previous streams to avoid cross-turn duplicates
 
                         // Merge final metrics/time/content into aggregated for the last render
@@ -605,7 +610,13 @@ namespace SmartHopper.Core.UI.Chat
                                 aggregated.Content = finalAssistant.Content;
                             }
 
-                            aggregated.Metrics = finalAssistant.Metrics;
+                            // Use aggregated turn metrics (includes tool calls, tool results, and assistant messages)
+                            // This gives users an accurate picture of total token consumption for the turn
+                            var turnId = finalAssistant.TurnId;
+                            aggregated.Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics
+                                : finalAssistant.Metrics;
+
                             aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
 
                             // Ensure reasoning present on final render: prefer the provider's final reasoning
@@ -616,6 +627,16 @@ namespace SmartHopper.Core.UI.Chat
                         }
 
                         var toRender = aggregated ?? finalAssistant;
+
+                        // For non-aggregated renders, also apply turn metrics if available
+                        if (toRender != null && aggregated == null && finalAssistant != null)
+                        {
+                            var turnId = finalAssistant.TurnId;
+                            toRender.Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics
+                                : toRender.Metrics;
+                        }
+
                         if (toRender != null)
                         {
                             // Prefer the segmented key only when a streaming aggregate exists.
@@ -779,18 +800,20 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     var hadBoundary = this._pendingNewTextSegmentTurns.Remove(turnKey);
                     var hasSegment = this._textInteractionSegments.ContainsKey(baseKey);
-                    
+
                     if (hadBoundary && hasSegment)
                     {
                         var oldSeg = this._textInteractionSegments[baseKey];
                         this._textInteractionSegments[baseKey] = oldSeg + 1;
                         Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, {oldSeg} -> {oldSeg + 1}");
                     }
+
 #if DEBUG
                     else
                     {
                         Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, hadBoundary={hadBoundary}, hasSegment={hasSegment}, NO INCREMENT");
                     }
+
 #endif
                 }
             }

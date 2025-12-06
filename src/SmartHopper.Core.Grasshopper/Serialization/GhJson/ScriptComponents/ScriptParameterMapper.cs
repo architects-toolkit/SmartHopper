@@ -139,6 +139,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                 {
                     settings.VariableName = variableName;
                 }
+
                 hasSettings = true;
             }
 

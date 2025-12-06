@@ -79,7 +79,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// System prompt template for the AI tool provided by this class.
         /// </summary>
-        private readonly string systemPromptTemplate = "You are a code review assistant. Provide concise feedback on the code.";
+        private readonly string systemPromptTemplate = "You are a code review assistant for Grasshopper script components. Provide short feedback on the code focusing on identifying coding errors, potential bugs, and runtime issues. Return three sections: (1) what is this code for; (2) a list of potential issues and suggested fixes (if any); (3) a list of best practices that can be applied.";
 
         /// <summary>
         /// User prompt template for general review. Use <code> placeholder.
@@ -253,9 +253,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // AI-based code review using AIRequestCall/AIReturn flow with immutable body
+                var languageGuidance = ScriptCodeValidator.GetLanguageGuidance(language);
+                var systemPrompt = this.systemPromptTemplate
+                    + $"\n\nThe current script is written in '{language}'.\n\n{languageGuidance}";
+
                 var builder = AIBodyBuilder.Create()
                     .WithContextFilter(contextFilter)
-                    .AddSystem(this.systemPromptTemplate);
+                    .AddSystem(systemPrompt);
 
                 string userPrompt;
                 if (string.IsNullOrWhiteSpace(question))

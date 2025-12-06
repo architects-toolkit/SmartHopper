@@ -44,7 +44,7 @@ body:
     attributes:
       label: SmartHopper Version
       description: What version of SmartHopper are you using?
-      placeholder: e.g. 1.1.0-alpha
+      placeholder: e.g. 1.2.0-alpha
     validations:
       required: true
   

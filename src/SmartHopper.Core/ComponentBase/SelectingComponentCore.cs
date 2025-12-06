@@ -14,9 +14,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using Grasshopper;
+using Grasshopper.GUI;
+using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
+using SmartHopper.Core.UI;
 using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase
@@ -213,6 +217,139 @@ namespace SmartHopper.Core.ComponentBase
 
             this.owner.Message = $"{this.selectingComponent.SelectedObjects.Count} selected";
             this.owner.ExpireSolution(true);
+        }
+
+        internal static Dictionary<Guid, RectangleF> BuildSelectedBounds(ISelectingComponent selectingComponent)
+        {
+            return selectingComponent.SelectedObjects
+                .OfType<IGH_DocumentObject>()
+                .Where(obj => obj.Attributes != null)
+                .ToDictionary(obj => obj.InstanceGuid, obj => obj.Attributes.Bounds);
+        }
+
+        internal static void RenderSelectButton(
+            GH_Canvas canvas,
+            Graphics graphics,
+            Rectangle buttonBounds,
+            bool isHovering,
+            bool isClicking,
+            bool isSelected,
+            bool isLocked)
+        {
+            var palette = isClicking ? GH_Palette.White : (isHovering ? GH_Palette.Grey : GH_Palette.Black);
+            var capsule = GH_Capsule.CreateCapsule(buttonBounds, palette);
+            capsule.Render(graphics, isSelected, isLocked, false);
+            capsule.Dispose();
+
+            var font = GH_FontServer.Standard;
+            var text = "Select";
+            var size = graphics.MeasureString(text, font);
+            var tx = buttonBounds.X + ((buttonBounds.Width - size.Width) / 2);
+            var ty = buttonBounds.Y + ((buttonBounds.Height - size.Height) / 2);
+            graphics.DrawString(text, font, (isHovering || isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
+        }
+
+        internal static void RenderSelectionOverlay(
+            GH_Canvas canvas,
+            Graphics graphics,
+            Rectangle buttonBounds,
+            Dictionary<Guid, RectangleF>? cachedSelectedBounds,
+            bool selectAutoHidden)
+        {
+            if (selectAutoHidden || cachedSelectedBounds == null || cachedSelectedBounds.Count == 0)
+            {
+                return;
+            }
+
+            var highlightColor = DialogCanvasLink.DefaultLineColor;
+            var highlightWidth = 2f;
+
+            using (var pen = new Pen(highlightColor, highlightWidth))
+            {
+                pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+
+                var buttonMidY = buttonBounds.Y + (buttonBounds.Height / 2f);
+                var buttonCenterX = buttonBounds.X + (buttonBounds.Width / 2f);
+                var buttonLeft = new PointF(buttonBounds.Left, buttonMidY);
+                var buttonRight = new PointF(buttonBounds.Right, buttonMidY);
+
+                foreach (var bounds in cachedSelectedBounds.Values)
+                {
+                    var pad = 4f;
+                    var hb = RectangleF.Inflate(bounds, pad, pad);
+                    graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
+
+                    var compCenterX = hb.X + (hb.Width / 2f);
+                    var compCenterY = hb.Y + (hb.Height / 2f);
+                    var isLeftOfButton = compCenterX < buttonCenterX;
+
+                    var start = isLeftOfButton
+                        ? new PointF(hb.Right, compCenterY)
+                        : new PointF(hb.Left, compCenterY);
+
+                    var end = isLeftOfButton ? buttonLeft : buttonRight;
+
+                    DialogCanvasLink.DrawLinkOnCanvas(canvas, graphics, start, end, highlightColor, highlightWidth);
+                }
+            }
+        }
+
+        internal static void RestartSelectDisplayTimer(ref Timer? selectDisplayTimer, Action onElapsed)
+        {
+            StopSelectDisplayTimer(ref selectDisplayTimer);
+
+            var timer = new Timer(5000) { AutoReset = false };
+            selectDisplayTimer = timer;
+
+            timer.Elapsed += (_, __) =>
+            {
+                onElapsed();
+                try
+                {
+                    timer.Stop();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Timer already disposed, ignore
+                }
+
+                try
+                {
+                    timer.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Timer already disposed, ignore
+                }
+            };
+
+            timer.Start();
+        }
+
+        internal static void StopSelectDisplayTimer(ref Timer? selectDisplayTimer)
+        {
+            if (selectDisplayTimer != null)
+            {
+                try
+                {
+                    selectDisplayTimer.Stop();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Timer already disposed, ignore
+                }
+
+                try
+                {
+                    selectDisplayTimer.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Timer already disposed, ignore
+                }
+
+                selectDisplayTimer = null;
+            }
         }
     }
 }

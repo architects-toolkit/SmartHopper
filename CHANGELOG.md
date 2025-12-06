@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-alpha] - 2025-12-06
+
+### Added
+
+- Dialog canvas link visualization:
+  - Added `DialogCanvasLink` utility class that draws a visual connection line from a dialog to a linked Grasshopper component, similar to the script editor anchor.
+  - `StyledMessageDialog` methods (`ShowInfo`, `ShowWarning`, `ShowError`, `ShowConfirmation`) now accept optional `linkedInstanceGuid` and `linkLineColor` parameters to enable canvas linking.
+  - When a dialog is linked to a component, a bezier curve with an anchor dot is drawn from the component to the dialog window.
+- Component replacement mode:
+  - Added "Edit Mode" input parameter to `GhPutComponents` for component replacement functionality.
+  - When Edit Mode is enabled and GhJSON contains valid instanceGuids that exist on canvas, users are prompted via `StyledMessageDialog` to choose between replacing existing components or creating new ones.
+  - The `gh_put` AI tool now accepts an optional `editMode` parameter to support component replacement.
+  - Replacement components preserve original `InstanceGuid` and exact canvas position.
+  - Undo support included for component replacement operations.
+- GhJSON helpers:
+  - Added `GhJsonHelpers` utility class with methods for applying pivots and restoring InstanceGuids on deserialized components.
+- GhJSON merge:
+  - Added `GhJsonMerger` utility to merge two GhJSON `GrasshopperDocument` instances, with the target document taking priority on component GUID conflicts and automatic ID remapping for connections and groups.
+  - Introduced `gh_merge` AI tool to merge two arbitrary GhJSON strings using `GhJsonMerger`, returning the merged GhJSON together with merge statistics (components/connections/groups added and deduplicated).
+  - Added `GhMergeComponents` Grasshopper component ("Merge GhJSON") to merge two GhJSON documents directly on the canvas, exposing merged GhJSON and basic merge counters as outputs.
+- Script tools:
+  - Introduced GhJSON-based AI tools `script_generate` and `script_edit` for Grasshopper script components.
+  - All script tools now validate GhJSON input/output via `GHJsonAnalyzer.Validate` and use `ScriptComponentFactory` for component construction.
+  - Added `script_edit_and_replace_on_canvas` wrapper tool that combines `script_edit` and `gh_put` in a single call, reducing token consumption by eliminating the need for the AI to call both tools separately.
+  - Enhanced `script_generate` and `script_edit` tools to support all parameter modifiers: `dataMapping` (Flatten/Graft), `reverse`, `simplify`, `invert`, `isPrincipal`, `required`, and `expression` for inputs; `dataMapping`, `reverse`, `simplify`, `invert` for outputs.
+  - Added `ScriptCodeValidator` utility for detecting non-RhinoCommon geometry libraries in AI-generated scripts (e.g., System.Numerics, UnityEngine, numpy, shapely) with automatic self-correction prompts.
+  - Enhanced `script_generate` and `script_edit` system prompts with explicit RhinoCommon geometry requirements and language-specific guidance (Python/IronPython/C#/VB.NET) including import templates and type mappings.
+  - Added validation retry loop to `script_generate` and `script_edit` that detects invalid geometry patterns and re-prompts the AI with correction instructions (up to 2 retries).
+  - Clarified that output parameters do NOT have 'access' settings and documented proper list output patterns per language (Python 3 requires .NET `List[T]`, IronPython can use Python lists, C# uses `List<T>`, VB.NET uses `List(Of T)`).
+- `gh_get` tool:
+  - Added `categoryFilter` parameter and extended category-based filtering from components to all document objects.
+- Model compatibility badges:
+  - Added "Not Recommended" badge (orange octagon with exclamation mark) displayed when the selected model is discouraged for the AI tools used by a component.
+  - Added `DiscouragedForTools` property to `AIModelCapabilities` to specify tool names for which a model is not recommended.
+  - Added `UsingAiTools` property to `AIStatefulAsyncComponentBase` allowing components to declare which AI tools they use.
+  - Added `EffectiveRequiredCapability` property that merges component's required capability with capabilities required by its AI tools.
+  - The "Not Recommended" badge suppresses the "Verified" badge when active (priority: Replaced > Invalid > NotRecommended > Verified).
+
+### Changed
+
+- Components UI:
+  - AI-selecting stateful components now use combined attributes that show both the "Select" button and AI provider badges, with the button rendered above the provider strip.
+  - Selecting components now use the dialog link line color for hover highlights and draw a connector line from the combined selection center to the "Select" button.
+- Script components:
+  - `AIScriptGeneratorComponent` now orchestrates `script_generate` / `script_edit` together with `gh_get` / `gh_put` instead of the legacy `script_generator` tool, and exposes `GhJSON`, `Guid`, `Summary`, and `Message` outputs only.
+  - `AIScriptGeneratorComponent` and `AIScriptReviewComponent` no longer expose a `Guid` input; the target component is always provided via the selecting button.
+  - Removed the monolithic `script_generator` AI tool in favor of smaller, focused tools that operate purely on GhJSON.
+  - Updated `AIScriptGeneratorComponent` and `AIScriptReviewComponent` to support processing multiple inputs in parallel.
+  - Renamed `script_fix` tool to `script_review` to better reflect its review-focused behavior.
+- `GhJsonDeserializer`:
+  - Changed deserialization logic to default the UsingStandardOutputParam property to true when ShowStandardOutput is not present in the GhJSON ComponentState.
+- Providers:
+  - Added new Claude Opus 4.5 model to the Anthropic provider registry.
+  - OpenRouter provider: added structured output support via `response_format: json_schema` / `structured_outputs` for JsonOutput requests and now populates `finish_reason` and `model` in metrics for chat completions.
+- Script parameter modifier tools:
+  - Moved all script parameter modifier AI tools to the `NotTested` category to clarify their experimental status.
+- Component icons:
+  - Updated McNeel forum and script component icons to outlined variants for better visual consistency.
+  - Added `ghmerge` icon and refreshed `ghget` / `ghput` icons to align with the new GhJSON merge workflows.
+- Canvas button:
+  - Improved the default SmartHopper assistant prompt used by `CanvasButton` to guide users toward in-viewport scripting workflows and avoid unnecessary external code blocks or testing patterns, resulting in a smoother first-time UX.
+- Script tools:
+  - `script_review` now augments its system prompt with language-specific Grasshopper scripting guidance (Python/IronPython/C#/VB.NET) via `ScriptCodeValidator`, based on the detected script language.
+  - Centralized script language normalization in `ScriptComponentFactory.NormalizeLanguageKeyOrDefault` and wired `script_generate` to use it when building prompts, ensuring consistent handling of language keys such as "python3" and "csharp".
+
+### Fixed
+
+- Chat UI metrics display:
+  - Fixed metrics aggregation to show total token consumption per turn (from user message to next user message) instead of just the last message's metrics.
+  - Added `GetTurnMetrics(turnId)` method to `ConversationSession` to aggregate metrics for all interactions in a turn.
+  - Fixed tool results not inheriting TurnId from their corresponding tool calls, which caused incorrect turn grouping.
+- Web chat dialog visibility:
+  - `WebChatDialog` is now created as an owned tool window of the Rhino main Eto window and hidden from the taskbar, so it follows Rhino/Grasshopper focus and stays on top of Rhino while the application is active.
+  - Confirmation dialogs shown via `StyledMessageDialog` (for example when replacing components with `gh_put` in edit mode) still appear above the chat dialog, but closing them no longer leaves the chat window hidden behind other Rhino/Grasshopper windows.
+- `gh_put` tool:
+  - Fixed infinite loop when using `GhPutComponents` with replacement mode. The `NewSolution` call inside the tool caused re-entrancy when the component blocked with `.GetAwaiter().GetResult()`, which pumps Windows messages and allows the new solution to start immediately.
+  - Fixed "object expired during solution" error when replacing components. Removed the document disable/enable logic which was causing components to be in an invalid state. Uses `IsolateObject()` to properly clean up connections before component removal.
+- Script tools:
+  - Updated `script_generate` and `script_edit` tool schemas to require `nickname`, fixing crashes with OpenAI structured-output mode.
+
 ## [1.1.1-alpha] - 2025-11-24
 
 ### Changed

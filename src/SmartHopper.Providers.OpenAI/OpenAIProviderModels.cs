@@ -81,6 +81,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 60,
                 },
                 new AIModelCapabilities
@@ -171,6 +172,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 40,
                 },
                 new AIModelCapabilities
@@ -180,6 +182,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 40,
                 },
                 new AIModelCapabilities
@@ -247,6 +250,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 30,
                 },
 
@@ -268,6 +272,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageOutput,
                     SupportsStreaming = false,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 60,
                 },
                 new AIModelCapabilities
@@ -343,6 +348,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 45,
                 },
                 new AIModelCapabilities
@@ -352,6 +358,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 40,
                 },
                 new AIModelCapabilities

@@ -111,7 +111,54 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
             { "RH", "RHINO" },
             { "RHINOCEROS", "RHINO" },
             { "KANGAROOPHYSICS", "KANGAROO" },
+            { "SCRIPT", "SCRIPT" },
+            { "SCRIPTS", "SCRIPT" },
         };
+
+        /// <summary>
+        /// Checks whether a component passes category/subcategory include/exclude filters.
+        /// Category and subcategory names are compared against canonical tokens produced by <see cref="ParseIncludeExclude"/>.
+        /// </summary>
+        /// <param name="category">Grasshopper category name.</param>
+        /// <param name="subCategory">Grasshopper subcategory name.</param>
+        /// <param name="includeCategories">Set of canonical include category tokens.</param>
+        /// <param name="excludeCategories">Set of canonical exclude category tokens.</param>
+        /// <returns><c>true</c> if the component should be kept; otherwise <c>false</c>.</returns>
+        public static bool PassesCategoryFilters(
+            string category,
+            string subCategory,
+            HashSet<string> includeCategories,
+            HashSet<string> excludeCategories)
+        {
+            var catToken = string.IsNullOrEmpty(category) ? null : category.ToUpperInvariant();
+            var subCatToken = string.IsNullOrEmpty(subCategory) ? null : subCategory.ToUpperInvariant();
+
+            var hasIncludeList = includeCategories != null && includeCategories.Count > 0;
+            var hasExcludeList = excludeCategories != null && excludeCategories.Count > 0;
+
+            var includeMatch = hasIncludeList &&
+                ((catToken != null && includeCategories.Contains(catToken)) ||
+                 (subCatToken != null && includeCategories.Contains(subCatToken)));
+
+            // When includeCategories is provided, require at least one include match.
+            if (hasIncludeList && !includeMatch)
+            {
+                return false;
+            }
+
+            var excludeMatch = hasExcludeList &&
+                ((catToken != null && excludeCategories.Contains(catToken)) ||
+                 (subCatToken != null && excludeCategories.Contains(subCatToken)));
+
+            // Be permissive: if there is both an include and an exclude match (e.g. category in include,
+            // subcategory in exclude), the include wins and the component is kept.
+            if (!includeMatch && excludeMatch)
+            {
+                return false;
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Helper to parse include/exclude tokens.

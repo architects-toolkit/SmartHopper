@@ -339,7 +339,7 @@ namespace SmartHopper.Providers.OpenAI
                     var toolCallId = msg?["tool_call_id"]?.ToString();
                     var content = msg?["content"]?.ToString();
                     var preview = content != null ? (content.Length > 50 ? content.Substring(0, 50) + "..." : content) : "";
-                    
+
                     if (hasToolCalls)
                     {
                         var tcArray = msg?["tool_calls"] as JArray;
@@ -1014,7 +1014,7 @@ namespace SmartHopper.Providers.OpenAI
                     {
                         bool hasReasoningUpdate = false;
                         bool hasContentUpdate = false;
-                        
+
                         // Check if content is a structured array (o-series models with reasoning)
                         if (contentToken is JArray contentArray)
                         {

@@ -48,7 +48,17 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 20,
+                    Deprecated = true,
+                    Rank = 15,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 75,
                 },
                 new AIModelCapabilities
                 {
@@ -57,6 +67,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 20,
                 },
                 new AIModelCapabilities
@@ -66,7 +77,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 80,
                 },
                 new AIModelCapabilities
@@ -76,6 +87,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 70,
                 },
                 new AIModelCapabilities
@@ -86,7 +98,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = 90,
+                    Rank = 60,
                 },
                 new AIModelCapabilities
                 {
@@ -95,10 +107,10 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 90,
+                    Deprecated = true,
+                    Rank = 60,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
-
-                // New models (2025-11-24)
                 new AIModelCapabilities
                 {
                     Provider = providerName,
@@ -106,8 +118,9 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 95,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
                 {
@@ -116,7 +129,9 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 90,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
                 {
@@ -126,7 +141,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = 80,
+                    Rank = 60,
                 },
                 new AIModelCapabilities
                 {
@@ -136,6 +151,8 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
+                    Deprecated = true,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
                 {
@@ -143,8 +160,9 @@ namespace SmartHopper.Providers.Anthropic
                     Model = "claude-haiku-4-5-20251001",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 85,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
                 {
@@ -153,6 +171,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 20,
                 },
                 new AIModelCapabilities
@@ -162,6 +181,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 20,
                 },
                 new AIModelCapabilities
@@ -171,6 +191,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 75,
                 },
                 new AIModelCapabilities
@@ -179,7 +200,7 @@ namespace SmartHopper.Providers.Anthropic
                     Model = "claude-sonnet-4-5-20250929",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 80,
                 },
             };

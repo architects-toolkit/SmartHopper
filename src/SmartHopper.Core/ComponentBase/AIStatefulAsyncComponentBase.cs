@@ -30,6 +30,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -55,6 +56,12 @@ namespace SmartHopper.Core.ComponentBase
         private bool metricsInitializedForRun;
 
         /// <summary>
+        /// Backing storage for the component's declared required capability before merging
+        /// with tool capabilities.
+        /// </summary>
+        private AICapability requiredCapabilityStorage = AICapability.None;
+
+        /// <summary>
         /// Cached badge flags (to prevent recomputation during Render/panning).
         /// </summary>
         private bool badgeVerified;
@@ -62,6 +69,7 @@ namespace SmartHopper.Core.ComponentBase
         private bool badgeCacheValid;
         private bool badgeInvalidModel;
         private bool badgeReplacedModel;
+        private bool badgeNotRecommended;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIStatefulAsyncComponentBase"/> class.
@@ -85,8 +93,50 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Required capability for this component. Derived components should override to specify
         /// the exact capability they need (e.g., Text2Image, ToolChat, etc.). Defaults to Text2Text.
+        /// The getter returns the effective capability, merging the declared capability with any
+        /// capabilities required by tools listed in <see cref="UsingAiTools"/>. The setter updates
+        /// the underlying declared capability storage.
         /// </summary>
-        protected virtual AICapability RequiredCapability => AICapability.Text2Text;
+        protected virtual AICapability RequiredCapability
+        {
+            get
+            {
+                var effective = this.requiredCapabilityStorage;
+                var toolNames = this.UsingAiTools;
+                if (toolNames == null || toolNames.Count == 0)
+                {
+                    return effective;
+                }
+
+                // Ensure tools are discovered
+                AIToolManager.DiscoverTools();
+                var tools = AIToolManager.GetTools();
+
+                foreach (var toolName in toolNames)
+                {
+                    if (tools.TryGetValue(toolName, out var tool) && tool.RequiredCapabilities != AICapability.None)
+                    {
+                        effective |= tool.RequiredCapabilities;
+                    }
+                }
+
+                return effective;
+            }
+
+            set
+            {
+                this.requiredCapabilityStorage = value;
+            }
+        }
+
+        /// <summary>
+        /// List of AI tool names that this component uses.
+        /// Derived classes should override this to specify which AI tools they use.
+        /// This is used for:
+        /// 1. Merging tool capability requirements into the effective RequiredCapability
+        /// 2. Checking if the selected model is discouraged for any of these tools
+        /// </summary>
+        protected virtual IReadOnlyList<string> UsingAiTools => Array.Empty<string>();
 
         #region PARAMS
 
@@ -430,6 +480,7 @@ namespace SmartHopper.Core.ComponentBase
                     this.badgeDeprecated = false;
                     this.badgeInvalidModel = true;
                     this.badgeReplacedModel = false;
+                    this.badgeNotRecommended = false;
                     this.badgeCacheValid = false;
                     return;
                 }
@@ -496,13 +547,14 @@ namespace SmartHopper.Core.ComponentBase
                                          || this.badgeReplacedModel;
                 Debug.WriteLine($"[UpdateBadgeCache] badgeInvalidModel={this.badgeInvalidModel}");
 
-                // Read metadata from the resolved model to set Verified/Deprecated when available
+                // Read metadata from the resolved model to set Verified/Deprecated/NotRecommended when available
                 var resolvedCaps = string.IsNullOrWhiteSpace(resolvedModel) ? null : ModelManager.Instance.GetCapabilities(providerName, resolvedModel);
                 if (resolvedCaps == null)
                 {
                     // No metadata available for the resolved model – do not render badges
                     this.badgeVerified = false;
                     this.badgeDeprecated = false;
+                    this.badgeNotRecommended = false;
                     this.badgeCacheValid = true;
                 }
                 else
@@ -510,10 +562,17 @@ namespace SmartHopper.Core.ComponentBase
                     // Verified/Deprecated reflect the model actually selected for execution; Verified requires capability match
                     this.badgeVerified = resolvedCaps.Verified && resolvedCaps.HasCapability(this.RequiredCapability);
                     this.badgeDeprecated = resolvedCaps.Deprecated;
+
+                    // Check if model is discouraged for any of the AI tools used by this component
+                    var toolNames = this.UsingAiTools;
+                    this.badgeNotRecommended = toolNames != null && toolNames.Count > 0 &&
+                                               resolvedCaps.IsDiscouragedForAnyTool(toolNames);
+                    Debug.WriteLine($"[UpdateBadgeCache] notRecommended={this.badgeNotRecommended}, usingTools={string.Join(", ", toolNames ?? Array.Empty<string>())}");
+
                     this.badgeCacheValid = true;
                 }
 
-                Debug.WriteLine($"[UpdateBadgeCache] END: verified={this.badgeVerified}, deprecated={this.badgeDeprecated}, invalid={this.badgeInvalidModel}, replaced={this.badgeReplacedModel}, cacheValid={this.badgeCacheValid}");
+                Debug.WriteLine($"[UpdateBadgeCache] END: verified={this.badgeVerified}, deprecated={this.badgeDeprecated}, invalid={this.badgeInvalidModel}, replaced={this.badgeReplacedModel}, notRecommended={this.badgeNotRecommended}, cacheValid={this.badgeCacheValid}");
 
                 return;
             }
@@ -525,6 +584,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.badgeDeprecated = false;
                 this.badgeInvalidModel = false;
                 this.badgeReplacedModel = false;
+                this.badgeNotRecommended = false;
                 this.badgeCacheValid = false;
             }
         }
@@ -549,13 +609,15 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="deprecated">True if model is deprecated.</param>
         /// <param name="invalid">True if model is unknown or not capable of the required capability.</param>
         /// <param name="replaced">True if the selected model would be replaced by a fallback due to capability mismatch.</param>
+        /// <param name="notRecommended">True if the model is discouraged for the AI tools used by this component.</param>
         /// <returns>True if cache is valid; otherwise false.</returns>
-        internal bool TryGetCachedBadgeFlags(out bool verified, out bool deprecated, out bool invalid, out bool replaced)
+        internal bool TryGetCachedBadgeFlags(out bool verified, out bool deprecated, out bool invalid, out bool replaced, out bool notRecommended)
         {
             verified = this.badgeVerified;
             deprecated = this.badgeDeprecated;
             invalid = this.badgeInvalidModel;
             replaced = this.badgeReplacedModel;
+            notRecommended = this.badgeNotRecommended;
             return this.badgeCacheValid;
         }
 
