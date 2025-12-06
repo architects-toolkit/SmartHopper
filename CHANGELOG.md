@@ -60,6 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `ghmerge` icon and refreshed `ghget` / `ghput` icons to align with the new GhJSON merge workflows.
 - Canvas button:
   - Improved the default SmartHopper assistant prompt used by `CanvasButton` to guide users toward in-viewport scripting workflows and avoid unnecessary external code blocks or testing patterns, resulting in a smoother first-time UX.
+- Script tools:
+  - `script_review` now augments its system prompt with language-specific Grasshopper scripting guidance (Python/IronPython/C#/VB.NET) via `ScriptCodeValidator`, based on the detected script language.
+  - Centralized script language normalization in `ScriptComponentFactory.NormalizeLanguageKeyOrDefault` and wired `script_generate` to use it when building prompts, ensuring consistent handling of language keys such as "python3" and "csharp".
 
 ### Fixed
 
