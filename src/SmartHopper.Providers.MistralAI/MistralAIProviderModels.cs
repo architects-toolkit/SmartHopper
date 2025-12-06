@@ -53,6 +53,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 90,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
                 {
@@ -63,6 +64,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 90,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
                 {
@@ -70,7 +72,7 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "mistral-medium-latest",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 80,
                 },
                 new AIModelCapabilities
@@ -79,7 +81,7 @@ namespace SmartHopper.Providers.MistralAI
                     Model = "mistral-medium",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
                     SupportsStreaming = true,
-                    Verified = false,
+                    Verified = true,
                     Rank = 80,
                 },
                 new AIModelCapabilities
