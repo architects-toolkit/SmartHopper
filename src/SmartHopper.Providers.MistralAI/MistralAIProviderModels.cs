@@ -49,7 +49,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-small-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 90,
@@ -59,7 +59,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-small",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = true,
@@ -70,7 +70,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-medium-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling ,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 80,
@@ -79,7 +79,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-medium",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 80,
@@ -88,7 +88,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-large-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 60,
@@ -97,7 +97,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "ministral-8b-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 50,
@@ -106,7 +106,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "ministral-3b-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 30,
@@ -115,7 +115,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "magistral-small-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     Default = AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = false,
@@ -125,7 +125,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "magistral-medium-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
