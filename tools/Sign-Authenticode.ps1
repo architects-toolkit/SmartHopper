@@ -260,6 +260,15 @@ if ($Generate) {
         "SmartHopper.Providers.Anthropic.dll"
     )
 
+    # Test hook: allow non-SmartHopper assemblies when SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING is set
+    $allowAnyAssemblyForTests = $false
+    if ($env:SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING) {
+        $flag = $env:SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING.Trim().ToLowerInvariant()
+        if ($flag -eq '1' -or $flag -eq 'true' -or $flag -eq 'yes') {
+            $allowAnyAssemblyForTests = $true
+        }
+    }
+
     foreach ($targetPath in $targetPaths) {
         Write-Host "Signing provider assemblies under path '$targetPath' with Authenticode certificate"
 
@@ -267,8 +276,12 @@ if ($Generate) {
         if ((Test-Path $targetPath -PathType Leaf) -and ([IO.Path]::GetExtension($targetPath) -ieq ".dll")) {
             $fileName = [IO.Path]::GetFileName($targetPath)
             if ($fileName -notlike "SmartHopper*.dll") {
-                Write-Error "File '$fileName' is not a SmartHopper assembly"
-                exit 1
+                if (-not $allowAnyAssemblyForTests) {
+                    Write-Error "File '$fileName' is not a SmartHopper assembly"
+                    exit 1
+                } else {
+                    Write-Host "Warning: signing non-SmartHopper assembly '$fileName' because SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING is set."
+                }
             }
             Write-Host "Signing explicit DLL: $targetPath"
             $items = @(Get-Item $targetPath)

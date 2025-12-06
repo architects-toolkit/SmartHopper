@@ -115,8 +115,18 @@ runs:
           }
         }
         
-        Write-Host "Decoding Authenticode PFX from secrets..."
-        pwsh ./tools/Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password "${{ inputs.signing_pfx_password }}"
+        if (-not [string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_base64 }}")) {
+          if ([string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_password }}")) {
+            Write-Error "signing_pfx_password is required when signing_pfx_base64 is provided."
+            exit 1
+          }
+
+          Write-Host "Decoding Authenticode PFX from secrets..."
+          $securePassword = ConvertTo-SecureString "${{ inputs.signing_pfx_password }}" -AsPlainText -Force
+          ./tools/Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password $securePassword
+        } else {
+          Write-Host "No Authenticode PFX secret provided; skipping PFX decoding."
+        }
 
     - name: Authenticode-sign provider assemblies
       shell: pwsh
@@ -148,10 +158,17 @@ runs:
             Write-Host "Found alternate build path: $buildPath"
           } else {
             Write-Host "##[error] No build output directory found. Skipping signing."
-          exit 1
-        }
+            exit 1
+          }
         }
         
+        if ([string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_password }}")) {
+          Write-Error "signing_pfx_password is required for Authenticode signing."
+          exit 1
+        }
+
+        $securePassword = ConvertTo-SecureString "${{ inputs.signing_pfx_password }}" -AsPlainText -Force
+
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
-        & ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ inputs.signing_pfx_password }}"
+        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password $securePassword
         if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }
