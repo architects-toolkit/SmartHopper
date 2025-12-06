@@ -195,6 +195,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     issues.Add("C# script must NOT include namespace, class, or struct declarations. Write only the code that goes inside the RunScript method body.");
                 }
+
+                // Check for shebang / language specifier directives (Python-only feature)
+                if (Regex.IsMatch(scriptCode, @"^\s*#!", RegexOptions.Multiline))
+                {
+                    issues.Add("Other script languages than Python must NOT start with '#!' shebang or language header lines (for example '#! c#').");
+                }
             }
 
             if (issues.Count == 0)
@@ -258,7 +264,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             var guidance = GetLanguageGuidance(language);
 
             return $"""
-                The previous script contains non-Rhino/Grasshopper geometry code that will not work in this environment.
+                The previous script contains issues that will not work correctly in this Grasshopper scripting environment.
 
                 Issues found:
                 - {issuesList}
@@ -276,9 +282,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return """
                 ## Python 3 (Grasshopper Script Component) Guidelines
 
-                **Language Specifier Directive:**
-                Scripts should start with `#! python 3` to specify CPython 3 as the language.
-                This is embedded in the script as a comment pattern to determine the language.
+                **Language Specifier Directive (Python-only):**
+                For **Python 3 scripts only**, you may start the script with `#! python 3` to specify CPython 3 as the language.
+                This directive is embedded in the script as a comment pattern to determine the language.
+                It is **only valid for Python scripts**. Do **not** use any `#!` language header (for example `#! c#`, `#! vb`, or `#! csharp`) in C#, VB.NET, or other non-Python scripts.
                 ```python
                 #! python 3
                 ```
@@ -400,8 +407,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return """
                 ## IronPython 2 (Grasshopper Script Component) Guidelines
 
-                **Language Specifier Directive:**
-                Scripts should start with `#! python 2` to specify IronPython 2 as the language.
+                **Language Specifier Directive (Python-only):**
+                For **IronPython 2 scripts only**, you may start the script with `#! python 2` to specify IronPython 2 as the language.
+                This directive is **only valid for Python-family scripts**. Do **not** use any `#!` language header for C#, VB.NET, or other non-Python scripts (for example `#! c#`).
                 ```python
                 #! python 2
                 ```
@@ -486,6 +494,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 - `class` or `struct` declarations
                 - Method declarations like `void RunScript(...)` or `private void MyMethod(...)`
                 - Access modifiers (`private`, `public`, `protected`, `internal`) at the top level
+                - Any `#!` or shebang-style language header lines (for example `#! c#`, `#! cs`, or `#! csharp`). Shebang directives are only valid for Python scripts and must never appear in C# scripts.
 
                 **CORRECT SCRIPT FORMAT:**
                 The script should start with optional `using` statements, followed by variable declarations and statements:
@@ -589,6 +598,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 - Apply: `geometry.Transform(xform)` or `geometry.Scale(factor)`
 
                 **Outputting lists:**
+                - Output parameters do NOT have 'access' (item/list/tree) settings like inputs.
                 - To output multiple items, assign a `List<T>` to the output parameter.
                 - Grasshopper handles the conversion automatically.
 

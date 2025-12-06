@@ -95,14 +95,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
               - description: Parameter description
               - dataMapping: 'None', 'Flatten', 'Graft'
               - reverse, simplify, invert: Same as inputs
-
-            IMPORTANT: Output parameters do NOT have 'access' (item/list/tree) settings like inputs.
-            To output multiple items, assign a collection to the output variable in the script:
-            - Python 3: Use .NET List[T] (e.g., List[rg.Curve]()), NOT Python lists
-            - IronPython 2: Can use Python lists directly
-            - C#: Use List<T> (e.g., new List<Curve>())
-            - VB.NET: Use List(Of T)
-
             The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
             """;
 
