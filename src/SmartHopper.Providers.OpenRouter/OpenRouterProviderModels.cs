@@ -48,19 +48,19 @@ namespace SmartHopper.Providers.OpenRouter
                     Provider = provider,
                     Model = "openai/gpt-5-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text,
+                    Default = AICapability.Text2Text | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 90,
+                    Rank = 95,
                 },
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistralai/mistral-small",
+                    Model = "mistralai/mistral-medium-3.1",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 80,
+                    Rank = 85,
                 },
                 new AIModelCapabilities
                 {
@@ -69,7 +69,7 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 82,
+                    Rank = 90,
                 },
                 new AIModelCapabilities
                 {
@@ -78,7 +78,7 @@ namespace SmartHopper.Providers.OpenRouter
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 78,
+                    Rank = 80,
                 },
                 new AIModelCapabilities
                 {
