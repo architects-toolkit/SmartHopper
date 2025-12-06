@@ -15,19 +15,19 @@ This document aggregates development-facing information.
 
 | Component | Planned | In Progress | Testing | Released 🎉 |
 |-----------|:-------:|:-----------:|:-------:|:------------------------:|
-| Grasshopper Get Components (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format. Optionally filter them by runtime messages: errors, warnings, remarks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Put Components (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Merge GhJSON (GhMerge)<br><sub>Merge two GhJSON documents into one, with the target document taking priority on conflicts.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| Grasshopper Tidy Up (GhTidyUp)<br><sub>Reorganize selected components into a clear, dependency-based grid.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Get Components (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format. Optionally filter them by runtime messages: errors, warnings, remarks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Place Components (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Merge GhJSON (GhMerge)<br><sub>Merge two GhJSON documents into one, with the target document taking priority on conflicts.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| Tidy Up (GhTidyUp)<br><sub>Reorganize selected components into a clear, dependency-based grid.</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | ⚪ | - | - | - |
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text List Generate (AiTextListGenerate)<br><sub>Generate lists of text content using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Image Generate (AiImageGenerate)<br><sub>Generate images using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Script Review (AiScriptReview)<br><sub>Make a review of a script, using AI</sub> | ⚪ | - | - | - |
-| AI Script Generator (AiScriptGenerator)<br><sub>Create or edit Grasshopper script components using AI</sub> | ⚪ | - | - | - |
+| AI Script Review (AiScriptReview)<br><sub>Make a review of a script, using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Script Generator (AiScriptGenerator)<br><sub>Create or edit Grasshopper script components using AI</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Evaluate (AiListEvaluate)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI JSON Generate (AiJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | ⚪ | - | - | - |
@@ -49,56 +49,57 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 
 | Tool Name | Description | Planned | In Progress | Testing | Released 🎉 |
 |-----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
-| text_evaluate | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
-| text_generate | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| img_generate | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| list_evaluate | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
-| list_filter | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
-| list_generate | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_review | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_generator | Create or edit Grasshopper script components based on instructions and optional GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| script_parameter_add_input | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
-| script_parameter_add_output | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
-| script_parameter_remove_input | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
-| script_parameter_remove_output | Remove an output parameter from a script component | ⚪ | 🟡 | - | - |
-| script_parameter_set_type_input | Set the type hint for a script input parameter | ⚪ | 🟡 | - | - |
-| script_parameter_set_type_output | Set the type hint for a script output parameter | ⚪ | 🟡 | - | - |
-| script_parameter_set_access | Set how a script input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
-| script_toggle_std_output | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
-| script_set_principal_input | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
-| script_parameter_set_optional | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
-| json_generate | Generate an AI response in strict JSON output | ⚪ | - | - | - |
-| web_generic_page_read | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
-| mcneel_forum_search | Search McNeel Discourse forum with configurable limit and optional AI summaries | ⚪ | 🟡 | 🟠 | 🟢 |
-| mcneel_forum_post_get | Retrieve full JSON of a McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| mcneel_forum_post_summarize | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
-| mcneel_forum_topic_get | Retrieve all posts in a McNeel Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| mcneel_forum_topic_summarize | Generate AI-powered summary of a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
-| get_input | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
-| get_output | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
-| gh_list_categories | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_list_components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_get | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_put | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_merge | Merge two GhJSON documents into one (target takes priority on conflicts) | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_component_toggle_preview | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_component_hide_preview_selected | Hide geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_component_show_preview_selected | Show geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_component_toggle_lock | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_component_lock_selected | Lock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_component_unlock_selected | Unlock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_move | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_tidy_up | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
-| gh_generate | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
-| gh_connect | Connect Grasshopper components | ⚪ | 🟡 | - | - |
-| gh_group | Group components and set a meaningful title | ⚪ | 🟡 | - | - |
-| gh_parameter_data_mapping_none | Set a parameter's data mapping to None | ⚪ | 🟡 | - | - |
-| gh_parameter_data_mapping_flatten | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
-| gh_parameter_data_mapping_graft | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
-| gh_parameter_reverse | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
-| gh_parameter_simplify | Simplify geometry in a parameter (remove redundant structure) | ⚪ | 🟡 | - | - |
-| rhino_get_geometry | Retrieve geometry from Rhino | ⚪ | 🟡 | - | - |
-| rhino_read_3dm | Read a 3dm file from disk | ⚪ | 🟡 | - | - |
+| `text_evaluate` | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
+| `text_generate` | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
+| `img_generate` | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
+| `list_evaluate` | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
+| `list_filter` | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
+| `list_generate` | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_review` | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_generate` | Create Grasshopper script components based on instructions | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_edit` | Edit Grasshopper script components based on instructions and GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_parameter_add_input` | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
+| `script_parameter_add_output` | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
+| `script_parameter_remove_input` | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
+| `script_parameter_remove_output` | Remove an output parameter from a script component | ⚪ | 🟡 | - | - |
+| `script_parameter_set_type_input` | Set the type hint for a script input parameter | ⚪ | 🟡 | - | - |
+| `script_parameter_set_type_output` | Set the type hint for a script output parameter | ⚪ | 🟡 | - | - |
+| `script_parameter_set_access` | Set how a script input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
+| `script_toggle_std_output` | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
+| `script_set_principal_input` | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
+| `script_parameter_set_optional` | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
+| `json_generate` | Generate an AI response in strict JSON output | ⚪ | - | - | - |
+| `web_generic_page_read` | Retrieve plain text content of a webpage, excluding HTML, scripts, and images, with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_search` | Search McNeel Discourse forum with configurable limit and optional AI summaries | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_post_get` | Retrieve full JSON of a McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_post_summarize` | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_topic_get` | Retrieve all posts in a McNeel Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_topic_summarize` | Generate AI-powered summary of a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
+| `get_input` | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
+| `get_output` | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
+| `gh_list_categories` | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_list_components` | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get` | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_put` | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_merge` | Merge two GhJSON documents into one (target takes priority on conflicts) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_toggle_preview` | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_hide_preview_selected` | Hide geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_show_preview_selected` | Show geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_toggle_lock` | Toggle component lock (enable/disable) by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_lock_selected` | Lock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_unlock_selected` | Unlock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_move` | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_tidy_up` | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_generate` | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
+| `gh_connect` | Connect Grasshopper components | ⚪ | 🟡 | - | - |
+| `gh_group` | Group components and set a meaningful title | ⚪ | 🟡 | - | - |
+| `gh_parameter_data_mapping_none` | Set a parameter's data mapping to None | ⚪ | 🟡 | - | - |
+| `gh_parameter_data_mapping_flatten` | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
+| `gh_parameter_data_mapping_graft` | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
+| `gh_parameter_reverse` | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
+| `gh_parameter_simplify` | Simplify geometry in a parameter (remove redundant structure) | ⚪ | 🟡 | - | - |
+| `rhino_get_geometry` | Retrieve geometry from Rhino | ⚪ | 🟡 | - | - |
+| `rhino_read_3dm` | Read a 3dm file from disk | ⚪ | 🟡 | - | - |
 
 Notes:
 
@@ -142,17 +143,22 @@ Notes:
 
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
 |---|---|:---:|:---:|:---:|---|---|
-| OpenAI | gpt-5-nano | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | gpt-5-mini | ⭐ | ✅ | - | ToolChat; Text2Json; ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | dall-e-3 | ⭐ | - | - | Text2Image | TextInput, ImageOutput |
-| OpenAI | gpt-image-1-mini | - | - | - | Text2Image; Image2Image | TextInput, ImageInput, ImageOutput |
-| MistralAI | mistral-small | ⭐ | ✅ | - | Text2Text; ToolChat; Text2Json | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput |
-| MistralAI | magistral-small-latest | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| DeepSeek | deepseek-reasoner | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| DeepSeek | deepseek-chat | - | ✅ | - | Text2Text; ToolChat | TextInput, TextOutput, JsonOutput, FunctionCalling |
-| Anthropic | claude-sonnet-4-5 | ⭐ | ✅ | - | Text2Text; Text2Json; ReasoningChat; ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| Anthropic | claude-haiku-4-5 | - | ✅ | - | Text2Text; ReasoningChat; ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, Reasoning |
-| OpenRouter | openai/gpt-5-mini | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| Anthropic | `claude-haiku-4-5` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, Reasoning |
+| Anthropic | `claude-sonnet-4-5` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| Anthropic | `claude-opus-4-5` | - | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
+| DeepSeek | `deepseek-chat` | - | ✅ | - | Text2Text, ToolChat | TextInput, TextOutput, JsonOutput, FunctionCalling |
+| DeepSeek | `deepseek-reasoner` | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| MistralAI | `mistral-small` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `mistral-medium` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `mistral-large-latest` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `magistral-small-latest` | - | ✅ | - | ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| MistralAI | `magistral-medium-latest` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-5-nano` | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-5-mini` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-5.1` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `dall-e-3` | ⭐ | - | - | Text2Image | TextInput, ImageOutput |
+| OpenAI | `gpt-image-1-mini` | - | - | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
+| OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 
 ### Discouraged models for script tools
 
