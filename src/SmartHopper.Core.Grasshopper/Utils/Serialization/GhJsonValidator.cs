@@ -452,7 +452,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
         private static bool AreTypesCompatible(Type outputType, Type inputType)
         {
             Debug.WriteLine($"[AreTypesCompatible] Checking: {outputType?.Name} → {inputType?.Name}");
-            
+
             if (outputType == null || inputType == null)
             {
                 Debug.WriteLine("[AreTypesCompatible] Null type(s), allowing connection");
@@ -465,14 +465,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                 Debug.WriteLine("[AreTypesCompatible] Exact type match - COMPATIBLE");
                 return true;
             }
-            
+
             // Safe direction: output is more specific than input (e.g., GH_Point → IGH_GeometricGoo)
             if (inputType.IsAssignableFrom(outputType))
             {
                 Debug.WriteLine($"[AreTypesCompatible] {outputType.Name} is assignable to {inputType.Name} (specific → general) - COMPATIBLE");
                 return true;
             }
-            
+
             // Unsafe direction: output is more general than input (e.g., IGH_GeometricGoo → GH_Point)
             // Check if input implements the output interface - this means output is a base type
             if (outputType.IsAssignableFrom(inputType))
@@ -495,7 +495,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     // Test if input can cast from output type using Grasshopper's CastFrom
                     bool castFromResult = inputGoo.CastFrom(outputGoo);
                     Debug.WriteLine($"[AreTypesCompatible] CastFrom test: {castFromResult}");
-                    
+
                     if (castFromResult)
                     {
                         Debug.WriteLine("[AreTypesCompatible] CastFrom succeeded - COMPATIBLE");
@@ -506,7 +506,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                     if (outputGoo is IGH_QuickCast outputQC && inputGoo is IGH_QuickCast inputQC)
                     {
                         Debug.WriteLine($"[AreTypesCompatible] QuickCast types: output={outputQC.QC_Type}, input={inputQC.QC_Type}");
-                        
+
                         // If they share the same QuickCast type, they're compatible
                         if (outputQC.QC_Type == inputQC.QC_Type)
                         {

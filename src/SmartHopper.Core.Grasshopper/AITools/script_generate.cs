@@ -35,38 +35,68 @@ namespace SmartHopper.Core.Grasshopper.AITools
     {
         private readonly string toolName = "script_generate";
 
-        private readonly string systemPromptTemplate =
-            "You are a Grasshopper script component generator. Generate a complete script for a Grasshopper script component based on the user instructions.\n\n" +
-            "You MUST choose the scripting language and return it in the \"language\" field.\n" +
-            "The language MUST be one of: \"python\", \"ironpython\", \"c#\", \"vb\".\n" +
-            "Use \"python\" unless the user explicitly requests another language.\n\n" +
-            "Your response MUST be a valid JSON object with the following structure:\n" +
-            "- language: The scripting language to use (python, ironpython, c#, vb)\n" +
-            "- script: The complete script code\n" +
-            "- inputs: Array of input parameters (see input parameter schema below)\n" +
-            "- outputs: Array of output parameters (see output parameter schema below)\n" +
-            "- nickname: Optional short name for the component\n" +
-            "- summary: A brief summary (1-3 sentences) of what the component does and key design decisions made\n\n" +
-            "INPUT PARAMETER SCHEMA (all fields except name are optional):\n" +
-            "  - name: Parameter name (required)\n" +
-            "  - type: Type hint (e.g., int, double, string, bool, Point3d, Curve, Surface, Brep, Mesh, Vector3d, Plane, Line, etc.)\n" +
-            "  - description: Parameter description\n" +
-            "  - access: Data access mode - 'item' (single value), 'list' (list of values), 'tree' (data tree). Default: 'item'\n" +
-            "  - dataMapping: Data tree manipulation - 'None', 'Flatten' (collapse tree to list), 'Graft' (wrap each item in branch)\n" +
-            "  - reverse: If true, reverses the order of items in lists\n" +
-            "  - simplify: If true, simplifies data tree paths by removing unnecessary branches\n" +
-            "  - invert: If true, inverts boolean values (true becomes false, vice versa). Only for boolean parameters.\n" +
-            "  - required: If true, parameter is required before calculation (default: false = optional)\n" +
-            "  - expression: Mathematical expression to transform input data (e.g., 'x * 2', 'Math.Sin(x)')\n\n" +
-            "OUTPUT PARAMETER SCHEMA (all fields except name are optional):\n" +
-            "  - name: Parameter name (required)\n" +
-            "  - type: Type hint for expected output type\n" +
-            "  - description: Parameter description\n" +
-            "  - dataMapping: Data tree manipulation - 'None', 'Flatten', 'Graft'\n" +
-            "  - reverse: If true, reverses the order of output items\n" +
-            "  - simplify: If true, simplifies output data tree paths\n" +
-            "  - invert: If true, inverts boolean values (true becomes false, vice versa). Only for boolean parameters.\n\n" +
-            "The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.";
+        private const int MaxValidationRetries = 2;
+
+        private readonly string systemPromptTemplate = """
+            You are a Grasshopper script component generator for Rhino 3D. Generate complete, production-ready scripts that run inside Grasshopper script components.
+
+            ## CRITICAL: Geometry Library Requirements
+
+            You MUST use ONLY RhinoCommon geometry types from the `Rhino.Geometry` namespace.
+            DO NOT use:
+            - System.Numerics (Vector3, Matrix4x4)
+            - UnityEngine (Vector3, Quaternion, Transform)
+            - numpy arrays for geometry
+            - shapely, scipy.spatial, trimesh, open3d, pyvista
+            - Custom Vector3/Point3 classes
+
+            ## Language Selection
+
+            Choose the scripting language and return it in the "language" field.
+            The language MUST be one of: "python", "ironpython", "c#", "vb".
+            Use "python" unless the user explicitly requests another language.
+
+            ## Response Format
+
+            Your response MUST be a valid JSON object with:
+            - language: The scripting language (python, ironpython, c#, vb)
+            - script: The complete script code
+            - inputs: Array of input parameters
+            - outputs: Array of output parameters
+            - nickname: Short name for the component
+            - summary: Brief summary (1-3 sentences) of functionality and design decisions
+
+            ## Parameter Type Hints
+
+            Use these RhinoCommon types for geometry parameters:
+            - Point3d, Vector3d, Plane, Line, Circle, Arc, Rectangle3d
+            - Curve, NurbsCurve, PolylineCurve, Polyline
+            - Surface, NurbsSurface, Brep, Mesh
+            - Box, Sphere, Cylinder, Cone, Torus
+            - Transform, Interval, BoundingBox
+
+            Use these for primitives: int, double, string, bool, Color
+
+            ## INPUT PARAMETER SCHEMA (all fields except name are optional)
+              - name: Parameter name (required)
+              - type: RhinoCommon type hint (Point3d, Curve, Mesh, etc.) or primitive (int, double, string, bool)
+              - description: Parameter description
+              - access: Data access mode - 'item', 'list', 'tree'. Default: 'item'
+              - dataMapping: 'None', 'Flatten', 'Graft'. Default: 'None'
+              - reverse: Reverse list order (default: false)
+              - simplify: Simplify data tree paths (default: false)
+              - invert: Invert boolean values (default: false)
+              - required: Parameter required before calculation (default: false)
+              - expression: Transform expression (e.g., 'x * 2')
+
+            ## OUTPUT PARAMETER SCHEMA (all fields except name are optional)
+              - name: Parameter name (required)
+              - type: Expected element type hint (e.g. Curve, Mesh, Point3d). For list outputs, this is the element type.
+              - description: Parameter description
+              - dataMapping: 'None', 'Flatten', 'Graft'
+              - reverse, simplify, invert: Same as inputs
+            The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
+            """;
 
         /// <inheritdoc/>
         public IEnumerable<AITool> GetTools()
@@ -114,8 +144,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Build system prompt with optional language preference
-                var systemPrompt = this.systemPromptTemplate;
+                // Build system prompt with language-specific guidance using centralized language mapping
+                var effectiveLanguage = ScriptComponentFactory.NormalizeLanguageKeyOrDefault(preferredLanguage, "python");
+                var languageGuidance = ScriptCodeValidator.GetLanguageGuidance(effectiveLanguage);
+                var systemPrompt = this.systemPromptTemplate + "\n\n" + languageGuidance;
+
                 if (!string.IsNullOrWhiteSpace(preferredLanguage))
                 {
                     systemPrompt += $"\n\nThe user prefers the '{preferredLanguage}' scripting language.";
@@ -145,7 +178,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Parse AI response
+                // Parse AI response and validate with retry loop
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
                 var responseJson = JObject.Parse(response);
 
@@ -167,6 +200,61 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 Debug.WriteLine($"[script_generate] Language: {language}, Script length: {scriptCode.Length}");
                 Debug.WriteLine($"[script_generate] Inputs: {inputs.Count}, Outputs: {outputs.Count}");
+
+                // Validate script code for non-Rhino geometry patterns and retry if needed
+                var validationResult = ScriptCodeValidator.Validate(scriptCode, language);
+                var retryCount = 0;
+
+                while (!validationResult.IsValid && retryCount < MaxValidationRetries)
+                {
+                    retryCount++;
+                    Debug.WriteLine($"[script_generate] Validation failed (attempt {retryCount}/{MaxValidationRetries}): {string.Join("; ", validationResult.Issues)}");
+
+                    // Build correction request
+                    var correctionBuilder = AIBodyBuilder.Create()
+                        .WithJsonOutputSchema(jsonSchema)
+                        .WithContextFilter(contextFilter)
+                        .AddSystem(systemPrompt)
+                        .AddUser(instructions)
+                        .AddAssistant(response)
+                        .AddUser(validationResult.CorrectionPrompt);
+
+                    var correctionRequest = new AIRequestCall();
+                    correctionRequest.Initialize(
+                        provider: providerName,
+                        model: modelName,
+                        capability: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                        endpoint: this.toolName,
+                        body: correctionBuilder.Build());
+
+                    var correctionResult = await correctionRequest.Exec().ConfigureAwait(false);
+
+                    if (!correctionResult.Success)
+                    {
+                        Debug.WriteLine($"[script_generate] Correction request failed, using original script");
+                        break;
+                    }
+
+                    // Parse corrected response
+                    response = correctionResult.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                    responseJson = JObject.Parse(response);
+
+                    scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
+                    inputs = responseJson["inputs"] as JArray ?? new JArray();
+                    outputs = responseJson["outputs"] as JArray ?? new JArray();
+                    nickname = responseJson["nickname"]?.ToString() ?? nickname;
+                    summary = responseJson["summary"]?.ToString() ?? summary;
+
+                    // Re-validate
+                    validationResult = ScriptCodeValidator.Validate(scriptCode, language);
+                }
+
+                if (!validationResult.IsValid)
+                {
+                    Debug.WriteLine($"[script_generate] Script validation failed after {retryCount} retries: {string.Join("; ", validationResult.Issues)}");
+
+                    // Continue with the script but log a warning - it may still work
+                }
 
                 // Build GhJSON using ScriptComponentFactory
                 var comp = ScriptComponentFactory.CreateScriptComponent(

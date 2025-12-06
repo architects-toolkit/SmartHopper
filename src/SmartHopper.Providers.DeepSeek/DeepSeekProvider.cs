@@ -592,7 +592,7 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         var function = tc["function"] as JObject;
                         var argumentsStr = function?["arguments"]?.ToString() ?? "{}";
-                        
+
                         var toolCall = new AIInteractionToolCall
                         {
                             Id = tc["id"]?.ToString(),

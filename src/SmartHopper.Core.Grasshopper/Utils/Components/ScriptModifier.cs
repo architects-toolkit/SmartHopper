@@ -386,7 +386,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             {
                 var compType = scriptComp.GetType();
                 var usingStdOutputProp = compType.GetProperty("UsingStandardOutputParam");
-                
+
                 if (usingStdOutputProp != null && usingStdOutputProp.CanWrite)
                 {
                     bool currentValue = (bool)usingStdOutputProp.GetValue(scriptComp);
@@ -395,7 +395,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                     if (currentValue == show)
                     {
                         usingStdOutputProp.SetValue(scriptComp, !show);
-                        
+
                         if (scriptComp is IGH_VariableParameterComponent varParamComp)
                         {
                             varParamComp.VariableParameterMaintenance();
@@ -404,9 +404,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
                     // Set to desired value
                     usingStdOutputProp.SetValue(scriptComp, show);
-                    
+
                     RefreshScriptComponent(scriptComp);
-                    
+
                     Debug.WriteLine($"[ScriptModifier] Set ShowStandardOutput to '{show}'");
                 }
             }
@@ -431,7 +431,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             ghComp.MasterParameterIndex = index;
             RefreshScriptComponent(scriptComp);
-            
+
             Debug.WriteLine($"[ScriptModifier] Set principal input to index {index}");
         }
 
@@ -453,7 +453,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             var param = ghComp.Params.Input[index];
             param.Optional = optional;
-            
+
             Debug.WriteLine($"[ScriptModifier] Set input {index} optional to '{optional}'");
         }
 
@@ -471,7 +471,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             var param = ghComp.Params.Input[index];
             param.Description = description ?? string.Empty;
-            
+
             Debug.WriteLine($"[ScriptModifier] Set input {index} description");
         }
 
@@ -489,7 +489,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             var param = ghComp.Params.Output[index];
             param.Description = description ?? string.Empty;
-            
+
             Debug.WriteLine($"[ScriptModifier] Set output {index} description");
         }
 
@@ -507,12 +507,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             var param = ghComp.Params.Input[index];
             param.NickName = newName ?? "input";
-            
+
             if (param is ScriptVariableParam svp)
             {
                 svp.Name = newName ?? "input";
             }
-            
+
             RefreshScriptComponent(scriptComp);
             Debug.WriteLine($"[ScriptModifier] Renamed input {index} to '{newName}'");
         }
@@ -531,12 +531,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             var param = ghComp.Params.Output[index];
             param.NickName = newName ?? "output";
-            
+
             if (param is ScriptVariableParam svp)
             {
                 svp.Name = newName ?? "output";
             }
-            
+
             RefreshScriptComponent(scriptComp);
             Debug.WriteLine($"[ScriptModifier] Renamed output {index} to '{newName}'");
         }

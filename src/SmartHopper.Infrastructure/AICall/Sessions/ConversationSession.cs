@@ -638,11 +638,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private async Task<AIReturn?> ExecProviderAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            
+
             var stopwatch = Stopwatch.StartNew();
             var res = await this.Request.Exec(stream: false).ConfigureAwait(false);
             stopwatch.Stop();
-            
+
             // Attach completion time to the last interaction in the result
             if (res?.Body != null)
             {
@@ -652,7 +652,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     lastInteraction.Metrics.CompletionTime = stopwatch.Elapsed.TotalSeconds;
                 }
             }
-            
+
             return res;
         }
 
@@ -768,7 +768,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                     {
                                         // Accumulate text deltas
                                         accumulatedText = TextStreamCoalescer.Coalesce(accumulatedText, textDelta, turnId, preserveMetrics: false);
-                                        
+
                                         // Notify UI with streaming delta
                                         var textDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { textDelta });
                                         this.NotifyDelta(textDeltaReturn);
@@ -783,7 +783,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                         {
                                             // Persist tool call immediately
                                             this.AppendToSessionHistory(interaction);
-                                            
+
                                             // Notify with persisted interaction
                                             var tcDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { interaction });
                                             this.NotifyInteractionCompleted(tcDeltaReturn);
@@ -819,7 +819,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             preparedYields.Add(err);
                             break;
                         }
-                        
+
                         // Persist final aggregated text and update last return snapshot using shared helper
                         this.PersistStreamingSnapshot(lastDelta, lastDelta, turnId, accumulatedText, followUpStopwatch.Elapsed.TotalSeconds);
                         this.NotifyInteractionCompleted(this._lastReturn);

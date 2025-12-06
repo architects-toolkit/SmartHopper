@@ -41,6 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Analyze a Rhino .3dm file and extract information about objects, layers, and file metadata. Returns summary statistics and object details. Use this to understand the contents of a 3DM file before processing.",
+
                 // category: "Rhino",
                 category: "NotTested",
                 parametersSchema: @"{

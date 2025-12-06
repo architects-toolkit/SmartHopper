@@ -372,7 +372,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 });
                 var result = await tcs.Task.ConfigureAwait(false);
-                
+
                 if (!result.IsSuccess)
                 {
                     output.CreateError($"Deserialization failed: {string.Join(", ", result.Errors)}");
@@ -466,7 +466,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 });
                 await placeTcs.Task.ConfigureAwait(false);
-                
+
                 Debug.WriteLine("[gh_put] Placement complete");
 
                 var toolResult = new JObject

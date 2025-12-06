@@ -111,7 +111,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     {
                         await Task.Yield();
                         _processCount++;
-                        
+
                         var aList = branches.ContainsKey("A") ? branches["A"] : null;
                         if (aList == null || aList.Count == 0)
                             return new Dictionary<string, List<GH_Integer>> { { "Double", new List<GH_Integer>() } };
