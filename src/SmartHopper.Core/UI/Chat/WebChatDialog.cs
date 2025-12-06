@@ -160,7 +160,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter fk={followKey} key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
-                
+
                 // Log warning if followKey might not be found (JavaScript will also warn)
                 if (string.IsNullOrWhiteSpace(followKey))
                 {
@@ -352,7 +352,7 @@ namespace SmartHopper.Core.UI.Chat
         private void UpsertMessageByKey(string domKey, IAIInteraction interaction, string? source = null)
         {
             if (interaction == null || string.IsNullOrWhiteSpace(domKey)) return;
-            
+
             // Skip rendering empty assistant text bubbles (they're preserved in history but hidden from UI)
             if (interaction is AIInteractionText txt &&
                 txt.Agent == AIAgent.Assistant &&
@@ -362,7 +362,7 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped empty assistant) key={domKey} src={source ?? "?"}");
                 return;
             }
-            
+
             this.RunWhenWebViewReady(() =>
             {
                 var html = this._htmlRenderer.RenderInteraction(interaction);
@@ -406,7 +406,7 @@ namespace SmartHopper.Core.UI.Chat
             {
                 // If key already exists, we don't need to track it again in LRU queue
                 bool isExisting = this._lastDomHtmlByKey.ContainsKey(key);
-                
+
                 this._lastDomHtmlByKey[key] = html;
 
                 if (!isExisting)
@@ -729,7 +729,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     this._lastDomHtmlByKey.Clear();
                     this._lruQueue.Clear();
-                    
+
                     // Reset performance counters
                     this._maxKeyLengthSeen = 0;
                     this._totalEqualityChecks = 0;

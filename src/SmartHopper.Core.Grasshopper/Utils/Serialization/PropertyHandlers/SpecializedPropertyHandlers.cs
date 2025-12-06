@@ -49,6 +49,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                     return DataTreeConverter.IGHStructureDictionaryTo1DDictionary(dictionary);
                 }
             }
+
             return null;
         }
 
@@ -78,10 +79,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         System.Diagnostics.Debug.WriteLine($"[PersistentDataPropertyHandler] First data item: {firstItem}");
                     }
                 }
+
 #endif
 
                 return true;
             }
+
             return false;
         }
 
@@ -131,6 +134,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Number(doubleValue);
                         }
+
                         return new GH_Number(token.Value<double>());
                     });
                     paramNumber.SetPersistentData(pDataNumber);
@@ -144,6 +148,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Integer(intValue);
                         }
+
                         return new GH_Integer(token.Value<int>());
                     });
                     paramInt.SetPersistentData(pDataInt);
@@ -158,6 +163,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_String(deserializedStr);
                         }
+
                         return new GH_String(stringValue);
                     });
                     paramString.SetPersistentData(pDataString);
@@ -171,6 +177,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Boolean(boolValue);
                         }
+
                         return new GH_Boolean(token.Value<bool>());
                     });
                     paramBoolean.SetPersistentData(pDataBoolean);
@@ -185,6 +192,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Colour(color);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize color: {token}");
                     });
                     paramColour.SetPersistentData(pDataColour);
@@ -198,6 +206,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Point(point);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize point: {token}");
                     });
                     paramPoint.SetPersistentData(pDataPoint);
@@ -211,6 +220,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Vector(vector);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize vector: {token}");
                     });
                     paramVector.SetPersistentData(pDataVector);
@@ -224,6 +234,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Line(line);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize line: {token}");
                     });
                     paramLine.SetPersistentData(pDataLine);
@@ -237,6 +248,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Plane(plane);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize plane: {token}");
                     });
                     paramPlane.SetPersistentData(pDataPlane);
@@ -250,6 +262,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Arc(arc);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize arc: {token}");
                     });
                     paramArc.SetPersistentData(pDataArc);
@@ -263,6 +276,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Box(box);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize box: {token}");
                     });
                     paramBox.SetPersistentData(pDataBox);
@@ -276,6 +290,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Circle(circle);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize circle: {token}");
                     });
                     paramCircle.SetPersistentData(pDataCircle);
@@ -289,6 +304,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Rectangle(rectangle);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize rectangle: {token}");
                     });
                     paramRectangle.SetPersistentData(pDataRectangle);
@@ -302,6 +318,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             return new GH_Interval(interval);
                         }
+
                         throw new InvalidOperationException($"Failed to deserialize interval: {token}");
                     });
                     paramInterval.SetPersistentData(pDataInterval);
@@ -348,6 +365,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         return props.SpecialCodes;
                 }
             }
+
             return null;
         }
 
@@ -370,6 +388,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                                     return true;
                                 }
                             }
+
                             break;
                         case "Multiline":
                             props.Multiline = Convert.ToBoolean(value);
@@ -390,6 +409,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                     System.Diagnostics.Debug.WriteLine($"[PanelPropertyHandler] Failed to apply {propertyName}: {ex.Message}");
                 }
             }
+
             return false;
         }
     }
@@ -420,6 +440,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 // Only pad the VALUE with trailing zeros; keep min/max unpadded to compact the JSON
                 return $"{currentValue.ToString(format, CultureInfo.InvariantCulture)}<{min.ToString(CultureInfo.InvariantCulture)},{max.ToString(CultureInfo.InvariantCulture)}>";
             }
+
             return value;
         }
 
@@ -529,6 +550,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                     if (roundingProp != null && roundingProp.CanWrite)
                     {
                         var enumType = roundingProp.PropertyType;
+
                         // Try to find enum by name (Rational, Natural, Even, Odd)
                         var enumValue = Enum.GetNames(enumType)
                             .FirstOrDefault(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
@@ -554,6 +576,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
             {
                 System.Diagnostics.Debug.WriteLine($"[SliderRoundingPropertyHandler] Apply error: {ex.Message}");
             }
+
             return false;
         }
 
@@ -850,6 +873,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 // Serialize as string name for stability
                 return valueList.ListMode.ToString();
             }
+
             return null;
         }
 
@@ -867,6 +891,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         valueList.ListMode = (GH_ValueListMode)i;
                         return true;
                     }
+
                     var s = value.ToString();
                     if (Enum.TryParse(typeof(GH_ValueListMode), s, true, out var enumVal))
                     {

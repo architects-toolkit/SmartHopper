@@ -73,11 +73,13 @@ namespace SmartHopper.Infrastructure.AICall.Utilities
                 {
                     accumulated.Content = incomingContent;
                 }
+
                 // Regression/noise: ignore to avoid trimming
                 else if (currentContent.StartsWith(incomingContent, StringComparison.Ordinal))
                 {
                     // Keep existing, ignore incoming
                 }
+
                 // Incremental: append delta
                 else
                 {
