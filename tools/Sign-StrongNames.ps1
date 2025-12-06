@@ -4,7 +4,7 @@
 .DESCRIPTION
   Generates, decodes, or exports a .snk strong-name key.
 .PARAMETER SnkPath
-  Optional path to the signing.snk file; defaults to signing.snk next to this script.
+  Optional path to the signing.snk file; defaults to ..\signing.snk (solution root), falling back to signing.snk next to this script.
 .PARAMETER Generate
   Generates a new strong-name key file (signing.snk) using sn.exe.
 .PARAMETER Base64
@@ -22,8 +22,12 @@ param(
     [switch]$Help
 )
 
+$solutionRoot = Split-Path -Parent $PSScriptRoot
+$defaultRootSnk = Join-Path -Path $solutionRoot -ChildPath 'signing.snk'
+$defaultLocalSnk = Join-Path -Path $PSScriptRoot -ChildPath 'signing.snk'
+
 if ([string]::IsNullOrWhiteSpace($SnkPath)) {
-    $snkPath = Join-Path -Path $PSScriptRoot -ChildPath 'signing.snk'
+    $snkPath = $defaultRootSnk
 } else {
     $snkPath = $SnkPath
 }
@@ -66,8 +70,12 @@ if ($Generate) {
     [IO.File]::WriteAllBytes($snkPath, [Convert]::FromBase64String($Base64))
 } elseif ($Export) {
     if (-not (Test-Path $snkPath)) {
-        Write-Error "$snkPath not found."
-        exit 1
+        if ([string]::IsNullOrWhiteSpace($SnkPath) -and (Test-Path $defaultLocalSnk)) {
+            $snkPath = $defaultLocalSnk
+        } else {
+            Write-Error "$snkPath not found."
+            exit 1
+        }
     }
     $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($snkPath))
     Write-Host $b64
