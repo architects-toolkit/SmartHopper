@@ -152,8 +152,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Build system prompt with language-specific guidance
-                var effectiveLanguage = preferredLanguage ?? "python";
+                // Build system prompt with language-specific guidance using centralized language mapping
+                var effectiveLanguage = ScriptComponentFactory.NormalizeLanguageKeyOrDefault(preferredLanguage, "python");
                 var languageGuidance = ScriptCodeValidator.GetLanguageGuidance(effectiveLanguage);
                 var systemPrompt = this.systemPromptTemplate + "\n\n" + languageGuidance;
 

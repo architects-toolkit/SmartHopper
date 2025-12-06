@@ -227,6 +227,27 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
         }
 
         /// <summary>
+        /// Normalizes a language identifier to a supported key or returns the provided default.
+        /// </summary>
+        /// <param name="languageKey">Language identifier (for example, "python", "python3", "c#", "csharp").</param>
+        /// <param name="defaultLanguage">Default language key to use when the identifier is null, empty, or not supported.</param>
+        /// <returns>Normalized language key (for example, "python", "ironpython", "csharp", "vb") or the default language.</returns>
+        public static string NormalizeLanguageKeyOrDefault(string languageKey, string defaultLanguage = "python")
+        {
+            if (string.IsNullOrWhiteSpace(languageKey))
+            {
+                return defaultLanguage;
+            }
+
+            if (LanguageMap.TryGetValue(languageKey.Trim(), out var info))
+            {
+                return info.LanguageKey;
+            }
+
+            return defaultLanguage;
+        }
+
+        /// <summary>
         /// Gets all supported language keys.
         /// </summary>
         public static IEnumerable<string> GetSupportedLanguages()

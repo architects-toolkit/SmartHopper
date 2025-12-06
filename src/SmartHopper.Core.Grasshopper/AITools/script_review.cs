@@ -253,9 +253,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // AI-based code review using AIRequestCall/AIReturn flow with immutable body
+                var languageGuidance = ScriptCodeValidator.GetLanguageGuidance(language);
+                var systemPrompt = this.systemPromptTemplate
+                    + $"\n\nThe current script is written in '{language}'.\n\n{languageGuidance}";
+
                 var builder = AIBodyBuilder.Create()
                     .WithContextFilter(contextFilter)
-                    .AddSystem(this.systemPromptTemplate);
+                    .AddSystem(systemPrompt);
 
                 string userPrompt;
                 if (string.IsNullOrWhiteSpace(question))
