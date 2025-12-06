@@ -161,7 +161,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
                                 // Check if this is a complex type with inline prefix
                                 JToken valueToken = property.Value;
                                 string valueString = valueToken.ToString();
-                                
+
                                 // Try to detect and deserialize inline prefixed types automatically
                                 if (DataTypeSerializer.TryDeserializeFromPrefix(valueString, out object deserializedValue))
                                 {

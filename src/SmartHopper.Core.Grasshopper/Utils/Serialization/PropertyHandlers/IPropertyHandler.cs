@@ -173,19 +173,19 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
             {
                 if (targetType == typeof(string))
                     return value?.ToString();
-                
+
                 if (targetType == typeof(int))
                     return Convert.ToInt32(value);
-                
+
                 if (targetType == typeof(double))
                     return Convert.ToDouble(value);
-                
+
                 if (targetType == typeof(float))
                     return Convert.ToSingle(value);
-                
+
                 if (targetType == typeof(bool))
                     return Convert.ToBoolean(value);
-                
+
                 if (targetType.IsEnum)
                     return Enum.Parse(targetType, value.ToString());
 

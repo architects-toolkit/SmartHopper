@@ -110,7 +110,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> items)
                     {
                         await Task.Yield();
-                        
+
                         // In ItemToItem, each dictionary contains exactly one item per input tree
                         var aItem = items.ContainsKey("A") && items["A"].Count > 0 ? items["A"][0] : null;
                         var bItem = items.ContainsKey("B") && items["B"].Count > 0 ? items["B"][0] : null;

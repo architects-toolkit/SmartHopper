@@ -44,6 +44,21 @@ jobs:
       - name: Create release branch
         run: git checkout -b release/${{ github.event.milestone.title }}
 
+      - name: Replace SmartHopperPublicKey with placeholder
+        run: |
+          csproj="src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj"
+          placeholder="This value is automatically replaced by the build tooling before official builds."
+          if [ -f "$csproj" ]; then
+            if grep -q "<SmartHopperPublicKey>" "$csproj"; then
+              sed -i "s#<SmartHopperPublicKey>.*</SmartHopperPublicKey>#<SmartHopperPublicKey>${placeholder}</SmartHopperPublicKey>#" "$csproj"
+            else
+              echo "SmartHopperPublicKey property not found in $csproj"
+            fi
+          else
+            echo "File not found: $csproj" >&2
+            exit 1
+          fi
+
       - name: Update version in Solution.props
         uses: ./.github/actions/versioning/update-version
         with:
@@ -80,7 +95,7 @@ jobs:
       
       - name: Commit and push changes
         run: |
-          git add Solution.props CHANGELOG.md README.md
+          git add Solution.props CHANGELOG.md README.md src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj
           git commit -m "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes"
           git push origin release/${{ github.event.milestone.title }}
 

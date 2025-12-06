@@ -45,7 +45,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                 throw new ArgumentNullException(nameof(handler));
 
             _handlers.Add(handler);
-            
+
             // Keep handlers sorted by priority (highest first)
             _handlers.Sort((h1, h2) => h2.Priority.CompareTo(h1.Priority));
         }
@@ -160,6 +160,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyHandlers
                         {
                             result[relatedProperty] = relatedValue;
                         }
+
                         processedProperties.Add(relatedProperty);
                     }
                 }

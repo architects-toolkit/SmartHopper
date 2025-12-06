@@ -152,25 +152,49 @@ Follow these steps to configure Visual Studio 2022 for SmartHopper development:
 
 ### Initializing Code Signing
 
-When developing locally, you must generate and apply both strong-name and Authenticode signatures.
+When developing locally, you can use the helper script `tools/Build-Solution.ps1` to set up signing keys, update InternalsVisibleTo, build the solution, and Authenticode-sign the SmartHopper assemblies.
 
 1. Open **Developer PowerShell for Visual Studio 2022** as Administrator.
 2. cd to the repository root.
-3. Generate a strong-name key:
+3. Run the build script (defaults to `Debug`):
+
    ```powershell
-   .\Sign-StrongNames.ps1 -Generate
-   ```
-4. Create a self-signed PFX for Authenticode via the Authenticode script:
-   ```powershell
-   .\Sign-Authenticode.ps1 -Generate -Password '<password>'
-   ```
-5. Build the solution from Visual Studio or via the command line:
-   ```powershell
-   dotnet build SmartHopper.sln -c Release
-   ```
-6. Authenticode-sign provider DLLs (e.g. for Grasshopper testing):
-   ```powershell
-   .\Sign-Authenticode.ps1 -Sign bin\Debug\net7.0-windows -Password '<password>'
+   .\tools\Build-Solution.ps1
    ```
 
-**Note:** Repeat steps 1, 2, and 6 after every build to ensure your providers are signed and SmartHopper can load them.
+   To build a different configuration (for example `Release`):
+
+   ```powershell
+   .\tools\Build-Solution.ps1 -Configuration Release
+   ```
+
+The script will:
+
+- Ensure `signing.pfx` exists at the solution root (creating it and prompting for a password if missing).
+- Ensure `signing.snk` exists at the solution root (creating it if missing).
+- Run `tools/Update-InternalsVisibleTo.ps1` so `SmartHopperPublicKey` matches your SNK.
+- Build `SmartHopper.sln` with the selected configuration.
+- Authenticode-sign the SmartHopper assemblies in `bin/<SolutionVersion>/<Configuration>` using `signing.pfx`.
+
+#### Passing the PFX password
+
+If you want to avoid interactive password prompts (e.g., for scripting), you can pass a `SecureString` password:
+
+```powershell
+# Create a SecureString password
+$pwd = Read-Host "Enter PFX password" -AsSecureString
+
+# Pass it to the build script
+.\tools\Build-Solution.ps1 -Configuration Release -PfxPassword $pwd
+```
+
+Alternatively, for fully non-interactive use (not recommended for security reasons):
+
+```powershell
+$pwd = ConvertTo-SecureString "your-password" -AsPlainText -Force
+.\tools\Build-Solution.ps1 -Configuration Release -PfxPassword $pwd
+```
+
+**Note:** If you don't provide `-PfxPassword`, the signing script will prompt interactively when needed.
+
+**Environment requirement:** Run `tools/Build-Solution.ps1` (and the underlying signing scripts) from **Developer PowerShell for Visual Studio 2022** or another VS Developer shell. This ensures `sn.exe` and Windows SDK tools are on `PATH`. Running from a plain PowerShell may fail with errors like `sn.exe not found`.

@@ -258,7 +258,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Assert
             Assert.StartsWith("turn:abc123:tool.call:call_xyz:", key);
-            
+
             // Verify hash is 16 chars (short hash format)
             var parts = key.Split(':');
             Assert.Equal(5, parts.Length); // turn:abc123:tool.call:call_xyz:hash
@@ -752,7 +752,7 @@ namespace SmartHopper.Infrastructure.Tests
             // This test documents the expected behavior after the lazy segmentation fix.
             // Scenario: ToolCall -> ToolResult -> empty assistant deltas -> first renderable assistant delta
             // Expected: first visible assistant bubble should use seg1, not seg2
-            
+
             // Arrange
             var turnId = "test_turn_123";
             var toolCall = new AIInteractionToolCall
@@ -761,14 +761,14 @@ namespace SmartHopper.Infrastructure.Tests
                 Id = "call_1",
                 Name = "gh_get"
             };
-            
+
             var toolResult = new AIInteractionToolResult
             {
                 TurnId = turnId,
                 Id = "call_1",
                 Name = "gh_get"
             };
-            
+
             var assistantText = new AIInteractionText
             {
                 TurnId = turnId,
@@ -785,7 +785,7 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.Equal($"turn:{turnId}:tool.call:call_1", toolCallKey);
             Assert.Equal($"turn:{turnId}:tool.result:call_1", toolResultKey);
             Assert.Equal($"turn:{turnId}:assistant", assistantStreamKey);
-            
+
             // Expected DOM key for first assistant text: turn:{turnId}:assistant:seg1
             // (In the observer, this would be computed via GetCurrentSegmentedKey after CommitSegment)
             var expectedFirstSegment = $"{assistantStreamKey}:seg1";
@@ -805,7 +805,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // Scenario: Assistant text -> ToolCall -> ToolResult -> Assistant text -> ToolCall -> ToolResult -> Assistant text
             // Expected segments: seg1, seg2, seg3
-            
+
             // Arrange
             var turnId = "multi_step_turn";
             var baseKey = $"turn:{turnId}:assistant";
@@ -834,7 +834,7 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // The lazy segmentation pattern relies on stream keys being stable
             // so that pre-commit aggregates can be tracked by baseKey before segmentation
-            
+
             // Arrange
             var text = new AIInteractionText
             {
@@ -845,10 +845,10 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Act - Get stream key with empty content
             var key1 = text.GetStreamKey();
-            
+
             text.Content = "Some content"; // Add content
             var key2 = text.GetStreamKey();
-            
+
             text.Content = "More content"; // Change content
             var key3 = text.GetStreamKey();
 

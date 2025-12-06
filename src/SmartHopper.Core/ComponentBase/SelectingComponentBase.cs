@@ -22,6 +22,7 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
+using SmartHopper.Core.UI;
 using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase
@@ -35,8 +36,16 @@ namespace SmartHopper.Core.ComponentBase
         /// Gets the currently selected Grasshopper objects for this component's selection mode.
         /// Exposed as a property to encapsulate internal state while allowing read access.
         /// </summary>
-        public List<IGH_ActiveObject> SelectedObjects { get; private set; } = new();
+        public List<IGH_ActiveObject> SelectedObjects
+        {
+            get
+            {
+                this.PruneDeletedSelections();
+                return this.selectedObjects;
+            }
+        }
 
+        private readonly List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
         private readonly SelectingComponentCore selectionCore;
 
         /// <summary>
@@ -77,12 +86,56 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
+        /// Validates the selected objects list by removing any objects that have been deleted from the document.
+        /// Call this before accessing SelectedObjects for execution to ensure all objects are valid.
+        /// </summary>
+        public void ValidateSelectedObjects()
+        {
+            this.PruneDeletedSelections();
+        }
+
+        /// <summary>
         /// Adds "Select Components" to the context menu.
         /// </summary>
         protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
+        }
+
+        private void PruneDeletedSelections()
+        {
+            if (this.selectedObjects.Count == 0)
+            {
+                return;
+            }
+
+            var canvas = Instances.ActiveCanvas;
+            var doc = canvas?.Document;
+            if (doc == null)
+            {
+                return;
+            }
+
+            var removedAny = false;
+
+            for (int i = this.selectedObjects.Count - 1; i >= 0; i--)
+            {
+                if (this.selectedObjects[i] is IGH_DocumentObject docObj)
+                {
+                    var found = doc.FindObject(docObj.InstanceGuid, true);
+                    if (found == null)
+                    {
+                        this.selectedObjects.RemoveAt(i);
+                        removedAny = true;
+                    }
+                }
+            }
+
+            if (removedAny)
+            {
+                this.Message = $"{this.selectedObjects.Count} selected";
+            }
         }
 
         /// <summary>
@@ -149,6 +202,10 @@ namespace SmartHopper.Core.ComponentBase
         private Timer? selectDisplayTimer;
         private bool selectAutoHidden;
 
+        // Cached bounds for selected objects during hover session.
+        // Computed once when hover starts, cleared when hover ends.
+        private Dictionary<Guid, RectangleF>? cachedSelectedBounds;
+
         public SelectingComponentAttributes(GH_Component owner, ISelectingComponent selectingComponent)
             : base(owner)
         {
@@ -175,32 +232,23 @@ namespace SmartHopper.Core.ComponentBase
             base.Render(canvas, graphics, channel);
             if (channel == GH_CanvasChannel.Objects)
             {
-                var palette = this.isClicking ? GH_Palette.White : (this.isHovering ? GH_Palette.Grey : GH_Palette.Black);
-                var capsule = GH_Capsule.CreateCapsule(this.buttonBounds, palette);
-                capsule.Render(graphics, this.Selected, this.owner.Locked, false);
-                capsule.Dispose();
-
-                var font = GH_FontServer.Standard;
-                var text = "Select";
-                var size = graphics.MeasureString(text, font);
-                var tx = this.buttonBounds.X + ((this.buttonBounds.Width - size.Width) / 2);
-                var ty = this.buttonBounds.Y + ((this.buttonBounds.Height - size.Height) / 2);
-                graphics.DrawString(text, font, (this.isHovering || this.isClicking) ? Brushes.Black : Brushes.White, new PointF(tx, ty));
-
-                if (this.isHovering && !this.selectAutoHidden && this.selectingComponent.SelectedObjects.Count > 0)
-                {
-                    using (var pen = new Pen(Color.DodgerBlue, 2f))
-                    {
-                        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                        foreach (var obj in this.selectingComponent.SelectedObjects.OfType<IGH_DocumentObject>())
-                        {
-                            var b = obj.Attributes.Bounds;
-                            var pad = 4f;
-                            var hb = RectangleF.Inflate(b, pad, pad);
-                            graphics.DrawRectangle(pen, hb.X, hb.Y, hb.Width, hb.Height);
-                        }
-                    }
-                }
+                SelectingComponentCore.RenderSelectButton(
+                    canvas,
+                    graphics,
+                    this.buttonBounds,
+                    this.isHovering,
+                    this.isClicking,
+                    this.Selected,
+                    this.owner.Locked);
+            }
+            else if (channel == GH_CanvasChannel.Overlay)
+            {
+                SelectingComponentCore.RenderSelectionOverlay(
+                    canvas,
+                    graphics,
+                    this.buttonBounds,
+                    this.cachedSelectedBounds,
+                    this.selectAutoHidden);
             }
         }
 
@@ -211,6 +259,9 @@ namespace SmartHopper.Core.ComponentBase
                 this.isClicking = true;
                 this.owner.ExpireSolution(true);
                 this.selectingComponent.EnableSelectionMode();
+
+                // Refresh cache after selection completes
+                this.CacheSelectedBounds();
                 return GH_ObjectResponse.Handled;
             }
 
@@ -227,12 +278,14 @@ namespace SmartHopper.Core.ComponentBase
                 if (this.isHovering)
                 {
                     this.selectAutoHidden = false;
+                    this.CacheSelectedBounds();
                     this.StartSelectDisplayTimer();
                 }
                 else
                 {
                     this.StopSelectDisplayTimer();
                     this.selectAutoHidden = false; // reset for next hover
+                    this.cachedSelectedBounds = null; // clear cache on hover end
                 }
 
                 // Use display invalidation for hover-only visual changes
@@ -258,15 +311,13 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StartSelectDisplayTimer()
         {
-            this.StopSelectDisplayTimer();
-            this.selectDisplayTimer = new Timer(5000) { AutoReset = false };
-            this.selectDisplayTimer.Elapsed += (_, __) =>
-            {
-                this.selectAutoHidden = true;
-                try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
-                this.StopSelectDisplayTimer();
-            };
-            this.selectDisplayTimer.Start();
+            SelectingComponentCore.RestartSelectDisplayTimer(
+                ref this.selectDisplayTimer,
+                () =>
+                {
+                    this.selectAutoHidden = true;
+                    try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
+                });
         }
 
         /// <summary>
@@ -274,12 +325,16 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void StopSelectDisplayTimer()
         {
-            if (this.selectDisplayTimer != null)
-            {
-                try { this.selectDisplayTimer.Stop(); } catch { /* ignore */ }
-                try { this.selectDisplayTimer.Dispose(); } catch { /* ignore */ }
-                this.selectDisplayTimer = null;
-            }
+            SelectingComponentCore.StopSelectDisplayTimer(ref this.selectDisplayTimer);
+        }
+
+        /// <summary>
+        /// Caches the current bounds of all selected objects.
+        /// Called once when hover starts to get fresh positions.
+        /// </summary>
+        private void CacheSelectedBounds()
+        {
+            this.cachedSelectedBounds = SelectingComponentCore.BuildSelectedBounds(this.selectingComponent);
         }
     }
 }

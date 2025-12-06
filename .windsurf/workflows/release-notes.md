@@ -1,5 +1,6 @@
 ---
 description: Write the release notes
+auto_execution_mode: 1
 ---
 
 The aim is to return the release notes to publish on GitHub.
@@ -26,7 +27,7 @@ Repeat features as necessary for the release.
 
 ## 🛠️ Technical Requirements
 
-- Rhino 8.19 or above is required
+- Rhino 8.24 or above is required
 - Windows 10/11 (MacOS has not been tested)
 - Valid API keys for MistralAI, OpenAI or DeepSeek
 

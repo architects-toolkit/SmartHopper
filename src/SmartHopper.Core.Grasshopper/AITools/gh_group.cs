@@ -96,6 +96,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
+                // Local tool: metrics such as provider/model/finish_reason are not meaningful here
+                toolCall.SkipMetricsValidation = true;
+
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
@@ -148,13 +151,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     group = new GH_Group();
                     group.NickName = groupName;
                     group.Colour = groupColor;
-                    
+
                     // Add objects to group
                     foreach (var guid in validGuids)
                     {
                         group.AddObject(guid);
                     }
-                    
+
                     // Add group to document
                     var canvas = Instances.ActiveCanvas;
                     if (canvas?.Document != null)
@@ -197,6 +200,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         private Task<AIReturn> GhGroupSelectedAsync(AIToolCall toolCall)
         {
+            // Mark wrapper call as local-only as well
+            toolCall.SkipMetricsValidation = true;
+
             // Get selected component GUIDs
             var selectedGuids = CanvasAccess.GetCurrentObjects()
                 .Where(o => o.Attributes.Selected)
@@ -236,6 +242,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         args: modifiedArgs)
                     .Build()
             };
+
+            modifiedToolCall.SkipMetricsValidation = true;
 
             // Delegate to the general method
             return this.GhGroupAsync(modifiedToolCall);

@@ -181,6 +181,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                     {
                         objData["location"] = new JArray { pt.Location.X, pt.Location.Y, pt.Location.Z };
                     }
+
                     break;
 
                 case RhinoDocObjects.ObjectType.Curve:
@@ -210,10 +211,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                                 {
                                     controlPoints.Add(new JArray { cp.X, cp.Y, cp.Z, cp.Weight });
                                 }
+
                                 objData["controlPoints"] = controlPoints;
                             }
                         }
                     }
+
                     break;
 
                 case RhinoDocObjects.ObjectType.Surface:
@@ -239,6 +242,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                             objData["centroid"] = new JArray { area.Centroid.X, area.Centroid.Y, area.Centroid.Z };
                         }
                     }
+
                     break;
 
                 case RhinoDocObjects.ObjectType.Mesh:
@@ -259,10 +263,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                                 var v = mesh.Vertices[i];
                                 vertices.Add(new JArray { v.X, v.Y, v.Z });
                             }
+
                             objData["vertices"] = vertices;
                             objData["verticesIncluded"] = maxVerts;
                         }
                     }
+
                     break;
             }
         }

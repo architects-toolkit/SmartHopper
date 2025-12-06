@@ -34,11 +34,13 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
         /// <param name="result">Deserialization result with components and document</param>
         /// <param name="startPosition">Starting position for placement (null for auto)</param>
         /// <param name="spacing">Spacing between components</param>
+        /// <param name="useExactPositions">When true, uses exact pivot positions from GhJSON without offset calculation. Use for component replacement scenarios.</param>
         /// <returns>List of component names that were placed</returns>
         public static List<string> PlaceComponents(
             DeserializationResult result,
             PointF? startPosition = null,
-            int spacing = 100)
+            int spacing = 100,
+            bool useExactPositions = false)
         {
             if (result == null || result.Components == null || result.Components.Count == 0)
             {
@@ -61,10 +63,19 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
             // Calculate positions based on whether pivots exist in GhJSON
             if (hasPivots)
             {
-                // Pivots exist: offset them to prevent overlap with existing components
-                var offset = CalculatePivotOffset(componentProps, startPosition);
-                ApplyOffsettedPositions(result.Components, componentProps, result.GuidMapping, offset);
-                Debug.WriteLine($"[ComponentPlacer] Applied pivot offset: ({offset.X}, {offset.Y})");
+                if (useExactPositions)
+                {
+                    // Use exact positions from GhJSON without any offset (for replacement scenarios)
+                    ApplyOffsettedPositions(result.Components, componentProps, result.GuidMapping, PointF.Empty);
+                    Debug.WriteLine("[ComponentPlacer] Applied exact pivot positions (no offset)");
+                }
+                else
+                {
+                    // Pivots exist: offset them to prevent overlap with existing components
+                    var offset = CalculatePivotOffset(componentProps, startPosition);
+                    ApplyOffsettedPositions(result.Components, componentProps, result.GuidMapping, offset);
+                    Debug.WriteLine($"[ComponentPlacer] Applied pivot offset: ({offset.X}, {offset.Y})");
+                }
             }
             else
             {
@@ -124,7 +135,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
             // Find the lowest Y position on the current canvas
             var currentObjects = CanvasAccess.GetCurrentObjects();
             float lowestY = 0f;
-            
+
             if (currentObjects.Any())
             {
                 lowestY = currentObjects.Max(o => o.Attributes.Pivot.Y + o.Attributes.Bounds.Height);

@@ -109,6 +109,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                         ["color"] = $"#{layer.Color.R:X2}{layer.Color.G:X2}{layer.Color.B:X2}"
                     });
                 }
+
                 result["layers"] = layers;
 
                 // Include detailed object information if requested
@@ -194,6 +195,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                     {
                         objInfo["location"] = new JArray { pt.Location.X, pt.Location.Y, pt.Location.Z };
                     }
+
                     break;
 
                 case RhinoDocObjects.ObjectType.Curve:
@@ -204,6 +206,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                         objInfo["isClosed"] = curve.IsClosed;
                         objInfo["degree"] = curve.Degree;
                     }
+
                     break;
 
                 case RhinoDocObjects.ObjectType.Surface:
@@ -219,6 +222,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                             objInfo["volume"] = brep.GetVolume();
                         }
                     }
+
                     break;
 
                 case RhinoDocObjects.ObjectType.Mesh:
@@ -229,6 +233,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Rhino
                         objInfo["faceCount"] = mesh.Faces.Count;
                         objInfo["isClosed"] = mesh.IsClosed;
                     }
+
                     break;
             }
         }
