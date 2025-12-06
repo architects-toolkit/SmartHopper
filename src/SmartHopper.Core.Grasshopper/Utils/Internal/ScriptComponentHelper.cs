@@ -49,7 +49,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 }
             }
             catch { }
-            
+
             return false;
         }
 
@@ -88,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 }
             }
             catch { }
-            
+
             return false;
         }
 
@@ -128,7 +128,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 }
             }
             catch { }
-            
+
             return false;
         }
 
@@ -191,6 +191,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                     return ScriptLanguage.IronPython;
                 return ScriptLanguage.Python;
             }
+
             if (IsVBScriptComponent(scriptComp))
                 return ScriptLanguage.VB;
 
@@ -205,16 +206,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
     {
         /// <summary>Unknown or unsupported script language</summary>
         Unknown,
-        
+
         /// <summary>C# script component</summary>
         CSharp,
-        
+
         /// <summary>Python script component (GhPython or newer Python 3)</summary>
         Python,
-        
+
         /// <summary>IronPython script component (legacy GhPython)</summary>
         IronPython,
-        
+
         /// <summary>VB.NET script component</summary>
         VB
     }

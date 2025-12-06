@@ -135,7 +135,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.Canvas
             // Find the lowest Y position on the current canvas
             var currentObjects = CanvasAccess.GetCurrentObjects();
             float lowestY = 0f;
-            
+
             if (currentObjects.Any())
             {
                 lowestY = currentObjects.Max(o => o.Attributes.Pivot.Y + o.Attributes.Bounds.Height);

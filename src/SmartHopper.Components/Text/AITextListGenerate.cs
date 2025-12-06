@@ -21,7 +21,6 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Text
 {
@@ -31,7 +30,8 @@ namespace SmartHopper.Components.Text
         protected override Bitmap Icon => Resources.textlistgenerate;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        protected override AICapability RequiredCapability => AICapability.Text2Json;
+        /// <inheritdoc/>
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "list_generate" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {

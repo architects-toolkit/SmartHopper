@@ -308,6 +308,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                                     registeredParam.Reverse = true;
                                     Debug.WriteLine($"[GhJsonDeserializer] Applied Reverse to input parameter '{registeredParam.Name}'");
                                 }
+
                                 if (settings.AdditionalSettings.Simplify == true)
                                 {
                                     registeredParam.Simplify = true;
@@ -548,6 +549,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                                 registeredParam.Reverse = true;
                                 Debug.WriteLine($"[GhJsonDeserializer] Applied Reverse to VB input '{registeredParam.Name}'");
                             }
+
                             if (settings.AdditionalSettings.Simplify == true)
                             {
                                 registeredParam.Simplify = true;
@@ -604,6 +606,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                                 registeredParam.Reverse = true;
                                 Debug.WriteLine($"[GhJsonDeserializer] Applied Reverse to VB output '{registeredParam.Name}'");
                             }
+
                             if (settings.AdditionalSettings.Simplify == true)
                             {
                                 registeredParam.Simplify = true;

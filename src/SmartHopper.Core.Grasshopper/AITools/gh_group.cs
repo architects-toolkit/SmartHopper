@@ -151,13 +151,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     group = new GH_Group();
                     group.NickName = groupName;
                     group.Colour = groupColor;
-                    
+
                     // Add objects to group
                     foreach (var guid in validGuids)
                     {
                         group.AddObject(guid);
                     }
-                    
+
                     // Add group to document
                     var canvas = Instances.ActiveCanvas;
                     if (canvas?.Document != null)

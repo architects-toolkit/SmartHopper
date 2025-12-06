@@ -22,7 +22,6 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Script
 {
@@ -43,7 +42,7 @@ namespace SmartHopper.Components.Script
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
-        protected override AICapability RequiredCapability => AICapability.Text2Text;
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "script_review" };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIScriptReviewComponent"/> class.

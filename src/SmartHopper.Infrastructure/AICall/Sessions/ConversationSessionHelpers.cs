@@ -26,7 +26,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Metrics;
     using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AICall.Utilities;
-    using SmartHopper.Infrastructure.Streaming;
 
     /// <summary>
     /// Helper methods supporting <see cref="ConversationSession"/> orchestration logic.
@@ -134,7 +133,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             var toolRq = new AIToolCall();
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
-            
+
             // Measure tool execution time
             var stopwatch = Stopwatch.StartNew();
             var toolRet = await this.executor.ExecToolAsync(toolRq, ct).ConfigureAwait(false);
@@ -197,7 +196,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 .Add(toolInteraction)
                 .Build();
             deltaOk.SetBody(okBody);
-            
+
             return deltaOk;
         }
 
@@ -314,6 +313,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}");
             }
+
 #endif
             this._lastReturn = snapshot;
         }
@@ -594,6 +594,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 // debug-only logging, ignore failures
             }
+
 #endif
         }
 
@@ -704,6 +705,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             {
                                 content = content.Substring(0, textPreview) + "...";
                             }
+
                             token = $"Text:\"{content}\"";
                             break;
 
@@ -753,6 +755,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // logging only
             }
         }
+
 #endif
         /// <summary>
         /// Creates a standardized provider error return.
@@ -795,6 +798,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             this.NotifyError(ex);
             return error;
         }
+
 #if DEBUG
 
         /// <summary>
@@ -973,6 +977,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Debug.WriteLine($"[ConversationSession.Debug] Error appending event: {ex.Message}");
             }
         }
+
 #endif
     }
 }

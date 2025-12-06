@@ -16,7 +16,9 @@ This document summarizes the core architecture of SmartHopper: a modular, secure
 SmartHopper integrates with external AI providers through a secure plug‑in model. Providers declare models and capabilities, which are centrally validated and resolved at runtime. Components offer UI for selecting providers/models, orchestrate context gathering, invoke AI calls, and surface metrics and results to the user.
 
 Data flow:
+
 1) Component input/state → 2) Context providers → 3) Provider + Model resolution → 4) AI call (tools optional) → 5) Response decoding → 6) Metrics → 7) Component outputs
+
 
 ## 2. Provider Discovery, Trust, and Loading
 
@@ -40,7 +42,7 @@ Data flow:
   - Lifecycle: `InitializeProviderAsync()`, `RefreshCachedSettings()`
   - Call pipeline: `PreCall()`, `Call()`, `PostCall()`
   - Encoding/Decoding helpers: `Encode*` / `Decode*`
-  - Model selection: `GetDefaultModel()`
+  - Model selection: `GetDefaultModel()` and `SelectModel()` delegating to `ModelManager`/`AIModelCapabilities` for capability‑aware defaults and fallbacks.
   
 - Base class: `src/SmartHopper.Infrastructure/AIProviders/AIProvider.cs` — docs: [AIProvider](./Providers/AIProvider.md)
   - Shared initialization and settings injection
@@ -58,8 +60,8 @@ Data flow:
   - Default model resolution by capability
 
 - Capability model: `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs`
-  - Captures provider name, model name, flags (text, vision, function‑call, etc.)
-  - Helpers for key generation and checks
+  - Captures provider name, model name, capability flags and metadata (verified/deprecated, rank, aliases, streaming/prompt‑caching support, tool‑specific discouragement hints).
+  - Helpers for key generation, capability checks, and reading this metadata.
 
 - Registry: `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilityRegistry.cs`
   - Stores capabilities keyed by `provider.model`
@@ -134,10 +136,12 @@ These are injected to enrich AI prompts with environment and time metadata.
 
 ## 11. Concurrency, Reliability, and Metrics
 
-- Model registry lookups support wildcard resolution via prefix matching
-- Default model resolution prefers concrete names to avoid API errors
-- Components maintain run state and metrics; ensure metrics are not cleared mid‑processing in toggle scenarios
-- Providers should implement timeouts, retries with jitter, cancellation, and error classification
+- Model registry lookups use exact model names and aliases only; `ModelManager.SelectBestModel` centralizes capability‑aware selection and fallbacks.
+- Default model resolution prefers concrete names to avoid API errors and uses `Verified`/`Deprecated`/`Rank` metadata as tie‑breakers.
+- Components maintain run state and metrics; the async bases ensure metrics are not cleared mid‑processing in toggle scenarios.
+- The AICall `PolicyPipeline` runs request/response policies (timeouts, tool validation, context injection, schema attach/validate, finish‑reason normalization) for every call.
+- Conversation sessions (`ConversationSession`) orchestrate multi‑turn calls and tool loops on top of `AIRequestCall.Exec`, aggregating per‑turn metrics for the UI.
+- Providers should implement timeouts, retries with jitter, cancellation, and error classification.
 
 ## 12. Directory Map (Key Paths)
 

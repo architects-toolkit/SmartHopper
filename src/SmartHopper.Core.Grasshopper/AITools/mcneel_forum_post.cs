@@ -48,6 +48,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             "You are a helpful assistant that summarizes forum posts concisely. Provide a brief 1-2 sentence summary of the main point or question.";
 
         /// <summary>
+        /// Capability requirements for topic summarization.
+        /// </summary>
+        private readonly AICapability summarizeCapabilityRequirements = AICapability.TextInput | AICapability.TextOutput;
+
+        /// <summary>
         /// Returns the list of tools provided by this class.
         /// </summary>
         public IEnumerable<AITool> GetTools()
@@ -89,7 +94,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""ids""]
                 }",
-                execute: this.SummarizePostAsync);
+                execute: this.SummarizePostAsync,
+                requiredCapabilities: this.summarizeCapabilityRequirements);
         }
 
         /// <summary>

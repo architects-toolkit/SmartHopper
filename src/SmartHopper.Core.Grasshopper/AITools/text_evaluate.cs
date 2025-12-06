@@ -143,6 +143,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!result.Success)
                 {
                     Debug.WriteLine($"[TextTools.EvaluateText] AI call failed. Messages: {result.Messages?.Count ?? 0}");
+
                     // Propagate structured messages from AI call
                     output.Messages = result.Messages;
                     return output;

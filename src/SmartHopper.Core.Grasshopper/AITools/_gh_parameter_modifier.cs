@@ -58,10 +58,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             //     }",
             //     execute: this.DataMapperNoneParameterAsync, // Missing funciton
             //     requiredCapabilities: this.toolCapabilityRequirements);
-            
+
             yield return new AITool(
                 name: "gh_parameter_data_mapping_flatten",
                 description: "Set a parameter's data mapping to Flatten",
+
                 // category: "Parameters",
                 category: "NotTested",
                 parametersSchema: @"{
@@ -79,6 +80,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_data_mapping_graft",
                 description: "Set a parameter's data mapping to Graft",
+
                 // category: "Parameters",
                 category: "NotTested",
                 parametersSchema: @"{
@@ -96,6 +98,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_reverse",
                 description: "Reverse the order of items in a parameter",
+
                 // category: "Parameters",
                 category: "NotTested",
                 parametersSchema: @"{
@@ -114,6 +117,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_simplify",
                 description: "Simplify geometry in a parameter (removes redundant control points)",
+
                 // category: "Parameters",
                 category: "NotTested",
                 parametersSchema: @"{
