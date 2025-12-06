@@ -160,17 +160,21 @@ When developing locally, you must generate and apply both strong-name and Authen
    ```powershell
    .\Sign-StrongNames.ps1 -Generate
    ```
-4. Create a self-signed PFX for Authenticode via the Authenticode script:
+4. Update internal visibility keys from your strong-name key (run this whenever you generate or change `signing.snk`):
+   ```powershell
+   .\tools\Update-InternalsVisibleTo.ps1 -SnkPath ".\signing.snk"
+   ```
+5. Create a self-signed PFX for Authenticode via the Authenticode script:
    ```powershell
    .\Sign-Authenticode.ps1 -Generate -Password '<password>'
    ```
-5. Build the solution from Visual Studio or via the command line:
+6. Build the solution from Visual Studio or via the command line:
    ```powershell
    dotnet build SmartHopper.sln -c Release
    ```
-6. Authenticode-sign provider DLLs (e.g. for Grasshopper testing):
+7. Authenticode-sign provider DLLs (e.g. for Grasshopper testing):
    ```powershell
    .\Sign-Authenticode.ps1 -Sign bin\Debug\net7.0-windows -Password '<password>'
    ```
 
-**Note:** Repeat steps 1, 2, and 6 after every build to ensure your providers are signed and SmartHopper can load them.
+**Note:** Repeat steps 1, 2, 4, 6, and 7 on every build to ensure your providers are signed and SmartHopper can load them. Step 4 is only needed when you generate or change `signing.snk`, or when you synchronize your local repository with the remote repository.
