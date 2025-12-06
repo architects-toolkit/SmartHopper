@@ -64,7 +64,7 @@ Start a chat, ask for help, search the McNeel forum, or talk about life.
 
 ### Generate and Edit Script Components
 
-Generate and edit Script components with AI.
+Create powerful scripts in seconds. Let AI write, review, and refine your code following your instructions.
 
 [![Generate and Edit Script Components ▶](./img/video-scripting.jpg)](https://vimeo.com/1144166204 "Generate and Edit Script Components ▶ — click to watch on Vimeo")
 
