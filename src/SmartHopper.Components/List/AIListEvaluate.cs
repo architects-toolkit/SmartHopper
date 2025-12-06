@@ -23,7 +23,6 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
-using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.List
 {
@@ -35,7 +34,8 @@ namespace SmartHopper.Components.List
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        protected override AICapability RequiredCapability => AICapability.Text2Text;
+        /// <inheritdoc/>
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "list_evaluate" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {

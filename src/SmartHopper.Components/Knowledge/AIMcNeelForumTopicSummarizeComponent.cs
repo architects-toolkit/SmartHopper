@@ -22,7 +22,6 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -38,7 +37,8 @@ namespace SmartHopper.Components.Knowledge
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        protected override AICapability RequiredCapability => AICapability.Text2Text;
+        /// <inheritdoc/>
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "mcneel_forum_topic_summarize" };
 
         public AIMcNeelForumTopicSummarizeComponent()
             : base(

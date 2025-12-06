@@ -23,7 +23,6 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Img
 {
@@ -48,7 +47,8 @@ namespace SmartHopper.Components.Img
         /// <value>The exposure level.</value>
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        protected override AICapability RequiredCapability => AICapability.Text2Image;
+        /// <inheritdoc/>
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "img_generate" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
