@@ -3,6 +3,8 @@
   Manage strong-name key (.snk) for SmartHopper.
 .DESCRIPTION
   Generates, decodes, or exports a .snk strong-name key.
+.PARAMETER SnkPath
+  Optional path to the signing.snk file; defaults to signing.snk next to this script.
 .PARAMETER Generate
   Generates a new strong-name key file (signing.snk) using sn.exe.
 .PARAMETER Base64
@@ -13,13 +15,18 @@
   Displays this help message.
 #>
 param(
+    [string]$SnkPath,
     [switch]$Generate,
     [string]$Base64,
     [switch]$Export,
     [switch]$Help
 )
 
-$snkPath = Join-Path -Path $PSScriptRoot -ChildPath 'signing.snk'
+if ([string]::IsNullOrWhiteSpace($SnkPath)) {
+    $snkPath = Join-Path -Path $PSScriptRoot -ChildPath 'signing.snk'
+} else {
+    $snkPath = $SnkPath
+}
 
 function Show-Help {
     Write-Host "Usage: .\Sign-StrongNames.ps1 [options]"
