@@ -12,9 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Script tools:
   - Added `script_generate_and_place_on_canvas` wrapper tool that combines `script_generate` and `gh_put` in a single call, reducing token consumption by eliminating the need for the AI to call both tools separately.
   - Moved `script_generate` tool to `Hidden` category (only `script_generate_and_place_on_canvas` is now visible to chat agents).
+- `gh_get` tools:
+  - Added `gh_get_selected_with_data` tool that returns selected components with their runtime/volatile data (actual values flowing through outputs).
+  - Added `gh_get_by_guid_with_data` tool that returns specific components by GUID with their runtime/volatile data.
+  - Added `includeRuntimeData` parameter to the base `gh_get` tool for optional runtime data extraction.
+  - Runtime data includes total item count, branch structure, and sample values for each parameter output.
+  - Added `gh_get_errors_with_data` tool that returns only errored components with their runtime/volatile data, useful for debugging broken definitions.
+- `gh_put` tool:
+  - Added `instanceGuids` array to the tool result containing the actual GUIDs of placed components (useful for subsequent queries).
 
 ### Fixed
 
+- Script tools:
+  - Fixed `script_generate_and_place_on_canvas` returning incorrect `instanceGuid`. The tool was returning the in-memory GUID from `script_generate` instead of the actual GUID assigned by Grasshopper when the component was placed on canvas. Now returns the real `instanceGuid` from `gh_put` result.
 - GhJSON validation:
   - Fixed `GHJsonAnalyzer.Validate` to treat missing `connections` property as an empty array instead of an error. Components without connections are now valid and won't trigger "'connections' property is missing or not an array" errors.
 
@@ -67,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed the monolithic `script_generator` AI tool in favor of smaller, focused tools that operate purely on GhJSON.
   - Updated `AIScriptGeneratorComponent` and `AIScriptReviewComponent` to support processing multiple inputs in parallel.
   - Renamed `script_fix` tool to `script_review` to better reflect its review-focused behavior.
+  - `script_generate` no longer includes a pre-placement `instanceGuid` in its tool result; instance GUIDs are only exposed via `script_generate_and_place_on_canvas` / `gh_put` using the real canvas instance GUIDs.
 - `GhJsonDeserializer`:
   - Changed deserialization logic to default the UsingStandardOutputParam property to true when ShowStandardOutput is not present in the GhJSON ComponentState.
 - Providers:

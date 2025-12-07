@@ -302,14 +302,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Build tool result
+                // Build tool result (GhJSON only; canvas instance GUIDs are assigned later by gh_put)
                 var toolResult = new JObject
                 {
                     ["success"] = true,
                     ["ghjson"] = ghJsonString,
                     ["language"] = componentInfo.LanguageKey,
                     ["componentName"] = componentInfo.DisplayName,
-                    ["instanceGuid"] = comp.InstanceGuid.ToString(),
                     ["inputCount"] = inputs.Count,
                     ["outputCount"] = outputs.Count,
                     ["summary"] = summary,
@@ -466,11 +465,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .OfType<AIInteractionToolResult>()
                     .FirstOrDefault();
 
+                // Use the actual instanceGuid from gh_put (the real GUID after placement)
+                var placedGuids = ghPutToolResult?.Result?["instanceGuids"] as JArray;
+                var actualInstanceGuid = placedGuids?.FirstOrDefault()?.ToString();
+
                 var combinedResult = new JObject
                 {
                     ["success"] = true,
                     ["ghjson"] = generatedGhJson,
-                    ["instanceGuid"] = generateToolResult.Result["instanceGuid"],
+                    ["instanceGuid"] = actualInstanceGuid,
                     ["language"] = generateToolResult.Result["language"],
                     ["componentName"] = generateToolResult.Result["componentName"],
                     ["inputCount"] = generateToolResult.Result["inputCount"],
