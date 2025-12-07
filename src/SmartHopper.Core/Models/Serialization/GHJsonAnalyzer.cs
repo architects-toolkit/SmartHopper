@@ -65,13 +65,20 @@ namespace SmartHopper.Core.Models.Serialization
                     errors.Add("'components' property is missing or not an array.");
                 }
 
-                if (root["connections"] is JArray conns)
+                // Treat missing 'connections' as empty array (no connections is valid)
+                // but error if it exists and is not an array
+                if (root["connections"] == null || root["connections"].Type == JTokenType.Null)
+                {
+                    // Missing or null connections is valid - treat as empty array
+                    connections = new JArray();
+                }
+                else if (root["connections"] is JArray conns)
                 {
                     connections = conns;
                 }
                 else
                 {
-                    errors.Add("'connections' property is missing or not an array.");
+                    errors.Add("'connections' property is not an array.");
                 }
 
                 if (components != null)

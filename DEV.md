@@ -56,8 +56,10 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `list_filter` | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | `list_generate` | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_review` | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_generate` | Create Grasshopper script components based on instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_edit` | Edit Grasshopper script components based on instructions and GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_generate` | Create Grasshopper script components based on instructions (Hidden to chat - available only in AIScriptGenerator component) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_generate_and_place_on_canvas` | Generate a new script component and place it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_edit` | Edit Grasshopper script components based on instructions (Hidden to chat - available only in AIScriptGenerator component) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_edit_and_replace_on_canvas` | Edit a script component by GUID and replace it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_parameter_add_input` | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_add_output` | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_remove_input` | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
@@ -80,6 +82,15 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `gh_list_categories` | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_components` | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_get` | Retrieve Grasshopper components as GhJSON with optional filters | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_selected` | Retrieve only the selected components from the Grasshopper canvas as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_selected_with_data` | Retrieve selected components as GhJSON together with a snapshot of their runtime data (inputs/outputs, counts, sample values) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_by_guid` | Retrieve specific components by GUID as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_by_guid_with_data` | Retrieve specific components by GUID as GhJSON together with a snapshot of their runtime data | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_errors` | Retrieve only components that have error messages as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_errors_with_data` | Retrieve only errored components as GhJSON together with a snapshot of their runtime data (useful for debugging broken parts of a definition) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_locked` | Retrieve only locked (disabled) components as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_hidden` | Retrieve only components with preview turned off (hidden geometry) as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_visible` | Retrieve only components with preview turned on (visible geometry) as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_put` | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_merge` | Merge two GhJSON documents into one (target takes priority on conflicts) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_component_toggle_preview` | Toggle component preview on or off by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
