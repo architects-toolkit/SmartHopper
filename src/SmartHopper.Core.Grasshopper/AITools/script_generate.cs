@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -34,6 +35,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public class script_generate : IAIToolProvider
     {
         private readonly string toolName = "script_generate";
+        private readonly string wrapperToolName = "script_generate_and_place_on_canvas";
 
         private const int MaxValidationRetries = 2;
 
@@ -104,7 +106,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: this.toolName,
                 description: "Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas).",
-                category: "Scripting",
+                category: "Hidden",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -121,6 +123,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instructions""]
                 }",
                 execute: this.ExecuteAsync,
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
+
+            // Wrapper tool that generates and places the component on canvas in one call.
+            yield return new AITool(
+                name: this.wrapperToolName,
+                description: "Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation.",
+                category: "Scripting",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""instructions"": {
+                            ""type"": ""string"",
+                            ""description"": ""Natural language instructions describing what the script should do.""
+                        },
+                        ""language"": {
+                            ""type"": ""string"",
+                            ""description"": ""Optional preferred scripting language (python, ironpython, c#, vb). Defaults to python if not specified."",
+                            ""enum"": [""python"", ""ironpython"", ""c#"", ""vb""]
+                        }
+                    },
+                    ""required"": [""instructions""]
+                }",
+                execute: this.ExecuteGenerateAndPlaceAsync,
                 requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
         }
 
@@ -299,6 +324,173 @@ namespace SmartHopper.Core.Grasshopper.AITools
             catch (Exception ex)
             {
                 Debug.WriteLine($"[script_generate] Error: {ex.Message}");
+                output.CreateError(ex.Message);
+                return output;
+            }
+        }
+
+        /// <summary>
+        /// Wrapper that generates the script and places it on the canvas in one call.
+        /// Internally calls script_generate then gh_put.
+        /// </summary>
+        private async Task<AIReturn> ExecuteGenerateAndPlaceAsync(AIToolCall toolCall)
+        {
+            var output = new AIReturn { Request = toolCall };
+
+            try
+            {
+                // Parse wrapper arguments
+                var wrapperToolInfo = toolCall.GetToolCall();
+                var wrapperArgs = wrapperToolInfo.Arguments ?? new JObject();
+                var instructions = wrapperArgs["instructions"]?.ToString();
+                var language = wrapperArgs["language"]?.ToString();
+
+                if (string.IsNullOrWhiteSpace(instructions))
+                {
+                    output.CreateError("Missing required 'instructions' parameter.");
+                    return output;
+                }
+
+                // Step 1: Call script_generate to generate the GhJSON
+                Debug.WriteLine($"[{this.wrapperToolName}] Step 1: Calling script_generate");
+
+                var scriptGenerateArgs = new JObject
+                {
+                    ["instructions"] = instructions,
+                };
+                if (!string.IsNullOrWhiteSpace(language))
+                {
+                    scriptGenerateArgs["language"] = language;
+                }
+
+                var scriptGenerateInteraction = new AIInteractionToolCall
+                {
+                    Name = this.toolName,
+                    Arguments = scriptGenerateArgs,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var scriptGenerateToolCall = new AIToolCall
+                {
+                    Provider = toolCall.Provider,
+                    Model = toolCall.Model,
+                    Endpoint = this.toolName,
+                };
+
+                scriptGenerateToolCall.Body = AIBodyBuilder.Create()
+                    .Add(scriptGenerateInteraction)
+                    .Build();
+
+                var generateResult = await this.ExecuteAsync(scriptGenerateToolCall).ConfigureAwait(false);
+
+                if (!generateResult.Success)
+                {
+                    Debug.WriteLine($"[{this.wrapperToolName}] script_generate failed");
+                    output.Messages = generateResult.Messages;
+                    return output;
+                }
+
+                // Extract the generated GhJSON from the script_generate result
+                var generateToolResult = generateResult.Body?.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                if (generateToolResult?.Result == null)
+                {
+                    output.CreateError("script_generate did not return a valid result.");
+                    return output;
+                }
+
+                var generatedGhJson = generateToolResult.Result["ghjson"]?.ToString();
+                if (string.IsNullOrWhiteSpace(generatedGhJson))
+                {
+                    output.CreateError("script_generate did not return generated GhJSON.");
+                    return output;
+                }
+
+                Debug.WriteLine($"[{this.wrapperToolName}] Step 2: Calling gh_put");
+
+                // Step 2: Call gh_put to place the component on canvas
+                var ghPutArgs = new JObject
+                {
+                    ["ghjson"] = generatedGhJson,
+                    ["editMode"] = false,
+                };
+
+                var ghPutToolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "gh_put",
+                    Arguments = ghPutArgs,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var ghPutToolCall = new AIToolCall
+                {
+                    Provider = toolCall.Provider,
+                    Model = toolCall.Model,
+                    Endpoint = "gh_put",
+                    SkipMetricsValidation = true,
+                };
+                ghPutToolCall.Body = AIBodyBuilder.Create()
+                    .Add(ghPutToolCallInteraction)
+                    .Build();
+
+                var ghPutResult = await AIToolManager.ExecuteTool(ghPutToolCall).ConfigureAwait(false);
+
+                if (!ghPutResult.Success)
+                {
+                    Debug.WriteLine($"[{this.wrapperToolName}] gh_put failed");
+
+                    // Return combined result with generate success but put failure
+                    var partialResult = new JObject
+                    {
+                        ["success"] = false,
+                        ["generateSuccess"] = true,
+                        ["ghjson"] = generatedGhJson,
+                        ["putSuccess"] = false,
+                        ["putError"] = ghPutResult.Messages?.FirstOrDefault()?.Message ?? "gh_put failed",
+                        ["message"] = "Script was generated successfully but failed to place on canvas.",
+                    };
+
+                    var partialBody = AIBodyBuilder.Create()
+                        .AddToolResult(partialResult, toolCall.GetToolCall().Id, this.wrapperToolName, generateResult.Metrics, ghPutResult.Messages)
+                        .Build();
+                    output.CreateSuccess(partialBody, toolCall);
+                    return output;
+                }
+
+                Debug.WriteLine($"[{this.wrapperToolName}] Both steps completed successfully");
+
+                // Combine results from both operations
+                var ghPutToolResult = ghPutResult.Body?.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                var combinedResult = new JObject
+                {
+                    ["success"] = true,
+                    ["ghjson"] = generatedGhJson,
+                    ["instanceGuid"] = generateToolResult.Result["instanceGuid"],
+                    ["language"] = generateToolResult.Result["language"],
+                    ["componentName"] = generateToolResult.Result["componentName"],
+                    ["inputCount"] = generateToolResult.Result["inputCount"],
+                    ["outputCount"] = generateToolResult.Result["outputCount"],
+                    ["summary"] = generateToolResult.Result["summary"],
+                    ["components"] = ghPutToolResult?.Result?["components"],
+                    ["message"] = "Script component generated and placed on canvas successfully.",
+                };
+
+                // Combine metrics from both operations
+                var combinedMetrics = generateResult.Metrics;
+
+                var outBuilder = AIBodyBuilder.Create();
+                outBuilder.AddToolResult(combinedResult, toolCall.GetToolCall().Id, this.wrapperToolName, combinedMetrics, generateResult.Messages);
+                output.CreateSuccess(outBuilder.Build(), toolCall);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.wrapperToolName}] Error: {ex.Message}");
                 output.CreateError(ex.Message);
                 return output;
             }
