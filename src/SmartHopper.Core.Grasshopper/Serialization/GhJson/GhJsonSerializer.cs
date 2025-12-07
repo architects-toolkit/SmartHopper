@@ -17,6 +17,8 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared;
@@ -1061,6 +1063,146 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             {
                 Debug.WriteLine($"[GhJsonSerializer] Error extracting groups: {ex.Message}");
             }
+        }
+
+        #endregion
+
+        #region Runtime Data Extraction
+
+        /// <summary>
+        /// Extracts runtime/volatile data from component outputs.
+        /// Returns a JObject keyed by component instanceGuid containing output parameter data.
+        /// </summary>
+        /// <param name="objects">List of Grasshopper objects to extract data from.</param>
+        /// <returns>JObject containing runtime data organized by component GUID.</returns>
+        public static JObject ExtractRuntimeData(IEnumerable<IGH_ActiveObject> objects)
+        {
+            var result = new JObject();
+
+            foreach (var obj in objects)
+            {
+                var componentData = new JObject();
+
+                if (obj is IGH_Component comp)
+                {
+                    // Extract output parameter data for components
+                    var outputsData = new JObject();
+                    foreach (var output in comp.Params.Output)
+                    {
+                        var paramData = ExtractParameterVolatileData(output);
+                        if (paramData != null)
+                        {
+                            outputsData[output.NickName] = paramData;
+                        }
+                    }
+
+                    if (outputsData.Count > 0)
+                    {
+                        componentData["outputs"] = outputsData;
+                    }
+
+                    // Also extract input data if it has values
+                    var inputsData = new JObject();
+                    foreach (var input in comp.Params.Input)
+                    {
+                        var paramData = ExtractParameterVolatileData(input);
+                        if (paramData != null)
+                        {
+                            inputsData[input.NickName] = paramData;
+                        }
+                    }
+
+                    if (inputsData.Count > 0)
+                    {
+                        componentData["inputs"] = inputsData;
+                    }
+                }
+                else if (obj is IGH_Param param)
+                {
+                    // Extract data for standalone parameters
+                    var paramData = ExtractParameterVolatileData(param);
+                    if (paramData != null)
+                    {
+                        componentData["data"] = paramData;
+                    }
+                }
+
+                if (componentData.Count > 0)
+                {
+                    componentData["name"] = obj.Name;
+                    result[obj.InstanceGuid.ToString()] = componentData;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Extracts volatile data from a single parameter.
+        /// Returns count, paths, and sample values in a compact format.
+        /// </summary>
+        /// <param name="param">The parameter to extract volatile data from.</param>
+        /// <returns>JObject with totalCount, branchCount, and branches array; null if empty.</returns>
+        public static JObject ExtractParameterVolatileData(IGH_Param param)
+        {
+            var volatileData = param.VolatileData;
+            if (volatileData == null || volatileData.IsEmpty)
+            {
+                return null;
+            }
+
+            var paramData = new JObject
+            {
+                ["totalCount"] = volatileData.DataCount,
+                ["branchCount"] = volatileData.PathCount,
+            };
+
+            // Extract path structure with item counts
+            var branches = new JArray();
+            foreach (var path in volatileData.Paths)
+            {
+                var branch = volatileData.get_Branch(path);
+                var branchInfo = new JObject
+                {
+                    ["path"] = path.ToString(),
+                    ["count"] = branch?.Count ?? 0,
+                };
+
+                // Sample first few values for context (limit to avoid huge responses)
+                if (branch != null && branch.Count > 0)
+                {
+                    var samples = new JArray();
+                    int sampleCount = Math.Min(branch.Count, 3); // Limit to 3 samples per branch
+                    for (int i = 0; i < sampleCount; i++)
+                    {
+                        var item = branch[i];
+                        if (item is IGH_Goo goo)
+                        {
+                            samples.Add(goo.ToString());
+                        }
+                        else if (item != null)
+                        {
+                            samples.Add(item.ToString());
+                        }
+                    }
+
+                    if (samples.Count > 0)
+                    {
+                        branchInfo["samples"] = samples;
+                    }
+
+                    if (branch.Count > sampleCount)
+                    {
+                        branchInfo["hasMore"] = true;
+                    }
+                }
+
+                branches.Add(branchInfo);
+            }
+
+            paramData["branches"] = branches;
+
+            return paramData;
         }
 
         #endregion

@@ -469,9 +469,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 Debug.WriteLine("[gh_put] Placement complete");
 
+                // Collect actual instanceGuids of placed components
+                var placedGuids = result.Components
+                    .Select(c => c.InstanceGuid.ToString())
+                    .ToList();
+
                 var toolResult = new JObject
                 {
                     ["components"] = JArray.FromObject(placed),
+                    ["instanceGuids"] = JArray.FromObject(placedGuids),
                     ["analysis"] = analysisMsg,
                 };
 
