@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Script tools:
+  - Added `script_generate_and_place_on_canvas` wrapper tool that combines `script_generate` and `gh_put` in a single call, reducing token consumption by eliminating the need for the AI to call both tools separately.
+  - Moved `script_generate` tool to `Hidden` category (only `script_generate_and_place_on_canvas` is now visible to chat agents).
+
+### Fixed
+
+- GhJSON validation:
+  - Fixed `GHJsonAnalyzer.Validate` to treat missing `connections` property as an empty array instead of an error. Components without connections are now valid and won't trigger "'connections' property is missing or not an array" errors.
+
 ## [1.2.0-alpha] - 2025-12-06
 
 ### Added

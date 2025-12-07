@@ -56,8 +56,10 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `list_filter` | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | `list_generate` | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_review` | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_generate` | Create Grasshopper script components based on instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_edit` | Edit Grasshopper script components based on instructions and GUID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_generate` | Create Grasshopper script components based on instructions (Hidden to chat - available only in AIScriptGenerator component) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_generate_and_place_on_canvas` | Generate a new script component and place it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_edit` | Edit Grasshopper script components based on instructions (Hidden to chat - available only in AIScriptGenerator component) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_edit_and_replace_on_canvas` | Edit a script component by GUID and replace it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_parameter_add_input` | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_add_output` | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_remove_input` | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
