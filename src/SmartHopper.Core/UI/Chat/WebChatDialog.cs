@@ -31,6 +31,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Execution;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Sessions;
+using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Streaming;
 
@@ -1096,7 +1097,8 @@ namespace SmartHopper.Core.UI.Chat
                 this._pendingUserMessage = trimmed;
 
                 // Append to UI immediately using dedup key for idempotency
-                var userInter = new AIInteractionText { Agent = AIAgent.User, Content = trimmed };
+                // CRITICAL: Assign a unique TurnId to ensure identical messages get distinct dedup keys
+                var userInter = new AIInteractionText { Agent = AIAgent.User, Content = trimmed, TurnId = InteractionUtility.GenerateTurnId() };
                 if (userInter is IAIKeyedInteraction keyed)
                 {
                     this.UpsertMessageByKey(keyed.GetDedupKey(), userInter);

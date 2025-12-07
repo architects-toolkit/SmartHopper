@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed `script_generate_and_place_on_canvas` returning incorrect `instanceGuid`. The tool was returning the in-memory GUID from `script_generate` instead of the actual GUID assigned by Grasshopper when the component was placed on canvas. Now returns the real `instanceGuid` from `gh_put` result.
 - GhJSON validation:
   - Fixed `GHJsonAnalyzer.Validate` to treat missing `connections` property as an empty array instead of an error. Components without connections are now valid and won't trigger "'connections' property is missing or not an array" errors.
+- Chat UI:
+  - Fixed critical bug where two identical user messages were collapsed into a single message in the UI. The root cause was that user messages didn't have a unique `TurnId`, causing identical messages to generate the same dedup key and replace each other. Now each user message receives a unique `TurnId` via `InteractionUtility.GenerateTurnId()`.
+- Conversation session:
+  - Fixed TurnId inconsistency where `ToolResult` interactions were getting new TurnIds instead of inheriting from their originating `ToolCall`. The conditional check `if (string.IsNullOrWhiteSpace(toolInteraction.TurnId))` was never true because `AIBodyBuilder.EnsureTurnId()` had already assigned a new TurnId during tool execution. Changed to unconditional assignment to ensure correct turn-based metrics aggregation.
 
 ## [1.2.0-alpha] - 2025-12-06
 
