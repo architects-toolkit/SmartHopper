@@ -82,10 +82,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""boolean"",
                             ""default"": false,
                             ""description"": ""Whether to include document metadata (schema version, timestamps, Rhino/Grasshopper versions, plugin dependencies). Default is false.""
+                        },
+                        ""includeRuntimeData"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""Whether to include runtime/volatile data (actual values currently flowing through component outputs). Useful for inspecting computed results. Default is false. This is token-expansive!""
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
 
             // Specialized wrapper: gh_get_selected
             yield return new AITool(
@@ -102,7 +107,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, false));
+
+            // Specialized wrapper: gh_get_selected_with_data
+            yield return new AITool(
+                name: "gh_get_selected_with_data",
+                description: "Read selected components WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results, count items, or check actual output values. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive!",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only selected components; 1 includes directly connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, true));
 
             // Specialized wrapper: gh_get_by_guid
             yield return new AITool(
@@ -125,7 +147,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guidFilter""]
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
+
+            // Specialized wrapper: gh_get_by_guid_with_data
+            yield return new AITool(
+                name: "gh_get_by_guid_with_data",
+                description: "Read specific components by GUID WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results from known components. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive!",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""guidFilter"": {
+                            ""type"": ""array"",
+                            ""items"": { ""type"": ""string"" },
+                            ""description"": ""Required list of component GUIDs to retrieve.""
+                        },
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only specified components; 1 includes directly connected components, etc.""
+                        }
+                    },
+                    ""required"": [""guidFilter""]
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, true));
 
             // Specialized wrapper: gh_get_errors
             yield return new AITool(
@@ -142,7 +187,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, false));
+
+            // Specialized wrapper: gh_get_errors_with_data
+            yield return new AITool(
+                name: "gh_get_errors_with_data",
+                description: "Read only components that have error messages WITH their runtime data (volatile data - actual values flowing through outputs). Use this when debugging broken components and you also need to inspect their computed results. Returns GhJSON plus a 'runtimeData' object. This is token-expansive!",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only error components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, true));
 
             // Specialized wrapper: gh_get_locked
             yield return new AITool(
@@ -159,7 +221,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }, null, false));
 
             // Specialized wrapper: gh_get_hidden
             yield return new AITool(
@@ -176,7 +238,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }, null, false));
 
             // Specialized wrapper: gh_get_visible
             yield return new AITool(
@@ -193,7 +255,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }, null, false));
         }
 
         /// <summary>
@@ -202,8 +264,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="toolCall">The tool call containing parameters.</param>
         /// <param name="predefinedAttrFilters">Predefined attribute filters to apply (used by wrapper tools).</param>
         /// <param name="predefinedTypeFilters">Predefined type filters to apply (used by wrapper tools).</param>
+        /// <param name="forceIncludeRuntimeData">When true, forces inclusion of runtime data regardless of parameter value.</param>
         /// <returns>Task that returns the result of the operation.</returns>
-        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null)
+        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceIncludeRuntimeData = false)
         {
             // Prepare the output
             var output = new AIReturn()
@@ -242,6 +305,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
+                var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
                 var (includeTypes, excludeTypes) = ComponentRetriever.ParseIncludeExclude(typeFilters, ComponentRetriever.TypeSynonyms);
                 var (includeTags, excludeTags) = ComponentRetriever.ParseIncludeExclude(attrFilters, ComponentRetriever.FilterSynonyms);
                 var (includeCats, excludeCats) = ComponentRetriever.ParseIncludeExclude(categoryFilters, ComponentRetriever.CategorySynonyms);
@@ -614,6 +678,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Serialize document
                 var json = JsonConvert.SerializeObject(document, Formatting.None);
 
+                // Extract runtime data if requested
+                JObject runtimeData = null;
+                if (includeRuntimeData)
+                {
+                    runtimeData = GhJsonSerializer.ExtractRuntimeData(resultObjects);
+                    Debug.WriteLine($"[gh_get] Extracted runtime data for {runtimeData?.Count ?? 0} components");
+                }
+
                 // Package result with classifications
                 var toolResult = new JObject
                 {
@@ -621,6 +693,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["guids"] = JArray.FromObject(guids),
                     ["ghjson"] = json,
                 };
+
+                if (runtimeData != null)
+                {
+                    toolResult["runtimeData"] = runtimeData;
+                }
 
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)

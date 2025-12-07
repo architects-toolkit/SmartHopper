@@ -146,6 +146,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 {
                     Id = tc.Id,
                     Name = tc.Name,
+                    TurnId = tc.TurnId, // Inherit TurnId from ToolCall for turn consistency
                     Result = new JObject
                     {
                         ["success"] = false,
@@ -165,8 +166,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             if (string.IsNullOrWhiteSpace(toolInteraction.Name)) toolInteraction.Name = tc.Name;
             if (toolInteraction.Agent != AIAgent.ToolResult) toolInteraction.Agent = AIAgent.ToolResult;
 
-            // Preserve TurnId from the originating tool call, not the current turn parameter
-            if (string.IsNullOrWhiteSpace(toolInteraction.TurnId)) toolInteraction.TurnId = tc.TurnId;
+            // ALWAYS preserve TurnId from the originating tool call to maintain turn consistency
+            // ToolResults must share TurnId with their ToolCall for correct metrics aggregation
+            toolInteraction.TurnId = tc.TurnId;
 
             this.PersistToolResult(toolInteraction, turnId);
 
