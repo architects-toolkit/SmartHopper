@@ -325,5 +325,25 @@ namespace SmartHopper.Infrastructure.Dialogs
 
             // Link is automatically unregistered when dialog closes via DialogCanvasLink.OnDialogClosed
         }
+
+        /// <inheritdoc/>
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+
+            var referenceWindow = RhinoEtoApp.MainWindow ?? this.Owner;
+            var targetScreen = referenceWindow != null
+                ? Screen.FromRectangle(referenceWindow.Bounds)
+                : Screen.PrimaryScreen;
+
+            if (targetScreen != null)
+            {
+                var workArea = targetScreen.WorkingArea;
+                var center = workArea.Center;
+                this.Location = new Point(
+                    (int)(center.X - (this.Width / 2)),
+                    (int)(center.Y - (this.Height / 2)));
+            }
+        }
     }
 }
