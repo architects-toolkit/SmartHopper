@@ -117,6 +117,9 @@ namespace SmartHopper.Core.UI.Chat
             private const int ThrottleMs = 50;
             private const int ThrottleDuringMoveResizeMs = 200;
 
+            private readonly Dictionary<string, (string? Content, string? Reasoning)> _lastRenderedTextByKey =
+                new Dictionary<string, (string? Content, string? Reasoning)>(StringComparer.Ordinal);
+
             // Tracks per-turn text segments so multiple text messages in a single turn
             // are rendered as distinct bubbles. Keys are the base stream key (e.g., "turn:{TurnId}:{agent}").
             private readonly Dictionary<string, int> _textInteractionSegments = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -202,6 +205,7 @@ namespace SmartHopper.Core.UI.Chat
                     this._pendingNewTextSegmentTurns.Clear();
                     this._finalizedTextTurns.Clear();
                     this._lastUpsertAt.Clear();
+                    this._lastRenderedTextByKey.Clear();
                     this._dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
 
                     // Insert a persistent generic loading bubble that remains until stop state
@@ -318,7 +322,8 @@ namespace SmartHopper.Core.UI.Chat
                                 CoalesceTextStreamChunk(tt, targetKey, ref state);
 
                                 // Check if text is now renderable
-                                bool isRenderable = state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText);
+                                var aggregatedText = state.Aggregated as AIInteractionText;
+                                bool isRenderable = HasRenderableText(aggregatedText);
                                 Debug.WriteLine($"[WebChatObserver] OnDelta: isRenderable={isRenderable}, isCommitted={isCommitted}");
 
                                 if (isRenderable && !isCommitted)
@@ -336,7 +341,10 @@ namespace SmartHopper.Core.UI.Chat
                                     // Upsert to DOM
                                     if (this.ShouldUpsertNow(segKey))
                                     {
-                                        this._dialog.UpsertMessageByKey(segKey, state.Aggregated as AIInteractionText, source: "OnDelta:FirstRender");
+                                        if (aggregatedText != null && this.ShouldRenderDelta(segKey, aggregatedText))
+                                        {
+                                            this._dialog.UpsertMessageByKey(segKey, aggregatedText, source: "OnDelta:FirstRender");
+                                        }
                                     }
                                 }
                                 else if (isRenderable && isCommitted)
@@ -345,7 +353,10 @@ namespace SmartHopper.Core.UI.Chat
                                     this._streams[targetKey] = state;
                                     if (this.ShouldUpsertNow(targetKey))
                                     {
-                                        this._dialog.UpsertMessageByKey(targetKey, state.Aggregated as AIInteractionText, source: "OnDelta");
+                                        if (aggregatedText != null && this.ShouldRenderDelta(targetKey, aggregatedText))
+                                        {
+                                            this._dialog.UpsertMessageByKey(targetKey, aggregatedText, source: "OnDelta");
+                                        }
                                     }
                                 }
                                 else
@@ -775,6 +786,34 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch { }
                 return false;
+            }
+
+            private bool ShouldRenderDelta(string domKey, AIInteractionText text)
+            {
+                if (string.IsNullOrWhiteSpace(domKey) || text == null)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    var content = text.Content;
+                    var reasoning = text.Reasoning;
+
+                    if (this._lastRenderedTextByKey.TryGetValue(domKey, out var last)
+                        && string.Equals(last.Content, content, StringComparison.Ordinal)
+                        && string.Equals(last.Reasoning, reasoning, StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    this._lastRenderedTextByKey[domKey] = (content, reasoning);
+                }
+                catch
+                {
+                }
+
+                return true;
             }
 
             /// <summary>
