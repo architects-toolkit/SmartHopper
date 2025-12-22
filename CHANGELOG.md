@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Chat UI:
+  - Reduced WebChat dialog UI freezes while dragging/resizing during streaming responses by throttling DOM upserts more aggressively and processing DOM updates in smaller batches.
+
 ## [1.2.1-alpha] - 2025-12-07
 
 ### Added
