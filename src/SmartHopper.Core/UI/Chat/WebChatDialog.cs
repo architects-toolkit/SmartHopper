@@ -67,15 +67,20 @@ namespace SmartHopper.Core.UI.Chat
         // ConversationSession manages all history and requests
         // WebChatDialog is now a pure UI consumer
 
-        // DOM update reentrancy guard/queue to avoid nested ExecuteScript calls causing recursion
         private bool _isDomUpdating;
         private readonly Queue<Action> _domUpdateQueue = new Queue<Action>();
+
+        private readonly object _htmlRenderLock = new object();
+
+        private readonly object _renderVersionLock = new object();
+
+        private readonly Dictionary<string, long> _renderVersionByDomKey = new Dictionary<string, long>(StringComparer.Ordinal);
 
         // When the user is moving/resizing the window, defer DOM updates to avoid UI-thread stalls.
         private DateTime _deferDomUpdatesUntilUtc = DateTime.MinValue;
         private bool _domDrainScheduled;
         private const int DomDeferDuringMoveResizeMs = 250;
-        private const int DomDrainBatchSize = 4;
+        private const int DomDrainBatchSize = 10;
 
         // Status text to apply after the document is fully loaded
         private string _pendingStatusAfter = "Ready";
@@ -146,42 +151,68 @@ namespace SmartHopper.Core.UI.Chat
                 return;
             }
 
-            this.RunWhenWebViewReady(() =>
+            var renderVersion = this.NextRenderVersion(domKey);
+            Task.Run(() =>
             {
-                var html = this._htmlRenderer.RenderInteraction(interaction);
-                var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
-
-                // Monitor key length
-                this.MonitorKeyLength(domKey);
-                this.MonitorKeyLength(followKey);
-
-                // Performance profiling for HTML equality check
-                if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last))
+                string html;
+                try
                 {
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    bool isEqual = string.Equals(last, html, StringComparison.Ordinal);
-                    sw.Stop();
-                    this._totalEqualityChecks++;
-                    this._totalEqualityCheckMs += sw.ElapsedMilliseconds;
-
-                    if (isEqual)
+                    lock (this._htmlRenderLock)
                     {
-                        Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter (skipped identical) fk={followKey} key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
-                        return;
+                        html = this._htmlRenderer.RenderInteraction(interaction);
                     }
                 }
-
-                Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter fk={followKey} key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
-
-                // Log warning if followKey might not be found (JavaScript will also warn)
-                if (string.IsNullOrWhiteSpace(followKey))
+                catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter WARNING: followKey is null/empty for key={domKey}, will fallback to normal upsert");
+                    Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter render error: {ex.Message}");
+                    return;
                 }
 
-                var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
-                this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
-                this.ExecuteScript(script);
+                if (!this.IsLatestRenderVersion(domKey, renderVersion))
+                {
+                    return;
+                }
+
+                this.RunWhenWebViewReady(() =>
+                {
+                    if (!this.IsLatestRenderVersion(domKey, renderVersion))
+                    {
+                        return;
+                    }
+
+                    var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
+
+                    // Monitor key length
+                    this.MonitorKeyLength(domKey);
+                    this.MonitorKeyLength(followKey);
+
+                    // Performance profiling for HTML equality check
+                    if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last))
+                    {
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+                        bool isEqual = string.Equals(last, html, StringComparison.Ordinal);
+                        sw.Stop();
+                        this._totalEqualityChecks++;
+                        this._totalEqualityCheckMs += sw.ElapsedMilliseconds;
+
+                        if (isEqual)
+                        {
+                            Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter (skipped identical) fk={followKey} key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
+                            return;
+                        }
+                    }
+
+                    Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter fk={followKey} key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
+
+                    if (string.IsNullOrWhiteSpace(followKey))
+                    {
+                        Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter WARNING: followKey is null/empty for key={domKey}, will fallback to normal upsert");
+                    }
+
+                    var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
+                    this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
+                    this.ExecuteScript(script);
+                });
             });
         }
 
@@ -423,14 +454,30 @@ namespace SmartHopper.Core.UI.Chat
                 return;
             }
 
-            this.RunWhenWebViewReady(() =>
+            Task.Run(() =>
             {
-                var html = this._htmlRenderer.RenderInteraction(interaction);
-                var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
-                Debug.WriteLine($"[WebChatDialog] AddInteractionToWebView agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} preview={preview}");
-                var script = $"addMessage({JsonConvert.SerializeObject(html)});";
-                Debug.WriteLine($"[WebChatDialog] ExecuteScript addMessage len={script.Length} preview={(script.Length > 140 ? script.Substring(0, 140) + "..." : script)}");
-                this.ExecuteScript(script);
+                string html;
+                try
+                {
+                    lock (this._htmlRenderLock)
+                    {
+                        html = this._htmlRenderer.RenderInteraction(interaction);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] AddInteractionToWebView render error: {ex.Message}");
+                    return;
+                }
+
+                this.RunWhenWebViewReady(() =>
+                {
+                    var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
+                    Debug.WriteLine($"[WebChatDialog] AddInteractionToWebView agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} preview={preview}");
+                    var script = $"addMessage({JsonConvert.SerializeObject(html)});";
+                    Debug.WriteLine($"[WebChatDialog] ExecuteScript addMessage len={script.Length} preview={(script.Length > 140 ? script.Substring(0, 140) + "..." : script)}");
+                    this.ExecuteScript(script);
+                });
             });
         }
 
@@ -455,35 +502,62 @@ namespace SmartHopper.Core.UI.Chat
                 return;
             }
 
-            this.RunWhenWebViewReady(() =>
+            var renderVersion = this.NextRenderVersion(domKey);
+            Task.Run(() =>
             {
-                var html = this._htmlRenderer.RenderInteraction(interaction);
-                var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
-
-                // Monitor key length
-                this.MonitorKeyLength(domKey);
-
-                // Performance profiling for HTML equality check
-                if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last))
+                string html;
+                try
                 {
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    bool isEqual = string.Equals(last, html, StringComparison.Ordinal);
-                    sw.Stop();
-                    this._totalEqualityChecks++;
-                    this._totalEqualityCheckMs += sw.ElapsedMilliseconds;
-
-                    if (isEqual)
+                    lock (this._htmlRenderLock)
                     {
-                        Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped identical) key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
-                        return;
+                        html = this._htmlRenderer.RenderInteraction(interaction);
                     }
                 }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey render error: {ex.Message}");
+                    return;
+                }
 
-                Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
-                var script = $"upsertMessage({JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
-                Debug.WriteLine($"[WebChatDialog] ExecuteScript upsertMessage len={script.Length} preview={(script.Length > 160 ? script.Substring(0, 160) + "..." : script)}");
-                this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
-                this.ExecuteScript(script);
+                if (!this.IsLatestRenderVersion(domKey, renderVersion))
+                {
+                    return;
+                }
+
+                this.RunWhenWebViewReady(() =>
+                {
+                    if (!this.IsLatestRenderVersion(domKey, renderVersion))
+                    {
+                        return;
+                    }
+
+                    var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
+
+                    // Monitor key length
+                    this.MonitorKeyLength(domKey);
+
+                    // Performance profiling for HTML equality check
+                    if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last))
+                    {
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
+                        bool isEqual = string.Equals(last, html, StringComparison.Ordinal);
+                        sw.Stop();
+                        this._totalEqualityChecks++;
+                        this._totalEqualityCheckMs += sw.ElapsedMilliseconds;
+
+                        if (isEqual)
+                        {
+                            Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped identical) key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
+                            return;
+                        }
+                    }
+
+                    Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
+                    var script = $"upsertMessage({JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
+                    Debug.WriteLine($"[WebChatDialog] ExecuteScript upsertMessage len={script.Length} preview={(script.Length > 160 ? script.Substring(0, 160) + "..." : script)}");
+                    this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
+                    this.ExecuteScript(script);
+                });
             });
         }
 
@@ -1221,6 +1295,35 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 Debug.WriteLine($"[WebChatDialog] SendMessage(text) error: {ex.Message}");
+            }
+        }
+
+        private long NextRenderVersion(string domKey)
+        {
+            if (string.IsNullOrWhiteSpace(domKey))
+            {
+                return 0;
+            }
+
+            lock (this._renderVersionLock)
+            {
+                this._renderVersionByDomKey.TryGetValue(domKey, out var current);
+                current++;
+                this._renderVersionByDomKey[domKey] = current;
+                return current;
+            }
+        }
+
+        private bool IsLatestRenderVersion(string domKey, long version)
+        {
+            if (string.IsNullOrWhiteSpace(domKey) || version <= 0)
+            {
+                return true;
+            }
+
+            lock (this._renderVersionLock)
+            {
+                return this._renderVersionByDomKey.TryGetValue(domKey, out var current) && current == version;
             }
         }
     }
