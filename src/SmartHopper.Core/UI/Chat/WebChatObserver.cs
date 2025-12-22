@@ -114,7 +114,8 @@ namespace SmartHopper.Core.UI.Chat
 
             // Simple per-key throttling to reduce DOM churn during streaming
             private readonly Dictionary<string, DateTime> _lastUpsertAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
-            private const int ThrottleMs = 10;
+            private const int ThrottleMs = 50;
+            private const int ThrottleDuringMoveResizeMs = 200;
 
             // Tracks per-turn text segments so multiple text messages in a single turn
             // are rendered as distinct bubbles. Keys are the base stream key (e.g., "turn:{TurnId}:{agent}").
@@ -200,6 +201,7 @@ namespace SmartHopper.Core.UI.Chat
                     this._textInteractionSegments.Clear();
                     this._pendingNewTextSegmentTurns.Clear();
                     this._finalizedTextTurns.Clear();
+                    this._lastUpsertAt.Clear();
                     this._dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
 
                     // Insert a persistent generic loading bubble that remains until stop state
@@ -754,13 +756,18 @@ namespace SmartHopper.Core.UI.Chat
                 try
                 {
                     var now = DateTime.UtcNow;
+
+                    var effectiveThrottleMs = now < this._dialog._deferDomUpdatesUntilUtc
+                        ? ThrottleDuringMoveResizeMs
+                        : ThrottleMs;
+
                     if (!this._lastUpsertAt.TryGetValue(key, out var last))
                     {
                         this._lastUpsertAt[key] = now;
                         return true;
                     }
 
-                    if ((now - last).TotalMilliseconds >= ThrottleMs)
+                    if ((now - last).TotalMilliseconds >= effectiveThrottleMs)
                     {
                         this._lastUpsertAt[key] = now;
                         return true;

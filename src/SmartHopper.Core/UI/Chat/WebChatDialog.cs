@@ -71,6 +71,12 @@ namespace SmartHopper.Core.UI.Chat
         private bool _isDomUpdating;
         private readonly Queue<Action> _domUpdateQueue = new Queue<Action>();
 
+        // When the user is moving/resizing the window, defer DOM updates to avoid UI-thread stalls.
+        private DateTime _deferDomUpdatesUntilUtc = DateTime.MinValue;
+        private bool _domDrainScheduled;
+        private const int DomDeferDuringMoveResizeMs = 250;
+        private const int DomDrainBatchSize = 4;
+
         // Status text to apply after the document is fully loaded
         private string _pendingStatusAfter = "Ready";
 
@@ -109,6 +115,11 @@ namespace SmartHopper.Core.UI.Chat
                 this._webView.DocumentLoaded += this.WebView_DocumentLoaded;
                 this._webView.DocumentLoading += this.WebView_DocumentLoading;
                 this.Content = this._webView;
+
+                // If the user drags/resizes the dialog while we are rendering/upserting messages,
+                // defer DOM work to keep Rhino/Eto responsive.
+                this.LocationChanged += (_, __) => this.MarkMoveResizeInteraction();
+                this.SizeChanged += (_, __) => this.MarkMoveResizeInteraction();
 
                 // Initialize web view and optionally start greeting
                 _ = this.InitializeWebViewAsync();
@@ -241,52 +252,119 @@ namespace SmartHopper.Core.UI.Chat
                 return;
             }
 
-            void ExecuteSerialized()
+            void EnqueueAndScheduleDrain()
             {
+                this._domUpdateQueue.Enqueue(action);
+                this.ScheduleDomDrain();
+            }
+
+            if (this._webViewInitialized)
+            {
+                RhinoApp.InvokeOnUiThread(EnqueueAndScheduleDrain);
+            }
+            else
+            {
+                this._webViewInitializedTcs.Task.ContinueWith(
+                    _ => RhinoApp.InvokeOnUiThread(EnqueueAndScheduleDrain),
+                    System.Threading.CancellationToken.None,
+                    TaskContinuationOptions.None,
+                    TaskScheduler.Default);
+            }
+        }
+
+        /// <summary>
+        /// Marks the window as being moved/resized, deferring DOM updates.
+        /// </summary>
+        private void MarkMoveResizeInteraction()
+        {
+            try
+            {
+                this._deferDomUpdatesUntilUtc = DateTime.UtcNow.AddMilliseconds(DomDeferDuringMoveResizeMs);
+                this.ScheduleDomDrain();
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>
+        /// Schedules a drain of the DOM update queue.
+        /// </summary>
+        private void ScheduleDomDrain()
+        {
+            if (this._domDrainScheduled)
+            {
+                return;
+            }
+
+            this._domDrainScheduled = true;
+            RhinoApp.InvokeOnUiThread(() =>
+            {
+                Application.Instance?.AsyncInvoke(() => this.DrainDomUpdateQueue());
+            });
+        }
+
+        /// <summary>
+        /// Drains the DOM update queue in batches.
+        /// </summary>
+        private void DrainDomUpdateQueue()
+        {
+            try
+            {
+                this._domDrainScheduled = false;
+
+                if (DateTime.UtcNow < this._deferDomUpdatesUntilUtc)
+                {
+                    // Still moving/resizing; try again shortly.
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(DomDeferDuringMoveResizeMs).ConfigureAwait(false);
+                        this.ScheduleDomDrain();
+                    });
+                    return;
+                }
+
                 if (this._isDomUpdating)
                 {
-                    this._domUpdateQueue.Enqueue(action);
+                    // Another drain is already in progress; let it finish.
                     return;
                 }
 
                 this._isDomUpdating = true;
                 try
                 {
-                    action();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[WebChatDialog] RunWhenWebViewReady action error: {ex.Message}");
-                }
-                finally
-                {
-                    this._isDomUpdating = false;
-                    while (this._domUpdateQueue.Count > 0)
+                    int executed = 0;
+                    while (executed < DomDrainBatchSize && this._domUpdateQueue.Count > 0)
                     {
                         var next = this._domUpdateQueue.Dequeue();
                         try
                         {
                             next?.Invoke();
                         }
-                        catch (Exception qex)
+                        catch (Exception ex)
                         {
-                            Debug.WriteLine($"[WebChatDialog] DOM queued action error: {qex.Message}");
+                            Debug.WriteLine($"[WebChatDialog] DOM queued action error: {ex.Message}");
                         }
+
+                        executed++;
                     }
                 }
-            }
+                finally
+                {
+                    this._isDomUpdating = false;
+                }
 
-            if (this._webViewInitialized)
-            {
-                RhinoApp.InvokeOnUiThread(ExecuteSerialized);
+                // If there is more work, schedule another drain.
+                if (this._domUpdateQueue.Count > 0)
+                {
+                    this.ScheduleDomDrain();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                this._webViewInitializedTcs.Task.ContinueWith(
-                    _ => RhinoApp.InvokeOnUiThread(ExecuteSerialized),
-                    System.Threading.CancellationToken.None,
-                    TaskContinuationOptions.None,
-                    TaskScheduler.Default);
+                Debug.WriteLine($"[WebChatDialog] DrainDomUpdateQueue error: {ex.Message}");
+                this._isDomUpdating = false;
+                this._domDrainScheduled = false;
             }
         }
 
@@ -301,18 +379,31 @@ namespace SmartHopper.Core.UI.Chat
                 return;
             }
 
+            // If we are not currently draining the DOM queue, route this script through the queue.
+            // This prevents WebView JS execution from occurring during window move/resize UI loops.
+            if (!this._isDomUpdating)
+            {
+                this.RunWhenWebViewReady(() => this.ExecuteScript(script));
+                return;
+            }
+
             try
             {
+                // Use AsyncInvoke to avoid running WebView/JS work inside other UI event handlers
+                // (notably window move/resize), which can cause the UI to appear frozen.
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    try
+                    Application.Instance?.AsyncInvoke(() =>
                     {
-                        this._webView.ExecuteScript(script);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[WebChatDialog] ExecuteScript error: {ex.Message}");
-                    }
+                        try
+                        {
+                            this._webView.ExecuteScript(script);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[WebChatDialog] ExecuteScript error: {ex.Message}");
+                        }
+                    });
                 });
             }
             catch (Exception ex)
