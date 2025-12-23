@@ -72,6 +72,8 @@ namespace SmartHopper.Core.UI.Chat
         private readonly Dictionary<string, Action> _keyedDomUpdateLatest = new Dictionary<string, Action>(StringComparer.Ordinal);
         private readonly Queue<string> _keyedDomUpdateQueue = new Queue<string>();
 
+        private int _activeScripts;
+
         private readonly object _htmlRenderLock = new object();
 
         private readonly object _renderVersionLock = new object();
@@ -83,6 +85,9 @@ namespace SmartHopper.Core.UI.Chat
         private bool _domDrainScheduled;
         private const int DomDeferDuringMoveResizeMs = 400;
         private const int DomDrainBatchSize = 10;
+        private const int DomDrainDebounceMs = 16;
+
+        private const int MAX_CONCURRENT_SCRIPTS = 4;
 
         // Status text to apply after the document is fully loaded
         private string _pendingStatusAfter = "Ready";
@@ -390,9 +395,13 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             this._domDrainScheduled = true;
-            RhinoApp.InvokeOnUiThread(() =>
+            Task.Run(async () =>
             {
-                Application.Instance?.AsyncInvoke(() => this.DrainDomUpdateQueue());
+                await Task.Delay(DomDrainDebounceMs).ConfigureAwait(false);
+                RhinoApp.InvokeOnUiThread(() =>
+                {
+                    Application.Instance?.AsyncInvoke(() => this.DrainDomUpdateQueue());
+                });
             });
         }
 
@@ -506,13 +515,32 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     Application.Instance?.AsyncInvoke(() =>
                     {
+                        var entered = false;
                         try
                         {
+                            // Enforce a small concurrency gate to avoid piling scripts into the WebView.
+                            // Important: do NOT drop scripts (can truncate streamed UI updates). Re-queue when saturated.
+                            var count = Interlocked.Increment(ref this._activeScripts);
+                            if (count > MAX_CONCURRENT_SCRIPTS)
+                            {
+                                Interlocked.Decrement(ref this._activeScripts);
+                                this.RunWhenWebViewReady(() => this.ExecuteScript(script));
+                                return;
+                            }
+
+                            entered = true;
                             this._webView.ExecuteScript(script);
                         }
                         catch (Exception ex)
                         {
                             DebugLog($"[WebChatDialog] ExecuteScript error: {ex.Message}");
+                        }
+                        finally
+                        {
+                            if (entered)
+                            {
+                                Interlocked.Decrement(ref this._activeScripts);
+                            }
                         }
                     });
                 });

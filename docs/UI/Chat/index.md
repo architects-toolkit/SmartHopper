@@ -64,6 +64,24 @@ This Chat UI overview intentionally avoids duplicating the detailed function lis
 
 All UI work (including `ExecuteScript`) is marshaled via `RhinoApp.InvokeOnUiThread(...)`. DOM updates are serialized by the dialog to avoid re-entrancy into the WebView’s script engine.
 
+## Performance pipeline (high level)
+
+- The host minimizes WebView re-entrancy by enqueueing DOM operations (`RunWhenWebViewReady(...)`) and draining them in small batches.
+- The drain scheduling is debounced to coalesce bursts of updates into fewer WebView script injections.
+- `ExecuteScript(...)` enforces a small concurrency gate to avoid piling scripts into the WebView.
+
+On the WebView side (`chat-script.js`):
+
+- Message mutations (`addMessage`, `upsertMessage`, `upsertMessageAfter`, `replaceLastMessageByRole`) are enqueued and flushed using `requestAnimationFrame` (with a small timeout fallback).
+- Rendering work is reduced using:
+  - Template cloning for repeated HTML.
+  - A keyed LRU cache + sampled diff checks to skip redundant DOM updates.
+  - Optional patch payloads (JSON `{ patch, html }`) to append/replace only message content during streaming instead of re-sending full bubbles.
+  - A max message HTML length cap to prevent huge DOM inserts.
+- Lightweight perf counters are sampled to keep overhead low; only outlier renders are logged.
+
+These changes also mitigate issue #261 ("ui eventually freezes on opening webchat").
+
 ## Clipboard
 
 `chat-script.js` uses `clipboard://copy?text=...` for code-block copy. The host intercepts it and sets system clipboard text, then shows a toast in the WebView.
