@@ -34,6 +34,12 @@ namespace SmartHopper.Core.UI
     /// </summary>
     public static class DialogCanvasLink
     {
+        [Conditional("DEBUG")]
+        private static void DebugLog(string message)
+        {
+            Debug.WriteLine(message);
+        }
+
         private static readonly object LockObject = new object();
         private static readonly Dictionary<Window, LinkInfo> ActiveLinks = new Dictionary<Window, LinkInfo>();
         private static bool isHooked;
@@ -72,17 +78,17 @@ namespace SmartHopper.Core.UI
         /// <param name="centerCanvas">If true, centers the canvas view on the component before showing the dialog.</param>
         public static void RegisterLink(Window dialog, Guid instanceGuid, Color? lineColor = null, float lineWidth = 3f, bool centerCanvas = true)
         {
-            Debug.WriteLine($"[DialogCanvasLink] RegisterLink called: dialog={dialog != null}, guid={instanceGuid}");
+            DebugLog($"[DialogCanvasLink] RegisterLink called: dialog={dialog != null}, guid={instanceGuid}");
 
             if (dialog == null)
             {
-                Debug.WriteLine("[DialogCanvasLink] RegisterLink aborted: dialog is null");
+                DebugLog("[DialogCanvasLink] RegisterLink aborted: dialog is null");
                 return;
             }
 
             if (instanceGuid == Guid.Empty)
             {
-                Debug.WriteLine("[DialogCanvasLink] RegisterLink aborted: instanceGuid is empty");
+                DebugLog("[DialogCanvasLink] RegisterLink aborted: instanceGuid is empty");
                 return;
             }
 
@@ -111,7 +117,7 @@ namespace SmartHopper.Core.UI
                 dialog.LocationChanged += OnDialogLocationChanged;
                 dialog.SizeChanged += OnDialogSizeChanged;
 
-                Debug.WriteLine($"[DialogCanvasLink] Registered link: Dialog → Component {instanceGuid}, ActiveLinks count: {ActiveLinks.Count}");
+                DebugLog($"[DialogCanvasLink] Registered link: Dialog → Component {instanceGuid}, ActiveLinks count: {ActiveLinks.Count}");
 
                 // Trigger canvas redraw to show the link
                 RefreshCanvas();
@@ -136,7 +142,7 @@ namespace SmartHopper.Core.UI
                     dialog.Closed -= OnDialogClosed;
                     dialog.LocationChanged -= OnDialogLocationChanged;
                     dialog.SizeChanged -= OnDialogSizeChanged;
-                    Debug.WriteLine("[DialogCanvasLink] Unregistered link");
+                    DebugLog("[DialogCanvasLink] Unregistered link");
                     RefreshCanvas();
                 }
             }
@@ -175,11 +181,11 @@ namespace SmartHopper.Core.UI
 
         private static void EnsureHooked()
         {
-            Debug.WriteLine($"[DialogCanvasLink] EnsureHooked called, isHooked={isHooked}");
+            DebugLog($"[DialogCanvasLink] EnsureHooked called, isHooked={isHooked}");
 
             if (isHooked)
             {
-                Debug.WriteLine("[DialogCanvasLink] Already hooked, skipping");
+                DebugLog("[DialogCanvasLink] Already hooked, skipping");
                 return;
             }
 
@@ -187,25 +193,25 @@ namespace SmartHopper.Core.UI
             {
                 // Hook into canvas created event for new canvases
                 Instances.CanvasCreated += OnCanvasCreated;
-                Debug.WriteLine("[DialogCanvasLink] Subscribed to CanvasCreated event");
+                DebugLog("[DialogCanvasLink] Subscribed to CanvasCreated event");
 
                 // Hook into existing canvas if available
                 if (Instances.ActiveCanvas != null)
                 {
-                    Debug.WriteLine("[DialogCanvasLink] ActiveCanvas found, hooking...");
+                    DebugLog("[DialogCanvasLink] ActiveCanvas found, hooking...");
                     HookCanvas(Instances.ActiveCanvas);
                 }
                 else
                 {
-                    Debug.WriteLine("[DialogCanvasLink] No ActiveCanvas found");
+                    DebugLog("[DialogCanvasLink] No ActiveCanvas found");
                 }
 
                 isHooked = true;
-                Debug.WriteLine("[DialogCanvasLink] Canvas events hooked successfully");
+                DebugLog("[DialogCanvasLink] Canvas events hooked successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DialogCanvasLink] Error hooking canvas: {ex.Message}");
+                DebugLog($"[DialogCanvasLink] Error hooking canvas: {ex.Message}");
             }
         }
 
@@ -218,17 +224,17 @@ namespace SmartHopper.Core.UI
         {
             if (canvas == null)
             {
-                Debug.WriteLine("[DialogCanvasLink] HookCanvas: canvas is null");
+                DebugLog("[DialogCanvasLink] HookCanvas: canvas is null");
                 return;
             }
 
-            Debug.WriteLine("[DialogCanvasLink] HookCanvas: Hooking canvas paint event");
+            DebugLog("[DialogCanvasLink] HookCanvas: Hooking canvas paint event");
 
             // Use CanvasPostPaintOverlay to draw on top of everything
             canvas.CanvasPostPaintOverlay -= OnCanvasPostPaintOverlay;
             canvas.CanvasPostPaintOverlay += OnCanvasPostPaintOverlay;
 
-            Debug.WriteLine("[DialogCanvasLink] HookCanvas: Canvas hooked successfully");
+            DebugLog("[DialogCanvasLink] HookCanvas: Canvas hooked successfully");
         }
 
         private static void OnCanvasPostPaintOverlay(GH_Canvas canvas)
@@ -240,12 +246,12 @@ namespace SmartHopper.Core.UI
                     return;
                 }
 
-                Debug.WriteLine($"[DialogCanvasLink] OnCanvasPostPaintOverlay: ActiveLinks={ActiveLinks.Count}");
+                DebugLog($"[DialogCanvasLink] OnCanvasPostPaintOverlay: ActiveLinks={ActiveLinks.Count}");
 
                 var doc = canvas.Document;
                 if (doc == null)
                 {
-                    Debug.WriteLine("[DialogCanvasLink] OnCanvasPostPaintOverlay: Document is null");
+                    DebugLog("[DialogCanvasLink] OnCanvasPostPaintOverlay: Document is null");
                     return;
                 }
 
@@ -258,7 +264,7 @@ namespace SmartHopper.Core.UI
                     var component = doc.FindObject(linkInfo.InstanceGuid, true);
                     if (component == null)
                     {
-                        Debug.WriteLine($"[DialogCanvasLink] Component not found: {linkInfo.InstanceGuid}");
+                        DebugLog($"[DialogCanvasLink] Component not found: {linkInfo.InstanceGuid}");
                         continue;
                     }
 
@@ -272,11 +278,11 @@ namespace SmartHopper.Core.UI
                     var dialogScreenPos = GetDialogScreenPosition(dialog);
                     if (!dialogScreenPos.HasValue)
                     {
-                        Debug.WriteLine("[DialogCanvasLink] Could not get dialog screen position");
+                        DebugLog("[DialogCanvasLink] Could not get dialog screen position");
                         continue;
                     }
 
-                    Debug.WriteLine($"[DialogCanvasLink] Drawing link: component={componentCenter}, dialogScreen={dialogScreenPos.Value}");
+                    DebugLog($"[DialogCanvasLink] Drawing link: component={componentCenter}, dialogScreen={dialogScreenPos.Value}");
 
                     // Convert dialog screen position to canvas coordinates
                     var dialogCanvasPos = canvas.Viewport.UnprojectPoint(
@@ -284,7 +290,7 @@ namespace SmartHopper.Core.UI
                             (int)dialogScreenPos.Value.X,
                             (int)dialogScreenPos.Value.Y)));
 
-                    Debug.WriteLine($"[DialogCanvasLink] Canvas positions: component={componentCenter}, dialog={dialogCanvasPos}");
+                    DebugLog($"[DialogCanvasLink] Canvas positions: component={componentCenter}, dialog={dialogCanvasPos}");
 
                     // Draw the connection with anchor dots at both ends
                     DrawLinkOnCanvas(
@@ -406,7 +412,7 @@ namespace SmartHopper.Core.UI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DialogCanvasLink] Error drawing connection: {ex.Message}");
+                DebugLog($"[DialogCanvasLink] Error drawing connection: {ex.Message}");
             }
         }
 
@@ -469,7 +475,7 @@ namespace SmartHopper.Core.UI
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DialogCanvasLink] Error drawing anchor dot: {ex.Message}");
+                DebugLog($"[DialogCanvasLink] Error drawing anchor dot: {ex.Message}");
             }
         }
 
