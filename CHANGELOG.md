@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Chat:
+  - Added `instruction_get` tool (category: `Instructions`) to provide detailed operational guidance to chat agents on demand.
+  - Simplified the `CanvasButton` default assistant system prompt to reference instruction tools instead of embedding long tool usage guidelines.
+
 ### Fixed
 
 - Chat UI:
