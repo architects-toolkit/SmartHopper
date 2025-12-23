@@ -40,6 +40,12 @@ namespace SmartHopper.Core.UI.Chat
                 public IAIInteraction Aggregated;
             }
 
+            [Conditional("DEBUG")]
+            private static void DebugLog(string message)
+            {
+                Debug.WriteLine(message);
+            }
+
             /// <summary>
             /// Returns the current segmented text key for a base key without creating a new segment.
             /// </summary>
@@ -90,7 +96,7 @@ namespace SmartHopper.Core.UI.Chat
 
                 var beforeSegment = this._textInteractionSegments.TryGetValue(baseKey, out var seg) ? seg : 0;
                 var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
-                Debug.WriteLine($"[WebChatObserver] CommitSegment: baseKey={baseKey}, turnKey={turnKey}, beforeSeg={beforeSegment}, hasBoundary={hasBoundary}");
+                DebugLog($"[WebChatObserver] CommitSegment: baseKey={baseKey}, turnKey={turnKey}, beforeSeg={beforeSegment}, hasBoundary={hasBoundary}");
 
                 // Consume boundary flag and increment if applicable
                 this.ConsumeBoundaryAndIncrementSegment(turnKey, baseKey);
@@ -99,12 +105,12 @@ namespace SmartHopper.Core.UI.Chat
                 if (!this._textInteractionSegments.ContainsKey(baseKey))
                 {
                     this._textInteractionSegments[baseKey] = 1;
-                    Debug.WriteLine($"[WebChatObserver] CommitSegment: initialized baseKey={baseKey} to seg=1");
+                    DebugLog($"[WebChatObserver] CommitSegment: initialized baseKey={baseKey} to seg=1");
                 }
                 else
                 {
                     var afterSegment = this._textInteractionSegments[baseKey];
-                    Debug.WriteLine($"[WebChatObserver] CommitSegment: baseKey={baseKey} already exists, seg={afterSegment}");
+                    this.LogDelta($"[WebChatObserver] CommitSegment: baseKey={baseKey} already exists, seg={afterSegment}");
                 }
             }
 
@@ -115,7 +121,29 @@ namespace SmartHopper.Core.UI.Chat
             // Simple per-key throttling to reduce DOM churn during streaming
             private readonly Dictionary<string, DateTime> _lastUpsertAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
             private const int ThrottleMs = 50;
-            private const int ThrottleDuringMoveResizeMs = 200;
+            private const int ThrottleDuringMoveResizeMs = 400;
+
+            private DateTime _lastDeltaLogUtc = DateTime.MinValue;
+            private const int DeltaLogThrottleMs = 250;
+
+            [Conditional("DEBUG")]
+            private void LogDelta(string message)
+            {
+#if DEBUG
+                try
+                {
+                    var now = DateTime.UtcNow;
+                    if ((now - this._lastDeltaLogUtc).TotalMilliseconds >= DeltaLogThrottleMs)
+                    {
+                        this._lastDeltaLogUtc = now;
+                        DebugLog(message);
+                    }
+                }
+                catch
+                {
+                }
+#endif
+            }
 
             private readonly Dictionary<string, (string? Content, string? Reasoning)> _lastRenderedTextByKey =
                 new Dictionary<string, (string? Content, string? Reasoning)>(StringComparer.Ordinal);
@@ -193,10 +221,10 @@ namespace SmartHopper.Core.UI.Chat
             /// <param name="request">The request about to be executed.</param>
             public void OnStart(AIRequestCall request)
             {
-                Debug.WriteLine("[WebChatObserver] OnStart called");
+                DebugLog("[WebChatObserver] OnStart called");
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
+                    DebugLog("[WebChatObserver] OnStart: executing UI updates");
 
                     // Reset per-run state
                     this._streams.Clear();
@@ -213,7 +241,7 @@ namespace SmartHopper.Core.UI.Chat
                     this._thinkingBubbleActive = true;
 
                     // No assistant-specific state to reset
-                    Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
+                    DebugLog("[WebChatObserver] OnStart: UI updates completed");
                 });
             }
 
@@ -235,7 +263,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatObserver] RemoveThinkingBubbleIfActive error: {ex.Message}");
+                    DebugLog($"[WebChatObserver] RemoveThinkingBubbleIfActive error: {ex.Message}");
                 }
                 finally
                 {
@@ -274,14 +302,14 @@ namespace SmartHopper.Core.UI.Chat
                                 // Check if we already have a committed segment for this base key
                                 bool isCommitted = this._textInteractionSegments.ContainsKey(baseKey);
                                 bool hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
-                                Debug.WriteLine($"[WebChatObserver] OnDelta: baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}");
+                                this.LogDelta($"[WebChatObserver] OnDelta: baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}");
 
                                 // Determine the target key. If a boundary is pending while already committed,
                                 // roll over to a NEW segment now so subsequent deltas do not append to the previous bubble.
                                 string targetKey;
                                 if (isCommitted && hasBoundary)
                                 {
-                                    Debug.WriteLine($"[WebChatObserver] OnDelta: boundary pending -> rolling over to next segment for baseKey={baseKey}");
+                                    this.LogDelta($"[WebChatObserver] OnDelta: boundary pending -> rolling over to next segment for baseKey={baseKey}");
                                     this.CommitSegment(baseKey, turnKey); // consumes boundary and increments segment
                                     var segKey = this.GetCurrentSegmentedKey(baseKey);
 
@@ -324,15 +352,15 @@ namespace SmartHopper.Core.UI.Chat
                                 // Check if text is now renderable
                                 var aggregatedText = state.Aggregated as AIInteractionText;
                                 bool isRenderable = HasRenderableText(aggregatedText);
-                                Debug.WriteLine($"[WebChatObserver] OnDelta: isRenderable={isRenderable}, isCommitted={isCommitted}");
+                                this.LogDelta($"[WebChatObserver] OnDelta: isRenderable={isRenderable}, isCommitted={isCommitted}");
 
                                 if (isRenderable && !isCommitted)
                                 {
                                     // First renderable delta: commit the segment now
-                                    Debug.WriteLine($"[WebChatObserver] OnDelta: FIRST RENDER - committing segment");
+                                    this.LogDelta($"[WebChatObserver] OnDelta: FIRST RENDER - committing segment");
                                     this.CommitSegment(baseKey, turnKey);
                                     var segKey = this.GetCurrentSegmentedKey(baseKey);
-                                    Debug.WriteLine($"[WebChatObserver] OnDelta: committed segKey={segKey}");
+                                    this.LogDelta($"[WebChatObserver] OnDelta: committed segKey={segKey}");
 
                                     // Move from pre-commit to committed storage
                                     this._streams[segKey] = state;
@@ -377,13 +405,13 @@ namespace SmartHopper.Core.UI.Chat
                         }
                         catch (Exception innerEx)
                         {
-                            Debug.WriteLine($"[WebChatObserver] OnDelta processing error: {innerEx.Message}");
+                            DebugLog($"[WebChatObserver] OnDelta processing error: {innerEx.Message}");
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatObserver] OnDelta error: {ex.Message}");
+                    DebugLog($"[WebChatObserver] OnDelta error: {ex.Message}");
                 }
             }
 
@@ -422,7 +450,7 @@ namespace SmartHopper.Core.UI.Chat
                                 var activeSegKey = isCommitted ? this.GetCurrentSegmentedKey(baseKey) : null;
                                 var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
 #if DEBUG
-                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}, contentLen={tt.Content?.Length ?? 0}");
+                                DebugLog($"[WebChatObserver] OnInteractionCompleted(Text): baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}, contentLen={tt.Content?.Length ?? 0}");
 #endif
 
                                 // Check for existing streaming aggregate (either committed or pre-commit)
@@ -467,10 +495,10 @@ namespace SmartHopper.Core.UI.Chat
 
                                 // True non-streaming completion path: no prior aggregate
                                 // Commit segment immediately since we have renderable content
-                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): NON-STREAMING path - committing segment");
+                                DebugLog($"[WebChatObserver] OnInteractionCompleted(Text): NON-STREAMING path - committing segment");
                                 this.CommitSegment(baseKey, turnKey);
                                 var finalSegKey = this.GetCurrentSegmentedKey(baseKey);
-                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): finalSegKey={finalSegKey}");
+                                DebugLog($"[WebChatObserver] OnInteractionCompleted(Text): finalSegKey={finalSegKey}");
 
                                 var state = new StreamState { Started = true, Aggregated = tt };
                                 this._streams[finalSegKey] = state;
@@ -488,7 +516,7 @@ namespace SmartHopper.Core.UI.Chat
                                 var streamKey = GetStreamKey(interaction);
                                 var turnKey = GetTurnBaseKey(interaction?.TurnId);
 #if DEBUG
-                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
+                                DebugLog($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
 #endif
 
                                 if (string.IsNullOrWhiteSpace(streamKey))
@@ -518,13 +546,13 @@ namespace SmartHopper.Core.UI.Chat
                         }
                         catch (Exception innerEx)
                         {
-                            Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted processing error: {innerEx.Message}");
+                            DebugLog($"[WebChatObserver] OnInteractionCompleted processing error: {innerEx.Message}");
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted error: {ex.Message}");
+                    DebugLog($"[WebChatObserver] OnInteractionCompleted error: {ex.Message}");
                 }
             }
 
@@ -544,7 +572,7 @@ namespace SmartHopper.Core.UI.Chat
 
                     // Mark a boundary so the next assistant text begins a new segment.
                     var turnKey = GetTurnBaseKey(toolCall?.TurnId);
-                    Debug.WriteLine($"[WebChatObserver] OnToolCall: name={toolCall?.Name}, turnKey={turnKey} -> SetBoundaryFlag");
+                    DebugLog($"[WebChatObserver] OnToolCall: name={toolCall?.Name}, turnKey={turnKey} -> SetBoundaryFlag");
                     this.SetBoundaryFlag(turnKey);
                 });
             }
@@ -562,7 +590,7 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Mark a boundary immediately so subsequent assistant text starts a new segment (seg rollover happens on next delta).
                 var turnKey = GetTurnBaseKey(toolResult?.TurnId);
-                Debug.WriteLine($"[WebChatObserver] OnToolResult: name={toolResult?.Name}, id={toolResult?.Id}, turnKey={turnKey} -> SetBoundaryFlag");
+                DebugLog($"[WebChatObserver] OnToolResult: name={toolResult?.Name}, id={toolResult?.Id}, turnKey={turnKey} -> SetBoundaryFlag");
                 this.SetBoundaryFlag(turnKey);
             }
 
@@ -673,13 +701,13 @@ namespace SmartHopper.Core.UI.Chat
                             // Single final debug log for this interaction
                             var turnId = (toRender as AIInteractionText)?.TurnId ?? finalAssistant?.TurnId;
                             var length = (toRender as AIInteractionText)?.Content?.Length ?? 0;
-                            Debug.WriteLine($"[WebChatObserver] Final render: turn={turnId}, key={upsertKey}, len={length}");
+                            DebugLog($"[WebChatObserver] Final render: turn={turnId}, key={upsertKey}, len={length}");
                             this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
                         }
                     }
                     catch (Exception repEx)
                     {
-                        Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
+                        DebugLog($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
                     }
 
                     // Now that final assistant is rendered, remove the thinking bubble and set status
@@ -740,7 +768,7 @@ namespace SmartHopper.Core.UI.Chat
                     }
                     catch (Exception uiEx)
                     {
-                        Debug.WriteLine($"[WebChatObserver] OnError UI error: {uiEx.Message}");
+                        DebugLog($"[WebChatObserver] OnError UI error: {uiEx.Message}");
                     }
                 });
             }
@@ -833,7 +861,7 @@ namespace SmartHopper.Core.UI.Chat
                 if (!string.IsNullOrWhiteSpace(turnKey))
                 {
                     var wasAdded = this._pendingNewTextSegmentTurns.Add(turnKey);
-                    Debug.WriteLine($"[WebChatObserver] SetBoundaryFlag: turnKey={turnKey}, wasNew={wasAdded}");
+                    DebugLog($"[WebChatObserver] SetBoundaryFlag: turnKey={turnKey}, wasNew={wasAdded}");
                 }
             }
 
@@ -851,13 +879,13 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         var oldSeg = this._textInteractionSegments[baseKey];
                         this._textInteractionSegments[baseKey] = oldSeg + 1;
-                        Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, {oldSeg} -> {oldSeg + 1}");
+                        DebugLog($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, {oldSeg} -> {oldSeg + 1}");
                     }
 
 #if DEBUG
                     else
                     {
-                        Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, hadBoundary={hadBoundary}, hasSegment={hasSegment}, NO INCREMENT");
+                        DebugLog($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, hadBoundary={hadBoundary}, hasSegment={hasSegment}, NO INCREMENT");
                     }
 
 #endif

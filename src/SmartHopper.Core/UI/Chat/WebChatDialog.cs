@@ -69,6 +69,8 @@ namespace SmartHopper.Core.UI.Chat
 
         private bool _isDomUpdating;
         private readonly Queue<Action> _domUpdateQueue = new Queue<Action>();
+        private readonly Dictionary<string, Action> _keyedDomUpdateLatest = new Dictionary<string, Action>(StringComparer.Ordinal);
+        private readonly Queue<string> _keyedDomUpdateQueue = new Queue<string>();
 
         private readonly object _htmlRenderLock = new object();
 
@@ -79,7 +81,7 @@ namespace SmartHopper.Core.UI.Chat
         // When the user is moving/resizing the window, defer DOM updates to avoid UI-thread stalls.
         private DateTime _deferDomUpdatesUntilUtc = DateTime.MinValue;
         private bool _domDrainScheduled;
-        private const int DomDeferDuringMoveResizeMs = 250;
+        private const int DomDeferDuringMoveResizeMs = 400;
         private const int DomDrainBatchSize = 10;
 
         // Status text to apply after the document is fully loaded
@@ -87,6 +89,12 @@ namespace SmartHopper.Core.UI.Chat
 
         // Greeting behavior: when true, the dialog will request a greeting from ConversationSession on init
         private readonly bool _generateGreeting;
+
+        [Conditional("DEBUG")]
+        private static void DebugLog(string message)
+        {
+            Debug.WriteLine(message);
+        }
 
         /// <summary>
         /// Creates a new WebChatDialog bound to an initial AI request and optional progress reporter.
@@ -131,7 +139,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] Constructor error: {ex.Message}");
+                DebugLog($"[WebChatDialog] Constructor error: {ex.Message}");
             }
         }
 
@@ -164,7 +172,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter render error: {ex.Message}");
+                    DebugLog($"[WebChatDialog] UpsertMessageAfter render error: {ex.Message}");
                     return;
                 }
 
@@ -173,14 +181,16 @@ namespace SmartHopper.Core.UI.Chat
                     return;
                 }
 
-                this.RunWhenWebViewReady(() =>
+                this.RunWhenWebViewReady(domKey, () =>
                 {
                     if (!this.IsLatestRenderVersion(domKey, renderVersion))
                     {
                         return;
                     }
 
+#if DEBUG
                     var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
+#endif
 
                     // Monitor key length
                     this.MonitorKeyLength(domKey);
@@ -189,24 +199,35 @@ namespace SmartHopper.Core.UI.Chat
                     // Performance profiling for HTML equality check
                     if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last))
                     {
+                        bool isEqual;
+#if DEBUG
                         var sw = System.Diagnostics.Stopwatch.StartNew();
-                        bool isEqual = string.Equals(last, html, StringComparison.Ordinal);
+                        isEqual = string.Equals(last, html, StringComparison.Ordinal);
                         sw.Stop();
                         this._totalEqualityChecks++;
                         this._totalEqualityCheckMs += sw.ElapsedMilliseconds;
+#else
+                        isEqual = string.Equals(last, html, StringComparison.Ordinal);
+#endif
 
                         if (isEqual)
                         {
-                            Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter (skipped identical) fk={followKey} key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
+#if DEBUG
+                            DebugLog($"[WebChatDialog] UpsertMessageAfter (skipped identical) fk={followKey} key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
+#endif
                             return;
                         }
                     }
 
-                    Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter fk={followKey} key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
+#if DEBUG
+                    DebugLog($"[WebChatDialog] UpsertMessageAfter fk={followKey} key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
+#endif
 
                     if (string.IsNullOrWhiteSpace(followKey))
                     {
-                        Debug.WriteLine($"[WebChatDialog] UpsertMessageAfter WARNING: followKey is null/empty for key={domKey}, will fallback to normal upsert");
+#if DEBUG
+                        DebugLog($"[WebChatDialog] UpsertMessageAfter WARNING: followKey is null/empty for key={domKey}, will fallback to normal upsert");
+#endif
                     }
 
                     var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
@@ -234,7 +255,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] EnsureVisibility error: {ex.Message}");
+                DebugLog($"[WebChatDialog] EnsureVisibility error: {ex.Message}");
             }
         }
 
@@ -286,6 +307,46 @@ namespace SmartHopper.Core.UI.Chat
             void EnqueueAndScheduleDrain()
             {
                 this._domUpdateQueue.Enqueue(action);
+                this.ScheduleDomDrain();
+            }
+
+            if (this._webViewInitialized)
+            {
+                RhinoApp.InvokeOnUiThread(EnqueueAndScheduleDrain);
+            }
+            else
+            {
+                this._webViewInitializedTcs.Task.ContinueWith(
+                    _ => RhinoApp.InvokeOnUiThread(EnqueueAndScheduleDrain),
+                    System.Threading.CancellationToken.None,
+                    TaskContinuationOptions.None,
+                    TaskScheduler.Default);
+            }
+        }
+
+        private void RunWhenWebViewReady(string domKey, Action action)
+        {
+            if (action == null)
+            {
+                return;
+            }
+
+            void EnqueueAndScheduleDrain()
+            {
+                if (string.IsNullOrWhiteSpace(domKey))
+                {
+                    this._domUpdateQueue.Enqueue(action);
+                    this.ScheduleDomDrain();
+                    return;
+                }
+
+                var isNewKey = !this._keyedDomUpdateLatest.ContainsKey(domKey);
+                this._keyedDomUpdateLatest[domKey] = action;
+                if (isNewKey)
+                {
+                    this._keyedDomUpdateQueue.Enqueue(domKey);
+                }
+
                 this.ScheduleDomDrain();
             }
 
@@ -365,16 +426,35 @@ namespace SmartHopper.Core.UI.Chat
                 try
                 {
                     int executed = 0;
-                    while (executed < DomDrainBatchSize && this._domUpdateQueue.Count > 0)
+                    while (executed < DomDrainBatchSize && (this._domUpdateQueue.Count > 0 || this._keyedDomUpdateQueue.Count > 0))
                     {
-                        var next = this._domUpdateQueue.Dequeue();
-                        try
+                        if (this._keyedDomUpdateQueue.Count > 0)
                         {
-                            next?.Invoke();
+                            var domKey = this._keyedDomUpdateQueue.Dequeue();
+                            try
+                            {
+                                if (!string.IsNullOrWhiteSpace(domKey) && this._keyedDomUpdateLatest.TryGetValue(domKey, out var keyedAction))
+                                {
+                                    this._keyedDomUpdateLatest.Remove(domKey);
+                                    keyedAction?.Invoke();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                DebugLog($"[WebChatDialog] DOM keyed action error: {ex.Message}");
+                            }
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            Debug.WriteLine($"[WebChatDialog] DOM queued action error: {ex.Message}");
+                            var next = this._domUpdateQueue.Dequeue();
+                            try
+                            {
+                                next?.Invoke();
+                            }
+                            catch (Exception ex)
+                            {
+                                DebugLog($"[WebChatDialog] DOM queued action error: {ex.Message}");
+                            }
                         }
 
                         executed++;
@@ -386,14 +466,14 @@ namespace SmartHopper.Core.UI.Chat
                 }
 
                 // If there is more work, schedule another drain.
-                if (this._domUpdateQueue.Count > 0)
+                if (this._domUpdateQueue.Count > 0 || this._keyedDomUpdateQueue.Count > 0)
                 {
                     this.ScheduleDomDrain();
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] DrainDomUpdateQueue error: {ex.Message}");
+                DebugLog($"[WebChatDialog] DrainDomUpdateQueue error: {ex.Message}");
                 this._isDomUpdating = false;
                 this._domDrainScheduled = false;
             }
@@ -432,14 +512,14 @@ namespace SmartHopper.Core.UI.Chat
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"[WebChatDialog] ExecuteScript error: {ex.Message}");
+                            DebugLog($"[WebChatDialog] ExecuteScript error: {ex.Message}");
                         }
                     });
                 });
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] ExecuteScript marshal error: {ex.Message}");
+                DebugLog($"[WebChatDialog] ExecuteScript marshal error: {ex.Message}");
             }
         }
 
@@ -466,16 +546,20 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatDialog] AddInteractionToWebView render error: {ex.Message}");
+                    DebugLog($"[WebChatDialog] AddInteractionToWebView render error: {ex.Message}");
                     return;
                 }
 
                 this.RunWhenWebViewReady(() =>
                 {
+#if DEBUG
                     var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
-                    Debug.WriteLine($"[WebChatDialog] AddInteractionToWebView agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} preview={preview}");
+                    DebugLog($"[WebChatDialog] AddInteractionToWebView agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} preview={preview}");
+#endif
                     var script = $"addMessage({JsonConvert.SerializeObject(html)});";
-                    Debug.WriteLine($"[WebChatDialog] ExecuteScript addMessage len={script.Length} preview={(script.Length > 140 ? script.Substring(0, 140) + "..." : script)}");
+#if DEBUG
+                    DebugLog($"[WebChatDialog] ExecuteScript addMessage len={script.Length} preview={(script.Length > 140 ? script.Substring(0, 140) + "..." : script)}");
+#endif
                     this.ExecuteScript(script);
                 });
             });
@@ -498,7 +582,9 @@ namespace SmartHopper.Core.UI.Chat
                 string.IsNullOrWhiteSpace(txt.Content) &&
                 string.IsNullOrWhiteSpace(txt.Reasoning))
             {
-                Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped empty assistant) key={domKey} src={source ?? "?"}");
+#if DEBUG
+                DebugLog($"[WebChatDialog] UpsertMessageByKey (skipped empty assistant) key={domKey} src={source ?? "?"}");
+#endif
                 return;
             }
 
@@ -515,7 +601,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey render error: {ex.Message}");
+                    DebugLog($"[WebChatDialog] UpsertMessageByKey render error: {ex.Message}");
                     return;
                 }
 
@@ -524,37 +610,21 @@ namespace SmartHopper.Core.UI.Chat
                     return;
                 }
 
-                this.RunWhenWebViewReady(() =>
+                this.RunWhenWebViewReady(domKey, () =>
                 {
                     if (!this.IsLatestRenderVersion(domKey, renderVersion))
                     {
                         return;
                     }
 
+#if DEBUG
                     var preview = html != null ? (html.Length > 120 ? html.Substring(0, 120) + "..." : html) : "(null)";
-
-                    // Monitor key length
-                    this.MonitorKeyLength(domKey);
-
-                    // Performance profiling for HTML equality check
-                    if (!string.IsNullOrEmpty(domKey) && html != null && this._lastDomHtmlByKey.TryGetValue(domKey, out var last))
-                    {
-                        var sw = System.Diagnostics.Stopwatch.StartNew();
-                        bool isEqual = string.Equals(last, html, StringComparison.Ordinal);
-                        sw.Stop();
-                        this._totalEqualityChecks++;
-                        this._totalEqualityCheckMs += sw.ElapsedMilliseconds;
-
-                        if (isEqual)
-                        {
-                            Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey (skipped identical) key={domKey} agent={interaction.Agent} len={html.Length} src={source ?? "?"} eqCheckMs={sw.ElapsedMilliseconds}");
-                            return;
-                        }
-                    }
-
-                    Debug.WriteLine($"[WebChatDialog] UpsertMessageByKey key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
+                    DebugLog($"[WebChatDialog] UpsertMessageByKey key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
+#endif
                     var script = $"upsertMessage({JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
-                    Debug.WriteLine($"[WebChatDialog] ExecuteScript upsertMessage len={script.Length} preview={(script.Length > 160 ? script.Substring(0, 160) + "..." : script)}");
+#if DEBUG
+                    DebugLog($"[WebChatDialog] ExecuteScript upsertMessage len={script.Length} preview={(script.Length > 160 ? script.Substring(0, 160) + "..." : script)}");
+#endif
                     this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
                     this.ExecuteScript(script);
                 });
@@ -584,13 +654,15 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         var oldest = this._lruQueue.Dequeue();
                         this._lastDomHtmlByKey.Remove(oldest);
-                        Debug.WriteLine($"[WebChatDialog] LRU eviction: removed key={oldest} (cache size was {this._lruQueue.Count + 1})");
+#if DEBUG
+                        DebugLog($"[WebChatDialog] LRU eviction: removed key={oldest} (cache size was {this._lruQueue.Count + 1})");
+#endif
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] UpdateIdempotencyCache error: {ex.Message}");
+                DebugLog($"[WebChatDialog] UpdateIdempotencyCache error: {ex.Message}");
             }
         }
 
@@ -611,17 +683,21 @@ namespace SmartHopper.Core.UI.Chat
                 if (len > this._maxKeyLengthSeen)
                 {
                     this._maxKeyLengthSeen = len;
-                    Debug.WriteLine($"[WebChatDialog] New max key length: {len} chars - key preview: {(len > 80 ? key.Substring(0, 80) + "..." : key)}");
+#if DEBUG
+                    DebugLog($"[WebChatDialog] New max key length: {len} chars - key preview: {(len > 80 ? key.Substring(0, 80) + "..." : key)}");
+#endif
 
                     if (len > 256)
                     {
-                        Debug.WriteLine($"[WebChatDialog] WARNING: Key length ({len}) exceeds recommended limit (256). Full key: {key}");
+#if DEBUG
+                        DebugLog($"[WebChatDialog] WARNING: Key length ({len}) exceeds recommended limit (256). Full key: {key}");
+#endif
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] MonitorKeyLength error: {ex.Message}");
+                DebugLog($"[WebChatDialog] MonitorKeyLength error: {ex.Message}");
             }
         }
 
@@ -633,7 +709,9 @@ namespace SmartHopper.Core.UI.Chat
             if (this._totalEqualityChecks > 0)
             {
                 var avgMs = (double)this._totalEqualityCheckMs / this._totalEqualityChecks;
-                Debug.WriteLine($"[WebChatDialog] Performance Stats: {this._totalEqualityChecks} equality checks, {this._totalEqualityCheckMs}ms total, {avgMs:F3}ms avg, max key length: {this._maxKeyLengthSeen}");
+#if DEBUG
+                DebugLog($"[WebChatDialog] Performance Stats: {this._totalEqualityChecks} equality checks, {this._totalEqualityCheckMs}ms total, {avgMs:F3}ms avg, max key length: {this._maxKeyLengthSeen}");
+#endif
             }
         }
 
@@ -679,7 +757,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] WebView_DocumentLoaded error: {ex.Message}");
+                DebugLog($"[WebChatDialog] WebView_DocumentLoaded error: {ex.Message}");
             }
         }
 
@@ -718,7 +796,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] BuildAndEmitSnapshot error: {ex.Message}");
+                DebugLog($"[WebChatDialog] BuildAndEmitSnapshot error: {ex.Message}");
             }
         }
 
@@ -754,7 +832,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] ReplayFullHistoryToWebView error: {ex.Message}");
+                DebugLog($"[WebChatDialog] ReplayFullHistoryToWebView error: {ex.Message}");
             }
         }
 
@@ -831,7 +909,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatDialog] LoadInitialHtmlIntoWebView UI error: {ex.Message}");
+                    DebugLog($"[WebChatDialog] LoadInitialHtmlIntoWebView UI error: {ex.Message}");
                 }
             });
         }
@@ -855,7 +933,7 @@ namespace SmartHopper.Core.UI.Chat
                     }
                     catch (Exception rex)
                     {
-                        Debug.WriteLine($"[WebChatDialog] InitializeWebViewAsync replay error: {rex.Message}");
+                        DebugLog($"[WebChatDialog] InitializeWebViewAsync replay error: {rex.Message}");
                     }
                 });
 
@@ -864,7 +942,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] InitializeWebViewAsync error: {ex.Message}");
+                DebugLog($"[WebChatDialog] InitializeWebViewAsync error: {ex.Message}");
                 try
                 {
                     this._webViewInitializedTcs.TrySetException(ex);
@@ -910,7 +988,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] ClearChat error: {ex.Message}");
+                DebugLog($"[WebChatDialog] ClearChat error: {ex.Message}");
             }
         }
 
@@ -921,7 +999,7 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
-                Debug.WriteLine("[WebChatDialog] Processing AI interaction with existing session reuse");
+                DebugLog("[WebChatDialog] Processing AI interaction with existing session reuse");
 
                 // Enter processing state: disable input/send, enable cancel in the web UI
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));
@@ -936,7 +1014,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 else
                 {
-                    Debug.WriteLine("[WebChatDialog] Reusing existing ConversationSession");
+                    DebugLog("[WebChatDialog] Reusing existing ConversationSession");
                 }
 
                 // Add the pending user message to the session
@@ -956,25 +1034,22 @@ namespace SmartHopper.Core.UI.Chat
                     sessionRequest.WantsStreaming = true;
                     var validation = sessionRequest.IsValid();
                     shouldTryStreaming = validation.IsValid;
-                    Debug.WriteLine($"[WebChatDialog] Request validation: IsValid={validation.IsValid}, Errors={validation.Errors?.Count ?? 0}");
+                    DebugLog($"[WebChatDialog] Request validation: IsValid={validation.IsValid}, Errors={validation.Errors?.Count ?? 0}");
                     if (validation.Errors != null)
                     {
+#if DEBUG
                         try
                         {
                             var msgs = string.Join(" | ", validation.Errors.Select(err => $"{err.Severity}:{err.Message}"));
-                            Debug.WriteLine($"[WebChatDialog] Validation messages: {msgs}");
+                            DebugLog($"[WebChatDialog] Validation messages: {msgs}");
                         }
                         catch { /* ignore logging errors */ }
-                    }
-
-                    if (!shouldTryStreaming)
-                    {
-                        Debug.WriteLine("[WebChatDialog] Streaming validation failed, will fallback to non-streaming.");
+#endif
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatDialog] Streaming validation threw: {ex.Message}. Falling back.");
+                    DebugLog($"[WebChatDialog] Streaming validation threw: {ex.Message}. Falling back.");
                     shouldTryStreaming = false;
                 }
                 finally
@@ -986,7 +1061,7 @@ namespace SmartHopper.Core.UI.Chat
                 AIReturn? lastStreamReturn = null;
                 if (shouldTryStreaming)
                 {
-                    Debug.WriteLine("[WebChatDialog] Starting streaming path");
+                    DebugLog("[WebChatDialog] Starting streaming path");
                     var streamingOptions = new StreamingOptions();
 
                     // Consume the stream to drive incremental UI updates via observer
@@ -1012,7 +1087,7 @@ namespace SmartHopper.Core.UI.Chat
                 // If streaming finished with an error or yielded nothing or no streaming was attempted, fallback to non-streaming.
                 if (streamingFailed || !shouldTryStreaming)
                 {
-                    Debug.WriteLine("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
+                    DebugLog("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
 
                     // Ensure streaming flag is not set for non-streaming execution
                     sessionRequest.WantsStreaming = false;
@@ -1025,7 +1100,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] Error in ProcessAIInteraction: {ex.Message}");
+                DebugLog($"[WebChatDialog] Error in ProcessAIInteraction: {ex.Message}");
                 try
                 {
                     this.AddSystemMessage($"Error: {ex.Message}", "error");
@@ -1066,11 +1141,11 @@ namespace SmartHopper.Core.UI.Chat
             {
                 this._currentCts?.Cancel();
                 this._currentSession?.Cancel();
-                Debug.WriteLine("[WebChatDialog] Cancellation requested");
+                DebugLog("[WebChatDialog] Cancellation requested");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] Error requesting cancellation: {ex.Message}");
+                DebugLog($"[WebChatDialog] Error requesting cancellation: {ex.Message}");
             }
         }
 
@@ -1102,13 +1177,13 @@ namespace SmartHopper.Core.UI.Chat
                     }
                     catch (Exception grex)
                     {
-                        Debug.WriteLine($"[WebChatDialog] Greeting init error: {grex.Message}");
+                        DebugLog($"[WebChatDialog] Greeting init error: {grex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] Error in InitializeNewConversation: {ex.Message}");
+                DebugLog($"[WebChatDialog] Error in InitializeNewConversation: {ex.Message}");
             }
         }
 
@@ -1121,29 +1196,29 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
-                Debug.WriteLine($"[WebChatDialog] WebView_DocumentLoading called");
+                DebugLog($"[WebChatDialog] WebView_DocumentLoading called");
                 if (e?.Uri is not Uri uri)
                 {
-                    Debug.WriteLine($"[WebChatDialog] Navigation URI is null");
+                    DebugLog($"[WebChatDialog] Navigation URI is null");
                     return;
                 }
 
-                Debug.WriteLine($"[WebChatDialog] Navigation URI: {uri} (scheme: {uri.Scheme})");
+                DebugLog($"[WebChatDialog] Navigation URI: {uri} (scheme: {uri.Scheme})");
 
                 if (uri.Scheme.Equals("sh", StringComparison.OrdinalIgnoreCase))
                 {
-                    Debug.WriteLine($"[WebChatDialog] Intercepting sh:// scheme, cancelling navigation");
+                    DebugLog($"[WebChatDialog] Intercepting sh:// scheme, cancelling navigation");
                     e.Cancel = true;
                     var query = ParseQueryString(uri.Query);
                     var type = (query.TryGetValue("type", out var t) ? t : string.Empty).ToLowerInvariant();
-                    Debug.WriteLine($"[WebChatDialog] sh:// event type: '{type}', query params: {string.Join(", ", query.Keys)}");
+                    DebugLog($"[WebChatDialog] sh:// event type: '{type}', query params: {string.Join(", ", query.Keys)}");
 
                     switch (type)
                     {
                         case "send":
                             {
                                 var text = query.TryGetValue("text", out var txt) ? txt : string.Empty;
-                                Debug.WriteLine($"[WebChatDialog] Handling send event, text length: {text.Length}");
+                                DebugLog($"[WebChatDialog] Handling send event, text length: {text.Length}");
 
                                 // Defer to next UI tick to avoid executing scripts during navigation event
                                 Application.Instance?.AsyncInvoke(() =>
@@ -1154,14 +1229,14 @@ namespace SmartHopper.Core.UI.Chat
                                     }
                                     catch (Exception ex)
                                     {
-                                        Debug.WriteLine($"[WebChatDialog] Deferred SendMessage error: {ex.Message}");
+                                        DebugLog($"[WebChatDialog] Deferred SendMessage error: {ex.Message}");
                                     }
                                 });
                                 break;
                             }
 
                         case "clear":
-                            Debug.WriteLine($"[WebChatDialog] Handling clear event");
+                            DebugLog($"[WebChatDialog] Handling clear event");
 
                             // Defer to next UI tick to avoid executing scripts during navigation event
                             Application.Instance?.AsyncInvoke(() =>
@@ -1172,13 +1247,13 @@ namespace SmartHopper.Core.UI.Chat
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[WebChatDialog] Deferred ClearChat error: {ex.Message}");
+                                    DebugLog($"[WebChatDialog] Deferred ClearChat error: {ex.Message}");
                                 }
                             });
                             break;
 
                         case "cancel":
-                            Debug.WriteLine($"[WebChatDialog] Handling cancel event");
+                            DebugLog($"[WebChatDialog] Handling cancel event");
 
                             // Defer to next UI tick to avoid executing scripts during navigation event
                             Application.Instance?.AsyncInvoke(() =>
@@ -1189,25 +1264,25 @@ namespace SmartHopper.Core.UI.Chat
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[WebChatDialog] Deferred CancelChat error: {ex.Message}");
+                                    DebugLog($"[WebChatDialog] Deferred CancelChat error: {ex.Message}");
                                 }
                             });
                             break;
 
                         default:
-                            Debug.WriteLine($"[WebChatDialog] Unknown sh:// event type: '{type}'");
+                            DebugLog($"[WebChatDialog] Unknown sh:// event type: '{type}'");
                             break;
                     }
                 }
                 else if (uri.Scheme.Equals("clipboard", StringComparison.OrdinalIgnoreCase))
                 {
-                    Debug.WriteLine($"[WebChatDialog] Intercepting clipboard:// scheme");
+                    DebugLog($"[WebChatDialog] Intercepting clipboard:// scheme");
 
                     // Handle copy-to-clipboard from JS
                     e.Cancel = true;
                     var query = ParseQueryString(uri.Query);
                     var text = query.TryGetValue("text", out var t) ? t : string.Empty;
-                    Debug.WriteLine($"[WebChatDialog] Clipboard text length: {text.Length}");
+                    DebugLog($"[WebChatDialog] Clipboard text length: {text.Length}");
                     try
                     {
                         RhinoApp.InvokeOnUiThread(() =>
@@ -1216,28 +1291,28 @@ namespace SmartHopper.Core.UI.Chat
                             {
                                 var cb = new Clipboard();
                                 cb.Text = text;
-                                Debug.WriteLine($"[WebChatDialog] Text copied to clipboard successfully");
+                                DebugLog($"[WebChatDialog] Text copied to clipboard successfully");
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[WebChatDialog] Clipboard set failed: {ex.Message}");
+                                DebugLog($"[WebChatDialog] Clipboard set failed: {ex.Message}");
                             }
                         });
                         this.RunWhenWebViewReady(() => this.ExecuteScript("showToast('Copied to clipboard');"));
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[WebChatDialog] Clipboard handling error: {ex.Message}");
+                        DebugLog($"[WebChatDialog] Clipboard handling error: {ex.Message}");
                     }
                 }
                 else
                 {
-                    Debug.WriteLine($"[WebChatDialog] Allowing normal navigation to: {uri}");
+                    DebugLog($"[WebChatDialog] Allowing normal navigation to: {uri}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] WebView_DocumentLoading error: {ex.Message}");
+                DebugLog($"[WebChatDialog] WebView_DocumentLoading error: {ex.Message}");
             }
         }
 
@@ -1248,10 +1323,10 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
-                Debug.WriteLine($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}");
+                DebugLog($"[WebChatDialog] SendMessage called with text length: {text?.Length ?? 0}");
                 if (string.IsNullOrWhiteSpace(text))
                 {
-                    Debug.WriteLine($"[WebChatDialog] SendMessage: text is null or whitespace, returning");
+                    DebugLog($"[WebChatDialog] SendMessage: text is null or whitespace, returning");
                     return;
                 }
 
@@ -1277,24 +1352,24 @@ namespace SmartHopper.Core.UI.Chat
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));
 
                 // Kick off processing asynchronously
-                Debug.WriteLine("[WebChatDialog] Scheduling ProcessAIInteraction task");
+                DebugLog("[WebChatDialog] Scheduling ProcessAIInteraction task");
                 Task.Run(async () =>
                 {
                     try
                     {
-                        Debug.WriteLine("[WebChatDialog] ProcessAIInteraction task starting");
+                        DebugLog("[WebChatDialog] ProcessAIInteraction task starting");
                         await this.ProcessAIInteraction().ConfigureAwait(false);
-                        Debug.WriteLine("[WebChatDialog] ProcessAIInteraction task finished");
+                        DebugLog("[WebChatDialog] ProcessAIInteraction task finished");
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[WebChatDialog] ProcessAIInteraction task error: {ex.Message}");
+                        DebugLog($"[WebChatDialog] ProcessAIInteraction task error: {ex.Message}");
                     }
                 });
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatDialog] SendMessage(text) error: {ex.Message}");
+                DebugLog($"[WebChatDialog] SendMessage(text) error: {ex.Message}");
             }
         }
 
