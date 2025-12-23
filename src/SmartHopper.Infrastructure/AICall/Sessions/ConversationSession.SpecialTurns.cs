@@ -386,7 +386,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var resultInteractions = result?.Body?.Interactions?.ToList() ?? new List<IAIInteraction>();
 
             // Build new body with preserved interactions + result
-            var builder = AIBodyBuilder.Create();
+            var builder = AIBodyBuilder.Create()
+                .WithToolFilter(this.Request.Body?.ToolFilter)
+                .WithContextFilter(this.Request.Body?.ContextFilter)
+                .WithJsonOutputSchema(this.Request.Body?.JsonOutputSchema)
+                .AsHistory();
             builder.AddRange(preservedInteractions);
 
             foreach (var interaction in resultInteractions)

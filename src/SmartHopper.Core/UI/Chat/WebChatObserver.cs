@@ -515,6 +515,10 @@ namespace SmartHopper.Core.UI.Chat
                             {
                                 var streamKey = GetStreamKey(interaction);
                                 var turnKey = GetTurnBaseKey(interaction?.TurnId);
+
+                                // Flush any pending text state for this turn before processing non-text interaction.
+                                // This ensures throttled text deltas are rendered before tool calls appear.
+                                this.FlushPendingTextStateForTurn(turnKey);
 #if DEBUG
                                 DebugLog($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
 #endif
@@ -851,6 +855,46 @@ namespace SmartHopper.Core.UI.Chat
             private static bool HasRenderableText(AIInteractionText t)
             {
                 return t != null && (!string.IsNullOrWhiteSpace(t.Content) || !string.IsNullOrWhiteSpace(t.Reasoning));
+            }
+
+            /// <summary>
+            /// Flushes any pending (throttled) text state for a turn to ensure final content is rendered.
+            /// Called before processing non-text interactions to prevent losing throttled text deltas.
+            /// </summary>
+            private void FlushPendingTextStateForTurn(string turnKey)
+            {
+                if (string.IsNullOrWhiteSpace(turnKey))
+                {
+                    return;
+                }
+
+                try
+                {
+                    // Find all streams for this turn and force-render any that have dirty state
+                    var turnPrefix = turnKey + ":";
+                    var keysToFlush = this._streams.Keys
+                        .Where(k => k != null && k.StartsWith(turnPrefix, StringComparison.Ordinal))
+                        .ToList();
+
+                    foreach (var segKey in keysToFlush)
+                    {
+                        if (this._streams.TryGetValue(segKey, out var state) &&
+                            state.Aggregated is AIInteractionText aggregatedText &&
+                            HasRenderableText(aggregatedText))
+                        {
+                            // Force render if content differs from last rendered
+                            if (this.ShouldRenderDelta(segKey, aggregatedText))
+                            {
+                                DebugLog($"[WebChatObserver] FlushPendingTextStateForTurn: flushing segKey={segKey}");
+                                this._dialog.UpsertMessageByKey(segKey, aggregatedText, source: "FlushPendingText");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[WebChatObserver] FlushPendingTextStateForTurn error: {ex.Message}");
+                }
             }
 
             /// <summary>
