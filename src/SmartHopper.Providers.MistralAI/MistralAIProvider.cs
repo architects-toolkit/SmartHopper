@@ -606,6 +606,8 @@ namespace SmartHopper.Providers.MistralAI
 
                 // Tool call accumulation for final body
                 var toolCallsList = new List<AIInteractionToolCall>();
+                var toolCallFragments = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
+                var toolCallsEmitted = false;
 
                 // Determine idle timeout from request (fallback to 60s if invalid)
                 var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
@@ -707,27 +709,37 @@ namespace SmartHopper.Providers.MistralAI
                             newText = contentToken.ToString();
                         }
 
-                        // Minimal tool call streaming support
                         if (delta["tool_calls"] is JArray tcs && tcs.Count > 0)
                         {
-                            var toolInteractions = new List<IAIInteraction>();
                             foreach (var tcTok in tcs.OfType<JObject>())
                             {
-                                var toolCall = new AIInteractionToolCall
+                                var idx = tcTok["index"]?.Value<int?>() ?? 0;
+                                if (!toolCallFragments.TryGetValue(idx, out var entry))
                                 {
-                                    Id = tcTok["id"]?.ToString(),
-                                    Name = tcTok["function"]?[(object)"name"]?.ToString(),
-                                    Arguments = tcTok["function"]?[(object)"arguments"] as JObject,
-                                    Agent = AIAgent.ToolCall,
-                                };
-                                toolInteractions.Add(toolCall);
-                                toolCallsList.Add(toolCall); // Store for final body
-                            }
+                                    entry = (Id: string.Empty, Name: string.Empty, Args: new StringBuilder());
+                                }
 
-                            var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
-                            tcDelta.SetBody(toolInteractions);
-                            yield return tcDelta;
-                            haveStreamedAny = true;
+                                var idVal = tcTok["id"]?.ToString();
+                                if (!string.IsNullOrEmpty(idVal)) entry.Id = idVal;
+
+                                var func = tcTok["function"] as JObject;
+                                if (func != null)
+                                {
+                                    var nameVal = func[(object)"name"]?.ToString();
+                                    if (!string.IsNullOrEmpty(nameVal)) entry.Name = nameVal;
+
+                                    var argsTok = func[(object)"arguments"];
+                                    if (argsTok != null)
+                                    {
+                                        var frag = argsTok.Type == JTokenType.String
+                                            ? argsTok.ToString()
+                                            : argsTok.ToString(Newtonsoft.Json.Formatting.None);
+                                        if (!string.IsNullOrEmpty(frag)) entry.Args.Append(frag);
+                                    }
+                                }
+
+                                toolCallFragments[idx] = entry;
+                            }
                         }
                     }
                     else
@@ -869,6 +881,44 @@ namespace SmartHopper.Providers.MistralAI
                     if (!string.IsNullOrEmpty(finishReason))
                     {
                         lastFinishReason = finishReason;
+                    }
+
+                    if (!toolCallsEmitted && !string.IsNullOrEmpty(finishReason) && string.Equals(finishReason, "tool_calls", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var toolInteractions = new List<IAIInteraction>();
+                        foreach (var kv in toolCallFragments.OrderBy(k => k.Key))
+                        {
+                            var (id, name, argsSb) = kv.Value;
+                            JObject? argsObj = null;
+                            var argsStr = argsSb?.ToString() ?? string.Empty;
+                            if (!string.IsNullOrWhiteSpace(argsStr))
+                            {
+                                try { argsObj = JObject.Parse(argsStr); }
+                                catch { argsObj = new JObject(); }
+                            }
+
+                            var toolCall = new AIInteractionToolCall
+                            {
+                                Id = id,
+                                Name = name,
+                                Arguments = argsObj,
+                                Agent = AIAgent.ToolCall,
+                            };
+
+                            toolInteractions.Add(toolCall);
+                            toolCallsList.Add(toolCall);
+                        }
+
+                        if (toolInteractions.Count > 0)
+                        {
+                            var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                            tcDelta.SetBody(toolInteractions);
+                            yield return tcDelta;
+                            haveStreamedAny = true;
+                        }
+
+                        toolCallsEmitted = true;
+                        break;
                     }
 
                     if (!string.IsNullOrEmpty(finishReason) && string.Equals(finishReason, "stop", StringComparison.OrdinalIgnoreCase))

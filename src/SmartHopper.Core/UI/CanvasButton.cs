@@ -66,11 +66,11 @@ namespace SmartHopper.Core.UI
             4. If you modify the canvas, do it safely and summarize what changed.
 
             Tool guidance is provided via instruction tools (to keep this prompt short).
-            When the user's request involves a domain below, first call:
-            - instruction_get {"topic":"canvas"} # Including ghjson, selected components, errors, component visibility/locks
-            - instruction_get {"topic":"discovery"}
-            - instruction_get {"topic":"scripting"}
-            - instruction_get {"topic":"knowledge"}
+            When the user's request involves a domain below, first call `instruction_get` function with a `topic` parameter which can be:
+            - canvas: Including ghjson, selected components, errors, component visibility/locks
+            - discovery: Retrieve available components in user's environment
+            - scripting: C#, python, iron-python and VB tools
+            - knowledge: To search for information
 
             Use the returned instructions as the authoritative workflow for that domain.
             """;
@@ -696,7 +696,7 @@ namespace SmartHopper.Core.UI
                     model,
                     endpoint: "canvas-chat",
                     systemPrompt: DefaultSystemPrompt,
-                    toolFilter: "Components,ComponentsRetrieval,Instructions,Knowledge,Parameters,Scripting",
+                    toolFilter: "Instructions,Knowledge,Components,ComponentsRetrieval,Parameters,Scripting",
                     componentId: CanvasChatDialogId,
                     progressReporter: null,
                     onUpdate: null,
