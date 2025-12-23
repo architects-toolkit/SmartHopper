@@ -28,7 +28,7 @@ Supply dynamic key-value context injected into `AIBody` so prompts and tools can
 
 - `time`: provides `time_current-datetime`, `time_current-timezone`
 - `environment`: provides `environment_operating-system`, `environment_rhino-version`, `environment_platform`
-- `current-file`: provides `current-file-file-name`, `current-file-selected-count`, `current-file-object-count`, `current-file-component-count`, `current-file-param-count`, `current-file-scribble-count`, `current-file-group-count`
+- `current-file`: provides `current-file-file-name`, `current-file-selected-count`, `current-file-selected-component-count`, `current-file-selected-param-count`, `current-file-selected-objects`, `current-file-object-count`, `current-file-component-count`, `current-file-param-count`, `current-file-scribble-count`, `current-file-group-count`
 
 ## WebChat defaults
 

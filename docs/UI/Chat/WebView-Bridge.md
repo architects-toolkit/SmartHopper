@@ -71,6 +71,12 @@ This ensures scripts (e.g., `ExecuteScript(...)`) are not executed inside `Docum
   - `ExecuteScript(string)` always marshals to the UI thread and is called only after the document is fully loaded.
 - After deferring from `DocumentLoading`, host methods may safely call `ExecuteScript(...)` (e.g., `addMessage`, `setStatus`, `setProcessing`).
 
+### Performance rules
+
+- The host drains queued DOM work in small batches and debounces drain scheduling to coalesce bursts of updates.
+- `ExecuteScript(...)` enforces a small concurrency gate to avoid piling scripts into the WebView and stalling the UI.
+- The WebView batches DOM mutations using a `requestAnimationFrame` (rAF) queue (with a small timeout fallback) so streaming updates don't trigger a DOM write per delta.
+
 ## JS ↔ Host API
 
 JavaScript functions (in `chat-script.js`):
@@ -98,6 +104,24 @@ Host functions (in `WebChatDialog.cs` / `WebChatObserver.cs`):
 - Interactions implement `IAIKeyedInteraction` with:
   - `GetStreamKey()` → grouping key to coalesce streaming deltas into one bubble.
   - `GetDedupKey()` → stable identity for persisted entries and hydration.
+
+### Payload conventions
+
+- **Full HTML payloads**: existing behavior (host sends full HTML bubble as a string).
+- **Patch payloads (optional)**: the host may send a JSON string to reduce work during streaming:
+  - `{"patch":"append","html":"..."}` → append content to `.message-content` of the existing message.
+  - `{"patch":"replace-content","html":"..."}` → replace `.message-content` innerHTML.
+
+The WebView only applies patches when a message with the target `key` already exists; otherwise it falls back to full insert/replace.
+
+### Diffing and caching
+
+- The WebView maintains a keyed LRU cache of recent HTML payloads and uses **sampled equality checks** to skip redundant DOM writes.
+- The host also maintains an idempotency cache per DOM key to avoid reinjecting identical HTML.
+
+### Lightweight perf counters
+
+- The WebView samples render-time counters (flushes, renders, slow renders, equality checks) and logs only outliers to keep overhead low.
 
 ## Event types and lifecycle
 
