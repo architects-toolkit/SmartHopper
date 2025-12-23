@@ -270,7 +270,7 @@ namespace SmartHopper.Components.AI
                         modelName: this.component.GetModel(),
                         endpoint: "ai-chat",
                         systemPrompt: this.component.SystemPrompt,
-                        toolFilter: "Components,ComponentsRetrieval,Parameters,Knowledge,Scripting",
+                        toolFilter: "Instructions,Knowledge,Components,ComponentsRetrieval,Parameters,Scripting",
                         componentId: this.component.InstanceGuid,
                         progressReporter: this.progressReporter,
                         onUpdate: snapshot =>

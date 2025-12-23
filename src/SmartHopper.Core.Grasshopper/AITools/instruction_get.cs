@@ -30,7 +30,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: ToolName,
-                description: "Returns detailed operational instructions for SmartHopper (canvas, discovery, scripting, knowledge). Use this to retrieve guidance instead of relying on a long system prompt.",
+                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, discovery, scripting, knowledge, ghjson, selected, errors, locks, visibility. Use this to retrieve guidance instead of relying on a long system prompt.",
                 category: "Instructions",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -60,12 +60,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 var topic = args["topic"]?.ToString() ?? string.Empty;
-
-                if (string.IsNullOrWhiteSpace(topic))
-                {
-                    output.CreateToolError("Missing required parameter: topic", toolCall);
-                    return Task.FromResult(output);
-                }
 
                 var instructions = this.GetInstructions(topic);
 
@@ -166,7 +160,7 @@ Required workflows:
 """;
 
                 default:
-                    return "Unknown topic. Valid topics: canvas, discovery, scripting, knowledge, ghjson, selected, errors, locks, visibility.";
+                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are canvas, discovery, scripting, knowledge, ghjson, selected, errors, locks, visibility.";
             }
         }
     }
