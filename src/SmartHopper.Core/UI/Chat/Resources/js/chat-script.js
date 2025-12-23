@@ -17,7 +17,6 @@ const MAX_MESSAGE_HTML_LENGTH = 20000; // cap DOM insertion size to avoid huge p
 const PERF_LOG_THRESHOLD_MS = 16; // only log perf outliers (>1 frame)
 const LRU_MAX_ENTRIES = 100; // recent DOM html cache size
 const FLUSH_INTERVAL_MS = 50; // max wait before flushing queued DOM ops
-const MAX_CONCURRENT_SCRIPTS = 4; // limit concurrent script execs
 const DIFF_SAMPLE_RATE = 0.25; // sample equality diffing (25%) to lower cost
 const RENDER_ANIM_DURATION_MS = 280; // wipe animation duration
 const PERF_SAMPLE_RATE = 0.25; // sample perf counters to reduce overhead
@@ -27,7 +26,6 @@ const _templateCache = new Map(); // html string -> DocumentFragment
 const _htmlLru = new Map(); // key -> html (maintains LRU order)
 const _pendingOps = [];
 let _flushScheduled = false;
-let _activeScripts = 0;
 const _perfCounters = {
     renders: 0,
     renderMs: 0,
@@ -114,29 +112,6 @@ function addWipeAnimation(node) {
         node.style.setProperty('--wipe-duration', `${RENDER_ANIM_DURATION_MS}ms`);
         const remove = () => node.classList.remove('wipe-in');
         node.addEventListener('animationend', remove, { once: true });
-    } catch { /* ignore */ }
-}
-
-function addStreamUpdateAnimation(node) {
-    try {
-        if (!node) return;
-        const content = node.querySelector ? (node.querySelector('.message-content') || node) : node;
-        if (!content || !content.classList) return;
-
-        const textLen = (content.textContent || '').length;
-        const steps = Math.max(8, Math.min(40, Math.floor(textLen / 6)));
-        const durationMs = Math.max(120, Math.min(520, steps * 14));
-
-        // Restart animation by toggling class
-        content.classList.remove('stream-update');
-        // Force reflow
-        void content.offsetWidth;
-        content.classList.add('stream-update');
-        content.style.setProperty('--stream-duration', `${durationMs}ms`);
-        content.style.setProperty('--stream-steps', `${steps}`);
-
-        const remove = () => content.classList.remove('stream-update');
-        content.addEventListener('animationend', remove, { once: true });
     } catch { /* ignore */ }
 }
 

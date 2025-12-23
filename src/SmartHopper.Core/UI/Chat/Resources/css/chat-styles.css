@@ -493,42 +493,6 @@ hr {
     }
 }
 
-.message-content.stream-update {
-    position: relative;
-    clip-path: inset(0 0 0 0);
-    animation: streamReveal var(--stream-duration, 220ms) steps(var(--stream-steps, 16), end) forwards;
-    will-change: clip-path;
-}
-
-.message-content.stream-update::after {
-    content: '';
-    display: inline-block;
-    width: 2px;
-    height: 1em;
-    background: rgba(0, 0, 0, 0.55);
-    margin-left: 2px;
-    vertical-align: -0.15em;
-    animation: streamCaretBlink 900ms steps(1, end) infinite;
-}
-
-@keyframes streamReveal {
-    from {
-        clip-path: inset(0 100% 0 0);
-    }
-    to {
-        clip-path: inset(0 0 0 0);
-    }
-}
-
-@keyframes streamCaretBlink {
-    0%, 49% {
-        opacity: 1;
-    }
-    50%, 100% {
-        opacity: 0;
-    }
-}
-
 /* New messages indicator */
 #new-messages-indicator {
     position: fixed;
