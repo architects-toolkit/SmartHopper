@@ -33,7 +33,7 @@ namespace SmartHopper.Core.UI.Chat
         {
             if (Application.Instance == null)
             {
-                Debug.WriteLine("[WebChatUtils] Initializing Eto.Forms application");
+                DebugLog("[WebChatUtils] Initializing Eto.Forms application");
                 var platform = Eto.Platform.Detect;
                 new Application(platform).Attach();
             }
@@ -67,7 +67,7 @@ namespace SmartHopper.Core.UI.Chat
 
             if (componentId != default && OpenDialogs.TryGetValue(componentId, out WebChatDialog existingDialog))
             {
-                Debug.WriteLine("[WebChatUtils] Reusing existing dialog for component");
+                DebugLog("[WebChatUtils] Reusing existing dialog for component");
                 BringToFrontAndFocus(existingDialog);
                 AttachOrReplaceUpdateHandler(componentId, existingDialog, progressReporter, onUpdate, pushCurrentImmediately: pushCurrentImmediately);
 
@@ -81,7 +81,7 @@ namespace SmartHopper.Core.UI.Chat
                 return existingDialog;
             }
 
-            Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
+            DebugLog("[WebChatUtils] Creating web chat dialog");
             var dialog = new WebChatDialog(request, progressReporter, generateGreeting: generateGreeting);
             if (componentId != default)
             {
@@ -138,7 +138,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception updEx)
                 {
-                    Debug.WriteLine($"[WebChatUtils] ChatUpdated handler error: {updEx.Message}");
+                    DebugLog($"[WebChatUtils] ChatUpdated handler error: {updEx.Message}");
                 }
             };
 
@@ -169,7 +169,7 @@ namespace SmartHopper.Core.UI.Chat
         {
             dialog.Closed += (sender, e) =>
             {
-                Debug.WriteLine("[WebChatUtils] Dialog closed");
+                DebugLog("[WebChatUtils] Dialog closed");
                 try
                 {
                     if (componentId != default)
@@ -186,7 +186,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatUtils] Closed cleanup error: {ex.Message}");
+                    DebugLog($"[WebChatUtils] Closed cleanup error: {ex.Message}");
                 }
             };
         }

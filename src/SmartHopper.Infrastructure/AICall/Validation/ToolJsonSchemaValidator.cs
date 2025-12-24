@@ -60,6 +60,19 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             var tool = tools[instance.Name];
             var schemaText = tool.ParametersSchema ?? string.Empty;
 
+            JArray required = null;
+            try
+            {
+                var schemaObj = string.IsNullOrWhiteSpace(schemaText) ? null : JObject.Parse(schemaText);
+                required = schemaObj?["required"] as JArray;
+            }
+            catch
+            {
+                required = null;
+            }
+
+            var hasRequired = required != null && required.Count > 0;
+
             if (string.IsNullOrWhiteSpace(schemaText))
             {
                 // No schema to validate; treat as pass
@@ -80,6 +93,38 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                         AIRuntimeMessageOrigin.Validation,
                         $"Arguments for tool '{instance.Name}' do not match schema: {error}"));
                 }
+
+                if (hasRequired && instance.Arguments is JObject argsObj)
+                {
+                    var missing = new List<string>();
+                    foreach (var r in required)
+                    {
+                        var key = r?.ToString();
+                        if (string.IsNullOrWhiteSpace(key))
+                        {
+                            continue;
+                        }
+
+                        if (!argsObj.TryGetValue(key, out var value) || value == null || value.Type == JTokenType.Null)
+                        {
+                            missing.Add(key);
+                            continue;
+                        }
+
+                        if (value.Type == JTokenType.String && string.IsNullOrWhiteSpace(value.ToString()))
+                        {
+                            missing.Add(key);
+                        }
+                    }
+
+                    if (missing.Count > 0)
+                    {
+                        messages.Add(new AIRuntimeMessage(
+                            AIRuntimeMessageSeverity.Error,
+                            AIRuntimeMessageOrigin.Validation,
+                            $"Arguments for tool '{instance.Name}' are missing required properties: {string.Join(", ", missing)}. Retry the tool call and include these properties."));
+                    }
+                }
             }
             else
             {
@@ -87,10 +132,22 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 // so downstream execution receives a valid JSON object. This mirrors permissive
                 // handling for tools that support optional arguments.
                 instance.Arguments = new JObject();
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Info,
-                    AIRuntimeMessageOrigin.Validation,
-                    $"No arguments provided for tool '{instance.Name}'. Created default empty arguments {{}} to satisfy the schema."));
+
+                if (hasRequired)
+                {
+                    // Make the message stable and actionable so repeated validation passes dedupe cleanly.
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Error,
+                        AIRuntimeMessageOrigin.Validation,
+                        $"Arguments for tool '{instance.Name}' are missing required properties: {string.Join(", ", required)}. Retry the tool call and include these properties."));
+                }
+                else
+                {
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Info,
+                        AIRuntimeMessageOrigin.Validation,
+                        $"No arguments provided for tool '{instance.Name}'. Created default empty arguments {{}} to satisfy the schema."));
+                }
             }
 
             var result = new ValidationResult

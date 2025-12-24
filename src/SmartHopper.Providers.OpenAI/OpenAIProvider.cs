@@ -105,11 +105,8 @@ namespace SmartHopper.Providers.OpenAI
             }
         }
 
-        /// <summary>
-        /// Returns a streaming adapter for OpenAI that yields incremental AIReturn deltas.
-        /// </summary>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
-        public IStreamingAdapter GetStreamingAdapter()
+        /// <inheritdoc/>
+        protected override IStreamingAdapter CreateStreamingAdapter()
         {
             return new OpenAIStreamingAdapter(this);
         }

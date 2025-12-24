@@ -12,6 +12,164 @@
 const SCROLL_BOTTOM_THRESHOLD = 30; // consider near-bottom within this distance
 const SCROLL_SHOW_BTN_THRESHOLD = 5; // show scroll-to-bottom button when farther than this
 
+// Render limits and thresholds
+const MAX_MESSAGE_HTML_LENGTH = 20000; // cap DOM insertion size to avoid huge paints
+const PERF_LOG_THRESHOLD_MS = 16; // only log perf outliers (>1 frame)
+const LRU_MAX_ENTRIES = 100; // recent DOM html cache size
+const FLUSH_INTERVAL_MS = 50; // max wait before flushing queued DOM ops
+const DIFF_SAMPLE_RATE = 0.25; // sample equality diffing (25%) to lower cost
+const RENDER_ANIM_DURATION_MS = 280; // wipe animation duration
+const PERF_SAMPLE_RATE = 0.25; // sample perf counters to reduce overhead
+
+// Internal caches
+const _templateCache = new Map(); // html string -> DocumentFragment
+const _htmlLru = new Map(); // key -> html (maintains LRU order)
+const _pendingOps = [];
+let _flushScheduled = false;
+const _perfCounters = {
+    renders: 0,
+    renderMs: 0,
+    renderSlow: 0,
+    equalityChecks: 0,
+    equalityMs: 0,
+    flushes: 0,
+};
+
+function lruSet(key, value) {
+    if (!key) return;
+    if (_htmlLru.has(key)) {
+        _htmlLru.delete(key);
+    }
+    _htmlLru.set(key, value);
+    if (_htmlLru.size > LRU_MAX_ENTRIES) {
+        const oldest = _htmlLru.keys().next().value;
+        _htmlLru.delete(oldest);
+    }
+}
+
+function lruGet(key) {
+    if (!key) return null;
+    if (!_htmlLru.has(key)) return null;
+    const val = _htmlLru.get(key);
+    // touch
+    _htmlLru.delete(key);
+    _htmlLru.set(key, val);
+    return val;
+}
+
+function scheduleFlush() {
+    if (_flushScheduled) return;
+    _flushScheduled = true;
+    // Prefer rAF, fall back to setTimeout
+    const flushFn = () => {
+        _flushScheduled = false;
+        flushDomOps();
+    };
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(flushFn);
+    } else {
+        setTimeout(flushFn, FLUSH_INTERVAL_MS);
+    }
+}
+
+function enqueueDomOp(op) {
+    _pendingOps.push(op);
+    scheduleFlush();
+}
+
+function flushDomOps() {
+    const ops = _pendingOps.splice(0, _pendingOps.length);
+    if (Math.random() <= PERF_SAMPLE_RATE) {
+        _perfCounters.flushes += 1;
+    }
+    for (let i = 0; i < ops.length; i++) {
+        try {
+            ops[i]();
+        } catch (err) {
+            console.error('[JS] flushDomOps error', err);
+        }
+    }
+}
+
+function shouldSkipBecauseSame(key, html) {
+    if (!key || !html) return false;
+    // Sample to reduce cost
+    if (Math.random() > DIFF_SAMPLE_RATE) return false;
+    const previous = lruGet(key);
+    if (!previous) return false;
+    return previous === html;
+}
+
+function recordHtmlCache(key, html) {
+    if (!key || !html) return;
+    lruSet(key, html);
+}
+
+function addWipeAnimation(node) {
+    try {
+        if (!node || !node.classList) return;
+        node.classList.add('wipe-in');
+        node.style.setProperty('--wipe-duration', `${RENDER_ANIM_DURATION_MS}ms`);
+        const remove = () => node.classList.remove('wipe-in');
+        node.addEventListener('animationend', remove, { once: true });
+    } catch { /* ignore */ }
+}
+
+function cloneFromTemplate(html, context) {
+    if (!html) return null;
+    let frag = _templateCache.get(html);
+    if (!frag) {
+        // Guard against excessively large payloads
+        if (html.length > MAX_MESSAGE_HTML_LENGTH) {
+            console.warn(`[JS] ${context}: html length ${html.length} exceeds cap ${MAX_MESSAGE_HTML_LENGTH}, truncating`);
+            html = html.slice(0, MAX_MESSAGE_HTML_LENGTH) + '…';
+        }
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        frag = document.createDocumentFragment();
+        while (temp.firstChild) {
+            frag.appendChild(temp.firstChild);
+        }
+        _templateCache.set(html, frag.cloneNode(true));
+    }
+    return frag.cloneNode(true).firstElementChild || frag.cloneNode(true).firstChild || null;
+}
+
+function parsePatchPayload(messageHtml) {
+    // Supports JSON string like {"patch":"append","html":"..."} to avoid resending full bodies
+    if (!messageHtml || typeof messageHtml !== 'string') return null;
+    if (messageHtml.length === 0 || messageHtml[0] !== '{') return null;
+    try {
+        const obj = JSON.parse(messageHtml);
+        if (obj && typeof obj === 'object' && obj.patch && obj.html) {
+            return obj;
+        }
+    } catch {
+        // Not a patch object
+    }
+    return null;
+}
+
+function applyPatchToExisting(existing, patchObj, context) {
+    if (!existing || !patchObj) return null;
+    const content = existing.querySelector('.message-content') || existing;
+    if (patchObj.patch === 'append') {
+        const temp = document.createElement('div');
+        temp.innerHTML = patchObj.html || '';
+        // Append children to content
+        while (temp.firstChild) {
+            content.appendChild(temp.firstChild);
+        }
+        return existing;
+    }
+    if (patchObj.patch === 'replace-content') {
+        content.innerHTML = patchObj.html || '';
+        return existing;
+    }
+    console.warn(`[JS] ${context}: unsupported patch type`, patchObj.patch);
+    return null;
+}
+
 /**
  * Returns the chat container element and whether it was at (or near) bottom before changes.
  * Helps standardize error handling and scroll-state capture before DOM mutations.
@@ -106,18 +264,30 @@ function insertAfterNode(container, node, reference, context) {
  * @param {string} messageHtml - HTML content of the message
  */
 function addMessage(messageHtml) {
-    console.log('[JS] addMessage called with HTML length:', messageHtml ? messageHtml.length : 0);
-    const { chatContainer, wasAtBottom } = getContainerWithBottom('addMessage');
-    if (!chatContainer) return;
+    enqueueDomOp(() => {
+        const start = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const { chatContainer, wasAtBottom } = getContainerWithBottom('addMessage');
+        if (!chatContainer) return;
 
-    const node = createNodeFromHtml(messageHtml, 'addMessage');
-    if (!node) return;
+        const node = cloneFromTemplate(messageHtml, 'addMessage') || createNodeFromHtml(messageHtml, 'addMessage');
+        if (!node) return;
+        addWipeAnimation(node);
 
-    // Insert above the persistent thinking message if present; otherwise append
-    insertAboveThinkingIfPresent(chatContainer, node);
-    console.log('[JS] addMessage: node appended successfully, role classes:', node.className);
-    // Finalize: reprocess dynamic features and auto-scroll if needed
-    finalizeMessageInsertion(node, wasAtBottom);
+        // Insert above the persistent thinking message if present; otherwise append
+        insertAboveThinkingIfPresent(chatContainer, node);
+        // Finalize: reprocess dynamic features and auto-scroll if needed
+        finalizeMessageInsertion(node, wasAtBottom);
+
+        const dur = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - start;
+        if (Math.random() <= PERF_SAMPLE_RATE) {
+            _perfCounters.renders += 1;
+            _perfCounters.renderMs += dur;
+        }
+        if (dur > PERF_LOG_THRESHOLD_MS) {
+            _perfCounters.renderSlow += 1;
+            console.debug('[JS] addMessage slow render', { ms: dur.toFixed(2), len: messageHtml ? messageHtml.length : 0 });
+        }
+    });
 }
 
 /**
@@ -128,36 +298,64 @@ function addMessage(messageHtml) {
  * @param {string} messageHtml - HTML string for the message
  */
 function upsertMessageAfter(followKey, key, messageHtml) {
-    console.log('[JS] upsertMessageAfter called with followKey:', followKey, 'key:', key, 'HTML length:', messageHtml ? messageHtml.length : 0);
-    const { chatContainer, wasAtBottom } = getContainerWithBottom('upsertMessageAfter');
-    if (!chatContainer) return false;
+    enqueueDomOp(() => {
+        const start = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const { chatContainer, wasAtBottom } = getContainerWithBottom('upsertMessageAfter');
+        if (!chatContainer) return false;
 
-    const incoming = createNodeFromHtml(messageHtml, 'upsertMessageAfter');
-    if (!incoming) return false;
-    setDatasetKeySafe(incoming, key);
+        // If content matches last rendered, skip
+        if (shouldSkipBecauseSame(key, messageHtml)) {
+            if (Math.random() <= PERF_SAMPLE_RATE) {
+                _perfCounters.equalityChecks += 1;
+            }
+            return true;
+        }
 
-    // Find existing nodes
-    const existing = findExistingMessageByKey(chatContainer, key);
-    const follow = findExistingMessageByKey(chatContainer, followKey);
+        const patchObj = parsePatchPayload(messageHtml);
+        const follow = findExistingMessageByKey(chatContainer, followKey);
+        if (!follow) {
+            console.warn('[JS] upsertMessageAfter: followKey not found, falling back to upsertMessage');
+            return upsertMessage(key, messageHtml);
+        }
 
-    // If follow is not found, fallback to upsertMessage
-    if (!follow) {
-        console.warn('[JS] upsertMessageAfter: followKey not found, falling back to upsertMessage');
-        return upsertMessage(key, messageHtml);
-    }
+        const existing = findExistingMessageByKey(chatContainer, key);
+        if (patchObj && existing) {
+            const patched = applyPatchToExisting(existing, patchObj, 'upsertMessageAfter');
+            if (patched) {
+                // Patch updates: no animation (bubble already exists from first chunk)
+                finalizeMessageInsertion(patched, wasAtBottom);
+                recordHtmlCache(key, messageHtml);
+                if (Math.random() <= PERF_SAMPLE_RATE) {
+                    _perfCounters.renders += 1;
+                }
+                return true;
+            }
+        }
 
-    if (existing) {
-        // Replace existing content and keep relative position by re-inserting after follow
-        existing.replaceWith(incoming);
-        console.log('[JS] upsertMessageAfter: replaced existing message for key:', key);
-    }
+        const incoming = cloneFromTemplate(messageHtml, 'upsertMessageAfter') || createNodeFromHtml(messageHtml, 'upsertMessageAfter');
+        if (!incoming) return false;
+        setDatasetKeySafe(incoming, key);
+        addWipeAnimation(incoming);
 
-    // Insert after follow (handling last-child case)
-    insertAfterNode(chatContainer, incoming, follow, 'upsertMessageAfter');
-    console.log('[JS] upsertMessageAfter: inserted after followKey:', followKey);
+        if (existing) {
+            existing.replaceWith(incoming);
+        }
 
-    finalizeMessageInsertion(incoming, wasAtBottom);
-    return true;
+        insertAfterNode(chatContainer, incoming, follow, 'upsertMessageAfter');
+        finalizeMessageInsertion(incoming, wasAtBottom);
+        recordHtmlCache(key, messageHtml);
+
+        const dur = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - start;
+        if (Math.random() <= PERF_SAMPLE_RATE) {
+            _perfCounters.renders += 1;
+            _perfCounters.renderMs += dur;
+        }
+        if (dur > PERF_LOG_THRESHOLD_MS) {
+            _perfCounters.renderSlow += 1;
+            console.debug('[JS] upsertMessageAfter slow render', { ms: dur.toFixed(2), len: messageHtml ? messageHtml.length : 0 });
+        }
+        return true;
+    });
 }
 
 /**
@@ -167,27 +365,65 @@ function upsertMessageAfter(followKey, key, messageHtml) {
  * @param {string} messageHtml - HTML string for the message
  */
 function upsertMessage(key, messageHtml) {
-    console.log('[JS] upsertMessage called with key:', key, 'HTML length:', messageHtml ? messageHtml.length : 0);
-    const { chatContainer, wasAtBottom } = getContainerWithBottom('upsertMessage');
-    if (!chatContainer) return false;
+    enqueueDomOp(() => {
+        const start = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const { chatContainer, wasAtBottom } = getContainerWithBottom('upsertMessage');
+        if (!chatContainer) return false;
 
-    const incoming = createNodeFromHtml(messageHtml, 'upsertMessage');
-    if (!incoming) return false;
-    setDatasetKeySafe(incoming, key);
+        // Diff sampling to avoid redundant DOM work
+        if (shouldSkipBecauseSame(key, messageHtml)) {
+            if (Math.random() <= PERF_SAMPLE_RATE) {
+                _perfCounters.equalityChecks += 1;
+            }
+            return true;
+        }
 
-    // Find existing by data-key (avoid querySelector escaping issues by scanning)
-    const existing = findExistingMessageByKey(chatContainer, key);
+        const patchObj = parsePatchPayload(messageHtml);
 
-    if (existing) {
-        chatContainer.replaceChild(incoming, existing);
-        console.log('[JS] upsertMessage: replaced existing message for key:', key);
-    } else {
-        insertAboveThinkingIfPresent(chatContainer, incoming);
-        console.log('[JS] upsertMessage: appended new message for key:', key);
-    }
+        // Find existing by data-key (avoid querySelector escaping issues by scanning)
+        const existing = findExistingMessageByKey(chatContainer, key);
 
-    finalizeMessageInsertion(incoming, wasAtBottom);
-    return true;
+        if (patchObj && existing) {
+            const patched = applyPatchToExisting(existing, patchObj, 'upsertMessage');
+            if (patched) {
+                finalizeMessageInsertion(patched, wasAtBottom);
+                recordHtmlCache(key, messageHtml);
+                if (Math.random() <= PERF_SAMPLE_RATE) {
+                    _perfCounters.renders += 1;
+                }
+                return true;
+            }
+        }
+
+        const incoming = cloneFromTemplate(messageHtml, 'upsertMessage') || createNodeFromHtml(messageHtml, 'upsertMessage');
+        if (!incoming) return false;
+        setDatasetKeySafe(incoming, key);
+        
+        // Only animate on NEW bubble insertion (first chunk), not on updates to existing bubbles
+        if (!existing) {
+            addWipeAnimation(incoming);
+        }
+
+        if (existing) {
+            chatContainer.replaceChild(incoming, existing);
+        } else {
+            insertAboveThinkingIfPresent(chatContainer, incoming);
+        }
+
+        finalizeMessageInsertion(incoming, wasAtBottom);
+        recordHtmlCache(key, messageHtml);
+
+        const dur = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - start;
+        if (Math.random() <= PERF_SAMPLE_RATE) {
+            _perfCounters.renders += 1;
+            _perfCounters.renderMs += dur;
+        }
+        if (dur > PERF_LOG_THRESHOLD_MS) {
+            _perfCounters.renderSlow += 1;
+            console.debug('[JS] upsertMessage slow render', { ms: dur.toFixed(2), len: messageHtml ? messageHtml.length : 0 });
+        }
+        return true;
+    });
 }
 
 /**
@@ -257,18 +493,22 @@ function replaceLastMessageByRole(role, messageHtml) {
     const incoming = createNodeFromHtml(messageHtml, 'replaceLastMessageByRole');
     if (!incoming) return false;
 
-    if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        chatContainer.replaceChild(incoming, lastMessage);
-        console.log('[JS] replaceLastMessageByRole: replaced existing message');
-    } else {
-        chatContainer.appendChild(incoming);
-        console.log('[JS] replaceLastMessageByRole: appended new message');
-    }
+    enqueueDomOp(() => {
+        const start = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
+            chatContainer.replaceChild(incoming, lastMessage);
+        } else {
+            chatContainer.appendChild(incoming);
+        }
 
-    // Finalize: reprocess dynamic features and auto-scroll if needed
-    finalizeMessageInsertion(incoming, wasAtBottom);
-    return true;
+        finalizeMessageInsertion(incoming, wasAtBottom);
+        const dur = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - start;
+        if (dur > PERF_LOG_THRESHOLD_MS) {
+            console.debug('[JS] replaceLastMessageByRole slow render', { ms: dur.toFixed(2), len: messageHtml ? messageHtml.length : 0 });
+        }
+        return true;
+    });
 }
 
 /**
@@ -650,8 +890,9 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
         const input = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-button');
-        const clearBtn = document.getElementById('clear-button');
         const cancelBtn = document.getElementById('cancel-button');
+        const regenBtn = document.getElementById('regen-button'); // present only when host injects debug actions
+
         const chatContainer = document.getElementById('chat-container');
         const newIndicator = document.getElementById('new-messages-indicator');
         const scrollBtn = document.getElementById('scroll-bottom-btn');
@@ -659,8 +900,8 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('[JS] Element search results:', {
             input: !!input,
             sendBtn: !!sendBtn,
-            clearBtn: !!clearBtn,
             cancelBtn: !!cancelBtn,
+            regenBtn: !!regenBtn,
             chatContainer: !!chatContainer,
             newIndicator: !!newIndicator,
             scrollBtn: !!scrollBtn
@@ -689,16 +930,6 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('[JS] Send button not found!');
         }
 
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                console.log('[JS] Clear button clicked');
-                window.location.href = 'sh://event?type=clear';
-            });
-            console.log('[JS] Clear button click handler attached');
-        } else {
-            console.error('[JS] Clear button not found!');
-        }
-
         if (cancelBtn) {
             cancelBtn.addEventListener('click', () => {
                 console.log('[JS] Cancel button clicked');
@@ -707,6 +938,14 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('[JS] Cancel button click handler attached');
         } else {
             console.error('[JS] Cancel button not found!');
+        }
+
+        if (regenBtn) {
+            regenBtn.addEventListener('click', () => {
+                console.log('[JS] Regen button clicked');
+                window.location.href = 'sh://event?type=regen';
+            });
+            console.log('[JS] Regen button click handler attached');
         }
 
         if (input) {
@@ -770,7 +1009,6 @@ function setProcessing(on) {
     const spinner = document.getElementById('spinner');
     const input = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-button');
-    const clearBtn = document.getElementById('clear-button');
     const cancelBtn = document.getElementById('cancel-button');
 
     if (spinner) {
@@ -792,22 +1030,22 @@ function setProcessing(on) {
     }
 
     // Toggle controls according to processing state
-    // When processing: disable input + send + clear, enable cancel
-    // When idle: enable input + send + clear, disable cancel
+    // When processing: disable input + send, enable cancel
+    // When idle: enable input + send, disable cancel
     try {
         if (input) input.disabled = !!on;
         if (sendBtn) sendBtn.disabled = !!on;
-        if (clearBtn) clearBtn.disabled = !!on;
         if (cancelBtn) cancelBtn.disabled = !on;
 
         // Optional: reflect disabled state via CSS class and ARIA for better a11y
-        [sendBtn, clearBtn, cancelBtn].forEach(btn => {
+        [sendBtn, cancelBtn].forEach(btn => {
             if (!btn) return;
             try {
                 btn.classList.toggle('disabled', !!btn.disabled);
                 btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
             } catch {}
         });
+
         if (input) {
             try {
                 input.setAttribute('aria-disabled', input.disabled ? 'true' : 'false');
@@ -817,19 +1055,26 @@ function setProcessing(on) {
         console.warn('[JS] setProcessing: control toggle failed', err);
     }
 }
-    
-/**
- * Clears all messages from the chat container
- */
-function clearMessages() {
-    console.log('[JS] clearMessages called');
+
+function resetMessages() {
+    console.log('[JS] resetMessages called');
     const chatContainer = document.getElementById('chat-container');
     if (!chatContainer) {
-        console.error('[JS] clearMessages: chat-container element not found');
+        console.error('[JS] resetMessages: chat-container element not found');
         return;
     }
     chatContainer.innerHTML = '';
-    console.log('[JS] clearMessages: all messages cleared');
+
+    try {
+        _templateCache.clear();
+        _htmlLru.clear();
+        _pendingOps.length = 0;
+        _flushScheduled = false;
+    } catch {
+        // ignore
+    }
+
+    console.log('[JS] resetMessages: cleared messages and caches');
 }
 
 // Copy handler: only override when one or more FULL messages are selected

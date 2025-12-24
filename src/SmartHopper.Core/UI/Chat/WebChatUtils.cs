@@ -31,6 +31,12 @@ namespace SmartHopper.Core.UI.Chat
     /// </summary>
     public static partial class WebChatUtils
     {
+        [Conditional("DEBUG")]
+        private static void DebugLog(string message)
+        {
+            Debug.WriteLine(message);
+        }
+
         /// <summary>
         /// Dictionary to track open chat dialogs by component instance ID.
         /// </summary>
@@ -57,7 +63,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <param name="e">The event arguments.</param>
         private static void OnRhinoClosing(object sender, EventArgs e)
         {
-            Debug.WriteLine("[WebChatUtils] Rhino is closing, cleaning up open chat dialogs");
+            DebugLog("[WebChatUtils] Rhino is closing, cleaning up open chat dialogs");
 
             try
             {
@@ -68,7 +74,7 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     if (OpenDialogs.TryGetValue(dialogId, out WebChatDialog dialog))
                     {
-                        Debug.WriteLine($"[WebChatUtils] Closing dialog for component {dialogId}");
+                        DebugLog($"[WebChatUtils] Closing dialog for component {dialogId}");
 
                         // Close the dialog on the UI thread to ensure proper cleanup
                         Rhino.RhinoApp.InvokeOnUiThread(() =>
@@ -94,7 +100,7 @@ namespace SmartHopper.Core.UI.Chat
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[WebChatUtils] Error closing dialog {dialogId}: {ex.Message}");
+                                DebugLog($"[WebChatUtils] Error closing dialog {dialogId}: {ex.Message}");
                             }
                         });
 
@@ -103,11 +109,11 @@ namespace SmartHopper.Core.UI.Chat
                     }
                 }
 
-                Debug.WriteLine($"[WebChatUtils] Cleanup complete. Closed {dialogIds.Length} dialogs");
+                DebugLog($"[WebChatUtils] Cleanup complete. Closed {dialogIds.Length} dialogs");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatUtils] Error during dialog cleanup: {ex.Message}");
+                DebugLog($"[WebChatUtils] Error during dialog cleanup: {ex.Message}");
             }
         }
 
@@ -152,7 +158,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatUtils] Unsubscribe error for {componentId}: {ex.Message}");
+                DebugLog($"[WebChatUtils] Unsubscribe error for {componentId}: {ex.Message}");
             }
         }
 
@@ -172,7 +178,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatUtils] TryGetLastReturn error for {componentId}: {ex.Message}");
+                DebugLog($"[WebChatUtils] TryGetLastReturn error for {componentId}: {ex.Message}");
             }
 
             return null;
@@ -202,7 +208,7 @@ namespace SmartHopper.Core.UI.Chat
 
             var tcs = new TaskCompletionSource<AIReturn>();
             AIReturn? lastReturn = null;
-            Debug.WriteLine("[WebChatUtils] Preparing to show web chat dialog");
+            DebugLog("[WebChatUtils] Preparing to show web chat dialog");
 
             try
             {
@@ -225,13 +231,13 @@ namespace SmartHopper.Core.UI.Chat
                         // Mirror previous logging and keep a local lastReturn if needed by callers
                         dialog.ResponseReceived += (sender, result) =>
                         {
-                            Debug.WriteLine("[WebChatUtils] Response received from dialog");
+                            DebugLog("[WebChatUtils] Response received from dialog");
                             lastReturn = result;
                         };
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[WebChatUtils] Error in UI thread: {ex.Message}");
+                        DebugLog($"[WebChatUtils] Error in UI thread: {ex.Message}");
                         tcs.TrySetException(ex);
                     }
                 });
@@ -241,7 +247,7 @@ namespace SmartHopper.Core.UI.Chat
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatUtils] Error showing web chat dialog: {ex.Message}");
+                DebugLog($"[WebChatUtils] Error showing web chat dialog: {ex.Message}");
                 throw;
             }
         }
@@ -297,13 +303,13 @@ namespace SmartHopper.Core.UI.Chat
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[WebChatUtils] EnsureDialogOpen UI error: {ex.Message}");
+                        DebugLog($"[WebChatUtils] EnsureDialogOpen UI error: {ex.Message}");
                     }
                 });
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebChatUtils] EnsureDialogOpen error: {ex.Message}");
+                DebugLog($"[WebChatUtils] EnsureDialogOpen error: {ex.Message}");
                 throw;
             }
         }
