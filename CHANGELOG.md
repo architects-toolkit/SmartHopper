@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Simplified streaming validation flow in `WebChatDialog.ProcessAIInteraction()` - now always attempts streaming first, letting `ConversationSession` handle validation internally.
   - Added `TurnRenderState` and `SegmentState` classes to `WebChatObserver` for encapsulated per-turn state management.
   - Reduced idempotency cache size from 1000 to 100 entries to reduce memory footprint.
+- Chat UI:
+  - Optimized DOM updates with a keyed queue, conditional debug logging, and template-cached message rendering with LRU diffing to cut redundant work on large chats.
+  - Refined streaming visuals by removing unused animations and switching to lighter wipe-in effects, improving responsiveness while messages stream.
 
 ### Fixed
 
@@ -34,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mitigated issue [#261](https://github.com/architects-toolkit/SmartHopper/issues/261) by batching WebView DOM operations (JS rAF/timer queue) and debouncing host-side script injection/drain scheduling.
   - Reduced redundant DOM work using idempotency caching and sampled diff checks; added lightweight JS render perf counters and slow-render logging.
   - Improved rendering performance using template cloning, capped message HTML length, and a transform/opacity wipe-in animation for streaming updates.
+  - Further reduced freezes while dragging/resizing by shrinking update batches and eliminating heavy animation paths during active user interaction.
 
 - Context providers:
   - Fixed `current-file_selected-count` sometimes returning `0` even when parameters were selected by reading selection on the Rhino UI thread and adding a robust `Attributes.Selected` fallback.
