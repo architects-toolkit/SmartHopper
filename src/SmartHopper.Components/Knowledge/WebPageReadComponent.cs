@@ -29,7 +29,7 @@ using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Knowledge
 {
-    public class WebPageReadComponent : StatefulAsyncComponentBase
+    public class WebPageReadComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("C2E6B13A-6245-4A4F-8C8F-3B7616D33003");
 

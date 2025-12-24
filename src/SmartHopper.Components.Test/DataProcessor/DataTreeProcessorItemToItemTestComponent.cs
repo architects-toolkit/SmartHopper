@@ -27,7 +27,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test component for ItemToItem topology: processes items independently across matching paths.
     /// Each item from input trees is processed independently, and results maintain the same branch structure.
     /// </summary>
-    public class DataTreeProcessorItemToItemTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorItemToItemTestComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("C4D5E6F7-8A9B-4C0D-9E1F-2A3B4C5D6E7F");
         protected override Bitmap Icon => null;

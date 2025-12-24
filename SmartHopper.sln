@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.OpenR
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core.Grasshopper.Tests", "src\SmartHopper.Core.Grasshopper.Tests\SmartHopper.Core.Grasshopper.Tests.csproj", "{56E24C95-ADF6-4DBA-BDB7-73CFB1291052}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Core.Tests", "src\SmartHopper.Core.Tests\SmartHopper.Core.Tests.csproj", "{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -196,6 +198,18 @@ Global
 		{56E24C95-ADF6-4DBA-BDB7-73CFB1291052}.Release|x64.Build.0 = Release|Any CPU
 		{56E24C95-ADF6-4DBA-BDB7-73CFB1291052}.Release|x86.ActiveCfg = Release|Any CPU
 		{56E24C95-ADF6-4DBA-BDB7-73CFB1291052}.Release|x86.Build.0 = Release|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Debug|x64.Build.0 = Debug|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Debug|x86.Build.0 = Debug|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x64.ActiveCfg = Release|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x64.Build.0 = Release|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x86.ActiveCfg = Release|Any CPU
+		{C7E24C95-ADF6-4DBA-BDB7-73CFB1291053}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -27,7 +27,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test Case 5 & 6: A={0}, B={0;0},{0;1} - Deeper paths under same root 0
     /// Rule 3 applies: A broadcasts to ALL deeper paths
     /// </summary>
-    public class DataTreeProcessorBroadcastDeeperSameRootTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorBroadcastDeeperSameRootTestComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("0E1105D8-1EA0-446B-B51D-F90D1EC29342");
         protected override Bitmap Icon => null;

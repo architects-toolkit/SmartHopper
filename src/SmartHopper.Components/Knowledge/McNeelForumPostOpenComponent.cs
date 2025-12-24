@@ -25,7 +25,7 @@ namespace SmartHopper.Components.Knowledge
     /// <summary>
     /// Opens the McNeelForum page for a given post JSON in the default browser.
     /// </summary>
-    public class McNeelForumPostOpenComponent : StatefulAsyncComponentBase
+    public class McNeelForumPostOpenComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("1B7A2E6C-4F0B-4B1C-9D19-6B3A2C8F9012");
 

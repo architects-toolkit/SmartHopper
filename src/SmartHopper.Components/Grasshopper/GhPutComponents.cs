@@ -27,9 +27,9 @@ namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
     /// Grasshopper component for placing components from JSON data.
-    /// Uses StatefulAsyncComponentBase to properly manage async execution, state, and prevent re-entrancy.
+    /// Uses StatefulComponentBaseV2 to properly manage async execution, state, and prevent re-entrancy.
     /// </summary>
-    public class GhPutComponents : StatefulAsyncComponentBase
+    public class GhPutComponents : StatefulComponentBaseV2
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GhPutComponents"/> class.

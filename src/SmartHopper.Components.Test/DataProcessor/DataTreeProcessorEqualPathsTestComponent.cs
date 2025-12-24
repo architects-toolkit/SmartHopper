@@ -26,7 +26,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test component to validate DataTreeProcessor with two trees having equal paths (one item each).
     /// Internal hardcoded inputs are used; only Run? is exposed. Outputs the result tree, success flag, and messages.
     /// </summary>
-    public class DataTreeProcessorEqualPathsTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorEqualPathsTestComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("B0C2B1B7-3A6C-46A5-9E52-9F9E4F6B7C11");
         protected override Bitmap Icon => null;

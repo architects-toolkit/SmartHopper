@@ -27,7 +27,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test Case 9 & 10: A={0}, B={0},{0;0},{0;1} - Direct match + deeper paths
     /// Rule 4 applies: A matches ONLY B's {0}, NOT the deeper {0;0} or {0;1}
     /// </summary>
-    public class DataTreeProcessorDirectMatchPrecedenceTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorDirectMatchPrecedenceTestComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("77095C92-474F-4D5C-9EA6-6FE31FFFA710");
         protected override Bitmap Icon => null;

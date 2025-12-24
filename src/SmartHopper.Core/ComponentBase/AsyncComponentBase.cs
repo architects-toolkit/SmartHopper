@@ -286,6 +286,20 @@ namespace SmartHopper.Core.ComponentBase
                                 this.Workers.Reverse();
                             }
                         }
+                        else if (t.IsCanceled)
+                        {
+                            Debug.WriteLine("[AsyncComponentBase] Tasks were canceled. Resetting async state and skipping output phase.");
+
+                            Rhino.RhinoApp.InvokeOnUiThread(() =>
+                            {
+                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Tasks were canceled.");
+                                this.ResetAsyncState();
+                                this.OnTasksCanceled();
+                                this.ExpireSolution(true);
+                            });
+
+                            return;
+                        }
                         else
                         {
                             // All tasks completed successfully; set state to total workers so post-solve can decrement to zero
@@ -360,6 +374,14 @@ namespace SmartHopper.Core.ComponentBase
         protected virtual void OnWorkerCompleted()
         {
             Debug.WriteLine($"[{this.GetType().Name}] All workers completed. State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
+        }
+
+        /// <summary>
+        /// Called when the worker tasks are canceled and the output phase is skipped.
+        /// Allows derived classes to react (e.g. transition state machines out of Processing).
+        /// </summary>
+        protected virtual void OnTasksCanceled()
+        {
         }
 
         /// <summary>
