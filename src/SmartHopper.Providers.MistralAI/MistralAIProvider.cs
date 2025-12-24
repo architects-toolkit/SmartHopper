@@ -202,7 +202,31 @@ namespace SmartHopper.Providers.MistralAI
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
-                messageObj["content"] = string.Empty; // assistant tool_calls messages should have empty content
+
+                // For thinking-enabled models, include reasoning in content array
+                if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
+                {
+                    var contentArray = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "thinking",
+                            ["thinking"] = new JArray
+                            {
+                                new JObject
+                                {
+                                    ["type"] = "text",
+                                    ["text"] = toolCallInteraction.Reasoning,
+                                },
+                            },
+                        },
+                    };
+                    messageObj["content"] = contentArray;
+                }
+                else
+                {
+                    messageObj["content"] = string.Empty;
+                }
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
@@ -431,6 +455,7 @@ namespace SmartHopper.Providers.MistralAI
                             Id = tc["id"]?.ToString(),
                             Name = func?[(object)"name"]?.ToString(),
                             Arguments = argsObj,
+                            Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                         };
                         interactions.Add(toolCall);
                     }

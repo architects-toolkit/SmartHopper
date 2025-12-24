@@ -40,6 +40,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public JObject Arguments { get; set; }
 
         /// <summary>
+        /// Gets or sets the reasoning content associated with this tool call.
+        /// Used by providers like DeepSeek that include reasoning_content with tool calls.
+        /// </summary>
+        public string Reasoning { get; set; }
+
+        /// <summary>
         /// Returns a string representation of the AIInteractionToolCall.
         /// </summary>
         /// <returns>A formatted string containing tool call metadata.</returns>
@@ -123,11 +129,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Tool calls do not include reasoning by default.
+        /// Gets the reasoning content associated with this tool call, if any.
         /// </summary>
         public virtual string GetRawReasoningForRender()
         {
-            return string.Empty;
+            return this.Reasoning ?? string.Empty;
         }
     }
 }
