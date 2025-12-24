@@ -27,7 +27,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test Case 4: A={0}, B={1},{2} - Multiple top-level paths, none is {0}
     /// Rule 2 applies: A broadcasts to ALL paths in B
     /// </summary>
-    public class DataTreeProcessorBroadcastMultipleNoZeroTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorBroadcastMultipleNoZeroTestComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("11287A68-04D7-46F4-99DE-C5B0C45F0732");
         protected override Bitmap Icon => null;

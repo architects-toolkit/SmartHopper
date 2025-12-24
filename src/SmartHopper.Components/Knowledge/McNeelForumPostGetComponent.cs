@@ -29,7 +29,7 @@ using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Knowledge
 {
-    public class McNeelForumPostGetComponent : StatefulAsyncComponentBase
+    public class McNeelForumPostGetComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("7C1B9A33-0177-4A60-9C08-9F8A1E4F2002");
 

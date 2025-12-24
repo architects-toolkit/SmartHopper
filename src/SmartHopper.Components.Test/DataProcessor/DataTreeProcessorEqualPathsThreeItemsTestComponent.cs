@@ -27,7 +27,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test component to validate DataTreeProcessor with two trees having equal paths (three items each).
     /// Uses internal data; outputs result tree, success flag, and messages.
     /// </summary>
-    public class DataTreeProcessorEqualPathsThreeItemsTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorEqualPathsThreeItemsTestComponent : StatefulComponentBaseV2
     {
         /// <summary>
         /// Gets the unique component identifier.

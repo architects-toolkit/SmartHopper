@@ -26,7 +26,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// <summary>
     /// Test component: two inputs, first input one item, second input three items, equal paths.
     /// </summary>
-    public class DataTreeProcessorEqualPathsFirstOneSecondThreeTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorEqualPathsFirstOneSecondThreeTestComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("0C6B2C9E-2D68-45AC-A2D8-7B2E5F97F9C3");
         protected override Bitmap Icon => null;

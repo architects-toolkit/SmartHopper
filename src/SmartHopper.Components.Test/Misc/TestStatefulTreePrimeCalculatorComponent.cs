@@ -28,7 +28,7 @@ using SmartHopper.Core.ComponentBase;
 
 namespace SmartHopper.Components.Test.Misc
 {
-    public class TestStatefulTreePrimeCalculatorComponent : StatefulAsyncComponentBase
+    public class TestStatefulTreePrimeCalculatorComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
         protected override Bitmap Icon => null;

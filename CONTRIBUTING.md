@@ -34,6 +34,10 @@ Are you skilled in coding and want to contribute to SmartHopper? You can help fi
 
    - Fork the repository
    - Create a new branch referencing the issue you want to fix or feature you want to add
+   - Configure Git hooks so the anonymization pre-commit runs locally:
+     ```bash
+     git config core.hooksPath .githooks
+     ```
    - Submit a Pull Request following the [Pull Request Guidelines](#pull-request-guidelines) explained below
 
 ### 4. **Release Checklist**

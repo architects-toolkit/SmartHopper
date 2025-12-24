@@ -27,7 +27,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test component for BranchFlatten topology: all items from all branches are flattened into a single list,
     /// processed together, and the results are placed in a single output branch.
     /// </summary>
-    public class DataTreeProcessorBranchFlattenTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorBranchFlattenTestComponent : StatefulComponentBaseV2
     {
         public override Guid ComponentGuid => new Guid("E9642177-D368-4E9D-9BD6-E84C46D0958F");
         protected override Bitmap Icon => null;
