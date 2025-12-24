@@ -27,9 +27,13 @@
     <div id="input-bar">
         <textarea id="user-input" placeholder="Type a message..." rows="3"></textarea>
         <div class="actions">
-            <button id="send-button" type="button">Send</button>
-            <button id="clear-button" type="button">Clear</button>
-            <button id="cancel-button" type="button">Cancel</button>
+            <div class="actions-left">
+                {{debugActionsLeft}}
+            </div>
+            <div class="actions-right">
+                <button id="send-button" type="button">Send</button>
+                <button id="cancel-button" type="button">Cancel</button>
+            </div>
         </div>
     </div>
 

@@ -23,9 +23,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
+using Rhino;
 using SmartHopper.Infrastructure.AIContext;
 
 namespace SmartHopper.Core.AIContext
@@ -56,52 +58,88 @@ namespace SmartHopper.Core.AIContext
         {
             try
             {
-                var canvas = Instances.ActiveCanvas;
-                var doc = canvas?.Document;
-                if (doc == null)
-                {
-                    return new Dictionary<string, string>
-                    {
-                        { "file-name", "Untitled" },
-                        { "selected-count", "0" },
-                        { "object-count", "0" },
-                        { "component-count", "0" },
-                        { "param-count", "0" },
-                        { "scribble-count", "0" },
-                        { "group-count", "0" },
-                    };
-                }
-
-                // SelectedObjects() returns all selected IGH_DocumentObject on the active document
-                int selectedCount = doc.SelectedObjects()?.OfType<IGH_DocumentObject>()?.Count() ?? 0;
-
-                // Count total number of components (IGH_Component) in the document
-                int componentCount = doc.Objects?.OfType<IGH_DocumentObject>()?.OfType<IGH_Component>()?.Count() ?? 0;
-
-                // Total objects in the document
-                int objectCount = doc.Objects?.Count ?? 0;
-
-                // Total parameters in the document
-                int paramCount = doc.Objects?.OfType<IGH_DocumentObject>()?.OfType<IGH_Param>()?.Count() ?? 0;
-
-                // Total scribbles in the document
-                int scribbleCount = doc.Objects?.OfType<IGH_DocumentObject>()?.OfType<GH_Scribble>()?.Count() ?? 0;
-
-                // Total groups in the document
-                int groupCount = doc.Objects?.OfType<IGH_DocumentObject>()?.OfType<GH_Group>()?.Count() ?? 0;
-
-                // File name (privacy friendly)
                 string fileName = "Untitled";
-                var path = doc.FilePath;
-                if (!string.IsNullOrWhiteSpace(path))
+                int selectedCount = 0;
+                int selectedComponentCount = 0;
+                int selectedParamCount = 0;
+                string selectedObjects = string.Empty;
+                int componentCount = 0;
+                int objectCount = 0;
+                int paramCount = 0;
+                int scribbleCount = 0;
+                int groupCount = 0;
+
+                // Use ManualResetEventSlim to ensure UI thread work completes before returning
+                using (var uiThreadComplete = new ManualResetEventSlim(false))
                 {
-                    fileName = Path.GetFileName(path);
+                    RhinoApp.InvokeOnUiThread(
+                        (Action)(() =>
+                        {
+                            try
+                            {
+                                var canvas = Instances.ActiveCanvas;
+                                var doc = canvas?.Document;
+                                if (doc == null)
+                                {
+                                    return;
+                                }
+
+                                // Count total number of objects/components/params in the document
+                                objectCount = doc.Objects?.Count ?? 0;
+                                componentCount = doc.Objects?.OfType<IGH_DocumentObject>()?.OfType<IGH_Component>()?.Count() ?? 0;
+                                paramCount = doc.Objects?.OfType<IGH_DocumentObject>()?.OfType<IGH_Param>()?.Count() ?? 0;
+                                scribbleCount = doc.Objects?.OfType<IGH_DocumentObject>()?.OfType<GH_Scribble>()?.Count() ?? 0;
+                                groupCount = doc.Objects?.OfType<IGH_DocumentObject>()?.OfType<GH_Group>()?.Count() ?? 0;
+
+                                // File name (privacy friendly)
+                                var path = doc.FilePath;
+                                if (!string.IsNullOrWhiteSpace(path))
+                                {
+                                    fileName = Path.GetFileName(path);
+                                }
+
+                                // Selected objects.
+                                // NOTE: When this context is queried from background worker threads, selection state can be stale.
+                                // To keep it reliable, we always read it on the Rhino UI thread.
+                                var selected = doc.SelectedObjects()?.OfType<IGH_DocumentObject>()?.ToList();
+                                if (selected == null || selected.Count == 0)
+                                {
+                                    selected = doc.Objects
+                                        ?.OfType<IGH_DocumentObject>()
+                                        ?.Where(o => o?.Attributes?.Selected == true)
+                                        ?.ToList();
+                                }
+
+                                selectedCount = selected?.Count ?? 0;
+                                selectedComponentCount = selected?.OfType<IGH_Component>()?.Count() ?? 0;
+                                selectedParamCount = selected?.OfType<IGH_Param>()?.Count() ?? 0;
+
+                                if (selected != null && selected.Count > 0)
+                                {
+                                    selectedObjects = string.Join(
+                                        "; ",
+                                        selected
+                                            .Take(10)
+                                            .Select(o => $"{(string.IsNullOrWhiteSpace(o.NickName) ? o.Name : o.NickName)} ({o.GetType().Name})"));
+                                }
+                            }
+                            finally
+                            {
+                                uiThreadComplete.Set();
+                            }
+                        }));
+
+                    // Wait for UI thread to complete (timeout after 5 seconds to avoid deadlock)
+                    uiThreadComplete.Wait(TimeSpan.FromSeconds(5));
                 }
 
                 return new Dictionary<string, string>
                 {
                     { "file-name", fileName },
                     { "selected-count", selectedCount.ToString(CultureInfo.InvariantCulture) },
+                    { "selected-component-count", selectedComponentCount.ToString(CultureInfo.InvariantCulture) },
+                    { "selected-param-count", selectedParamCount.ToString(CultureInfo.InvariantCulture) },
+                    { "selected-objects", selectedObjects },
                     { "object-count", objectCount.ToString(CultureInfo.InvariantCulture) },
                     { "component-count", componentCount.ToString(CultureInfo.InvariantCulture) },
                     { "param-count", paramCount.ToString(CultureInfo.InvariantCulture) },
@@ -116,6 +154,9 @@ namespace SmartHopper.Core.AIContext
                 {
                     { "file-name", "Untitled" },
                     { "selected-count", "0" },
+                    { "selected-component-count", "0" },
+                    { "selected-param-count", "0" },
+                    { "selected-objects", string.Empty },
                     { "object-count", "0" },
                     { "component-count", "0" },
                     { "param-count", "0" },

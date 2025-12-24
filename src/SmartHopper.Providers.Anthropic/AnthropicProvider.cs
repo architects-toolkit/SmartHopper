@@ -105,10 +105,8 @@ namespace SmartHopper.Providers.Anthropic
 
         /// <summary>
         /// Returns a streaming adapter for Anthropic that yields incremental AIReturn deltas.
-        /// </summary>
-        /// <returns>An IStreamingAdapter instance configured for Anthropic SSE streaming.</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
-        public IStreamingAdapter GetStreamingAdapter()
+        /// <inheritdoc/>
+        protected override IStreamingAdapter CreateStreamingAdapter()
         {
             return new AnthropicStreamingAdapter(this);
         }

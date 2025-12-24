@@ -17,6 +17,7 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -132,5 +133,11 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <returns>An enumerable of SettingDescriptor instances for the provider.</returns>
         IEnumerable<SettingDescriptor> GetSettingDescriptors();
+
+        /// <summary>
+        /// Gets the streaming adapter for this provider. Returns a cached instance after first call.
+        /// </summary>
+        /// <returns>The streaming adapter, or null if the provider doesn't support streaming.</returns>
+        IStreamingAdapter GetStreamingAdapter();
     }
 }

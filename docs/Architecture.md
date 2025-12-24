@@ -19,7 +19,6 @@ Data flow:
 
 1) Component input/state → 2) Context providers → 3) Provider + Model resolution → 4) AI call (tools optional) → 5) Response decoding → 6) Metrics → 7) Component outputs
 
-
 ## 2. Provider Discovery, Trust, and Loading
 
 - Manager: `src/SmartHopper.Infrastructure/AIProviders/ProviderManager.cs` — docs: [ProviderManager](./Providers/ProviderManager.md)

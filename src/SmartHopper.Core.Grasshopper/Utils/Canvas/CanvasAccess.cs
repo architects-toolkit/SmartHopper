@@ -30,7 +30,15 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Ambient UI state access; method communicates non-field-like behavior")]
         public static GH_Document GetCurrentCanvas()
         {
-            GH_Document doc = Instances.ActiveCanvas.Document;
+            GH_Document doc = null;
+            try
+            {
+                doc = Instances.ActiveCanvas?.Document;
+            }
+            catch
+            {
+                doc = null;
+            }
 
             return doc;
         }
@@ -41,7 +49,19 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         public static List<IGH_ActiveObject> GetCurrentObjects()
         {
             GH_Document doc = GetCurrentCanvas();
-            return doc.ActiveObjects();
+            if (doc == null)
+            {
+                return new List<IGH_ActiveObject>();
+            }
+
+            try
+            {
+                return doc.ActiveObjects() ?? new List<IGH_ActiveObject>();
+            }
+            catch
+            {
+                return new List<IGH_ActiveObject>();
+            }
         }
 
         /// <summary>

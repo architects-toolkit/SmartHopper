@@ -63,10 +63,8 @@ namespace SmartHopper.Providers.OpenRouter
         }
 
         /// <summary>
-        /// Returns a streaming adapter for OpenRouter that yields incremental AIReturn deltas.
-        /// </summary>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
-        public IStreamingAdapter GetStreamingAdapter()
+        /// <inheritdoc/>
+        protected override IStreamingAdapter CreateStreamingAdapter()
         {
             return new OpenRouterStreamingAdapter(this);
         }
