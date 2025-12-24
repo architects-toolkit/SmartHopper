@@ -21,6 +21,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Core.Requests;
     using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Execution;
+    using SmartHopper.Infrastructure.AICall.Policies;
     using SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns;
     using SmartHopper.Infrastructure.AICall.Utilities;
     using SmartHopper.Infrastructure.AIModels;
@@ -65,32 +66,25 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var useStreaming = preferStreaming && !config.ForceNonStreaming;
                 AIReturn result;
 
-                // Apply timeout if specified
-                var linkedCts = config.TimeoutMs.HasValue
-                    ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
-                    : null;
-
-                try
+                // Link cancellation the same way as TurnLoopAsync:
+                // - session cancel token (this.cts.Token)
+                // - external token passed to this method
+                // - timeout via CancelAfter
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(this.cts.Token, cancellationToken);
+                if (config.TimeoutMs.HasValue)
                 {
-                    if (linkedCts != null)
-                    {
-                        linkedCts.CancelAfter(config.TimeoutMs.Value);
-                    }
-
-                    var effectiveCt = linkedCts?.Token ?? cancellationToken;
-
-                    if (useStreaming)
-                    {
-                        result = await this.ExecuteStreamingSpecialTurnAsync(specialRequest, config, turnId, effectiveCt).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        result = await this.ExecuteNonStreamingSpecialTurnAsync(specialRequest, config, turnId, effectiveCt).ConfigureAwait(false);
-                    }
+                    linkedCts.CancelAfter(config.TimeoutMs.Value);
                 }
-                finally
+
+                var effectiveCt = linkedCts.Token;
+
+                if (useStreaming)
                 {
-                    linkedCts?.Dispose();
+                    result = await this.ExecuteStreamingSpecialTurnAsync(specialRequest, config, turnId, effectiveCt).ConfigureAwait(false);
+                }
+                else
+                {
+                    result = await this.ExecuteNonStreamingSpecialTurnAsync(specialRequest, config, turnId, effectiveCt).ConfigureAwait(false);
                 }
 
                 // Apply persistence strategy to main conversation (this is where observers get notified)
@@ -151,6 +145,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             string turnId,
             CancellationToken ct)
         {
+            // Ensure request policies are applied for streaming special turns as well.
+            // Streaming adapters bypass AIRequestCall.Exec(), so policies like ContextInjectionRequestPolicy
+            // must be applied explicitly to keep context up-to-date.
+            await PolicyPipeline.Default.ApplyRequestPoliciesAsync(specialRequest).ConfigureAwait(false);
+
             var exec = new DefaultProviderExecutor();
             var adapter = exec.TryGetStreamingAdapter(specialRequest);
 
@@ -165,12 +164,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             AIInteractionText? accumulatedText = null;
 
             // Stream deltas internally (no observer notifications)
-            await foreach (var delta in adapter.StreamAsync(specialRequest, new StreamingOptions(), ct))
+            await foreach (var rawDelta in adapter.StreamAsync(specialRequest, new StreamingOptions(), ct))
             {
-                if (delta == null)
+                if (rawDelta == null)
                 {
                     continue;
                 }
+
+                // Normalize delta to handle provider-specific formats
+                var delta = adapter.NormalizeDelta(rawDelta);
 
                 // Apply TurnId to new interactions
                 var newInteractions = delta.Body?.GetNewInteractions();
@@ -386,7 +388,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var resultInteractions = result?.Body?.Interactions?.ToList() ?? new List<IAIInteraction>();
 
             // Build new body with preserved interactions + result
-            var builder = AIBodyBuilder.Create();
+            var builder = AIBodyBuilder.Create()
+                .WithToolFilter(this.Request.Body?.ToolFilter)
+                .WithContextFilter(this.Request.Body?.ContextFilter)
+                .WithJsonOutputSchema(this.Request.Body?.JsonOutputSchema)
+                .AsHistory();
             builder.AddRange(preservedInteractions);
 
             foreach (var interaction in resultInteractions)

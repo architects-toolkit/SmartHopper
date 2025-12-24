@@ -12,3 +12,7 @@ This index lists the available documentation for SmartHopper. It will be updated
 - [Components](Components/index.md) — the interaction between the user and SmartHopper
 - [UI](UI/Chat/index.md) — Web Chat UI and host ↔ JS bridge
 - [GhJSON](GhJSON/index.md) — Grasshopper JSON serialization format for AI-powered workflows
+
+## Reviews
+
+- [Reviews](Reviews/index.md) — Architecture analysis of SmartHopper components

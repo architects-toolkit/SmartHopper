@@ -97,6 +97,10 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                     .Select(m => m.Message)
                     .ToList();
                 var combined = errorTexts.Count > 0 ? string.Join(" \n", errorTexts) : "Tool call validation failed";
+
+                // Tool calls may fail before the tool body runs (so tools can't set SkipMetricsValidation themselves).
+                // These are local-only calls, so provider/model/finish_reason metrics are not meaningful here.
+                this.SkipMetricsValidation = true;
                 ret.CreateToolError(combined, this);
 
                 // Attach structured validation messages so UIs and components can surface them

@@ -96,7 +96,21 @@ body {
 #input-bar .actions {
     display: flex;
     gap: 6px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#input-bar .actions-left {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+#input-bar .actions-right {
+    display: flex;
+    gap: 6px;
     justify-content: flex-end;
+    align-items: center;
 }
 
 #input-bar .actions button {
@@ -131,7 +145,7 @@ body {
 .message-content {
     border-radius: 10px;
     padding: 8px 12px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
     max-width: 100%;
     overflow-wrap: break-word;
     word-wrap: break-word;
@@ -473,6 +487,24 @@ hr {
 .toast.visible {
     bottom: 30px;
     opacity: 1;
+}
+
+/* Wipe-in animation for new/updated messages */
+.wipe-in {
+    animation: wipeIn var(--wipe-duration, 280ms) ease-out forwards;
+    transform: translate3d(-6px, 0, 0);
+    opacity: 0;
+}
+
+@keyframes wipeIn {
+    from {
+        transform: translate3d(-6px, 0, 0);
+        opacity: 0;
+    }
+    to {
+        transform: translate3d(0, 0, 0);
+        opacity: 1;
+    }
 }
 
 /* New messages indicator */
