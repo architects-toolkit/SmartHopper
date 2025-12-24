@@ -134,7 +134,7 @@ The WebView only applies patches when a message with the target `key` already ex
   - Host cancels any run and clears transcript in place (`clearMessages()`), emits reset snapshot.
 - cancel
   - JS → host: `sh://event?type=cancel`
-  - Host cancels current CTS and session (`ConversationSession.Cancel()`).
+  - Host cancels current CTS.
 - clipboard
   - JS → host: `clipboard://copy?text=...`
   - Host sets system clipboard and calls `showToast('Copied to clipboard')`.

@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `instruction_get` tool (category: `Instructions`) to provide detailed operational guidance to chat agents on demand.
   - Simplified the `CanvasButton` default assistant system prompt to reference instruction tools instead of embedding long tool usage guidelines.
 
+### Changed
+
+- Infrastructure:
+  - Extracted duplicated streaming processing logic into shared `ProcessStreamingDeltasAsync` helper method in `ConversationSession`, reducing code duplication by ~80 lines.
+  - Added `GetStreamingAdapter()` to `IAIProvider` interface with caching in `AIProvider` base class, replacing reflection-based adapter discovery.
+  - Added `CreateStreamingAdapter()` virtual method for providers to override; updated OpenAI, DeepSeek, MistralAI, Anthropic, and OpenRouter providers.
+  - Added `NormalizeDelta()` method to `IStreamingAdapter` interface for provider-agnostic delta normalization.
+  - Simplified streaming validation flow in `WebChatDialog.ProcessAIInteraction()` - now always attempts streaming first, letting `ConversationSession` handle validation internally.
+  - Added `TurnRenderState` and `SegmentState` classes to `WebChatObserver` for encapsulated per-turn state management.
+  - Reduced idempotency cache size from 1000 to 100 entries to reduce memory footprint.
+
 ### Fixed
 
 - Tool calling:
