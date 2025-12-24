@@ -35,6 +35,15 @@ namespace SmartHopper.Infrastructure.Streaming
             AIRequestCall request,
             StreamingOptions options,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Normalizes a provider-specific delta to a common format.
+        /// Default implementation returns the delta unchanged.
+        /// Override to handle provider-specific quirks (e.g., reasoning content, tool call formats).
+        /// </summary>
+        /// <param name="delta">The raw delta from the provider.</param>
+        /// <returns>The normalized delta in a consistent format.</returns>
+        AIReturn NormalizeDelta(AIReturn delta) => delta;
     }
 
     /// <summary>

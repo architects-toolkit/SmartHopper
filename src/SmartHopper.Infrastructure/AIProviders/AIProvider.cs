@@ -27,6 +27,7 @@ using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Infrastructure.Streaming;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.AIProviders
@@ -96,6 +97,10 @@ namespace SmartHopper.Infrastructure.AIProviders
         // Recursion guard to prevent infinite loops during settings access
         [ThreadStatic]
         private static HashSet<string> _currentlyGettingSettings;
+
+        // Streaming adapter cache to avoid reflection on every streaming request
+        private IStreamingAdapter _cachedStreamingAdapter;
+        private bool _streamingAdapterProbed;
 
         /// <inheritdoc/>
         public abstract string Name { get; }
@@ -685,6 +690,34 @@ namespace SmartHopper.Infrastructure.AIProviders
                     throw new Exception($"Error calling {this.Name} API: {ex.Message}", ex);
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the cached streaming adapter for this provider.
+        /// Override <see cref="CreateStreamingAdapter"/> in derived classes to provide a streaming adapter.
+        /// </summary>
+        /// <returns>The cached streaming adapter, or null if the provider doesn't support streaming.</returns>
+        public IStreamingAdapter GetStreamingAdapter()
+        {
+            if (!this._streamingAdapterProbed)
+            {
+                this._cachedStreamingAdapter = this.CreateStreamingAdapter();
+                this._streamingAdapterProbed = true;
+                Debug.WriteLine(this._cachedStreamingAdapter != null
+                    ? $"[{this.Name}] Streaming adapter cached"
+                    : $"[{this.Name}] No streaming adapter available");
+            }
+
+            return this._cachedStreamingAdapter;
+        }
+
+        /// <summary>
+        /// Creates a streaming adapter for this provider. Override in derived classes to enable streaming.
+        /// </summary>
+        /// <returns>An <see cref="IStreamingAdapter"/> instance, or null if streaming is not supported.</returns>
+        protected virtual IStreamingAdapter CreateStreamingAdapter()
+        {
+            return null;
         }
 
         /// <summary>
