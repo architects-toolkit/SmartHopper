@@ -113,7 +113,7 @@ namespace SmartHopper.Core.UI.Chat
             private string GetCurrentSegmentedKey(string baseKey)
             {
                 if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
-                
+
                 // Extract turn key from base key (e.g., "turn:abc123:assistant" -> "turn:abc123")
                 var turnKey = this.ExtractTurnKeyFromBaseKey(baseKey);
 
@@ -904,8 +904,9 @@ namespace SmartHopper.Core.UI.Chat
                     segment.LastRenderedText = (content, reasoning);
                     return true;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    DebugLog($"[WebChatObserver] ShouldRenderDelta error: {ex.Message}");
                 }
 
                 return true;
@@ -943,13 +944,11 @@ namespace SmartHopper.Core.UI.Chat
                             continue;
                         }
 
-                        if (kv.Value?.Aggregated is AIInteractionText aggregatedText && HasRenderableText(aggregatedText))
+                        if (kv.Value?.Aggregated is AIInteractionText aggregatedText && HasRenderableText(aggregatedText) && this.ShouldRenderDelta(streamKey, aggregatedText))
                         {
-                            if (this.ShouldRenderDelta(streamKey, aggregatedText))
-                            {
-                                DebugLog($"[WebChatObserver] FlushPendingTextStateForTurn: flushing streamKey={streamKey}");
-                                this._dialog.UpsertMessageByKey(streamKey, aggregatedText, source: "FlushPendingText");
-                            }
+                            DebugLog($"[WebChatObserver] FlushPendingTextStateForTurn: flushing streamKey={streamKey}");
+
+                            this._dialog.UpsertMessageByKey(streamKey, aggregatedText, source: "FlushPendingText");
                         }
                     }
                 }

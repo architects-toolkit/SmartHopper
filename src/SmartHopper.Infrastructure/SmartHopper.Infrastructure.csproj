@@ -76,7 +76,7 @@
     Run that script after generating or updating the signing key.
   -->
   <PropertyGroup>
-    <SmartHopperPublicKey>0024000004800000940000000602000000240000525341310004000001000100b90ff13176f06b3385ce4bafee2a5177994228e8726e444377056f2ff11813457d594162f7542e7621eedec5445ce0e079e7d01357cf2463fb73aa5e248a34e57fe1999daa6a17f493bdafc5cfdd4cd80d14cb00326ba745a862a3cd5686504d2ae9e6e06e9f4ccebd2bffd7b990e617f6ad8a42397a20123fb373ce582085cc</SmartHopperPublicKey>
+    <SmartHopperPublicKey>This value is automatically replaced by the build tooling before official builds.</SmartHopperPublicKey>
   </PropertyGroup>
   <ItemGroup>
     <!-- Core assemblies -->

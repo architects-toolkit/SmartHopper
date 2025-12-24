@@ -228,14 +228,12 @@ namespace SmartHopper.Core.UI.Chat
 
 #if DEBUG
                     DebugLog($"[WebChatDialog] UpsertMessageAfter fk={followKey} key={domKey} agent={interaction.Agent} type={interaction.GetType().Name} htmlLen={html?.Length ?? 0} src={source ?? "?"} preview={preview}");
-#endif
 
                     if (string.IsNullOrWhiteSpace(followKey))
                     {
-#if DEBUG
                         DebugLog($"[WebChatDialog] UpsertMessageAfter WARNING: followKey is null/empty for key={domKey}, will fallback to normal upsert");
-#endif
                     }
+#endif
 
                     var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
                     this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
@@ -381,8 +379,9 @@ namespace SmartHopper.Core.UI.Chat
                 this._deferDomUpdatesUntilUtc = DateTime.UtcNow.AddMilliseconds(DomDeferDuringMoveResizeMs);
                 this.ScheduleDomDrain();
             }
-            catch
+            catch (Exception ex)
             {
+                DebugLog($"[WebChatDialog] MarkMoveResizeInteraction error: {ex.Message}");
             }
         }
 
@@ -893,8 +892,9 @@ namespace SmartHopper.Core.UI.Chat
                         {
                             this.UpdateIdempotencyCache(key, html ?? string.Empty);
                         }
-                        catch
+                        catch (Exception ex)
                         {
+                            DebugLog($"[WebChatDialog] Error updating idempotency cache: {ex.Message}");
                         }
 
                         if (!string.IsNullOrWhiteSpace(prevKey))
@@ -1014,8 +1014,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     this._webViewInitializedTcs.TrySetException(ex);
                 }
-                catch
+                catch (Exception rex)
                 {
+                    DebugLog($"[WebChatDialog] Failed to set exception on WebView initialized TCS: {rex.Message}");
                 }
             }
         }
@@ -1065,6 +1066,7 @@ namespace SmartHopper.Core.UI.Chat
                     .ConfigureAwait(false))
                 {
                     lastStreamReturn = r;
+
                     // Observer handles partial/final UI updates
                 }
 
@@ -1094,9 +1096,9 @@ namespace SmartHopper.Core.UI.Chat
                     this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Error'); setProcessing(false);"));
                     this.BuildAndEmitSnapshot();
                 }
-                catch
+                catch (Exception rex)
                 {
-                    /* ignore secondary errors */
+                    DebugLog($"[WebChatDialog] Error in ProcessAIInteraction: {rex.Message}");
                 }
             }
             finally
@@ -1105,8 +1107,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     this._currentCts?.Cancel();
                 }
-                catch
+                catch (Exception rex)
                 {
+                    DebugLog($"[WebChatDialog] Error in ProcessAIInteraction: {rex.Message}");
                 }
 
                 this._currentCts?.Dispose();
@@ -1133,8 +1136,9 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     await this._initialHistoryReplayTcs.Task.ConfigureAwait(false);
                 }
-                catch
+                catch (Exception rex)
                 {
+                    DebugLog($"[WebChatDialog] Error in InitializeNewConversationAsync: {rex.Message}");
                 }
 
                 // If greeting was requested by the creator (e.g., CanvasButton), run a single non-streaming turn.
