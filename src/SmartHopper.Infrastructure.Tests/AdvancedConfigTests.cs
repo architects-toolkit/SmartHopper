@@ -21,6 +21,7 @@ namespace SmartHopper.Infrastructure.Tests
     using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.AIProviders;
     using SmartHopper.Infrastructure.Settings;
+    using SmartHopper.Infrastructure.Streaming;
     using Xunit;
 
     public class AdvancedConfigTests
@@ -87,6 +88,11 @@ namespace SmartHopper.Infrastructure.Tests
             }
 
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
+
+            public IStreamingAdapter GetStreamingAdapter()
+            {
+                return null;
+            }
         }
 
         private sealed class DummyProviderModels : IAIProviderModels

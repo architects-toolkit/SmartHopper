@@ -96,7 +96,21 @@ body {
 #input-bar .actions {
     display: flex;
     gap: 6px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#input-bar .actions-left {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+#input-bar .actions-right {
+    display: flex;
+    gap: 6px;
     justify-content: flex-end;
+    align-items: center;
 }
 
 #input-bar .actions button {

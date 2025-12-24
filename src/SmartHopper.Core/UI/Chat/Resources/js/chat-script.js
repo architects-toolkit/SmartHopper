@@ -890,8 +890,9 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
         const input = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-button');
-        const clearBtn = document.getElementById('clear-button');
         const cancelBtn = document.getElementById('cancel-button');
+        const regenBtn = document.getElementById('regen-button'); // present only when host injects debug actions
+
         const chatContainer = document.getElementById('chat-container');
         const newIndicator = document.getElementById('new-messages-indicator');
         const scrollBtn = document.getElementById('scroll-bottom-btn');
@@ -899,8 +900,8 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('[JS] Element search results:', {
             input: !!input,
             sendBtn: !!sendBtn,
-            clearBtn: !!clearBtn,
             cancelBtn: !!cancelBtn,
+            regenBtn: !!regenBtn,
             chatContainer: !!chatContainer,
             newIndicator: !!newIndicator,
             scrollBtn: !!scrollBtn
@@ -929,16 +930,6 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('[JS] Send button not found!');
         }
 
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                console.log('[JS] Clear button clicked');
-                window.location.href = 'sh://event?type=clear';
-            });
-            console.log('[JS] Clear button click handler attached');
-        } else {
-            console.error('[JS] Clear button not found!');
-        }
-
         if (cancelBtn) {
             cancelBtn.addEventListener('click', () => {
                 console.log('[JS] Cancel button clicked');
@@ -947,6 +938,14 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('[JS] Cancel button click handler attached');
         } else {
             console.error('[JS] Cancel button not found!');
+        }
+
+        if (regenBtn) {
+            regenBtn.addEventListener('click', () => {
+                console.log('[JS] Regen button clicked');
+                window.location.href = 'sh://event?type=regen';
+            });
+            console.log('[JS] Regen button click handler attached');
         }
 
         if (input) {
@@ -1010,7 +1009,6 @@ function setProcessing(on) {
     const spinner = document.getElementById('spinner');
     const input = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-button');
-    const clearBtn = document.getElementById('clear-button');
     const cancelBtn = document.getElementById('cancel-button');
 
     if (spinner) {
@@ -1032,22 +1030,22 @@ function setProcessing(on) {
     }
 
     // Toggle controls according to processing state
-    // When processing: disable input + send + clear, enable cancel
-    // When idle: enable input + send + clear, disable cancel
+    // When processing: disable input + send, enable cancel
+    // When idle: enable input + send, disable cancel
     try {
         if (input) input.disabled = !!on;
         if (sendBtn) sendBtn.disabled = !!on;
-        if (clearBtn) clearBtn.disabled = !!on;
         if (cancelBtn) cancelBtn.disabled = !on;
 
         // Optional: reflect disabled state via CSS class and ARIA for better a11y
-        [sendBtn, clearBtn, cancelBtn].forEach(btn => {
+        [sendBtn, cancelBtn].forEach(btn => {
             if (!btn) return;
             try {
                 btn.classList.toggle('disabled', !!btn.disabled);
                 btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
             } catch {}
         });
+
         if (input) {
             try {
                 input.setAttribute('aria-disabled', input.disabled ? 'true' : 'false');
@@ -1057,19 +1055,26 @@ function setProcessing(on) {
         console.warn('[JS] setProcessing: control toggle failed', err);
     }
 }
-    
-/**
- * Clears all messages from the chat container
- */
-function clearMessages() {
-    console.log('[JS] clearMessages called');
+
+function resetMessages() {
+    console.log('[JS] resetMessages called');
     const chatContainer = document.getElementById('chat-container');
     if (!chatContainer) {
-        console.error('[JS] clearMessages: chat-container element not found');
+        console.error('[JS] resetMessages: chat-container element not found');
         return;
     }
     chatContainer.innerHTML = '';
-    console.log('[JS] clearMessages: all messages cleared');
+
+    try {
+        _templateCache.clear();
+        _htmlLru.clear();
+        _pendingOps.length = 0;
+        _flushScheduled = false;
+    } catch {
+        // ignore
+    }
+
+    console.log('[JS] resetMessages: cleared messages and caches');
 }
 
 // Copy handler: only override when one or more FULL messages are selected

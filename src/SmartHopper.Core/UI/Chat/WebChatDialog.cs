@@ -57,7 +57,7 @@ namespace SmartHopper.Core.UI.Chat
         // Uses LRU eviction to prevent unbounded growth in long conversations
         private readonly Dictionary<string, string> _lastDomHtmlByKey = new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly Queue<string> _lruQueue = new Queue<string>();
-        private const int MaxIdempotencyCacheSize = 1000;
+        private const int MaxIdempotencyCacheSize = 100;
 
         // Key length and performance monitoring
         private int _maxKeyLengthSeen = 0;
@@ -91,6 +91,8 @@ namespace SmartHopper.Core.UI.Chat
 
         // Status text to apply after the document is fully loaded
         private string _pendingStatusAfter = "Ready";
+
+        private readonly TaskCompletionSource<bool> _initialHistoryReplayTcs = new TaskCompletionSource<bool>();
 
         // Greeting behavior: when true, the dialog will request a greeting from ConversationSession on init
         private readonly bool _generateGreeting;
@@ -836,45 +838,81 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
+                if (!this._webViewInitialized)
+                {
+                    this.RunWhenWebViewReady(() => this.ReplayFullHistoryToWebView());
+                    return;
+                }
+
                 var interactions = this._currentSession?.GetHistoryInteractionList();
                 if (interactions == null || interactions.Count == 0)
                 {
                     return;
                 }
 
-                foreach (var interaction in interactions)
+                // During a full replay (including Regen), maintain strict DOM order by chaining inserts.
+                // Rationale: Upsert-by-key alone can lead to out-of-order layout if rendering is deferred per message.
+                this.RunWhenWebViewReady(() =>
                 {
-                    // Hydration must be key-based only. If no key, emit an error message instead of appending.
-                    if (interaction is IAIKeyedInteraction keyed)
+                    string? prevKey = null;
+
+                    foreach (var interaction in interactions)
                     {
-                        var key = keyed.GetDedupKey();
-                        if (!string.IsNullOrWhiteSpace(key))
+                        if (interaction is not IAIKeyedInteraction keyed)
                         {
-                            this.UpsertMessageByKey(key, interaction);
+                            this.AddSystemMessage($"Could not render interaction during history replay: missing dedupKey (type={interaction?.GetType().Name}, agent={interaction?.Agent})", "error");
+                            prevKey = null;
                             continue;
                         }
-                    }
 
-                    this.AddSystemMessage($"Could not render interaction during history replay: missing dedupKey (type={interaction?.GetType().Name}, agent={interaction?.Agent})", "error");
-                }
+                        var key = keyed.GetDedupKey();
+                        if (string.IsNullOrWhiteSpace(key))
+                        {
+                            this.AddSystemMessage($"Could not render interaction during history replay: missing dedupKey (type={interaction?.GetType().Name}, agent={interaction?.Agent})", "error");
+                            prevKey = null;
+                            continue;
+                        }
+
+                        string html;
+                        try
+                        {
+                            lock (this._htmlRenderLock)
+                            {
+                                html = this._htmlRenderer.RenderInteraction(interaction);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            this.AddSystemMessage($"Could not render interaction during history replay: {ex.Message}", "error");
+                            prevKey = null;
+                            continue;
+                        }
+
+                        // Keep host-side idempotency cache in sync
+                        try
+                        {
+                            this.UpdateIdempotencyCache(key, html ?? string.Empty);
+                        }
+                        catch
+                        {
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(prevKey))
+                        {
+                            this.ExecuteScript($"upsertMessageAfter({JsonConvert.SerializeObject(prevKey)}, {JsonConvert.SerializeObject(key)}, {JsonConvert.SerializeObject(html)});");
+                        }
+                        else
+                        {
+                            this.ExecuteScript($"upsertMessage({JsonConvert.SerializeObject(key)}, {JsonConvert.SerializeObject(html)});");
+                        }
+
+                        prevKey = key;
+                    }
+                });
             }
             catch (Exception ex)
             {
                 DebugLog($"[WebChatDialog] ReplayFullHistoryToWebView error: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Emits a reset/empty snapshot to subscribers.
-        /// </summary>
-        private void EmitResetSnapshot()
-        {
-            try
-            {
-                this.ChatUpdated?.Invoke(this, new AIReturn());
-            }
-            catch
-            {
             }
         }
 
@@ -958,15 +996,16 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         this.ReplayFullHistoryToWebView();
                         this.ExecuteScript("setStatus('Ready'); setProcessing(false);");
+                        this._initialHistoryReplayTcs.TrySetResult(true);
                     }
                     catch (Exception rex)
                     {
                         DebugLog($"[WebChatDialog] InitializeWebViewAsync replay error: {rex.Message}");
+                        this._initialHistoryReplayTcs.TrySetResult(false);
                     }
                 });
 
-                // Maintain async path to keep compatibility with any future init work
-                await Task.Run(() => this.InitializeNewConversation()).ConfigureAwait(false);
+                await this.InitializeNewConversationAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -978,45 +1017,6 @@ namespace SmartHopper.Core.UI.Chat
                 catch
                 {
                 }
-            }
-        }
-
-        /// <summary>
-        /// Handles the Clear button click event.
-        /// </summary>
-        private void ClearChat()
-        {
-            try
-            {
-                // Log performance stats before clearing
-                this.LogPerformanceStats();
-
-                this.CancelCurrentRun();
-
-                // Clear messages in-place without reloading the WebView
-                this.RunWhenWebViewReady(() => this.ExecuteScript("clearMessages(); setStatus('Ready'); setProcessing(false);"));
-
-                // Reset last-rendered cache and LRU queue since DOM has been cleared
-                try
-                {
-                    this._lastDomHtmlByKey.Clear();
-                    this._lruQueue.Clear();
-
-                    // Reset performance counters
-                    this._maxKeyLengthSeen = 0;
-                    this._totalEqualityChecks = 0;
-                    this._totalEqualityCheckMs = 0;
-                }
-                catch
-                {
-                }
-
-                // Emit a reset snapshot to notify listeners (no greeting on clear)
-                this.EmitResetSnapshot();
-            }
-            catch (Exception ex)
-            {
-                DebugLog($"[WebChatDialog] ClearChat error: {ex.Message}");
             }
         }
 
@@ -1054,75 +1054,34 @@ namespace SmartHopper.Core.UI.Chat
 
                 var options = new SessionOptions { ProcessTools = true, CancellationToken = this._currentCts.Token };
 
-                // Decide whether streaming should be attempted first using the session's request
-                var sessionRequest = this._currentSession.Request;
-                bool shouldTryStreaming = false;
-                try
-                {
-                    sessionRequest.WantsStreaming = true;
-                    var validation = sessionRequest.IsValid();
-                    shouldTryStreaming = validation.IsValid;
-                    DebugLog($"[WebChatDialog] Request validation: IsValid={validation.IsValid}, Errors={validation.Errors?.Count ?? 0}");
-                    if (validation.Errors != null)
-                    {
-#if DEBUG
-                        try
-                        {
-                            var msgs = string.Join(" | ", validation.Errors.Select(err => $"{err.Severity}:{err.Message}"));
-                            DebugLog($"[WebChatDialog] Validation messages: {msgs}");
-                        }
-                        catch { /* ignore logging errors */ }
-#endif
-                    }
-                }
-                catch (Exception ex)
-                {
-                    DebugLog($"[WebChatDialog] Streaming validation threw: {ex.Message}. Falling back.");
-                    shouldTryStreaming = false;
-                }
-                finally
-                {
-                    // Ensure we don't carry the streaming intent into non-streaming execution
-                    sessionRequest.WantsStreaming = false;
-                }
+                // Always attempt streaming first - ConversationSession handles validation internally
+                // and falls back to non-streaming if streaming is not supported
+                DebugLog("[WebChatDialog] Starting streaming path (session handles validation)");
+                var streamingOptions = new StreamingOptions();
 
                 AIReturn? lastStreamReturn = null;
-                if (shouldTryStreaming)
+                await foreach (var r in this._currentSession
+                    .Stream(options, streamingOptions, this._currentCts.Token)
+                    .ConfigureAwait(false))
                 {
-                    DebugLog("[WebChatDialog] Starting streaming path");
-                    var streamingOptions = new StreamingOptions();
-
-                    // Consume the stream to drive incremental UI updates via observer
-                    // Track the last streamed return so we can decide about fallback.
-                    await foreach (var r in this._currentSession
-                        .Stream(options, streamingOptions, this._currentCts.Token)
-                        .ConfigureAwait(false))
-                    {
-                        lastStreamReturn = r;
-
-                        // No-op: observer handles partial/final UI updates.
-                    }
+                    lastStreamReturn = r;
+                    // Observer handles partial/final UI updates
                 }
 
-                // Check if streaming actually failed (API error, network error, not just validation)
-                bool streamingFailed = lastStreamReturn == null ||
-                    lastStreamReturn.Messages.Any(m =>
-                        m != null &&
-                        m.Severity == AIRuntimeMessageSeverity.Error &&
-                        (m.Origin == AIRuntimeMessageOrigin.Provider ||
-                        m.Origin == AIRuntimeMessageOrigin.Network));
+                // Check if streaming returned a validation error (provider/model doesn't support streaming)
+                // In that case, ConversationSession already handles fallback internally via OnFinal
+                bool hasValidationError = lastStreamReturn?.Messages?.Any(m =>
+                    m != null &&
+                    m.Severity == AIRuntimeMessageSeverity.Error &&
+                    m.Origin == AIRuntimeMessageOrigin.Validation) ?? false;
 
-                // If streaming finished with an error or yielded nothing or no streaming was attempted, fallback to non-streaming.
-                if (streamingFailed || !shouldTryStreaming)
+                // If we got a validation error with no content, fall back to non-streaming
+                bool hasContent = lastStreamReturn?.Body?.Interactions?.Any(i =>
+                    i is AIInteractionText t && !string.IsNullOrWhiteSpace(t.Content)) ?? false;
+
+                if (hasValidationError && !hasContent)
                 {
-                    DebugLog("[WebChatDialog] Streaming ended with error or no result. Falling back to non-streaming path");
-
-                    // Ensure streaming flag is not set for non-streaming execution
-                    sessionRequest.WantsStreaming = false;
-
-                    // Run non-streaming to completion. The ConversationSession observer (WebChatObserver)
-                    // handles UI updates via OnInteractionCompleted/OnFinal (replace loading bubble, emit snapshot).
-                    // Do NOT manually append interactions here to avoid duplicate assistant messages.
+                    DebugLog("[WebChatDialog] Streaming validation failed. Falling back to non-streaming path");
                     await this._currentSession.RunToStableResult(options).ConfigureAwait(false);
                 }
             }
@@ -1161,39 +1120,22 @@ namespace SmartHopper.Core.UI.Chat
         }
 
         /// <summary>
-        /// Cancels the current running session, if any.
-        /// </summary>
-        private void CancelCurrentRun()
-        {
-            try
-            {
-                this._currentCts?.Cancel();
-                this._currentSession?.Cancel();
-                DebugLog("[WebChatDialog] Cancellation requested");
-            }
-            catch (Exception ex)
-            {
-                DebugLog($"[WebChatDialog] Error requesting cancellation: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Handles the cancel button click event.
-        /// </summary>
-        private void CancelChat()
-        {
-            this.CancelCurrentRun();
-        }
-
-        /// <summary>
         /// Initializes a new conversation and, if requested, triggers a one-shot provider run to emit the greeting.
         /// </summary>
-        private async void InitializeNewConversation()
+        private async Task InitializeNewConversationAsync()
         {
             // For fidelity, history is fully replayed elsewhere. Keep this method minimal to maintain compatibility.
             try
             {
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setStatus('Ready'); setProcessing(false);"));
+
+                try
+                {
+                    await this._initialHistoryReplayTcs.Task.ConfigureAwait(false);
+                }
+                catch
+                {
+                }
 
                 // If greeting was requested by the creator (e.g., CanvasButton), run a single non-streaming turn.
                 if (this._generateGreeting && this._currentSession != null)
@@ -1263,23 +1205,6 @@ namespace SmartHopper.Core.UI.Chat
                                 break;
                             }
 
-                        case "clear":
-                            DebugLog($"[WebChatDialog] Handling clear event");
-
-                            // Defer to next UI tick to avoid executing scripts during navigation event
-                            Application.Instance?.AsyncInvoke(() =>
-                            {
-                                try
-                                {
-                                    this.ClearChat();
-                                }
-                                catch (Exception ex)
-                                {
-                                    DebugLog($"[WebChatDialog] Deferred ClearChat error: {ex.Message}");
-                                }
-                            });
-                            break;
-
                         case "cancel":
                             DebugLog($"[WebChatDialog] Handling cancel event");
 
@@ -1296,6 +1221,25 @@ namespace SmartHopper.Core.UI.Chat
                                 }
                             });
                             break;
+
+#if DEBUG
+                        case "regen":
+                            DebugLog($"[WebChatDialog] Handling regen event");
+
+                            // Defer to next UI tick to avoid executing scripts during navigation event
+                            Application.Instance?.AsyncInvoke(() =>
+                            {
+                                try
+                                {
+                                    this.RegenChat();
+                                }
+                                catch (Exception ex)
+                                {
+                                    DebugLog($"[WebChatDialog] Deferred RegenChat error: {ex.Message}");
+                                }
+                            });
+                            break;
+#endif
 
                         default:
                             DebugLog($"[WebChatDialog] Unknown sh:// event type: '{type}'");
@@ -1343,6 +1287,60 @@ namespace SmartHopper.Core.UI.Chat
                 DebugLog($"[WebChatDialog] WebView_DocumentLoading error: {ex.Message}");
             }
         }
+
+        private void CancelChat()
+        {
+            try
+            {
+                this._currentCts?.Cancel();
+                DebugLog("[WebChatDialog] Cancellation requested");
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] Error requesting cancellation: {ex.Message}");
+            }
+        }
+
+#if DEBUG
+        private void RegenChat()
+        {
+            try
+            {
+                this.CancelChat();
+
+                this.RunWhenWebViewReady(() =>
+                {
+                    try
+                    {
+                        this.ExecuteScript("resetMessages(); setStatus('Ready'); setProcessing(false);");
+
+                        try
+                        {
+                            this._lastDomHtmlByKey.Clear();
+                            this._lruQueue.Clear();
+                            this._renderVersionByDomKey.Clear();
+                            this._maxKeyLengthSeen = 0;
+                            this._totalEqualityChecks = 0;
+                            this._totalEqualityCheckMs = 0;
+                        }
+                        catch
+                        {
+                        }
+
+                        this.ReplayFullHistoryToWebView();
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog($"[WebChatDialog] RegenChat UI error: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] RegenChat error: {ex.Message}");
+            }
+        }
+#endif
 
         /// <summary>
         /// Handles a user message submitted from the WebView.
