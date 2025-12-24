@@ -207,6 +207,12 @@ namespace SmartHopper.Providers.DeepSeek
                             ["role"] = role,
                             ["content"] = token["content"]?.ToString() ?? string.Empty
                         };
+
+                        if (!string.IsNullOrWhiteSpace(token["reasoning_content"]?.ToString()))
+                        {
+                            currentMessage["reasoning_content"] = token["reasoning_content"]?.ToString();
+                        }
+
                         currentToolCalls = new JArray();
 
                         // Copy tool_calls if present in this token
@@ -239,6 +245,13 @@ namespace SmartHopper.Providers.DeepSeek
                             currentMessage["content"] = string.IsNullOrEmpty(existingContent) ? newContent : existingContent + " " + newContent;
                         }
 
+                        var existingReasoning = currentMessage["reasoning_content"]?.ToString() ?? string.Empty;
+                        var newReasoning = token["reasoning_content"]?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(newReasoning))
+                        {
+                            currentMessage["reasoning_content"] = string.IsNullOrWhiteSpace(existingReasoning) ? newReasoning : existingReasoning + " " + newReasoning;
+                        }
+
                         // Accumulate tool_calls
                         if (token["tool_calls"] is JArray tc && tc.Count > 0)
                         {
@@ -262,6 +275,11 @@ namespace SmartHopper.Providers.DeepSeek
                 if (currentToolCalls.Count > 0)
                 {
                     currentMessage["tool_calls"] = currentToolCalls;
+                }
+
+                if (currentToolCalls.Count == 0 && string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentMessage.Remove("reasoning_content");
                 }
 
                 convertedMessages.Add(currentMessage);
@@ -434,6 +452,11 @@ namespace SmartHopper.Providers.DeepSeek
             if (interaction is AIInteractionText textInteraction)
             {
                 messageObj["content"] = textInteraction.Content ?? string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(textInteraction.Reasoning))
+                {
+                    messageObj["reasoning_content"] = textInteraction.Reasoning;
+                }
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
@@ -469,7 +492,12 @@ namespace SmartHopper.Providers.DeepSeek
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
-                messageObj["content"] = string.Empty; // assistant tool_calls messages should have empty content
+                messageObj["content"] = string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
+                {
+                    messageObj["reasoning_content"] = toolCallInteraction.Reasoning;
+                }
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
@@ -596,6 +624,7 @@ namespace SmartHopper.Providers.DeepSeek
                             Id = tc["id"]?.ToString(),
                             Name = function?["name"]?.ToString(),
                             Arguments = JObject.Parse(argumentsStr),
+                            Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                         };
                         interactions.Add(toolCall);
                     }
