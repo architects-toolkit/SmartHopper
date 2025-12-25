@@ -581,7 +581,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     serOptions3.IncludeGroups = false;
                     var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions3);
                     var edges = fullDoc.Connections
-                        .Select(c => {
+                        .Select(c =>
+                        {
                             if (c.TryResolveGuids(fullDoc.GetIdToGuidMapping(), out var from, out var to))
                                 return (from: from, to: to, valid: true);
                             return (from: Guid.Empty, to: Guid.Empty, valid: false);

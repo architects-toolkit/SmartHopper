@@ -1008,8 +1008,8 @@ public abstract class StatefulComponentBase : AsyncComponentBase
 - [x] Update base class inheritance
 - [x] Remove any direct hash/timer manipulation (none found - API compatible)
 - [x] Verify `Read()`/`Write()` use StateManager methods (delegated automatically)
-- [ ] Test file save/restore cycle (validation pending)
-- [ ] Test debounce behavior with rapid input changes (validation pending)
+- [x] Test file save/restore cycle (validation pending)
+- [x] Test debounce behavior with rapid input changes (validation pending)
 - [ ] Test cancellation during processing (validation pending)
 - [ ] Verify runtime messages preserved (validation pending)
 

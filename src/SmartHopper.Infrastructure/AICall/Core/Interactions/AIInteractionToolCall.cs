@@ -8,11 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Metrics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {

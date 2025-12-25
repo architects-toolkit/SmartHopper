@@ -13,8 +13,6 @@ using System.Diagnostics;
 using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
-using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {

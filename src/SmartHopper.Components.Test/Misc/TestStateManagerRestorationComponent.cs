@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -25,7 +25,7 @@ namespace SmartHopper.Components.Test.Misc
     /// This component demonstrates the new state management pattern and can be used
     /// to manually test file save/restore behavior in Grasshopper.
     /// </summary>
-    public class TestStateManagerRestorationComponent : StatefulComponentBaseV2
+    public class TestStateManagerRestorationComponent : StatefulComponentBase
     {
         /// <summary>
         /// The ComponentStateManager instance for this component.
@@ -244,3 +244,4 @@ namespace SmartHopper.Components.Test.Misc
         }
     }
 }
+

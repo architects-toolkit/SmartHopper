@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -24,7 +24,7 @@ namespace SmartHopper.Components.Test.Misc
     /// This component demonstrates debounce cancellation and generation-based
     /// stale callback prevention.
     /// </summary>
-    public class TestStateManagerDebounceComponent : StatefulComponentBaseV2
+    public class TestStateManagerDebounceComponent : StatefulComponentBase
     {
         /// <summary>
         /// The ComponentStateManager instance for this component.
@@ -244,3 +244,4 @@ namespace SmartHopper.Components.Test.Misc
         }
     }
 }
+

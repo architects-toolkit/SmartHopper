@@ -197,6 +197,16 @@ namespace SmartHopper.Providers.DeepSeek
                                 currentMessage["tool_calls"] = currentToolCalls;
                             }
 
+                            // Remove reasoning_content from assistant messages without tool_calls
+                            // per DeepSeek's recommendation to save bandwidth
+                            if (string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (currentMessage["tool_calls"] == null || (currentMessage["tool_calls"] is JArray tcArray && tcArray.Count == 0))
+                                {
+                                    currentMessage.Remove("reasoning_content");
+                                }
+                            }
+
                             convertedMessages.Add(currentMessage);
                         }
 
@@ -277,9 +287,14 @@ namespace SmartHopper.Providers.DeepSeek
                     currentMessage["tool_calls"] = currentToolCalls;
                 }
 
-                if (currentToolCalls.Count == 0 && string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase))
+                // Remove reasoning_content from assistant messages without tool_calls
+                // per DeepSeek's recommendation to save bandwidth
+                if (string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase))
                 {
-                    currentMessage.Remove("reasoning_content");
+                    if (currentMessage["tool_calls"] == null || (currentMessage["tool_calls"] is JArray tcArray && tcArray.Count == 0))
+                    {
+                        currentMessage.Remove("reasoning_content");
+                    }
                 }
 
                 convertedMessages.Add(currentMessage);
@@ -1003,7 +1018,7 @@ namespace SmartHopper.Providers.DeepSeek
                         hasContentUpdate = true;
                     }
 
-                    if(hasContentUpdate)
+                    if (hasContentUpdate)
                     {
                         // If we had a reasoning-only segment, complete it first to trigger segmentation
                         if (hadReasoningOnlySegment)
@@ -1124,7 +1139,7 @@ namespace SmartHopper.Providers.DeepSeek
                             JObject argsObj = null;
                             var argsStr = argsSb.ToString();
                             try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON, ignore */ }
-                            interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
+                            interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj, Reasoning = assistantAggregate.Reasoning });
                         }
 
                         var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
@@ -1157,15 +1172,20 @@ namespace SmartHopper.Providers.DeepSeek
 
                 // Build final body with text and tool calls
                 var finalBuilder = AIBodyBuilder.Create();
+                var hasToolCalls = toolCalls.Count > 0;
 
-                // Add text interaction if present
-                if (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning))
+                // Add text interaction if there's actual content (not just reasoning when tool calls exist)
+                // When tool calls are present, reasoning belongs to the tool calls for API purposes
+                var shouldAddTextInteraction = !string.IsNullOrEmpty(assistantAggregate.Content) ||
+                    (!hasToolCalls && !string.IsNullOrEmpty(assistantAggregate.Reasoning));
+
+                if (shouldAddTextInteraction)
                 {
                     var finalSnapshot = new AIInteractionText
                     {
                         Agent = assistantAggregate.Agent,
                         Content = assistantAggregate.Content,
-                        Reasoning = assistantAggregate.Reasoning,
+                        Reasoning = hasToolCalls ? null : assistantAggregate.Reasoning,
                         Metrics = new AIMetrics
                         {
                             Provider = assistantAggregate.Metrics.Provider,
@@ -1188,7 +1208,7 @@ namespace SmartHopper.Providers.DeepSeek
                     JObject argsObj = null;
                     var argsStr = argsSb.ToString();
                     try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON */ }
-                    finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
+                    finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj, Reasoning = assistantAggregate.Reasoning }, markAsNew: false);
                 }
 
                 final.SetBody(finalBuilder.Build());

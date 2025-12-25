@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.AIContext

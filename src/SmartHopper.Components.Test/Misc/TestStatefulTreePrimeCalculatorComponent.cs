@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
  *
@@ -28,7 +28,7 @@ using SmartHopper.Core.ComponentBase;
 
 namespace SmartHopper.Components.Test.Misc
 {
-    public class TestStatefulTreePrimeCalculatorComponent : StatefulComponentBaseV2
+    public class TestStatefulTreePrimeCalculatorComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
         protected override Bitmap Icon => null;
@@ -151,3 +151,4 @@ namespace SmartHopper.Components.Test.Misc
         }
     }
 }
+

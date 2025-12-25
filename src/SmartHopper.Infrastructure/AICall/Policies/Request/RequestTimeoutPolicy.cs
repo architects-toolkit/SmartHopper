@@ -8,10 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Policies;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {

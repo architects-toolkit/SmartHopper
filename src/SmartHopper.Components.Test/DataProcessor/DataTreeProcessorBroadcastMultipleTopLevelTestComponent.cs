@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -10,9 +10,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -27,7 +25,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test Case 3: A={0}, B={0},{1} - Multiple top-level paths including {0}
     /// Rule 2 applies: A broadcasts to ALL paths in B (including {0} and {1})
     /// </summary>
-    public class DataTreeProcessorBroadcastMultipleTopLevelTestComponent : StatefulComponentBaseV2
+    public class DataTreeProcessorBroadcastMultipleTopLevelTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("CBD8E900-B6EF-4ADE-B68C-A1A6AB486647");
         protected override Bitmap Icon => null;
@@ -164,3 +162,4 @@ namespace SmartHopper.Components.Test.DataProcessor
         }
     }
 }
+

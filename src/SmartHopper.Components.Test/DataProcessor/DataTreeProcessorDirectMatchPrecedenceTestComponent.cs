@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -10,9 +10,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -27,7 +25,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test Case 9 & 10: A={0}, B={0},{0;0},{0;1} - Direct match + deeper paths
     /// Rule 4 applies: A matches ONLY B's {0}, NOT the deeper {0;0} or {0;1}
     /// </summary>
-    public class DataTreeProcessorDirectMatchPrecedenceTestComponent : StatefulComponentBaseV2
+    public class DataTreeProcessorDirectMatchPrecedenceTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("77095C92-474F-4D5C-9EA6-6FE31FFFA710");
         protected override Bitmap Icon => null;
@@ -164,3 +162,4 @@ namespace SmartHopper.Components.Test.DataProcessor
         }
     }
 }
+

@@ -25,7 +25,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Metrics;
     using SmartHopper.Infrastructure.AICall.Policies;
     using SmartHopper.Infrastructure.AICall.Utilities;
-    using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.Settings;
     using SmartHopper.Infrastructure.Streaming;
 
@@ -59,7 +58,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// The cancellation token source for this session.
         /// </summary>
-        private readonly CancellationTokenSource cts = new ();
+        private readonly CancellationTokenSource cts = new();
 
         /// <summary>
         /// Executor abstraction for provider and tool calls.
@@ -416,11 +415,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 Agent = AIAgent.User,
                 Content = userMessage,
+                TurnId = InteractionUtility.GenerateTurnId(),
             };
 
             // Append user input to session history without marking it as 'new'
             this.AppendToSessionHistory(userInteraction);
             this.UpdateLastReturn();
+
+            // Notify observer so user message is rendered in the UI
+            this.Observer?.OnInteractionCompleted(userInteraction);
         }
 
         /// <summary>

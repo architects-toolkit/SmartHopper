@@ -9,7 +9,6 @@
  */
 
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -89,7 +88,7 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             // Closed cleanup + optional result propagation
-            WireClosedCleanup(componentId, dialog, completionTcs);
+            WireClosedCleanup(componentId, dialog, progressReporter, completionTcs);
 
             // Incremental updates
             AttachOrReplaceUpdateHandler(componentId, dialog, progressReporter, onUpdate);
@@ -165,7 +164,7 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Wires dialog closed cleanup and optionally completes a TaskCompletionSource with the last return.
         /// </summary>
-        private static void WireClosedCleanup(Guid componentId, WebChatDialog dialog, TaskCompletionSource<AIReturn>? tcs = null)
+        private static void WireClosedCleanup(Guid componentId, WebChatDialog dialog, Action<string>? progressReporter, TaskCompletionSource<AIReturn>? tcs = null)
         {
             dialog.Closed += (sender, e) =>
             {
@@ -175,11 +174,25 @@ namespace SmartHopper.Core.UI.Chat
                     if (componentId != default)
                     {
                         OpenDialogs.Remove(componentId);
-                        if (UpdateHandlers.ContainsKey(componentId))
+
+                        if (UpdateHandlers.TryGetValue(componentId, out var handler))
                         {
+                            try
+                            {
+                                dialog.ChatUpdated -= handler;
+                            }
+                            catch
+                            {
+                                /* ignore */
+                            }
+
                             UpdateHandlers.Remove(componentId);
                         }
                     }
+
+                    // Ensure the hosting component isn't left in a stale "Chatting..." status.
+                    // The Grasshopper component's message is driven by the progressReporter.
+                    progressReporter?.Invoke("Ready");
 
                     var last = dialog.GetLastReturn();
                     tcs?.TrySetResult(last);

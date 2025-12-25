@@ -32,7 +32,7 @@ Provide an up-to-date list of models by querying the provider API when possible 
   4. Errors (e.g., no provider or no models) emit a runtime error with a concise message.
 
 - Execution trigger:
-  - `RunOnlyOnInputChanges = false` so provider changes retrigger execution (see `AIStatefulAsyncComponentBase`).
+  - `RunOnlyOnInputChanges = false` so provider changes retrigger execution.
 
 ## Notes
 

@@ -1,6 +1,6 @@
 # Persistence (V2)
 
-Safe, versioned persistence of component outputs used by `StatefulAsyncComponentBase`.
+Safe, versioned persistence of component outputs used by `StatefulComponentBase`.
 
 ## Purpose
 
@@ -10,10 +10,10 @@ Safe, versioned persistence of component outputs used by `StatefulAsyncComponent
 
 ## Where it is used
 
-- `StatefulAsyncComponentBase.Write(GH_IWriter)` writes current output trees using `GHPersistenceService.WriteOutputsV2()`.
-- `StatefulAsyncComponentBase.Read(GH_IReader)` reads output trees using `GHPersistenceService.ReadOutputsV2()` and restores them to the component's outputs.
+- `StatefulComponentBase.Write(GH_IWriter)` writes current output trees using `GHPersistenceService.WriteOutputsV2()`.
+- `StatefulComponentBase.Read(GH_IReader)` reads output trees using `GHPersistenceService.ReadOutputsV2()` and restores them to the component's outputs.
 
-See: `src/SmartHopper.Core/ComponentBase/StatefulAsyncComponentBase.cs`.
+See: `src/SmartHopper.Core/ComponentBase/StatefulComponentBaseV2.cs`.
 
 ## Versioning and keys
 
@@ -31,6 +31,7 @@ Source: `src/SmartHopper.Core/IO/PersistenceConstants.cs`.
 - Trees preserve paths, order, and counts.
 
 Source:
+
 - `src/SmartHopper.Core/IO/GHPersistenceService.cs`
 - `src/SmartHopper.Core/IO/SafeStructureCodec.cs`
 
@@ -44,18 +45,21 @@ Source:
   - `TryDecode(string, out IGH_Goo goo, out string warning) -> bool`
 
 Source:
+
 - `src/SmartHopper.Core/IO/SafeStructureCodec.cs`
 - `src/SmartHopper.Core/IO/SafeGooCodec.cs`
 
 ## Supported item types
 
 Handled explicitly by `SafeGooCodec`:
+
 - `GH_String` — `GH_String|{value}`
 - `GH_Number` — `GH_Number|{value}` (InvariantCulture)
 - `GH_Integer` — `GH_Integer|{value}` (InvariantCulture)
 - `GH_Boolean` — `GH_Boolean|1` or `0` (also accepts `true`/`false` on decode)
 
 Fallbacks and warnings:
+
 - Unknown `typeHint` decodes to `GH_String` with a warning.
 - Parse failures (number/int/bool) decode to `GH_String` with a warning.
 - Any exception during decode results in `GH_String` with a warning.
@@ -76,6 +80,7 @@ Source: `src/SmartHopper.Core/IO/GHPersistenceService.cs`.
 ## Extending to new types
 
 To persist a new GH type safely:
+
 1. Add a new `typeHint` case in `SafeGooCodec.Encode(IGH_Goo)` producing a canonical string representation.
 2. Add the corresponding case in `SafeGooCodec.TryDecode(...)` to parse the string back to an `IGH_Goo` instance.
 3. Use `CultureInfo.InvariantCulture` for numeric formats and keep strings unescaped if possible; if escaping is needed, keep the prefix format `typeHint|payload` stable and implement reversible escaping.

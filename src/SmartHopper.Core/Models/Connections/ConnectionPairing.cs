@@ -10,7 +10,6 @@
 
 using System;
 using System.Collections.Generic;
-using Grasshopper.Kernel;
 using Newtonsoft.Json;
 
 namespace SmartHopper.Core.Models.Connections

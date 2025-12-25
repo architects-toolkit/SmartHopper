@@ -18,7 +18,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
     /// </summary>
     internal class WebUtilities
     {
-        private readonly List<string> _disallowed = new ();
+        private readonly List<string> _disallowed = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="WebUtilities"/> class.
