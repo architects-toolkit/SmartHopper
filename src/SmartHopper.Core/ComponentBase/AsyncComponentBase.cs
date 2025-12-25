@@ -207,6 +207,14 @@ namespace SmartHopper.Core.ComponentBase
             // Second pass - Post-solve - Setting output
             this.InPreSolve = false;
 
+            // If tasks are still running (_setData == 0) or the state is not ready (>0),
+            // skip output processing until the continuation sets _state and _setData.
+            if (this._setData == 0 || this._state <= 0)
+            {
+                Debug.WriteLine($"[AsyncComponentBase] Post-solve skipped. Tasks running or state not ready. State: {this._state}, SetData: {this._setData}");
+                return;
+            }
+
             Debug.WriteLine($"[AsyncComponentBase] Post-solve - Setting output. InPreSolve: {this.InPreSolve}, State: {this._state}, SetData: {this._setData}, Workers.Count: {this.Workers.Count}");
 
             if (this.Workers.Count > 0)
