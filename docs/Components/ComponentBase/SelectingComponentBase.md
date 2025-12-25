@@ -90,6 +90,6 @@ In both cases, you typically:
 
 ## Related
 
-- [StatefulAsyncComponentBase](./StatefulAsyncComponentBase.md)
+- [StatefulComponentBase](./StatefulComponentBase.md)
 - [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md)
 - `ISelectingComponent`, `SelectingComponentCore`, and `SelectingComponentAttributes` in `src/SmartHopper.Core/ComponentBase`

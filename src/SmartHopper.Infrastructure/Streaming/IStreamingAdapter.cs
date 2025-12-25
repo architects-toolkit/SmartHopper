@@ -8,10 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace SmartHopper.Infrastructure.Streaming
 {

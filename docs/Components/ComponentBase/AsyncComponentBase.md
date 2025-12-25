@@ -40,6 +40,6 @@ Provide a robust async skeleton: snapshot inputs, run on a background task with 
 
 ## Related
 
-- [StatefulAsyncComponentBase](./StatefulAsyncComponentBase.md) – adds state machine, debouncing, and Run handling on top.
+- StatefulComponentBase – adds state machine, debouncing, and Run handling on top.
 - [AsyncWorkerBase](../Workers/AsyncWorkerBase.md) – worker abstraction to host the actual compute logic.
 - [ProgressInfo](../Helpers/ProgressInfo.md) – lightweight progress reporting payload.

@@ -12,7 +12,6 @@ using System;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request

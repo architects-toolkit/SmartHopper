@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -27,7 +27,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test component for GroupIdenticalBranches flag: identical branches are grouped and processed only once.
     /// When branches have identical content across inputs, they should be processed only once.
     /// </summary>
-    public class DataTreeProcessorGroupIdenticalTestComponent : StatefulComponentBaseV2
+    public class DataTreeProcessorGroupIdenticalTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("CEF161C9-36FC-4503-8BB0-9717EEA13865");
         protected override Bitmap Icon => null;
@@ -180,3 +180,4 @@ namespace SmartHopper.Components.Test.DataProcessor
         }
     }
 }
+

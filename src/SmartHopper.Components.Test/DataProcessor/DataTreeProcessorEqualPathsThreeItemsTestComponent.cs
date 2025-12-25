@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -27,7 +26,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test component to validate DataTreeProcessor with two trees having equal paths (three items each).
     /// Uses internal data; outputs result tree, success flag, and messages.
     /// </summary>
-    public class DataTreeProcessorEqualPathsThreeItemsTestComponent : StatefulComponentBaseV2
+    public class DataTreeProcessorEqualPathsThreeItemsTestComponent : StatefulComponentBase
     {
         /// <summary>
         /// Gets the unique component identifier.
@@ -201,3 +200,4 @@ namespace SmartHopper.Components.Test.DataProcessor
         }
     }
 }
+

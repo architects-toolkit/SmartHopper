@@ -30,7 +30,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: ToolName,
-                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, discovery, scripting, knowledge, ghjson, selected, errors, locks, visibility. Use this to retrieve guidance instead of relying on a long system prompt.",
+                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
                 category: "Instructions",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -121,6 +121,9 @@ Discovering available components:
 """;
 
                 case "knowledge":
+                case "mcneel-forum":
+                case "research":
+                case "web":
                     return """
 Knowledge base workflow:
 1) mcneel_forum_search: find candidate posts/topics.
@@ -130,6 +133,9 @@ Knowledge base workflow:
 """;
 
                 case "scripting":
+                case "python":
+                case "csharp":
+                case "vb":
                     return """
 Scripting rules:
 - When the user asks to CREATE or MODIFY a Grasshopper script component, use the scripting tools (do not only reply in natural language).
@@ -160,7 +166,7 @@ Required workflows:
 """;
 
                 default:
-                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are canvas, discovery, scripting, knowledge, ghjson, selected, errors, locks, visibility.";
+                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web.";
             }
         }
     }

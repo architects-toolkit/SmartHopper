@@ -11,10 +11,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Grasshopper.Kernel;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Models.Components;

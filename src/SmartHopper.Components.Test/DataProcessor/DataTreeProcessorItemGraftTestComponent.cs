@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -27,7 +26,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test component for ItemGraft topology: each item is grafted into its own separate branch.
     /// Each item from input trees is processed independently, and results are grafted into separate branches.
     /// </summary>
-    public class DataTreeProcessorItemGraftTestComponent : StatefulComponentBaseV2
+    public class DataTreeProcessorItemGraftTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("3B09EE1F-00A3-4B7D-86DA-4C7EB0C6C0C3");
         protected override Bitmap Icon => null;
@@ -175,3 +174,4 @@ namespace SmartHopper.Components.Test.DataProcessor
         }
     }
 }
+

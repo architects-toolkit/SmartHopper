@@ -1,6 +1,8 @@
 # StatefulAsyncComponentBase
 
-Async base with built‑in component state management, debouncing, progress, error handling, and persistent output storage.
+Legacy async base with built‑in component state management, debouncing, progress, error handling, and persistent output storage.
+
+This base has been superseded by [StatefulComponentBase](./StatefulComponentBase.md).
 
 ## Purpose
 

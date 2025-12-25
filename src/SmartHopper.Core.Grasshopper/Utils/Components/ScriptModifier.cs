@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using RhinoCodePluginGH.Parameters;

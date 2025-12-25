@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -26,7 +25,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// <summary>
     /// Test component: two inputs, first input three items, second input one item, different paths.
     /// </summary>
-    public class DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent : StatefulComponentBaseV2
+    public class DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("7A6E5F0B-9D3C-4A0C-8B2E-1F3A4D5C6B7E");
         protected override Bitmap Icon => null;
@@ -175,3 +174,4 @@ namespace SmartHopper.Components.Test.DataProcessor
         }
     }
 }
+

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -47,6 +47,7 @@ namespace SmartHopper.Core.ComponentBase
     /// Base class for stateful asynchronous Grasshopper components.
     /// Provides integrated state management, parallel processing, messaging, and persistence capabilities.
     /// </summary>
+    [Obsolete("Use StatefulComponentBase (formerly StatefulComponentBase). This legacy base is retained temporarily for migration.")]
     public abstract class StatefulAsyncComponentBase : AsyncComponentBase
     {
         /// <summary>
@@ -345,10 +346,10 @@ namespace SmartHopper.Core.ComponentBase
 
         // Default state, field to store the current state
         private ComponentState currentState = ComponentState.Completed;
-        private readonly object stateLock = new ();
+        private readonly object stateLock = new();
         private bool isTransitioning;
         private TaskCompletionSource<bool> stateCompletionSource;
-        private Queue<ComponentState> pendingTransitions = new ();
+        private Queue<ComponentState> pendingTransitions = new();
         private IGH_DataAccess lastDA;
 
         // Flag to track if component was just restored from file with existing outputs
@@ -642,7 +643,7 @@ namespace SmartHopper.Core.ComponentBase
 
         #region ERRORS
 
-        private readonly Dictionary<string, (GH_RuntimeMessageLevel Level, string Message)> runtimeMessages = new ();
+        private readonly Dictionary<string, (GH_RuntimeMessageLevel Level, string Message)> runtimeMessages = new();
 
         /// <summary>
         /// Adds or updates a runtime message and optionally transitions to Error state.
@@ -809,7 +810,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Timer used to track the debounce period. When it elapses, if inputs are stable,
         /// the component will transition to NeedsRun state and trigger a solve.
         /// </summary>
-        private readonly object timerLock = new ();
+        private readonly object timerLock = new();
         private readonly Timer debounceTimer;
         private int inputChangedDuringDebounce;
 

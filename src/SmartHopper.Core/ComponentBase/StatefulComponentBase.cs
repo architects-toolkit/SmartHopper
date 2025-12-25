@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -25,7 +25,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,7 +45,7 @@ namespace SmartHopper.Core.ComponentBase
     /// V2 implementation of stateful async component base using ComponentStateManager.
     /// Provides integrated state management, parallel processing, messaging, and persistence.
     /// </summary>
-    public abstract class StatefulComponentBaseV2 : AsyncComponentBase
+    public abstract class StatefulComponentBase : AsyncComponentBase
     {
         #region Fields
 
@@ -79,6 +78,10 @@ namespace SmartHopper.Core.ComponentBase
         /// The current Run parameter value.
         /// </summary>
         private bool run;
+
+        private bool hasPreviousRun;
+
+        private bool previousRun;
 
         #endregion
 
@@ -127,14 +130,14 @@ namespace SmartHopper.Core.ComponentBase
         #region Constructor
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="StatefulComponentBaseV2"/> class.
+        /// Initializes a new instance of the <see cref="StatefulComponentBase"/> class.
         /// </summary>
         /// <param name="name">The component's display name.</param>
         /// <param name="nickname">The component's nickname.</param>
         /// <param name="description">Description of the component's functionality.</param>
         /// <param name="category">Category in the Grasshopper toolbar.</param>
         /// <param name="subCategory">Subcategory in the Grasshopper toolbar.</param>
-        protected StatefulComponentBaseV2(
+        protected StatefulComponentBase(
             string name,
             string nickname,
             string description,
@@ -265,7 +268,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Register component-specific input parameters.
         /// </summary>
         /// <param name="pManager">The input parameter manager.</param>
-        protected abstract void RegisterAdditionalInputParams(GH_InputParamManager pManager);
+        protected abstract void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager);
 
         /// <summary>
         /// Registers output parameters for the component.
@@ -280,7 +283,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Register component-specific output parameters.
         /// </summary>
         /// <param name="pManager">The output parameter manager.</param>
-        protected abstract void RegisterAdditionalOutputParams(GH_OutputParamManager pManager);
+        protected abstract void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager);
 
         #endregion
 
@@ -293,7 +296,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (this.StateManager.CurrentState == ComponentState.Processing)
             {
-                Debug.WriteLine("[StatefulComponentBaseV2] Processing state... jumping to SolveInstance");
+                Debug.WriteLine("[StatefulComponentBase] Processing state... jumping to SolveInstance");
                 return;
             }
 
@@ -333,6 +336,10 @@ namespace SmartHopper.Core.ComponentBase
             DA.GetData("Run?", ref run);
             this.run = run;
 
+            // Note: GH_Button drives volatile data and may not affect PersistentData hashes.
+            // Track the last observed Run value to detect button pulses reliably.
+            bool runValueChanged = !this.hasPreviousRun || this.previousRun != this.run;
+
             Debug.WriteLine($"[{this.GetType().Name}] SolveInstance - State: {this.StateManager.CurrentState}, InPreSolve: {this.InPreSolve}, Run: {this.run}");
 
             // Calculate current input hashes
@@ -362,7 +369,10 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Handle input change detection after state handlers
-            this.HandleInputChangeDetection(DA);
+            this.HandleInputChangeDetection(DA, runValueChanged);
+
+            this.hasPreviousRun = true;
+            this.previousRun = this.run;
         }
 
         /// <summary>
@@ -390,7 +400,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles input change detection and debounce logic.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void HandleInputChangeDetection(IGH_DataAccess DA)
+        private void HandleInputChangeDetection(IGH_DataAccess DA, bool runValueChanged)
         {
             var currentState = this.StateManager.CurrentState;
 
@@ -405,6 +415,15 @@ namespace SmartHopper.Core.ComponentBase
 
             // Get changed inputs from StateManager
             var changedInputs = this.StateManager.GetChangedInputs();
+
+            // When configured to always run, a Run=true pulse should trigger Processing
+            // even if the Run? input is driven by volatile data (e.g. GH_Button).
+            if (!this.RunOnlyOnInputChanges && runValueChanged && this.run)
+            {
+                Debug.WriteLine($"[{this.GetType().Name}] Run value changed to true (volatile-aware), transitioning to Processing");
+                this.StateManager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
+                return;
+            }
 
             // If only Run parameter changed to false, stay in current state
             if (changedInputs.Count == 1 && changedInputs[0] == "Run?" && !this.run)
@@ -463,7 +482,7 @@ namespace SmartHopper.Core.ComponentBase
             this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
 
             base.OnWorkerCompleted();
-            Debug.WriteLine("[StatefulComponentBaseV2] Worker completed, expiring solution");
+            Debug.WriteLine("[StatefulComponentBase] Worker completed, expiring solution");
             this.ExpireSolution(true);
         }
 
@@ -894,7 +913,7 @@ namespace SmartHopper.Core.ComponentBase
                         if (v2Outputs.TryGetValue(p.InstanceGuid, out var tree))
                         {
                             this.persistentOutputs[p.Name] = tree;
-                            Debug.WriteLine($"[StatefulComponentBaseV2] [Read] Restored output '{p.Name}' paths={tree.PathCount}");
+                            Debug.WriteLine($"[StatefulComponentBase] [Read] Restored output '{p.Name}' paths={tree.PathCount}");
                         }
                     }
                 }
@@ -904,7 +923,7 @@ namespace SmartHopper.Core.ComponentBase
                     this.RestoreLegacyOutputs(reader);
                 }
 
-                Debug.WriteLine($"[StatefulComponentBaseV2] [Read] Restored with {this.persistentOutputs.Count} outputs");
+                Debug.WriteLine($"[StatefulComponentBase] [Read] Restored with {this.persistentOutputs.Count} outputs");
 
                 return true;
             }
@@ -966,7 +985,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[StatefulComponentBaseV2] [Read] Legacy restore failed for '{paramName}': {ex.Message}");
+                    Debug.WriteLine($"[StatefulComponentBase] [Read] Legacy restore failed for '{paramName}': {ex.Message}");
                 }
             }
         }
@@ -977,7 +996,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="DA">The data access object.</param>
         protected virtual void RestorePersistentOutputs(IGH_DataAccess DA)
         {
-            Debug.WriteLine("[StatefulComponentBaseV2] Restoring persistent outputs");
+            Debug.WriteLine("[StatefulComponentBase] Restoring persistent outputs");
 
             for (int i = 0; i < this.Params.Output.Count; i++)
             {
@@ -994,7 +1013,7 @@ namespace SmartHopper.Core.ComponentBase
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[StatefulComponentBaseV2] Failed to restore '{param.Name}': {ex.Message}");
+                    Debug.WriteLine($"[StatefulComponentBase] Failed to restore '{param.Name}': {ex.Message}");
                 }
             }
         }
@@ -1099,7 +1118,7 @@ namespace SmartHopper.Core.ComponentBase
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[StatefulComponentBaseV2] Failed to set output '{paramName}': {ex.Message}");
+                Debug.WriteLine($"[StatefulComponentBase] Failed to set output '{paramName}': {ex.Message}");
             }
         }
 
@@ -1524,3 +1543,4 @@ namespace SmartHopper.Core.ComponentBase
         #endregion
     }
 }
+

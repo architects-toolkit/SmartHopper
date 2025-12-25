@@ -22,7 +22,6 @@ using System.Drawing.Drawing2D;
 using Eto.Forms;
 using Grasshopper;
 using Grasshopper.GUI.Canvas;
-using Grasshopper.Kernel;
 using Rhino;
 
 namespace SmartHopper.Core.UI

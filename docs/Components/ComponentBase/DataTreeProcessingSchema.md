@@ -15,7 +15,7 @@ This schema is now the **single** processing model: legacy branch/item helpers a
 
 ## 2. High‑level workflow and responsibilities
 
-### 2.1 Component (GH_Component / StatefulAsyncComponentBase)
+### 2.1 Component (GH_Component / StatefulComponentBase)
 
 - **UI & contract**
   - Register input/output parameters and access (item/list/tree).
@@ -287,9 +287,9 @@ Responsibilities:
     - `current` is the index of the currently processed logical unit (1‑based).
     - `total` is the total number of logical units that will be processed, computed from the input trees after applying matching, grouping, and any normalization required by the selected topology.
 
-### 5.2 Relationship to StatefulAsyncComponentBase
+### 5.2 Relationship to StatefulComponentBase
 
-- `StatefulAsyncComponentBase` exposes a high‑level helper
+- `StatefulComponentBase` exposes a high‑level helper
 
 ```csharp
 protected Task<Dictionary<string, GH_Structure<U>>> RunProcessingAsync<T, U>(
@@ -311,7 +311,7 @@ which builds a processing plan, computes metrics, initialises progress, and then
 ## 6. Component mapping
 
 This section lists all components under `src/SmartHopper.Components` that are based on
-`StatefulAsyncComponentBase`, `AIStatefulAsyncComponentBase` or
+`StatefulComponentBase`, `AIStatefulAsyncComponentBase` or
 `AISelectingStatefulAsyncComponentBase`, and describes how they fit into the
 processing schema.
 
@@ -388,7 +388,7 @@ processing schema.
 
 ### 6.5 Knowledge components
 
-- **WebPageReadComponent** (`StatefulAsyncComponentBase`)
+- **WebPageReadComponent** (`StatefulComponentBase`)
   - **Topology**: `ItemToItem`.
   - **Granularity**: per‑item (each URL is one logical unit).
   - **Path mode**: same as input branch and item index.
@@ -407,13 +407,13 @@ processing schema.
 
 - **McNeelForumDeconstructPostComponent** (`GH_Component`) — schema not applicable.
 
-- **McNeelForumPostGetComponent**, **McNeelForumPostOpenComponent** (`StatefulAsyncComponentBase`)
+- **McNeelForumPostGetComponent**, **McNeelForumPostOpenComponent** (`StatefulComponentBase`)
   - **Topology**: `ItemToItem` (each ID or URL is one logical unit), but with side‑effects (opening posts).
   - **Changes required**:
     - For pure data retrieval, using `ItemToItem` is natural.
     - For side‑effect‑heavy operations (like opening posts in a browser), centralizing scheduling brings less value; migration is optional.
 
-- **McNeelForumSearchComponent**, **McNeelForumTopicRelatedComponent** (`StatefulAsyncComponentBase`)
+- **McNeelForumSearchComponent**, **McNeelForumTopicRelatedComponent** (`StatefulComponentBase`)
   - **Topology**: `ItemGraft`.
   - **Granularity**: per‑item (each query or topic ID is one logical unit).
   - **Path mode**: graft per input item (`[q0,q1,q2](i) → [q0,q1,q2,i](0..N)`).
