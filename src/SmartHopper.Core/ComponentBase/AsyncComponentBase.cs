@@ -221,7 +221,10 @@ namespace SmartHopper.Core.ComponentBase
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.Workers[i].SetOutput(DA, out outMessage);
-                        this.Message = outMessage;
+                        if (!string.IsNullOrEmpty(outMessage))
+                        {
+                            this.Message = outMessage;
+                        }
                         Debug.WriteLine($"[AsyncComponentBase] Worker {i + 1} output set, message: {outMessage}");
                     });
 

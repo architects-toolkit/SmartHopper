@@ -229,7 +229,7 @@ namespace SmartHopper.Components.Text
                 }
 
                 this.parent.SetPersistentOutput("Result", value, DA);
-                message = "Done :)";
+                message = string.Empty;
             }
         }
     }

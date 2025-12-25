@@ -211,7 +211,7 @@ namespace SmartHopper.Components.List
                 }
 
                 this.parent.SetPersistentOutput("Result", value, DA);
-                message = "Done :)";
+                message = string.Empty;
             }
         }
     }
