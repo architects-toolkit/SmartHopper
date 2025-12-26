@@ -208,4 +208,3 @@ namespace SmartHopper.Components.Knowledge
         }
     }
 }
-
