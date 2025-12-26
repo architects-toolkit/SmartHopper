@@ -73,13 +73,13 @@ runs:
             )
             HEADER_LINE_COUNT=${#HEADER_LINES_ARRAY[@]}
 
-            # Compare header per-line ignoring year
+            # Compare header per-line ignoring year and BOM
             # echo "Comparing header for $file"
             mismatch=0
             mismatch_line=0
             for ((i=0; i<HEADER_LINE_COUNT; i++)); do
               TEMPLATE_LINE=${HEADER_LINES_ARRAY[i]}
-              FILE_LINE=$(sed -n "$((i+1))p" "$file")
+              FILE_LINE=$(sed -n "$((i+1))p" "$file" | sed 's/^\xEF\xBB\xBF//')
               TEMPLATE_CAN=$(echo "$TEMPLATE_LINE" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
               CURRENT_CAN=$(echo "$FILE_LINE" | sed -E 's/(Copyright \(C\) )[0-9]{4}/\1####/')
               if [[ "$TEMPLATE_CAN" != "$CURRENT_CAN" ]]; then
@@ -96,8 +96,8 @@ runs:
                 echo "Updating header in $file"
                 echo "DEBUG: mismatch_line=$mismatch_line, HEADER_LINE_COUNT=$HEADER_LINE_COUNT"
 
-                # Read file into array for selective updates
-                readarray -t FILE_CONTENT < "$file"
+                # Read file into array for selective updates, stripping BOM if present
+                readarray -t FILE_CONTENT < <(sed '1s/^\xEF\xBB\xBF//' "$file")
                 # Determine if full header insertion or line update
                 if [ "$mismatch_line" -eq 1 ]; then
                   echo "DEBUG: Full header missing, inserting full header"
@@ -111,8 +111,8 @@ runs:
                   printf "%s\n" "${FILE_CONTENT[@]}" > "$file"
                 fi
                 
-                # Check and fix unbalanced comment blocks in first 20 lines
-                HEAD_LINES=$(head -n 20 "$file")
+                # Check and fix unbalanced comment blocks in first 20 lines (strip BOM for analysis)
+                HEAD_LINES=$(head -n 20 "$file" | sed '1s/^\xEF\xBB\xBF//')
                 OPEN_COUNT=$(grep -o '/\*' <<<"$HEAD_LINES" | wc -l || true)
                 CLOSE_COUNT=$(grep -o '\*/' <<<"$HEAD_LINES" | wc -l || true)
                 echo "DEBUG: OPEN_COUNT=$OPEN_COUNT, CLOSE_COUNT=$CLOSE_COUNT in first 20 lines"
