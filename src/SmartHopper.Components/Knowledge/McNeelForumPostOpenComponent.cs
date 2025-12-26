@@ -176,4 +176,3 @@ namespace SmartHopper.Components.Knowledge
         }
     }
 }
-
