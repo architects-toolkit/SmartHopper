@@ -10,7 +10,7 @@
 
 ### Core Documentation
 
-- **[Format Specification](./format-specification.md)**  
+- **[Format Specification](./format-specification.md)**
   Complete schema reference for GhJSON format including component structure, connections, groups, and validation rules.
 
 - **[Property Management (V2)](./property-management.md)**
