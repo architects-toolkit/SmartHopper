@@ -151,6 +151,7 @@ namespace SmartHopper.Core.Serialization.DataTypes
             this.RegisterSerializer(new BoxSerializer());
             this.RegisterSerializer(new RectangleSerializer());
             this.RegisterSerializer(new IntervalSerializer());
+            this.RegisterSerializer(new BoundsSerializer());
 
             Debug.WriteLine($"[DataTypeRegistry] Registered {this.serializersByName.Count} built-in serializers");
         }

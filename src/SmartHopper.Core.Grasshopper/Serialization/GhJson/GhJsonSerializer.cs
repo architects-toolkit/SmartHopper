@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using Grasshopper;
@@ -19,6 +20,7 @@ using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using Rhino.Geometry;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared;
@@ -539,6 +541,12 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             return null;
         }
 
+        private static Color? TryGetPanelColor(GH_Panel panel)
+        {
+            var props = panel.Properties;
+            return props?.Colour;
+        }
+
         /// <summary>
         /// Checks if a component is a VB Script component.
         /// VB Script components don't implement IScriptComponent but use ScriptVariableParam.
@@ -613,6 +621,29 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
                 {
                     // Other components store value as-is
                     state.Value = universalValue;
+                    hasState = true;
+                }
+            }
+
+            // Extract panel-specific appearance (color, size)
+            if (originalObject is GH_Panel panel)
+            {
+                var panelColor = TryGetPanelColor(panel);
+                if (panelColor.HasValue)
+                {
+                    state.AdditionalProperties ??= new Dictionary<string, object>();
+                    state.AdditionalProperties["color"] = DataTypeSerializer.Serialize(panelColor.Value);
+                    hasState = true;
+                }
+
+                var bounds = panel.Attributes?.Bounds;
+                if (bounds.HasValue && !bounds.Value.IsEmpty)
+                {
+                    state.AdditionalProperties ??= new Dictionary<string, object>();
+
+                    // Store as Bounds serializer format: bounds:W,H (preserve order, no sorting)
+                    var boundsTuple = (width: (double)bounds.Value.Width, height: (double)bounds.Value.Height);
+                    state.AdditionalProperties["bounds"] = DataTypeSerializer.Serialize(boundsTuple);
                     hasState = true;
                 }
             }
