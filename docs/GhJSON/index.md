@@ -2,7 +2,7 @@
 
 ## Overview
 
-**GhJSON** (Grasshopper JSON) is SmartHopper's serialization format for representing Grasshopper definitions as structured JSON documents. It enables AI-powered tools to read, analyze, modify, and generate Grasshopper component networks programmatically.
+**GhJSON** (Grasshopper JSON) is a structured representation of Grasshopper documents. It enables AI-powered tools to read, analyze, modify, and generate Grasshopper component networks programmatically.
 
 ---
 
@@ -10,7 +10,7 @@
 
 ### Core Documentation
 
-- **[Format Specification](./format-specification.md)**
+- **[Format Specification](./format-specification.md)**  
   Complete schema reference for GhJSON format including component structure, connections, groups, and validation rules.
 
 - **[Property Management (V2)](./property-management.md)**

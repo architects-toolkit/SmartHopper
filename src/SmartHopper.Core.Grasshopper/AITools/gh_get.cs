@@ -81,7 +81,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""includeMetadata"": {
                             ""type"": ""boolean"",
                             ""default"": false,
-                            ""description"": ""Whether to include document metadata (schema version, timestamps, Rhino/Grasshopper versions, plugin dependencies). Default is false.""
+                            ""description"": ""Whether to include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies). Default is false.""
                         },
                         ""includeRuntimeData"": {
                             ""type"": ""boolean"",

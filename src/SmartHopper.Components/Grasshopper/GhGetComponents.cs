@@ -26,7 +26,7 @@ namespace SmartHopper.Components.Grasshopper
     /// <summary>
     /// Component that converts selected or all Grasshopper components to GhJSON format.
     /// Supports optional filtering by runtime messages (errors, warnings, and remarks), component states (selected, enabled, disabled), preview capability (previewcapable, notpreviewcapable), preview state (previewon, previewoff), and classification by object type via Type filter (params, components, input, output, processing, isolated).
-    /// Optionally includes document metadata (schema version, timestamps, Rhino/Grasshopper versions, plugin dependencies).
+    /// Optionally includes document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies).
     /// </summary>
     public class GhGetComponents : SelectingComponentBase
     {
@@ -51,7 +51,7 @@ namespace SmartHopper.Components.Grasshopper
             pManager.AddTextParameter("Category Filter", "C", "Optional list of category filters by Grasshopper category or subcategory (e.g. 'Maths', 'Params', 'Script'). Use '+name' to include and '-name' to exclude.", GH_ParamAccess.list, "");
             pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
             pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
-            pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (schema version, timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
         }
 
