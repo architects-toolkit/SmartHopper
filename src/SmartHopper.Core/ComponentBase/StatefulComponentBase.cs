@@ -332,9 +332,9 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Read Run parameter
-            bool run = false;
-            DA.GetData("Run?", ref run);
-            this.run = run;
+            bool runInput = false;
+            DA.GetData("Run?", ref runInput);
+            this.run = runInput;
 
             // Note: GH_Button drives volatile data and may not affect PersistentData hashes.
             // Track the last observed Run value to detect button pulses reliably.
@@ -542,10 +542,10 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateNeedsRun");
 
-            bool run = false;
-            DA.GetData("Run?", ref run);
+            bool runInput = false;
+            DA.GetData("Run?", ref runInput);
 
-            if (run)
+            if (runInput)
             {
                 this.ClearOnePersistentRuntimeMessage("needs_run");
                 this.StateManager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
@@ -580,14 +580,14 @@ namespace SmartHopper.Core.ComponentBase
             this.ApplyPersistentRuntimeMessages();
             this.SetPersistentRuntimeMessage("cancelled", GH_RuntimeMessageLevel.Error, "The execution was manually cancelled", false);
 
-            bool run = false;
-            DA.GetData("Run?", ref run);
+            bool runInput = false;
+            DA.GetData("Run?", ref runInput);
 
             // Check for changes using StateManager
             var changedInputs = this.StateManager.GetChangedInputs();
 
             // If Run changed to true and no other inputs changed, transition to Processing
-            if (changedInputs.Count == 1 && changedInputs[0] == "Run?" && run)
+            if (changedInputs.Count == 1 && changedInputs[0] == "Run?" && runInput)
             {
                 this.StateManager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
             }
@@ -1447,14 +1447,9 @@ namespace SmartHopper.Core.ComponentBase
         {
             var changedInputs = this.InputsChanged();
 
-            if (exclusively)
-            {
-                return changedInputs.Count == 1 && changedInputs.Any(name => name == inputName);
-            }
-            else
-            {
-                return changedInputs.Any(name => name == inputName);
-            }
+            return exclusively
+                ? (changedInputs.Count == 1 && changedInputs.Contains(inputName))
+                : changedInputs.Contains(inputName);
         }
 
         /// <summary>
@@ -1465,14 +1460,9 @@ namespace SmartHopper.Core.ComponentBase
             var changedInputs = this.InputsChanged();
             var inputNamesList = inputNames.ToList();
 
-            if (exclusively)
-            {
-                return changedInputs.Count > 0 && !changedInputs.Except(inputNamesList).Any();
-            }
-            else
-            {
-                return changedInputs.Any(changed => inputNamesList.Contains(changed));
-            }
+            return exclusively
+                ? (changedInputs.Count > 0 && !changedInputs.Except(inputNamesList).Any())
+                : changedInputs.Any(changed => inputNamesList.Contains(changed));
         }
 
         #endregion
