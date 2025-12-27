@@ -24,9 +24,6 @@ using System.Text.RegularExpressions;
 using Markdig;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -105,6 +102,7 @@ namespace SmartHopper.Core.UI.Chat
                 string completeHtml = chatTemplate
                     .Replace("{{cssChat}}", cssContent, StringComparison.Ordinal)
                     .Replace("{{jsChat}}", jsContent, StringComparison.Ordinal)
+                    .Replace("{{debugActionsLeft}}", this.GetDebugActionsLeftHtml(), StringComparison.Ordinal)
                     .Replace("{{messageTemplate}}", messageTemplate, StringComparison.Ordinal);
 
                 Debug.WriteLine($"[ChatResourceManager] Complete HTML created, length: {completeHtml?.Length ?? 0}");
@@ -129,6 +127,15 @@ namespace SmartHopper.Core.UI.Chat
                 Debug.WriteLine($"[ChatResourceManager] Error stack trace: {ex.StackTrace}");
                 throw;
             }
+        }
+
+        private string GetDebugActionsLeftHtml()
+        {
+#if DEBUG
+            return "<button id=\"regen-button\" type=\"button\">Regen</button>";
+#else
+            return string.Empty;
+#endif
         }
 
         /// <summary>

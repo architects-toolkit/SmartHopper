@@ -41,18 +41,110 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             /// <summary>
+            /// Encapsulates all render state for a single turn, reducing scattered dictionary lookups.
+            /// </summary>
+            private sealed class TurnRenderState
+            {
+                public string TurnId { get; }
+                public bool IsFinalized { get; set; }
+                public bool HasPendingBoundary { get; set; }
+                public Dictionary<string, SegmentState> Segments { get; } = new Dictionary<string, SegmentState>(StringComparer.Ordinal);
+
+                public TurnRenderState(string turnId)
+                {
+                    this.TurnId = turnId;
+                }
+
+                public SegmentState GetOrCreateSegment(string baseKey)
+                {
+                    if (!this.Segments.TryGetValue(baseKey, out var seg))
+                    {
+                        seg = new SegmentState { SegmentNumber = 1 };
+                        this.Segments[baseKey] = seg;
+                    }
+
+                    return seg;
+                }
+            }
+
+            /// <summary>
+            /// State for a single segment within a turn.
+            /// </summary>
+            private sealed class SegmentState
+            {
+                public int SegmentNumber { get; set; } = 1;
+                public bool IsCommitted { get; set; }
+                public StreamState StreamState { get; set; }
+                public DateTime LastUpsertAt { get; set; }
+                public (string? Content, string? Reasoning) LastRenderedText { get; set; }
+            }
+
+            // Turn-level state management (replaces scattered dictionaries for new turns)
+            private readonly Dictionary<string, TurnRenderState> _turnStates = new Dictionary<string, TurnRenderState>(StringComparer.Ordinal);
+
+            /// <summary>
+            /// Gets or creates the render state for a turn.
+            /// </summary>
+            private TurnRenderState GetOrCreateTurnState(string turnKey)
+            {
+                if (string.IsNullOrWhiteSpace(turnKey))
+                {
+                    return null;
+                }
+
+                if (!this._turnStates.TryGetValue(turnKey, out var state))
+                {
+                    state = new TurnRenderState(turnKey);
+                    this._turnStates[turnKey] = state;
+                }
+
+                return state;
+            }
+
+            [Conditional("DEBUG")]
+            private static void DebugLog(string message)
+            {
+                Debug.WriteLine(message);
+            }
+
+            /// <summary>
             /// Returns the current segmented text key for a base key without creating a new segment.
             /// </summary>
             private string GetCurrentSegmentedKey(string baseKey)
             {
                 if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
-                if (!this._textInteractionSegments.TryGetValue(baseKey, out var seg))
+
+                // Extract turn key from base key (e.g., "turn:abc123:assistant" -> "turn:abc123")
+                var turnKey = this.ExtractTurnKeyFromBaseKey(baseKey);
+
+                var turnState = this.GetOrCreateTurnState(turnKey);
+                var segmentState = turnState.GetOrCreateSegment(baseKey);
+                return $"{baseKey}:seg{segmentState.SegmentNumber}";
+            }
+
+            /// <summary>
+            /// Extracts turn key from a base stream key (e.g., "turn:abc:assistant" -> "turn:abc").
+            /// </summary>
+            private string ExtractTurnKeyFromBaseKey(string baseKey)
+            {
+                if (string.IsNullOrWhiteSpace(baseKey))
                 {
-                    seg = 1;
-                    this._textInteractionSegments[baseKey] = seg;
+                    return null;
                 }
 
-                return $"{baseKey}:seg{seg}";
+                if (!baseKey.StartsWith("turn:", StringComparison.Ordinal))
+                {
+                    // Not a turn-keyed stream key; treat the key itself as a turn bucket.
+                    return baseKey;
+                }
+
+                var parts = baseKey.Split(':');
+                if (parts.Length >= 2)
+                {
+                    return $"{parts[0]}:{parts[1]}";
+                }
+
+                return baseKey;
             }
 
             /// <summary>
@@ -63,19 +155,15 @@ namespace SmartHopper.Core.UI.Chat
             {
                 if (string.IsNullOrWhiteSpace(baseKey)) return baseKey;
 
-                int seg;
-                if (!this._textInteractionSegments.TryGetValue(baseKey, out seg))
+                var extractedTurnKey = this.ExtractTurnKeyFromBaseKey(baseKey);
+                var turnState = this.GetOrCreateTurnState(extractedTurnKey);
+                var segment = turnState.GetOrCreateSegment(baseKey);
+                int seg = segment.SegmentNumber;
+
+                if (turnState.HasPendingBoundary)
                 {
-                    // Not yet committed: would start at seg1
-                    seg = 1;
-                }
-                else if (!string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey))
-                {
-                    // Boundary pending: would increment
                     seg = seg + 1;
                 }
-
-                // else: use current committed seg
 
                 return $"{baseKey}:seg{seg}";
             }
@@ -88,49 +176,57 @@ namespace SmartHopper.Core.UI.Chat
             {
                 if (string.IsNullOrWhiteSpace(baseKey)) return;
 
-                var beforeSegment = this._textInteractionSegments.TryGetValue(baseKey, out var seg) ? seg : 0;
-                var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
-                Debug.WriteLine($"[WebChatObserver] CommitSegment: baseKey={baseKey}, turnKey={turnKey}, beforeSeg={beforeSegment}, hasBoundary={hasBoundary}");
+                var extractedTurnKey = this.ExtractTurnKeyFromBaseKey(baseKey);
+                var turnState = this.GetOrCreateTurnState(extractedTurnKey);
+                var segment = turnState.GetOrCreateSegment(baseKey);
+                var beforeSegment = segment.SegmentNumber;
+                var hasBoundary = turnState.HasPendingBoundary;
 
-                // Consume boundary flag and increment if applicable
-                this.ConsumeBoundaryAndIncrementSegment(turnKey, baseKey);
+                DebugLog($"[WebChatObserver] CommitSegment: baseKey={baseKey}, turnKey={turnKey}, beforeSeg={beforeSegment}, hasBoundary={hasBoundary}");
 
-                // Ensure segment counter is initialized (ConsumeBoundaryAndIncrementSegment requires existing entry)
-                if (!this._textInteractionSegments.ContainsKey(baseKey))
+                // Consume boundary and increment if applicable
+                if (hasBoundary)
                 {
-                    this._textInteractionSegments[baseKey] = 1;
-                    Debug.WriteLine($"[WebChatObserver] CommitSegment: initialized baseKey={baseKey} to seg=1");
+                    segment.SegmentNumber++;
+                    turnState.HasPendingBoundary = false;
+                    DebugLog($"[WebChatObserver] CommitSegment: incremented segment {baseKey} from {beforeSegment} to {segment.SegmentNumber}");
                 }
-                else
-                {
-                    var afterSegment = this._textInteractionSegments[baseKey];
-                    Debug.WriteLine($"[WebChatObserver] CommitSegment: baseKey={baseKey} already exists, seg={afterSegment}");
-                }
+
+                segment.IsCommitted = true;
             }
 
             // Tracks UI state for the temporary thinking bubble.
             // We no longer track assistant-specific bubble state; ordering is handled by keys and upserts.
             private bool _thinkingBubbleActive;
 
-            // Simple per-key throttling to reduce DOM churn during streaming
-            private readonly Dictionary<string, DateTime> _lastUpsertAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
-            private const int ThrottleMs = 10;
+            private const int ThrottleMs = 50;
+            private const int ThrottleDuringMoveResizeMs = 400;
 
-            // Tracks per-turn text segments so multiple text messages in a single turn
-            // are rendered as distinct bubbles. Keys are the base stream key (e.g., "turn:{TurnId}:{agent}").
-            private readonly Dictionary<string, int> _textInteractionSegments = new Dictionary<string, int>(StringComparer.Ordinal);
+            private DateTime _lastDeltaLogUtc = DateTime.MinValue;
+            private const int DeltaLogThrottleMs = 250;
 
-            // Pending segmentation boundary flags per turn. When set, the next text interaction for that turn
-            // starts a new segment (new bubble). Simplified rule: set boundary after ANY completed interaction.
-            private readonly HashSet<string> _pendingNewTextSegmentTurns = new HashSet<string>(StringComparer.Ordinal);
+            [Conditional("DEBUG")]
+            private void LogDelta(string message)
+            {
+#if DEBUG
+                try
+                {
+                    var now = DateTime.UtcNow;
+                    if ((now - this._lastDeltaLogUtc).TotalMilliseconds >= DeltaLogThrottleMs)
+                    {
+                        this._lastDeltaLogUtc = now;
+                        DebugLog(message);
+                    }
+                }
+                catch
+                {
+                }
+#endif
+            }
 
             // Pre-commit aggregates: tracks text aggregates by base key before segment assignment.
             // This allows lazy segment commitment only when text becomes renderable.
             private readonly Dictionary<string, StreamState> _preStreamAggregates = new Dictionary<string, StreamState>(StringComparer.Ordinal);
-
-            // Finalized turns: after OnFinal has rendered the assistant text for a turn, ignore any late
-            // OnDelta/OnInteractionCompleted text updates for that same turn to prevent overriding final metrics/time.
-            private readonly HashSet<string> _finalizedTextTurns = new HashSet<string>(StringComparer.Ordinal);
 
             /// <summary>
             /// Returns the generic turn base key for a given turn id (e.g., "turn:{TurnId}").
@@ -189,17 +285,15 @@ namespace SmartHopper.Core.UI.Chat
             /// <param name="request">The request about to be executed.</param>
             public void OnStart(AIRequestCall request)
             {
-                Debug.WriteLine("[WebChatObserver] OnStart called");
+                DebugLog("[WebChatObserver] OnStart called");
                 RhinoApp.InvokeOnUiThread(() =>
                 {
-                    Debug.WriteLine("[WebChatObserver] OnStart: executing UI updates");
+                    DebugLog("[WebChatObserver] OnStart: executing UI updates");
 
                     // Reset per-run state
                     this._streams.Clear();
                     this._preStreamAggregates.Clear();
-                    this._textInteractionSegments.Clear();
-                    this._pendingNewTextSegmentTurns.Clear();
-                    this._finalizedTextTurns.Clear();
+                    this._turnStates.Clear();
                     this._dialog.ExecuteScript("setStatus('Thinking...'); setProcessing(true);");
 
                     // Insert a persistent generic loading bubble that remains until stop state
@@ -207,7 +301,7 @@ namespace SmartHopper.Core.UI.Chat
                     this._thinkingBubbleActive = true;
 
                     // No assistant-specific state to reset
-                    Debug.WriteLine("[WebChatObserver] OnStart: UI updates completed");
+                    DebugLog("[WebChatObserver] OnStart: UI updates completed");
                 });
             }
 
@@ -229,7 +323,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatObserver] RemoveThinkingBubbleIfActive error: {ex.Message}");
+                    DebugLog($"[WebChatObserver] RemoveThinkingBubbleIfActive error: {ex.Message}");
                 }
                 finally
                 {
@@ -259,23 +353,26 @@ namespace SmartHopper.Core.UI.Chat
                                 var baseKey = GetStreamKey(interaction);
                                 var turnKey = GetTurnBaseKey(tt?.TurnId);
 
+                                var turnState = this.GetOrCreateTurnState(turnKey);
+                                var segState = turnState.GetOrCreateSegment(baseKey);
+
                                 // If this turn is finalized, ignore any late deltas to avoid overriding final metrics/time
-                                if (!string.IsNullOrWhiteSpace(turnKey) && this._finalizedTextTurns.Contains(turnKey))
+                                if (turnState.IsFinalized)
                                 {
                                     return;
                                 }
 
                                 // Check if we already have a committed segment for this base key
-                                bool isCommitted = this._textInteractionSegments.ContainsKey(baseKey);
-                                bool hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
-                                Debug.WriteLine($"[WebChatObserver] OnDelta: baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}");
+                                bool isCommitted = segState.IsCommitted;
+                                bool hasBoundary = turnState.HasPendingBoundary;
+                                this.LogDelta($"[WebChatObserver] OnDelta: baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}");
 
                                 // Determine the target key. If a boundary is pending while already committed,
                                 // roll over to a NEW segment now so subsequent deltas do not append to the previous bubble.
                                 string targetKey;
                                 if (isCommitted && hasBoundary)
                                 {
-                                    Debug.WriteLine($"[WebChatObserver] OnDelta: boundary pending -> rolling over to next segment for baseKey={baseKey}");
+                                    this.LogDelta($"[WebChatObserver] OnDelta: boundary pending -> rolling over to next segment for baseKey={baseKey}");
                                     this.CommitSegment(baseKey, turnKey); // consumes boundary and increments segment
                                     var segKey = this.GetCurrentSegmentedKey(baseKey);
 
@@ -316,16 +413,17 @@ namespace SmartHopper.Core.UI.Chat
                                 CoalesceTextStreamChunk(tt, targetKey, ref state);
 
                                 // Check if text is now renderable
-                                bool isRenderable = state.Aggregated is AIInteractionText aggText && HasRenderableText(aggText);
-                                Debug.WriteLine($"[WebChatObserver] OnDelta: isRenderable={isRenderable}, isCommitted={isCommitted}");
+                                var aggregatedText = state.Aggregated as AIInteractionText;
+                                bool isRenderable = HasRenderableText(aggregatedText);
+                                this.LogDelta($"[WebChatObserver] OnDelta: isRenderable={isRenderable}, isCommitted={isCommitted}");
 
                                 if (isRenderable && !isCommitted)
                                 {
                                     // First renderable delta: commit the segment now
-                                    Debug.WriteLine($"[WebChatObserver] OnDelta: FIRST RENDER - committing segment");
+                                    this.LogDelta($"[WebChatObserver] OnDelta: FIRST RENDER - committing segment");
                                     this.CommitSegment(baseKey, turnKey);
                                     var segKey = this.GetCurrentSegmentedKey(baseKey);
-                                    Debug.WriteLine($"[WebChatObserver] OnDelta: committed segKey={segKey}");
+                                    this.LogDelta($"[WebChatObserver] OnDelta: committed segKey={segKey}");
 
                                     // Move from pre-commit to committed storage
                                     this._streams[segKey] = state;
@@ -334,7 +432,10 @@ namespace SmartHopper.Core.UI.Chat
                                     // Upsert to DOM
                                     if (this.ShouldUpsertNow(segKey))
                                     {
-                                        this._dialog.UpsertMessageByKey(segKey, state.Aggregated as AIInteractionText, source: "OnDelta:FirstRender");
+                                        if (aggregatedText != null && this.ShouldRenderDelta(segKey, aggregatedText))
+                                        {
+                                            this._dialog.UpsertMessageByKey(segKey, aggregatedText, source: "OnDelta:FirstRender");
+                                        }
                                     }
                                 }
                                 else if (isRenderable && isCommitted)
@@ -343,7 +444,10 @@ namespace SmartHopper.Core.UI.Chat
                                     this._streams[targetKey] = state;
                                     if (this.ShouldUpsertNow(targetKey))
                                     {
-                                        this._dialog.UpsertMessageByKey(targetKey, state.Aggregated as AIInteractionText, source: "OnDelta");
+                                        if (aggregatedText != null && this.ShouldRenderDelta(targetKey, aggregatedText))
+                                        {
+                                            this._dialog.UpsertMessageByKey(targetKey, aggregatedText, source: "OnDelta");
+                                        }
                                     }
                                 }
                                 else
@@ -364,13 +468,13 @@ namespace SmartHopper.Core.UI.Chat
                         }
                         catch (Exception innerEx)
                         {
-                            Debug.WriteLine($"[WebChatObserver] OnDelta processing error: {innerEx.Message}");
+                            DebugLog($"[WebChatObserver] OnDelta processing error: {innerEx.Message}");
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatObserver] OnDelta error: {ex.Message}");
+                    DebugLog($"[WebChatObserver] OnDelta error: {ex.Message}");
                 }
             }
 
@@ -398,18 +502,21 @@ namespace SmartHopper.Core.UI.Chat
                                 var baseKey = GetStreamKey(interaction);
                                 var turnKey = GetTurnBaseKey(tt?.TurnId);
 
+                                var turnState = this.GetOrCreateTurnState(turnKey);
+                                var segState = turnState.GetOrCreateSegment(baseKey);
+
                                 // If this turn is finalized, ignore any late partials to avoid overriding final metrics/time
-                                if (!string.IsNullOrWhiteSpace(turnKey) && this._finalizedTextTurns.Contains(turnKey))
+                                if (turnState.IsFinalized)
                                 {
                                     return;
                                 }
 
                                 // Check if segment is committed
-                                bool isCommitted = this._textInteractionSegments.ContainsKey(baseKey);
+                                bool isCommitted = segState.IsCommitted;
                                 var activeSegKey = isCommitted ? this.GetCurrentSegmentedKey(baseKey) : null;
-                                var hasBoundary = !string.IsNullOrWhiteSpace(turnKey) && this._pendingNewTextSegmentTurns.Contains(turnKey);
+                                var hasBoundary = turnState.HasPendingBoundary;
 #if DEBUG
-                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}, contentLen={tt.Content?.Length ?? 0}");
+                                DebugLog($"[WebChatObserver] OnInteractionCompleted(Text): baseKey={baseKey}, turnKey={turnKey}, isCommitted={isCommitted}, hasBoundary={hasBoundary}, contentLen={tt.Content?.Length ?? 0}");
 #endif
 
                                 // Check for existing streaming aggregate (either committed or pre-commit)
@@ -454,10 +561,10 @@ namespace SmartHopper.Core.UI.Chat
 
                                 // True non-streaming completion path: no prior aggregate
                                 // Commit segment immediately since we have renderable content
-                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): NON-STREAMING path - committing segment");
+                                DebugLog($"[WebChatObserver] OnInteractionCompleted(Text): NON-STREAMING path - committing segment");
                                 this.CommitSegment(baseKey, turnKey);
                                 var finalSegKey = this.GetCurrentSegmentedKey(baseKey);
-                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Text): finalSegKey={finalSegKey}");
+                                DebugLog($"[WebChatObserver] OnInteractionCompleted(Text): finalSegKey={finalSegKey}");
 
                                 var state = new StreamState { Started = true, Aggregated = tt };
                                 this._streams[finalSegKey] = state;
@@ -474,8 +581,12 @@ namespace SmartHopper.Core.UI.Chat
                             {
                                 var streamKey = GetStreamKey(interaction);
                                 var turnKey = GetTurnBaseKey(interaction?.TurnId);
+
+                                // Flush any pending text state for this turn before processing non-text interaction.
+                                // This ensures throttled text deltas are rendered before tool calls appear.
+                                this.FlushPendingTextStateForTurn(turnKey);
 #if DEBUG
-                                Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
+                                DebugLog($"[WebChatObserver] OnInteractionCompleted(Non-Text): type={interaction.GetType().Name}, streamKey={streamKey}, turnKey={turnKey}");
 #endif
 
                                 if (string.IsNullOrWhiteSpace(streamKey))
@@ -505,13 +616,13 @@ namespace SmartHopper.Core.UI.Chat
                         }
                         catch (Exception innerEx)
                         {
-                            Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted processing error: {innerEx.Message}");
+                            DebugLog($"[WebChatObserver] OnInteractionCompleted processing error: {innerEx.Message}");
                         }
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatObserver] OnInteractionCompleted error: {ex.Message}");
+                    DebugLog($"[WebChatObserver] OnInteractionCompleted error: {ex.Message}");
                 }
             }
 
@@ -531,7 +642,7 @@ namespace SmartHopper.Core.UI.Chat
 
                     // Mark a boundary so the next assistant text begins a new segment.
                     var turnKey = GetTurnBaseKey(toolCall?.TurnId);
-                    Debug.WriteLine($"[WebChatObserver] OnToolCall: name={toolCall?.Name}, turnKey={turnKey} -> SetBoundaryFlag");
+                    DebugLog($"[WebChatObserver] OnToolCall: name={toolCall?.Name}, turnKey={turnKey} -> SetBoundaryFlag");
                     this.SetBoundaryFlag(turnKey);
                 });
             }
@@ -549,13 +660,13 @@ namespace SmartHopper.Core.UI.Chat
 
                 // Mark a boundary immediately so subsequent assistant text starts a new segment (seg rollover happens on next delta).
                 var turnKey = GetTurnBaseKey(toolResult?.TurnId);
-                Debug.WriteLine($"[WebChatObserver] OnToolResult: name={toolResult?.Name}, id={toolResult?.Id}, turnKey={turnKey} -> SetBoundaryFlag");
+                DebugLog($"[WebChatObserver] OnToolResult: name={toolResult?.Name}, id={toolResult?.Id}, turnKey={turnKey} -> SetBoundaryFlag");
                 this.SetBoundaryFlag(turnKey);
             }
 
             /// <summary>
             /// Handles the final stable result after a conversation turn completes.
-            /// Renders the final assistant message, removes the thinking bubble, and emits notifications.
+            /// Renders the final message, removes the thinking bubble, and emits notifications.
             /// </summary>
             /// <param name="result">The final <see cref="AIReturn"/> for this turn.</param>
             public void OnFinal(AIReturn result)
@@ -568,73 +679,66 @@ namespace SmartHopper.Core.UI.Chat
 
                     try
                     {
-                        // Determine final assistant item and its base stream key (turn:{TurnId}:assistant)
-                        var finalAssistant = result?.Body?.Interactions?
-                            .OfType<AIInteractionText>()
-                            .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                        // Determine the final renderable interaction (can be assistant text, tool, image, error, etc.)
+                        var finalRenderable = historySnapshot?.Body?.Interactions?
+                            .LastOrDefault(i => i is IAIRenderInteraction && i.Agent != AIAgent.Context);
 
                         string streamKey = null;
-                        if (finalAssistant is IAIKeyedInteraction keyedFinal)
+                        if (finalRenderable is IAIKeyedInteraction keyedFinal)
                         {
                             streamKey = keyedFinal.GetStreamKey();
                         }
 
                         // Mark this turn as finalized to prevent late partial/delta overrides
-                        var turnKey = GetTurnBaseKey(finalAssistant?.TurnId);
-                        if (!string.IsNullOrWhiteSpace(turnKey))
+                        var turnKey = GetTurnBaseKey(finalRenderable?.TurnId);
+                        var turnState = this.GetOrCreateTurnState(turnKey);
+                        if (turnState != null)
                         {
-                            this._finalizedTextTurns.Add(turnKey);
+                            turnState.IsFinalized = true;
                         }
 
-                        // Prefer the aggregated streaming content for visual continuity
-                        AIInteractionText aggregated = null;
-
-                        // Use the current segmented key for the assistant stream
-                        var segKey = !string.IsNullOrWhiteSpace(streamKey) ? this.GetCurrentSegmentedKey(streamKey) : null;
-                        if (!string.IsNullOrWhiteSpace(segKey)
-                            && this._streams.TryGetValue(segKey, out var st)
-                            && st?.Aggregated is AIInteractionText agg
-                            && !string.IsNullOrWhiteSpace(agg.Content))
+                        // Prefer the aggregated streaming content for visual continuity (when available)
+                        IAIInteraction aggregated = null;
+                        string segKey = null;
+                        if (!string.IsNullOrWhiteSpace(streamKey))
                         {
-                            aggregated = agg;
-                        }
-
-                        // Do not fallback to arbitrary previous streams to avoid cross-turn duplicates
-
-                        // Merge final metrics/time/content into aggregated for the last render
-                        if (aggregated != null && finalAssistant != null)
-                        {
-                            // CRITICAL: Update content to ensure final complete text is rendered (fixes missing last chunk issue)
-                            if (!string.IsNullOrWhiteSpace(finalAssistant.Content))
+                            segKey = this.GetCurrentSegmentedKey(streamKey);
+                            if (!string.IsNullOrWhiteSpace(segKey) && this._streams.TryGetValue(segKey, out var st))
                             {
-                                aggregated.Content = finalAssistant.Content;
-                            }
-
-                            // Use aggregated turn metrics (includes tool calls, tool results, and assistant messages)
-                            // This gives users an accurate picture of total token consumption for the turn
-                            var turnId = finalAssistant.TurnId;
-                            aggregated.Metrics = !string.IsNullOrWhiteSpace(turnId)
-                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics
-                                : finalAssistant.Metrics;
-
-                            aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
-
-                            // Ensure reasoning present on final render: prefer the provider's final reasoning
-                            if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
-                            {
-                                aggregated.Reasoning = finalAssistant.Reasoning;
+                                aggregated = st?.Aggregated;
                             }
                         }
 
-                        var toRender = aggregated ?? finalAssistant;
-
-                        // For non-aggregated renders, also apply turn metrics if available
-                        if (toRender != null && aggregated == null && finalAssistant != null)
+                        // Merge final metrics/time/content into aggregated for the last render (only for assistant text)
+                        if (aggregated is AIInteractionText aggregatedText && finalRenderable is AIInteractionText finalText)
                         {
-                            var turnId = finalAssistant.TurnId;
-                            toRender.Metrics = !string.IsNullOrWhiteSpace(turnId)
-                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics
-                                : toRender.Metrics;
+                            if (!string.IsNullOrWhiteSpace(finalText.Content))
+                            {
+                                aggregatedText.Content = finalText.Content;
+                            }
+
+                            var turnId = finalText.TurnId;
+                            aggregatedText.Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalText.Metrics
+                                : finalText.Metrics;
+
+                            aggregatedText.Time = finalText.Time != default ? finalText.Time : aggregatedText.Time;
+
+                            if (!string.IsNullOrWhiteSpace(finalText.Reasoning))
+                            {
+                                aggregatedText.Reasoning = finalText.Reasoning;
+                            }
+                        }
+
+                        var toRender = aggregated ?? finalRenderable;
+
+                        // For non-aggregated renders, apply turn metrics only when the final bubble is assistant text
+                        if (toRender is AIInteractionText toRenderText && aggregated == null && toRenderText.Agent == AIAgent.Assistant)
+                        {
+                            var turnId = toRenderText.TurnId;
+                            toRenderText.Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? toRenderText.Metrics
+                                : toRenderText.Metrics;
                         }
 
                         if (toRender != null)
@@ -658,15 +762,15 @@ namespace SmartHopper.Core.UI.Chat
                             }
 
                             // Single final debug log for this interaction
-                            var turnId = (toRender as AIInteractionText)?.TurnId ?? finalAssistant?.TurnId;
+                            var turnId = toRender?.TurnId;
                             var length = (toRender as AIInteractionText)?.Content?.Length ?? 0;
-                            Debug.WriteLine($"[WebChatObserver] Final render: turn={turnId}, key={upsertKey}, len={length}");
+                            DebugLog($"[WebChatObserver] Final render: type={toRender?.GetType().Name}, turn={turnId}, key={upsertKey}, len={length}");
                             this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
                         }
                     }
                     catch (Exception repEx)
                     {
-                        Debug.WriteLine($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
+                        DebugLog($"[WebChatObserver] OnFinal finalize UI error: {repEx.Message}");
                     }
 
                     // Now that final assistant is rendered, remove the thinking bubble and set status
@@ -676,9 +780,6 @@ namespace SmartHopper.Core.UI.Chat
                     this._dialog.ChatUpdated?.Invoke(this._dialog, historySnapshot);
 
                     // Clear streaming and per-turn state and finish
-                    this._streams.Clear();
-                    this._preStreamAggregates.Clear();
-                    this._textInteractionSegments.Clear();
                     this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
                     this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
                 });
@@ -727,7 +828,7 @@ namespace SmartHopper.Core.UI.Chat
                     }
                     catch (Exception uiEx)
                     {
-                        Debug.WriteLine($"[WebChatObserver] OnError UI error: {uiEx.Message}");
+                        DebugLog($"[WebChatObserver] OnError UI error: {uiEx.Message}");
                     }
                 });
             }
@@ -754,20 +855,59 @@ namespace SmartHopper.Core.UI.Chat
                 try
                 {
                     var now = DateTime.UtcNow;
-                    if (!this._lastUpsertAt.TryGetValue(key, out var last))
+
+                    var effectiveThrottleMs = now < this._dialog._deferDomUpdatesUntilUtc
+                        ? ThrottleDuringMoveResizeMs
+                        : ThrottleMs;
+
+                    var turnKey = this.ExtractTurnKeyFromBaseKey(key);
+                    var turnState = this.GetOrCreateTurnState(turnKey);
+                    var segment = turnState.GetOrCreateSegment(key);
+
+                    if (segment.LastUpsertAt == default || (now - segment.LastUpsertAt).TotalMilliseconds >= effectiveThrottleMs)
                     {
-                        this._lastUpsertAt[key] = now;
+                        segment.LastUpsertAt = now;
                         return true;
                     }
 
-                    if ((now - last).TotalMilliseconds >= ThrottleMs)
-                    {
-                        this._lastUpsertAt[key] = now;
-                        return true;
-                    }
+                    return false;
                 }
                 catch { }
                 return false;
+            }
+
+            private bool ShouldRenderDelta(string domKey, AIInteractionText text)
+            {
+                if (string.IsNullOrWhiteSpace(domKey) || text == null)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    var content = text.Content;
+                    var reasoning = text.Reasoning;
+
+                    var turnKey = this.ExtractTurnKeyFromBaseKey(domKey);
+                    var turnState = this.GetOrCreateTurnState(turnKey);
+                    var segment = turnState.GetOrCreateSegment(domKey);
+
+                    var last = segment.LastRenderedText;
+                    if (string.Equals(last.Content, content, StringComparison.Ordinal)
+                        && string.Equals(last.Reasoning, reasoning, StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    segment.LastRenderedText = (content, reasoning);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[WebChatObserver] ShouldRenderDelta error: {ex.Message}");
+                }
+
+                return true;
             }
 
             /// <summary>
@@ -780,14 +920,52 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             /// <summary>
+            /// Flushes any pending (throttled) text state for a turn to ensure final content is rendered.
+            /// Called before processing non-text interactions to prevent losing throttled text deltas.
+            /// </summary>
+            private void FlushPendingTextStateForTurn(string turnKey)
+            {
+                if (string.IsNullOrWhiteSpace(turnKey))
+                {
+                    return;
+                }
+
+                try
+                {
+                    // Find all streams for this turn and force-render any that have dirty state
+                    var turnPrefix = turnKey + ":";
+                    foreach (var kv in this._streams)
+                    {
+                        var streamKey = kv.Key;
+                        if (string.IsNullOrWhiteSpace(streamKey) || !streamKey.StartsWith(turnPrefix, StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
+                        if (kv.Value?.Aggregated is AIInteractionText aggregatedText && HasRenderableText(aggregatedText) && this.ShouldRenderDelta(streamKey, aggregatedText))
+                        {
+                            DebugLog($"[WebChatObserver] FlushPendingTextStateForTurn: flushing streamKey={streamKey}");
+
+                            this._dialog.UpsertMessageByKey(streamKey, aggregatedText, source: "FlushPendingText");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DebugLog($"[WebChatObserver] FlushPendingTextStateForTurn error: {ex.Message}");
+                }
+            }
+
+            /// <summary>
             /// Sets the boundary flag for the next text interaction in the given turn.
             /// </summary>
             private void SetBoundaryFlag(string turnKey)
             {
                 if (!string.IsNullOrWhiteSpace(turnKey))
                 {
-                    var wasAdded = this._pendingNewTextSegmentTurns.Add(turnKey);
-                    Debug.WriteLine($"[WebChatObserver] SetBoundaryFlag: turnKey={turnKey}, wasNew={wasAdded}");
+                    var turnState = this.GetOrCreateTurnState(turnKey);
+                    turnState.HasPendingBoundary = true;
+                    DebugLog($"[WebChatObserver] SetBoundaryFlag: turnKey={turnKey}");
                 }
             }
 
@@ -798,23 +976,16 @@ namespace SmartHopper.Core.UI.Chat
             {
                 if (!string.IsNullOrWhiteSpace(turnKey))
                 {
-                    var hadBoundary = this._pendingNewTextSegmentTurns.Remove(turnKey);
-                    var hasSegment = this._textInteractionSegments.ContainsKey(baseKey);
+                    var turnState = this.GetOrCreateTurnState(turnKey);
+                    var segment = turnState.GetOrCreateSegment(baseKey);
 
-                    if (hadBoundary && hasSegment)
+                    if (turnState.HasPendingBoundary && segment.IsCommitted)
                     {
-                        var oldSeg = this._textInteractionSegments[baseKey];
-                        this._textInteractionSegments[baseKey] = oldSeg + 1;
-                        Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, {oldSeg} -> {oldSeg + 1}");
+                        var oldSeg = segment.SegmentNumber;
+                        segment.SegmentNumber = oldSeg + 1;
+                        turnState.HasPendingBoundary = false;
+                        DebugLog($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, {oldSeg} -> {oldSeg + 1}");
                     }
-
-#if DEBUG
-                    else
-                    {
-                        Debug.WriteLine($"[WebChatObserver] ConsumeBoundaryAndIncrementSegment: turnKey={turnKey}, baseKey={baseKey}, hadBoundary={hadBoundary}, hasSegment={hasSegment}, NO INCREMENT");
-                    }
-
-#endif
                 }
             }
 

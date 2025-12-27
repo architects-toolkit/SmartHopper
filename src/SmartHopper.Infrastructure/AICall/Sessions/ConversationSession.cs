@@ -23,8 +23,8 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AICall.Execution;
     using SmartHopper.Infrastructure.AICall.Metrics;
+    using SmartHopper.Infrastructure.AICall.Policies;
     using SmartHopper.Infrastructure.AICall.Utilities;
-    using SmartHopper.Infrastructure.AIModels;
     using SmartHopper.Infrastructure.Settings;
     using SmartHopper.Infrastructure.Streaming;
 
@@ -42,9 +42,23 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     public sealed partial class ConversationSession : IConversationSession
     {
         /// <summary>
+        /// Result of streaming processing, encapsulating accumulated state and deltas.
+        /// </summary>
+        private sealed class StreamProcessingResult
+        {
+            public AIInteractionText? AccumulatedText { get; set; }
+            public AIReturn? LastDelta { get; set; }
+            public AIReturn? LastToolCallsDelta { get; set; }
+            public List<AIReturn> Deltas { get; } = new List<AIReturn>();
+            public double ElapsedSeconds { get; set; }
+            public bool HasError { get; set; }
+            public string? ErrorMessage { get; set; }
+        }
+
+        /// <summary>
         /// The cancellation token source for this session.
         /// </summary>
-        private readonly CancellationTokenSource cts = new ();
+        private readonly CancellationTokenSource cts = new();
 
         /// <summary>
         /// Executor abstraction for provider and tool calls.
@@ -272,98 +286,22 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
                         else
                         {
-                            // Streaming path: forward each chunk to observer, accumulate text in memory, persist non-text immediately
-                            var streamStopwatch = Stopwatch.StartNew();
-                            await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions!, linkedCts.Token))
+                            // Streaming path: use shared helper for delta processing
+                            var streamResult = await this.ProcessStreamingDeltasAsync(adapter, streamingOptions!, state.TurnId, linkedCts.Token).ConfigureAwait(false);
+
+                            // Transfer results to turn state
+                            state.AccumulatedText = streamResult.AccumulatedText;
+                            state.LastDelta = streamResult.LastDelta;
+                            state.LastToolCallsDelta = streamResult.LastToolCallsDelta;
+                            state.DeltaYields.AddRange(streamResult.Deltas);
+                            if (streamResult.LastDelta != null)
                             {
-                                if (delta == null)
-                                {
-                                    continue;
-                                }
-
-                                // Process new interactions: accumulate text, persist non-text immediately
-                                var newInteractions = delta.Body?.GetNewInteractions();
-                                InteractionUtility.EnsureTurnId(newInteractions, state.TurnId);
-
-                                if (newInteractions != null && newInteractions.Count > 0)
-                                {
-                                    var nonTextInteractions = new List<IAIInteraction>();
-                                    var textInteractions = new List<IAIInteraction>();
-
-                                    foreach (var interaction in newInteractions)
-                                    {
-                                        if (interaction is AIInteractionText textDelta)
-                                        {
-                                            // Accumulate text deltas in memory (will be persisted after streaming completes)
-                                            state.AccumulatedText = TextStreamCoalescer.Coalesce(state.AccumulatedText, textDelta, state.TurnId, preserveMetrics: false);
-                                            textInteractions.Add(textDelta);
-                                        }
-                                        else if (interaction is AIInteractionToolCall tc)
-                                        {
-                                            // Check if this tool call already exists in history
-                                            var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
-                                                .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
-
-                                            if (!exists)
-                                            {
-                                                // Persist tool call if not already in history
-                                                this.AppendToSessionHistory(interaction);
-                                                nonTextInteractions.Add(interaction);
-                                            }
-                                            else
-                                            {
-                                                // Tool call exists - update it with more complete arguments (streaming accumulation)
-                                                if (this.UpdateToolCallInHistory(tc))
-                                                {
-                                                    // Arguments were updated, notify UI
-                                                    nonTextInteractions.Add(interaction);
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            // Persist other non-text interactions (tool results, images, etc.) immediately
-                                            this.AppendToSessionHistory(interaction);
-                                            nonTextInteractions.Add(interaction);
-                                        }
-                                    }
-
-                                    // Notify UI with streaming deltas ONLY for text interactions
-                                    if (textInteractions.Count > 0)
-                                    {
-                                        var textDelta = this.BuildDeltaReturn(state.TurnId, textInteractions);
-                                        this.NotifyDelta(textDelta);
-                                    }
-
-                                    // Emit partial notification only for persisted non-text interactions
-                                    if (nonTextInteractions.Count > 0)
-                                    {
-                                        try
-                                        {
-                                            var persistedDelta = this.BuildDeltaReturn(state.TurnId, nonTextInteractions);
-                                            this.NotifyInteractionCompleted(persistedDelta);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Debug.WriteLine($"[ConversationSession.Stream] Error emitting persisted non-text delta: {ex.Message}");
-                                        }
-                                    }
-
-                                    // Keep a reference to last tool_calls delta if needed by diagnostics
-                                    state.LastToolCallsDelta = delta;
-                                }
-
-                                state.DeltaYields.Add(delta);
-                                state.LastDelta = delta;
-                                lastReturn = delta;
+                                lastReturn = streamResult.LastDelta;
                             }
 
-                            // After streaming ends, either error (no deltas) or persist final snapshot then continue
-                            streamStopwatch.Stop();
-
-                            if (state.LastDelta == null)
+                            if (streamResult.HasError)
                             {
-                                var errDelta = this.CreateError("Provider returned no response");
+                                var errDelta = this.CreateError(streamResult.ErrorMessage ?? "Provider returned no response");
                                 this.NotifyFinal(errDelta);
                                 state.ErrorYield = errDelta;
                                 state.ShouldBreak = true;
@@ -371,7 +309,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             else
                             {
                                 // Persist final aggregated text and update last-return snapshot with measured time
-                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId, state.AccumulatedText, streamStopwatch.Elapsed.TotalSeconds);
+                                this.PersistStreamingSnapshot(state.LastToolCallsDelta, state.LastDelta, state.TurnId, state.AccumulatedText, streamResult.ElapsedSeconds);
 
                                 if (!options.ProcessTools)
                                 {
@@ -477,11 +415,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 Agent = AIAgent.User,
                 Content = userMessage,
+                TurnId = InteractionUtility.GenerateTurnId(),
             };
 
             // Append user input to session history without marking it as 'new'
             this.AppendToSessionHistory(userInteraction);
             this.UpdateLastReturn();
+
+            // Notify observer so user message is rendered in the UI
+            this.Observer?.OnInteractionCompleted(userInteraction);
         }
 
         /// <summary>
@@ -692,6 +634,132 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
         /// <summary>
+        /// Shared streaming processing logic. Processes deltas from a streaming adapter,
+        /// accumulates text, persists non-text interactions, and notifies observers.
+        /// </summary>
+        /// <param name="adapter">The streaming adapter to consume deltas from.</param>
+        /// <param name="streamingOptions">Streaming options for the adapter.</param>
+        /// <param name="turnId">The turn ID for this streaming session.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>A <see cref="StreamProcessingResult"/> containing accumulated state and deltas.</returns>
+        private async Task<StreamProcessingResult> ProcessStreamingDeltasAsync(
+            IStreamingAdapter adapter,
+            StreamingOptions streamingOptions,
+            string turnId,
+            CancellationToken ct)
+        {
+            var result = new StreamProcessingResult();
+            var stopwatch = Stopwatch.StartNew();
+
+            try
+            {
+                // Ensure request policies are applied for streaming calls as well.
+                // Streaming adapters can bypass AIRequestCall.Exec(), so policies like ContextInjectionRequestPolicy
+                // must be applied explicitly to keep context up-to-date on every provider call.
+                await PolicyPipeline.Default.ApplyRequestPoliciesAsync(this.Request).ConfigureAwait(false);
+
+                await foreach (var rawDelta in adapter.StreamAsync(this.Request, streamingOptions, ct))
+                {
+                    if (rawDelta == null)
+                    {
+                        continue;
+                    }
+
+                    // Normalize delta to handle provider-specific formats
+                    var delta = adapter.NormalizeDelta(rawDelta);
+
+                    var newInteractions = delta.Body?.GetNewInteractions();
+                    InteractionUtility.EnsureTurnId(newInteractions, turnId);
+
+                    if (newInteractions != null && newInteractions.Count > 0)
+                    {
+                        var nonTextInteractions = new List<IAIInteraction>();
+                        var textInteractions = new List<IAIInteraction>();
+
+                        foreach (var interaction in newInteractions)
+                        {
+                            if (interaction is AIInteractionText textDelta)
+                            {
+                                // Accumulate text deltas in memory (will be persisted after streaming completes)
+                                result.AccumulatedText = TextStreamCoalescer.Coalesce(result.AccumulatedText, textDelta, turnId, preserveMetrics: false);
+                                textInteractions.Add(textDelta);
+                            }
+                            else if (interaction is AIInteractionToolCall tc)
+                            {
+                                // Check if this tool call already exists in history
+                                var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
+                                    .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
+
+                                if (!exists)
+                                {
+                                    // Persist tool call if not already in history
+                                    this.AppendToSessionHistory(interaction);
+                                    nonTextInteractions.Add(interaction);
+                                }
+                                else
+                                {
+                                    // Tool call exists - update it with more complete arguments (streaming accumulation)
+                                    if (this.UpdateToolCallInHistory(tc))
+                                    {
+                                        // Arguments were updated, notify UI
+                                        nonTextInteractions.Add(interaction);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // Persist other non-text interactions (tool results, images, etc.) immediately
+                                this.AppendToSessionHistory(interaction);
+                                nonTextInteractions.Add(interaction);
+                            }
+                        }
+
+                        // Notify UI with streaming deltas ONLY for text interactions
+                        if (textInteractions.Count > 0)
+                        {
+                            var textDeltaReturn = this.BuildDeltaReturn(turnId, textInteractions);
+                            this.NotifyDelta(textDeltaReturn);
+                        }
+
+                        // Emit partial notification only for persisted non-text interactions
+                        if (nonTextInteractions.Count > 0)
+                        {
+                            try
+                            {
+                                var persistedDelta = this.BuildDeltaReturn(turnId, nonTextInteractions);
+                                this.NotifyInteractionCompleted(persistedDelta);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[ConversationSession.ProcessStreamingDeltasAsync] Error emitting persisted non-text delta: {ex.Message}");
+                            }
+                        }
+
+                        // Keep a reference to last tool_calls delta if needed by diagnostics
+                        result.LastToolCallsDelta = delta;
+                    }
+
+                    result.Deltas.Add(delta);
+                    result.LastDelta = delta;
+                }
+            }
+            finally
+            {
+                stopwatch.Stop();
+                result.ElapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+            }
+
+            // Check if streaming produced no results
+            if (result.LastDelta == null)
+            {
+                result.HasError = true;
+                result.ErrorMessage = "Provider returned no response";
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Processes pending tool calls for bounded passes. Emits partial returns and merges new interactions.
         /// Returns a list of prepared returns in the order they were produced (for streaming fallback).
         /// </summary>
@@ -748,80 +816,19 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
                     if (adapter != null)
                     {
-                        // Stream the follow-up response
-                        AIInteractionText? accumulatedText = null;
-                        AIReturn? lastDelta = null;
-                        var followUpStopwatch = Stopwatch.StartNew();
+                        // Stream the follow-up response using shared helper
+                        var streamResult = await this.ProcessStreamingDeltasAsync(adapter, streamingOptions, turnId, ct).ConfigureAwait(false);
 
-                        await foreach (var delta in adapter.StreamAsync(this.Request, streamingOptions, ct))
+                        if (streamResult.HasError)
                         {
-                            if (delta == null) continue;
-
-                            var newInteractions = delta.Body?.GetNewInteractions();
-                            InteractionUtility.EnsureTurnId(newInteractions, turnId);
-
-                            if (newInteractions != null)
-                            {
-                                foreach (var interaction in newInteractions)
-                                {
-                                    if (interaction is AIInteractionText textDelta)
-                                    {
-                                        // Accumulate text deltas
-                                        accumulatedText = TextStreamCoalescer.Coalesce(accumulatedText, textDelta, turnId, preserveMetrics: false);
-
-                                        // Notify UI with streaming delta
-                                        var textDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { textDelta });
-                                        this.NotifyDelta(textDeltaReturn);
-                                    }
-                                    else if (interaction is AIInteractionToolCall tc)
-                                    {
-                                        // Check if this tool call already exists in history
-                                        var exists = this.Request?.Body?.Interactions?.OfType<AIInteractionToolCall>()?
-                                            .Any(x => !string.IsNullOrWhiteSpace(x?.Id) && string.Equals(x.Id, tc.Id, StringComparison.Ordinal)) ?? false;
-
-                                        if (!exists)
-                                        {
-                                            // Persist tool call immediately
-                                            this.AppendToSessionHistory(interaction);
-
-                                            // Notify with persisted interaction
-                                            var tcDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { interaction });
-                                            this.NotifyInteractionCompleted(tcDeltaReturn);
-                                        }
-                                        else
-                                        {
-                                            // Tool call exists - update it with more complete arguments (streaming accumulation)
-                                            if (this.UpdateToolCallInHistory(tc))
-                                            {
-                                                // Arguments were updated, notify UI
-                                                var tcDeltaReturn = this.BuildDeltaReturn(turnId, new List<IAIInteraction> { interaction });
-                                                this.NotifyInteractionCompleted(tcDeltaReturn);
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // Persist other non-text interactions immediately
-                                        this.AppendToSessionHistory(interaction);
-                                    }
-                                }
-                            }
-
-                            lastDelta = delta;
-                        }
-
-                        followUpStopwatch.Stop();
-
-                        if (lastDelta == null)
-                        {
-                            var err = this.CreateError("Provider returned no response");
+                            var err = this.CreateError(streamResult.ErrorMessage ?? "Provider returned no response");
                             this.NotifyFinal(err);
                             preparedYields.Add(err);
                             break;
                         }
 
-                        // Persist final aggregated text and update last return snapshot using shared helper
-                        this.PersistStreamingSnapshot(lastDelta, lastDelta, turnId, accumulatedText, followUpStopwatch.Elapsed.TotalSeconds);
+                        // Persist final aggregated text and update last return snapshot
+                        this.PersistStreamingSnapshot(streamResult.LastDelta, streamResult.LastDelta, turnId, streamResult.AccumulatedText, streamResult.ElapsedSeconds);
                         this.NotifyInteractionCompleted(this._lastReturn);
                         preparedYields.Add(this._lastReturn);
                     }

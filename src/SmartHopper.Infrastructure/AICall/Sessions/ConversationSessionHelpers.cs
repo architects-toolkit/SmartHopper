@@ -658,6 +658,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             // Rebuild from scratch with updated list
             var newBuilder = AIBodyBuilder.Create()
                 .WithToolFilter(this.Request.Body?.ToolFilter)
+                .WithContextFilter(this.Request.Body?.ContextFilter)
                 .WithJsonOutputSchema(this.Request.Body?.JsonOutputSchema)
                 .AsHistory();
 

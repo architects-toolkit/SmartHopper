@@ -63,10 +63,8 @@ namespace SmartHopper.Providers.OpenRouter
         }
 
         /// <summary>
-        /// Returns a streaming adapter for OpenRouter that yields incremental AIReturn deltas.
-        /// </summary>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "Factory method creates a new adapter instance per call")]
-        public IStreamingAdapter GetStreamingAdapter()
+        /// <inheritdoc/>
+        protected override IStreamingAdapter CreateStreamingAdapter()
         {
             return new OpenRouterStreamingAdapter(this);
         }
@@ -361,7 +359,24 @@ namespace SmartHopper.Providers.OpenRouter
                     },
                 };
                 obj["tool_calls"] = new JArray { toolCallObj };
-                obj["content"] = string.Empty; // assistant tool_calls messages should have empty content
+
+                // For reasoning-enabled models (o-series via OpenRouter), include reasoning in content array
+                if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
+                {
+                    var contentArray = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "reasoning",
+                            ["text"] = toolCallInteraction.Reasoning,
+                        },
+                    };
+                    obj["content"] = contentArray;
+                }
+                else
+                {
+                    obj["content"] = string.Empty;
+                }
             }
             else if (interaction is AIInteractionImage)
             {
@@ -399,10 +414,45 @@ namespace SmartHopper.Providers.OpenRouter
                 }
 
                 // Extract text content
-                string content = message["content"]?.ToString() ?? string.Empty;
+                // Extract content and reasoning (for o-series models via OpenRouter)
+                string content = string.Empty;
+                string reasoning = string.Empty;
+
+                var contentToken = message["content"];
+                if (contentToken is JArray contentArray)
+                {
+                    var contentParts = new List<string>();
+                    var reasoningParts = new List<string>();
+
+                    foreach (var part in contentArray.OfType<JObject>())
+                    {
+                        var type = part["type"]?.ToString();
+                        if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                        }
+                        else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                            if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
+                        }
+                    }
+
+                    content = string.Join(string.Empty, contentParts).Trim();
+                    reasoning = string.Join("\n\n", reasoningParts).Trim();
+                }
+                else if (contentToken != null)
+                {
+                    content = contentToken.ToString() ?? string.Empty;
+                }
 
                 var result = new AIInteractionText();
-                result.SetResult(agent: AIAgent.Assistant, content: content);
+                result.SetResult(
+                    agent: AIAgent.Assistant,
+                    content: content,
+                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
                 // Extract metrics (tokens, model, finish reason) if present
                 var metrics = new Infrastructure.AICall.Metrics.AIMetrics
@@ -469,6 +519,7 @@ namespace SmartHopper.Providers.OpenRouter
                             Id = tc["id"]?.ToString(),
                             Name = func?["name"]?.ToString(),
                             Arguments = argsObj,
+                            Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                         };
                         interactions.Add(toolCall);
                     }

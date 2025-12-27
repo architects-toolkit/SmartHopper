@@ -24,6 +24,12 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 - Tools should return consistent keys (e.g., `list` for list_generate) and clear error messages.
 - Use provider/model capability checks via the model registry when needed.
 
+## Tool-as-Documentation
+
+- Some tools exist primarily to provide detailed operational guidance to the agent without bloating the system prompt.
+- This keeps prompts short, reduces per-turn token usage, and centralizes workflows in one place.
+- See `docs/Tools/instruction_get.md`.
+
 ## Tool Result Envelope
 
 - Tools should attach a metadata envelope to their JSON result under the reserved root key `"__envelope"`.

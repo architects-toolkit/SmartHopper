@@ -25,7 +25,7 @@ namespace SmartHopper.Core.Models.Serialization
         /// <summary>
         /// Default JSON serialization settings with formatting.
         /// </summary>
-        private static readonly JsonSerializerSettings DefaultSettings = new ()
+        private static readonly JsonSerializerSettings DefaultSettings = new()
         {
             Formatting = Formatting.Indented,
             NullValueHandling = NullValueHandling.Ignore,

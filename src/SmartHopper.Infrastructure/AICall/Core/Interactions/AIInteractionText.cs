@@ -8,7 +8,6 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Globalization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;

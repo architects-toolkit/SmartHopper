@@ -19,4 +19,4 @@ Communicate progress from worker threads to the component/UI without tight coupl
 
 ## Related
 
-- [AsyncWorkerBase](../Workers/AsyncWorkerBase.md), [AsyncComponentBase](../ComponentBase/AsyncComponentBase.md), [StatefulAsyncComponentBase](../ComponentBase/StatefulAsyncComponentBase.md) – typical consumers.
+- [AsyncWorkerBase](../Workers/AsyncWorkerBase.md), [AsyncComponentBase](../ComponentBase/AsyncComponentBase.md), [StatefulComponentBase](../ComponentBase/StatefulComponentBase.md) – typical consumers.

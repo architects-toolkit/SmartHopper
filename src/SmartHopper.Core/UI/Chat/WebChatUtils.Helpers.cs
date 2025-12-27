@@ -9,7 +9,6 @@
  */
 
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -33,7 +32,7 @@ namespace SmartHopper.Core.UI.Chat
         {
             if (Application.Instance == null)
             {
-                Debug.WriteLine("[WebChatUtils] Initializing Eto.Forms application");
+                DebugLog("[WebChatUtils] Initializing Eto.Forms application");
                 var platform = Eto.Platform.Detect;
                 new Application(platform).Attach();
             }
@@ -67,7 +66,7 @@ namespace SmartHopper.Core.UI.Chat
 
             if (componentId != default && OpenDialogs.TryGetValue(componentId, out WebChatDialog existingDialog))
             {
-                Debug.WriteLine("[WebChatUtils] Reusing existing dialog for component");
+                DebugLog("[WebChatUtils] Reusing existing dialog for component");
                 BringToFrontAndFocus(existingDialog);
                 AttachOrReplaceUpdateHandler(componentId, existingDialog, progressReporter, onUpdate, pushCurrentImmediately: pushCurrentImmediately);
 
@@ -81,7 +80,7 @@ namespace SmartHopper.Core.UI.Chat
                 return existingDialog;
             }
 
-            Debug.WriteLine("[WebChatUtils] Creating web chat dialog");
+            DebugLog("[WebChatUtils] Creating web chat dialog");
             var dialog = new WebChatDialog(request, progressReporter, generateGreeting: generateGreeting);
             if (componentId != default)
             {
@@ -89,7 +88,7 @@ namespace SmartHopper.Core.UI.Chat
             }
 
             // Closed cleanup + optional result propagation
-            WireClosedCleanup(componentId, dialog, completionTcs);
+            WireClosedCleanup(componentId, dialog, progressReporter, completionTcs);
 
             // Incremental updates
             AttachOrReplaceUpdateHandler(componentId, dialog, progressReporter, onUpdate);
@@ -138,7 +137,7 @@ namespace SmartHopper.Core.UI.Chat
                 }
                 catch (Exception updEx)
                 {
-                    Debug.WriteLine($"[WebChatUtils] ChatUpdated handler error: {updEx.Message}");
+                    DebugLog($"[WebChatUtils] ChatUpdated handler error: {updEx.Message}");
                 }
             };
 
@@ -165,28 +164,42 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Wires dialog closed cleanup and optionally completes a TaskCompletionSource with the last return.
         /// </summary>
-        private static void WireClosedCleanup(Guid componentId, WebChatDialog dialog, TaskCompletionSource<AIReturn>? tcs = null)
+        private static void WireClosedCleanup(Guid componentId, WebChatDialog dialog, Action<string>? progressReporter, TaskCompletionSource<AIReturn>? tcs = null)
         {
             dialog.Closed += (sender, e) =>
             {
-                Debug.WriteLine("[WebChatUtils] Dialog closed");
+                DebugLog("[WebChatUtils] Dialog closed");
                 try
                 {
                     if (componentId != default)
                     {
                         OpenDialogs.Remove(componentId);
-                        if (UpdateHandlers.ContainsKey(componentId))
+
+                        if (UpdateHandlers.TryGetValue(componentId, out var handler))
                         {
+                            try
+                            {
+                                dialog.ChatUpdated -= handler;
+                            }
+                            catch
+                            {
+                                /* ignore */
+                            }
+
                             UpdateHandlers.Remove(componentId);
                         }
                     }
+
+                    // Ensure the hosting component isn't left in a stale "Chatting..." status.
+                    // The Grasshopper component's message is driven by the progressReporter.
+                    progressReporter?.Invoke("Ready");
 
                     var last = dialog.GetLastReturn();
                     tcs?.TrySetResult(last);
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebChatUtils] Closed cleanup error: {ex.Message}");
+                    DebugLog($"[WebChatUtils] Closed cleanup error: {ex.Message}");
                 }
             };
         }
