@@ -11,10 +11,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
+using Rhino.Geometry;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared;
@@ -869,6 +871,12 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             {
                 component.Hidden = state.Hidden.Value;
             }
+
+            // Apply panel-specific appearance (color and size)
+            if (instance is GH_Panel panel)
+            {
+                ApplyPanelAppearance(panel, state);
+            }
         }
 
         /// <summary>
@@ -961,6 +969,32 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
             catch (Exception ex)
             {
                 Debug.WriteLine($"[GhJsonDeserializer] Error applying universal value: {ex.Message}");
+            }
+        }
+
+        private static void ApplyPanelAppearance(GH_Panel panel, ComponentState state)
+        {
+            if (state.AdditionalProperties != null &&
+                state.AdditionalProperties.TryGetValue("color", out var colorObj) &&
+                colorObj is string colorStr &&
+                DataTypeSerializer.TryDeserialize("Color", colorStr, out var deserialized) &&
+                deserialized is Color serializedColor)
+            {
+                panel.Properties.Colour = serializedColor;
+            }
+
+            if (state.AdditionalProperties != null &&
+                state.AdditionalProperties.TryGetValue("bounds", out var boundsObj) &&
+                boundsObj is string boundsStr &&
+                DataTypeSerializer.TryDeserialize("Bounds", boundsStr, out var deserializedBounds) &&
+                deserializedBounds is ValueTuple<double, double> boundsTuple)
+            {
+                var attr = panel.Attributes;
+                if (attr != null)
+                {
+                    // Preserve location, update size
+                    attr.Bounds = new RectangleF(attr.Bounds.X, attr.Bounds.Y, (float)boundsTuple.Item1, (float)boundsTuple.Item2);
+                }
             }
         }
 

@@ -207,6 +207,14 @@ namespace SmartHopper.Core.ComponentBase
             // Second pass - Post-solve - Setting output
             this.InPreSolve = false;
 
+            // If tasks are still running (_setData == 0) or the state is not ready (>0),
+            // skip output processing until the continuation sets _state and _setData.
+            if (this._setData == 0 || this._state <= 0)
+            {
+                Debug.WriteLine($"[AsyncComponentBase] Post-solve skipped. Tasks running or state not ready. State: {this._state}, SetData: {this._setData}");
+                return;
+            }
+
             Debug.WriteLine($"[AsyncComponentBase] Post-solve - Setting output. InPreSolve: {this.InPreSolve}, State: {this._state}, SetData: {this._setData}, Workers.Count: {this.Workers.Count}");
 
             if (this.Workers.Count > 0)
@@ -221,7 +229,10 @@ namespace SmartHopper.Core.ComponentBase
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.Workers[i].SetOutput(DA, out outMessage);
-                        this.Message = outMessage;
+                        if (!string.IsNullOrEmpty(outMessage))
+                        {
+                            this.Message = outMessage;
+                        }
                         Debug.WriteLine($"[AsyncComponentBase] Worker {i + 1} output set, message: {outMessage}");
                     });
 
@@ -285,6 +296,20 @@ namespace SmartHopper.Core.ComponentBase
                                 // Preserve LIFO output order
                                 this.Workers.Reverse();
                             }
+                        }
+                        else if (t.IsCanceled)
+                        {
+                            Debug.WriteLine("[AsyncComponentBase] Tasks were canceled. Resetting async state and skipping output phase.");
+
+                            Rhino.RhinoApp.InvokeOnUiThread(() =>
+                            {
+                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Tasks were canceled.");
+                                this.ResetAsyncState();
+                                this.OnTasksCanceled();
+                                this.ExpireSolution(true);
+                            });
+
+                            return;
                         }
                         else
                         {
@@ -360,6 +385,14 @@ namespace SmartHopper.Core.ComponentBase
         protected virtual void OnWorkerCompleted()
         {
             Debug.WriteLine($"[{this.GetType().Name}] All workers completed. State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
+        }
+
+        /// <summary>
+        /// Called when the worker tasks are canceled and the output phase is skipped.
+        /// Allows derived classes to react (e.g. transition state machines out of Processing).
+        /// </summary>
+        protected virtual void OnTasksCanceled()
+        {
         }
 
         /// <summary>

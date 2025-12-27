@@ -8,6 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
+using System;
 using System.Runtime.CompilerServices;
 using Rhino;
 using SmartHopper.Infrastructure.Settings;
@@ -22,6 +23,12 @@ namespace SmartHopper.Core.UI
         [ModuleInitializer]
         public static void Init()
         {
+            // Skip initialization when Grasshopper assemblies are unavailable (e.g., unit test runs).
+            if (!IsGrasshopperRuntimeAvailable())
+            {
+                return;
+            }
+
             // Only trigger initialization process if setting is enabled (defaults to true if unset)
             try
             {
@@ -37,6 +44,21 @@ namespace SmartHopper.Core.UI
             {
                 // Be permissive on errors: initialize by default
                 CanvasButton.EnsureInitialized();
+            }
+        }
+
+        /// <summary>
+        /// Detects whether Grasshopper runtime assemblies are available to avoid initializing UI elements during headless runs (e.g., unit tests).
+        /// </summary>
+        private static bool IsGrasshopperRuntimeAvailable()
+        {
+            try
+            {
+                return Type.GetType("Grasshopper.Instances, Grasshopper") != null;
+            }
+            catch
+            {
+                return false;
             }
         }
 

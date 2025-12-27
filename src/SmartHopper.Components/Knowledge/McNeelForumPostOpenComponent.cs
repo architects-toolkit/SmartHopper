@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -9,13 +9,11 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
@@ -25,7 +23,7 @@ namespace SmartHopper.Components.Knowledge
     /// <summary>
     /// Opens the McNeelForum page for a given post JSON in the default browser.
     /// </summary>
-    public class McNeelForumPostOpenComponent : StatefulAsyncComponentBase
+    public class McNeelForumPostOpenComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("1B7A2E6C-4F0B-4B1C-9D19-6B3A2C8F9012");
 

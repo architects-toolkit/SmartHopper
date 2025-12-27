@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -25,11 +25,10 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Components.Knowledge
 {
-    public class McNeelForumPostGetComponent : StatefulAsyncComponentBase
+    public class McNeelForumPostGetComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("7C1B9A33-0177-4A60-9C08-9F8A1E4F2002");
 

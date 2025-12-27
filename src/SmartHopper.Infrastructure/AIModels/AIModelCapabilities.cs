@@ -10,12 +10,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
-using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Infrastructure.AIModels
 {

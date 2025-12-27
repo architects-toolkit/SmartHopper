@@ -13,11 +13,7 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Collections.Generic;
     using System.Reflection;
     using System.Threading.Tasks;
-    using SmartHopper.Infrastructure.AICall.Core.Base;
-    using SmartHopper.Infrastructure.AICall.Core.Interactions;
-    using SmartHopper.Infrastructure.AICall.Core.Requests;
     using SmartHopper.Infrastructure.AICall.Core.Returns;
-    using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AITools;
     using Xunit;
 

@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Components
 {

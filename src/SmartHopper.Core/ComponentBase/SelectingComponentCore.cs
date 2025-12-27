@@ -17,7 +17,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using Grasshopper;
-using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using SmartHopper.Core.UI;

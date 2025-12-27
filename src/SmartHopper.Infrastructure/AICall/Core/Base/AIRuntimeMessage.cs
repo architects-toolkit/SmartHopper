@@ -8,12 +8,6 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Reflection;
-using Newtonsoft.Json.Linq;
-
 namespace SmartHopper.Infrastructure.AICall.Core.Base
 {
     /// <summary>

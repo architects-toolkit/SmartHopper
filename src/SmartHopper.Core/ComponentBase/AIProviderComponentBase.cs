@@ -22,7 +22,7 @@ namespace SmartHopper.Core.ComponentBase
     /// Provides the provider selection context menu and related functionality on top of
     /// the stateful async component functionality.
     /// </summary>
-    public abstract class AIProviderComponentBase : StatefulAsyncComponentBase
+    public abstract class AIProviderComponentBase : StatefulComponentBase
     {
         /// <summary>
         /// Special value used to indicate that the default provider from settings should be used.

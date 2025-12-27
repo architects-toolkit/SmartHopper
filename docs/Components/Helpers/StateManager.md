@@ -19,4 +19,4 @@ Provide a compact state model used by stateful components to drive execution flo
 
 ## Related
 
-- [StatefulAsyncComponentBase](../ComponentBase/StatefulAsyncComponentBase.md), [AIStatefulAsyncComponentBase](../ComponentBase/AIStatefulAsyncComponentBase.md) – consumers of these states.
+- [StatefulComponentBase](../ComponentBase/StatefulComponentBase.md), [AIStatefulAsyncComponentBase](../ComponentBase/AIStatefulAsyncComponentBase.md) – consumers of these states.

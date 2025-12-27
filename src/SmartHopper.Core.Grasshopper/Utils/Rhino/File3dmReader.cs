@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using Newtonsoft.Json.Linq;
 using RhinoDocObjects = global::Rhino.DocObjects;
 using RhinoFileIO = global::Rhino.FileIO;

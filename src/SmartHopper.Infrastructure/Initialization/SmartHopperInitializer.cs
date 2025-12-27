@@ -23,7 +23,7 @@ namespace SmartHopper.Infrastructure.Initialization
     /// </summary>
     public static class SmartHopperInitializer
     {
-        private static readonly object LockObject = new ();
+        private static readonly object LockObject = new();
         private static bool isInitialized;
 
         /// <summary>

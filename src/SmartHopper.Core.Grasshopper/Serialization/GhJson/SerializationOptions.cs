@@ -8,10 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters;
-using SmartHopper.Core.Models.Serialization;
 
 namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 {

@@ -21,5 +21,5 @@ Separate UI/component concerns from the algorithm that runs off the UI thread.
 
 ## Related
 
-- [AsyncComponentBase](../ComponentBase/AsyncComponentBase.md), [StatefulAsyncComponentBase](../ComponentBase/StatefulAsyncComponentBase.md) – hosts for workers.
+- [AsyncComponentBase](../ComponentBase/AsyncComponentBase.md), [StatefulComponentBase](../ComponentBase/StatefulComponentBase.md) – hosts for workers.
 - [ProgressInfo](../Helpers/ProgressInfo.md) – progress payload.
