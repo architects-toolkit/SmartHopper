@@ -324,7 +324,7 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents
                 if (typeHintProp != null && typeHintProp.CanRead)
                 {
                     var appliedHint = typeHintProp.GetValue(param) as string;
-                    Debug.WriteLine($"[ScriptParameterMapper] Final TypeHint on '{variableName}': '{appliedHint ?? "null"}' (expected: '{settings.TypeHint ?? "null"}')" );
+                    Debug.WriteLine($"[ScriptParameterMapper] Final TypeHint on '{variableName}': '{appliedHint ?? "null"}' (expected: '{settings.TypeHint ?? "null"}')");
                 }
             }
             catch { }

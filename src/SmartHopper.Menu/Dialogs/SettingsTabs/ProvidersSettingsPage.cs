@@ -10,7 +10,6 @@
 
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AIProviders;

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -10,9 +10,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -27,7 +25,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test Case 11a&11b: A={0}, B={0},{1},{2} - Multiple top-level paths including {0}
     /// Rule 2 overrides Rule 4: A broadcasts to ALL paths (structural complexity)
     /// </summary>
-    public class DataTreeProcessorRule2OverrideTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorRule2OverrideTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("FE2E0986-FFAF-4A64-9F97-0FD3F4E571D8");
         protected override Bitmap Icon => null;

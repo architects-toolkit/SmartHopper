@@ -15,7 +15,6 @@ using System.Linq;
 using SmartHopper.Core.Models.Components;
 using SmartHopper.Core.Models.Connections;
 using SmartHopper.Core.Models.Document;
-using SmartHopper.Core.Models.Serialization;
 
 namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
 {

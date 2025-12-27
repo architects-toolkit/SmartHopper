@@ -8,11 +8,9 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Metrics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -38,6 +36,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets or sets the arguments of the tool call.
         /// </summary>
         public JObject Arguments { get; set; }
+
+        /// <summary>
+        /// Gets or sets the reasoning content associated with this tool call.
+        /// Used by providers like DeepSeek that include reasoning_content with tool calls.
+        /// </summary>
+        public string Reasoning { get; set; }
 
         /// <summary>
         /// Returns a string representation of the AIInteractionToolCall.
@@ -123,11 +127,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
-        /// Tool calls do not include reasoning by default.
+        /// Gets the reasoning content associated with this tool call, if any.
         /// </summary>
         public virtual string GetRawReasoningForRender()
         {
-            return string.Empty;
+            return this.Reasoning ?? string.Empty;
         }
     }
 }

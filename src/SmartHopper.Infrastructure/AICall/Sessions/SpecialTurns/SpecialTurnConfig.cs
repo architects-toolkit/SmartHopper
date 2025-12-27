@@ -10,7 +10,6 @@
 
 namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns
 {
-    using System;
     using System.Collections.Generic;
     using SmartHopper.Infrastructure.AICall.Core.Interactions;
     using SmartHopper.Infrastructure.AIModels;

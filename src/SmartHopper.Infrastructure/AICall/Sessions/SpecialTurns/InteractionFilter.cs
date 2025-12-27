@@ -11,7 +11,6 @@
 namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns
 {
     using System.Collections.Generic;
-    using System.Linq;
     using SmartHopper.Infrastructure.AICall.Core.Base;
     using SmartHopper.Infrastructure.AICall.Core.Interactions;
 

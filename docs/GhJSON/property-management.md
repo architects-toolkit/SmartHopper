@@ -181,6 +181,8 @@ Legacy `properties` dictionary is deprecated. See notes in the format-specificat
 | `UserText` | String | Text content in panel |
 | `Font` | Object | Font configuration (in componentState) |
 | `Alignment` | String | Text alignment (in componentState) |
+| `Color` | String | Panel background color stored in `componentState.additionalProperties.color` using Color serializer (`argb:A,R,G,B`) |
+| `Bounds` | String | Panel size stored in `componentState.additionalProperties.bounds` using Bounds serializer (`bounds:width,height`). Position remains in `pivot`. |
 
 ### Scribble Properties
 

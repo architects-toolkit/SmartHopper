@@ -12,9 +12,9 @@ Expose AI capabilities (chat, list/text generation, image generation, canvas uti
 - `src/SmartHopper.Components.Test/` — test-only components (not built in Release)
 - Bases in `src/SmartHopper.Core/ComponentBase/`:
   - [AsyncComponentBase](./ComponentBase/AsyncComponentBase.md) — base for long-running async operations off the UI thread
-  - [StatefulAsyncComponentBase](./ComponentBase/StatefulAsyncComponentBase.md) — async state machine with debouncing, progress, and error handling
-  - [AIProviderComponentBase](./ComponentBase/AIProviderComponentBase.md) — provider/model selection UI and persistence
-  - [AIStatefulAsyncComponentBase](./ComponentBase/AIStatefulAsyncComponentBase.md) — AI provider integration + stateful async execution
+  - [StatefulComponentBase](./ComponentBase/StatefulComponentBase.md) — state machine with debouncing, progress, and error handling
+  - [AIProviderComponentBase](./ComponentBase/AIProviderComponentBase.md) — provider selection UI and persistence
+  - [AIStatefulAsyncComponentBase](./ComponentBase/AIStatefulAsyncComponentBase.md) — AI provider integration + stateful execution
   - [SelectingComponentBase](./ComponentBase/SelectingComponentBase.md) — adds a "Select Components" button and selection management
   - [Data-tree processing schema](./ComponentBase/DataTreeProcessingSchema.md) — centralized data-tree processing model and topologies
   - AI catalog: [AI Components](./AI/index.md)

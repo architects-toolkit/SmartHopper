@@ -182,7 +182,7 @@ namespace SmartHopper.Components.Text
                 }
 
                 this.parent.SetPersistentOutput("Result", tree, DA);
-                message = "Done :)";
+                message = string.Empty;
             }
         }
     }

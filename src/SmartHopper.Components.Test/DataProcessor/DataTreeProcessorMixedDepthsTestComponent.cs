@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -10,9 +10,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -27,7 +25,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test Case 12 & 13: A={0}, B={0;0},{1},{1;0} - Mixed depths and roots
     /// Rule 3 applies: A broadcasts to ALL paths (deeper topology present)
     /// </summary>
-    public class DataTreeProcessorMixedDepthsTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorMixedDepthsTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("F788712F-B2B3-4131-87CA-E654F6153339");
         protected override Bitmap Icon => null;

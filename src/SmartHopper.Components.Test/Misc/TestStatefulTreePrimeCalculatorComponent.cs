@@ -1,6 +1,6 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2024 Marc Roca Musach
+ * Copyright (C) 2025 Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,7 +28,7 @@ using SmartHopper.Core.ComponentBase;
 
 namespace SmartHopper.Components.Test.Misc
 {
-    public class TestStatefulTreePrimeCalculatorComponent : StatefulAsyncComponentBase
+    public class TestStatefulTreePrimeCalculatorComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
         protected override Bitmap Icon => null;

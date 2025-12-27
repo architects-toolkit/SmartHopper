@@ -8,11 +8,8 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using Grasshopper.Kernel;
-using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using RhinoCodePlatform.GH;
 

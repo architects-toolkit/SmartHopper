@@ -11,7 +11,6 @@
 using System;
 using System.Diagnostics;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Special;
 using SmartHopper.Core.Models.Components;
 
 namespace SmartHopper.Core.Grasshopper.Serialization.GhJson.Shared

@@ -18,7 +18,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -26,7 +25,6 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
-using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Streaming;
 
@@ -202,7 +200,31 @@ namespace SmartHopper.Providers.MistralAI
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
-                messageObj["content"] = string.Empty; // assistant tool_calls messages should have empty content
+
+                // For thinking-enabled models, include reasoning in content array
+                if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
+                {
+                    var contentArray = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "thinking",
+                            ["thinking"] = new JArray
+                            {
+                                new JObject
+                                {
+                                    ["type"] = "text",
+                                    ["text"] = toolCallInteraction.Reasoning,
+                                },
+                            },
+                        },
+                    };
+                    messageObj["content"] = contentArray;
+                }
+                else
+                {
+                    messageObj["content"] = string.Empty;
+                }
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
@@ -431,6 +453,7 @@ namespace SmartHopper.Providers.MistralAI
                             Id = tc["id"]?.ToString(),
                             Name = func?[(object)"name"]?.ToString(),
                             Arguments = argsObj,
+                            Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                         };
                         interactions.Add(toolCall);
                     }
@@ -781,7 +804,7 @@ namespace SmartHopper.Providers.MistralAI
                         hasContentUpdate = true;
                     }
 
-                    if(hasContentUpdate)
+                    if (hasContentUpdate)
                     {
                         // If we had a reasoning-only segment, complete it first to trigger segmentation
                         if (hadReasoningOnlySegment)

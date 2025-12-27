@@ -4,6 +4,7 @@ This folder contains detailed architecture reviews of SmartHopper components.
 
 ## Reviews
 
+- [251224 StatefulAsyncComponentBase State Management](./251224%20StatefulAsyncComponentBase%20State%20Management.md) - Analysis of state flow, race conditions, and proposed robust state manager
 - [251224 WebChat Performance](./251224%20WebChat%20Performance.md) - Analysis of WebChatDialog, ConversationSession, and AIProvider interaction
 
 ## Purpose

@@ -237,7 +237,25 @@ namespace SmartHopper.Providers.OpenAI
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
-                msgContent = string.Empty; // assistant tool_calls messages should have empty content
+
+                // For o-series or gpt-5+ models, include reasoning in content array
+                if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
+                {
+                    var contentArray = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "reasoning",
+                            ["text"] = toolCallInteraction.Reasoning,
+                        },
+                    };
+                    messageObj["content"] = contentArray;
+                    contentSetExplicitly = true;
+                }
+                else
+                {
+                    msgContent = string.Empty;
+                }
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
@@ -705,6 +723,7 @@ namespace SmartHopper.Providers.OpenAI
                             Id = tc["id"]?.ToString(),
                             Name = tc["function"]?["name"]?.ToString(),
                             Arguments = argsObj,
+                            Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
                         };
                         interactions.Add(toolCall);
                     }

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024 Marc Roca Musach
  *
@@ -27,9 +27,9 @@ namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
     /// Grasshopper component for placing components from JSON data.
-    /// Uses StatefulAsyncComponentBase to properly manage async execution, state, and prevent re-entrancy.
+    /// Uses StatefulComponentBase to properly manage async execution, state, and prevent re-entrancy.
     /// </summary>
-    public class GhPutComponents : StatefulAsyncComponentBase
+    public class GhPutComponents : StatefulComponentBase
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GhPutComponents"/> class.
@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Grasshopper
         }
 
         /// <inheritdoc/>
-        public override Guid ComponentGuid => new ("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
+        public override Guid ComponentGuid => new("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
 
         /// <inheritdoc/>
         protected override Bitmap Icon => Resources.ghput;

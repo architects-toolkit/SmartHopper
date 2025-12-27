@@ -18,10 +18,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Serialization;
-using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
@@ -121,9 +118,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var currentObjs = CanvasAccess.GetCurrentObjects();
                 var selected = currentObjs.Where(o => guids.Contains(o.InstanceGuid.ToString())).ToList();
-                    if (!selected.Any())
-                    {
-                        Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching GUIDs found.");
+                if (!selected.Any())
+                {
+                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching GUIDs found.");
                     output.CreateError("No matching components found for provided GUIDs.");
                     return output;
                 }

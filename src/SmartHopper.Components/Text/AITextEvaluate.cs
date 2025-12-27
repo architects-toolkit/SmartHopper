@@ -179,7 +179,7 @@ namespace SmartHopper.Components.Text
 
                     Debug.WriteLine($"[ProcessData] Tool result: {toolResult?.ToString() ?? "null"}");
 
-                    var resultToken = toolResult? ["result"];
+                    var resultToken = toolResult?["result"];
                     bool? parsedResult = ParseBooleanResult(resultToken);
 
                     if (!parsedResult.HasValue)
@@ -229,7 +229,7 @@ namespace SmartHopper.Components.Text
                 }
 
                 this.parent.SetPersistentOutput("Result", value, DA);
-                message = "Done :)";
+                message = string.Empty;
             }
         }
     }
