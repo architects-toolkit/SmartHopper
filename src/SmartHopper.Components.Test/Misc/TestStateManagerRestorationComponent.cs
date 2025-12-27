@@ -232,7 +232,7 @@ namespace SmartHopper.Components.Test.Misc
             {
                 // Simple calculation with a small delay to simulate async work
                 await Task.Delay(100, token);
-                this.result = (this.inputNumber * 2) + 1;
+                this.result = (this.inputNumber * 2d) + 1d;
             }
 
             /// <inheritdoc/>

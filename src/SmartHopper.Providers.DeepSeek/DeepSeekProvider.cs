@@ -199,12 +199,10 @@ namespace SmartHopper.Providers.DeepSeek
 
                             // Remove reasoning_content from assistant messages without tool_calls
                             // per DeepSeek's recommendation to save bandwidth
-                            if (string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase))
+                            if (string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase)
+                                && (currentMessage["tool_calls"] == null || (currentMessage["tool_calls"] is JArray tcArray && tcArray.Count == 0)))
                             {
-                                if (currentMessage["tool_calls"] == null || (currentMessage["tool_calls"] is JArray tcArray && tcArray.Count == 0))
-                                {
-                                    currentMessage.Remove("reasoning_content");
-                                }
+                                currentMessage.Remove("reasoning_content");
                             }
 
                             convertedMessages.Add(currentMessage);
@@ -289,12 +287,10 @@ namespace SmartHopper.Providers.DeepSeek
 
                 // Remove reasoning_content from assistant messages without tool_calls
                 // per DeepSeek's recommendation to save bandwidth
-                if (string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase)
+                    && (currentMessage["tool_calls"] == null || (currentMessage["tool_calls"] is JArray tcArray && tcArray.Count == 0)))
                 {
-                    if (currentMessage["tool_calls"] == null || (currentMessage["tool_calls"] is JArray tcArray && tcArray.Count == 0))
-                    {
-                        currentMessage.Remove("reasoning_content");
-                    }
+                    currentMessage.Remove("reasoning_content");
                 }
 
                 convertedMessages.Add(currentMessage);

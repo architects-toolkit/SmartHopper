@@ -23,7 +23,7 @@ namespace SmartHopper.Core.Tests.ComponentBase
     /// </summary>
     public class ComponentStateManagerTests : IDisposable
     {
-        private ComponentStateManager manager;
+        private readonly ComponentStateManager manager;
 
         public ComponentStateManagerTests()
         {
