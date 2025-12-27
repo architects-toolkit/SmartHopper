@@ -10,7 +10,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
 
@@ -34,7 +33,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <summary>
         /// Gets an empty immutable body with defaults: ToolFilter="-*", ContextFilter="-*".
         /// </summary>
-        public static AIBody Empty { get; } = new (
+        public static AIBody Empty { get; } = new(
             Array.Empty<IAIInteraction>(),
             "-*",
             "-*",

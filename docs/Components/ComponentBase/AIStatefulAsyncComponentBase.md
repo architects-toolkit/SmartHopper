@@ -8,7 +8,7 @@ Offer a turnkey base to build AI components: choose provider/model, build a requ
 
 ## Key features
 
-- Builds on [AIProviderComponentBase](./AIProviderComponentBase.md) and [StatefulAsyncComponentBase](./StatefulAsyncComponentBase.md) to add a `Model` input and a `Metrics` output.
+- Builds on [AIProviderComponentBase](./AIProviderComponentBase.md) and [StatefulComponentBase](./StatefulComponentBase.md) to add a `Model` input and a `Metrics` output.
 - Capability‑aware model selection via `RequiredCapability` and `UsingAiTools`, delegating to provider `SelectModel()` / `ModelManager.SelectBestModel`.
 - `CallAiToolAsync` helper that injects provider/model into AI Tools, executes them, and stores the last `AIReturn` snapshot.
 - Centralized metrics output (JSON with provider, model, tokens, completion time, data/iteration counts).
@@ -24,4 +24,4 @@ Offer a turnkey base to build AI components: choose provider/model, build a requ
 ## Related
 
 - [AIProviderComponentBase](./AIProviderComponentBase.md) – provider UI/persistence.
-- [StatefulAsyncComponentBase](./StatefulAsyncComponentBase.md) – async state machine foundation.
+- [StatefulComponentBase](./StatefulComponentBase.md) – stateful execution foundation.

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -27,7 +26,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Test component for ItemToItem topology: processes items independently across matching paths.
     /// Each item from input trees is processed independently, and results maintain the same branch structure.
     /// </summary>
-    public class DataTreeProcessorItemToItemTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorItemToItemTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("C4D5E6F7-8A9B-4C0D-9E1F-2A3B4C5D6E7F");
         protected override Bitmap Icon => null;

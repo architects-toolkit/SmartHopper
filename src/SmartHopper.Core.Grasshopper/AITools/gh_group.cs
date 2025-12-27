@@ -18,7 +18,6 @@ using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -117,8 +116,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!validGuids.Any())
                 {
-                output.CreateError("No valid GUIDs provided for grouping.");
-                return Task.FromResult(output);
+                    output.CreateError("No valid GUIDs provided for grouping.");
+                    return Task.FromResult(output);
                 }
 
                 GH_Group group = null;
@@ -171,17 +170,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Resolve task result
                     if (group != null)
                     {
-                    var toolResult = new JObject
-                    {
-                        ["group"] = group.InstanceGuid.ToString(),
-                        ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString())),
-                    };
+                        var toolResult = new JObject
+                        {
+                            ["group"] = group.InstanceGuid.ToString(),
+                            ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString())),
+                        };
 
-                    var body = AIBodyBuilder.Create()
-                        .AddToolResult(toolResult)
-                        .Build();
+                        var body = AIBodyBuilder.Create()
+                            .AddToolResult(toolResult)
+                            .Build();
 
-                    output.CreateSuccess(body, toolCall);
+                        output.CreateSuccess(body, toolCall);
                     }
                     else
                     {

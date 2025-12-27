@@ -28,11 +28,9 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Execution;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AICall.Utilities;
-using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Core.UI.Chat
@@ -1364,19 +1362,8 @@ namespace SmartHopper.Core.UI.Chat
                 if (string.IsNullOrWhiteSpace(trimmed)) return;
 
                 // Store the user message before processing
+                // The observer will render it when AddInteraction() is called on the session
                 this._pendingUserMessage = trimmed;
-
-                // Append to UI immediately using dedup key for idempotency
-                // CRITICAL: Assign a unique TurnId to ensure identical messages get distinct dedup keys
-                var userInter = new AIInteractionText { Agent = AIAgent.User, Content = trimmed, TurnId = InteractionUtility.GenerateTurnId() };
-                if (userInter is IAIKeyedInteraction keyed)
-                {
-                    this.UpsertMessageByKey(keyed.GetDedupKey(), userInter);
-                }
-                else
-                {
-                    this.AddInteractionToWebView(userInter);
-                }
 
                 // Immediately reflect processing state in UI to disable input/send and enable cancel
                 this.RunWhenWebViewReady(() => this.ExecuteScript("setProcessing(true);"));

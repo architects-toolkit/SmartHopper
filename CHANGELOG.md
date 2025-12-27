@@ -23,11 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Simplified streaming validation flow in `WebChatDialog.ProcessAIInteraction()` - now always attempts streaming first, letting `ConversationSession` handle validation internally.
   - Added `TurnRenderState` and `SegmentState` classes to `WebChatObserver` for encapsulated per-turn state management.
   - Reduced idempotency cache size from 1000 to 100 entries to reduce memory footprint.
+  - Promoted `StatefulComponentBaseV2` to the default stateful base by renaming it to `StatefulComponentBase`.
 - Chat UI:
   - Optimized DOM updates with a keyed queue, conditional debug logging, and template-cached message rendering with LRU diffing to cut redundant work on large chats.
   - Refined streaming visuals by removing unused animations and switching to lighter wipe-in effects, improving responsiveness while messages stream.
 
 ### Fixed
+
+- DeepSeek provider:
+  - Fixed `deepseek-reasoner` model failing with HTTP 400 "Missing reasoning_content field" error during tool calling. The streaming adapter was not propagating `reasoning_content` to `AIInteractionToolCall` objects, causing the field to be missing when the conversation history was re-sent to the API.
+  - Fixed duplicated reasoning display in UI when tool calls are present. Reasoning now only appears on tool call interactions (where it's needed for the API), not on empty assistant text interactions.
+
+- Chat UI:
+  - Fixed user messages not appearing in the chat UI. The `ConversationSession.AddInteraction(string)` method was not notifying the observer when user messages were added to the session history.
 
 - Tool calling:
   - Improved `instruction_get` tool description to explicitly mention required `topic` argument. Some models (MistralAI, OpenAI) don't always respect JSON Schema `required` fields but do follow description text.

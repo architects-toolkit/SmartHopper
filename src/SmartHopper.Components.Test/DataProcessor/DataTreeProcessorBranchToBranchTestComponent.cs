@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -28,7 +28,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// where each branch is processed independently and maintains its branch structure.
     /// This is the list-level processing mode used by AIListEvaluate and AIListFilter.
     /// </summary>
-    public class DataTreeProcessorBranchToBranchTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorBranchToBranchTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("4FBE8A03-5A39-4C99-B190-F95468A0D3AC");
         protected override Bitmap Icon => null;

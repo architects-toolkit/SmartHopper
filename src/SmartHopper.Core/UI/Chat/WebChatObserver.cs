@@ -666,7 +666,7 @@ namespace SmartHopper.Core.UI.Chat
 
             /// <summary>
             /// Handles the final stable result after a conversation turn completes.
-            /// Renders the final assistant message, removes the thinking bubble, and emits notifications.
+            /// Renders the final message, removes the thinking bubble, and emits notifications.
             /// </summary>
             /// <param name="result">The final <see cref="AIReturn"/> for this turn.</param>
             public void OnFinal(AIReturn result)
@@ -679,68 +679,66 @@ namespace SmartHopper.Core.UI.Chat
 
                     try
                     {
-                        // Determine final assistant item and its base stream key (turn:{TurnId}:assistant)
-                        var finalAssistant = result?.Body?.Interactions?
-                            .OfType<AIInteractionText>()
-                            .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+                        // Determine the final renderable interaction (can be assistant text, tool, image, error, etc.)
+                        var finalRenderable = historySnapshot?.Body?.Interactions?
+                            .LastOrDefault(i => i is IAIRenderInteraction && i.Agent != AIAgent.Context);
 
                         string streamKey = null;
-                        if (finalAssistant is IAIKeyedInteraction keyedFinal)
+                        if (finalRenderable is IAIKeyedInteraction keyedFinal)
                         {
                             streamKey = keyedFinal.GetStreamKey();
                         }
 
                         // Mark this turn as finalized to prevent late partial/delta overrides
-                        var turnKey = GetTurnBaseKey(finalAssistant?.TurnId);
+                        var turnKey = GetTurnBaseKey(finalRenderable?.TurnId);
                         var turnState = this.GetOrCreateTurnState(turnKey);
-                        turnState.IsFinalized = true;
-
-                        // Prefer the aggregated streaming content for visual continuity
-                        AIInteractionText aggregated = null;
-
-                        // Use the current segmented key for the assistant stream
-                        var segKey = !string.IsNullOrWhiteSpace(streamKey) ? this.GetCurrentSegmentedKey(streamKey) : null;
-                        if (!string.IsNullOrWhiteSpace(segKey) && this._streams.TryGetValue(segKey, out var st))
+                        if (turnState != null)
                         {
-                            aggregated = st?.Aggregated as AIInteractionText;
+                            turnState.IsFinalized = true;
                         }
 
-                        // Do not fallback to arbitrary previous streams to avoid cross-turn duplicates
-
-                        // Merge final metrics/time/content into aggregated for the last render
-                        if (aggregated != null && finalAssistant != null)
+                        // Prefer the aggregated streaming content for visual continuity (when available)
+                        IAIInteraction aggregated = null;
+                        string segKey = null;
+                        if (!string.IsNullOrWhiteSpace(streamKey))
                         {
-                            // CRITICAL: Update content to ensure final complete text is rendered (fixes missing last chunk issue)
-                            if (!string.IsNullOrWhiteSpace(finalAssistant.Content))
+                            segKey = this.GetCurrentSegmentedKey(streamKey);
+                            if (!string.IsNullOrWhiteSpace(segKey) && this._streams.TryGetValue(segKey, out var st))
                             {
-                                aggregated.Content = finalAssistant.Content;
-                            }
-
-                            // Use aggregated turn metrics (includes tool calls, tool results, and assistant messages)
-                            // This gives users an accurate picture of total token consumption for the turn
-                            var turnId = finalAssistant.TurnId;
-                            aggregated.Metrics = !string.IsNullOrWhiteSpace(turnId)
-                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics
-                                : finalAssistant.Metrics;
-
-                            aggregated.Time = finalAssistant.Time != default ? finalAssistant.Time : aggregated.Time;
-
-                            // Ensure reasoning present on final render: prefer the provider's final reasoning
-                            if (!string.IsNullOrWhiteSpace(finalAssistant.Reasoning))
-                            {
-                                aggregated.Reasoning = finalAssistant.Reasoning;
+                                aggregated = st?.Aggregated;
                             }
                         }
 
-                        var toRender = aggregated ?? finalAssistant;
-
-                        // For non-aggregated renders, also apply turn metrics if available
-                        if (toRender != null && aggregated == null && finalAssistant != null)
+                        // Merge final metrics/time/content into aggregated for the last render (only for assistant text)
+                        if (aggregated is AIInteractionText aggregatedText && finalRenderable is AIInteractionText finalText)
                         {
-                            var turnId = finalAssistant.TurnId;
-                            toRender.Metrics = !string.IsNullOrWhiteSpace(turnId)
-                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalAssistant.Metrics
-                                : toRender.Metrics;
+                            if (!string.IsNullOrWhiteSpace(finalText.Content))
+                            {
+                                aggregatedText.Content = finalText.Content;
+                            }
+
+                            var turnId = finalText.TurnId;
+                            aggregatedText.Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? finalText.Metrics
+                                : finalText.Metrics;
+
+                            aggregatedText.Time = finalText.Time != default ? finalText.Time : aggregatedText.Time;
+
+                            if (!string.IsNullOrWhiteSpace(finalText.Reasoning))
+                            {
+                                aggregatedText.Reasoning = finalText.Reasoning;
+                            }
+                        }
+
+                        var toRender = aggregated ?? finalRenderable;
+
+                        // For non-aggregated renders, apply turn metrics only when the final bubble is assistant text
+                        if (toRender is AIInteractionText toRenderText && aggregated == null && toRenderText.Agent == AIAgent.Assistant)
+                        {
+                            var turnId = toRenderText.TurnId;
+                            toRenderText.Metrics = !string.IsNullOrWhiteSpace(turnId)
+                                ? this._dialog._currentSession?.GetTurnMetrics(turnId) ?? toRenderText.Metrics
+                                : toRenderText.Metrics;
                         }
 
                         if (toRender != null)
@@ -764,9 +762,9 @@ namespace SmartHopper.Core.UI.Chat
                             }
 
                             // Single final debug log for this interaction
-                            var turnId = (toRender as AIInteractionText)?.TurnId ?? finalAssistant?.TurnId;
+                            var turnId = toRender?.TurnId;
                             var length = (toRender as AIInteractionText)?.Content?.Length ?? 0;
-                            DebugLog($"[WebChatObserver] Final render: turn={turnId}, key={upsertKey}, len={length}");
+                            DebugLog($"[WebChatObserver] Final render: type={toRender?.GetType().Name}, turn={turnId}, key={upsertKey}, len={length}");
                             this._dialog.UpsertMessageByKey(upsertKey, toRender, source: "OnFinal");
                         }
                     }

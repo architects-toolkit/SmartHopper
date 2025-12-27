@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2025 Marc Roca Musach
  *
@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -29,7 +28,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// Only when paths match should items be matched item-by-item. In this test,
     /// the output should be identical to the input trees (per-branch passthrough).
     /// </summary>
-    public class DataTreeProcessorDifferentPathsThreeItemsEachTestComponent : StatefulAsyncComponentBase
+    public class DataTreeProcessorDifferentPathsThreeItemsEachTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("5A7B9B0C-12D0-4B90-AE17-5D1F764C6C5A");
         protected override Bitmap Icon => null;
