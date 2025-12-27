@@ -778,20 +778,33 @@ namespace SmartHopper.Core.ComponentBase
         {
             int capturedGeneration;
             ComponentState targetState;
+            int capturedTimeMs;
 
+            // Capture all required data in a single lock to ensure consistency
             lock (this.stateLock)
             {
+                // If debounce time is 0, timer has already been cancelled/reset
+                if (this.debounceTimeMs == 0)
+                {
+                    Debug.WriteLine($"[{this.componentName}] Debounce callback: timer already cancelled");
+                    return;
+                }
+
                 capturedGeneration = this.debounceGeneration;
                 targetState = this.debounceTargetState;
-                this.debounceTimeMs = 0; // Mark as elapsed
+                capturedTimeMs = this.debounceTimeMs;
+                
+                // Mark as elapsed immediately to prevent race conditions
+                this.debounceTimeMs = 0;
             }
 
-            // Check if this callback is still valid
+            // Additional validation check outside the lock
             lock (this.stateLock)
             {
-                if (capturedGeneration != this.debounceGeneration)
+                // Double-check generation and that we're still the active timer
+                if (capturedGeneration != this.debounceGeneration || capturedTimeMs == 0)
                 {
-                    Debug.WriteLine($"[{this.componentName}] Debounce callback stale (gen {capturedGeneration} != {this.debounceGeneration}), ignoring");
+                    Debug.WriteLine($"[{this.componentName}] Debounce callback stale (gen {capturedGeneration} != {this.debounceGeneration}, time {capturedTimeMs}), ignoring");
                     return;
                 }
 
