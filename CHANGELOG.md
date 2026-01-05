@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Conversation summaries now use `AIAgent.Summary` instead of `AIAgent.Assistant`, preventing extra assistant messages in chat UI.
   - Providers automatically merge `Summary` interactions with the system prompt using format: `System prompt\n---\nThis is a summary of the previous conversation:\n\nSummary`.
   - WebChat UI renders `Summary` interactions as collapsible elements with distinct blue styling, similar to tool/system messages.
+- GhJSON Serialization:
+  - `PersistentData` and `VolatileData` properties are now excluded from serialization at the `GhJsonSerializer` level to prevent encrypted/binary strings from being included in GhJSON output, ensuring LLM-safe and token-efficient results by default.
+  - Runtime data remains available via the separate `ExtractRuntimeData` method for `_with_data` tools (e.g., `gh_get_selected_with_data`).
 - Debug Logging:
   - Updated `ConversationSession` debug history file to preserve previous conversations when summarization occurs.
   - Added `SUMMARIZED` marker in debug logs to clearly separate pre-summary and post-summary history.
@@ -39,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Standardized node classification terminology from `input/output/processing/isolated` to `startnodes/endnodes/middlenodes/isolatednodes` across `gh_get` filters and the `GhGetComponents` Grasshopper component UI.
   - Updated `instruction_get` canvas guidance to recommend `gh_get_start`/`gh_get_end` (and their `_with_data` variants) for obtaining a wide view of data sources and outputs.
   - Strengthened the `CanvasButton` default system prompt to always call `instruction_get` for canvas queries, improving tool selection for providers like `mistral-small`.
+- GhJSON Serialization:
+  - Fixed `gh_get` tool incorrectly using `Optimized` serialization context (which excludes `PersistentData`) instead of `Standard` context, breaking `gh_put` restoration of internalized parameter values. Now uses `Standard` format by default to preserve all data needed for restoration, only switching to `Optimized` when runtime data is explicitly included (where persistent values are redundant).
 
 ## [1.2.2-alpha] - 2025-12-27
 
