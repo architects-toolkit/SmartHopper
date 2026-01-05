@@ -10,8 +10,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -166,6 +168,143 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Gets the effective token count for the body, using the maximum of:
+        /// - metrics-based token count (from interactions with metrics)
+        /// - estimated token count (from interaction content lengths)
+        /// This prevents undercounting when large tool payloads don't have metrics.
+        /// Populates AIMetrics.Estimated* fields only when actual tokens are not provided.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The effective token count.</returns>
+        public static int GetEffectiveTokenCount(this AIBody body)
+        {
+            if (body == null)
+            {
+                return 0;
+            }
+
+            var metrics = body.Metrics;
+            if (metrics == null)
+            {
+                return 0;
+            }
+
+            // Only estimate if actual tokens are not provided by the AI provider
+            var hasActualInputTokens = metrics.InputTokens > 0;
+            var hasActualOutputTokens = metrics.OutputTokens > 0;
+
+            if (!hasActualInputTokens || !hasActualOutputTokens)
+            {
+                var (estimatedInput, estimatedOutput) = EstimateTokensFromInteractions(body.Interactions);
+                
+                // Only populate estimated fields when actual tokens are missing
+                if (!hasActualInputTokens)
+                {
+                    metrics.EstimatedInputTokens = estimatedInput;
+                }
+                if (!hasActualOutputTokens)
+                {
+                    metrics.EstimatedOutputTokens = estimatedOutput;
+                }
+            }
+
+            var effectiveTokens = metrics.EffectiveTotalTokens;
+            Debug.WriteLine($"[AIBody.GetEffectiveTokenCount] Actual tokens: {metrics.TotalTokens}, Estimated tokens: {metrics.TotalEstimatedTokens}, Effective tokens: {effectiveTokens}");
+            return effectiveTokens;
+        }
+
+        /// <summary>
+        /// Estimates the token count from interaction content lengths, separated by input and output.
+        /// Uses a heuristic approximation (3.5 chars/token) to detect when prompts balloon due to large tool results.
+        /// This is a conservative estimate meant for triggering context management safeguards, not exact billing.
+        /// </summary>
+        /// <param name="interactions">The interactions to estimate tokens for.</param>
+        /// <returns>Tuple of (estimatedInputTokens, estimatedOutputTokens) based on content length.</returns>
+        private static (int estimatedInput, int estimatedOutput) EstimateTokensFromInteractions(IReadOnlyList<IAIInteraction> interactions)
+        {
+            if (interactions == null || interactions.Count == 0)
+            {
+                return (0, 0);
+            }
+
+            try
+            {
+                // Heuristic: approximate tokens from UTF-16 string length.
+                // A common rough rule-of-thumb is ~4 characters per token for English.
+                // We intentionally bias upward a bit by using 3.5 chars/token.
+                // This is only used to detect when the prompt is ballooning (e.g., huge tool results).
+                const double charsPerToken = 3.5;
+
+                long inputChars = 0;
+                long outputChars = 0;
+
+                foreach (var it in interactions)
+                {
+                    if (it == null)
+                    {
+                        continue;
+                    }
+
+                    // Classify interactions as input (user/system/context) or output (assistant/tool result)
+                    var isInput = it.Agent == AIAgent.User || it.Agent == AIAgent.System || it.Agent == AIAgent.Context;
+
+                    switch (it)
+                    {
+                        case AIInteractionText t:
+                            var textChars = (t.Content?.Length ?? 0) + (t.Reasoning?.Length ?? 0);
+                            if (isInput)
+                            {
+                                inputChars += textChars;
+                            }
+                            else
+                            {
+                                outputChars += textChars;
+                            }
+                            break;
+
+                        case AIInteractionToolResult tr:
+                            // Tool results are output (AI's tool execution results)
+                            outputChars += (tr.Name?.Length ?? 0);
+                            outputChars += (tr.Result?.ToString()?.Length ?? 0);
+                            break;
+
+                        case AIInteractionToolCall tc:
+                            // Tool calls are output (AI requesting tool execution)
+                            outputChars += (tc.Name?.Length ?? 0);
+                            outputChars += (tc.Arguments?.ToString()?.Length ?? 0);
+                            break;
+
+                        case AIInteractionError err:
+                            // Errors are typically output (provider/system errors)
+                            outputChars += (err.Content?.Length ?? 0);
+                            break;
+
+                        default:
+                            if (isInput)
+                            {
+                                inputChars += (it.ToString()?.Length ?? 0);
+                            }
+                            else
+                            {
+                                outputChars += (it.ToString()?.Length ?? 0);
+                            }
+                            break;
+                    }
+                }
+
+                var inputTokens = inputChars > 0 ? (int)Math.Ceiling(inputChars / charsPerToken) : 0;
+                var outputTokens = outputChars > 0 ? (int)Math.Ceiling(outputChars / charsPerToken) : 0;
+
+                return (Math.Max(0, inputTokens), Math.Max(0, outputTokens));
+            }
+            catch
+            {
+                // Best-effort only.
+                return (0, 0);
+            }
         }
     }
 }

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Context Management:
+  - Added `ContextLimit` property to `AIModelCapabilities` for storing model context window sizes.
+  - Added `SummarizeSpecialTurn` factory for creating conversation summarization special turns.
+  - Added automatic context tracking in `ConversationSession` with percentage calculation.
+  - Added pre-emptive summarization when context usage exceeds 80% of model limit.
+  - Added context exceeded error detection and automatic summarization with retry.
+  - Added graceful error handling when summarization fails to reduce context size.
+  - Added context limits for all MistralAI models (128K for most, 40K for Magistral, 32K for Voxtral).
+- GhJSON canvas tools:
+  - Added `gh_get_start` / `gh_get_start_with_data` tools to retrieve start nodes (components with no incoming connections) with optional runtime data.
+  - Added `gh_get_end` / `gh_get_end_with_data` tools to retrieve end nodes (components with no outgoing connections) with optional runtime data, providing a wide view of definition outputs.
+
+### Changed
+
+- Debug Logging:
+  - Updated `ConversationSession` debug history file to preserve previous conversations when summarization occurs.
+  - Added `SUMMARIZED` marker in debug logs to clearly separate pre-summary and post-summary history.
+
+### Fixed
+
+- Context Management:
+  - Fixed context usage percentage not appearing consistently in debug logs and WebChat UI metrics by caching it at the `ConversationSession` level and applying it to aggregated metrics.
+- GhJSON canvas helpers and chat:
+  - Standardized node classification terminology from `input/output/processing/isolated` to `startnodes/endnodes/middlenodes/isolatednodes` across `gh_get` filters and the `GhGetComponents` Grasshopper component UI.
+  - Updated `instruction_get` canvas guidance to recommend `gh_get_start`/`gh_get_end` (and their `_with_data` variants) for obtaining a wide view of data sources and outputs.
+  - Strengthened the `CanvasButton` default system prompt to always call `instruction_get` for canvas queries, improving tool selection for providers like `mistral-small`.
+
 ## [1.2.2-alpha] - 2025-12-27
 
 ### Added

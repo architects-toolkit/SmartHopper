@@ -305,6 +305,7 @@ namespace SmartHopper.Core.UI.Chat
             Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role='{roleClass}', displayName='{displayName}', timestamp='{timestamp}'");
 
             // Extract metrics if available
+            string contextUsage = "";
             if (interaction.Metrics != null)
             {
                 provider = interaction.Metrics.Provider ?? "";
@@ -312,6 +313,12 @@ namespace SmartHopper.Core.UI.Chat
                 finishReason = interaction.Metrics.FinishReason ?? "unknown";
                 inTokens = interaction.Metrics.InputTokens;
                 outTokens = interaction.Metrics.OutputTokens;
+                
+                // Format context usage as percentage if available
+                if (interaction.Metrics.ContextUsagePercent.HasValue)
+                {
+                    contextUsage = $"{interaction.Metrics.ContextUsagePercent.Value * 100:F1}%";
+                }
             }
 
             // Decide whether to show metrics icon. Hide when metrics are missing or not meaningful (e.g., during streaming).
@@ -348,6 +355,7 @@ namespace SmartHopper.Core.UI.Chat
                 .Replace("{{provider}}", provider, StringComparison.Ordinal)
                 .Replace("{{model}}", model, StringComparison.Ordinal)
                 .Replace("{{finishReason}}", finishReason, StringComparison.Ordinal)
+                .Replace("{{contextUsage}}", contextUsage, StringComparison.Ordinal)
                 .Replace("{{metricsClass}}", metricsClass, StringComparison.Ordinal);
 
             Debug.WriteLine($"[ChatResourceManager] Message HTML created, length: {result?.Length ?? 0}");

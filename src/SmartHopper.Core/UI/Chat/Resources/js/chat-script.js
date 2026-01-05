@@ -805,6 +805,7 @@ function showTooltip(event) {
     const provider = icon.getAttribute('data-provider');
     const model = icon.getAttribute('data-model');
     const reason = icon.getAttribute('data-reason');
+    const contextUsage = icon.getAttribute('data-context-usage');
     
     // Create tooltip element
     const tooltip = document.createElement('div');
@@ -834,6 +835,14 @@ function showTooltip(event) {
     tooltip.appendChild(inTokensDiv);
     tooltip.appendChild(outTokensDiv);
     tooltip.appendChild(reasonDiv);
+    
+    // Add context usage if available
+    if (contextUsage) {
+        const contextDiv = document.createElement('div');
+        contextDiv.innerHTML = '<strong>Context Usage:</strong> ';
+        contextDiv.appendChild(document.createTextNode(contextUsage));
+        tooltip.appendChild(contextDiv);
+    }
     
     // Position tooltip
     const iconRect = icon.getBoundingClientRect();
