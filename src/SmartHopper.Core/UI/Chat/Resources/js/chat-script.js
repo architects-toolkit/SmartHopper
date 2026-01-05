@@ -646,13 +646,13 @@ function setupCollapsibleHandlers(rootNode) {
     try {
         const scope = rootNode && rootNode.classList && rootNode.classList.contains('message')
             ? [rootNode]
-            : Array.from((rootNode || document).querySelectorAll('.message.tool, .message.system'));
+            : Array.from((rootNode || document).querySelectorAll('.message.tool, .message.system, .message.summary'));
 
         scope.forEach(msg => {
             if (!msg || (msg.dataset && msg.dataset.collapsibleBound === '1')) return;
 
-            // Only applicable to tool/system messages
-            if (!(msg.classList.contains('tool') || msg.classList.contains('system'))) return;
+            // Only applicable to tool/system/summary messages
+            if (!(msg.classList.contains('tool') || msg.classList.contains('system') || msg.classList.contains('summary'))) return;
 
             const btn = msg.querySelector('.toggle-arrow');
             const content = msg.querySelector('.message-content');
@@ -718,7 +718,7 @@ function setupCollapsibleHandlers(rootNode) {
         if (!window._shCollapsibleResizeBound) {
             window.addEventListener('resize', () => {
                 try {
-                    document.querySelectorAll('.message.tool, .message.system').forEach(msg => {
+                    document.querySelectorAll('.message.tool, .message.system, .message.summary').forEach(msg => {
                         const btn = msg.querySelector('.toggle-arrow');
                         const content = msg.querySelector('.message-content');
                         if (!btn || !content) return;

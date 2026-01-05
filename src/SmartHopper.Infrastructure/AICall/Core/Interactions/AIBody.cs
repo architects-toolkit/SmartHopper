@@ -63,7 +63,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             get
             {
                 var m = new AIMetrics();
-                if (this.Interactions == null) return m;
+                if (this.Interactions == null) 
+                {
+                    return m;
+                }
+
                 foreach (var i in this.Interactions)
                 {
                     if (i?.Metrics != null)

@@ -320,7 +320,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     break;
 
                 case HistoryPersistenceStrategy.ReplaceAbove:
-                    this.ReplaceAbove(snapshot, result, config.PersistenceFilter, turnId);
+                    this.ReplaceAbove(snapshot, result, config.PersistenceFilter, turnId, config.Metadata);
                     break;
             }
         }
@@ -376,7 +376,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// Replaces all previous interactions (filtered) with the special turn result.
         /// </summary>
-        private void ReplaceAbove(RequestSnapshot snapshot, AIReturn result, InteractionFilter? filter, string turnId)
+        private void ReplaceAbove(RequestSnapshot snapshot, AIReturn result, InteractionFilter? filter, string turnId, Dictionary<string, object>? metadata = null)
         {
             filter = filter ?? InteractionFilter.PreserveSystemContext;
 
@@ -386,6 +386,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             // Get result interactions
             var resultInteractions = result?.Body?.Interactions?.ToList() ?? new List<IAIInteraction>();
+
+            // Check if this is a summarization turn
+            var isSummarizeTurn = metadata?.ContainsKey("is_summarize") == true;
 
             // Build new body with preserved interactions + result
             var builder = AIBodyBuilder.Create()
@@ -402,7 +405,22 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     interaction.TurnId = turnId;
                 }
 
-                builder.Add(interaction, markAsNew: false);
+                // Convert Assistant responses to Summary for summarization turns
+                if (isSummarizeTurn && interaction.Agent == AIAgent.Assistant && interaction is AIInteractionText textInteraction)
+                {
+                    var summaryInteraction = new AIInteractionText
+                    {
+                        Agent = AIAgent.Summary,
+                        Content = textInteraction.Content,
+                        Time = textInteraction.Time,
+                        TurnId = textInteraction.TurnId,
+                    };
+                    builder.Add(summaryInteraction, markAsNew: false);
+                }
+                else
+                {
+                    builder.Add(interaction, markAsNew: false);
+                }
             }
 
             this.Request.Body = builder.Build();

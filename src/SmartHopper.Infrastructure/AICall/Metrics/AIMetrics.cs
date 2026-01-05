@@ -108,6 +108,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             {
                 if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model))
                 {
+                    Debug.WriteLine("[AIMetrics.ContextUsagePercent] Missing provider or model");
                     return null;
                 }
 
@@ -117,13 +118,17 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
 
                 if (contextLimit == null || contextLimit.Value <= 0)
                 {
+                    Debug.WriteLine($"[AIMetrics.ContextUsagePercent] No context limit for {this.Provider}/{this.Model}");
                     return null;
                 }
 
                 var effectiveTokens = this.EffectiveTotalTokens;
                 var usage = (double)effectiveTokens / contextLimit.Value;
+                var roundedUsage = System.Math.Round(usage, 4);
 
-                return System.Math.Round(usage, 4);
+                Debug.WriteLine($"[AIMetrics.ContextUsagePercent] Provider: {this.Provider}, Model: {this.Model}, EffectiveTokens: {effectiveTokens}, ContextLimit: {contextLimit.Value}, Usage: {roundedUsage}");
+
+                return roundedUsage;
             }
         }
 

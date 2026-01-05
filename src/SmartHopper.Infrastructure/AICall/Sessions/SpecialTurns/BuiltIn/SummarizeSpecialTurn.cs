@@ -153,7 +153,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
                 new AIInteractionText
                 {
                     Agent = AIAgent.System,
-                    Content = "You are a helpful assistant that creates concise, accurate summaries of conversations. Your summaries preserve all essential information while reducing token count significantly.",
+                    Content = "You are a helpful assistant that creates concise, accurate summaries of conversations. Your summaries preserve all essential information while reducing token count significantly. Do not add a main title or section headers. You can use ordered or unordered lists to organize information. Format your response as markdown.",
                 },
                 new AIInteractionText
                 {

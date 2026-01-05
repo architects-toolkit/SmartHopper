@@ -227,6 +227,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         {
             if (interactions == null || interactions.Count == 0)
             {
+                Debug.WriteLine("[EstimateTokensFromInteractions] No interactions to estimate");
                 return (0, 0);
             }
 
@@ -240,6 +241,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
                 long inputChars = 0;
                 long outputChars = 0;
+                int toolCallCount = 0;
+                int toolResultCount = 0;
+                int textCount = 0;
+
+                Debug.WriteLine($"[EstimateTokensFromInteractions] Processing {interactions.Count} interactions");
 
                 foreach (var it in interactions)
                 {
@@ -254,42 +260,53 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                     switch (it)
                     {
                         case AIInteractionText t:
+                            textCount++;
                             var textChars = (t.Content?.Length ?? 0) + (t.Reasoning?.Length ?? 0);
                             if (isInput)
                             {
                                 inputChars += textChars;
+                                Debug.WriteLine($"[EstimateTokensFromInteractions] Text input: {t.Agent}, chars: {textChars}");
                             }
                             else
                             {
                                 outputChars += textChars;
+                                Debug.WriteLine($"[EstimateTokensFromInteractions] Text output: {t.Agent}, chars: {textChars}");
                             }
                             break;
 
                         case AIInteractionToolResult tr:
+                            toolResultCount++;
                             // Tool results are output (AI's tool execution results)
-                            outputChars += (tr.Name?.Length ?? 0);
-                            outputChars += (tr.Result?.ToString()?.Length ?? 0);
+                            var resultChars = (tr.Name?.Length ?? 0) + (tr.Result?.ToString()?.Length ?? 0) + (tr.Id?.Length ?? 0);
+                            outputChars += resultChars;
+                            Debug.WriteLine($"[EstimateTokensFromInteractions] Tool result '{tr.Name}': {resultChars} chars");
                             break;
 
                         case AIInteractionToolCall tc:
+                            toolCallCount++;
                             // Tool calls are output (AI requesting tool execution)
-                            outputChars += (tc.Name?.Length ?? 0);
-                            outputChars += (tc.Arguments?.ToString()?.Length ?? 0);
+                            var callChars = (tc.Name?.Length ?? 0) + (tc.Arguments?.ToString()?.Length ?? 0) + (tc.Id?.Length ?? 0) + (tc.Reasoning?.Length ?? 0);
+                            outputChars += callChars;
+                            Debug.WriteLine($"[EstimateTokensFromInteractions] Tool call '{tc.Name}': {callChars} chars");
                             break;
 
                         case AIInteractionError err:
                             // Errors are typically output (provider/system errors)
                             outputChars += (err.Content?.Length ?? 0);
+                            Debug.WriteLine($"[EstimateTokensFromInteractions] Error: {err.Content?.Length ?? 0} chars");
                             break;
 
                         default:
+                            var defaultChars = it.ToString()?.Length ?? 0;
                             if (isInput)
                             {
-                                inputChars += (it.ToString()?.Length ?? 0);
+                                inputChars += defaultChars;
+                                Debug.WriteLine($"[EstimateTokensFromInteractions] Default input: {it.Agent}, chars: {defaultChars}");
                             }
                             else
                             {
-                                outputChars += (it.ToString()?.Length ?? 0);
+                                outputChars += defaultChars;
+                                Debug.WriteLine($"[EstimateTokensFromInteractions] Default output: {it.Agent}, chars: {defaultChars}");
                             }
                             break;
                     }
@@ -298,10 +315,15 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 var inputTokens = inputChars > 0 ? (int)Math.Ceiling(inputChars / charsPerToken) : 0;
                 var outputTokens = outputChars > 0 ? (int)Math.Ceiling(outputChars / charsPerToken) : 0;
 
+                Debug.WriteLine($"[EstimateTokensFromInteractions] Summary: {textCount} text, {toolCallCount} tool calls, {toolResultCount} tool results");
+                Debug.WriteLine($"[EstimateTokensFromInteractions] Char counts - Input: {inputChars}, Output: {outputChars}");
+                Debug.WriteLine($"[EstimateTokensFromInteractions] Token estimates - Input: {inputTokens}, Output: {outputTokens}");
+
                 return (Math.Max(0, inputTokens), Math.Max(0, outputTokens));
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[EstimateTokensFromInteractions] Error: {ex.Message}");
                 // Best-effort only.
                 return (0, 0);
             }
