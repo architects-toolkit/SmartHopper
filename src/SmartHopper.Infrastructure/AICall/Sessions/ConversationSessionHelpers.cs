@@ -1026,11 +1026,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             sb.AppendLine("- **model**: " + (m.Model ?? string.Empty));
             sb.AppendLine("- **finish_reason**: " + (m.FinishReason ?? string.Empty));
             sb.AppendLine("- **completion_time**: " + m.CompletionTime);
+            sb.AppendLine("- **estimated_input_tokens**: " + m.EstimatedInputTokens);
+            sb.AppendLine("- **estimated_output_tokens**: " + m.EstimatedOutputTokens);
+            sb.AppendLine("- **total_estimated_tokens**: " + m.TotalEstimatedTokens);
             sb.AppendLine("- **input_tokens_prompt**: " + m.InputTokensPrompt);
             sb.AppendLine("- **input_tokens_cached**: " + m.InputTokensCached + " (total: " + m.InputTokens + ")");
             sb.AppendLine("- **output_tokens_reasoning**: " + m.OutputTokensReasoning);
             sb.AppendLine("- **output_tokens_generation**: " + m.OutputTokensGeneration + " (total: " + m.OutputTokens + ")");
             sb.AppendLine("- **total_tokens**: " + m.TotalTokens);
+            sb.AppendLine("- **effective_total_tokens**: " + m.EffectiveTotalTokens);
+            sb.AppendLine("- **context_usage_percent**: " + (m.ContextUsagePercent?.ToString() ?? string.Empty));
         }
 
         /// <summary>

@@ -331,8 +331,11 @@ namespace SmartHopper.Providers.OpenAI
 
 #endif
 
+            // Merge System and Summary interactions before encoding
+            var mergedInteractions = this.MergeSystemAndSummary(interactions);
+
             // Simple sequential encoding like MistralAI - no complex coalescing or deduplication
-            foreach (var interaction in interactions)
+            foreach (var interaction in mergedInteractions)
             {
                 var token = this.EncodeToJToken(interaction);
                 if (token != null)

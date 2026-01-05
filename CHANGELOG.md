@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Context Management:
+  - Conversation summaries now use `AIAgent.Summary` instead of `AIAgent.Assistant`, preventing extra assistant messages in chat UI.
+  - Providers automatically merge `Summary` interactions with the system prompt using format: `System prompt\n---\nThis is a summary of the previous conversation:\n\nSummary`.
+  - WebChat UI renders `Summary` interactions as collapsible elements with distinct blue styling, similar to tool/system messages.
 - Debug Logging:
   - Updated `ConversationSession` debug history file to preserve previous conversations when summarization occurs.
   - Added `SUMMARIZED` marker in debug logs to clearly separate pre-summary and post-summary history.

@@ -222,6 +222,90 @@ namespace SmartHopper.Infrastructure.AIProviders
             return result;
         }
 
+        /// <summary>
+        /// Merges System and Summary interactions into a single System interaction.
+        /// Summary interactions are appended to the System prompt with a separator.
+        /// </summary>
+        /// <param name="interactions">The interactions to process.</param>
+        /// <returns>A new list with System and Summary merged.</returns>
+        protected List<IAIInteraction> MergeSystemAndSummary(IReadOnlyList<IAIInteraction> interactions)
+        {
+            if (interactions == null || interactions.Count == 0)
+            {
+                return new List<IAIInteraction>();
+            }
+
+            var result = new List<IAIInteraction>();
+            AIInteractionText systemInteraction = null;
+            var summaries = new List<AIInteractionText>();
+
+            // First pass: collect System and Summary interactions
+            foreach (var interaction in interactions)
+            {
+                if (interaction.Agent == AIAgent.System && interaction is AIInteractionText systemText)
+                {
+                    systemInteraction = systemText;
+                }
+                else if (interaction.Agent == AIAgent.Summary && interaction is AIInteractionText summaryText)
+                {
+                    summaries.Add(summaryText);
+                }
+            }
+
+            // Build merged system message if we have summaries
+            if (summaries.Count > 0)
+            {
+                var mergedContent = new StringBuilder();
+
+                // Add original system prompt
+                if (systemInteraction != null && !string.IsNullOrWhiteSpace(systemInteraction.Content))
+                {
+                    mergedContent.AppendLine(systemInteraction.Content);
+                    mergedContent.AppendLine();
+                }
+
+                // Add separator and summaries
+                mergedContent.AppendLine("---");
+                mergedContent.AppendLine("This is a summary of the previous messages in the conversation:");
+                mergedContent.AppendLine();
+
+                foreach (var summary in summaries)
+                {
+                    if (!string.IsNullOrWhiteSpace(summary.Content))
+                    {
+                        mergedContent.AppendLine(summary.Content);
+                        mergedContent.AppendLine();
+                    }
+                }
+
+                // Create merged system interaction
+                var merged = new AIInteractionText
+                {
+                    Agent = AIAgent.System,
+                    Content = mergedContent.ToString().TrimEnd(),
+                    Time = systemInteraction?.Time ?? DateTime.UtcNow,
+                };
+
+                result.Add(merged);
+            }
+            else if (systemInteraction != null)
+            {
+                // No summaries, just add the original system interaction
+                result.Add(systemInteraction);
+            }
+
+            // Second pass: add all non-System, non-Summary interactions
+            foreach (var interaction in interactions)
+            {
+                if (interaction.Agent != AIAgent.System && interaction.Agent != AIAgent.Summary)
+                {
+                    result.Add(interaction);
+                }
+            }
+
+            return result;
+        }
+
         /// <inheritdoc/>
         public abstract List<IAIInteraction> Decode(JObject response);
 
