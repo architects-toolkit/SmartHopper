@@ -374,6 +374,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
+                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}");
                 var (includeTypes, excludeTypes) = ComponentRetriever.ParseIncludeExclude(typeFilters, ComponentRetriever.TypeSynonyms);
                 var (includeTags, excludeTags) = ComponentRetriever.ParseIncludeExclude(attrFilters, ComponentRetriever.FilterSynonyms);
                 var (includeCats, excludeCats) = ComponentRetriever.ParseIncludeExclude(categoryFilters, ComponentRetriever.CategorySynonyms);
@@ -395,7 +396,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (includeTypes.Overlaps(new[] { "STARTNODES", "ENDNODES", "MIDDLENODES", "ISOLATEDNODES" }))
                     {
-                        var serOptions1 = SerializationOptions.Standard;
+                        var serOptions1 = SerializationOptions.Optimized;
                         serOptions1.IncludeMetadata = false;
                         serOptions1.IncludeGroups = false;
                         var tempDoc = GhJsonSerializer.Serialize(objects, serOptions1);
@@ -454,7 +455,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (excludeTypes.Overlaps(new[] { "STARTNODES", "ENDNODES", "MIDDLENODES", "ISOLATEDNODES" }))
                     {
-                        var serOptions2 = SerializationOptions.Standard;
+                        var serOptions2 = SerializationOptions.Optimized;
                         serOptions2.IncludeMetadata = false;
                         serOptions2.IncludeGroups = false;
                         var tempDoc = GhJsonSerializer.Serialize(typeFiltered, serOptions2);
@@ -644,7 +645,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (connectionDepth > 0)
                 {
                     var allObjects = CanvasAccess.GetCurrentObjects();
-                    var serOptions3 = SerializationOptions.Standard;
+                    var serOptions3 = SerializationOptions.Optimized;
                     serOptions3.IncludeMetadata = false;
                     serOptions3.IncludeGroups = false;
                     var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions3);
@@ -666,7 +667,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                var serOptions = SerializationOptions.Standard;
+                // Use Standard when returning the main GhJSON, so gh_put can restore PersistentData correctly.
+                // Use Optimized when the caller did not request runtime data and token usage matters.
+                var serOptions = includeRuntimeData ? SerializationOptions.Standard : SerializationOptions.Optimized;
                 serOptions.IncludeMetadata = includeMetadata;
                 serOptions.IncludeGroups = true;
 

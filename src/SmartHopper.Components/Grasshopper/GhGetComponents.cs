@@ -117,6 +117,7 @@ namespace SmartHopper.Components.Grasshopper
                     ["connectionDepth"] = connectionDepth,
                     ["includeMetadata"] = includeMetadata,
                     ["guidFilter"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
+                    ["includeRuntimeData"] = true,
                 };
 
                 // Create AIToolCall and execute
