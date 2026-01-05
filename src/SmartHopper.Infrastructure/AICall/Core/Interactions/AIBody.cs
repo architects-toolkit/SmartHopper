@@ -91,20 +91,16 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 {
                     foreach (var interaction in this.Interactions)
                     {
-                        if (interaction is AIInteractionToolResult tr && tr.Messages != null)
+                        var messages = interaction switch
                         {
-                            foreach (var m in tr.Messages)
-                            {
-                                if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
-                                {
-                                    combined.Add(m);
-                                }
-                            }
-                        }
+                            AIInteractionToolResult tr => tr.Messages,
+                            AIInteractionImage img => img.Messages,
+                            _ => null
+                        };
 
-                        if (interaction is AIInteractionImage img && img.Messages != null)
+                        if (messages != null)
                         {
-                            foreach (var m in img.Messages)
+                            foreach (var m in messages)
                             {
                                 if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
                                 {
