@@ -901,6 +901,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const sendBtn = document.getElementById('send-button');
         const cancelBtn = document.getElementById('cancel-button');
         const regenBtn = document.getElementById('regen-button'); // present only when host injects debug actions
+        const updateBtn = document.getElementById('update-button'); // present only when host injects debug actions
 
         const chatContainer = document.getElementById('chat-container');
         const newIndicator = document.getElementById('new-messages-indicator');
@@ -911,6 +912,7 @@ document.addEventListener('DOMContentLoaded', function () {
             sendBtn: !!sendBtn,
             cancelBtn: !!cancelBtn,
             regenBtn: !!regenBtn,
+            updateBtn: !!updateBtn,
             chatContainer: !!chatContainer,
             newIndicator: !!newIndicator,
             scrollBtn: !!scrollBtn
@@ -955,6 +957,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 window.location.href = 'sh://event?type=regen';
             });
             console.log('[JS] Regen button click handler attached');
+        }
+
+        if (updateBtn) {
+            updateBtn.addEventListener('click', () => {
+                console.log('[JS] Update button clicked');
+                window.location.href = 'sh://event?type=update';
+            });
+            console.log('[JS] Update button click handler attached');
         }
 
         if (input) {
@@ -1084,6 +1094,25 @@ function resetMessages() {
     }
 
     console.log('[JS] resetMessages: cleared messages and caches');
+}
+
+/**
+ * Returns an array of all message keys currently in the DOM.
+ * @returns {string[]} Array of message keys (dataset.key values)
+ */
+function getAllMessageKeys() {
+    try {
+        const chatContainer = document.getElementById('chat-container');
+        if (!chatContainer) return [];
+        
+        const messages = Array.from(chatContainer.querySelectorAll('.message'));
+        return messages
+            .map(m => m.dataset && m.dataset.key)
+            .filter(k => k && k.length > 0);
+    } catch (err) {
+        console.error('[JS] getAllMessageKeys error:', err);
+        return [];
+    }
 }
 
 // Copy handler: only override when one or more FULL messages are selected

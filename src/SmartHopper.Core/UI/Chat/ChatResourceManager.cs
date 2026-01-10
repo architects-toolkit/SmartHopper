@@ -132,7 +132,7 @@ namespace SmartHopper.Core.UI.Chat
         private string GetDebugActionsLeftHtml()
         {
 #if DEBUG
-            return "<button id=\"regen-button\" type=\"button\">Regen</button>";
+            return "<button id=\"regen-button\" type=\"button\">Regen</button><button id=\"update-button\" type=\"button\">Update</button>";
 #else
             return string.Empty;
 #endif
