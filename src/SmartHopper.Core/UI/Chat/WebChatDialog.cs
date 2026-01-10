@@ -1241,6 +1241,23 @@ namespace SmartHopper.Core.UI.Chat
                                 }
                             });
                             break;
+
+                        case "update":
+                            DebugLog($"[WebChatDialog] Handling update event");
+
+                            // Defer to next UI tick to avoid executing scripts during navigation event
+                            Application.Instance?.AsyncInvoke(() =>
+                            {
+                                try
+                                {
+                                    this.UpdateChatView();
+                                }
+                                catch (Exception ex)
+                                {
+                                    DebugLog($"[WebChatDialog] Deferred UpdateChatView error: {ex.Message}");
+                                }
+                            });
+                            break;
 #endif
 
                         default:
@@ -1340,6 +1357,169 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 DebugLog($"[WebChatDialog] RegenChat error: {ex.Message}");
+            }
+        }
+
+        private void UpdateChatView()
+        {
+            try
+            {
+                this.RunWhenWebViewReady(() =>
+                {
+                    try
+                    {
+                        // Get all message keys currently in the DOM
+                        // NOTE: WebView.ExecuteScript return format varies by platform/implementation.
+                        // It may return:
+                        // - a raw JSON array (e.g. ["k1","k2"])
+                        // - a quoted JSON string (e.g. "[\"k1\",\"k2\"]")
+                        // - "undefined" / "null" / empty
+                        string rawDomKeysResult = this._webView.ExecuteScript("getAllMessageKeys();") ?? string.Empty;
+
+                        // Normalize to a JSON array string
+                        string domKeysJson = rawDomKeysResult.Trim();
+                        if (string.Equals(domKeysJson, "undefined", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(domKeysJson, "null", StringComparison.OrdinalIgnoreCase))
+                        {
+                            domKeysJson = string.Empty;
+                        }
+
+                        // If WebView returned a quoted JSON string, unquote it first
+                        if (!string.IsNullOrWhiteSpace(domKeysJson) && domKeysJson.StartsWith("\"", StringComparison.Ordinal))
+                        {
+                            try
+                            {
+                                domKeysJson = JsonConvert.DeserializeObject<string>(domKeysJson) ?? string.Empty;
+                            }
+                            catch
+                            {
+                                // Fall through with original value
+                            }
+                        }
+
+                        // Final fallback: ask JS to stringify explicitly
+                        if (string.IsNullOrWhiteSpace(domKeysJson) || (!domKeysJson.StartsWith("[", StringComparison.Ordinal) && !domKeysJson.StartsWith("{", StringComparison.Ordinal)))
+                        {
+                            domKeysJson = (this._webView.ExecuteScript("JSON.stringify(getAllMessageKeys());") ?? string.Empty).Trim();
+                            if (!string.IsNullOrWhiteSpace(domKeysJson) && domKeysJson.StartsWith("\"", StringComparison.Ordinal))
+                            {
+                                try
+                                {
+                                    domKeysJson = JsonConvert.DeserializeObject<string>(domKeysJson) ?? string.Empty;
+                                }
+                                catch
+                                {
+                                }
+                            }
+                        }
+
+                        if (string.IsNullOrWhiteSpace(domKeysJson))
+                        {
+                            DebugLog($"[WebChatDialog] UpdateChatView: No DOM keys returned (raw='{rawDomKeysResult}')");
+                            return;
+                        }
+
+                        List<string>? domKeys;
+                        try
+                        {
+                            domKeys = JsonConvert.DeserializeObject<List<string>>(domKeysJson);
+                        }
+                        catch (Exception dex)
+                        {
+                            DebugLog($"[WebChatDialog] UpdateChatView: Failed to parse DOM keys. raw='{rawDomKeysResult}', normalized='{domKeysJson}'. Error: {dex.Message}");
+                            this.ExecuteScript("showToast('Update failed: could not parse DOM keys');");
+                            return;
+                        }
+                        if (domKeys == null || domKeys.Count == 0)
+                        {
+                            DebugLog("[WebChatDialog] UpdateChatView: No messages in DOM");
+                            return;
+                        }
+
+                        DebugLog($"[WebChatDialog] UpdateChatView: Found {domKeys.Count} messages in DOM");
+
+                        // Get conversation history
+                        var interactions = this._currentSession?.GetHistoryInteractionList();
+                        if (interactions == null || interactions.Count == 0)
+                        {
+                            DebugLog("[WebChatDialog] UpdateChatView: No conversation history");
+                            return;
+                        }
+
+                        // Build a lookup map: dedupKey -> interaction
+                        var interactionMap = new Dictionary<string, IAIInteraction>(StringComparer.Ordinal);
+                        foreach (var interaction in interactions)
+                        {
+                            if (interaction is IAIKeyedInteraction keyed)
+                            {
+                                var key = keyed.GetDedupKey();
+                                if (!string.IsNullOrWhiteSpace(key))
+                                {
+                                    interactionMap[key] = interaction;
+                                }
+                            }
+                        }
+
+                        // Check each DOM message and update if hash differs
+                        int updatedCount = 0;
+                        int skippedCount = 0;
+
+                        foreach (var domKey in domKeys)
+                        {
+                            if (!interactionMap.TryGetValue(domKey, out var interaction))
+                            {
+                                DebugLog($"[WebChatDialog] UpdateChatView: DOM key '{domKey}' not found in history, skipping");
+                                skippedCount++;
+                                continue;
+                            }
+
+                            // Render the current state of this interaction
+                            string html;
+                            try
+                            {
+                                lock (this._htmlRenderLock)
+                                {
+                                    html = this._htmlRenderer.RenderInteraction(interaction);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                DebugLog($"[WebChatDialog] UpdateChatView: Failed to render interaction '{domKey}': {ex.Message}");
+                                skippedCount++;
+                                continue;
+                            }
+
+                            // Compare hash with cached version
+                            if (this._lastDomHtmlByKey.TryGetValue(domKey, out var cachedHtml))
+                            {
+                                if (string.Equals(html, cachedHtml, StringComparison.Ordinal))
+                                {
+                                    // Same content, skip update
+                                    skippedCount++;
+                                    continue;
+                                }
+                            }
+
+                            // Content differs, update the message
+                            this.UpdateIdempotencyCache(domKey, html ?? string.Empty);
+                            this.ExecuteScript($"upsertMessage({JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});");
+                            updatedCount++;
+                        }
+
+                        var statusMsg = $"Update complete: {updatedCount} updated, {skippedCount} unchanged";
+                        DebugLog($"[WebChatDialog] UpdateChatView: {statusMsg}");
+                        this.ExecuteScript($"showToast({JsonConvert.SerializeObject(statusMsg)});");
+                    }
+                    catch (Exception ex)
+                    {
+                        DebugLog($"[WebChatDialog] UpdateChatView UI error: {ex.Message}");
+                        this.ExecuteScript($"showToast('Update failed: {ex.Message.Replace("'", "\\'")}');");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] UpdateChatView error: {ex.Message}");
             }
         }
 #endif
