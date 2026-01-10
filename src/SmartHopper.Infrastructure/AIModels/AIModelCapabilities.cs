@@ -77,6 +77,12 @@ namespace SmartHopper.Infrastructure.AIModels
         public string CacheKeyStrategy { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the maximum context window size in tokens for this model.
+        /// When null, context limit is unknown and automatic summarization at threshold is skipped.
+        /// </summary>
+        public int? ContextLimit { get; set; }
+
+        /// <summary>
         /// List of AI tool names for which this model is discouraged.
         /// When a component uses any of these tools, a "not recommended" badge will be displayed.
         /// </summary>

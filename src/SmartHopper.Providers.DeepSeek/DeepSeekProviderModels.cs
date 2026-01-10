@@ -47,6 +47,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Default = AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Rank = 80,
+                    ContextLimit = 64000,
                 },
                 new AIModelCapabilities
                 {
@@ -56,6 +57,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Default = AICapability.Text2Text | AICapability.ToolChat,
                     SupportsStreaming = true,
                     Rank = 90,
+                    ContextLimit = 60000,
                 },
             };
 

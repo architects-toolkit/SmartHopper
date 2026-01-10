@@ -258,9 +258,12 @@ namespace SmartHopper.Providers.MistralAI
 
             Debug.WriteLine($"[MistralAI] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
 
+            // Merge System and Summary interactions before encoding
+            var mergedInteractions = this.MergeSystemAndSummary(request.Body.Interactions);
+
             // Format messages for Mistral API (reuse per-interaction encoder)
             var convertedMessages = new JArray();
-            foreach (var interaction in request.Body.Interactions)
+            foreach (var interaction in mergedInteractions)
             {
                 var token = this.EncodeToJToken(interaction);
                 if (token != null)

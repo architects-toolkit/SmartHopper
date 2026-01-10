@@ -169,7 +169,10 @@ namespace SmartHopper.Providers.DeepSeek
             JObject currentMessage = null;
             var currentToolCalls = new JArray();
 
-            foreach (var interaction in request.Body.Interactions)
+            // Merge System and Summary interactions before encoding
+            var mergedInteractions = this.MergeSystemAndSummary(request.Body.Interactions);
+
+            foreach (var interaction in mergedInteractions)
             {
                 try
                 {
