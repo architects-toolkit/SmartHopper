@@ -97,6 +97,8 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         /// </summary>
         public int EffectiveTotalTokens => System.Math.Max(this.TotalTokens, this.TotalEstimatedTokens);
 
+        public int LastEffectiveTotalTokens { get; set; }
+
         /// <summary>
         /// Gets the context usage percentage (0.0 to 1.0) based on EffectiveTotalTokens and the model's context limit.
         /// Calculated using provider/model from this metrics instance.
@@ -122,7 +124,9 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                     return null;
                 }
 
-                var effectiveTokens = this.EffectiveTotalTokens;
+                var effectiveTokens = this.LastEffectiveTotalTokens > 0
+                    ? this.LastEffectiveTotalTokens
+                    : this.EffectiveTotalTokens;
                 var usage = (double)effectiveTokens / contextLimit.Value;
                 var roundedUsage = System.Math.Round(usage, 4);
 
@@ -186,6 +190,10 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         {
             var skipLog = IsDefault(this) && IsDefault(other);
 
+            var otherLast = other.LastEffectiveTotalTokens > 0
+                ? other.LastEffectiveTotalTokens
+                : other.EffectiveTotalTokens;
+
             if (!skipLog)
             {
                 Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
@@ -213,6 +221,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             this.EstimatedInputTokens += other.EstimatedInputTokens;
             this.EstimatedOutputTokens += other.EstimatedOutputTokens;
             this.CompletionTime += other.CompletionTime;
+            this.LastEffectiveTotalTokens = otherLast;
         }
 
         private static bool IsDefault(AIMetrics metrics)

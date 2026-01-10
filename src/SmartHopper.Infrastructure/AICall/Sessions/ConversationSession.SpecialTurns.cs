@@ -414,7 +414,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         Content = textInteraction.Content,
                         Time = textInteraction.Time,
                         TurnId = textInteraction.TurnId,
+                        Metrics = textInteraction.Metrics,
                     };
+
+                    if (summaryInteraction.Metrics != null)
+                    {
+                        summaryInteraction.Metrics.LastEffectiveTotalTokens = 0;
+                    }
+
                     builder.Add(summaryInteraction, markAsNew: false);
                 }
                 else
