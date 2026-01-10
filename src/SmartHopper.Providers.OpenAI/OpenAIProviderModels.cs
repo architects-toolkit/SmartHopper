@@ -53,6 +53,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -63,6 +64,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 95,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -72,6 +74,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -82,6 +85,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Deprecated = true,
                     Rank = 60,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -91,6 +95,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -100,6 +105,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 80,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -109,6 +115,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 90,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -118,6 +125,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 80,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -127,6 +135,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -136,6 +145,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -145,6 +155,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -154,6 +165,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
+                    ContextLimit = 1047576,
                 },
                 new AIModelCapabilities
                 {
@@ -163,6 +175,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 85,
+                    ContextLimit = 1047576,
                 },
                 new AIModelCapabilities
                 {
@@ -172,6 +185,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 65,
+                    ContextLimit = 1047576,
                 },
                 new AIModelCapabilities
                 {
@@ -181,6 +195,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 40,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -191,6 +206,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Deprecated = true,
                     Rank = 40,
+                    ContextLimit = 8192,
                 },
                 new AIModelCapabilities
                 {
@@ -201,6 +217,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Deprecated = true,
                     Rank = 40,
+                    ContextLimit = 16385,
                 },
                 new AIModelCapabilities
                 {
@@ -210,6 +227,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -220,6 +238,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Deprecated = true,
                     Rank = 40,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -230,9 +249,8 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Deprecated = true,
                     Rank = 50,
+                    ContextLimit = 200000,
                 },
-
-                // ChatGPT
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -241,6 +259,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 40,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -250,6 +269,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 30,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -259,6 +279,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 30,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -269,6 +290,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Deprecated = true,
                     Rank = 30,
+                    ContextLimit = 128000,
                 },
 
                 // Image
@@ -321,6 +343,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 60,
+                    ContextLimit = 2000,
                 },
                 new AIModelCapabilities
                 {
@@ -330,6 +353,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 16000,
                 },
                 new AIModelCapabilities
                 {
@@ -339,6 +363,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 60,
+                    ContextLimit = 16000,
                 },
                 new AIModelCapabilities
                 {
@@ -348,6 +373,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 60,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -357,6 +383,7 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 40,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -367,6 +394,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Deprecated = true,
                     Rank = 45,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
@@ -377,6 +405,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Deprecated = true,
                     Rank = 40,
+                    ContextLimit = 128000,
                 },
                 new AIModelCapabilities
                 {
