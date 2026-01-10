@@ -10,13 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Context Management:
-  - Added `ContextLimit` property to `AIModelCapabilities` for storing model context window sizes.
+  - Added `ContextLimit` property to `AIModelCapabilities` for storing model context window sizes across all providers (Anthropic, DeepSeek, OpenAI, OpenRouter, MistralAI).
   - Added `SummarizeSpecialTurn` factory for creating conversation summarization special turns.
   - Added automatic context tracking in `ConversationSession` with percentage calculation.
   - Added pre-emptive summarization when context usage exceeds 80% of model limit.
   - Added context exceeded error detection and automatic summarization with retry.
   - Added graceful error handling when summarization fails to reduce context size.
   - Added context limits for all MistralAI models (128K for most, 40K for Magistral, 32K for Voxtral).
+- Metrics:
+  - Added `LastEffectiveTotalTokens` field to `AIMetrics` for accurate context usage percentage calculation.
+- WebChat Debug:
+  - Added debug Update button to refresh chat view from conversation history.
+  - Added DOM synchronization functionality to compare cached HTML hashes and update only changed messages.
 - GhJSON canvas tools:
   - Added `gh_get_start` / `gh_get_start_with_data` tools to retrieve start nodes (components with no incoming connections) with optional runtime data.
   - Added `gh_get_end` / `gh_get_end_with_data` tools to retrieve end nodes (components with no outgoing connections) with optional runtime data, providing a wide view of definition outputs.
