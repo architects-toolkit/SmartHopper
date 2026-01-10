@@ -25,7 +25,7 @@ namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
     /// Component that converts selected or all Grasshopper components to GhJSON format.
-    /// Supports optional filtering by runtime messages (errors, warnings, and remarks), component states (selected, enabled, disabled), preview capability (previewcapable, notpreviewcapable), preview state (previewon, previewoff), and classification by object type via Type filter (params, components, input, output, processing, isolated).
+    /// Supports optional filtering by runtime messages (errors, warnings, and remarks), component states (selected, enabled, disabled), preview capability (previewcapable, notpreviewcapable), preview state (previewon, previewoff), and classification by object type via Type filter (params, components, startnodes, endnodes, middlenodes, isolatednodes).
     /// Optionally includes document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies).
     /// </summary>
     public class GhGetComponents : SelectingComponentBase
@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Grasshopper
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'inputcomponents', 'outputcomponents', 'processingcomponents', 'isolatedcomponents'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'startnodes', 'endnodes', 'middlenodes', 'isolatednodes'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
             pManager.AddTextParameter("Category Filter", "C", "Optional list of category filters by Grasshopper category or subcategory (e.g. 'Maths', 'Params', 'Script'). Use '+name' to include and '-name' to exclude.", GH_ParamAccess.list, "");
             pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
             pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
@@ -117,6 +117,7 @@ namespace SmartHopper.Components.Grasshopper
                     ["connectionDepth"] = connectionDepth,
                     ["includeMetadata"] = includeMetadata,
                     ["guidFilter"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
+                    ["includeRuntimeData"] = true,
                 };
 
                 // Create AIToolCall and execute

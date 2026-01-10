@@ -160,7 +160,11 @@ namespace SmartHopper.Providers.OpenRouter
 
             // Build messages from interactions
             var messages = new JArray();
-            foreach (var interaction in request.Body.Interactions)
+
+            // Merge System and Summary interactions before encoding
+            var mergedInteractions = this.MergeSystemAndSummary(request.Body.Interactions);
+
+            foreach (var interaction in mergedInteractions)
             {
                 try
                 {
