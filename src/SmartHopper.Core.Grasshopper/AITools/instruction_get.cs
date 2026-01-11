@@ -93,11 +93,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 case "visibility":
                     return """
 Canvas state reading:
-- Use gh_get_selected when the user refers to “this/these/selected”.
+- Use gh_get_selected when the user refers to "this/these/selected".
 - Use gh_get_errors to locate broken definitions.
 - Use gh_get_locked / gh_get_hidden / gh_get_visible for quick filters.
+- Use gh_get_start / gh_get_end to get a wide view of data sources (startnodes) or outputs (endnodes).
+- Use gh_get_start_with_data / gh_get_end_with_data to inspect initial values or final outputs with runtime data.
 - Use gh_get_by_guid only when you already have GUIDs from prior steps.
 - Use gh_get (generic) only when a specialized tool does not fit.
+
+Node types terminology:
+- startnodes: components with no incoming connections (data sources like parameters, sliders)
+- endnodes: components with no outgoing connections (data sinks like panels, preview)
+- middlenodes: components with both incoming and outgoing connections (processors)
+- isolatednodes: components with neither incoming nor outgoing connections
 
 Quick actions on selected components (no GUIDs needed):
 - gh_group_selected

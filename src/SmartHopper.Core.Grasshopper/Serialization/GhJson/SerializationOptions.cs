@@ -82,6 +82,23 @@ namespace SmartHopper.Core.Grasshopper.Serialization.GhJson
         };
 
         /// <summary>
+        /// Creates default options for Optimized format serialization.
+        /// Same as Standard, but suppresses bulky data fields (PersistentData).
+        /// Intended for AI context where values are not needed and token usage matters.
+        /// </summary>
+        public static SerializationOptions Optimized => new SerializationOptions
+        {
+            Context = SerializationContext.Optimized,
+            IncludeMetadata = true,
+            IncludeGroups = true,
+            IncludeConnections = true,
+            UseCompactIds = true,
+            ExtractScriptTypeHints = true,
+            ExtractComponentState = true,
+            ExtractParameterExpressions = true
+        };
+
+        /// <summary>
         /// Creates options for Lite format serialization.
         /// Compressed variant optimized for minimal token usage.
         /// Excludes GUIDs, UI state, and component-specific properties.

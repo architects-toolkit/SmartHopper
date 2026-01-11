@@ -49,6 +49,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 15,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -58,6 +59,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -68,6 +70,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 20,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -78,6 +81,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 80,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -88,6 +92,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 70,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -98,6 +103,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 60,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -108,6 +114,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 60,
+                    ContextLimit = 200000,
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
@@ -119,6 +126,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 95,
+                    ContextLimit = 200000,
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
@@ -130,6 +138,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 90,
+                    ContextLimit = 200000,
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
@@ -141,6 +150,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 60,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -151,6 +161,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Rank = 70,
                     Deprecated = true,
+                    ContextLimit = 200000,
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
@@ -161,6 +172,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 85,
+                    ContextLimit = 200000,
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
                 new AIModelCapabilities
@@ -172,6 +184,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 20,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -182,6 +195,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 20,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -192,6 +206,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Deprecated = true,
                     Rank = 75,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -201,6 +216,7 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 80,
+                    ContextLimit = 200000,
                 },
             };
 

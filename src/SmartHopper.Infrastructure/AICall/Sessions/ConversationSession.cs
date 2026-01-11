@@ -195,6 +195,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     // Allocate a fresh TurnId for this assistant turn
                     var turnId = Guid.NewGuid().ToString("N");
 
+                    // Reset summarization flag at the start of each turn
+                    this.ResetSummarizationFlag();
+
+                    // Check context usage before provider call and summarize if needed (applies to both streaming and non-streaming)
+                    await this.CheckAndSummarizeContextAsync(linkedCts.Token).ConfigureAwait(false);
+
                     if (!yieldDeltas)
                     {
                         AIReturn nsPrepared = null;
@@ -205,6 +211,18 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         {
                             // Non-streaming composite turn
                             nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
+
+                            // Reactive summarization: if provider failed due to context size, summarize once and retry.
+                            if (IsContextExceededReturn(nsPrepared))
+                            {
+                                var retryOk = await this.TrySummarizeAndRetryAsync("Provider returned context exceeded error", linkedCts.Token).ConfigureAwait(false);
+                                if (retryOk)
+                                {
+                                    Debug.WriteLine("[ConversationSession] Retrying provider turn after summarization (non-streaming)");
+                                    nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
+                                }
+                            }
+
                             lastReturn = nsPrepared;
 
                             if (!options.ProcessTools)
@@ -229,7 +247,50 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                         }
                         catch (Exception ex)
                         {
-                            nsError = this.HandleAndNotifyError(ex);
+                            // Reactive summarization: if the provider threw due to context size, summarize once and retry.
+                            if (IsContextExceededError(ex))
+                            {
+                                var retryOk = await this.TrySummarizeAndRetryAsync("Provider threw context exceeded exception", linkedCts.Token).ConfigureAwait(false);
+                                if (retryOk)
+                                {
+                                    try
+                                    {
+                                        Debug.WriteLine("[ConversationSession] Retrying provider turn after summarization (non-streaming exception)");
+                                        nsPrepared = await this.ExecuteProviderTurnAsync(options, turnId, linkedCts.Token).ConfigureAwait(false);
+                                        lastReturn = nsPrepared;
+
+                                        if (!options.ProcessTools)
+                                        {
+                                            this.NotifyFinal(nsPrepared);
+                                            nsShouldBreak = true;
+                                        }
+                                        else if (this.Request.Body.PendingToolCallsCount() == 0)
+                                        {
+                                            var finalStable = lastReturn ?? new AIReturn();
+                                            this._lastReturn = finalStable;
+                                            this.UpdateLastReturn();
+                                            this.NotifyFinal(finalStable);
+                                            nsPrepared = finalStable;
+                                            nsShouldBreak = true;
+                                        }
+                                    }
+                                    catch (Exception retryEx)
+                                    {
+                                        nsError = this.HandleAndNotifyError(retryEx);
+                                        nsShouldBreak = true;
+                                    }
+                                }
+                                else
+                                {
+                                    nsError = this.HandleAndNotifyError(ex);
+                                    nsShouldBreak = true;
+                                }
+                            }
+                            else
+                            {
+                                nsError = this.HandleAndNotifyError(ex);
+                                nsShouldBreak = true;
+                            }
                             nsShouldBreak = true;
                         }
 
@@ -289,6 +350,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             // Streaming path: use shared helper for delta processing
                             var streamResult = await this.ProcessStreamingDeltasAsync(adapter, streamingOptions!, state.TurnId, linkedCts.Token).ConfigureAwait(false);
 
+                            // Reactive summarization: if streaming failed due to context size, summarize once and retry streaming.
+                            if (streamResult.HasError && ConversationSession.IsContextExceededError(streamResult.ErrorMessage))
+                            {
+                                var retryOk = await this.TrySummarizeAndRetryAsync("Streaming provider returned context exceeded error", linkedCts.Token).ConfigureAwait(false);
+                                if (retryOk)
+                                {
+                                    Debug.WriteLine("[ConversationSession] Retrying streaming after summarization");
+                                    streamResult = await this.ProcessStreamingDeltasAsync(adapter, streamingOptions!, state.TurnId, linkedCts.Token).ConfigureAwait(false);
+                                }
+                            }
+
                             // Transfer results to turn state
                             state.AccumulatedText = streamResult.AccumulatedText;
                             state.LastDelta = streamResult.LastDelta;
@@ -345,7 +417,38 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     }
                     catch (Exception ex)
                     {
-                        state.ErrorYield = this.HandleAndNotifyError(ex);
+                        // Reactive summarization: if we blew context length, summarize once and retry with streaming disabled.
+                        if (IsContextExceededError(ex))
+                        {
+                            var retryOk = await this.TrySummarizeAndRetryAsync("Streaming provider threw context exceeded exception", linkedCts.Token).ConfigureAwait(false);
+                            if (retryOk)
+                            {
+                                try
+                                {
+                                    Debug.WriteLine("[ConversationSession] Retrying as non-streaming after summarization (streaming exception)");
+                                    var composite = await this.ExecuteProviderTurnAsync(options, state.TurnId, linkedCts.Token).ConfigureAwait(false);
+                                    lastReturn = composite;
+                                    this.NotifyFinal(composite);
+                                    state.FinalProviderYield = composite;
+                                    state.ShouldBreak = true;
+                                }
+                                catch (Exception retryEx)
+                                {
+                                    state.ErrorYield = this.HandleAndNotifyError(retryEx);
+                                    state.ShouldBreak = true;
+                                }
+                            }
+                            else
+                            {
+                                state.ErrorYield = this.HandleAndNotifyError(ex);
+                                state.ShouldBreak = true;
+                            }
+                        }
+                        else
+                        {
+                            state.ErrorYield = this.HandleAndNotifyError(ex);
+                            state.ShouldBreak = true;
+                        }
                         state.ShouldBreak = true;
                     }
 

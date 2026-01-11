@@ -52,6 +52,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 95,
+                    ContextLimit = 400000,
                 },
                 new AIModelCapabilities
                 {
@@ -61,6 +62,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 85,
+                    ContextLimit = 131072,
                 },
                 new AIModelCapabilities
                 {
@@ -70,6 +72,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 90,
+                    ContextLimit = 200000,
                 },
                 new AIModelCapabilities
                 {
@@ -79,6 +82,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 80,
+                    ContextLimit = 60000,
                 },
                 new AIModelCapabilities
                 {
@@ -88,6 +92,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 85,
+                    ContextLimit = 1048576,
                 },
                 new AIModelCapabilities
                 {
@@ -97,6 +102,7 @@ namespace SmartHopper.Providers.OpenRouter
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 128000,
                 },
             };
 

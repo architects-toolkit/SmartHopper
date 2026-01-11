@@ -66,7 +66,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""typeFilter"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"" },
-                            ""description"": ""Optional array of type tokens with include/exclude syntax. Defaults to all types. Available tokens:\n  params: only parameter objects;\n  components: only component objects;\n  input: components with no incoming connections;\n  output: components with no outgoing connections;\n  processing: components with both incoming and outgoing connections;\n  isolated: components with neither incoming nor outgoing connections.\nExamples: ['+params', '-components'] to include parameters and exclude components.""
+                            ""description"": ""Optional array of type tokens with include/exclude syntax. Defaults to all types. Available tokens:\n  params: only parameter objects;\n  components: only component objects;\n  startnodes: components with no incoming connections (data sources);\n  endnodes: components with no outgoing connections (data sinks);\n  middlenodes: components with both incoming and outgoing connections (processors);\n  isolatednodes: components with neither incoming nor outgoing connections.\nExamples: ['+params', '-components'] to include parameters and exclude components.""
                         },
                         ""guidFilter"": {
                             ""type"": ""array"",
@@ -256,6 +256,74 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }",
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }, null, false));
+
+            // Specialized wrapper: gh_get_start
+            yield return new AITool(
+                name: "gh_get_start",
+                description: "Read only start nodes (components with no incoming connections - data sources like parameters, sliders, panels with internalized data). Use this to get a wide view of where data originates in the definition. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only start nodes; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, false));
+
+            // Specialized wrapper: gh_get_start_with_data
+            yield return new AITool(
+                name: "gh_get_start_with_data",
+                description: "Read start nodes (data sources) WITH their runtime data. Use this to inspect what initial values are feeding into the definition. Returns GhJSON with 'runtimeData'. This is token-expansive!",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only start nodes; 1 includes directly connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, true));
+
+            // Specialized wrapper: gh_get_end
+            yield return new AITool(
+                name: "gh_get_end",
+                description: "Read only end nodes (components with no outgoing connections - data sinks like panels, preview components, bake components). Use this to get a wide view of the definition's outputs. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only end nodes; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, false));
+
+            // Specialized wrapper: gh_get_end_with_data
+            yield return new AITool(
+                name: "gh_get_end_with_data",
+                description: "Read end nodes (data sinks) WITH their runtime data. Use this to inspect the final computed outputs of the definition. Returns GhJSON with 'runtimeData'. This is token-expansive!",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only end nodes; 1 includes directly connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, true));
         }
 
         /// <summary>
@@ -306,6 +374,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
+                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}");
                 var (includeTypes, excludeTypes) = ComponentRetriever.ParseIncludeExclude(typeFilters, ComponentRetriever.TypeSynonyms);
                 var (includeTags, excludeTags) = ComponentRetriever.ParseIncludeExclude(attrFilters, ComponentRetriever.FilterSynonyms);
                 var (includeCats, excludeCats) = ComponentRetriever.ParseIncludeExclude(categoryFilters, ComponentRetriever.CategorySynonyms);
@@ -325,9 +394,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         tf.AddRange(objects.OfType<GH_Component>());
                     }
 
-                    if (includeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
+                    if (includeTypes.Overlaps(new[] { "STARTNODES", "ENDNODES", "MIDDLENODES", "ISOLATEDNODES" }))
                     {
-                        var serOptions1 = SerializationOptions.Standard;
+                        var serOptions1 = SerializationOptions.Optimized;
                         serOptions1.IncludeMetadata = false;
                         serOptions1.IncludeGroups = false;
                         var tempDoc = GhJsonSerializer.Serialize(objects, serOptions1);
@@ -343,22 +412,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
                         }
 
-                        if (includeTypes.Contains("INPUT"))
+                        if (includeTypes.Contains("STARTNODES"))
                         {
                             tf.AddRange(objects.Where(c => !incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid)));
                         }
 
-                        if (includeTypes.Contains("OUTPUT"))
+                        if (includeTypes.Contains("ENDNODES"))
                         {
                             tf.AddRange(objects.Where(c => !outd.ContainsKey(c.InstanceGuid) && incd.ContainsKey(c.InstanceGuid)));
                         }
 
-                        if (includeTypes.Contains("PROCESSING"))
+                        if (includeTypes.Contains("MIDDLENODES"))
                         {
                             tf.AddRange(objects.Where(c => incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid)));
                         }
 
-                        if (includeTypes.Contains("ISOLATED"))
+                        if (includeTypes.Contains("ISOLATEDNODES"))
                         {
                             tf.AddRange(objects.Where(c => !incd.ContainsKey(c.InstanceGuid) && !outd.ContainsKey(c.InstanceGuid)));
                         }
@@ -384,9 +453,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         typeFiltered.RemoveAll(o => o is GH_Component);
                     }
 
-                    if (excludeTypes.Overlaps(new[] { "INPUT", "OUTPUT", "PROCESSING", "ISOLATED" }))
+                    if (excludeTypes.Overlaps(new[] { "STARTNODES", "ENDNODES", "MIDDLENODES", "ISOLATEDNODES" }))
                     {
-                        var serOptions2 = SerializationOptions.Standard;
+                        var serOptions2 = SerializationOptions.Optimized;
                         serOptions2.IncludeMetadata = false;
                         serOptions2.IncludeGroups = false;
                         var tempDoc = GhJsonSerializer.Serialize(typeFiltered, serOptions2);
@@ -402,22 +471,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
                         }
 
-                        if (excludeTypes.Contains("INPUT"))
+                        if (excludeTypes.Contains("STARTNODES"))
                         {
                             typeFiltered.RemoveAll(c => !incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid));
                         }
 
-                        if (excludeTypes.Contains("OUTPUT"))
+                        if (excludeTypes.Contains("ENDNODES"))
                         {
                             typeFiltered.RemoveAll(c => !outd.ContainsKey(c.InstanceGuid) && incd.ContainsKey(c.InstanceGuid));
                         }
 
-                        if (excludeTypes.Contains("PROCESSING"))
+                        if (excludeTypes.Contains("MIDDLENODES"))
                         {
                             typeFiltered.RemoveAll(c => incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid));
                         }
 
-                        if (excludeTypes.Contains("ISOLATED"))
+                        if (excludeTypes.Contains("ISOLATEDNODES"))
                         {
                             typeFiltered.RemoveAll(c => !incd.ContainsKey(c.InstanceGuid) && !outd.ContainsKey(c.InstanceGuid));
                         }
@@ -576,7 +645,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (connectionDepth > 0)
                 {
                     var allObjects = CanvasAccess.GetCurrentObjects();
-                    var serOptions3 = SerializationOptions.Standard;
+                    var serOptions3 = SerializationOptions.Optimized;
                     serOptions3.IncludeMetadata = false;
                     serOptions3.IncludeGroups = false;
                     var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions3);
@@ -598,7 +667,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                var serOptions = SerializationOptions.Standard;
+                // Use Standard when returning the main GhJSON, so gh_put can restore PersistentData correctly.
+                // Use Optimized when the caller did not request runtime data and token usage matters.
+                var serOptions = includeRuntimeData ? SerializationOptions.Standard : SerializationOptions.Optimized;
                 serOptions.IncludeMetadata = includeMetadata;
                 serOptions.IncludeGroups = true;
 
