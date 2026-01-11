@@ -33,28 +33,28 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization
     public static class ScriptComponentFactory
     {
         /// <summary>Python 3 script component GUID.</summary>
-        public static readonly Guid Python3Guid = new Guid("410755b1-224a-4c1e-a407-bf32fb45ea7e");
+        public static readonly Guid Python3Guid = new Guid("719467e6-7cf5-4848-99b0-c5dd57e5442c");
 
         /// <summary>IronPython 2 (legacy GhPython) component GUID.</summary>
-        public static readonly Guid IronPython2Guid = new Guid("410755b1-224a-4c1e-a407-bf32fb45ea7e");
+        public static readonly Guid IronPython2Guid = new Guid("97aa26ef-88ae-4ba6-98a6-ed6ddeca11d1");
 
         /// <summary>C# script component GUID.</summary>
-        public static readonly Guid CSharpGuid = new Guid("c3c87efa-3e6b-4ded-a663-e924a3e3322c");
+        public static readonly Guid CSharpGuid = new Guid("b6ba1144-02d6-4a2d-b53c-ec62e290eeb7");
 
         /// <summary>VB.NET script component GUID.</summary>
-        public static readonly Guid VBNetGuid = new Guid("ec3419f1-3e5f-4831-9538-b37933fcaec4");
+        public static readonly Guid VBNetGuid = new Guid("079bd9bd-54a0-41d4-98af-db999015f63d");
 
         private static readonly Dictionary<string, ScriptComponentInfo> _languageMap = new Dictionary<string, ScriptComponentInfo>(StringComparer.OrdinalIgnoreCase)
         {
             ["python"] = new ScriptComponentInfo { Language = "python", ComponentGuid = Python3Guid, Name = "Python 3 Script" },
             ["python3"] = new ScriptComponentInfo { Language = "python", ComponentGuid = Python3Guid, Name = "Python 3 Script" },
-            ["ironpython"] = new ScriptComponentInfo { Language = "ironpython", ComponentGuid = IronPython2Guid, Name = "IronPython Script" },
-            ["ironpython2"] = new ScriptComponentInfo { Language = "ironpython", ComponentGuid = IronPython2Guid, Name = "IronPython Script" },
+            ["ironpython"] = new ScriptComponentInfo { Language = "ironpython", ComponentGuid = IronPython2Guid, Name = "IronPython 2 Script" },
+            ["ironpython2"] = new ScriptComponentInfo { Language = "ironpython", ComponentGuid = IronPython2Guid, Name = "IronPython 2 Script" },
             ["c#"] = new ScriptComponentInfo { Language = "c#", ComponentGuid = CSharpGuid, Name = "C# Script" },
             ["csharp"] = new ScriptComponentInfo { Language = "c#", ComponentGuid = CSharpGuid, Name = "C# Script" },
-            ["vb"] = new ScriptComponentInfo { Language = "vb", ComponentGuid = VBNetGuid, Name = "VB.NET Script" },
-            ["vb.net"] = new ScriptComponentInfo { Language = "vb", ComponentGuid = VBNetGuid, Name = "VB.NET Script" },
-            ["vbnet"] = new ScriptComponentInfo { Language = "vb", ComponentGuid = VBNetGuid, Name = "VB.NET Script" },
+            ["vb"] = new ScriptComponentInfo { Language = "vb", ComponentGuid = VBNetGuid, Name = "VB Script" },
+            ["vb.net"] = new ScriptComponentInfo { Language = "vb", ComponentGuid = VBNetGuid, Name = "VB Script" },
+            ["vbnet"] = new ScriptComponentInfo { Language = "vb", ComponentGuid = VBNetGuid, Name = "VB Script" },
         };
 
         /// <summary>
