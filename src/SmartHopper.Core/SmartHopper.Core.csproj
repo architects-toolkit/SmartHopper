@@ -49,6 +49,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj" />
   </ItemGroup>
 
   <!-- For Windows only builds -->
