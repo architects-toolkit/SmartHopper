@@ -143,7 +143,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         {
             var grid = doc.Components.Select(c => new NodeGridComponent
             {
-                ComponentId = c.InstanceGuid,
+                ComponentId = c.InstanceGuid.GetValueOrDefault(),
                 Pivot = c.Pivot,
                 Parents = new Dictionary<Guid, int>(),
                 Children = new Dictionary<Guid, int>(),

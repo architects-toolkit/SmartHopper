@@ -24,9 +24,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core.Models.Document;
 using GhJSON.Core.Validation;
-using GhJSON.Grasshopper.Serialization.ScriptComponents;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -188,7 +188,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Validate input GhJSON
-                if (!GHJsonAnalyzer.Validate(ghJsonInput, out var inputValidationError))
+                if (!GhJsonValidator.Validate(ghJsonInput, out var inputValidationError))
                 {
                     output.CreateError($"Input GhJSON validation failed: {inputValidationError}");
                     return output;
@@ -341,7 +341,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var ghJsonString = JsonConvert.SerializeObject(doc, Formatting.None);
 
                 // Validate output GhJSON
-                if (!GHJsonAnalyzer.Validate(ghJsonString, out var outputValidationError))
+                if (!GhJsonValidator.Validate(ghJsonString, out var outputValidationError))
                 {
                     output.CreateError($"Output GhJSON validation failed: {outputValidationError}");
                     return output;
