@@ -767,8 +767,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 JObject runtimeData = null;
                 if (includeRuntimeData)
                 {
-                    runtimeData = null;
-                    Debug.WriteLine("[gh_get] includeRuntimeData requested but runtime data extraction is not available in ghjson-dotnet yet");
+                    runtimeData = GhJsonSerializer.ExtractRuntimeData(resultObjects);
+                    Debug.WriteLine($"[gh_get] Extracted runtime data for {runtimeData?.Count ?? 0} components");
                 }
 
                 // Package result with classifications

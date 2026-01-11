@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- GhJSON Migration:
+  - Migrated SmartHopper to fully rely on `ghjson-dotnet` library for all GhJSON serialization, deserialization, validation, and canvas operations.
+  - Removed ~60 internal GhJSON files from SmartHopper.Core and SmartHopper.Core.Grasshopper (models, serializers, validators, property managers, data type serializers).
+  - `gh_get` and `gh_put` AI tools now use `GhJSON.Grasshopper` APIs directly.
+  - Runtime data extraction now uses `GhJsonSerializer.ExtractRuntimeData()` from ghjson-dotnet.
+  - See `docs/Reviews/260111 GhJSON Migration Report.md` for full details.
+
 ## [1.2.4-alpha] - 2026-01-11
 
 ### Fixed
