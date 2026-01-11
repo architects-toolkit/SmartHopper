@@ -87,6 +87,11 @@ jobs:
           color: brightgreen
           file: README.md
 
+      - name: Normalize LGPL license headers
+        shell: pwsh
+        run: |
+          pwsh -ExecutionPolicy Bypass -File .\tools\Update-LicenseHeaders.ps1
+
       # - name: Fix code style
       #   uses: ./.github/actions/code-style
       #   with:
@@ -95,7 +100,7 @@ jobs:
       
       - name: Commit and push changes
         run: |
-          git add Solution.props CHANGELOG.md README.md src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj
+          git add Solution.props CHANGELOG.md README.md src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj src/
           git commit -m "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes"
           git push origin release/${{ github.event.milestone.title }}
 
