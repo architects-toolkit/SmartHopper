@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- AIStatefulAsyncComponentBase: Fixed issue where `context_usage_percent` was not being set correctly.
+
 ## [1.2.3-alpha] - 2026-01-11
 
 ### Added

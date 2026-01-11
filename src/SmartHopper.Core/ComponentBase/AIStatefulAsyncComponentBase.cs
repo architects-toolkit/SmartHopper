@@ -380,6 +380,7 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("tokens_output", metrics.OutputTokens),
                 new JProperty("finish_reason", metrics.FinishReason),
                 new JProperty("completion_time", metrics.CompletionTime),
+                new JProperty("context_usage_percent", metrics.ContextUsagePercent),
                 new JProperty("data_count", this.DataCount),
                 new JProperty("iterations_count", this.ProgressInfo.Total));
 
