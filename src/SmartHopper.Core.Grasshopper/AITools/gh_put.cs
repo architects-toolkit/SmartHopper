@@ -366,6 +366,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Deserialize components on UI thread (required for parameter and attribute ops)
                 Debug.WriteLine("[gh_put] Deserializing components");
                 var options = DeserializationOptions.Standard;
+
+                if (editMode)
+                {
+                    options.PreserveInstanceGuids = true;
+                }
+
                 var tcs = new TaskCompletionSource<GhJSON.Grasshopper.Serialization.DeserializationResult>();
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -397,6 +403,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         var ghDoc = Instances.ActiveCanvas?.Document;
 
+                        // Use the deserializer's GUID mapping so canvas operations (pivot placement, connections, groups)
+                        // can resolve GhJSON component instanceGuids to the actual created GH instances.
+                        var guidMapping = result.GuidMapping ?? new Dictionary<Guid, IGH_DocumentObject>();
+
                         // Remove existing components that will be replaced
                         // Keep document enabled - disabling causes "object expired" errors
                         if (componentsToReplace.Count > 0 && ghDoc != null)
@@ -418,7 +428,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                         // Use exact positions for replacement mode (skip offset calculation)
                         bool useExactPositions = componentsToReplace.Count > 0 && existingPositions.Count > 0;
-                        var guidMapping = new Dictionary<Guid, IGH_DocumentObject>();
 
                         // If we are in editMode, keep the previous positions when available.
                         // ghjson-dotnet's ComponentPlacer uses pivots from GhJSON; when replacing we already preserved pivots in JSON.

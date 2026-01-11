@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using GhJSON.Core.Models.Components;
+using GhJSON.Grasshopper.Serialization.ScriptComponents;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
@@ -40,142 +41,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
     /// </summary>
     public static class ScriptModifier
     {
-        #region Script Component Updates
-
-        /// <summary>
-        /// Updates a script component's code and parameters.
-        /// This is the main entry point for script modifications.
-        /// </summary>
-        /// <param name="scriptComp">Script component to modify</param>
-        /// <param name="newCode">New script code (null to keep existing)</param>
-        /// <param name="newInputs">New input parameters in AI format (null to keep existing)</param>
-        /// <param name="newOutputs">New output parameters in AI format (null to keep existing)</param>
-        public static void UpdateScript(
-            IScriptComponent scriptComp,
-            string newCode = null,
-            JArray newInputs = null,
-            JArray newOutputs = null)
-        {
-            if (scriptComp == null)
-                throw new ArgumentNullException(nameof(scriptComp));
-
-            var ghComp = scriptComp as IGH_Component;
-            if (ghComp == null)
-                throw new ArgumentException("Script component must implement IGH_Component", nameof(scriptComp));
-
-            // Update script code if provided
-            if (newCode != null)
-            {
-                scriptComp.Text = newCode;
-                Debug.WriteLine($"[ScriptModifier] Updated script code ({newCode.Length} chars)");
-            }
-
-            // Update inputs if provided
-            if (newInputs != null)
-            {
-                UpdateParameters(scriptComp, newInputs, isInput: true);
-            }
-
-            // Update outputs if provided
-            if (newOutputs != null)
-            {
-                UpdateParameters(scriptComp, newOutputs, isInput: false);
-            }
-
-            // Refresh component
-            RefreshScriptComponent(scriptComp);
-
-            Debug.WriteLine($"[ScriptModifier] Script component updated successfully");
-        }
-
-        /// <summary>
-        /// Updates only the script code, keeping parameters unchanged.
-        /// </summary>
-        public static void UpdateCode(IScriptComponent scriptComp, string newCode)
-        {
-            if (scriptComp == null)
-                throw new ArgumentNullException(nameof(scriptComp));
-            if (string.IsNullOrEmpty(newCode))
-                throw new ArgumentException("Code cannot be null or empty", nameof(newCode));
-
-            scriptComp.Text = newCode;
-            RefreshScriptComponent(scriptComp);
-
-            Debug.WriteLine($"[ScriptModifier] Updated script code ({newCode.Length} chars)");
-        }
-
-        /// <summary>
-        /// Updates only the script parameters, keeping code unchanged.
-        /// </summary>
-        public static void UpdateParameters(
-            IScriptComponent scriptComp,
-            JArray newInputs = null,
-            JArray newOutputs = null)
-        {
-            if (scriptComp == null)
-                throw new ArgumentNullException(nameof(scriptComp));
-
-            if (newInputs != null)
-            {
-                UpdateParameters(scriptComp, newInputs, isInput: true);
-            }
-
-            if (newOutputs != null)
-            {
-                UpdateParameters(scriptComp, newOutputs, isInput: false);
-            }
-
-            RefreshScriptComponent(scriptComp);
-        }
-
-        #endregion
-
-        #region Parameter Management
-
-        /// <summary>
-        /// Updates script component parameters (inputs or outputs).
-        /// Handles type hints, access types, and data mapping.
-        /// </summary>
-        private static void UpdateParameters(
-            IScriptComponent scriptComp,
-            JArray parameters,
-            bool isInput)
-        {
-            var ghComp = scriptComp as IGH_Component;
-            if (ghComp == null) return;
-
-            var paramList = isInput ? ghComp.Params.Input : ghComp.Params.Output;
-            var paramType = isInput ? "input" : "output";
-
-            // Convert JArray to ParameterSettings
-            var settingsList = ConvertToParameterSettings(parameters, isInput);
-
-            // Clear existing parameters
-            paramList.Clear();
-            Debug.WriteLine($"[ScriptModifier] Cleared existing {paramType} parameters");
-
-            // Add new parameters
-            foreach (var settings in settingsList)
-            {
-                var param = CreateScriptVariableParam(settings, isInput);
-                if (param == null)
-                {
-                    continue;
-                }
-
-                if (isInput)
-                {
-                    ghComp.Params.RegisterInputParam(param);
-                }
-                else
-                {
-                    ghComp.Params.RegisterOutputParam(param);
-                }
-            }
-
-            Debug.WriteLine($"[ScriptModifier] Updated {settingsList.Count} {paramType} parameters");
-        }
-
         /// <summary>
         /// Adds a single input parameter to a script component.
         /// </summary>
@@ -201,11 +66,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 Access = access,
             };
 
-            var param = CreateScriptVariableParam(settings, isInput: true);
+            var language = ScriptComponentHelper.GetScriptLanguageType(scriptComp);
+            var param = ScriptParameterMapper.CreateParameter(
+                settings,
+                defaultName: "input",
+                language: language,
+                isOutput: false);
             if (param != null)
             {
                 param.Description = description;
-                TrySetOptional(param, optional);
+                param.Optional = optional;
                 ghComp.Params.RegisterInputParam(param);
                 Debug.WriteLine($"[ScriptModifier] Added input parameter '{name}' with type '{typeHint}'");
             }
@@ -236,7 +106,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 Access = "item",
             };
 
-            var param = CreateScriptVariableParam(settings, isInput: false);
+            var language = ScriptComponentHelper.GetScriptLanguageType(scriptComp);
+            var param = ScriptParameterMapper.CreateParameter(
+                settings,
+                defaultName: "output",
+                language: language,
+                isOutput: true);
             if (param != null)
             {
                 param.Description = description;
@@ -284,8 +159,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             Debug.WriteLine($"[ScriptModifier] Removed output parameter at index {index}");
         }
-
-        #endregion
 
         #region Type Hint Management
 
@@ -440,153 +313,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             Debug.WriteLine($"[ScriptModifier] Set input {index} optional to '{optional}'");
         }
 
-        /// <summary>
-        /// Sets the description of an input parameter.
-        /// </summary>
-        public static void SetInputDescription(IScriptComponent scriptComp, int index, string description)
-        {
-            if (scriptComp == null)
-                throw new ArgumentNullException(nameof(scriptComp));
-
-            var ghComp = scriptComp as IGH_Component;
-            if (ghComp == null || index < 0 || index >= ghComp.Params.Input.Count)
-                return;
-
-            var param = ghComp.Params.Input[index];
-            param.Description = description ?? string.Empty;
-
-            Debug.WriteLine($"[ScriptModifier] Set input {index} description");
-        }
-
-        /// <summary>
-        /// Sets the description of an output parameter.
-        /// </summary>
-        public static void SetOutputDescription(IScriptComponent scriptComp, int index, string description)
-        {
-            if (scriptComp == null)
-                throw new ArgumentNullException(nameof(scriptComp));
-
-            var ghComp = scriptComp as IGH_Component;
-            if (ghComp == null || index < 0 || index >= ghComp.Params.Output.Count)
-                return;
-
-            var param = ghComp.Params.Output[index];
-            param.Description = description ?? string.Empty;
-
-            Debug.WriteLine($"[ScriptModifier] Set output {index} description");
-        }
-
-        /// <summary>
-        /// Renames an input parameter.
-        /// </summary>
-        public static void RenameInput(IScriptComponent scriptComp, int index, string newName)
-        {
-            if (scriptComp == null)
-                throw new ArgumentNullException(nameof(scriptComp));
-
-            var ghComp = scriptComp as IGH_Component;
-            if (ghComp == null || index < 0 || index >= ghComp.Params.Input.Count)
-                return;
-
-            var param = ghComp.Params.Input[index];
-            param.NickName = newName ?? "input";
-
-            if (param is ScriptVariableParam svp)
-            {
-                svp.Name = newName ?? "input";
-            }
-
-            RefreshScriptComponent(scriptComp);
-            Debug.WriteLine($"[ScriptModifier] Renamed input {index} to '{newName}'");
-        }
-
-        /// <summary>
-        /// Renames an output parameter.
-        /// </summary>
-        public static void RenameOutput(IScriptComponent scriptComp, int index, string newName)
-        {
-            if (scriptComp == null)
-                throw new ArgumentNullException(nameof(scriptComp));
-
-            var ghComp = scriptComp as IGH_Component;
-            if (ghComp == null || index < 0 || index >= ghComp.Params.Output.Count)
-                return;
-
-            var param = ghComp.Params.Output[index];
-            param.NickName = newName ?? "output";
-
-            if (param is ScriptVariableParam svp)
-            {
-                svp.Name = newName ?? "output";
-            }
-
-            RefreshScriptComponent(scriptComp);
-            Debug.WriteLine($"[ScriptModifier] Renamed output {index} to '{newName}'");
-        }
-
         #endregion
-
-        #region Helper Methods
-
-        /// <summary>
-        /// Converts AI format (JArray) to ParameterSettings list.
-        /// </summary>
-        private static List<ParameterSettings> ConvertToParameterSettings(JArray parameters, bool isInput)
-        {
-            var settings = new List<ParameterSettings>();
-
-            foreach (var param in parameters)
-            {
-                var setting = new ParameterSettings
-                {
-                    ParameterName = param["name"]?.ToString() ?? (isInput ? "input" : "output"),
-                    VariableName = param["name"]?.ToString() ?? (isInput ? "input" : "output"),
-                    TypeHint = param["type"]?.ToString(),
-                    Access = param["access"]?.ToString() ?? "item",
-                    DataMapping = null,
-                };
-
-                // Normalize access value
-                var access = param["access"]?.ToString()?.ToLowerInvariant();
-                setting.Access = access switch
-                {
-                    "list" => "list",
-                    "tree" => "tree",
-                    _ => "item"
-                };
-
-                settings.Add(setting);
-            }
-
-            return settings;
-        }
-
-        private static IGH_Param CreateScriptVariableParam(ParameterSettings settings, bool isInput)
-        {
-            if (settings == null)
-            {
-                return null;
-            }
-
-            var param = new ScriptVariableParam();
-
-            var name = settings.ParameterName ?? (isInput ? "input" : "output");
-            param.Name = name;
-            param.NickName = settings.VariableName ?? name;
-
-            if (!string.IsNullOrWhiteSpace(settings.Description))
-            {
-                param.Description = settings.Description;
-            }
-
-            if (isInput)
-            {
-                param.Access = ParseAccess(settings.Access);
-            }
-
-            TrySetTypeHint(param, settings.TypeHint);
-            return param;
-        }
 
         private static GH_ParamAccess ParseAccess(string access)
         {
@@ -627,69 +354,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             }
         }
 
-        private static void TrySetOptional(IGH_Param param, bool optional)
-        {
-            if (param == null)
-            {
-                return;
-            }
-
-            try
-            {
-                var optionalProp = param.GetType().GetProperty("Optional");
-                if (optionalProp != null && optionalProp.CanWrite)
-                {
-                    optionalProp.SetValue(param, optional);
-                }
-            }
-            catch
-            {
-                // ignore
-            }
-        }
-
-        /// <summary>
-        /// Applies data mapping (Flatten/Graft) to a parameter.
-        /// </summary>
-        private static void ApplyParameterDataMapping(IGH_Param param, ParameterSettings settings)
-        {
-            if (!string.IsNullOrEmpty(settings.DataMapping))
-            {
-                if (Enum.TryParse<GH_DataMapping>(settings.DataMapping, true, out var dataMapping))
-                {
-                    param.DataMapping = dataMapping;
-                    Debug.WriteLine($"[ScriptModifier] Applied data mapping '{dataMapping}' to parameter '{param.Name}'");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Applies additional parameter settings (reverse, simplify, locked).
-        /// </summary>
-        private static void ApplyAdditionalSettings(IGH_Param param, ParameterSettings settings)
-        {
-            if (settings?.AdditionalSettings == null)
-                return;
-
-            if (settings.AdditionalSettings.Reverse == true)
-            {
-                param.Reverse = true;
-                Debug.WriteLine($"[ScriptModifier] Applied Reverse to parameter '{param.Name}'");
-            }
-
-            if (settings.AdditionalSettings.Simplify == true)
-            {
-                param.Simplify = true;
-                Debug.WriteLine($"[ScriptModifier] Applied Simplify to parameter '{param.Name}'");
-            }
-
-            if (settings.AdditionalSettings.Locked == true)
-            {
-                param.Locked = true;
-                Debug.WriteLine($"[ScriptModifier] Applied Locked to parameter '{param.Name}'");
-            }
-        }
-
         /// <summary>
         /// Refreshes the script component after modifications.
         /// </summary>
@@ -710,7 +374,5 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             Debug.WriteLine($"[ScriptModifier] Refreshed script component '{ghComp.Name}'");
         }
-
-        #endregion
     }
 }
