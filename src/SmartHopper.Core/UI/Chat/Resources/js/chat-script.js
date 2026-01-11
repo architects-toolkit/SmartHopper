@@ -646,13 +646,13 @@ function setupCollapsibleHandlers(rootNode) {
     try {
         const scope = rootNode && rootNode.classList && rootNode.classList.contains('message')
             ? [rootNode]
-            : Array.from((rootNode || document).querySelectorAll('.message.tool, .message.system'));
+            : Array.from((rootNode || document).querySelectorAll('.message.tool, .message.system, .message.summary'));
 
         scope.forEach(msg => {
             if (!msg || (msg.dataset && msg.dataset.collapsibleBound === '1')) return;
 
-            // Only applicable to tool/system messages
-            if (!(msg.classList.contains('tool') || msg.classList.contains('system'))) return;
+            // Only applicable to tool/system/summary messages
+            if (!(msg.classList.contains('tool') || msg.classList.contains('system') || msg.classList.contains('summary'))) return;
 
             const btn = msg.querySelector('.toggle-arrow');
             const content = msg.querySelector('.message-content');
@@ -718,7 +718,7 @@ function setupCollapsibleHandlers(rootNode) {
         if (!window._shCollapsibleResizeBound) {
             window.addEventListener('resize', () => {
                 try {
-                    document.querySelectorAll('.message.tool, .message.system').forEach(msg => {
+                    document.querySelectorAll('.message.tool, .message.system, .message.summary').forEach(msg => {
                         const btn = msg.querySelector('.toggle-arrow');
                         const content = msg.querySelector('.message-content');
                         if (!btn || !content) return;
@@ -805,6 +805,7 @@ function showTooltip(event) {
     const provider = icon.getAttribute('data-provider');
     const model = icon.getAttribute('data-model');
     const reason = icon.getAttribute('data-reason');
+    const contextUsage = icon.getAttribute('data-context-usage');
     
     // Create tooltip element
     const tooltip = document.createElement('div');
@@ -834,6 +835,14 @@ function showTooltip(event) {
     tooltip.appendChild(inTokensDiv);
     tooltip.appendChild(outTokensDiv);
     tooltip.appendChild(reasonDiv);
+    
+    // Add context usage if available
+    if (contextUsage) {
+        const contextDiv = document.createElement('div');
+        contextDiv.innerHTML = '<strong>Context Usage:</strong> ';
+        contextDiv.appendChild(document.createTextNode(contextUsage));
+        tooltip.appendChild(contextDiv);
+    }
     
     // Position tooltip
     const iconRect = icon.getBoundingClientRect();
@@ -892,6 +901,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const sendBtn = document.getElementById('send-button');
         const cancelBtn = document.getElementById('cancel-button');
         const regenBtn = document.getElementById('regen-button'); // present only when host injects debug actions
+        const updateBtn = document.getElementById('update-button'); // present only when host injects debug actions
 
         const chatContainer = document.getElementById('chat-container');
         const newIndicator = document.getElementById('new-messages-indicator');
@@ -902,6 +912,7 @@ document.addEventListener('DOMContentLoaded', function () {
             sendBtn: !!sendBtn,
             cancelBtn: !!cancelBtn,
             regenBtn: !!regenBtn,
+            updateBtn: !!updateBtn,
             chatContainer: !!chatContainer,
             newIndicator: !!newIndicator,
             scrollBtn: !!scrollBtn
@@ -946,6 +957,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 window.location.href = 'sh://event?type=regen';
             });
             console.log('[JS] Regen button click handler attached');
+        }
+
+        if (updateBtn) {
+            updateBtn.addEventListener('click', () => {
+                console.log('[JS] Update button clicked');
+                window.location.href = 'sh://event?type=update';
+            });
+            console.log('[JS] Update button click handler attached');
         }
 
         if (input) {
@@ -1075,6 +1094,25 @@ function resetMessages() {
     }
 
     console.log('[JS] resetMessages: cleared messages and caches');
+}
+
+/**
+ * Returns an array of all message keys currently in the DOM.
+ * @returns {string[]} Array of message keys (dataset.key values)
+ */
+function getAllMessageKeys() {
+    try {
+        const chatContainer = document.getElementById('chat-container');
+        if (!chatContainer) return [];
+        
+        const messages = Array.from(chatContainer.querySelectorAll('.message'));
+        return messages
+            .map(m => m.dataset && m.dataset.key)
+            .filter(k => k && k.length > 0);
+    } catch (err) {
+        console.error('[JS] getAllMessageKeys error:', err);
+        return [];
+    }
 }
 
 // Copy handler: only override when one or more FULL messages are selected

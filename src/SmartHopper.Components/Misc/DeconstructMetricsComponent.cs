@@ -24,7 +24,7 @@ namespace SmartHopper.Components.Misc
         {
         }
 
-        public override Guid ComponentGuid => new("250D14BA-D96A-4DC0-8703-87468CE2A18D");
+        public override Guid ComponentGuid => new("B8FE17D7-F146-4C94-9673-D2FA04BF7B9F");
 
         /// <summary>
         /// Gets the component's icon.
@@ -44,6 +44,7 @@ namespace SmartHopper.Components.Misc
             pManager.AddIntegerParameter("Output Tokens", "O", "Number of output tokens", GH_ParamAccess.item);
             pManager.AddTextParameter("Finish Reason", "F", "Reason for finishing", GH_ParamAccess.item);
             pManager.AddNumberParameter("Completion Time", "T", "Time taken for completion, in seconds", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Context Usage", "CU", "Context usage percentage (0-100), representing how much of the model's context limit is being used. Empty if context limit is unknown.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Data Count", "DC", "The number of data items that were processed by the component. This may not match the total number of items in your input lists. If the component is configured to process data in batches, this value indicates how many batches (or groups) of results the component needs to process.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Iterations Count", "IC", "The number of times the component ran its calculation. If the component was set to recognize and group identical combinations of input items, it only processed each unique combination once and applied the results to all matching outputs. As a result, the iteration count may be less than the total data count.", GH_ParamAccess.item);
         }
@@ -66,6 +67,7 @@ namespace SmartHopper.Components.Misc
                 int outputTokens = metricsObject["tokens_output"]?.Value<int>() ?? 0;
                 string finishReason = metricsObject["finish_reason"]?.Value<string>() ?? "Unknown";
                 double completionTime = metricsObject["completion_time"]?.Value<double>() ?? 0.0;
+                double? contextUsagePercent = metricsObject["context_usage_percent"]?.Value<double?>();
                 int inputDataCount = metricsObject["data_count"]?.Value<int>() ?? 0;
                 int iterationsCount = metricsObject["iterations_count"]?.Value<int>() ?? 0;
 
@@ -76,6 +78,7 @@ namespace SmartHopper.Components.Misc
                 bool hasOutputTokens = metricsObject["tokens_output"] != null;
                 bool hasFinishReason = metricsObject["finish_reason"] != null;
                 bool hasCompletionTime = metricsObject["completion_time"] != null;
+                bool hasContextUsage = metricsObject["context_usage_percent"] != null;
 
                 // Set the data, potentially with warnings if values were missing
                 DA.SetData(0, aiProvider);
@@ -114,9 +117,14 @@ namespace SmartHopper.Components.Misc
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Completion time not found in JSON");
                 }
 
-                DA.SetData(6, inputDataCount);
+                if (hasContextUsage && contextUsagePercent.HasValue)
+                {
+                    DA.SetData(6, contextUsagePercent.Value * 100.0); // Convert 0-1 to 0-100
+                }
 
-                DA.SetData(7, iterationsCount);
+                DA.SetData(7, inputDataCount);
+
+                DA.SetData(8, iterationsCount);
             }
             catch (Exception ex)
             {

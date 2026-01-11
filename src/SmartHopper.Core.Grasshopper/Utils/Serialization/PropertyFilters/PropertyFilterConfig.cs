@@ -50,7 +50,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             "humanReadable",
 
             // Internal framework properties
-            "Properties" // Legacy properties dictionary
+            "Properties", // Legacy properties dictionary
         };
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
             "NickName",
             "Locked",
             "PersistentData",  // Data for parameters with no sources (restored on deserialization)
-            "VolatileData",    // Data for parameters with sources (AI context only, not restored)
+            // "VolatileData",    // Data for parameters with sources (AI context only, not restored)
         };
 
         /// <summary>
@@ -220,6 +220,18 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 IncludeCategories = ComponentCategory.Essential | ComponentCategory.UI,
             },
 
+            [SerializationContext.Optimized] = new()
+            {
+                IncludeCore = true,
+                IncludeParameters = true,
+                IncludeComponents = true,
+                IncludeCategories = ComponentCategory.Essential | ComponentCategory.UI,
+                AdditionalExcludes = new()
+                {
+                    "PersistentData",
+                },
+            },
+
             [SerializationContext.Lite] = new()
             {
                 IncludeCore = true,
@@ -227,10 +239,14 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
                 IncludeComponents = false,  // No componentState in Lite format
                 IncludeCategories = ComponentCategory.Essential,
                 AdditionalExcludes = new() {
+                    // General
                     "ComponentGuid", "InstanceGuid", "Selected", "DisplayName",
 
                     // Panel Visualization
                     "Alignment", "Font", "SpecialCodes", "DrawIndices", "DrawPaths",
+
+                    // Persistent Data
+                    "PersistentData",
                 }
             }
         };
@@ -278,6 +294,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Serialization.PropertyFilters
         /// This is the default format used throughout SmartHopper.
         /// </summary>
         Standard,
+
+        /// <summary>
+        /// Optimized format - same as Standard, but suppresses bulky data fields.
+        /// Excludes PersistentData to reduce token usage, while
+        /// keeping the same structural schema as Standard.
+        /// </summary>
+        Optimized,
 
         /// <summary>
         /// Lite format - compressed variant optimized for minimal token usage.

@@ -33,6 +33,68 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     public sealed partial class ConversationSession
     {
 
+        private static bool IsContextExceededError(Exception ex)
+        {
+            if (ex == null)
+            {
+                return false;
+            }
+
+            // Prefer message checks since provider exceptions might wrap response details.
+            return ConversationSession.IsContextExceededError(ex.Message);
+        }
+
+        private static bool IsContextExceededReturn(AIReturn ret)
+        {
+            if (ret == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                // Check error messages (if any)
+                var msg = ret.Messages?.FirstOrDefault(m => m?.Severity == AIRuntimeMessageSeverity.Error)?.Message;
+                if (!string.IsNullOrEmpty(msg) && ConversationSession.IsContextExceededError(msg))
+                {
+                    return true;
+                }
+
+                // Check error interactions
+                var errInteraction = ret.Body?.Interactions?.OfType<AIInteractionError>()?.LastOrDefault();
+                if (errInteraction != null && ConversationSession.IsContextExceededError(errInteraction.Content))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task<bool> TrySummarizeAndRetryAsync(string reason, CancellationToken ct)
+        {
+            if (this._summarizationAttempted)
+            {
+                Debug.WriteLine($"[ConversationSession] Reactive summarization skipped (already attempted this turn). Reason: {reason}");
+                return false;
+            }
+
+            Debug.WriteLine($"[ConversationSession] Reactive summarization triggered. Reason: {reason}");
+            var summarized = await this.TrySummarizeContextAsync(ct).ConfigureAwait(false);
+            if (!summarized)
+            {
+                Debug.WriteLine("[ConversationSession] Reactive summarization failed (TrySummarizeContextAsync returned false). Not retrying.");
+                return false;
+            }
+
+            // Caller will perform the retry.
+            return true;
+        }
+
         /// <summary>
         /// Per-turn state carrier to keep streaming yields and control flags together.
         /// </summary>
@@ -81,6 +143,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private async Task<AIReturn> ExecuteProviderTurnAsync(SessionOptions options, string turnId, CancellationToken ct)
         {
             var providerReturn = await this.HandleProviderTurnAsync(options, turnId, ct).ConfigureAwait(false);
+
             if (options.ProcessTools)
             {
                 var afterTools = await this.ProcessPendingToolsAsync(options, turnId, ct).ConfigureAwait(false);
@@ -188,7 +251,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     CompletionTime = stopwatch.Elapsed.TotalSeconds,
                     Provider = this.Request.Provider,
                     Model = this.Request.Model,
-                    FinishReason = "stop" // Tool completed normally
+                    FinishReason = "stop", // Tool completed normally
                 };
             }
 
@@ -306,18 +369,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// </summary>
         private void UpdateLastReturn()
         {
-            var snapshot = new AIReturn();
-            snapshot.SetBody(this.Request.Body);
-#if DEBUG
-            // Debug: log final aggregated metrics from body
-            var aggregatedMetrics = snapshot.Metrics;
-            if (aggregatedMetrics != null)
-            {
-                Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}");
-            }
-
-#endif
-            this._lastReturn = snapshot;
+            this.UpdateLastReturnCore(this.Request.Body);
         }
 
         /// <summary>
@@ -336,9 +388,26 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 .FromImmutable(sessionBody)
                 .ClearNewMarkers()
                 .Build();
+            this.UpdateLastReturnCore(bodyHistoryOnly);
+        }
 
+        private void UpdateLastReturnCore(AIBody body)
+        {
             var snapshot = new AIReturn();
-            snapshot.SetBody(bodyHistoryOnly);
+            snapshot.SetBody(body);
+
+            // Get context usage from aggregated metrics for logging
+            var contextUsage = snapshot.Metrics?.ContextUsagePercent;
+#if DEBUG
+            var aggregatedMetrics = snapshot.Metrics;
+            if (aggregatedMetrics != null)
+            {
+                var contextUsageStr = contextUsage.HasValue
+                    ? $", Context={contextUsage.Value:P1}"
+                    : string.Empty;
+                Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}{contextUsageStr}");
+            }
+#endif
             this._lastReturn = snapshot;
         }
 
@@ -807,6 +876,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         /// <summary>
         /// Writes the entire conversation history to a Markdown file under %APPDATA%/Grasshopper/SmartHopper/Debug.
         /// File name: ConversationSession-History.md
+        /// After summarization, appends the new summarized history instead of overwriting.
         /// </summary>
         private void DebugWriteConversationHistory()
         {
@@ -818,8 +888,22 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var filePath = Path.Combine(folder, "ConversationSession-History.md");
 
                 var sb = new StringBuilder();
-                sb.AppendLine("# SmartHopper Conversation History");
-                sb.AppendLine();
+
+                // If summarization occurred, we're appending to the file (marker was already added)
+                // Otherwise, start fresh with a header
+                if (!this._summarizationOccurred)
+                {
+                    sb.AppendLine("# SmartHopper Conversation History");
+                    sb.AppendLine();
+                }
+                else
+                {
+                    // Add a section header for the summarized conversation
+                    sb.AppendLine();
+                    sb.AppendLine("## Summarized Conversation (Current State)");
+                    sb.AppendLine();
+                }
+
                 sb.AppendLine($"Last updated: {DateTime.Now:yyyy-MM-dd HH:mm:ss zzz}");
                 sb.AppendLine($"Provider: {this.Request?.Provider ?? ""}");
                 sb.AppendLine($"Model: {this.Request?.Model ?? ""}");
@@ -895,7 +979,15 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     index++;
                 }
 
-                File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+                // If summarization occurred, append to preserve history; otherwise overwrite
+                if (this._summarizationOccurred)
+                {
+                    File.AppendAllText(filePath, sb.ToString(), Encoding.UTF8);
+                }
+                else
+                {
+                    File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+                }
             }
             catch (Exception ex)
             {
@@ -934,11 +1026,16 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             sb.AppendLine("- **model**: " + (m.Model ?? string.Empty));
             sb.AppendLine("- **finish_reason**: " + (m.FinishReason ?? string.Empty));
             sb.AppendLine("- **completion_time**: " + m.CompletionTime);
+            sb.AppendLine("- **estimated_input_tokens**: " + m.EstimatedInputTokens);
+            sb.AppendLine("- **estimated_output_tokens**: " + m.EstimatedOutputTokens);
+            sb.AppendLine("- **total_estimated_tokens**: " + m.TotalEstimatedTokens);
             sb.AppendLine("- **input_tokens_prompt**: " + m.InputTokensPrompt);
             sb.AppendLine("- **input_tokens_cached**: " + m.InputTokensCached + " (total: " + m.InputTokens + ")");
             sb.AppendLine("- **output_tokens_reasoning**: " + m.OutputTokensReasoning);
             sb.AppendLine("- **output_tokens_generation**: " + m.OutputTokensGeneration + " (total: " + m.OutputTokens + ")");
             sb.AppendLine("- **total_tokens**: " + m.TotalTokens);
+            sb.AppendLine("- **effective_total_tokens**: " + m.EffectiveTotalTokens);
+            sb.AppendLine("- **context_usage_percent**: " + (m.ContextUsagePercent?.ToString() ?? string.Empty));
         }
 
         /// <summary>

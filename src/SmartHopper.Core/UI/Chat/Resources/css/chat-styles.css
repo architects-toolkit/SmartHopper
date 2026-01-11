@@ -138,6 +138,7 @@ body {
 
 .message.assistant,
 .message.system,
+.message.summary,
 .message.tool {
     align-self: flex-start;
 }
@@ -167,6 +168,12 @@ body {
     background-color: #f0f0f0;
     color: #666;
     font-style: italic;
+}
+
+.message.summary .message-content {
+    background-color: #e8f4f8;
+    color: #555;
+    border: 1px solid #b3d9e6;
 }
 
 .message.error .message-content {
@@ -355,24 +362,27 @@ hr {
     margin: 1em 0;
 }
 
-/* Collapsible tool and system messages */
+/* Collapsible tool, system, and summary messages */
 .message.tool .message-content,
-.message.system .message-content {
+.message.system .message-content,
+.message.summary .message-content {
     max-height: 30px;
     overflow: hidden;
     position: relative;
 }
 
-/* Expand tool and system messages on toggle */
+/* Expand tool, system, and summary messages on toggle */
 .message.tool.expanded .message-content,
-.message.system.expanded .message-content {
+.message.system.expanded .message-content,
+.message.summary.expanded .message-content {
     max-height: none;
     overflow: visible;
 }
 
 /* Faded overlay hint when collapsed (indicates more content) */
 .message.tool .message-content::after,
-.message.system .message-content::after {
+.message.system .message-content::after,
+.message.summary .message-content::after {
     content: '';
     position: absolute;
     left: 0;
@@ -385,7 +395,8 @@ hr {
 
 /* Hide overlay when expanded */
 .message.tool.expanded .message-content::after,
-.message.system.expanded .message-content::after {
+.message.system.expanded .message-content::after,
+.message.summary.expanded .message-content::after {
     display: none;
 }
 
@@ -401,9 +412,10 @@ hr {
     border-radius: 4px;
 }
 
-/* Show chevron only for tool/system messages; JS may further hide if not needed */
+/* Show chevron only for tool/system/summary messages; JS may further hide if not needed */
 .message.tool .toggle-arrow,
-.message.system .toggle-arrow {
+.message.system .toggle-arrow,
+.message.summary .toggle-arrow {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -432,7 +444,8 @@ hr {
 
 /* Rotate chevron when expanded */
 .message.tool.expanded .toggle-arrow::before,
-.message.system.expanded .toggle-arrow::before {
+.message.system.expanded .toggle-arrow::before,
+.message.summary.expanded .toggle-arrow::before {
     transform: rotate(90deg);
 }
 

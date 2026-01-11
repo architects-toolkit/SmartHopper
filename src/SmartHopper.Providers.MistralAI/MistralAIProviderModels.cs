@@ -54,6 +54,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 90,
+                    ContextLimit = 131072,
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                     Aliases = new List<string> { "mistral-small" },
                 },
@@ -65,6 +66,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 80,
+                    ContextLimit = 131072,
                     Aliases = new List<string> { "mistral-medium" },
                 },
                 new AIModelCapabilities
@@ -75,6 +77,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 60,
+                    ContextLimit = 131072,
                     Aliases = new List<string> { "mistral-large" },
                 },
                 new AIModelCapabilities
@@ -85,6 +88,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 50,
+                    ContextLimit = 131072,
                 },
                 new AIModelCapabilities
                 {
@@ -94,6 +98,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 30,
+                    ContextLimit = 131072,
                 },
                 new AIModelCapabilities
                 {
@@ -104,6 +109,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 85,
+                    ContextLimit = 40000,
                 },
                 new AIModelCapabilities
                 {
@@ -113,6 +119,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
+                    ContextLimit = 40000,
                 },
                 new AIModelCapabilities
                 {
@@ -122,6 +129,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 32000,
                 },
                 new AIModelCapabilities
                 {
@@ -131,6 +139,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 60,
+                    ContextLimit = 32000,
                 },
             };
 

@@ -408,7 +408,10 @@ namespace SmartHopper.Providers.Anthropic
             string currentRole = null;
             JArray currentContentBlocks = null;
 
-            foreach (var interaction in request.Body.Interactions)
+            // Merge System and Summary interactions before encoding
+            var mergedInteractions = this.MergeSystemAndSummary(request.Body.Interactions);
+
+            foreach (var interaction in mergedInteractions)
             {
                 try
                 {

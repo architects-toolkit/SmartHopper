@@ -150,6 +150,49 @@ var greeting = await session.ExecuteSpecialTurnAsync(
 - 30 second timeout
 - `PersistResult` strategy (only greeting appears in history)
 
+### Summarize Turn
+
+Factory for conversation summarization when context limits are approached:
+
+```csharp
+var summarizeConfig = SummarizeSpecialTurn.Create(
+    providerName: "openai",
+    conversationModel: session.Request.Model,
+    conversationHistory: session.GetHistoryInteractionList(),
+    lastUserMessage: lastUserInteraction  // Optional, preserved after summary
+);
+
+var summary = await session.ExecuteSpecialTurnAsync(
+    summarizeConfig,
+    preferStreaming: false,
+    cancellationToken);
+```
+
+**Configuration:**
+
+- Uses the conversation's current model (so the summarizer has the same context limit)
+- Disables all tools (`-*`)
+- 60 second timeout
+- `ReplaceAbove` strategy with `PreserveSystemContext` filter
+- Generates a concise summary preserving key topics, decisions, and context
+
+**Automatic Usage:**
+
+The `ConversationSession` automatically triggers summarization when:
+
+1. Context usage exceeds 80% of the model's context limit (pre-emptive)
+2. A context exceeded error is received from the provider (reactive)
+
+**Summarization behavior:**
+
+- Finds the **last user message** in history
+- Summarizes everything **before** that user message
+- Uses `ReplaceAbove` to replace old history with summary (preserves system/context messages)
+- Manually appends the last user message after the summary
+- **Drops all interactions after the last user message** (assistant responses, tool calls, tool results)
+  - This ensures a clean conversation state and prevents token bloat from incomplete turns
+  - The next provider call will be a fresh assistant response to the preserved user message
+
 ## Execution Flow
 
 1. **Snapshot**: Current request state is captured for final persistence
@@ -253,4 +296,6 @@ Possible future special turn types:
 - `src/SmartHopper.Infrastructure/AICall/Sessions/SpecialTurns/HistoryPersistenceStrategy.cs`
 - `src/SmartHopper.Infrastructure/AICall/Sessions/SpecialTurns/InteractionFilter.cs`
 - `src/SmartHopper.Infrastructure/AICall/Sessions/ConversationSession.SpecialTurns.cs`
+- `src/SmartHopper.Infrastructure/AICall/Sessions/ConversationSession.ContextManagement.cs`
 - `src/SmartHopper.Infrastructure/AICall/Sessions/SpecialTurns/BuiltIn/GreetingSpecialTurn.cs`
+- `src/SmartHopper.Infrastructure/AICall/Sessions/SpecialTurns/BuiltIn/SummarizeSpecialTurn.cs`
