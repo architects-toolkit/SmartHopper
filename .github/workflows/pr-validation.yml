@@ -120,11 +120,12 @@ jobs:
           # Valid types based on conventional commits
           VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security|release"
           
-          # Check if PR title follows conventional commits format
-          if [[ ! $PR_TITLE =~ ^($VALID_TYPES)(\([a-z0-9-]+\))?:\ .+ ]]; then
-            echo "::error Pull request title must follow conventional commits format"
+          # Check if PR title follows conventional commits format OR is a release branch name
+          if [[ ! $PR_TITLE =~ ^($VALID_TYPES)(\([a-z0-9-]+\))?:\ .+ ]] && [[ ! $PR_TITLE =~ ^release/[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?(\+[a-zA-Z0-9]+)?$ ]]; then
+            echo "::error Pull request title must follow conventional commits format OR be a release branch name"
             echo ""
-            echo "Required format: <type>(<optional-scope>): <description>"
+            echo "Required format 1: <type>(<optional-scope>): <description>"
+            echo "Required format 2: release/<version>"
             echo ""
             echo "Where <type> is one of:"
             echo "  feat:     A new feature"
@@ -146,6 +147,9 @@ jobs:
             echo "  fix(component): resolve issue with parameter handling"
             echo "  docs(readme): update installation instructions"
             echo "  security: update dependencies to address vulnerabilities"
+            echo "  release/1.2.3-alpha"
+            echo "  release/2.0.0"
+            echo "  release/1.0.0+build.123"
             exit 1
           else
             echo "PR title format is valid! ✅"
