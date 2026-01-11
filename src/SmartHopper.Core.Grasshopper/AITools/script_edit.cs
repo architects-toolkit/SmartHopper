@@ -22,11 +22,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Core.Models.Components;
 using GhJSON.Core.Models.Document;
 using GhJSON.Core.Validation;
+using GhJSON.Grasshopper.Serialization.ScriptComponents;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Serialization;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -318,11 +320,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Build updated GhJSON preserving instance GUID
+                var inputSettings = ScriptComponentHelper.ConvertToParameterSettings(newInputs);
+                var outputSettings = ScriptComponentHelper.ConvertToParameterSettings(newOutputs);
                 var updatedComp = ScriptComponentFactory.CreateScriptComponent(
                     existingLanguage,
                     newScriptCode,
-                    newInputs,
-                    newOutputs,
+                    inputSettings,
+                    outputSettings,
                     nickname);
 
                 // Preserve the original instance GUID for gh_put to update in place

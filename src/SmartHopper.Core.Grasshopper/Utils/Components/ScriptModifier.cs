@@ -30,7 +30,6 @@ using RhinoCodePlatform.GH;
 using RhinoCodePluginGH.Parameters;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
-using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Components

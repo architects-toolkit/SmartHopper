@@ -22,11 +22,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Core.Models.Components;
 using GhJSON.Core.Models.Document;
 using GhJSON.Core.Validation;
+using GhJSON.Grasshopper.Serialization.ScriptComponents;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Serialization;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -291,11 +293,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Build GhJSON using ScriptComponentFactory
+                var inputSettings = ScriptComponentHelper.ConvertToParameterSettings(inputs);
+                var outputSettings = ScriptComponentHelper.ConvertToParameterSettings(outputs);
                 var comp = ScriptComponentFactory.CreateScriptComponent(
                     language,
                     scriptCode,
-                    inputs,
-                    outputs,
+                    inputSettings,
+                    outputSettings,
                     nickname);
 
                 var doc = new GrasshopperDocument();
@@ -316,8 +320,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["success"] = true,
                     ["ghjson"] = ghJsonString,
-                    ["language"] = componentInfo.Language,
-                    ["componentName"] = componentInfo.Name,
+                    ["language"] = componentInfo.LanguageKey,
+                    ["componentName"] = componentInfo.DisplayName,
                     ["inputCount"] = inputs.Count,
                     ["outputCount"] = outputs.Count,
                     ["summary"] = summary,
