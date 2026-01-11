@@ -24,11 +24,11 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using GhJSON.Grasshopper.Serialization;
-using GhJSON.Grasshopper.Serialization.ScriptComponents;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -182,14 +182,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 try
                 {
                     // Extract using GhJsonSerializer for consistency
-                    var componentsList = new List<IGH_ActiveObject> { (IGH_ActiveObject)target };
+                    var activeTarget = target as IGH_ActiveObject;
+                    if (activeTarget == null)
+                    {
+                        throw new InvalidOperationException("Script component does not implement IGH_ActiveObject.");
+                    }
+
+                    var componentsList = new List<IGH_ActiveObject> { activeTarget };
                     var document = GhJsonSerializer.Serialize(componentsList, SerializationOptions.Standard);
                     var props = document.Components.FirstOrDefault();
 
                     if (props != null)
                     {
                         scriptCode = props.ComponentState?.Value?.ToString() ?? string.Empty;
-                        language = ScriptComponentFactory.DetectLanguage(target);
+                        language = ScriptComponentFactory.DetectLanguage(activeTarget);
 
                         // Build component context for AI (optional rich context)
                         componentData["language"] = language;
@@ -203,7 +209,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         // Fallback to direct access
                         scriptCode = target.Text ?? string.Empty;
-                        language = ScriptComponentFactory.DetectLanguage(target);
+                        language = ScriptComponentFactory.DetectLanguage(activeTarget);
                         Debug.WriteLine($"[script_review] Using fallback extraction");
                     }
                 }
@@ -211,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     // Fallback if serialization fails
                     scriptCode = target.Text ?? string.Empty;
-                    language = ScriptComponentFactory.DetectLanguage(target);
+                    language = target is IGH_ActiveObject ao ? ScriptComponentFactory.DetectLanguage(ao) : "unknown";
                     Debug.WriteLine($"[script_review] Serialization failed, using fallback: {ex.Message}");
                 }
 

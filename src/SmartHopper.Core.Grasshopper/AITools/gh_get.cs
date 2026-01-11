@@ -22,9 +22,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using GhJSON.Grasshopper.Serialization;
 using GhJSON.Core.Models.Connections;
 using GhJSON.Core.Models.Document;
+using GhJSON.Grasshopper.Serialization;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -763,8 +763,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 JObject runtimeData = null;
                 if (includeRuntimeData)
                 {
-                    runtimeData = GhJsonSerializer.ExtractRuntimeData(resultObjects);
-                    Debug.WriteLine($"[gh_get] Extracted runtime data for {runtimeData?.Count ?? 0} components");
+                    runtimeData = null;
+                    Debug.WriteLine("[gh_get] includeRuntimeData requested but runtime data extraction is not available in ghjson-dotnet yet");
                 }
 
                 // Package result with classifications

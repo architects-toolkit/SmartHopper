@@ -23,6 +23,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Core.Serialization;
 using GhJSON.Core.Validation;
 using GhJSON.Grasshopper.Canvas;
 using GhJSON.Grasshopper.Serialization;
@@ -90,7 +91,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
 
                 GhJsonValidator.Validate(json, out analysisMsg);
-                var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
+                var document = GhJsonConverter.DeserializeFromJson(json, fixJson: true);
 
                 // In edit mode, check for existing components that match instanceGuids
                 var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();
@@ -102,14 +103,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (editMode && document?.Components != null)
                 {
-                    foreach (var compProps in document.Components.Where(c => c.InstanceGuid != Guid.Empty))
+                    foreach (var compProps in document.Components.Where(c => c.InstanceGuid.HasValue && c.InstanceGuid.Value != Guid.Empty))
                     {
-                        var existing = CanvasAccess.FindInstance(compProps.InstanceGuid);
+                        var guid = compProps.InstanceGuid.Value;
+                        var existing = CanvasAccess.FindInstance(guid);
                         if (existing != null)
                         {
-                            existingComponents[compProps.InstanceGuid] = existing;
-                            existingPositions[compProps.InstanceGuid] = existing.Attributes.Pivot;
-                            componentsToReplace.Add(compProps.InstanceGuid);
+                            existingComponents[guid] = existing;
+                            existingPositions[guid] = existing.Attributes.Pivot;
+                            componentsToReplace.Add(guid);
                         }
                     }
 
@@ -386,14 +388,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // For replacement mode: restore original InstanceGuids before adding to canvas
-                // This must happen BEFORE components are added to the document
-                if (componentsToReplace.Count > 0)
-                {
-                    var guidRestored = GhJsonHelpers.RestoreInstanceGuids(result, componentsToReplace);
-                    Debug.WriteLine($"[gh_put] Restored InstanceGuids for {guidRestored} replacement component(s)");
-                }
-
                 // Place components + create connections + groups on UI thread
                 Debug.WriteLine("[gh_put] Placing components on canvas and creating connections/groups");
                 object placed = null;
@@ -425,11 +419,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                         // Use exact positions for replacement mode (skip offset calculation)
                         bool useExactPositions = componentsToReplace.Count > 0 && existingPositions.Count > 0;
-                        placed = ComponentPlacer.PlaceComponents(result, useExactPositions: useExactPositions);
+                        var guidMapping = new Dictionary<Guid, IGH_DocumentObject>();
+
+                        // If we are in editMode, keep the previous positions when available.
+                        // ghjson-dotnet's ComponentPlacer uses pivots from GhJSON; when replacing we already preserved pivots in JSON.
+                        placed = ComponentPlacer.PlaceComponents(
+                            result,
+                            document,
+                            guidMapping,
+                            startPosition: null,
+                            spacing: 100,
+                            useExactPositions: useExactPositions);
 
                         // Create connections from GhJSON
                         Debug.WriteLine("[gh_put] Creating connections from GhJSON");
-                        ConnectionManager.CreateConnections(result);
+                        ConnectionManager.CreateConnections(document, guidMapping);
 
                         // Restore captured external connections
                         if (capturedConnections.Count > 0)
@@ -463,7 +467,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
 
                         Debug.WriteLine("[gh_put] Recreating groups");
-                        GroupManager.CreateGroups(result);
+                        GroupManager.CreateGroups(document, guidMapping);
 
                         placeTcs.SetResult(true);
                     }

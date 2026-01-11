@@ -788,6 +788,7 @@ namespace SmartHopper.Core.Tests.ComponentBase
         public void ComponentName_UsedForLogging()
         {
             var namedManager = new ComponentStateManager("MyTestComponent");
+
             // This test just verifies no exception is thrown - logging is debug output
             namedManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
             namedManager.Dispose();

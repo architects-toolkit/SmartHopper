@@ -55,8 +55,11 @@ namespace SmartHopper.Core.UI.Chat
             private sealed class TurnRenderState
             {
                 public string TurnId { get; }
+
                 public bool IsFinalized { get; set; }
+
                 public bool HasPendingBoundary { get; set; }
+
                 public Dictionary<string, SegmentState> Segments { get; } = new Dictionary<string, SegmentState>(StringComparer.Ordinal);
 
                 public TurnRenderState(string turnId)
@@ -82,9 +85,13 @@ namespace SmartHopper.Core.UI.Chat
             private sealed class SegmentState
             {
                 public int SegmentNumber { get; set; } = 1;
+
                 public bool IsCommitted { get; set; }
+
                 public StreamState StreamState { get; set; }
+
                 public DateTime LastUpsertAt { get; set; }
+
                 public (string? Content, string? Reasoning) LastRenderedText { get; set; }
             }
 

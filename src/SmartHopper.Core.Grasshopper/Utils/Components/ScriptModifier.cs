@@ -20,12 +20,18 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using GhJSON.Core.Models.Components;
-using GhJSON.Grasshopper.Serialization.ScriptComponents;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Parameters;
+using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 using RhinoCodePluginGH.Parameters;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Core.Grasshopper.Utils.Serialization;
+using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Components
 {
@@ -150,39 +156,21 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             Debug.WriteLine($"[ScriptModifier] Cleared existing {paramType} parameters");
 
             // Add new parameters
-            int index = 0;
             foreach (var settings in settingsList)
             {
-                var param = ScriptParameterMapper.CreateParameter(settings, paramType, scriptComp);
-                if (param != null)
+                var param = CreateScriptVariableParam(settings, isInput);
+                if (param == null)
                 {
-                    // Register parameter
-                    if (isInput)
-                    {
-                        ghComp.Params.RegisterInputParam(param);
-                    }
-                    else
-                    {
-                        ghComp.Params.RegisterOutputParam(param);
-                    }
+                    continue;
+                }
 
-                    var registered = isInput ? ghComp.Params.Input[index] : ghComp.Params.Output[index];
-
-                    // Apply type hint if specified
-                    if (!string.IsNullOrEmpty(settings.TypeHint))
-                    {
-                        ScriptParameterMapper.ApplyTypeHintToParameter(registered, settings.TypeHint, scriptComp);
-                        Debug.WriteLine($"[ScriptModifier] Applied type hint '{settings.TypeHint}' to {paramType} '{registered.Name}'");
-                    }
-
-                    // Apply data mapping if specified
-                    ApplyParameterDataMapping(registered, settings);
-
-                    // Apply additional settings (reverse, simplify, etc.)
-                    ApplyAdditionalSettings(registered, settings);
-
-                    Debug.WriteLine($"[ScriptModifier] Registered {paramType} parameter '{registered.Name}'");
-                    index++;
+                if (isInput)
+                {
+                    ghComp.Params.RegisterInputParam(param);
+                }
+                else
+                {
+                    ghComp.Params.RegisterOutputParam(param);
                 }
             }
 
@@ -214,18 +202,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 Access = access,
             };
 
-            var param = ScriptParameterMapper.CreateParameter(settings, "input", scriptComp);
+            var param = CreateScriptVariableParam(settings, isInput: true);
             if (param != null)
             {
                 param.Description = description;
-                param.Optional = optional;
+                TrySetOptional(param, optional);
                 ghComp.Params.RegisterInputParam(param);
-
-                if (!string.IsNullOrEmpty(typeHint))
-                {
-                    ScriptParameterMapper.ApplyTypeHintToParameter(param, typeHint, scriptComp);
-                }
-
                 Debug.WriteLine($"[ScriptModifier] Added input parameter '{name}' with type '{typeHint}'");
             }
 
@@ -255,17 +237,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 Access = "item",
             };
 
-            var param = ScriptParameterMapper.CreateParameter(settings, "output", scriptComp);
+            var param = CreateScriptVariableParam(settings, isInput: false);
             if (param != null)
             {
                 param.Description = description;
                 ghComp.Params.RegisterOutputParam(param);
-
-                if (!string.IsNullOrEmpty(typeHint))
-                {
-                    ScriptParameterMapper.ApplyTypeHintToParameter(param, typeHint, scriptComp);
-                }
-
                 Debug.WriteLine($"[ScriptModifier] Added output parameter '{name}' with type '{typeHint}'");
             }
 
@@ -327,7 +303,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 return;
 
             var param = ghComp.Params.Input[index];
-            ScriptParameterMapper.ApplyTypeHintToParameter(param, typeHint, scriptComp);
+            TrySetTypeHint(param, typeHint);
             RefreshScriptComponent(scriptComp);
 
             Debug.WriteLine($"[ScriptModifier] Set type hint '{typeHint}' for input at index {index}");
@@ -346,7 +322,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 return;
 
             var param = ghComp.Params.Output[index];
-            ScriptParameterMapper.ApplyTypeHintToParameter(param, typeHint, scriptComp);
+            TrySetTypeHint(param, typeHint);
             RefreshScriptComponent(scriptComp);
 
             Debug.WriteLine($"[ScriptModifier] Set type hint '{typeHint}' for output at index {index}");
@@ -584,6 +560,93 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             }
 
             return settings;
+        }
+
+        private static IGH_Param CreateScriptVariableParam(ParameterSettings settings, bool isInput)
+        {
+            if (settings == null)
+            {
+                return null;
+            }
+
+            var param = new ScriptVariableParam();
+
+            var name = settings.ParameterName ?? (isInput ? "input" : "output");
+            param.Name = name;
+            param.NickName = settings.VariableName ?? name;
+
+            if (!string.IsNullOrWhiteSpace(settings.Description))
+            {
+                param.Description = settings.Description;
+            }
+
+            if (isInput)
+            {
+                param.Access = ParseAccess(settings.Access);
+            }
+
+            TrySetTypeHint(param, settings.TypeHint);
+            return param;
+        }
+
+        private static GH_ParamAccess ParseAccess(string access)
+        {
+            if (string.IsNullOrWhiteSpace(access))
+            {
+                return GH_ParamAccess.item;
+            }
+
+            switch (access.Trim().ToLowerInvariant())
+            {
+                case "list":
+                    return GH_ParamAccess.list;
+                case "tree":
+                    return GH_ParamAccess.tree;
+                default:
+                    return GH_ParamAccess.item;
+            }
+        }
+
+        private static void TrySetTypeHint(IGH_Param param, string typeHint)
+        {
+            if (param == null || string.IsNullOrWhiteSpace(typeHint))
+            {
+                return;
+            }
+
+            try
+            {
+                var typeHintProp = param.GetType().GetProperty("TypeHint");
+                if (typeHintProp != null && typeHintProp.CanWrite)
+                {
+                    typeHintProp.SetValue(param, typeHint);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private static void TrySetOptional(IGH_Param param, bool optional)
+        {
+            if (param == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var optionalProp = param.GetType().GetProperty("Optional");
+                if (optionalProp != null && optionalProp.CanWrite)
+                {
+                    optionalProp.SetValue(param, optional);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
         }
 
         /// <summary>

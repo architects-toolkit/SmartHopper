@@ -21,10 +21,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
+using GhJSON.Core.Serialization;
 using GhJSON.Core.Validation;
 using GhJSON.Grasshopper.Serialization;
-using SmartHopper.Core.Grasshopper.Utils.Serialization;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -80,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Validate and parse target
                 GhJsonValidator.Validate(targetJson, out var targetAnalysis);
-                var targetDoc = GHJsonConverter.DeserializeFromJson(targetJson, fixJson: true);
+                var targetDoc = GhJsonConverter.DeserializeFromJson(targetJson, fixJson: true);
 
                 if (targetDoc == null)
                 {
@@ -90,7 +90,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Validate and parse source
                 GhJsonValidator.Validate(sourceJson, out var sourceAnalysis);
-                var sourceDoc = GHJsonConverter.DeserializeFromJson(sourceJson, fixJson: true);
+                var sourceDoc = GhJsonConverter.DeserializeFromJson(sourceJson, fixJson: true);
 
                 if (sourceDoc == null)
                 {
@@ -103,7 +103,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var mergeResult = GhJsonMerger.Merge(targetDoc, sourceDoc);
 
                 // Serialize merged document back to JSON
-                var mergedJson = GHJsonConverter.SerializeToJson(mergeResult.Document);
+                var mergedJson = GhJsonConverter.SerializeToJson(mergeResult.Document);
 
                 Debug.WriteLine($"[gh_merge] Merge complete: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections, +{mergeResult.GroupsAdded} groups");
 
