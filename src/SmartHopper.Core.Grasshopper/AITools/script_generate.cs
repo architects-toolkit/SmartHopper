@@ -293,8 +293,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Build GhJSON using ScriptComponentFactory
-                var inputSettings = ScriptComponentHelper.ConvertToParameterSettings(inputs);
-                var outputSettings = ScriptComponentHelper.ConvertToParameterSettings(outputs);
+                var inputSettings = ScriptParameterSettingsParser.ConvertToParameterSettings(inputs);
+                var outputSettings = ScriptParameterSettingsParser.ConvertToParameterSettings(outputs);
                 var comp = ScriptComponentFactory.CreateScriptComponent(
                     language,
                     scriptCode,

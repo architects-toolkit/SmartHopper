@@ -22,7 +22,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using GhJSON.Core.Models.Components;
 using GhJSON.Core.Models.Document;
 using GhJSON.Core.Validation;
 using GhJSON.Grasshopper.Serialization.ScriptComponents;
@@ -320,8 +319,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Build updated GhJSON preserving instance GUID
-                var inputSettings = ScriptComponentHelper.ConvertToParameterSettings(newInputs);
-                var outputSettings = ScriptComponentHelper.ConvertToParameterSettings(newOutputs);
+                var inputSettings = ScriptParameterSettingsParser.ConvertToParameterSettings(newInputs);
+                var outputSettings = ScriptParameterSettingsParser.ConvertToParameterSettings(newOutputs);
                 var updatedComp = ScriptComponentFactory.CreateScriptComponent(
                     existingLanguage,
                     newScriptCode,
