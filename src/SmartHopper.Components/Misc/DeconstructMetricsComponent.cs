@@ -24,7 +24,7 @@ namespace SmartHopper.Components.Misc
         {
         }
 
-        public override Guid ComponentGuid => new("250D14BA-D96A-4DC0-8703-87468CE2A18D");
+        public override Guid ComponentGuid => new("B8FE17D7-F146-4C94-9673-D2FA04BF7B9F");
 
         /// <summary>
         /// Gets the component's icon.
