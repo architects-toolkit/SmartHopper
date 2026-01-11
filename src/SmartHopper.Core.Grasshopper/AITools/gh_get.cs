@@ -408,6 +408,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         var serOptions1 = SerializationOptions.Optimized;
                         serOptions1.IncludeMetadata = false;
                         serOptions1.IncludeGroups = false;
+                        serOptions1.IncludePersistentData = false;
                         var tempDoc = GhJsonSerializer.Serialize(objects, serOptions1);
 
                         var incd = new Dictionary<Guid, int>();
@@ -467,6 +468,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         var serOptions2 = SerializationOptions.Optimized;
                         serOptions2.IncludeMetadata = false;
                         serOptions2.IncludeGroups = false;
+                        serOptions2.IncludePersistentData = false;
                         var tempDoc = GhJsonSerializer.Serialize(typeFiltered, serOptions2);
 
                         var incd = new Dictionary<Guid, int>();
@@ -657,6 +659,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var serOptions3 = SerializationOptions.Optimized;
                     serOptions3.IncludeMetadata = false;
                     serOptions3.IncludeGroups = false;
+                    serOptions3.IncludePersistentData = false;
                     var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions3);
                     var edges = fullDoc.Connections
                         .Select(c =>
@@ -676,11 +679,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                // Use Standard when returning the main GhJSON, so gh_put can restore PersistentData correctly.
-                // Use Optimized when the caller did not request runtime data and token usage matters.
-                var serOptions = includeRuntimeData ? SerializationOptions.Standard : SerializationOptions.Optimized;
+                // When includeRuntimeData is requested, include PersistentData (token-expansive).
+                // Otherwise, exclude it to reduce token usage.
+                var serOptions = SerializationOptions.Optimized;
                 serOptions.IncludeMetadata = includeMetadata;
                 serOptions.IncludeGroups = true;
+                serOptions.IncludePersistentData = includeRuntimeData;
 
                 Debug.WriteLine($"[gh_get] Starting serialization with {resultObjects.Count} objects");
                 Debug.WriteLine($"[gh_get] Objects: {string.Join(", ", resultObjects.Select(o => $"{o.Name}({o.InstanceGuid})"))}");
