@@ -18,6 +18,9 @@
  */
 
 using System;
+using System.Collections.Generic;
+using GhJSON.Core.Models.Components;
+using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Internal
@@ -28,6 +31,49 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
     /// </summary>
     public static class ScriptComponentHelper
     {
+        public static List<ParameterSettings>? ConvertToParameterSettings(JArray parameters)
+        {
+            if (parameters == null || parameters.Count == 0)
+                return null;
+
+            var result = new List<ParameterSettings>();
+            foreach (var param in parameters)
+            {
+                if (param is not JObject obj)
+                    continue;
+
+                var settings = new ParameterSettings
+                {
+                    ParameterName = obj["name"]?.ToString() ?? "param",
+                    VariableName = obj["name"]?.ToString(),
+                    Description = obj["description"]?.ToString(),
+                    TypeHint = obj["type"]?.ToString(),
+                    Access = obj["access"]?.ToString(),
+                    DataMapping = obj["dataMapping"]?.ToString(),
+                    Required = obj["required"]?.ToObject<bool?>(),
+                    IsPrincipal = obj["isPrincipal"]?.ToObject<bool?>(),
+                    Expression = obj["expression"]?.ToString(),
+                };
+
+                var reverse = obj["reverse"]?.ToObject<bool?>();
+                var simplify = obj["simplify"]?.ToObject<bool?>();
+                var invert = obj["invert"]?.ToObject<bool?>();
+                if (reverse == true || simplify == true || invert == true)
+                {
+                    settings.AdditionalSettings = new AdditionalParameterSettings
+                    {
+                        Reverse = reverse == true ? true : null,
+                        Simplify = simplify == true ? true : null,
+                        Invert = invert == true ? true : null,
+                    };
+                }
+
+                result.Add(settings);
+            }
+
+            return result.Count > 0 ? result : null;
+        }
+
         /// <summary>
         /// Detects whether an IScriptComponent is a C# script component.
         /// </summary>
