@@ -532,6 +532,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""object"",
                             ""properties"": {
                                 ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)."" },
+                                ""variableName"": { ""type"": ""string"", ""description"": ""Optional script variable name (identifier). If omitted, defaults to 'name'."" },
                                 ""type"": { ""type"": ""string"", ""description"": ""Type hint (e.g., int, double, string, Point3d, Curve, etc.). Use 'object' when unsure."" },
                                 ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
                                 ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""], ""description"": ""Data access mode. Use 'item' when unsure."" },
@@ -552,6 +553,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""object"",
                             ""properties"": {
                                 ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)."" },
+                                ""variableName"": { ""type"": ""string"", ""description"": ""Optional script variable name (identifier). If omitted, defaults to 'name'."" },
                                 ""type"": { ""type"": ""string"", ""description"": ""Expected output type hint. Use 'object' when unsure."" },
                                 ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
                                 ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation. Use 'None' when no mapping is needed."" },

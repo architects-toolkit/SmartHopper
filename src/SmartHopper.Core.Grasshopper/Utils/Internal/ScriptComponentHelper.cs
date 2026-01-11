@@ -41,11 +41,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 }
 
                 var name = obj["name"]?.ToString();
+                var variableName = obj["variableName"]?.ToString() ?? name;
 
                 var settings = new ParameterSettings
                 {
                     ParameterName = name ?? "param",
-                    VariableName = name,
+                    VariableName = variableName,
                     Description = obj["description"]?.ToString(),
                     TypeHint = obj["type"]?.ToString(),
                     Access = obj["access"]?.ToString(),
