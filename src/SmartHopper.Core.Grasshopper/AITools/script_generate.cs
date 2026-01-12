@@ -22,10 +22,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using GhJSON.Core.Models.Components;
-using GhJSON.Core.Models.Document;
-using GhJSON.Core.Validation;
-using GhJSON.Grasshopper.Serialization.ScriptComponents;
+using GhJSON.Core;
+using GhJSON.Grasshopper;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
@@ -181,7 +179,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Build system prompt with language-specific guidance using centralized language mapping
-                var effectiveLanguage = ScriptComponentFactory.NormalizeLanguageKeyOrDefault(preferredLanguage, "python");
+                var effectiveLanguage = GhJsonGrasshopper.Script.NormalizeLanguageKeyOrDefault(preferredLanguage, "python");
                 var languageGuidance = ScriptCodeValidator.GetLanguageGuidance(effectiveLanguage);
                 var systemPrompt = this.systemPromptTemplate + "\n\n" + languageGuidance;
 
@@ -225,12 +223,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var nickname = responseJson["nickname"]?.ToString() ?? "AI Script";
                 var summary = responseJson["summary"]?.ToString() ?? string.Empty;
 
-                // Validate language
-                var componentInfo = ScriptComponentFactory.GetComponentInfo(language);
+                // Detect language or use default
+                var componentInfo = GhJsonGrasshopper.Script.GetComponentInfo(language);
                 if (componentInfo == null)
                 {
-                    var supported = string.Join(", ", ScriptComponentFactory.GetSupportedLanguages());
-                    output.CreateError($"Unsupported language '{language}'. Supported: {supported}");
+                    output.CreateError($"Unsupported script language: {language}. Supported: python, ironpython, c#, vb.");
                     return output;
                 }
 
@@ -292,24 +289,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Continue with the script but log a warning - it may still work
                 }
 
-                // Build GhJSON using ScriptComponentFactory
-                var inputSettings = ScriptParameterSettingsParser.ConvertToParameterSettings(inputs);
-                var outputSettings = ScriptParameterSettingsParser.ConvertToParameterSettings(outputs);
-                var comp = ScriptComponentFactory.CreateScriptComponent(
+                // Build GhJSON using Script façade
+                var ghJsonString = GhJsonGrasshopper.Script.CreateGhJson(
                     language,
                     scriptCode,
-                    inputSettings,
-                    outputSettings,
-                    nickname);
+                    inputs,
+                    outputs,
+                    nickname,
+                    instanceGuid: null,
+                    pivot: null,
+                    indented: false);
 
-                var doc = new GrasshopperDocument();
-                doc.Components.Add(comp);
-
-                // Serialize to GhJSON string
-                var ghJsonString = JsonConvert.SerializeObject(doc, Formatting.None);
-
-                // Validate GhJSON output
-                if (!GhJsonValidator.Validate(ghJsonString, out var validationError))
+                // Validate GhJSON output using GhJson facade
+                if (!GhJson.IsValid(ghJsonString, out var validationError))
                 {
                     output.CreateError($"Generated GhJSON validation failed: {validationError}");
                     return output;

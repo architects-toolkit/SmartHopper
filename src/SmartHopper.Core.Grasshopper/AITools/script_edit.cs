@@ -22,9 +22,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using GhJSON.Core.Models.Document;
-using GhJSON.Core.Validation;
-using GhJSON.Grasshopper.Serialization.ScriptComponents;
+using GhJSON.Core;
+using GhJSON.Grasshopper;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
@@ -188,15 +187,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Validate input GhJSON
-                if (!GhJsonValidator.Validate(ghJsonInput, out var inputValidationError))
+                // Validate input GhJSON using GhJson facade
+                if (!GhJson.IsValid(ghJsonInput, out var inputValidationError))
                 {
                     output.CreateError($"Input GhJSON validation failed: {inputValidationError}");
                     return output;
                 }
 
                 // Parse input to extract language and existing component info
-                var inputDoc = JsonConvert.DeserializeObject<GrasshopperDocument>(ghJsonInput);
+                var inputDoc = GhJson.Parse(ghJsonInput);
                 if (inputDoc?.Components == null || inputDoc.Components.Count == 0)
                 {
                     output.CreateError("Input GhJSON contains no components.");
@@ -204,7 +203,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var existingComp = inputDoc.Components[0];
-                var existingLanguage = DetectLanguageFromComponentGuid(existingComp.ComponentGuid);
+                var existingLanguage = GhJsonGrasshopper.Script.DetectLanguageFromGuid(existingComp.ComponentGuid);
                 var existingInstanceGuid = existingComp.InstanceGuid;
 
                 Debug.WriteLine($"[script_edit] Existing language: {existingLanguage}, InstanceGuid: {existingInstanceGuid}");
@@ -311,40 +310,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Get component info for the language
-                var componentInfo = ScriptComponentFactory.GetComponentInfo(existingLanguage);
+                var componentInfo = GhJsonGrasshopper.Script.GetComponentInfo(existingLanguage);
                 if (componentInfo == null)
                 {
                     output.CreateError($"Failed to get component info for language '{existingLanguage}'.");
                     return output;
                 }
 
-                // Build updated GhJSON preserving instance GUID
-                var inputSettings = ScriptParameterSettingsParser.ConvertToParameterSettings(newInputs);
-                var outputSettings = ScriptParameterSettingsParser.ConvertToParameterSettings(newOutputs);
-                var updatedComp = ScriptComponentFactory.CreateScriptComponent(
+                // Build updated GhJSON using Script façade
+                var ghJsonString = GhJsonGrasshopper.Script.CreateGhJson(
                     existingLanguage,
                     newScriptCode,
-                    inputSettings,
-                    outputSettings,
-                    nickname);
+                    newInputs,
+                    newOutputs,
+                    nickname,
+                    existingInstanceGuid,
+                    existingComp.Pivot,
+                    indented: false);
 
-                // Preserve the original instance GUID for gh_put to update in place
-                updatedComp.InstanceGuid = existingInstanceGuid;
-
-                // Preserve pivot if available (use tolerance for floating point comparison)
-                const float tolerance = 0.001f;
-                if (Math.Abs(existingComp.Pivot.X) > tolerance || Math.Abs(existingComp.Pivot.Y) > tolerance)
-                {
-                    updatedComp.Pivot = existingComp.Pivot;
-                }
-
-                var doc = new GrasshopperDocument();
-                doc.Components.Add(updatedComp);
-
-                var ghJsonString = JsonConvert.SerializeObject(doc, Formatting.None);
-
-                // Validate output GhJSON
-                if (!GhJsonValidator.Validate(ghJsonString, out var outputValidationError))
+                // Validate output GhJSON using GhJson facade
+                if (!GhJson.IsValid(ghJsonString, out var outputValidationError))
                 {
                     output.CreateError($"Output GhJSON validation failed: {outputValidationError}");
                     return output;
