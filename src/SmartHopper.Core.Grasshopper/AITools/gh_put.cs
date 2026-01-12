@@ -23,10 +23,8 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
-using GhJSON.Core.Serialization;
-using GhJSON.Core.Validation;
-using GhJSON.Grasshopper.Canvas;
-using GhJSON.Grasshopper.Serialization;
+using GhJSON.Core;
+using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
@@ -89,8 +87,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var json = args["ghjson"]?.ToString() ?? string.Empty;
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
 
-                GhJsonValidator.Validate(json, out analysisMsg);
-                var document = GhJsonConverter.DeserializeFromJson(json, fixJson: true);
+                GhJson.IsValid(json, out analysisMsg);
+                var document = GhJson.Parse(json);
+                
+                // Apply fixes to normalize AI-generated JSON
+                var fixResult = GhJson.Fix(document);
+                document = fixResult.Document;
 
                 // In edit mode, check for existing components that match instanceGuids
                 var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();

@@ -22,15 +22,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using GhJSON.Core.Models.Connections;
-using GhJSON.Core.Models.Document;
-using GhJSON.Grasshopper.Serialization;
+using GhJSON.Core;
+using GhJSON.Grasshopper;
 using Grasshopper.Kernel;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -405,11 +402,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (includeTypes.Overlaps(new[] { "STARTNODES", "ENDNODES", "MIDDLENODES", "ISOLATEDNODES" }))
                     {
-                        var serOptions1 = SerializationOptions.Optimized;
-                        serOptions1.IncludeMetadata = false;
-                        serOptions1.IncludeGroups = false;
-                        serOptions1.IncludePersistentData = false;
-                        var tempDoc = GhJsonSerializer.Serialize(objects, serOptions1);
+                            var serOptions1 = GhJsonGrasshopper.Options.Optimized(
+                            includeMetadata: false,
+                            includeGroups: false,
+                            includePersistentData: false);
+                        var tempDoc = GhJsonGrasshopper.Serialize(objects, serOptions1);
 
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
@@ -465,11 +462,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (excludeTypes.Overlaps(new[] { "STARTNODES", "ENDNODES", "MIDDLENODES", "ISOLATEDNODES" }))
                     {
-                        var serOptions2 = SerializationOptions.Optimized;
-                        serOptions2.IncludeMetadata = false;
-                        serOptions2.IncludeGroups = false;
-                        serOptions2.IncludePersistentData = false;
-                        var tempDoc = GhJsonSerializer.Serialize(typeFiltered, serOptions2);
+                        var serOptions2 = GhJsonGrasshopper.Options.Optimized(
+                            includeMetadata: false,
+                            includeGroups: false,
+                            includePersistentData: false);
+                        var tempDoc = GhJsonGrasshopper.Serialize(typeFiltered, serOptions2);
 
                         var incd = new Dictionary<Guid, int>();
                         var outd = new Dictionary<Guid, int>();
@@ -656,11 +653,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (connectionDepth > 0)
                 {
                     var allObjects = CanvasAccess.GetCurrentObjects();
-                    var serOptions3 = SerializationOptions.Optimized;
-                    serOptions3.IncludeMetadata = false;
-                    serOptions3.IncludeGroups = false;
-                    serOptions3.IncludePersistentData = false;
-                    var fullDoc = GhJsonSerializer.Serialize(allObjects, serOptions3);
+                    var serOptions3 = GhJsonGrasshopper.Options.Optimized(
+                        includeMetadata: false,
+                        includeGroups: false,
+                        includePersistentData: false);
+                    var fullDoc = GhJsonGrasshopper.Serialize(allObjects, serOptions3);
                     var edges = fullDoc.Connections
                         .Select(c =>
                         {
@@ -681,18 +678,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // When includeRuntimeData is requested, include PersistentData (token-expansive).
                 // Otherwise, exclude it to reduce token usage.
-                var serOptions = SerializationOptions.Optimized;
-                serOptions.IncludeMetadata = includeMetadata;
-                serOptions.IncludeGroups = true;
-                serOptions.IncludePersistentData = includeRuntimeData;
+                var serOptions = GhJsonGrasshopper.Options.Optimized(
+                    includeMetadata: includeMetadata,
+                    includeGroups: true,
+                    includePersistentData: includeRuntimeData);
 
                 Debug.WriteLine($"[gh_get] Starting serialization with {resultObjects.Count} objects");
                 Debug.WriteLine($"[gh_get] Objects: {string.Join(", ", resultObjects.Select(o => $"{o.Name}({o.InstanceGuid})"))}");
 
-                GrasshopperDocument document;
+                var document;
                 try
                 {
-                    document = GhJsonSerializer.Serialize(resultObjects, serOptions);
+                    document = GhJsonGrasshopper.Serialize(resultObjects, serOptions);
                     Debug.WriteLine($"[gh_get] Serialization completed successfully");
                 }
                 catch (ArgumentNullException anex)
@@ -730,7 +727,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     else
                     {
                         Debug.WriteLine($"[gh_get] document.Connections is null, initializing empty list");
-                        document.Connections = new List<ConnectionPairing>();
+                        document.Connections = new List<GhJSON.Core.Models.Connections.ConnectionPairing>();
                     }
                 }
                 catch (Exception ex)
@@ -760,14 +757,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     throw;
                 }
 
-                // Serialize document
-                var json = JsonConvert.SerializeObject(document, Formatting.None);
+                // Serialize document using GhJson facade
+                var json = GhJson.Serialize(document, new WriteOptions { Indented = false });
 
                 // Extract runtime data if requested
                 JObject runtimeData = null;
                 if (includeRuntimeData)
                 {
-                    runtimeData = GhJsonSerializer.ExtractRuntimeData(resultObjects);
+                    runtimeData = GhJsonGrasshopper.ExtractRuntimeData(resultObjects);
                     Debug.WriteLine($"[gh_get] Extracted runtime data for {runtimeData?.Count ?? 0} components");
                 }
 

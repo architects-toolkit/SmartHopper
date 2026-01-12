@@ -9,12 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- GhJSON Migration:
-  - Migrated SmartHopper to fully rely on `ghjson-dotnet` library for all GhJSON serialization, deserialization, validation, and canvas operations.
-  - Removed ~60 internal GhJSON files from SmartHopper.Core and SmartHopper.Core.Grasshopper (models, serializers, validators, property managers, data type serializers).
-  - `gh_get` and `gh_put` AI tools now use `GhJSON.Grasshopper` APIs directly.
-  - Runtime data extraction now uses `GhJsonSerializer.ExtractRuntimeData()` from ghjson-dotnet.
-  - See `docs/Reviews/260111 GhJSON Migration Report.md` for full details.
+- GhJSON API Simplification:
+  - Refactored all AI tools to use organized ghjson-dotnet façade classes exclusively, removing deep namespace dependencies.
+  - All SmartHopper code now imports only `GhJSON.Core` and `GhJSON.Grasshopper` (no `GhJSON.Core.Models.*`, `GhJSON.Grasshopper.Serialization.*`, etc.).
+  - Removed legacy `ScriptParameterSettingsParser.cs` from SmartHopper (now in ghjson-dotnet façade).
+  - **Serialization options** now use `GhJsonGrasshopper.Options.Standard()`, `.Optimized()`, and `.Lite()` factory methods.
+  - **Script components** now use `GhJsonGrasshopper.Script.CreateGhJson()`, `.GetComponentInfo()`, `.DetectLanguageFromGuid()`, `.NormalizeLanguageKeyOrDefault()`.
+  - **Document operations** now use `GhJson.CreateDocument()`, `GhJson.Merge()`, `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`, `GhJson.Serialize()`.
+  - **Runtime data** extraction now uses `GhJsonGrasshopper.ExtractRuntimeData()` instead of deep serializer access.
+  - Tool-specific changes:
+    - `gh_get`: Uses `GhJsonGrasshopper.Options.*()` factories and `GhJsonGrasshopper.ExtractRuntimeData()`.
+    - `gh_put`: Uses `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`.
+    - `gh_merge`: Uses `GhJson.Merge()` façade instead of direct `GhJsonMerger` access.
+    - `gh_tidy_up`: Uses `GhJsonGrasshopper.Options.Standard()`.
+    - `script_edit`, `script_generate`: Use `GhJsonGrasshopper.Script.*` façade methods.
 
 ## [1.2.4-alpha] - 2026-01-11
 

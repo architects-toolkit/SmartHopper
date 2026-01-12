@@ -21,9 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using GhJSON.Core.Serialization;
-using GhJSON.Core.Validation;
-using GhJSON.Grasshopper.Serialization;
+using GhJSON.Core;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -78,32 +76,32 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var targetJson = args["target"]?.ToString() ?? string.Empty;
                 var sourceJson = args["source"]?.ToString() ?? string.Empty;
 
-                // Validate and parse target
-                GhJsonValidator.Validate(targetJson, out var targetAnalysis);
-                var targetDoc = GhJsonConverter.DeserializeFromJson(targetJson, fixJson: true);
-
-                if (targetDoc == null)
+                // Validate and parse target using GhJson facade
+                if (!GhJson.IsValid(targetJson, out var targetAnalysis))
                 {
-                    output.CreateError($"Failed to parse target GhJSON: {targetAnalysis ?? "Invalid format"}");
+                    output.CreateError($"Invalid target GhJSON: {targetAnalysis ?? "Invalid format"}");
                     return output;
                 }
 
-                // Validate and parse source
-                GhJsonValidator.Validate(sourceJson, out var sourceAnalysis);
-                var sourceDoc = GhJsonConverter.DeserializeFromJson(sourceJson, fixJson: true);
+                var targetDoc = GhJson.Parse(targetJson);
+                targetDoc = GhJson.Fix(targetDoc).Document;
 
-                if (sourceDoc == null)
+                // Validate and parse source using GhJson facade
+                if (!GhJson.IsValid(sourceJson, out var sourceAnalysis))
                 {
-                    output.CreateError($"Failed to parse source GhJSON: {sourceAnalysis ?? "Invalid format"}");
+                    output.CreateError($"Invalid source GhJSON: {sourceAnalysis ?? "Invalid format"}");
                     return output;
                 }
 
-                // Merge documents
+                var sourceDoc = GhJson.Parse(sourceJson);
+                sourceDoc = GhJson.Fix(sourceDoc).Document;
+
+                // Merge documents using GhJson façade
                 Debug.WriteLine("[gh_merge] Merging documents...");
-                var mergeResult = GhJsonMerger.Merge(targetDoc, sourceDoc);
+                var mergeResult = GhJson.Merge(targetDoc, sourceDoc);
 
-                // Serialize merged document back to JSON
-                var mergedJson = GhJsonConverter.SerializeToJson(mergeResult.Document);
+                // Serialize merged document back to JSON using GhJson facade
+                var mergedJson = GhJson.Serialize(mergeResult.Document, new WriteOptions { Indented = false });
 
                 Debug.WriteLine($"[gh_merge] Merge complete: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections, +{mergeResult.GroupsAdded} groups");
 
