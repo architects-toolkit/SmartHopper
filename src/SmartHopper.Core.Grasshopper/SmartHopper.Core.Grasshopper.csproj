@@ -8,6 +8,7 @@
     <NoWarn>NU1701;NETSDK1086;MSB3243;SA1124;SA1200</NoWarn>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   
   <PropertyGroup>
