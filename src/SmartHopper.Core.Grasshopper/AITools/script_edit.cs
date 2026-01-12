@@ -584,31 +584,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        private static string DetectLanguageFromComponentGuid(Guid componentGuid)
-        {
-            if (componentGuid == ScriptComponentFactory.Python3Guid)
-            {
-                return "python";
-            }
-
-            if (componentGuid == ScriptComponentFactory.IronPython2Guid)
-            {
-                return "ironpython";
-            }
-
-            if (componentGuid == ScriptComponentFactory.CSharpGuid)
-            {
-                return "c#";
-            }
-
-            if (componentGuid == ScriptComponentFactory.VBNetGuid)
-            {
-                return "vb";
-            }
-
-            return "python"; // Default fallback
-        }
-
         private static string GetJsonSchema()
         {
             return @"{

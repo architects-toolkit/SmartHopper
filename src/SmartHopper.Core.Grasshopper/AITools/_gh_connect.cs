@@ -21,9 +21,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Grasshopper;
 using Grasshopper;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -110,7 +110,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
-                if (CanvasAccess.GetCurrentCanvas() == null)
+                var doc = Instances.ActiveCanvas?.Document;
+                if (doc == null)
                 {
                     output.CreateError("No active Grasshopper document found.");
                     return Task.FromResult(output);
@@ -148,7 +149,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     // Use utility to connect components
-                    bool success = ConnectionBuilder.ConnectComponents(
+                    bool success = GhJsonGrasshopper.ConnectComponents(
                         sourceGuid,
                         targetGuid,
                         sourceParamName,
@@ -180,7 +181,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Redraw once after all connections
                 if (successfulConnections.Any())
                 {
-                    var doc = CanvasAccess.GetCurrentCanvas();
                     doc.NewSolution(false);
                     Instances.RedrawCanvas();
                 }

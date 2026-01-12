@@ -26,8 +26,8 @@ using GhJSON.Core;
 using GhJSON.Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -367,314 +367,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ? new List<string>(predefinedTypeFilters)
                     : args["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
                 var categoryFilters = args["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                var objects = CanvasAccess.GetCurrentObjects();
 
-                // Filter by manual UI selection if provided
+                // Filter by GUIDs (if provided)
                 var selectedGuids = args["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                if (selectedGuids.Any())
+                var guidFilter = new List<Guid>();
+                foreach (var guidStr in selectedGuids)
                 {
-                    var set = new HashSet<string>(selectedGuids);
-                    objects = objects.Where(o => set.Contains(o.InstanceGuid.ToString())).ToList();
+                    if (Guid.TryParse(guidStr, out var g))
+                    {
+                        guidFilter.Add(g);
+                    }
                 }
 
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
                 Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}");
-                var (includeTypes, excludeTypes) = ComponentRetriever.ParseIncludeExclude(typeFilters, ComponentRetriever.TypeSynonyms);
-                var (includeTags, excludeTags) = ComponentRetriever.ParseIncludeExclude(attrFilters, ComponentRetriever.FilterSynonyms);
-                var (includeCats, excludeCats) = ComponentRetriever.ParseIncludeExclude(categoryFilters, ComponentRetriever.CategorySynonyms);
-
-                // Apply typeFilters on base objects
-                var typeFiltered = new List<IGH_ActiveObject>(objects);
-                if (includeTypes.Any())
-                {
-                    var tf = new List<IGH_ActiveObject>();
-                    if (includeTypes.Contains("PARAMS"))
-                    {
-                        tf.AddRange(objects.OfType<IGH_Param>());
-                    }
-
-                    if (includeTypes.Contains("COMPONENTS"))
-                    {
-                        tf.AddRange(objects.OfType<GH_Component>());
-                    }
-
-                    if (includeTypes.Overlaps(new[] { "STARTNODES", "ENDNODES", "MIDDLENODES", "ISOLATEDNODES" }))
-                    {
-                            var serOptions1 = GhJsonGrasshopper.Options.Optimized(
-                            includeMetadata: false,
-                            includeGroups: false,
-                            includePersistentData: false);
-                        var tempDoc = GhJsonGrasshopper.Serialize(objects, serOptions1);
-
-                        var incd = new Dictionary<Guid, int>();
-                        var outd = new Dictionary<Guid, int>();
-                        foreach (var conn in tempDoc.Connections)
-                        {
-                            if (conn.TryResolveGuids(tempDoc.GetIdToGuidMapping(), out var fromGuid, out var toGuid))
-                            {
-                                outd[fromGuid] = (outd.TryGetValue(fromGuid, out var ov) ? ov : 0) + 1;
-                                incd[toGuid] = (incd.TryGetValue(toGuid, out var iv) ? iv : 0) + 1;
-                            }
-                        }
-
-                        if (includeTypes.Contains("STARTNODES"))
-                        {
-                            tf.AddRange(objects.Where(c => !incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid)));
-                        }
-
-                        if (includeTypes.Contains("ENDNODES"))
-                        {
-                            tf.AddRange(objects.Where(c => !outd.ContainsKey(c.InstanceGuid) && incd.ContainsKey(c.InstanceGuid)));
-                        }
-
-                        if (includeTypes.Contains("MIDDLENODES"))
-                        {
-                            tf.AddRange(objects.Where(c => incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid)));
-                        }
-
-                        if (includeTypes.Contains("ISOLATEDNODES"))
-                        {
-                            tf.AddRange(objects.Where(c => !incd.ContainsKey(c.InstanceGuid) && !outd.ContainsKey(c.InstanceGuid)));
-                        }
-                    }
-
-                    typeFiltered = tf.ToList();
-                }
-
-                if (excludeTypes.Any())
-                {
-                    if (!includeTypes.Any())
-                    {
-                        typeFiltered = new List<IGH_ActiveObject>(objects);
-                    }
-
-                    if (excludeTypes.Contains("PARAMS"))
-                    {
-                        typeFiltered.RemoveAll(o => o is IGH_Param);
-                    }
-
-                    if (excludeTypes.Contains("COMPONENTS"))
-                    {
-                        typeFiltered.RemoveAll(o => o is GH_Component);
-                    }
-
-                    if (excludeTypes.Overlaps(new[] { "STARTNODES", "ENDNODES", "MIDDLENODES", "ISOLATEDNODES" }))
-                    {
-                        var serOptions2 = GhJsonGrasshopper.Options.Optimized(
-                            includeMetadata: false,
-                            includeGroups: false,
-                            includePersistentData: false);
-                        var tempDoc = GhJsonGrasshopper.Serialize(typeFiltered, serOptions2);
-
-                        var incd = new Dictionary<Guid, int>();
-                        var outd = new Dictionary<Guid, int>();
-                        foreach (var conn in tempDoc.Connections)
-                        {
-                            if (conn.TryResolveGuids(tempDoc.GetIdToGuidMapping(), out var fromGuid, out var toGuid))
-                            {
-                                outd[fromGuid] = (outd.TryGetValue(fromGuid, out var ov) ? ov : 0) + 1;
-                                incd[toGuid] = (incd.TryGetValue(toGuid, out var iv) ? iv : 0) + 1;
-                            }
-                        }
-
-                        if (excludeTypes.Contains("STARTNODES"))
-                        {
-                            typeFiltered.RemoveAll(c => !incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid));
-                        }
-
-                        if (excludeTypes.Contains("ENDNODES"))
-                        {
-                            typeFiltered.RemoveAll(c => !outd.ContainsKey(c.InstanceGuid) && incd.ContainsKey(c.InstanceGuid));
-                        }
-
-                        if (excludeTypes.Contains("MIDDLENODES"))
-                        {
-                            typeFiltered.RemoveAll(c => incd.ContainsKey(c.InstanceGuid) && outd.ContainsKey(c.InstanceGuid));
-                        }
-
-                        if (excludeTypes.Contains("ISOLATEDNODES"))
-                        {
-                            typeFiltered.RemoveAll(c => !incd.ContainsKey(c.InstanceGuid) && !outd.ContainsKey(c.InstanceGuid));
-                        }
-                    }
-                }
-
-                objects = typeFiltered;
-
-                // Apply category filters (by Category and SubCategory) to all document
-                // objects that expose Category/SubCategory (components, parameters, etc.).
-                // Objects without category information are only kept when there is no
-                // include list, so '+Script' will correctly exclude non-script objects
-                // such as generic panels.
-                if (includeCats.Any() || excludeCats.Any())
-                {
-                    objects = objects
-                        .Where(o =>
-                        {
-                            if (o is GH_DocumentObject doc)
-                            {
-                                return ComponentRetriever.PassesCategoryFilters(
-                                    doc.Category,
-                                    doc.SubCategory,
-                                    includeCats,
-                                    excludeCats);
-                            }
-
-                            // Fallback for exotic objects without category info:
-                            // keep them only when no include list is specified.
-                            return !includeCats.Any();
-                        })
-                        .ToList();
-                }
-
-                // Apply includes
-                List<IGH_ActiveObject> resultObjects;
-                if (includeTags.Any())
-                {
-                    resultObjects = new List<IGH_ActiveObject>();
-                    if (includeTags.Contains("SELECTED"))
-                    {
-                        resultObjects.AddRange(objects.Where(o => o.Attributes.Selected));
-                    }
-
-                    if (includeTags.Contains("UNSELECTED"))
-                    {
-                        resultObjects.AddRange(objects.Where(o => !o.Attributes.Selected));
-                    }
-
-                    if (includeTags.Contains("ENABLED"))
-                    {
-                        resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => !c.Locked).Cast<IGH_ActiveObject>());
-                    }
-
-                    if (includeTags.Contains("DISABLED"))
-                    {
-                        resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.Locked).Cast<IGH_ActiveObject>());
-                    }
-
-                    if (includeTags.Contains("ERROR"))
-                    {
-                        resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Error).Any()));
-                    }
-
-                    if (includeTags.Contains("WARNING"))
-                    {
-                        resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any()));
-                    }
-
-                    if (includeTags.Contains("REMARK"))
-                    {
-                        resultObjects.AddRange(objects.Where(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any()));
-                    }
-
-                    if (includeTags.Contains("PREVIEWCAPABLE"))
-                    {
-                        resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable).Cast<IGH_ActiveObject>());
-                    }
-
-                    if (includeTags.Contains("NOTPREVIEWCAPABLE"))
-                    {
-                        resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => !c.IsPreviewCapable).Cast<IGH_ActiveObject>());
-                    }
-
-                    if (includeTags.Contains("PREVIEWON"))
-                    {
-                        resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable && !c.Hidden).Cast<IGH_ActiveObject>());
-                    }
-
-                    if (includeTags.Contains("PREVIEWOFF"))
-                    {
-                        resultObjects.AddRange(objects.OfType<GH_Component>().Where(c => c.IsPreviewCapable && c.Hidden).Cast<IGH_ActiveObject>());
-                    }
-                }
-                else
-                {
-                    resultObjects = new List<IGH_ActiveObject>(objects);
-                }
-
-                // Apply excludes
-                if (excludeTags.Contains("SELECTED"))
-                {
-                    resultObjects.RemoveAll(o => o.Attributes.Selected);
-                }
-
-                if (excludeTags.Contains("UNSELECTED"))
-                {
-                    resultObjects.RemoveAll(o => !o.Attributes.Selected);
-                }
-
-                if (excludeTags.Contains("ENABLED"))
-                {
-                    resultObjects.RemoveAll(o => o is GH_Component c && !c.Locked);
-                }
-
-                if (excludeTags.Contains("DISABLED"))
-                {
-                    resultObjects.RemoveAll(o => o is GH_Component c && c.Locked);
-                }
-
-                if (excludeTags.Contains("ERROR"))
-                {
-                    resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Error).Any());
-                }
-
-                if (excludeTags.Contains("WARNING"))
-                {
-                    resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Warning).Any());
-                }
-
-                if (excludeTags.Contains("REMARK"))
-                {
-                    resultObjects.RemoveAll(o => o.RuntimeMessages(GH_RuntimeMessageLevel.Remark).Any());
-                }
-
-                if (excludeTags.Contains("PREVIEWCAPABLE"))
-                {
-                    resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable);
-                }
-
-                if (excludeTags.Contains("NOTPREVIEWCAPABLE"))
-                {
-                    resultObjects.RemoveAll(o => o is GH_Component c && !c.IsPreviewCapable);
-                }
-
-                if (excludeTags.Contains("PREVIEWON"))
-                {
-                    resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && !c.Hidden);
-                }
-
-                if (excludeTags.Contains("PREVIEWOFF"))
-                {
-                    resultObjects.RemoveAll(o => o is GH_Component c && c.IsPreviewCapable && c.Hidden);
-                }
-
-                if (connectionDepth > 0)
-                {
-                    var allObjects = CanvasAccess.GetCurrentObjects();
-                    var serOptions3 = GhJsonGrasshopper.Options.Optimized(
-                        includeMetadata: false,
-                        includeGroups: false,
-                        includePersistentData: false);
-                    var fullDoc = GhJsonGrasshopper.Serialize(allObjects, serOptions3);
-                    var edges = fullDoc.Connections
-                        .Select(c =>
-                        {
-                            if (c.TryResolveGuids(fullDoc.GetIdToGuidMapping(), out var from, out var to))
-                                return (from: from, to: to, valid: true);
-                            return (from: Guid.Empty, to: Guid.Empty, valid: false);
-                        })
-                        .Where(e => e.valid)
-                        .Select(e => (e.from, e.to));
-                    var initialIds = resultObjects.Select(o => o.InstanceGuid);
-                    var expandedIds = ConnectionGraphUtils.ExpandByDepth(edges, initialIds, connectionDepth);
-                    var idMap = allObjects.ToDictionary(o => o.InstanceGuid, o => o);
-                    resultObjects = expandedIds
-                        .Select(g => idMap.TryGetValue(g, out var obj) ? obj : null)
-                        .Where(o => o != null)
-                        .ToList();
-                }
 
                 // When includeRuntimeData is requested, include PersistentData (token-expansive).
                 // Otherwise, exclude it to reduce token usage.
@@ -683,58 +391,33 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     includeGroups: true,
                     includePersistentData: includeRuntimeData);
 
-                Debug.WriteLine($"[gh_get] Starting serialization with {resultObjects.Count} objects");
-                Debug.WriteLine($"[gh_get] Objects: {string.Join(", ", resultObjects.Select(o => $"{o.Name}({o.InstanceGuid})"))}");
+                // Parse string tokens into strongly-typed filters
+                var attributeFilter = FilterParser.ParseAttributeFilter(attrFilters);
+                var typeFilter = FilterParser.ParseTypeFilter(typeFilters);
+                var categoryFilter = FilterParser.ParseCategoryFilter(categoryFilters);
 
-                var document;
-                try
+                var getOptions = new GhJSON.Grasshopper.Canvas.GetOptions
                 {
-                    document = GhJsonGrasshopper.Serialize(resultObjects, serOptions);
-                    Debug.WriteLine($"[gh_get] Serialization completed successfully");
-                }
-                catch (ArgumentNullException anex)
-                {
-                    Debug.WriteLine($"[gh_get] ArgumentNullException in serialization: {anex.Message}");
-                    Debug.WriteLine($"[gh_get] Stack trace: {anex.StackTrace}");
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[gh_get] General exception in serialization: {ex.GetType().Name}: {ex.Message}");
-                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
-                    throw;
-                }
+                    SerializationOptions = serOptions,
+                    ConnectionDepth = connectionDepth,
+                    TrimConnectionsToResult = true,
+                    GuidsFilter = guidFilter.Count > 0 ? guidFilter : null,
+                    Scope = GhJSON.Grasshopper.Canvas.GetScope.All,
+                    AttributeFilter = attributeFilter,
+                    TypeFilter = typeFilter,
+                    CategoryFilter = categoryFilter,
+                };
 
-                Debug.WriteLine($"[gh_get] Starting post-serialization processing");
-                Debug.WriteLine($"[gh_get] document.Components count: {document.Components?.Count ?? 0}");
-                Debug.WriteLine($"[gh_get] document.Connections count: {document.Connections?.Count ?? 0}");
+                var getResult = GhJsonGrasshopper.GetWithOptions(getOptions);
+                var document = getResult.Document;
 
-                // only keep connections where both components are in our filtered set
-                try
+                // Build object list for runtime data extraction (expanded set)
+                var expandedObjects = new List<IGH_ActiveObject>();
+                if (includeRuntimeData)
                 {
-                    Debug.WriteLine($"[gh_get] Filtering connections...");
-                    var allowed = resultObjects.Select(o => o.InstanceGuid).ToHashSet();
-                    Debug.WriteLine($"[gh_get] Allowed GUIDs count: {allowed.Count}");
-
-                    if (document.Connections != null)
-                    {
-                        document.Connections = document.Connections
-                            .Where(c => c.TryResolveGuids(document.GetIdToGuidMapping(), out var fromGuid, out var toGuid) &&
-                                        allowed.Contains(fromGuid) && allowed.Contains(toGuid))
-                            .ToList();
-                        Debug.WriteLine($"[gh_get] Filtered connections count: {document.Connections.Count}");
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"[gh_get] document.Connections is null, initializing empty list");
-                        document.Connections = new List<GhJSON.Core.Models.Connections.ConnectionPairing>();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[gh_get] Exception filtering connections: {ex.GetType().Name}: {ex.Message}");
-                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
-                    throw;
+                    var allObjects = CanvasAccess.GetCurrentObjects();
+                    var expandedGuidSet = new HashSet<Guid>(getResult.ExpandedGuids);
+                    expandedObjects = allObjects.Where(o => expandedGuidSet.Contains(o.InstanceGuid)).ToList();
                 }
 
                 // Get names and guids
@@ -764,7 +447,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 JObject runtimeData = null;
                 if (includeRuntimeData)
                 {
-                    runtimeData = GhJsonGrasshopper.ExtractRuntimeData(resultObjects);
+                    runtimeData = GhJsonGrasshopper.ExtractRuntimeData(expandedObjects);
                     Debug.WriteLine($"[gh_get] Extracted runtime data for {runtimeData?.Count ?? 0} components");
                 }
 

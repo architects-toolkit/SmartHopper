@@ -44,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         /// <param name="spacingY">Vertical spacing between grid rows.</param>
         /// <param name="islandSpacingY">Vertical spacing between disconnected islands.</param>
         /// <returns>List of NodeGridComponent entries for each component.</returns>
-        public static List<NodeGridComponent> CreateComponentGrid(GrasshopperDocument doc, bool force = false, float spacingX = 50f, float spacingY = 80f, float islandSpacingY = 80f)
+        public static List<NodeGridComponent> CreateComponentGrid(GhJsonDocument doc, bool force = false, float spacingX = 50f, float spacingY = 80f, float islandSpacingY = 80f)
         {
             Debug.WriteLine("[CreateComponentGrid] Initializing unified grid...");
 
@@ -139,7 +139,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         /// Initializes grid nodes.
         /// </summary>
         /// <param name="doc">The Grasshopper document containing components and connections.</param>
-        private static List<NodeGridComponent> InitializeGrid(GrasshopperDocument doc)
+        private static List<NodeGridComponent> InitializeGrid(GhJsonDocument doc)
         {
             var grid = doc.Components.Select(c => new NodeGridComponent
             {

@@ -18,11 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Document operations** now use `GhJson.CreateDocument()`, `GhJson.Merge()`, `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`, `GhJson.Serialize()`.
   - **Runtime data** extraction now uses `GhJsonGrasshopper.ExtractRuntimeData()` instead of deep serializer access.
   - Tool-specific changes:
-    - `gh_get`: Uses `GhJsonGrasshopper.Options.*()` factories and `GhJsonGrasshopper.ExtractRuntimeData()`.
-    - `gh_put`: Uses `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`.
+    - `gh_get`: Delegates connection depth expansion and connection trimming to `GhJsonGrasshopper.GetWithOptions()`; uses `GhJsonGrasshopper.Options.*()` factories and `GhJsonGrasshopper.ExtractRuntimeData()`.
+    - `gh_put`: Delegates GhJSON placement (components/connections/groups) to `GhJsonGrasshopper.Put()` and uses `PutOptions.PreserveExternalConnections` for edit-mode external wiring preservation; uses `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`.
     - `gh_merge`: Uses `GhJson.Merge()` façade instead of direct `GhJsonMerger` access.
     - `gh_tidy_up`: Uses `GhJsonGrasshopper.Options.Standard()`.
     - `script_edit`, `script_generate`: Use `GhJsonGrasshopper.Script.*` façade methods.
+    - `gh_connect`: Delegates canvas wiring to `GhJsonGrasshopper.ConnectComponents()`.
 
 ## [1.2.4-alpha] - 2026-01-11
 
