@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -403,8 +403,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             CreateGroups = true,
                             SelectPlacedObjects = true,
                             SkipInvalidComponents = true,
-                            // TODO: Set correct offset for non-edit mode
-                            Offset = editMode ? new PointF(0, 0) : new PointF(100, 100),
+                            AutoOffset = !editMode,
                         };
 
                         putResult = GhJsonGrasshopper.Put(document, putOptions);
