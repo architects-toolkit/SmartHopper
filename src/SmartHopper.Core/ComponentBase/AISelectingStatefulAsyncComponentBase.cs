@@ -30,7 +30,11 @@ namespace SmartHopper.Core.ComponentBase
 {
     public abstract class AISelectingStatefulAsyncComponentBase : AIStatefulAsyncComponentBase, ISelectingComponent
     {
-        public List<IGH_ActiveObject> SelectedObjects
+        /// <summary>
+        /// Gets the currently selected Grasshopper objects for this component's selection mode.
+        /// Uses <see cref="IGH_DocumentObject"/> to support all object types including scribbles.
+        /// </summary>
+        public List<IGH_DocumentObject> SelectedObjects
         {
             get
             {
@@ -39,7 +43,7 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
-        private readonly List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
+        private readonly List<IGH_DocumentObject> selectedObjects = new List<IGH_DocumentObject>();
         private readonly SelectingComponentCore selectionCore;
 
         protected AISelectingStatefulAsyncComponentBase(string name, string nickname, string description, string category, string subCategory)

@@ -21,9 +21,14 @@ using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.ComponentBase
 {
+    /// <summary>
+    /// Interface for components that support selecting objects on the Grasshopper canvas.
+    /// Uses <see cref="IGH_DocumentObject"/> to support all object types including scribbles
+    /// which do not implement <see cref="IGH_ActiveObject"/>.
+    /// </summary>
     public interface ISelectingComponent
     {
-        List<IGH_ActiveObject> SelectedObjects { get; }
+        List<IGH_DocumentObject> SelectedObjects { get; }
 
         void EnableSelectionMode();
     }

@@ -145,11 +145,12 @@ namespace SmartHopper.Core.ComponentBase
             foreach (var objectGuid in this.pendingSelectionGuids)
             {
                 var foundObject = canvas.Document.FindObject(objectGuid, true);
-                if (foundObject is IGH_ActiveObject activeObj)
+                if (foundObject != null)
                 {
-                    if (!this.selectingComponent.SelectedObjects.Contains(activeObj))
+                    // Accept IGH_DocumentObject to support all types including scribbles
+                    if (!this.selectingComponent.SelectedObjects.Contains(foundObject))
                     {
-                        this.selectingComponent.SelectedObjects.Add(activeObj);
+                        this.selectingComponent.SelectedObjects.Add(foundObject);
                         foundCount++;
                         System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] TryRestoreSelection: Found object {objectGuid}");
                     }
@@ -213,14 +214,15 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             this.selectingComponent.SelectedObjects.Clear();
+
+            // Use IGH_DocumentObject to include all object types including scribbles
+            // which do not implement IGH_ActiveObject
             this.selectingComponent.SelectedObjects.AddRange(
                 canvas.Document.SelectedObjects()
-                    .OfType<IGH_ActiveObject>()
                     .Where(obj => obj is IGH_Component ||
                                   obj is IGH_Param ||
                                   obj is Grasshopper.Kernel.Special.GH_Group ||
-                                  obj.GetType().Name.Contains("Scribble", StringComparison.Ordinal) ||
-                                  obj.GetType().Name.Contains("Panel", StringComparison.Ordinal)));
+                                  obj is Grasshopper.Kernel.Special.GH_Scribble));
 
             this.owner.Message = $"{this.selectingComponent.SelectedObjects.Count} selected";
             this.owner.ExpireSolution(true);
