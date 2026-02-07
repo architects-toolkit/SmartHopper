@@ -20,10 +20,75 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using GhJSON.Grasshopper.Canvas;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Internal
 {
+    [Flags]
+    internal enum GetAttributes
+    {
+        None = 0,
+        Selected = 1 << 0,
+        Unselected = 1 << 1,
+        Enabled = 1 << 2,
+        Disabled = 1 << 3,
+        HasError = 1 << 4,
+        HasWarning = 1 << 5,
+        HasRemark = 1 << 6,
+        PreviewOn = 1 << 7,
+        PreviewOff = 1 << 8,
+        PreviewCapable = 1 << 9,
+        NotPreviewCapable = 1 << 10,
+    }
+
+    [Flags]
+    internal enum GetObjectKinds
+    {
+        None = 0,
+        Params = 1 << 0,
+        Components = 1 << 1,
+    }
+
+    [Flags]
+    internal enum GetNodeRoles
+    {
+        None = 0,
+        StartNodes = 1 << 0,
+        EndNodes = 1 << 1,
+        MiddleNodes = 1 << 2,
+        IsolatedNodes = 1 << 3,
+    }
+
+    internal sealed class AttributeFilter
+    {
+        public GetAttributes Include { get; set; }
+
+        public GetAttributes Exclude { get; set; }
+    }
+
+    internal sealed class TypeFilter
+    {
+        public GetObjectKinds Include { get; set; }
+
+        public GetObjectKinds Exclude { get; set; }
+
+        public GetNodeRoles IncludeRoles { get; set; }
+
+        public GetNodeRoles ExcludeRoles { get; set; }
+    }
+
+    internal sealed class CategoryFilter
+    {
+        public CategoryFilter(HashSet<string> include, HashSet<string> exclude)
+        {
+            this.Include = include ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            this.Exclude = exclude ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        public HashSet<string> Include { get; }
+
+        public HashSet<string> Exclude { get; }
+    }
+
     /// <summary>
     /// Parses string filter tokens into strongly-typed filter objects for ghjson-dotnet.
     /// </summary>

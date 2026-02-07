@@ -24,6 +24,7 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.Serialization;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
@@ -134,7 +135,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var doc = GhJsonGrasshopper.Serialize(selected, GhJsonGrasshopper.Options.Standard());
+                var doc = GhJsonGrasshopper.Serialize(selected, SerializationOptions.Default);
                 var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
 
                 if (!hasStart)

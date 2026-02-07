@@ -25,6 +25,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.PutOperations;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
@@ -88,8 +89,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
 
                 GhJson.IsValid(json, out analysisMsg);
-                var document = GhJson.Parse(json);
-                
+                var document = GhJson.FromJson(json);
+
                 // Apply fixes to normalize AI-generated JSON
                 var fixResult = GhJson.Fix(document);
                 document = fixResult.Document;
@@ -98,8 +99,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();
                 var existingPositions = new Dictionary<Guid, PointF>();
                 var componentsToReplace = new List<Guid>();
-
-                GhJSON.Grasshopper.Canvas.CapturedConnections capturedConnections = null;
 
                 if (editMode && document?.Components != null)
                 {
@@ -168,36 +167,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
 
                         Debug.WriteLine($"[gh_put] Final replacement count: {componentsToReplace.Count}");
-
-                        // Capture external connections for replaced components (on UI thread, before removal)
-                        if (componentsToReplace.Count > 0)
-                        {
-                            var captureTcs = new TaskCompletionSource<bool>();
-                            Rhino.RhinoApp.InvokeOnUiThread(() =>
-                            {
-                                try
-                                {
-                                    var allObjects = CanvasAccess.GetCurrentObjects();
-                                    var objectsToReplace = existingComponents
-                                        .Where(kvp => componentsToReplace.Contains(kvp.Key))
-                                        .Select(kvp => kvp.Value)
-                                        .ToList();
-
-                                    capturedConnections = GhJSON.Grasshopper.Canvas.ExternalConnectionManager
-                                        .CaptureExternalConnections(objectsToReplace, allObjects);
-
-                                    Debug.WriteLine($"[gh_put] Captured {capturedConnections?.Connections?.Count ?? 0} external connections");
-                                    captureTcs.SetResult(true);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.WriteLine($"[gh_put] Error capturing connections: {ex.Message}");
-                                    captureTcs.SetResult(false);
-                                }
-                            });
-
-                            await captureTcs.Task.ConfigureAwait(false);
-                        }
                     }
                 }
 
@@ -210,7 +179,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Put operation must run on UI thread.
                 Debug.WriteLine("[gh_put] Putting document on canvas");
-                GhJSON.Grasshopper.PutResult putResult = null;
+                PutResult putResult = null;
                 var placeTcs = new TaskCompletionSource<bool>();
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -237,24 +206,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
                         }
 
-                        var putOptions = new GhJSON.Grasshopper.PutOptions
+                        var putOptions = new PutOptions
                         {
-                            PreserveInstanceGuids = editMode,
-                            PreserveExternalConnections = editMode && capturedConnections != null && (capturedConnections.Connections?.Count ?? 0) > 0,
-                            CapturedConnections = capturedConnections,
-                            UseExactPositions = editMode,
-                            UseDependencyLayout = false,
-                            Offset = null,
-                            Spacing = 100,
+                            // In edit mode we keep instance guids from the input GhJSON.
+                            // Otherwise we regenerate to avoid accidental collisions.
+                            RegenerateInstanceGuids = !editMode,
                             CreateConnections = true,
                             CreateGroups = true,
+                            SelectPlacedObjects = true,
+                            SkipInvalidComponents = true,
+                            // TODO: Set correct offset for non-edit mode
+                            Offset = editMode ? new PointF(0, 0) : new PointF(100, 100),
                         };
 
                         putResult = GhJsonGrasshopper.Put(document, putOptions);
 
-                        if (!putResult.IsSuccess)
+                        if (!putResult.Success)
                         {
-                            throw new InvalidOperationException($"Put failed: {string.Join(", ", putResult.Errors)}");
+                            throw new InvalidOperationException($"Put failed: {putResult.ErrorMessage}");
                         }
 
                         placeTcs.SetResult(true);

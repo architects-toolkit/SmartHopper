@@ -23,7 +23,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core;
+using GhJSON.Core.Serialization;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.Serialization;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
@@ -384,53 +386,59 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
                 Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}");
 
-                // When includeRuntimeData is requested, include PersistentData (token-expansive).
-                // Otherwise, exclude it to reduce token usage.
-                var serOptions = GhJsonGrasshopper.Options.Optimized(
-                    includeMetadata: includeMetadata,
-                    includeGroups: true,
-                    includePersistentData: includeRuntimeData);
-
-                // Parse string tokens into strongly-typed filters
-                var attributeFilter = FilterParser.ParseAttributeFilter(attrFilters);
-                var typeFilter = FilterParser.ParseTypeFilter(typeFilters);
-                var categoryFilter = FilterParser.ParseCategoryFilter(categoryFilters);
-
-                var getOptions = new GhJSON.Grasshopper.Canvas.GetOptions
+                // TODO: Connection depth expansion not yet implemented in new ghjson-dotnet.
+                // This requires traversing the connection graph and expanding the selection.
+                if (connectionDepth > 0)
                 {
-                    SerializationOptions = serOptions,
-                    ConnectionDepth = connectionDepth,
-                    TrimConnectionsToResult = true,
-                    GuidsFilter = guidFilter.Count > 0 ? guidFilter : null,
-                    Scope = GhJSON.Grasshopper.Canvas.GetScope.All,
-                    AttributeFilter = attributeFilter,
-                    TypeFilter = typeFilter,
-                    CategoryFilter = categoryFilter,
-                };
-
-                var getResult = GhJsonGrasshopper.GetWithOptions(getOptions);
-                var document = getResult.Document;
-
-                // Build object list for runtime data extraction (expanded set)
-                var expandedObjects = new List<IGH_ActiveObject>();
-                if (includeRuntimeData)
-                {
-                    var allObjects = CanvasAccess.GetCurrentObjects();
-                    var expandedGuidSet = new HashSet<Guid>(getResult.ExpandedGuids);
-                    expandedObjects = allObjects.Where(o => expandedGuidSet.Contains(o.InstanceGuid)).ToList();
+                    Debug.WriteLine($"[gh_get] WARNING: connectionDepth={connectionDepth} is not yet implemented. Only direct selection will be serialized.");
                 }
 
-                // Get names and guids
+                // NOTE: New ghjson-dotnet does not currently expose SmartHopper's previous GetWithOptions / filters pipeline.
+                // We perform selection filtering in SmartHopper and then serialize the objects.
+                var allObjects2 = CanvasAccess.GetCurrentObjects();
+                IEnumerable<IGH_DocumentObject> objectsToSerialize = allObjects2;
+
+                if (guidFilter.Count > 0)
+                {
+                    var guidSet = new HashSet<Guid>(guidFilter);
+                    objectsToSerialize = objectsToSerialize.Where(o => guidSet.Contains(o.InstanceGuid));
+                }
+                else if (attrFilters.Any(t => string.Equals(t?.Trim(), "+selected", StringComparison.OrdinalIgnoreCase)))
+                {
+                    objectsToSerialize = objectsToSerialize.Where(o => o.Attributes != null && o.Attributes.Selected);
+                }
+
+                var serOptions = new SerializationOptions
+                {
+                    IncludeConnections = true,
+                    IncludeGroups = true,
+                    IncludeInternalizedData = includeRuntimeData,
+                    IncludeRuntimeMessages = false,
+                    IncludeSelectedState = false,
+                    AssignSequentialIds = true,
+                };
+
+                var document = GhJsonGrasshopper.Serialize(objectsToSerialize, serOptions);
+
+                // Get names and guids with proper null handling
                 List<string> names;
                 List<string> guids;
                 try
                 {
                     Debug.WriteLine($"[gh_get] Extracting component names...");
-                    names = document.Components.Select(c => c.Name).Distinct().ToList();
+                    names = document?.Components?
+                        .Where(c => !string.IsNullOrWhiteSpace(c?.Name))
+                        .Select(c => c.Name)
+                        .Distinct()
+                        .ToList() ?? new List<string>();
                     Debug.WriteLine($"[gh_get] Extracted {names.Count} unique names");
 
                     Debug.WriteLine($"[gh_get] Extracting component GUIDs...");
-                    guids = document.Components.Select(c => c.InstanceGuid.ToString()).Distinct().ToList();
+                    guids = document?.Components?
+                        .Where(c => c?.InstanceGuid != null && c.InstanceGuid.HasValue)
+                        .Select(c => c.InstanceGuid.Value.ToString())
+                        .Distinct()
+                        .ToList() ?? new List<string>();
                     Debug.WriteLine($"[gh_get] Extracted {guids.Count} unique GUIDs");
                 }
                 catch (Exception ex)
@@ -441,15 +449,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Serialize document using GhJson facade
-                var json = GhJson.Serialize(document, new WriteOptions { Indented = false });
-
-                // Extract runtime data if requested
-                JObject runtimeData = null;
-                if (includeRuntimeData)
-                {
-                    runtimeData = GhJsonGrasshopper.ExtractRuntimeData(expandedObjects);
-                    Debug.WriteLine($"[gh_get] Extracted runtime data for {runtimeData?.Count ?? 0} components");
-                }
+                var json = GhJson.ToJson(document, new WriteOptions { Indented = false });
 
                 // Package result with classifications
                 var toolResult = new JObject
@@ -458,11 +458,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["guids"] = JArray.FromObject(guids),
                     ["ghjson"] = json,
                 };
-
-                if (runtimeData != null)
-                {
-                    toolResult["runtimeData"] = runtimeData;
-                }
 
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)

@@ -22,7 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
-using GhJSON.Core.Models.Document;
+using GhJSON.Core.SchemaModels;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 
@@ -144,17 +144,24 @@ namespace SmartHopper.Core.Grasshopper.Graph
             var grid = doc.Components.Select(c => new NodeGridComponent
             {
                 ComponentId = c.InstanceGuid.GetValueOrDefault(),
-                Pivot = c.Pivot,
+                Pivot = c.Pivot?.ToPointF() ?? PointF.Empty,
                 Parents = new Dictionary<Guid, int>(),
                 Children = new Dictionary<Guid, int>(),
             }).ToList();
 
             var idToGuidMap = doc.GetIdToGuidMapping();
+            if (doc.Connections == null)
+            {
+                return grid;
+            }
+
             foreach (var conn in doc.Connections)
             {
                 // Resolve integer IDs to GUIDs
-                if (conn.TryResolveGuids(idToGuidMap, out var fromGuid, out var toGuid) &&
-                    grid.Any(n => n.ComponentId == toGuid) && grid.Any(n => n.ComponentId == fromGuid))
+                if (idToGuidMap.TryGetValue(conn.From.Id, out var fromGuid) &&
+                    idToGuidMap.TryGetValue(conn.To.Id, out var toGuid) &&
+                    grid.Any(n => n.ComponentId == toGuid) &&
+                    grid.Any(n => n.ComponentId == fromGuid))
                 {
                     var toNode = grid.First(n => n.ComponentId == toGuid);
                     var fromNode = grid.First(n => n.ComponentId == fromGuid);
