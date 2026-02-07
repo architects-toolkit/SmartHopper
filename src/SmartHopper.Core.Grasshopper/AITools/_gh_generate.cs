@@ -23,9 +23,12 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
-using GhJSON.Grasshopper.Introspection;
+using GhJSON.Core;
+using GhJSON.Core.SchemaModels;
+using GhJSON.Core.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Constants;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -147,16 +150,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
 
-                    // Use utility to generate component spec
-                    var ghComponent = ComponentSpecBuilder.GenerateComponentSpec(name, parameters, position);
-                    if (ghComponent == null)
+                    var instanceGuid = Guid.NewGuid();
+                    createdGuids.Add(instanceGuid.ToString());
+
+                    var component = new GhJsonComponent
                     {
-                        Debug.WriteLine($"[gh_generate] Component not found: {name}");
-                        continue;
+                        Name = name,
+                        InstanceGuid = instanceGuid,
+                        Pivot = position.HasValue ? new GhJsonPivot(position.Value.X, position.Value.Y) : null,
+                    };
+
+                    // Store any ad-hoc parameters as extension data (best-effort).
+                    if (parameters != null && parameters.Count > 0)
+                    {
+                        component.ComponentState = new GhJsonComponentState
+                        {
+                            Extensions = new Dictionary<string, object>
+                            {
+                                [GhJsonExtensionKeys.SmartHopperParameters] = parameters,
+                            },
+                        };
                     }
 
-                    ghComponents.Add(ghComponent);
-                    createdGuids.Add(ghComponent["instanceGuid"]?.ToString());
+                    var compObj = JObject.FromObject(component);
+                    ghComponents.Add(compObj);
                 }
 
                 if (!ghComponents.Any())
@@ -165,13 +182,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
-                // Use utility to build GhJSON document
-                var ghJson = ComponentSpecBuilder.GenerateGhJsonDocument(ghComponents);
-                var ghJsonString = ghJson.ToString(Formatting.Indented);
+                // Build GhJSON document
+                var builder = GhJson.CreateDocumentBuilder();
+                foreach (var compObj in ghComponents)
+                {
+                    try
+                    {
+                        var comp = compObj?.ToObject<GhJsonComponent>();
+                        if (comp != null)
+                        {
+                            builder = builder.AddComponent(comp);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[gh_generate] Failed to deserialize component: {ex.Message}");
+                    }
+                }
+
+                var doc = builder.Build();
+                var ghJsonString = GhJson.ToJson(doc, new WriteOptions { Indented = true });
 
                 var toolResult = new JObject
                 {
-                    ["ghJson"] = ghJsonString,
+                    ["ghjson"] = ghJsonString,
                     ["componentCount"] = ghComponents.Count,
                     ["componentGuids"] = JArray.FromObject(createdGuids),
                     ["message"] = $"Generated GhJSON for {ghComponents.Count} component(s). Pass this to gh_put to place on canvas."

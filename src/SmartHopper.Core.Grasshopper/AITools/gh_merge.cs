@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using GhJSON.Core;
+using GhJSON.Core.Serialization;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -83,7 +84,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var targetDoc = GhJson.Parse(targetJson);
+                var targetDoc = GhJson.FromJson(targetJson);
                 targetDoc = GhJson.Fix(targetDoc).Document;
 
                 // Validate and parse source using GhJson facade
@@ -93,7 +94,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var sourceDoc = GhJson.Parse(sourceJson);
+                var sourceDoc = GhJson.FromJson(sourceJson);
                 sourceDoc = GhJson.Fix(sourceDoc).Document;
 
                 // Merge documents using GhJson façade
@@ -101,7 +102,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var mergeResult = GhJson.Merge(targetDoc, sourceDoc);
 
                 // Serialize merged document back to JSON using GhJson facade
-                var mergedJson = GhJson.Serialize(mergeResult.Document, new WriteOptions { Indented = false });
+                var mergedJson = GhJson.ToJson(mergeResult.Document, new WriteOptions { Indented = false });
 
                 Debug.WriteLine($"[gh_merge] Merge complete: +{mergeResult.ComponentsAdded} components, +{mergeResult.ConnectionsAdded} connections, +{mergeResult.GroupsAdded} groups");
 
@@ -109,9 +110,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["ghjson"] = mergedJson,
                     ["componentsAdded"] = mergeResult.ComponentsAdded,
-                    ["componentsDuplicated"] = mergeResult.ComponentsDuplicated,
                     ["connectionsAdded"] = mergeResult.ConnectionsAdded,
-                    ["connectionsDuplicated"] = mergeResult.ConnectionsDuplicated,
                     ["groupsAdded"] = mergeResult.GroupsAdded,
                     ["totalComponents"] = mergeResult.Document?.Components?.Count ?? 0,
                     ["totalConnections"] = mergeResult.Document?.Connections?.Count ?? 0,

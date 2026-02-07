@@ -23,10 +23,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core;
+using GhJSON.Core.SchemaModels;
+using GhJSON.Core.Serialization;
 using GhJSON.Grasshopper;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Core.Grasshopper.Utils.Constants;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -179,7 +181,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Build system prompt with language-specific guidance using centralized language mapping
-                var effectiveLanguage = GhJsonGrasshopper.Script.NormalizeLanguageKeyOrDefault(preferredLanguage, "python");
+                var effectiveLanguage = NormalizeLanguageKeyOrDefault(preferredLanguage, "python");
                 var languageGuidance = ScriptCodeValidator.GetLanguageGuidance(effectiveLanguage);
                 var systemPrompt = this.systemPromptTemplate + "\n\n" + languageGuidance;
 
@@ -224,12 +226,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var summary = responseJson["summary"]?.ToString() ?? string.Empty;
 
                 // Detect language or use default
-                var componentInfo = GhJsonGrasshopper.Script.GetComponentInfo(language);
-                if (componentInfo == null)
-                {
-                    output.CreateError($"Unsupported script language: {language}. Supported: python, ironpython, c#, vb.");
-                    return output;
-                }
+                language = NormalizeLanguageKeyOrDefault(language, "python");
 
                 Debug.WriteLine($"[script_generate] Language: {language}, Script length: {scriptCode.Length}");
                 Debug.WriteLine($"[script_generate] Inputs: {inputs.Count}, Outputs: {outputs.Count}");
@@ -284,18 +281,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!validationResult.IsValid)
                 {
-                    Debug.WriteLine($"[script_generate] Script validation failed after {retryCount} retries: {string.Join("; ", validationResult.Issues)}");
+                    var validationWarning = $"Script validation failed after {retryCount} retries: {string.Join("; ", validationResult.Issues)}";
+                    Debug.WriteLine($"[script_generate] {validationWarning}");
 
-                    // Continue with the script but log a warning - it may still work
+                    // Return warning but continue - the script may still work
+                    // This provides consistent error handling with script_edit
                 }
 
-                // Build GhJSON using Script façade
-                var ghJsonString = GhJsonGrasshopper.Script.CreateGhJson(
-                    language,
-                    scriptCode,
-                    inputs,
-                    outputs,
-                    nickname,
+                var ghJsonString = CreateScriptGhJson(
+                    languageKey: language,
+                    scriptCode: scriptCode,
+                    inputs: inputs,
+                    outputs: outputs,
+                    nickname: nickname,
                     instanceGuid: null,
                     pivot: null,
                     indented: false);
@@ -312,8 +310,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["success"] = true,
                     ["ghjson"] = ghJsonString,
-                    ["language"] = componentInfo.LanguageKey,
-                    ["componentName"] = componentInfo.DisplayName,
+                    ["language"] = language,
+                    ["componentName"] = CreateComponentName(language),
                     ["inputCount"] = inputs.Count,
                     ["outputCount"] = outputs.Count,
                     ["summary"] = summary,
@@ -331,6 +329,135 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError(ex.Message);
                 return output;
             }
+        }
+
+        private static string NormalizeLanguageKeyOrDefault(string? languageKey, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(languageKey))
+            {
+                return fallback;
+            }
+
+            var key = languageKey.Trim().ToLowerInvariant();
+            return key switch
+            {
+                "python" => "python",
+                "ironpython" => "ironpython",
+                "c#" => "c#",
+                "csharp" => "c#",
+                "vb" => "vb",
+                "vbscript" => "vb",
+                _ => fallback,
+            };
+        }
+
+        private static string GetExtensionKey(string languageKey)
+        {
+            return languageKey?.Trim().ToLowerInvariant() switch
+            {
+                "python" => GhJsonExtensionKeys.Python,
+                "ironpython" => GhJsonExtensionKeys.IronPython,
+                "c#" => GhJsonExtensionKeys.CSharp,
+                "csharp" => GhJsonExtensionKeys.CSharp,
+                "vb" => GhJsonExtensionKeys.VBScript,
+                "vbscript" => GhJsonExtensionKeys.VBScript,
+                _ => GhJsonExtensionKeys.Python,
+            };
+        }
+
+        private static string CreateComponentName(string languageKey)
+        {
+            return languageKey?.Trim().ToLowerInvariant() switch
+            {
+                "python" => "Python",
+                "ironpython" => "IronPython",
+                "c#" => "C#",
+                "csharp" => "C#",
+                "vb" => "VB Script",
+                "vbscript" => "VB Script",
+                _ => "Python",
+            };
+        }
+
+        private static string CreateScriptGhJson(
+            string languageKey,
+            string scriptCode,
+            JArray inputs,
+            JArray outputs,
+            string nickname,
+            Guid? instanceGuid,
+            GhJsonPivot? pivot,
+            bool indented)
+        {
+            var component = new GhJsonComponent
+            {
+                Name = CreateComponentName(languageKey),
+                NickName = nickname,
+                InstanceGuid = instanceGuid,
+                Pivot = pivot,
+            };
+
+            component.InputSettings = ParseParameters(inputs);
+            component.OutputSettings = ParseParameters(outputs);
+
+            component.ComponentState = new GhJsonComponentState
+            {
+                Extensions = new Dictionary<string, object>
+                {
+                    [GetExtensionKey(languageKey)] = new Dictionary<string, object>
+                    {
+                        [GhJsonExtensionKeys.CodeProperty] = scriptCode ?? string.Empty,
+                    },
+                },
+            };
+
+            var doc = GhJson.CreateDocumentBuilder()
+                .AddComponent(component)
+                .Build();
+
+            return GhJson.ToJson(doc, new WriteOptions { Indented = indented });
+        }
+
+        private static List<GhJsonParameterSettings> ParseParameters(JArray array)
+        {
+            var list = new List<GhJsonParameterSettings>();
+
+            if (array == null)
+            {
+                return list;
+            }
+            foreach (var t in array)
+            {
+                if (t is not JObject o)
+                {
+                    continue;
+                }
+
+                var name = o["name"]?.ToString();
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                var settings = new GhJsonParameterSettings
+                {
+                    ParameterName = name,
+                    Description = o["description"]?.ToString(),
+                    Access = o["access"]?.ToString(),
+                    DataMapping = o["dataMapping"]?.ToString(),
+                    TypeHint = o["type"]?.ToString(),
+                    Expression = o["expression"]?.ToString(),
+                    IsReversed = o["reverse"]?.ToObject<bool?>(),
+                    IsSimplified = o["simplify"]?.ToObject<bool?>(),
+                    IsInverted = o["invert"]?.ToObject<bool?>(),
+                    IsPrincipal = o["isPrincipal"]?.ToObject<bool?>(),
+                    IsRequired = o["required"]?.ToObject<bool?>(),
+                };
+
+                list.Add(settings);
+            }
+
+            return list;
         }
 
         /// <summary>

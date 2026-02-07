@@ -21,8 +21,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using GhJSON.Core.Models.Components;
-using GhJSON.Grasshopper.Serialization.ScriptComponents;
+using GhJSON.Core;
+using GhJSON.Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
@@ -53,32 +53,40 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             bool optional = true)
         {
             if (scriptComp == null)
+            {
                 throw new ArgumentNullException(nameof(scriptComp));
+            }
 
             var ghComp = scriptComp as IGH_Component;
-            if (ghComp == null) return;
-
-            var settings = new ParameterSettings
+            if (ghComp == null)
             {
-                ParameterName = name,
-                VariableName = name,
-                TypeHint = typeHint,
-                Access = access,
+                return;
+            }
+
+            // Create a generic parameter. The script component itself is responsible for:
+            // 1. Binding variable names to parameters
+            // 2. Applying type hints via reflection (TypeHint property)
+            // 3. Setting access modes (item/list/tree)
+            // This is handled by the script component's internal parameter management system.
+            IGH_Param param = new Param_GenericObject
+            {
+                Name = name,
+                NickName = name,
+                Description = description ?? string.Empty,
+                Optional = optional,
             };
 
-            var language = ScriptComponentHelper.GetScriptLanguageType(scriptComp);
-            var param = ScriptParameterMapper.CreateParameter(
-                settings,
-                defaultName: "input",
-                language: language,
-                isOutput: false);
-            if (param != null)
+            ghComp.Params.RegisterInputParam(param);
+            Debug.WriteLine($"[ScriptModifier] Added input parameter '{name}' with type hint '{typeHint}'");
+
+            // Apply type hint if the parameter supports it
+            if (!string.IsNullOrWhiteSpace(typeHint) && !string.Equals(typeHint, "object", StringComparison.OrdinalIgnoreCase))
             {
-                param.Description = description;
-                param.Optional = optional;
-                ghComp.Params.RegisterInputParam(param);
-                Debug.WriteLine($"[ScriptModifier] Added input parameter '{name}' with type '{typeHint}'");
+                TrySetTypeHint(param, typeHint);
             }
+
+            // Apply access mode
+            SetInputAccess(scriptComp, ghComp.Params.Input.Count - 1, ParseAccess(access));
 
             RefreshScriptComponent(scriptComp);
         }
@@ -93,30 +101,31 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             string description = "")
         {
             if (scriptComp == null)
+            {
                 throw new ArgumentNullException(nameof(scriptComp));
+            }
 
             var ghComp = scriptComp as IGH_Component;
-            if (ghComp == null) return;
-
-            var settings = new ParameterSettings
+            if (ghComp == null)
             {
-                ParameterName = name,
-                VariableName = name,
-                TypeHint = typeHint,
-                Access = "item",
+                return;
+            }
+
+            // Create a generic output parameter. Type hints are applied via reflection.
+            IGH_Param param = new Param_GenericObject
+            {
+                Name = name,
+                NickName = name,
+                Description = description ?? string.Empty,
             };
 
-            var language = ScriptComponentHelper.GetScriptLanguageType(scriptComp);
-            var param = ScriptParameterMapper.CreateParameter(
-                settings,
-                defaultName: "output",
-                language: language,
-                isOutput: true);
-            if (param != null)
+            ghComp.Params.RegisterOutputParam(param);
+            Debug.WriteLine($"[ScriptModifier] Added output parameter '{name}' with type hint '{typeHint}'");
+
+            // Apply type hint if the parameter supports it
+            if (!string.IsNullOrWhiteSpace(typeHint) && !string.Equals(typeHint, "object", StringComparison.OrdinalIgnoreCase))
             {
-                param.Description = description;
-                ghComp.Params.RegisterOutputParam(param);
-                Debug.WriteLine($"[ScriptModifier] Added output parameter '{name}' with type '{typeHint}'");
+                TrySetTypeHint(param, typeHint);
             }
 
             RefreshScriptComponent(scriptComp);
@@ -346,11 +355,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 if (typeHintProp != null && typeHintProp.CanWrite)
                 {
                     typeHintProp.SetValue(param, typeHint);
+                    Debug.WriteLine($"[ScriptModifier] Applied type hint '{typeHint}' to parameter '{param.Name}'");
+                }
+                else
+                {
+                    Debug.WriteLine($"[ScriptModifier] Parameter '{param.Name}' does not support TypeHint property");
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore
+                Debug.WriteLine($"[ScriptModifier] Failed to set type hint '{typeHint}' on parameter '{param.Name}': {ex.Message}");
             }
         }
 
