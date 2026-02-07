@@ -356,7 +356,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Parse parameters
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
                 var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
-                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}");
+                var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
+                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}");
 
                 // Build the query using CanvasSelector
                 var selector = CanvasSelector.FromActiveCanvas();
@@ -422,6 +423,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     IncludeRuntimeMessages = false,
                     IncludeSelectedState = false,
                     AssignSequentialIds = true,
+                    IncludeMetadata = includeMetadata,
                 };
 
                 var document = GhJsonGrasshopper.Serialize(resultObjects, serOptions);
