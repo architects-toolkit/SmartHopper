@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -25,11 +25,10 @@ using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.Serialization;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.Query;
 using GhJSON.Grasshopper.Serialization;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -344,70 +343,77 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <returns>Task that returns the result of the operation.</returns>
         private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceIncludeRuntimeData = false)
         {
-            // Prepare the output
-            var output = new AIReturn()
-            {
-                Request = toolCall,
-            };
+            var output = new AIReturn() { Request = toolCall };
 
             try
             {
                 // Local tool: we don't need provider/model/finish_reason metrics for validation
                 toolCall.SkipMetricsValidation = true;
 
-                // Parse filters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-
-                // Arguments may be null when calling gh_get with no parameters; default to empty filters
                 var args = toolInfo.Arguments ?? new JObject();
 
-                // Use predefined filters if provided (for wrapper tools), otherwise use filters from arguments
-                var attrFilters = predefinedAttrFilters != null
-                    ? new List<string>(predefinedAttrFilters)
-                    : args["attrFilters"]?.ToObject<List<string>>() ?? new List<string>();
-                var typeFilters = predefinedTypeFilters != null
-                    ? new List<string>(predefinedTypeFilters)
-                    : args["typeFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                var categoryFilters = args["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
+                // Parse parameters
+                var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
+                var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
+                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}");
 
-                // Filter by GUIDs (if provided)
-                var selectedGuids = args["guidFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                var guidFilter = new List<Guid>();
-                foreach (var guidStr in selectedGuids)
+                // Build the query using CanvasSelector
+                var selector = CanvasSelector.FromActiveCanvas();
+
+                // GUID restriction
+                var guidStrings = args["guidFilter"]?.ToObject<List<string>>();
+                if (guidStrings != null)
                 {
-                    if (Guid.TryParse(guidStr, out var g))
+                    var guids = new List<Guid>();
+                    foreach (var s in guidStrings)
                     {
-                        guidFilter.Add(g);
+                        if (Guid.TryParse(s, out var g))
+                        {
+                            guids.Add(g);
+                        }
+                    }
+
+                    if (guids.Count > 0)
+                    {
+                        selector.WithGuids(guids);
                     }
                 }
 
-                var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
-                var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
-                var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
-                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}");
+                // Type filters
+                var typeTokens = predefinedTypeFilters
+                    ?? args["typeFilter"]?.ToObject<string[]>();
+                if (typeTokens != null)
+                {
+                    selector.WithTypes(typeTokens);
+                }
 
-                // TODO: Connection depth expansion not yet implemented in new ghjson-dotnet.
-                // This requires traversing the connection graph and expanding the selection.
+                // Category filters
+                var categoryTokens = args["categoryFilter"]?.ToObject<string[]>();
+                if (categoryTokens != null)
+                {
+                    selector.WithCategories(categoryTokens);
+                }
+
+                // Attribute filters
+                var attrTokens = predefinedAttrFilters
+                    ?? args["attrFilters"]?.ToObject<string[]>();
+                if (attrTokens != null)
+                {
+                    selector.WithAttributes(attrTokens);
+                }
+
+                // Connection depth
                 if (connectionDepth > 0)
                 {
-                    Debug.WriteLine($"[gh_get] WARNING: connectionDepth={connectionDepth} is not yet implemented. Only direct selection will be serialized.");
+                    selector.WithConnected(connectionDepth);
                 }
 
-                // NOTE: New ghjson-dotnet does not currently expose SmartHopper's previous GetWithOptions / filters pipeline.
-                // We perform selection filtering in SmartHopper and then serialize the objects.
-                var allObjects2 = CanvasAccess.GetCurrentObjects();
-                IEnumerable<IGH_DocumentObject> objectsToSerialize = allObjects2;
+                // Execute the query
+                var resultObjects = selector.Execute();
+                Debug.WriteLine($"[gh_get] Query returned {resultObjects.Count} objects");
 
-                if (guidFilter.Count > 0)
-                {
-                    var guidSet = new HashSet<Guid>(guidFilter);
-                    objectsToSerialize = objectsToSerialize.Where(o => guidSet.Contains(o.InstanceGuid));
-                }
-                else if (attrFilters.Any(t => string.Equals(t?.Trim(), "+selected", StringComparison.OrdinalIgnoreCase)))
-                {
-                    objectsToSerialize = objectsToSerialize.Where(o => o.Attributes != null && o.Attributes.Selected);
-                }
-
+                // Serialize the result
                 var serOptions = new SerializationOptions
                 {
                     IncludeConnections = true,
@@ -418,44 +424,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     AssignSequentialIds = true,
                 };
 
-                var document = GhJsonGrasshopper.Serialize(objectsToSerialize, serOptions);
+                var document = GhJsonGrasshopper.Serialize(resultObjects, serOptions);
 
-                // Get names and guids with proper null handling
-                List<string> names;
-                List<string> guids;
-                try
-                {
-                    Debug.WriteLine($"[gh_get] Extracting component names...");
-                    names = document?.Components?
-                        .Where(c => !string.IsNullOrWhiteSpace(c?.Name))
-                        .Select(c => c.Name)
-                        .Distinct()
-                        .ToList() ?? new List<string>();
-                    Debug.WriteLine($"[gh_get] Extracted {names.Count} unique names");
+                var names = document.Components
+                    .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+                    .Select(c => c.Name)
+                    .Distinct()
+                    .ToList();
 
-                    Debug.WriteLine($"[gh_get] Extracting component GUIDs...");
-                    guids = document?.Components?
-                        .Where(c => c?.InstanceGuid != null && c.InstanceGuid.HasValue)
-                        .Select(c => c.InstanceGuid.Value.ToString())
-                        .Distinct()
-                        .ToList() ?? new List<string>();
-                    Debug.WriteLine($"[gh_get] Extracted {guids.Count} unique GUIDs");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[gh_get] Exception extracting names/guids: {ex.GetType().Name}: {ex.Message}");
-                    Debug.WriteLine($"[gh_get] Stack trace: {ex.StackTrace}");
-                    throw;
-                }
+                var guidList = document.Components
+                    .Where(c => c.InstanceGuid.HasValue)
+                    .Select(c => c.InstanceGuid!.Value.ToString())
+                    .Distinct()
+                    .ToList();
 
-                // Serialize document using GhJson facade
                 var json = GhJson.ToJson(document, new WriteOptions { Indented = false });
 
-                // Package result with classifications
                 var toolResult = new JObject
                 {
                     ["names"] = JArray.FromObject(names),
-                    ["guids"] = JArray.FromObject(guids),
+                    ["guids"] = JArray.FromObject(guidList),
                     ["ghjson"] = json,
                 };
 
