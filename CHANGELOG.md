@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `script_edit`, `script_generate`: Use `GhJsonGrasshopper.Script.*` façade methods.
     - `gh_connect`: Delegates canvas wiring to `GhJsonGrasshopper.ConnectComponents()`.
 
+### Fixed
+
+- gh_get component: Restored full filter pipeline (attribute, type, and category filters) that was lost during ghjson-dotnet migration. Component now properly filters by error/warning/remark, selected/unselected, enabled/disabled, preview states, component types (params/components/startnodes/endnodes/middlenodes/isolatednodes), and Grasshopper categories.
+- gh_get component: Restored connection depth expansion functionality using `ConnectionGraphUtils.ExpandByDepth()`. The `connectionDepth` parameter now correctly expands the selection to include connected components at the specified depth.
+- gh_put component: Restored external connection capture and reconnection in edit mode. When replacing components, the tool now captures connections to external (non-replaced) components before removal and restores them after placement, preserving the component's integration in the existing definition.
+
 ## [1.2.4-alpha] - 2026-01-11
 
 ### Fixed
