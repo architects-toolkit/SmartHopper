@@ -124,14 +124,28 @@ function Remove-ExistingCsprojHeader {
     # Strip leading whitespace
     $t = $t.TrimStart("`r", "`n", " ", "`t")
     
+    # Strip XML declaration if present (e.g. <?xml version="1.0" encoding="utf-8"?>)
+    if ($t -match '^<\?xml') {
+        $endIdx = $t.IndexOf('?>')
+        if ($endIdx -ge 0) {
+            $t = $t.Substring($endIdx + 2).TrimStart("`r", "`n", " ", "`t")
+        }
+    }
+    
     # Remove XML comment header at the beginning
     if ($t -match '^<!--') {
         $endIdx = $t.IndexOf('-->')
         if ($endIdx -ge 0) {
-            $after = $t.Substring($endIdx + 3)
-            return $after.TrimStart("`r", "`n", " ", "`t")
+            $t = $t.Substring($endIdx + 3).TrimStart("`r", "`n", " ", "`t")
         }
-        return $t
+    }
+    
+    # Strip XML declaration again (handles case where it was after the comment)
+    if ($t -match '^<\?xml') {
+        $endIdx = $t.IndexOf('?>')
+        if ($endIdx -ge 0) {
+            $t = $t.Substring($endIdx + 2).TrimStart("`r", "`n", " ", "`t")
+        }
     }
     
     return $t
@@ -143,6 +157,11 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
     try {
         $path = $_.FullName
  
+        # Skip build artifact directories
+        if ($path -match '[/\\](obj|bin)[/\\]') {
+            return
+        }
+
         # Skip auto-generated files like Resources.Designer.cs
         if ($_.Name -match '\.Designer\.cs$') {
             Write-Host "Skipping auto-generated file: $path" -ForegroundColor Gray
@@ -181,6 +200,11 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
 Get-ChildItem -Path "..\src" -Recurse -Filter *.csproj | ForEach-Object {
     try {
         $path = $_.FullName
+
+        # Skip build artifact directories
+        if ($path -match '[/\\](obj|bin)[/\\]') {
+            return
+        }
 
         # Read as UTF-8 text (handles BOM correctly)
         $content = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
