@@ -7,7 +7,7 @@ description: >
 
   ----
 
-  NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>
+  Please report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>
 
   ----
 
@@ -33,7 +33,6 @@ keywords:
   - python
   - visual-basic
   - vb
-  - c#
   - csharp
   - ironpython
   - open-ai
