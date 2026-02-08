@@ -98,8 +98,11 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
  
         $body = Remove-ExistingHeader -Text $content
         $normalized = ($newHeader + "`r`n`r`n" + $body.TrimStart("`r", "`n"))
- 
-        $isDifferent = $normalized -ne ($content -replace '^[\uFEFF]', '')
+
+        # Normalize line endings for comparison to avoid false positives
+        $normalizedForComparison = $normalized -replace '`r`n', "`n"
+        $originalForComparison = ($content -replace '^[\uFEFF]', '') -replace '`r?`n', "`n"
+        $isDifferent = $normalizedForComparison -ne $originalForComparison
         if ($isDifferent) {
             $changedCount++
         }

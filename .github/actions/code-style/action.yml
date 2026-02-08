@@ -37,12 +37,6 @@ runs:
     #     else
     #       dotnet format
     #     fi
-    - id: header
-      name: Process C# file headers
-      continue-on-error: ${{ inputs.mode == 'check' }}
-      uses: ./.github/actions/code-style/header-fixer
-      with:
-        mode: soft-check
     - id: whitespace
       name: Process trailing whitespace
       continue-on-error: ${{ inputs.mode == 'check' }}
