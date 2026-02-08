@@ -21,7 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Viewport Filtering:
   - Added `inView` parameter to `gh_get` tool to restrict results to components visible in the current canvas viewport.
   - Added `gh_get_in_view` specialized wrapper tool for quick viewport-scoped queries.
-  - Updated `instruction_get` canvas instructions to mention `gh_report` and `gh_get_in_view`.
+  - Updated `instruction_get` canvas instructions to mention `gh_report`, `gh_get_in_view`, and `gh_smart_connect`.
+- Smart Connect Tool:
+  - Added `gh_smart_connect` AI tool for AI-powered component wiring. Given a set of component GUIDs and a purpose, retrieves their GhJSON via `gh_get`, asks an AI model to suggest optimal connections, and executes them via `gh_connect`.
+  - Added `AIGhConnectComponent` Grasshopper component exposing the `gh_smart_connect` tool on the canvas with component selection, async execution, provider/model selection, and metrics output.
+- Connection Tool Improvements:
+  - `gh_connect` now accepts parameter name, nickname, or zero-based index for `sourceParam` and `targetParam`. Diagnostic hints now include parameter indices.
 
 ### Changed
 

@@ -127,6 +127,7 @@ Quick actions on selected components (no GUIDs needed):
 Modifying canvas:
 - gh_group, gh_move, gh_tidy_up, gh_component_toggle_lock, gh_component_toggle_preview
 - gh_put: place components from GhJSON; when instanceGuid matches existing, it replaces it (prefer user confirmation).
+- gh_smart_connect: AI-powered wiring. Given component GUIDs and a purpose, retrieves their GhJSON, asks AI to suggest connections, and executes them via gh_connect.
 """;
 
                 case "discovery":

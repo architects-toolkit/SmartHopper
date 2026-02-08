@@ -80,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                     },
                                     ""sourceParam"": {
                                         ""type"": ""string"",
-                                        ""description"": ""Name or nickname of the output parameter. If not specified, uses the first output.""
+                                        ""description"": ""Name, nickname, or zero-based index of the output parameter. If not specified, uses the first output.""
                                     },
                                     ""targetGuid"": {
                                         ""type"": ""string"",
@@ -88,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                     },
                                     ""targetParam"": {
                                         ""type"": ""string"",
-                                        ""description"": ""Name or nickname of the input parameter. If not specified, uses the first input.""
+                                        ""description"": ""Name, nickname, or zero-based index of the input parameter. If not specified, uses the first input.""
                                     }
                                 },
                                 ""required"": [""sourceGuid"", ""targetGuid""]
@@ -289,7 +289,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 return ConnectionResult.FailWithHints(
                     $"Source output parameter '{sourceParamName}' not found on '{sourceObj.Name}'.",
-                    sourceParams.Select(FormatParamInfo).ToList(),
+                    sourceParams.Select((p, i) => FormatParamInfo(p, i)).ToList(),
                     null);
             }
 
@@ -299,7 +299,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return ConnectionResult.FailWithHints(
                     $"Target input parameter '{targetParamName}' not found on '{targetObj.Name}'.",
                     null,
-                    targetParams.Select(FormatParamInfo).ToList());
+                    targetParams.Select((p, i) => FormatParamInfo(p, i)).ToList());
             }
 
             // --- Type compatibility pre-check ---
@@ -308,8 +308,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 return ConnectionResult.FailWithHints(
                     compatError,
-                    sourceParams.Select(FormatParamInfo).ToList(),
-                    targetParams.Select(FormatParamInfo).ToList());
+                    sourceParams.Select((p, i) => FormatParamInfo(p, i)).ToList(),
+                    targetParams.Select((p, i) => FormatParamInfo(p, i)).ToList());
             }
 
             // --- Duplicate check ---
@@ -362,8 +362,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Resolves a parameter by name/nickname from a list, falling back to the first parameter
-        /// when no name is specified.
+        /// Resolves a parameter by name, nickname, or zero-based index from a list,
+        /// falling back to the first parameter when no name is specified.
         /// </summary>
         private static IGH_Param ResolveParam(List<IGH_Param> list, string name)
         {
@@ -388,6 +388,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return match;
             }
 
+            // Try zero-based index
+            if (int.TryParse(name, out var index) && index >= 0 && index < list.Count)
+            {
+                return list[index];
+            }
+
             // Substring match on Name (fuzzy, inspired by grasshopper-mcp)
             match = list.FirstOrDefault(p =>
                 p.Name.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0);
@@ -398,12 +404,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Formats a parameter's info for diagnostic output.
         /// </summary>
-        private static string FormatParamInfo(IGH_Param p)
+        private static string FormatParamInfo(IGH_Param p, int index)
         {
             var nick = string.Equals(p.Name, p.NickName, StringComparison.Ordinal)
                 ? string.Empty
                 : $" ({p.NickName})";
-            return $"{p.Name}{nick} [{p.TypeName}]";
+            return $"[{index}] {p.Name}{nick} [{p.TypeName}]";
         }
 
         /// <summary>
