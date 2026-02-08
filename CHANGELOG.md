@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Component Deletion Tools:
+  - Added `gh_delete` AI tool for deleting specific components by GUID array with undo support.
+  - Added `gh_clear` AI tool for clearing all components from canvas with optional `keepLocked` filter.
+  - Both tools delegate to ghjson-dotnet library for deletion operations.
+  - All deletion operations support Ctrl+Z undo and automatically remove connected wires.
+
 ### Changed
 
 - GhJSON API Simplification:

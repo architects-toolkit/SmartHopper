@@ -73,54 +73,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
-        /// Adds an object to the active Grasshopper canvas at the specified position.
-        /// </summary>
-        /// <param name="obj">The Grasshopper document object to add.</param>
-        /// <param name="position">The pivot position where the object should be placed.</param>
-        /// <param name="redraw">True to redraw the canvas after adding the object.</param>
-        public static void AddObjectToCanvas(IGH_DocumentObject obj, PointF position = default, bool redraw = true)
-        {
-            GH_Document doc = GetCurrentCanvas();
-
-            obj.Attributes.Pivot = position;
-
-            doc.AddObject(obj, false);
-
-            if (redraw)
-            {
-                obj.Attributes.ExpireLayout();
-                Instances.RedrawCanvas();
-            }
-        }
-
-        /// <summary>
         /// Finds a document object instance by its GUID.
         /// </summary>
         /// <param name="guid">The instance GUID.</param>
         /// <returns>The matching document object or null if not found.</returns>
         public static IGH_DocumentObject FindInstance(Guid guid)
         {
-            IGH_DocumentObject obj = GetCurrentObjects().FirstOrDefault(o => o.InstanceGuid == guid);
-
-            if (obj is IGH_Component)
-            {
-                IGH_Component component = obj as IGH_Component;
-
-                // Debug.WriteLine("The object is an IGH_Component.");
-                return component;
-            }
-            else if (obj is IGH_Param)
-            {
-                IGH_Param param = obj as IGH_Param;
-
-                // Debug.WriteLine("The object is an IGH_Param.");
-                return param;
-            }
-            else
-            {
-                // Debug.WriteLine("The object is neither an IGH_Component nor an IGH_Param.");
-                return obj;
-            }
+            return GetCurrentObjects().FirstOrDefault(o => o.InstanceGuid == guid);
         }
 
         /// <summary>
@@ -265,28 +224,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 });
             });
             return moved;
-        }
-
-        /// <summary>
-        /// Computes the bounding box of all objects in the current document.
-        /// </summary>
-        public static RectangleF BoundingBox()
-        {
-            GH_Document doc = GetCurrentCanvas();
-            return doc.BoundingBox(false);
-        }
-
-        /// <summary>
-        /// Determines a starting point to place new objects below the current canvas content.
-        /// </summary>
-        /// <param name="span">Vertical spacing from the bottom of the bounding box.</param>
-        /// <returns>A point suitable for placing new objects.</returns>
-        public static PointF StartPoint(int span = 100)
-        {
-            RectangleF bounds = BoundingBox();
-
-            // return new PointF(bounds.X, bounds.Bottom+span);
-            return new PointF(50, bounds.Bottom + span);
         }
 
         /// <summary>
