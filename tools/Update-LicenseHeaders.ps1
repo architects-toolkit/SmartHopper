@@ -100,8 +100,8 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
         $normalized = ($newHeader + "`r`n`r`n" + $body.TrimStart("`r", "`n"))
 
         # Normalize line endings for comparison to avoid false positives
-        $normalizedForComparison = $normalized -replace '`r`n', "`n"
-        $originalForComparison = ($content -replace '^[\uFEFF]', '') -replace '`r?`n', "`n"
+        $normalizedForComparison = $normalized -replace "\r\n", "`n"
+        $originalForComparison = ($content -replace '^[\uFEFF]', '') -replace "\r?\n", "`n"
         $isDifferent = $normalizedForComparison -ne $originalForComparison
         if ($isDifferent) {
             $changedCount++
