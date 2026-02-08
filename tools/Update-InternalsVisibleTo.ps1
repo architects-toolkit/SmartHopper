@@ -167,16 +167,14 @@ Write-Host "Updating: $CsprojPath"
 
 $content = Get-Content $CsprojPath -Raw
 
-# Replace the SmartHopperPublicKey value using XML parsing to avoid regex issues
+# Replace the SmartHopperPublicKey value using regex.
+# This avoids XmlDocument.LoadXml() which fails when the file starts with a
+# license comment (<!-- ... -->) before the <Project> element.
 try {
-    $xml = [xml]$content
-    $ns = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
-    
-    # Find SmartHopperPublicKey element
-    $keyElement = $xml.SelectSingleNode("//SmartHopperPublicKey")
-    if ($keyElement) {
-        $keyElement.InnerText = $publicKeyHex
-        $xml.Save($CsprojPath)
+    $pattern = '(<SmartHopperPublicKey>)[^<]*(</SmartHopperPublicKey>)'
+    if ($content -match $pattern) {
+        $content = $content -replace $pattern, "`${1}$publicKeyHex`${2}"
+        [System.IO.File]::WriteAllText($CsprojPath, $content, [System.Text.Encoding]::UTF8)
         Write-Host "Successfully updated SmartHopperPublicKey in $CsprojPath"
     } else {
         Write-Error "Could not find SmartHopperPublicKey element in $CsprojPath"
