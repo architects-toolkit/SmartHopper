@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Added annual automation to update copyright years in `src/**/*.csproj` and normalize C# license headers (workflow: `chore-update-copyright-year.yml`, script: `tools/Update-CopyrightYear.ps1`).
 - GhJSON API Simplification:
   - Refactored all AI tools to use organized ghjson-dotnet façade classes exclusively, removing deep namespace dependencies.
   - All SmartHopper code now imports only `GhJSON.Core` and `GhJSON.Grasshopper` (no `GhJSON.Core.Models.*`, `GhJSON.Grasshopper.Serialization.*`, etc.).
