@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `gh_tidy_up`: Uses `GhJsonGrasshopper.Options.Standard()`.
     - `script_edit`, `script_generate`: Use `GhJsonGrasshopper.Script.*` façade methods.
     - `gh_connect`: Delegates canvas wiring to `GhJsonGrasshopper.ConnectComponents()`.
+- Changed `ISelectingComponent` to use `IGH_DocumentObject` instead of `IGH_ActiveObject` to support scribble selection.
 
 ### Fixed
 
