@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -55,8 +54,11 @@ namespace SmartHopper.Core.UI.Chat
             private sealed class TurnRenderState
             {
                 public string TurnId { get; }
+
                 public bool IsFinalized { get; set; }
+
                 public bool HasPendingBoundary { get; set; }
+
                 public Dictionary<string, SegmentState> Segments { get; } = new Dictionary<string, SegmentState>(StringComparer.Ordinal);
 
                 public TurnRenderState(string turnId)
@@ -82,9 +84,13 @@ namespace SmartHopper.Core.UI.Chat
             private sealed class SegmentState
             {
                 public int SegmentNumber { get; set; } = 1;
+
                 public bool IsCommitted { get; set; }
+
                 public StreamState StreamState { get; set; }
+
                 public DateTime LastUpsertAt { get; set; }
+
                 public (string? Content, string? Reasoning) LastRenderedText { get; set; }
             }
 

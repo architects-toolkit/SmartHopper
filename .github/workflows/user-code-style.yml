@@ -22,26 +22,6 @@ on:
         type: string
 
 jobs:
-  header-fixer:
-    name: 🧾 Header Fixer
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-
-      - name: Process C# file headers
-        uses: ./.github/actions/code-style/header-fixer
-        with:
-          mode: "${{ github.event.inputs.mode }}"
-      - name: Generate header-fixer patch
-        if: ${{ github.event.inputs.mode == 'fix' }}
-        run: git diff --unified=0 > header-fixer.patch
-      - name: Upload header-fixer patch
-        if: ${{ github.event.inputs.mode == 'fix' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: header-fixer-patch
-          path: header-fixer.patch
-
   trailing-whitespace:
     name: 🧹 Trailing Whitespace
     runs-on: ubuntu-latest
@@ -104,7 +84,7 @@ jobs:
 
   commit-changes:
     name: 📦 Commit Code Style Fixes
-    needs: [header-fixer, trailing-whitespace, using-sorter, namespace-check]
+    needs: [trailing-whitespace, using-sorter, namespace-check]
     if: ${{ github.event.inputs.mode == 'fix' }}
     runs-on: ubuntu-latest
     steps:
@@ -116,11 +96,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Download header-fixer patch
-        uses: actions/download-artifact@v4
-        with:
-          name: header-fixer-patch
-          path: .
       - name: Download trailing-whitespace patch
         uses: actions/download-artifact@v4
         with:

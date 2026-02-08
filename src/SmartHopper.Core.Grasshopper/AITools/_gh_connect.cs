@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -22,8 +21,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper;
+using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -110,7 +109,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
-                if (CanvasAccess.GetCurrentCanvas() == null)
+                var doc = Instances.ActiveCanvas?.Document;
+                if (doc == null)
                 {
                     output.CreateError("No active Grasshopper document found.");
                     return Task.FromResult(output);
@@ -148,12 +148,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
 
                     // Use utility to connect components
-                    bool success = ConnectionBuilder.ConnectComponents(
-                        sourceGuid,
-                        targetGuid,
-                        sourceParamName,
-                        targetParamName,
-                        redraw: false); // We'll redraw once at the end
+                    bool success = TryConnect(sourceGuid, targetGuid, sourceParamName, targetParamName);
 
                     if (success)
                     {
@@ -180,7 +175,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Redraw once after all connections
                 if (successfulConnections.Any())
                 {
-                    var doc = CanvasAccess.GetCurrentCanvas();
                     doc.NewSolution(false);
                     Instances.RedrawCanvas();
                 }
@@ -205,6 +199,80 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error connecting components: {ex.Message}");
                 return Task.FromResult(output);
             }
+        }
+
+        private static bool TryConnect(Guid sourceGuid, Guid targetGuid, string? sourceParamName, string? targetParamName)
+        {
+            var doc = Instances.ActiveCanvas?.Document;
+            if (doc == null)
+            {
+                return false;
+            }
+
+            var sourceObj = doc.Objects.FirstOrDefault(o => o.InstanceGuid == sourceGuid);
+            var targetObj = doc.Objects.FirstOrDefault(o => o.InstanceGuid == targetGuid);
+
+            if (sourceObj == null || targetObj == null)
+            {
+                return false;
+            }
+
+            var sourceParams = GetOutputs(sourceObj);
+            var targetParams = GetInputs(targetObj);
+
+            if (sourceParams.Count == 0 || targetParams.Count == 0)
+            {
+                return false;
+            }
+
+            var src = FindParamByName(sourceParams, sourceParamName) ?? sourceParams[0];
+            var dst = FindParamByName(targetParams, targetParamName) ?? targetParams[0];
+
+            // Wire: add src as source for dst.
+            dst.AddSource(src);
+            return true;
+        }
+
+        private static List<IGH_Param> GetOutputs(IGH_DocumentObject obj)
+        {
+            if (obj is IGH_Component c)
+            {
+                return c.Params.Output.ToList();
+            }
+
+            if (obj is IGH_Param p)
+            {
+                return new List<IGH_Param> { p };
+            }
+
+            return new List<IGH_Param>();
+        }
+
+        private static List<IGH_Param> GetInputs(IGH_DocumentObject obj)
+        {
+            if (obj is IGH_Component c)
+            {
+                return c.Params.Input.ToList();
+            }
+
+            if (obj is IGH_Param p)
+            {
+                return new List<IGH_Param> { p };
+            }
+
+            return new List<IGH_Param>();
+        }
+
+        private static IGH_Param? FindParamByName(List<IGH_Param> list, string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            return list.FirstOrDefault(p =>
+                string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.NickName, name, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

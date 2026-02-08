@@ -13,20 +13,19 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Grasshopper.Query;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -105,7 +104,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var nameFilter = args["nameFilter"]?.ToString() ?? string.Empty;
                 var includeDetails = args["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
                 var maxResults = args["maxResults"]?.ToObject<int>() ?? 100;
-                var (includeCats, excludeCats) = ComponentRetriever.ParseIncludeExclude(categoryFilters, ComponentRetriever.CategorySynonyms);
+                var (includeCats, excludeCats) = FilterParser.ParseIncludeExclude(categoryFilters, FilterParser.CategorySynonyms);
 
                 // Retrieve all component proxies in one call
                 var proxies = server.ObjectProxies.ToList();
@@ -114,7 +113,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (includeCats.Any() || excludeCats.Any())
                 {
                     proxies = proxies
-                        .Where(p => ComponentRetriever.PassesCategoryFilters(
+                        .Where(p => FilterParser.PassesCategoryFilter(
                             p.Desc.Category,
                             p.Desc.SubCategory,
                             includeCats,

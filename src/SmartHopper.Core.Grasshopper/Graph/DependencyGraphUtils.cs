@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -22,9 +21,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using GhJSON.Core.SchemaModels;
 using Grasshopper.Kernel;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Models.Document;
 
 namespace SmartHopper.Core.Grasshopper.Graph
 {
@@ -44,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         /// <param name="spacingY">Vertical spacing between grid rows.</param>
         /// <param name="islandSpacingY">Vertical spacing between disconnected islands.</param>
         /// <returns>List of NodeGridComponent entries for each component.</returns>
-        public static List<NodeGridComponent> CreateComponentGrid(GrasshopperDocument doc, bool force = false, float spacingX = 50f, float spacingY = 80f, float islandSpacingY = 80f)
+        public static List<NodeGridComponent> CreateComponentGrid(GhJsonDocument doc, bool force = false, float spacingX = 50f, float spacingY = 80f, float islandSpacingY = 80f)
         {
             Debug.WriteLine("[CreateComponentGrid] Initializing unified grid...");
 
@@ -139,22 +138,29 @@ namespace SmartHopper.Core.Grasshopper.Graph
         /// Initializes grid nodes.
         /// </summary>
         /// <param name="doc">The Grasshopper document containing components and connections.</param>
-        private static List<NodeGridComponent> InitializeGrid(GrasshopperDocument doc)
+        private static List<NodeGridComponent> InitializeGrid(GhJsonDocument doc)
         {
             var grid = doc.Components.Select(c => new NodeGridComponent
             {
-                ComponentId = c.InstanceGuid,
-                Pivot = c.Pivot,
+                ComponentId = c.InstanceGuid.GetValueOrDefault(),
+                Pivot = c.Pivot?.ToPointF() ?? PointF.Empty,
                 Parents = new Dictionary<Guid, int>(),
                 Children = new Dictionary<Guid, int>(),
             }).ToList();
 
             var idToGuidMap = doc.GetIdToGuidMapping();
+            if (doc.Connections == null)
+            {
+                return grid;
+            }
+
             foreach (var conn in doc.Connections)
             {
                 // Resolve integer IDs to GUIDs
-                if (conn.TryResolveGuids(idToGuidMap, out var fromGuid, out var toGuid) &&
-                    grid.Any(n => n.ComponentId == toGuid) && grid.Any(n => n.ComponentId == fromGuid))
+                if (idToGuidMap.TryGetValue(conn.From.Id, out var fromGuid) &&
+                    idToGuidMap.TryGetValue(conn.To.Id, out var toGuid) &&
+                    grid.Any(n => n.ComponentId == toGuid) &&
+                    grid.Any(n => n.ComponentId == fromGuid))
                 {
                     var toNode = grid.First(n => n.ComponentId == toGuid);
                     var fromNode = grid.First(n => n.ComponentId == fromGuid);

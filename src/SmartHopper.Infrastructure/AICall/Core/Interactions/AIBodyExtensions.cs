@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -44,7 +43,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
         /// <summary>
         /// Gets the last interaction matching the specified agent, or null if none.
-        /// Mirrors legacy AIBody.GetLastInteraction(AIAgent).
         /// </summary>
         /// <param name="body">The AI body to query.</param>
         /// <param name="agent">Agent to filter interactions by.</param>
@@ -56,7 +54,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
         /// <summary>
         /// Gets the last interaction whose agent name matches the provided string, or null if none.
-        /// Mirrors legacy AIBody.GetLastInteraction(string).
         /// </summary>
         /// <param name="body">The AI body to query.</param>
         /// <param name="agent">Agent name to filter by.</param>
