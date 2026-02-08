@@ -1,0 +1,85 @@
+name: 📦 PR - Validate GhJSON Dependencies
+
+# Description: This workflow validates that GhJSON dependencies use PackageReference
+# instead of ProjectReference. This ensures the production build uses the published
+# NuGet packages rather than local project references.
+#
+# Triggers:
+# - Automatically when a PR to main modifies .csproj files
+# - Automatically when commits to main modify .csproj files
+#
+# Permissions:
+# - contents:read - Required to read repository content
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**/*.csproj'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**/*.csproj'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-dependencies:
+    name: 📦 Check GhJSON References are PackageReference
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for ProjectReference to GhJSON
+        id: check
+        run: |
+          echo "Checking for ProjectReference to GhJSON.Core or GhJSON.Grasshopper..."
+          
+          # Search for ProjectReference to GhJSON in any .csproj file
+          if grep -r "ProjectReference.*GhJSON" src/**/*.csproj; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "❌ Found ProjectReference to GhJSON packages!"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "✅ All GhJSON references use PackageReference"
+          fi
+
+      - name: Verify PackageReference exists
+        if: steps.check.outputs.found == 'false'
+        run: |
+          echo "Verifying PackageReference to GhJSON exists..."
+          
+          # Check that PackageReference to GhJSON packages exists
+          if ! grep -r "PackageReference.*GhJSON.Core" src/**/*.csproj; then
+            echo "::warning::No PackageReference to GhJSON.Core found"
+          fi
+          
+          if ! grep -r "PackageReference.*GhJSON.Grasshopper" src/**/*.csproj; then
+            echo "::warning::No PackageReference to GhJSON.Grasshopper found"
+          fi
+
+      - name: Show incorrect references
+        if: steps.check.outputs.found == 'true'
+        run: |
+          echo "::group::Found ProjectReference instances"
+          grep -n -r "ProjectReference.*GhJSON" src/**/*.csproj || true
+          echo "::endgroup::"
+
+      - name: Block merge if ProjectReference found
+        if: steps.check.outputs.found == 'true'
+        run: |
+          echo "::error::GhJSON dependencies must use PackageReference, not ProjectReference!"
+          echo ""
+          echo "Found ProjectReference to GhJSON packages in the following files:"
+          grep -l "ProjectReference.*GhJSON" src/**/*.csproj || true
+          echo ""
+          echo "Please change to PackageReference format:"
+          echo '<PackageReference Include="GhJSON.Core" Version="1.0.0" />'
+          echo '<PackageReference Include="GhJSON.Grasshopper" Version="1.0.0" />'
+          echo ""
+          exit 1

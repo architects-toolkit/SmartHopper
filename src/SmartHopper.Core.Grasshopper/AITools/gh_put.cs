@@ -1,11 +1,19 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2025 Marc Roca Musach
+ * Copyright (C) 2024-2026 Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -14,14 +22,13 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Core;
+using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.PutOperations;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Serialization.Canvas;
-using SmartHopper.Core.Grasshopper.Serialization.GhJson;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
-using SmartHopper.Core.Grasshopper.Utils.Serialization;
-using SmartHopper.Core.Models.Serialization;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -80,8 +87,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var json = args["ghjson"]?.ToString() ?? string.Empty;
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
 
-                GhJsonValidator.Validate(json, out analysisMsg);
-                var document = GHJsonConverter.DeserializeFromJson(json, fixJson: true);
+                GhJson.IsValid(json, out analysisMsg);
+                var document = GhJson.FromJson(json);
+
+                // Apply fixes to normalize AI-generated JSON
+                var fixResult = GhJson.Fix(document);
+                document = fixResult.Document;
 
                 // In edit mode, check for existing components that match instanceGuids
                 var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();
@@ -93,14 +104,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (editMode && document?.Components != null)
                 {
-                    foreach (var compProps in document.Components.Where(c => c.InstanceGuid != Guid.Empty))
+                    foreach (var compProps in document.Components.Where(c => c.InstanceGuid.HasValue && c.InstanceGuid.Value != Guid.Empty))
                     {
-                        var existing = CanvasAccess.FindInstance(compProps.InstanceGuid);
+                        var guid = compProps.InstanceGuid.Value;
+                        var existing = CanvasAccess.FindInstance(guid);
                         if (existing != null)
                         {
-                            existingComponents[compProps.InstanceGuid] = existing;
-                            existingPositions[compProps.InstanceGuid] = existing.Attributes.Pivot;
-                            componentsToReplace.Add(compProps.InstanceGuid);
+                            existingComponents[guid] = existing;
+                            existingPositions[guid] = existing.Attributes.Pivot;
+                            componentsToReplace.Add(guid);
                         }
                     }
 
@@ -169,7 +181,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                     var allObjects = CanvasAccess.GetCurrentObjects();
                                     var replaceSet = new HashSet<Guid>(componentsToReplace);
 
-                                    // Cache for mapping parameters to their owning document objects (component or stand-alone param)
+                                    // Cache for mapping parameters to their owning document objects
                                     var ownerCache = new Dictionary<IGH_Param, IGH_DocumentObject>();
 
                                     IGH_DocumentObject FindOwner(IGH_Param param)
@@ -207,11 +219,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                                         if (existing is IGH_Component comp)
                                         {
-                                            // Outgoing connections: component → external targets
-                                            foreach (var output in comp.Params.Output)
+                                            // Outgoing connections: component -> external targets
+                                            foreach (var outParam in comp.Params.Output)
                                             {
-                                                var sourceParamName = output.NickName;
-                                                foreach (var recipient in output.Recipients)
+                                                var sourceParamName = outParam.NickName;
+                                                foreach (var recipient in outParam.Recipients)
                                                 {
                                                     var targetOwner = FindOwner(recipient);
                                                     if (targetOwner == null)
@@ -221,7 +233,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                                                     var targetGuid = targetOwner.InstanceGuid;
 
-                                                    // Only keep external connections (one side in replaceSet, the other outside)
+                                                    // Only keep external connections
                                                     if (replaceSet.Contains(targetGuid))
                                                     {
                                                         continue;
@@ -239,11 +251,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                                 }
                                             }
 
-                                            // Incoming connections: external sources → component
-                                            foreach (var input in comp.Params.Input)
+                                            // Incoming connections: external sources -> component
+                                            foreach (var inParam in comp.Params.Input)
                                             {
-                                                var targetParamName = input.NickName;
-                                                foreach (var source in input.Sources)
+                                                var targetParamName = inParam.NickName;
+                                                foreach (var source in inParam.Sources)
                                                 {
                                                     var sourceOwner = FindOwner(source);
                                                     if (sourceOwner == null)
@@ -275,7 +287,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                             // Stand-alone parameter being replaced
                                             var thisGuid = param.InstanceGuid;
 
-                                            // Sources → this parameter
+                                            // Sources -> this parameter
                                             foreach (var source in param.Sources)
                                             {
                                                 var sourceOwner = FindOwner(source);
@@ -284,25 +296,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                                     continue;
                                                 }
 
-                                                var sourceGuid = sourceOwner.InstanceGuid;
+                                                var sourceGuid2 = sourceOwner.InstanceGuid;
 
-                                                if (replaceSet.Contains(sourceGuid))
+                                                if (replaceSet.Contains(sourceGuid2))
                                                 {
                                                     continue;
                                                 }
 
-                                                var key = (sourceGuid, source.NickName, thisGuid, param.NickName);
+                                                var key = (sourceGuid2, source.NickName, thisGuid, param.NickName);
                                                 if (seen.Add(key))
                                                 {
                                                     capturedConnections.Add((
-                                                        sourceGuid: sourceGuid,
+                                                        sourceGuid: sourceGuid2,
                                                         sourceParam: source.NickName,
                                                         targetGuid: thisGuid,
                                                         targetParam: param.NickName));
                                                 }
                                             }
 
-                                            // This parameter → recipients
+                                            // This parameter -> recipients
                                             foreach (var recipient in param.Recipients)
                                             {
                                                 var targetOwner = FindOwner(recipient);
@@ -353,41 +365,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Deserialize components on UI thread (required for parameter and attribute ops)
-                Debug.WriteLine("[gh_put] Deserializing components");
-                var options = DeserializationOptions.Standard;
-                var tcs = new TaskCompletionSource<SmartHopper.Core.Grasshopper.Serialization.GhJson.DeserializationResult>();
-                Rhino.RhinoApp.InvokeOnUiThread(() =>
-                {
-                    try
-                    {
-                        var res = GhJsonDeserializer.Deserialize(document, options);
-                        tcs.SetResult(res);
-                    }
-                    catch (Exception ex)
-                    {
-                        tcs.SetException(ex);
-                    }
-                });
-                var result = await tcs.Task.ConfigureAwait(false);
-
-                if (!result.IsSuccess)
-                {
-                    output.CreateError($"Deserialization failed: {string.Join(", ", result.Errors)}");
-                    return output;
-                }
-
-                // For replacement mode: restore original InstanceGuids before adding to canvas
-                // This must happen BEFORE components are added to the document
-                if (componentsToReplace.Count > 0)
-                {
-                    var guidRestored = GhJsonHelpers.RestoreInstanceGuids(result, componentsToReplace);
-                    Debug.WriteLine($"[gh_put] Restored InstanceGuids for {guidRestored} replacement component(s)");
-                }
-
-                // Place components + create connections + groups on UI thread
-                Debug.WriteLine("[gh_put] Placing components on canvas and creating connections/groups");
-                object placed = null;
+                // Put operation must run on UI thread.
+                Debug.WriteLine("[gh_put] Putting document on canvas");
+                PutResult putResult = null;
                 var placeTcs = new TaskCompletionSource<bool>();
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
@@ -414,13 +394,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
                         }
 
-                        // Use exact positions for replacement mode (skip offset calculation)
-                        bool useExactPositions = componentsToReplace.Count > 0 && existingPositions.Count > 0;
-                        placed = ComponentPlacer.PlaceComponents(result, useExactPositions: useExactPositions);
+                        var putOptions = new PutOptions
+                        {
+                            // In edit mode we keep instance guids from the input GhJSON.
+                            // Otherwise we regenerate to avoid accidental collisions.
+                            RegenerateInstanceGuids = !editMode,
+                            CreateConnections = true,
+                            CreateGroups = true,
+                            SelectPlacedObjects = true,
+                            SkipInvalidComponents = true,
+                            AutoOffset = !editMode,
+                        };
 
-                        // Create connections from GhJSON
-                        Debug.WriteLine("[gh_put] Creating connections from GhJSON");
-                        ConnectionManager.CreateConnections(result);
+                        putResult = GhJsonGrasshopper.Put(document, putOptions);
+
+                        if (!putResult.Success)
+                        {
+                            throw new InvalidOperationException($"Put failed: {putResult.ErrorMessage}");
+                        }
 
                         // Restore captured external connections
                         if (capturedConnections.Count > 0)
@@ -432,12 +423,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             {
                                 try
                                 {
-                                    var success = ConnectionBuilder.ConnectComponents(
-                                        sourceGuid: conn.sourceGuid,
-                                        targetGuid: conn.targetGuid,
-                                        sourceParamName: conn.sourceParam,
-                                        targetParamName: conn.targetParam,
-                                        redraw: false);
+                                    var success = ConnectByNickName(
+                                        conn.sourceGuid,
+                                        conn.targetGuid,
+                                        conn.sourceParam,
+                                        conn.targetParam);
 
                                     if (success)
                                     {
@@ -446,15 +436,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[gh_put] Error restoring connection {conn.sourceGuid}.{conn.sourceParam} → {conn.targetGuid}.{conn.targetParam}: {ex.Message}");
+                                    Debug.WriteLine($"[gh_put] Error restoring connection {conn.sourceGuid}.{conn.sourceParam} -> {conn.targetGuid}.{conn.targetParam}: {ex.Message}");
                                 }
                             }
 
                             Debug.WriteLine($"[gh_put] Restored {restored}/{capturedConnections.Count} external connections");
                         }
-
-                        Debug.WriteLine("[gh_put] Recreating groups");
-                        GroupManager.CreateGroups(result);
 
                         placeTcs.SetResult(true);
                     }
@@ -468,13 +455,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[gh_put] Placement complete");
 
                 // Collect actual instanceGuids of placed components
-                var placedGuids = result.Components
-                    .Select(c => c.InstanceGuid.ToString())
+                var placedGuids = putResult.PlacedObjects
+                    .Select(o => o.InstanceGuid.ToString())
+                    .ToList();
+
+                var placedNames = putResult.PlacedObjects
+                    .Select(o => o.Name)
                     .ToList();
 
                 var toolResult = new JObject
                 {
-                    ["components"] = JArray.FromObject(placed),
+                    ["components"] = JArray.FromObject(placedNames),
                     ["instanceGuids"] = JArray.FromObject(placedGuids),
                     ["analysis"] = analysisMsg,
                 };
@@ -497,6 +488,64 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError(combined);
                 return output;
             }
+        }
+        /// <summary>
+        /// Connects two components on the active canvas by matching parameter NickNames.
+        /// Replaces the removed ConnectionBuilder.ConnectComponents() utility.
+        /// </summary>
+        /// <param name="sourceGuid">Instance GUID of the source component.</param>
+        /// <param name="targetGuid">Instance GUID of the target component.</param>
+        /// <param name="sourceParamName">NickName of the source output parameter.</param>
+        /// <param name="targetParamName">NickName of the target input parameter.</param>
+        /// <returns><c>true</c> if the connection was created successfully.</returns>
+        private static bool ConnectByNickName(Guid sourceGuid, Guid targetGuid, string sourceParamName, string targetParamName)
+        {
+            var ghDoc = Instances.ActiveCanvas?.Document;
+            if (ghDoc == null)
+            {
+                return false;
+            }
+
+            var sourceObj = ghDoc.FindObject(sourceGuid, true);
+            var targetObj = ghDoc.FindObject(targetGuid, true);
+            if (sourceObj == null || targetObj == null)
+            {
+                return false;
+            }
+
+            IGH_Param sourceParam = null;
+            IGH_Param targetParam = null;
+
+            // Resolve source output parameter
+            if (sourceObj is IGH_Component sourceComp)
+            {
+                sourceParam = sourceComp.Params.Output
+                    .FirstOrDefault(p => string.Equals(p.NickName, sourceParamName, StringComparison.OrdinalIgnoreCase));
+            }
+            else if (sourceObj is IGH_Param sp)
+            {
+                sourceParam = sp;
+            }
+
+            // Resolve target input parameter
+            if (targetObj is IGH_Component targetComp)
+            {
+                targetParam = targetComp.Params.Input
+                    .FirstOrDefault(p => string.Equals(p.NickName, targetParamName, StringComparison.OrdinalIgnoreCase));
+            }
+            else if (targetObj is IGH_Param tp)
+            {
+                targetParam = tp;
+            }
+
+            if (sourceParam == null || targetParam == null)
+            {
+                Debug.WriteLine($"[gh_put] ConnectByNickName: Could not resolve params - source '{sourceParamName}' on {sourceGuid}, target '{targetParamName}' on {targetGuid}");
+                return false;
+            }
+
+            targetParam.AddSource(sourceParam);
+            return true;
         }
     }
 }

@@ -1,4 +1,20 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<!--
+  SmartHopper - AI-powered Grasshopper Plugin
+  Copyright (C) 2024-2026 Marc Roca Musach
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+-->
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="$(SolutionDir)Solution.props" Condition="Exists('$(SolutionDir)Solution.props')" />
   
@@ -8,15 +24,12 @@
     <NoWarn>NU1701;NETSDK1086;MSB3243;SA1124;SA1200</NoWarn>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   
   <PropertyGroup>
-    <Version>$(SolutionVersion)</Version>
     <Title>SmartHopper Core Grasshopper</Title>
-    <Company>Architect's Toolkit</Company>
     <Description>Grasshopper core functionality for SmartHopper</Description>
-    <Authors>Marc Roca Musach + SmartHopper Community</Authors>
-    <Copyright>Copyright (c) 2024 Marc Roca Musach</Copyright>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -32,6 +45,8 @@
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="JsonSchema.Net" Version="7.2.2" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <Reference Include="RhinoCodePlatform.GH">
       <HintPath>$(SolutionDir)\lib\Rhino\8.24\RhinoCodePlatform.GH.dll</HintPath>
       <Private>false</Private>
@@ -55,6 +70,8 @@
       <Project>{D4C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E1}</Project>
       <Name>SmartHopper.Core</Name>
     </ProjectReference>
+    <PackageReference Include="GhJSON.Core" Version="1.0.0" />
+    <PackageReference Include="GhJSON.Grasshopper" Version="1.0.0" />
   </ItemGroup>
 
   <!-- For Windows only builds -->

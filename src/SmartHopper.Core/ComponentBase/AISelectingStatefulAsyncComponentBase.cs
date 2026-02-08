@@ -1,11 +1,19 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2025 Marc Roca Musach
+ * Copyright (C) 2024-2026 Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -22,7 +30,11 @@ namespace SmartHopper.Core.ComponentBase
 {
     public abstract class AISelectingStatefulAsyncComponentBase : AIStatefulAsyncComponentBase, ISelectingComponent
     {
-        public List<IGH_ActiveObject> SelectedObjects
+        /// <summary>
+        /// Gets the currently selected Grasshopper objects for this component's selection mode.
+        /// Uses <see cref="IGH_DocumentObject"/> to support all object types including scribbles.
+        /// </summary>
+        public List<IGH_DocumentObject> SelectedObjects
         {
             get
             {
@@ -31,7 +43,7 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
-        private readonly List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
+        private readonly List<IGH_DocumentObject> selectedObjects = new List<IGH_DocumentObject>();
         private readonly SelectingComponentCore selectionCore;
 
         protected AISelectingStatefulAsyncComponentBase(string name, string nickname, string description, string category, string subCategory)

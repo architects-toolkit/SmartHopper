@@ -1,11 +1,19 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2025 Marc Roca Musach
+ * Copyright (C) 2024-2026 Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -115,7 +123,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var copyrightLabel = new Label
             {
-                Text = "Copyright (c) 2024-2025 Marc Roca Musach",
+                Text = "Copyright (c) 2024-2026 Marc Roca Musach",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
             };
@@ -148,14 +156,6 @@ namespace SmartHopper.Menu.Dialogs
                 Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI, DeepSeek, Anthropic and OpenRouter (in order of implementation).",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
-            };
-
-            var warningLabel = new Label
-            {
-                Text = "KEEP IN MIND THAT SMARTHOPPER IS STILL IN ITS EARLY STAGES OF DEVELOPMENT AND MAY HAVE BUGS OR LIMITATIONS. FILES SAVED WITH THIS VERSION MAY NOT BE COMPATIBLE WITH FUTURE VERSIONS.",
-                Font = new Font(SystemFont.Default, 10),
-                Wrap = WrapMode.Word,
-                TextColor = Colors.DarkRed,
             };
 
             var aiDisclaimerLabel = new Label
@@ -240,62 +240,76 @@ namespace SmartHopper.Menu.Dialogs
             };
 
             // Create a layout for the scrollable content and OK button
+            var contentLayout = new StackLayout
+            {
+                Spacing = 10,
+                Width = 200,
+                Height = -1,
+                Items =
+                {
+                    titleLabel,
+                    subtitleLabel,
+                    null, // spacing
+                    descriptionLabel,
+                    null, // spacing
+                    versionLabel,
+                    copyrightLabel,
+                    licenseLabel,
+                    null, // spacing
+                    new StackLayout
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 5,
+                        Items = { supportLabel, supportLinkLabel, communityLabel },
+                    },
+                    null, // spacing
+                },
+            };
+
+            // Show warning only for non-stable (prerelease) versions
+            if (version.Contains("-"))
+            {
+                contentLayout.Items.Add(new Label
+                {
+                    Text = "KEEP IN MIND THAT SMARTHOPPER IS STILL IN ITS EARLY STAGES OF DEVELOPMENT AND MAY HAVE BUGS OR LIMITATIONS. FILES SAVED WITH THIS VERSION MAY NOT BE COMPATIBLE WITH FUTURE VERSIONS.",
+                    Font = new Font(SystemFont.Default, 10),
+                    Wrap = WrapMode.Word,
+                    TextColor = Colors.DarkRed,
+                });
+                contentLayout.Items.Add(null); // spacing
+            }
+
+            contentLayout.Items.Add(new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
+                    githubLinkLabel
+                },
+            });
+            contentLayout.Items.Add(null); // spacing
+            contentLayout.Items.Add(openSourceThanksLabel);
+            contentLayout.Items.Add(speckleLink);
+            contentLayout.Items.Add(ghptLink);
+            contentLayout.Items.Add(materialIconsLink);
+            contentLayout.Items.Add(lobeIconsLink);
+            contentLayout.Items.Add(null); // spacing
+            contentLayout.Items.Add(logoDesignThanksLabel);
+            contentLayout.Items.Add(null); // spacing
+            contentLayout.Items.Add(null); // spacing
+            contentLayout.Items.Add(new StackLayoutItem(null, true)); // Push everything up
+            contentLayout.Items.Add(aiDisclaimerLabel);
+            contentLayout.Items.Add(null); // spacing
+            contentLayout.Items.Add(okButton);
+
             var mainContentLayout = new Scrollable
             {
                 Border = BorderType.None,
                 ExpandContentHeight = false,
                 ExpandContentWidth = true,
-                Content = new StackLayout
-                {
-                    Spacing = 10,
-                    Width = 200,
-                    Height = -1,
-                    Items =
-                    {
-                        titleLabel,
-                        subtitleLabel,
-                        null, // spacing
-                        descriptionLabel,
-                        null, // spacing
-                        versionLabel,
-                        copyrightLabel,
-                        licenseLabel,
-                        null, // spacing
-                        new StackLayout
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Spacing = 5,
-                            Items = { supportLabel, supportLinkLabel, communityLabel },
-                        },
-                        null, // spacing
-                        warningLabel,
-                        null,
-                        new StackLayout
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Spacing = 5,
-                            Items =
-                            {
-                                new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
-                                githubLinkLabel
-                            },
-                        },
-                        null, // spacing
-                        openSourceThanksLabel,
-                        speckleLink,
-                        ghptLink,
-                        materialIconsLink,
-                        lobeIconsLink,
-                        null, // spacing
-                        logoDesignThanksLabel,
-                        null, // spacing
-                        null, // spacing
-                        new StackLayoutItem(null, true), // Push everything up
-                        aiDisclaimerLabel,
-                        null, // spacing
-                        okButton,
-                    },
-                },
+                Content = contentLayout,
             };
 
             return mainContentLayout;
