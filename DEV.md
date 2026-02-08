@@ -20,6 +20,8 @@ This document aggregates development-facing information.
 | Merge GhJSON (GhMerge)<br><sub>Merge two GhJSON documents into one, with the target document taking priority on conflicts.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Tidy Up (GhTidyUp)<br><sub>Organize selected components into a tidy grid layout based on dependencies.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Smart Connect (AIGhConnect)<br><sub>Use AI to intelligently connect selected Grasshopper components based on a described purpose.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Canvas Report (AIGhReport)<br><sub>Generate a comprehensive canvas status report including object counts, topology, groups, scribbles, viewport contents, metadata, and runtime messages.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | Grasshopper | ⚪ | - | - | - |
 | AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | Grasshopper | ⚪ | - | - | - |
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | Grasshopper | ⚪ | - | - | - |
@@ -70,7 +72,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `script_generate_and_place_on_canvas` | Script | Generate a new script component and place it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_edit` | Script | Edit Grasshopper script components based on instructions (hidden from chat) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_edit_and_replace_on_canvas` | Script | Edit a script component by GUID and replace it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
-| `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic (canvas, ghjson, scripting, etc.) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic. It is always available. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `web_generic_page_read` | Knowledge | Retrieve plain text content of a webpage with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_search` | Knowledge | Search McNeel Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_post_get` | Knowledge | Retrieve filtered McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -105,7 +107,11 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `gh_tidy_up` | Components | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_generate` | Components | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
 | `gh_connect` | Components | Connect Grasshopper components by creating wires between outputs and inputs | ⚪ | 🟡 | - | - |
+| `gh_smart_connect` | Components | Use AI to intelligently connect selected Grasshopper components based on a described purpose | ⚪ | 🟡 | 🟠 | - |
 | `gh_group` | Components | Group components and set a meaningful title | ⚪ | 🟡 | - | - |
+| `gh_report` | Components | Generate a comprehensive canvas status report | ⚪ | 🟡 | 🟠 | - |
+| `gh_delete` | Components | Delete specific components from the Grasshopper canvas by their GUIDs | ⚪ | 🟡 | - | - |
+| `gh_clear` | Components | Clear all components from the Grasshopper canvas | ⚪ | 🟡 | - | - |
 | `gh_parameter_data_mapping_none` | Parameters | Set a parameter's data mapping to None | ⚪ | - | - | - |
 | `gh_parameter_data_mapping_flatten` | Parameters | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
 | `gh_parameter_data_mapping_graft` | Parameters | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
@@ -165,24 +171,24 @@ Notes:
 - “Capabilities” lists the core capability flags registered for the model.
 - “Verified” reflects the `Verified` flag in the registry; “Deprecated” reflects the `Deprecated` flag (none of the current defaults are flagged deprecated).
 
-| Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
-|---|---|:---:|:---:|:---:|---|---|
-| Anthropic | `claude-haiku-4-5` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, Reasoning |
-| Anthropic | `claude-sonnet-4-5` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| Anthropic | `claude-opus-4-5` | - | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
-| DeepSeek | `deepseek-chat` | - | ✅ | - | Text2Text, ToolChat | TextInput, TextOutput, JsonOutput, FunctionCalling |
-| DeepSeek | `deepseek-reasoner` | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| MistralAI | `mistral-small` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `mistral-medium` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `mistral-large-latest` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `magistral-small-latest` | - | ✅ | - | ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| MistralAI | `magistral-medium-latest` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `gpt-5-nano` | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `gpt-5-mini` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `gpt-5.1` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `dall-e-3` | ⭐ | - | - | Text2Image | TextInput, ImageOutput |
-| OpenAI | `gpt-image-1-mini` | - | - | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
-| OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| Provider | Model | Verified | Streaming | Deprecated | Default For | Context Limit | Capabilities |
+|---|---|:---:|:---:|:---:|---|---|---|
+| Anthropic | `claude-haiku-4-5` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat | 200,000 | TextInput, ImageInput, TextOutput, FunctionCalling, Reasoning |
+| Anthropic | `claude-sonnet-4-5` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | 200,000 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| Anthropic | `claude-opus-4-5` | - | ✅ | - | - | 200,000 | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
+| DeepSeek | `deepseek-chat` | - | ✅ | - | Text2Text, ToolChat | 60,000 | TextInput, TextOutput, JsonOutput, FunctionCalling |
+| DeepSeek | `deepseek-reasoner` | - | ✅ | - | ToolReasoningChat | 64,000 | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| MistralAI | `mistral-small-latest` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json | 131,072 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `mistral-medium-latest` | ⭐ | ✅ | - | - | 131,072 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `mistral-large-latest` | - | ✅ | - | - | 131,072 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `magistral-small-latest` | - | ✅ | - | ToolReasoningChat | 40,000 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| MistralAI | `magistral-medium-latest` | - | ✅ | - | - | 40,000 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-5-nano` | - | ✅ | - | Text2Text | 400,000 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-5-mini` | ⭐ | ✅ | - | ToolChat, Text2Json, ToolReasoningChat | 400,000 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-5.1` | - | ✅ | - | - | 400,000 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `dall-e-3` | ⭐ | - | - | Text2Image | - | TextInput, ImageOutput |
+| OpenAI | `gpt-image-1-mini` | - | - | - | Text2Image, Image2Image | - | TextInput, ImageInput, ImageOutput |
+| OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text, Text2Json | 400,000 | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 
 ### Discouraged models for script tools
 
