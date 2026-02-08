@@ -219,7 +219,7 @@ catch (ArgumentNullException ex)
 
 ## Related Documentation
 
-- [GhJSON Format](../../GhJSON/index.md)
+- [GhJSON Format](https://github.com/architects-toolkit/ghjson-dotnet)
 - [AI Tools Overview](../AITools/index.md)
 - [Component Base Classes](../ComponentBase/index.md)
 

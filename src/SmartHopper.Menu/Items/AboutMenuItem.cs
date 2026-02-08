@@ -33,8 +33,9 @@ namespace SmartHopper.Menu.Items
         /// <returns>A ToolStripMenuItem configured to show the about dialog</returns>
         public static ToolStripMenuItem Create()
         {
-            var fullVersion = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
-            var version = fullVersion.Split('+')[0]; // Take only the part before the '+'
+            string version = Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion ?? "Unknown";
             var item = new ToolStripMenuItem("About");
             item.Click += (sender, e) =>
             {

@@ -30,6 +30,7 @@
   <PropertyGroup>
     <Title>SmartHopper Menu</Title>
     <Description>Menu management for SmartHopper</Description>
+    <InformationalVersion>$(SolutionVersion)</InformationalVersion>
   </PropertyGroup>
 
   <PropertyGroup>
