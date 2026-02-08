@@ -36,7 +36,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         private readonly List<IAIInteraction> interactions = new List<IAIInteraction>();
         private readonly List<int> interactionsNew = new List<int>();
 
-        // Default behavior matches legacy: appended/replaced interactions are marked as 'new'
+        // Default behavior: appended/replaced interactions are marked as 'new'
         private bool defaultMarkAsNew = true;
 
         // Interactions in a logical turn share the same TurnId.

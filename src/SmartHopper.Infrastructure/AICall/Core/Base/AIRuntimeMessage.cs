@@ -129,21 +129,5 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// Diagnostic-only messages can set this to false.
         /// </summary>
         public bool Surfaceable { get; }
-
-        /// <summary>
-        /// Formats to legacy string representation with standardized prefix.
-        /// </summary>
-        public string ToLegacyString()
-        {
-            var sev = this.Severity switch
-            {
-                AIRuntimeMessageSeverity.Error => "(Error)",
-                AIRuntimeMessageSeverity.Warning => "(Warning)",
-                _ => "(Info)",
-            };
-
-            // Keep severity first for existing UI sorting; include origin tag for context
-            return $"{sev}[{this.Origin}] {this.Message}";
-        }
     }
 }
