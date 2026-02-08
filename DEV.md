@@ -20,7 +20,14 @@ This document aggregates development-facing information.
 | Merge GhJSON (GhMerge)<br><sub>Merge two GhJSON documents into one, with the target document taking priority on conflicts.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Tidy Up (GhTidyUp)<br><sub>Organize selected components into a tidy grid layout based on dependencies.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | Grasshopper | ⚪ | - | - | - |
+| AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | Grasshopper | ⚪ | - | - | - |
+| Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | Grasshopper | ⚪ | - | - | - |
+| Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | Grasshopper | ⚪ | - | - | - |
 | AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface with tool calling</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI File Context (AiFileContext)<br><sub>Set a context for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Models (AiModels)<br><sub>Retrieve the list of available models from the selected AI provider</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
+| Context Parameters (ContextParameters)<br><sub>Set context parameters for the AI component</sub> | AI | ⚪ | - | - | - |
 | AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text List Generate (AiTextListGenerate)<br><sub>Generate lists of text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -30,8 +37,6 @@ This document aggregates development-facing information.
 | AI Script Generator (AiScriptGenerator)<br><sub>Create or edit Grasshopper script components using AI. Supports create mode (from prompts) and edit mode (from selected components).</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Evaluate (AiListEvaluate)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI File Context (AiFileContext)<br><sub>Set a context for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Models (AiModels)<br><sub>Retrieve the list of available models from the selected AI provider</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
 | Web Page Read (WebPageRead)<br><sub>Retrieve plain text content of a webpage (Wikipedia, Discourse, GitHub, Stack Exchange, etc.)</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Search (McNeelForumSearch)<br><sub>Search McNeel Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Post Get (McNeelForumPostGet)<br><sub>Retrieve a McNeel Discourse forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -40,15 +45,10 @@ This document aggregates development-facing information.
 | AI McNeel Forum Post Summarize (AIMcNeelForumPostSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI McNeel Forum Topic Summarize (AIMcNeelForumTopicSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | Misc | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | Grasshopper | ⚪ | - | - | - |
-| AI JSON Generate (AiJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | AI | ⚪ | - | - | - |
-| AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | Grasshopper | ⚪ | - | - | - |
-| JSON Schema (JsonSchema)<br><sub>Set a JSON schema for the AI component</sub> | AI | ⚪ | - | - | - |
-| JSON Object (JsonObject)<br><sub>Set a JSON object for the definition of the JSON Schema</sub> | AI | ⚪ | - | - | - |
-| JSON Array (JsonArray)<br><sub>Set a JSON array for the definition of the JSON Schema</sub> | AI | ⚪ | - | - | - |
-| Context Parameters (ContextParameters)<br><sub>Set context parameters for the AI component</sub> | AI | ⚪ | - | - | - |
-| Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | Grasshopper | ⚪ | - | - | - |
-| Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | Grasshopper | ⚪ | - | - | - |
+| AI JSON Generate (AiJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | JSON | ⚪ | - | - | - |
+| JSON Schema (JsonSchema)<br><sub>Set a JSON schema for the AI component</sub> | JSON | ⚪ | - | - | - |
+| JSON Object (JsonObject)<br><sub>Set a JSON object for the definition of the JSON Schema</sub> | JSON | ⚪ | - | - | - |
+| JSON Array (JsonArray)<br><sub>Set a JSON array for the definition of the JSON Schema</sub> | JSON | ⚪ | - | - | - |
 
 ### AI Tools
 
@@ -62,21 +62,14 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `list_evaluate` | DataProcessing | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
 | `list_filter` | DataProcessing | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | `list_generate` | DataProcessing | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
+| `json_generate` | DataProcessing | Generate an AI response in strict JSON output | ⚪ | - | - | - |
+| `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
+| `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
 | `script_review` | Script | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_generate` | Script | Create Grasshopper script components based on instructions (hidden from chat) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_generate_and_place_on_canvas` | Script | Generate a new script component and place it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_edit` | Script | Edit Grasshopper script components based on instructions (hidden from chat) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_edit_and_replace_on_canvas` | Script | Edit a script component by GUID and replace it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_parameter_add_input` | NotTested | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
-| `script_parameter_add_output` | NotTested | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
-| `script_parameter_remove_input` | NotTested | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
-| `script_parameter_remove_output` | NotTested | Remove an output parameter from a script component | ⚪ | 🟡 | - | - |
-| `script_parameter_set_type_input` | NotTested | Set the type hint for a script input parameter | ⚪ | 🟡 | - | - |
-| `script_parameter_set_type_output` | NotTested | Set the type hint for a script output parameter | ⚪ | 🟡 | - | - |
-| `script_parameter_set_access` | NotTested | Set how a script input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
-| `script_toggle_std_output` | NotTested | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
-| `script_set_principal_input` | NotTested | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
-| `script_parameter_set_optional` | NotTested | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
 | `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic (canvas, ghjson, scripting, etc.) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `web_generic_page_read` | Knowledge | Retrieve plain text content of a webpage with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_search` | Knowledge | Search McNeel Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -118,11 +111,18 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `gh_parameter_data_mapping_graft` | Parameters | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
 | `gh_parameter_reverse` | Parameters | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
 | `gh_parameter_simplify` | Parameters | Simplify geometry in a parameter (remove redundant control points) | ⚪ | 🟡 | - | - |
-| `json_generate` | DataProcessing | Generate an AI response in strict JSON output | ⚪ | - | - | - |
-| `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
-| `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
 | `rhino_get_geometry` | Rhino | Retrieve geometry from the active Rhino document (by selection, layer, or type) | ⚪ | 🟡 | - | - |
 | `rhino_read_3dm` | Rhino | Analyze a Rhino .3dm file and extract information about objects, layers, and metadata | ⚪ | 🟡 | - | - |
+| `script_parameter_add_input` | NotTested | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
+| `script_parameter_add_output` | NotTested | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
+| `script_parameter_remove_input` | NotTested | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
+| `script_parameter_remove_output` | NotTested | Remove an output parameter from a script component | ⚪ | 🟡 | - | - |
+| `script_parameter_set_type_input` | NotTested | Set the type hint for a script input parameter | ⚪ | 🟡 | - | - |
+| `script_parameter_set_type_output` | NotTested | Set the type hint for a script output parameter | ⚪ | 🟡 | - | - |
+| `script_parameter_set_access` | NotTested | Set how a script input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
+| `script_toggle_std_output` | NotTested | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
+| `script_set_principal_input` | NotTested | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
+| `script_parameter_set_optional` | NotTested | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
 
 Notes:
 
