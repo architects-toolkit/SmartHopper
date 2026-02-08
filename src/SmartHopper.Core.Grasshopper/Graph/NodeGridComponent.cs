@@ -13,31 +13,45 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 
-namespace SmartHopper.Core.Models.Document
+namespace SmartHopper.Core.Grasshopper.Graph
 {
     /// <summary>
-    /// Represents a component in the grid with pivot, parent and child relationships.
+    /// Represents a node in the dependency graph grid with position and connection information.
     /// </summary>
     public class NodeGridComponent
     {
-        /// <summary>Gets or sets component's GUID.</summary>
+        /// <summary>
+        /// Component instance GUID.
+        /// </summary>
         public Guid ComponentId { get; set; }
 
-        /// <summary>Gets or sets calculated pivot position.</summary>
+        /// <summary>
+        /// Position on the canvas/grid.
+        /// </summary>
         public PointF Pivot { get; set; }
 
-        /// <summary>Gets or sets mapping of parent component IDs to the input parameter index (incoming edges) on this component.</summary>
+        /// <summary>
+        /// Parent connections (upstream dependencies).
+        /// Key: Parent component GUID, Value: Connection count.
+        /// </summary>
         public Dictionary<Guid, int> Parents { get; set; } = new Dictionary<Guid, int>();
 
-        /// <summary>Gets or sets mapping of child component IDs to the output parameter index (outgoing edges) from this component.</summary>
+        /// <summary>
+        /// Child connections (downstream dependencies).
+        /// Key: Child component GUID, Value: Connection count.
+        /// </summary>
         public Dictionary<Guid, int> Children { get; set; } = new Dictionary<Guid, int>();
+
+        /// <summary>
+        /// Target GUIDs for edge concentration nodes.
+        /// </summary>
+        public List<Guid> Targets { get; set; } = new List<Guid>();
     }
 }

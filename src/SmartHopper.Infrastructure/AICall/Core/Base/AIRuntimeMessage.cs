@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 namespace SmartHopper.Infrastructure.AICall.Core.Base
@@ -130,21 +129,5 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// Diagnostic-only messages can set this to false.
         /// </summary>
         public bool Surfaceable { get; }
-
-        /// <summary>
-        /// Formats to legacy string representation with standardized prefix.
-        /// </summary>
-        public string ToLegacyString()
-        {
-            var sev = this.Severity switch
-            {
-                AIRuntimeMessageSeverity.Error => "(Error)",
-                AIRuntimeMessageSeverity.Warning => "(Warning)",
-                _ => "(Info)",
-            };
-
-            // Keep severity first for existing UI sorting; include origin tag for context
-            return $"{sev}[{this.Origin}] {this.Message}";
-        }
     }
 }

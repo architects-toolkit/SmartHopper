@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -175,7 +174,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
 
-                // Collect IDs from optional "ids" array and legacy "id" field
+                // Collect IDs from optional "ids" array
                 var ids = new List<int>();
 
                 var idsToken = args["ids"];
@@ -194,12 +193,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 else if (idsToken != null && idsToken.Type == JTokenType.Integer)
                 {
                     ids.Add(idsToken.Value<int>());
-                }
-
-                int? idNullable = args["id"]?.Value<int>();
-                if (idNullable.HasValue && !ids.Contains(idNullable.Value))
-                {
-                    ids.Add(idNullable.Value);
                 }
 
                 if (ids.Count == 0)

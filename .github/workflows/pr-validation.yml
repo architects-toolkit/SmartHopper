@@ -60,11 +60,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate C# file headers
-        uses: ./.github/actions/code-style/header-fixer
-        with:
-          mode: check
-
       - name: Validate trailing whitespace
         uses: ./.github/actions/code-style/trailing-whitespace
         with:

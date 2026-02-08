@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -22,11 +21,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
+using GhJSON.Core;
+using GhJSON.Core.SchemaModels;
+using GhJSON.Core.Serialization;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
-using SmartHopper.Core.Models.Document;
-using SmartHopper.Core.Models.Serialization;
+using SmartHopper.Core.Grasshopper.Utils.Constants;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -187,15 +186,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Validate input GhJSON
-                if (!GHJsonAnalyzer.Validate(ghJsonInput, out var inputValidationError))
+                // Validate input GhJSON using GhJson facade
+                if (!GhJson.IsValid(ghJsonInput, out var inputValidationError))
                 {
                     output.CreateError($"Input GhJSON validation failed: {inputValidationError}");
                     return output;
                 }
 
                 // Parse input to extract language and existing component info
-                var inputDoc = JsonConvert.DeserializeObject<GrasshopperDocument>(ghJsonInput);
+                var inputDoc = GhJson.FromJson(ghJsonInput);
                 if (inputDoc?.Components == null || inputDoc.Components.Count == 0)
                 {
                     output.CreateError("Input GhJSON contains no components.");
@@ -304,44 +303,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!validationResult.IsValid)
                 {
-                    Debug.WriteLine($"[script_edit] Script validation failed after {retryCount} retries: {string.Join("; ", validationResult.Issues)}");
-
                     // Continue with the script but log a warning - it may still work
+                    var validationWarning = $"Script validation failed after {retryCount} retries: {string.Join("; ", validationResult.Issues)}";
+                    Debug.WriteLine($"[script_edit] {validationWarning}");
                 }
 
                 // Get component info for the language
-                var componentInfo = ScriptComponentFactory.GetComponentInfo(existingLanguage);
-                if (componentInfo == null)
-                {
-                    output.CreateError($"Failed to get component info for language '{existingLanguage}'.");
-                    return output;
-                }
+                var ghJsonString = CreateScriptGhJson(
+                    languageKey: existingLanguage,
+                    scriptCode: newScriptCode,
+                    inputs: newInputs,
+                    outputs: newOutputs,
+                    nickname: nickname,
+                    instanceGuid: existingInstanceGuid,
+                    pivot: existingComp.Pivot,
+                    indented: false);
 
-                // Build updated GhJSON preserving instance GUID
-                var updatedComp = ScriptComponentFactory.CreateScriptComponent(
-                    existingLanguage,
-                    newScriptCode,
-                    newInputs,
-                    newOutputs,
-                    nickname);
-
-                // Preserve the original instance GUID for gh_put to update in place
-                updatedComp.InstanceGuid = existingInstanceGuid;
-
-                // Preserve pivot if available (use tolerance for floating point comparison)
-                const float tolerance = 0.001f;
-                if (Math.Abs(existingComp.Pivot.X) > tolerance || Math.Abs(existingComp.Pivot.Y) > tolerance)
-                {
-                    updatedComp.Pivot = existingComp.Pivot;
-                }
-
-                var doc = new GrasshopperDocument();
-                doc.Components.Add(updatedComp);
-
-                var ghJsonString = JsonConvert.SerializeObject(doc, Formatting.None);
-
-                // Validate output GhJSON
-                if (!GHJsonAnalyzer.Validate(ghJsonString, out var outputValidationError))
+                // Validate output GhJSON using GhJson facade
+                if (!GhJson.IsValid(ghJsonString, out var outputValidationError))
                 {
                     output.CreateError($"Output GhJSON validation failed: {outputValidationError}");
                     return output;
@@ -371,6 +350,143 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError(ex.Message);
                 return output;
             }
+        }
+
+        private static string DetectLanguageFromComponentGuid(Guid? componentGuid)
+        {
+            if (componentGuid == null)
+            {
+                return "python";
+            }
+
+            var guid = componentGuid.Value;
+            if (guid == new Guid("719467e6-7cf5-4848-99b0-c5dd57e5442c"))
+            {
+                return "python";
+            }
+
+            if (guid == new Guid("97aa26ef-88ae-4ba6-98a6-ed6ddeca11d1"))
+            {
+                return "ironpython";
+            }
+
+            if (guid == new Guid("b6ba1144-02d6-4a2d-b53c-ec62e290eeb7"))
+            {
+                return "c#";
+            }
+
+            if (guid == new Guid("079bd9bd-54a0-41d4-98af-db999015f63d"))
+            {
+                return "vb";
+            }
+
+            return "python";
+        }
+
+        private static string GetExtensionKey(string languageKey)
+        {
+            return languageKey?.Trim().ToLowerInvariant() switch
+            {
+                "python" => GhJsonExtensionKeys.Python,
+                "ironpython" => GhJsonExtensionKeys.IronPython,
+                "c#" => GhJsonExtensionKeys.CSharp,
+                "csharp" => GhJsonExtensionKeys.CSharp,
+                "vb" => GhJsonExtensionKeys.VBScript,
+                "vbscript" => GhJsonExtensionKeys.VBScript,
+                _ => GhJsonExtensionKeys.Python,
+            };
+        }
+
+        private static string CreateScriptGhJson(
+            string languageKey,
+            string scriptCode,
+            JArray inputs,
+            JArray outputs,
+            string nickname,
+            Guid? instanceGuid,
+            GhJsonPivot? pivot,
+            bool indented)
+        {
+            var component = new GhJsonComponent
+            {
+                Name = languageKey?.Trim().ToLowerInvariant() switch
+                {
+                    "python" => "Python",
+                    "ironpython" => "IronPython",
+                    "c#" => "C#",
+                    "csharp" => "C#",
+                    "vb" => "VB Script",
+                    "vbscript" => "VB Script",
+                    _ => "Python",
+                },
+                NickName = nickname,
+                InstanceGuid = instanceGuid,
+                Pivot = pivot,
+            };
+
+            component.InputSettings = ParseParameters(inputs);
+            component.OutputSettings = ParseParameters(outputs);
+
+            component.ComponentState = new GhJsonComponentState
+            {
+                Extensions = new Dictionary<string, object>
+                {
+                    [GetExtensionKey(languageKey)] = new Dictionary<string, object>
+                    {
+                        [GhJsonExtensionKeys.CodeProperty] = scriptCode ?? string.Empty,
+                    },
+                },
+            };
+
+            var doc = GhJson.CreateDocumentBuilder()
+                .AddComponent(component)
+                .Build();
+
+            return GhJson.ToJson(doc, new WriteOptions { Indented = indented });
+        }
+
+        private static List<GhJsonParameterSettings> ParseParameters(JArray array)
+        {
+            var list = new List<GhJsonParameterSettings>();
+
+            if (array == null)
+            {
+                return list;
+            }
+
+            foreach (var t in array)
+            {
+                if (t is not JObject o)
+                {
+                    continue;
+                }
+
+                var name = o["name"]?.ToString();
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                var settings = new GhJsonParameterSettings
+                {
+                    ParameterName = name,
+                    VariableName = o["variableName"]?.ToString(),
+                    Description = o["description"]?.ToString(),
+                    Access = o["access"]?.ToString(),
+                    DataMapping = o["dataMapping"]?.ToString(),
+                    TypeHint = o["type"]?.ToString(),
+                    Expression = o["expression"]?.ToString(),
+                    IsReversed = o["reverse"]?.ToObject<bool?>(),
+                    IsSimplified = o["simplify"]?.ToObject<bool?>(),
+                    IsInverted = o["invert"]?.ToObject<bool?>(),
+                    IsPrincipal = o["isPrincipal"]?.ToObject<bool?>(),
+                    IsRequired = o["required"]?.ToObject<bool?>(),
+                };
+
+                list.Add(settings);
+            }
+
+            return list;
         }
 
         /// <summary>
@@ -596,31 +712,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        private static string DetectLanguageFromComponentGuid(Guid componentGuid)
-        {
-            if (componentGuid == ScriptComponentFactory.Python3Guid)
-            {
-                return "python";
-            }
-
-            if (componentGuid == ScriptComponentFactory.IronPython2Guid)
-            {
-                return "ironpython";
-            }
-
-            if (componentGuid == ScriptComponentFactory.CSharpGuid)
-            {
-                return "c#";
-            }
-
-            if (componentGuid == ScriptComponentFactory.VBNetGuid)
-            {
-                return "vb";
-            }
-
-            return "python"; // Default fallback
-        }
-
         private static string GetJsonSchema()
         {
             return @"{
@@ -636,6 +727,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""object"",
                             ""properties"": {
                                 ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)."" },
+                                ""variableName"": { ""type"": ""string"", ""description"": ""Optional script variable name (identifier). If omitted, defaults to 'name'."" },
                                 ""type"": { ""type"": ""string"", ""description"": ""Type hint (e.g., int, double, string, Point3d, Curve, etc.). Use 'object' when unsure."" },
                                 ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
                                 ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""], ""description"": ""Data access mode. Use 'item' when unsure."" },
@@ -656,6 +748,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""object"",
                             ""properties"": {
                                 ""name"": { ""type"": ""string"", ""description"": ""Parameter name (required)."" },
+                                ""variableName"": { ""type"": ""string"", ""description"": ""Optional script variable name (identifier). If omitted, defaults to 'name'."" },
                                 ""type"": { ""type"": ""string"", ""description"": ""Expected output type hint. Use 'object' when unsure."" },
                                 ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
                                 ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation. Use 'None' when no mapping is needed."" },

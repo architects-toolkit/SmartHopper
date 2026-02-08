@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System.Collections.Generic;
@@ -22,9 +21,14 @@ using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.ComponentBase
 {
+    /// <summary>
+    /// Interface for components that support selecting objects on the Grasshopper canvas.
+    /// Uses <see cref="IGH_DocumentObject"/> to support all object types including scribbles
+    /// which do not implement <see cref="IGH_ActiveObject"/>.
+    /// </summary>
     public interface ISelectingComponent
     {
-        List<IGH_ActiveObject> SelectedObjects { get; }
+        List<IGH_DocumentObject> SelectedObjects { get; }
 
         void EnableSelectionMode();
     }

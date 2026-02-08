@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -788,6 +787,7 @@ namespace SmartHopper.Core.Tests.ComponentBase
         public void ComponentName_UsedForLogging()
         {
             var namedManager = new ComponentStateManager("MyTestComponent");
+
             // This test just verifies no exception is thrown - logging is debug output
             namedManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
             namedManager.Dispose();

@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -23,12 +22,13 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.Serialization;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using RhinoCodePlatform.GH;
-using SmartHopper.Core.Grasshopper.Serialization.GhJson;
-using SmartHopper.Core.Grasshopper.Serialization.GhJson.ScriptComponents;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Constants;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -181,15 +181,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 try
                 {
-                    // Extract using GhJsonSerializer for consistency
-                    var componentsList = new List<IGH_ActiveObject> { (IGH_ActiveObject)target };
-                    var document = GhJsonSerializer.Serialize(componentsList, SerializationOptions.Standard);
+                    // Extract using GhJsonGrasshopper for consistency
+                    var activeTarget = target as IGH_ActiveObject;
+                    if (activeTarget == null)
+                    {
+                        throw new InvalidOperationException("Script component does not implement IGH_ActiveObject.");
+                    }
+
+                    var componentsList = new List<IGH_ActiveObject> { activeTarget };
+                    var document = GhJsonGrasshopper.Serialize(componentsList, SerializationOptions.Default);
                     var props = document.Components.FirstOrDefault();
 
                     if (props != null)
                     {
-                        scriptCode = props.ComponentState?.Value?.ToString() ?? string.Empty;
-                        language = ScriptComponentFactory.DetectLanguage(target);
+                        scriptCode = ExtractScriptCode(props) ?? string.Empty;
+                        language = DetectLanguageFromComponentGuid(props.ComponentGuid);
 
                         // Build component context for AI (optional rich context)
                         componentData["language"] = language;
@@ -203,7 +209,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         // Fallback to direct access
                         scriptCode = target.Text ?? string.Empty;
-                        language = ScriptComponentFactory.DetectLanguage(target);
+                        language = DetectLanguageFromComponentGuid((activeTarget as IGH_Component)?.ComponentGuid);
                         Debug.WriteLine($"[script_review] Using fallback extraction");
                     }
                 }
@@ -211,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     // Fallback if serialization fails
                     scriptCode = target.Text ?? string.Empty;
-                    language = ScriptComponentFactory.DetectLanguage(target);
+                    language = target is IGH_ActiveObject ao ? DetectLanguageFromComponentGuid((ao as IGH_Component)?.ComponentGuid) : "unknown";
                     Debug.WriteLine($"[script_review] Serialization failed, using fallback: {ex.Message}");
                 }
 
@@ -319,6 +325,97 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError(ex.Message);
                 return output;
             }
+        }
+
+        private static string DetectLanguageFromComponentGuid(Guid? componentGuid)
+        {
+            if (componentGuid == null)
+            {
+                return "unknown";
+            }
+
+            var guid = componentGuid.Value;
+            if (guid == new Guid("719467e6-7cf5-4848-99b0-c5dd57e5442c"))
+            {
+                return "python";
+            }
+
+            if (guid == new Guid("97aa26ef-88ae-4ba6-98a6-ed6ddeca11d1"))
+            {
+                return "ironpython";
+            }
+
+            if (guid == new Guid("b6ba1144-02d6-4a2d-b53c-ec62e290eeb7"))
+            {
+                return "c#";
+            }
+
+            if (guid == new Guid("079bd9bd-54a0-41d4-98af-db999015f63d"))
+            {
+                return "vb";
+            }
+
+            return "unknown";
+        }
+
+        private static string? ExtractScriptCode(GhJSON.Core.SchemaModels.GhJsonComponent component)
+        {
+            var ext = component?.ComponentState?.Extensions;
+            if (ext == null)
+            {
+                return null;
+            }
+
+            var extensionKeys = new[]
+            {
+                GhJsonExtensionKeys.Python,
+                GhJsonExtensionKeys.IronPython,
+                GhJsonExtensionKeys.CSharp,
+                GhJsonExtensionKeys.VBScript
+            };
+
+            foreach (var key in extensionKeys)
+            {
+                if (!ext.TryGetValue(key, out var dataObj) || dataObj == null)
+                {
+                    continue;
+                }
+
+                if (dataObj is Dictionary<string, object> dict)
+                {
+                    if (dict.TryGetValue(GhJsonExtensionKeys.CodeProperty, out var codeObj) && codeObj != null)
+                    {
+                        return codeObj.ToString();
+                    }
+
+                    if (dict.TryGetValue(GhJsonExtensionKeys.VBCodeProperty, out var vbObj) && vbObj is Dictionary<string, object> vbDict)
+                    {
+                        if (vbDict.TryGetValue(GhJsonExtensionKeys.VBScriptProperty, out var vbScript) && vbScript != null)
+                        {
+                            return vbScript.ToString();
+                        }
+                    }
+                }
+                else
+                {
+                    // Best-effort: extension payload might deserialize as JObject
+                    var jo = dataObj as JObject;
+                    var code = jo?[GhJsonExtensionKeys.CodeProperty]?.ToString();
+                    if (!string.IsNullOrWhiteSpace(code))
+                    {
+                        return code;
+                    }
+
+                    var vbCode = jo?[GhJsonExtensionKeys.VBCodeProperty] as JObject;
+                    var vbScript = vbCode?[GhJsonExtensionKeys.VBScriptProperty]?.ToString();
+                    if (!string.IsNullOrWhiteSpace(vbScript))
+                    {
+                        return vbScript;
+                    }
+                }
+            }
+
+            return null;
         }
     }
 }

@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 /*
@@ -42,8 +41,9 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Gets the currently selected Grasshopper objects for this component's selection mode.
         /// Exposed as a property to encapsulate internal state while allowing read access.
+        /// Uses <see cref="IGH_DocumentObject"/> to support all object types including scribbles.
         /// </summary>
-        public List<IGH_ActiveObject> SelectedObjects
+        public List<IGH_DocumentObject> SelectedObjects
         {
             get
             {
@@ -52,7 +52,7 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
-        private readonly List<IGH_ActiveObject> selectedObjects = new List<IGH_ActiveObject>();
+        private readonly List<IGH_DocumentObject> selectedObjects = new List<IGH_DocumentObject>();
         private readonly SelectingComponentCore selectionCore;
 
         /// <summary>

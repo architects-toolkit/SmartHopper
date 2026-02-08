@@ -13,8 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with this library; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -37,7 +36,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         private readonly List<IAIInteraction> interactions = new List<IAIInteraction>();
         private readonly List<int> interactionsNew = new List<int>();
 
-        // Default behavior matches legacy: appended/replaced interactions are marked as 'new'
+        // Default behavior: appended/replaced interactions are marked as 'new'
         private bool defaultMarkAsNew = true;
 
         // Interactions in a logical turn share the same TurnId.

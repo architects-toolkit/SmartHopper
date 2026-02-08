@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- GhJSON API Simplification:
+  - Refactored all AI tools to use organized ghjson-dotnet façade classes exclusively, removing deep namespace dependencies.
+  - All SmartHopper code now imports only `GhJSON.Core` and `GhJSON.Grasshopper` (no `GhJSON.Core.Models.*`, `GhJSON.Grasshopper.Serialization.*`, etc.).
+  - Removed legacy `ScriptParameterSettingsParser.cs` from SmartHopper (now in ghjson-dotnet façade).
+  - **Serialization options** now use `GhJsonGrasshopper.Options.Standard()`, `.Optimized()`, and `.Lite()` factory methods.
+  - **Script components** now use `GhJsonGrasshopper.Script.CreateGhJson()`, `.GetComponentInfo()`, `.DetectLanguageFromGuid()`, `.NormalizeLanguageKeyOrDefault()`.
+  - **Document operations** now use `GhJson.CreateDocument()`, `GhJson.Merge()`, `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`, `GhJson.Serialize()`.
+  - **Runtime data** extraction now uses `GhJsonGrasshopper.ExtractRuntimeData()` instead of deep serializer access.
+  - Tool-specific changes:
+    - `gh_get`: Delegates connection depth expansion and connection trimming to `GhJsonGrasshopper.GetWithOptions()`; uses `GhJsonGrasshopper.Options.*()` factories and `GhJsonGrasshopper.ExtractRuntimeData()`.
+    - `gh_put`: Delegates GhJSON placement to `GhJsonGrasshopper.Put()` and uses `PutOptions.PreserveExternalConnections` for edit-mode external wiring preservation; uses `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`.
+    - `gh_merge`: Uses `GhJson.Merge()` façade instead of direct `GhJsonMerger` access.
+    - `gh_tidy_up`: Uses `GhJsonGrasshopper.Options.Standard()`.
+    - `script_edit`, `script_generate`: Use `GhJsonGrasshopper.Script.*` façade methods.
+    - `gh_connect`: Delegates canvas wiring to `GhJsonGrasshopper.ConnectComponents()`.
+- Changed `ISelectingComponent` to use `IGH_DocumentObject` instead of `IGH_ActiveObject` to support scribble selection.
+
+### Fixed
+
+- gh_get component: Restored full filter pipeline (attribute, type, and category filters) that was lost during ghjson-dotnet migration. Component now properly filters by error/warning/remark, selected/unselected, enabled/disabled, preview states, component types (params/components/startnodes/endnodes/middlenodes/isolatednodes), and Grasshopper categories.
+- gh_get component: Restored connection depth expansion functionality using `ConnectionGraphUtils.ExpandByDepth()`. The `connectionDepth` parameter now correctly expands the selection to include connected components at the specified depth.
+- gh_put component: Restored external connection capture and reconnection in edit mode. When replacing components, the tool now captures connections to external (non-replaced) components before removal and restores them after placement, preserving the component's integration in the existing definition.
+
 ## [1.2.4-alpha] - 2026-01-11
 
 ### Fixed
