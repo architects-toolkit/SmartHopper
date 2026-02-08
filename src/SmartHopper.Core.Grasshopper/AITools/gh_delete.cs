@@ -147,8 +147,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var deleteOptions = new GhJSON.Grasshopper.DeleteOperations.DeleteOptions
                 {
-                    DeleteConnectedWires = deleteConnectedWires,
-                    Redraw = true
+                    Redraw = true,
                 };
 
                 var deleteResult = GhJsonGrasshopper.Delete(guidList, deleteOptions);
@@ -203,8 +202,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var clearOptions = new GhJSON.Grasshopper.DeleteOperations.DeleteOptions
                 {
-                    KeepLocked = keepLocked,
-                    Redraw = true
+                    Redraw = true,
                 };
 
                 var clearResult = GhJsonGrasshopper.Clear(clearOptions);
@@ -212,16 +210,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var toolResult = new JObject
                 {
                     ["deletedCount"] = clearResult.DeletedCount,
-                    ["success"] = clearResult.Success
+                    ["success"] = clearResult.Success,
                 };
 
-                if (clearResult.Skipped.Any())
-                {
-                    toolResult["skippedCount"] = clearResult.SkippedCount;
-                    toolResult["skipped"] = JArray.FromObject(clearResult.Skipped.Select(g => g.ToString()));
-                    toolResult["message"] = $"Deleted {clearResult.DeletedCount} components. Kept {clearResult.SkippedCount} locked components.";
-                }
-                else if (clearResult.DeletedCount > 0)
+                if (clearResult.DeletedCount > 0)
                 {
                     toolResult["message"] = $"Successfully cleared canvas. Deleted {clearResult.DeletedCount} components.";
                 }
