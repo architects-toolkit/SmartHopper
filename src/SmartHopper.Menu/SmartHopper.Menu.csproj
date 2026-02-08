@@ -30,6 +30,7 @@
   <PropertyGroup>
     <Title>SmartHopper Menu</Title>
     <Description>Menu management for SmartHopper</Description>
+    <DefineConstants>$(DefineConstants);SOLUTION_VERSION="$(SolutionVersion)"</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup>
