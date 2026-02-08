@@ -1,0 +1,113 @@
+name: 📋 Dev - Auto Update Manifest Text
+
+# Description: This workflow automatically updates the manifest.yml text based on the
+# version type in Solution.props. For -dev versions, it uses alpha text. For -beta 
+# versions, it uses beta text. For stable versions, it uses the stable text.
+#
+# Triggers:
+# - Automatically when Solution.props is modified in dev branch
+# - Automatically when a PR to dev is merged that modifies Solution.props
+#
+# Permissions:
+# - contents:write - Required to commit manifest changes
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'Solution.props'
+  pull_request:
+    branches:
+      - dev
+    types:
+      - closed
+    paths:
+      - 'Solution.props'
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    name: 📋 Update Manifest Text for Dev Version
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version from Solution.props
+        id: version
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Determine required manifest text
+        id: manifest_text
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SUFFIX="${{ steps.version.outputs.suffix }}"
+          
+          if [[ "$VERSION" =~ -dev || "$VERSION" =~ -alpha ]]; then
+            TEXT="NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
+            TYPE="alpha"
+          elif [[ "$VERSION" =~ -beta ]]; then
+            TEXT="NOTE: This is a beta release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
+            TYPE="beta"
+          else
+            TEXT="Please report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>"
+            TYPE="stable"
+          fi
+          
+          echo "type=$TYPE" >> $GITHUB_OUTPUT
+          echo "text=$TEXT" >> $GITHUB_OUTPUT
+          echo "Release type: $TYPE"
+
+      - name: Update manifest.yml note text
+        env:
+          MANIFEST_TEXT: ${{ steps.manifest_text.outputs.text }}
+        run: |
+          # Define the three possible texts as regex patterns for matching
+          ALPHA_PATTERN="NOTE: This is an alpha release and you might find bugs :/ Please, report them at"
+          BETA_PATTERN="NOTE: This is a beta release and you might find bugs :/ Please, report them at"
+          STABLE_PATTERN="Please report any issues at"
+          
+          # Escape the new text for sed
+          ESCAPED_TEXT=$(echo "$MANIFEST_TEXT" | sed 's/[&/\]/\\&/g')
+          
+          # Replace whichever pattern is currently in the file
+          if grep -q "$ALPHA_PATTERN" yak-package/manifest.yml; then
+            echo "Replacing alpha text with: $MANIFEST_TEXT"
+            sed -i "s|.*NOTE: This is an alpha release.*|  $ESCAPED_TEXT|" yak-package/manifest.yml
+          elif grep -q "$BETA_PATTERN" yak-package/manifest.yml; then
+            echo "Replacing beta text with: $MANIFEST_TEXT"
+            sed -i "s|.*NOTE: This is a beta release.*|  $ESCAPED_TEXT|" yak-package/manifest.yml
+          elif grep -q "$STABLE_PATTERN" yak-package/manifest.yml; then
+            echo "Replacing stable text with: $MANIFEST_TEXT"
+            sed -i "s|.*Please report any issues at.*|  $ESCAPED_TEXT|" yak-package/manifest.yml
+          else
+            echo "::warning::Could not find existing note text to replace"
+          fi
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet yak-package/manifest.yml; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes needed - manifest already up to date"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Manifest text updated"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add yak-package/manifest.yml
+          git commit -m "chore: update manifest text to ${{ steps.manifest_text.outputs.type }} version [skip ci]"
+          git push

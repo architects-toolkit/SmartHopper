@@ -1,0 +1,103 @@
+name: 📋 PR - Validate Manifest Text
+
+# Description: This workflow validates that the manifest text in manifest.yml
+# matches the version type (alpha/beta/stable) based on the version in Solution.props.
+# It blocks PRs to main if the manifest text doesn't match the version type.
+#
+# Triggers:
+# - Automatically when a PR to main modifies manifest.yml or Solution.props
+#
+# Permissions:
+# - contents:read - Required to read repository content
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'yak-package/manifest.yml'
+      - 'Solution.props'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-manifest:
+    name: 📋 Validate Manifest Text Matches Version
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from Solution.props
+        id: version
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Determine expected manifest text
+        id: expected
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SUFFIX="${{ steps.version.outputs.suffix }}"
+          
+          if [[ "$VERSION" =~ -dev || "$VERSION" =~ -alpha ]]; then
+            EXPECTED_TEXT="NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
+            RELEASE_TYPE="alpha"
+          elif [[ "$VERSION" =~ -beta ]]; then
+            EXPECTED_TEXT="NOTE: This is a beta release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
+            RELEASE_TYPE="beta"
+          else
+            EXPECTED_TEXT="Please report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>"
+            RELEASE_TYPE="stable"
+          fi
+          
+          echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+          echo "Expected release type: $RELEASE_TYPE"
+          
+          # Write expected text to file for comparison
+          echo "$EXPECTED_TEXT" > expected.txt
+
+      - name: Extract actual manifest text
+        run: |
+          # Extract the note/description section between the description block markers
+          sed -n '/----/,/----/p' yak-package/manifest.yml | \
+            grep -v '----' | \
+            grep -v '^$' | \
+            sed 's/^  //' | \
+            tr '\n' ' ' | \
+            sed 's/  */ /g' | \
+            sed 's/^ *//;s/ *$//' > actual.txt
+
+      - name: Compare manifest text
+        id: compare
+        run: |
+          EXPECTED=$(cat expected.txt)
+          ACTUAL=$(cat actual.txt)
+          
+          echo "Expected text: $EXPECTED"
+          echo "Actual text: $ACTUAL"
+          
+          if [ "$EXPECTED" = "$ACTUAL" ]; then
+            echo "✅ Manifest text matches version type: ${{ steps.expected.outputs.release_type }}"
+            echo "match=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Manifest text does not match version type: ${{ steps.expected.outputs.release_type }}"
+            echo "match=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fail if manifest text doesn't match
+        if: steps.compare.outputs.match == 'false'
+        run: |
+          echo "::error::Manifest text does not match the version type!"
+          echo ""
+          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Expected type: ${{ steps.expected.outputs.release_type }}"
+          echo ""
+          echo "Expected text:"
+          cat expected.txt
+          echo ""
+          echo "Actual text:"
+          cat actual.txt
+          echo ""
+          echo "Please update yak-package/manifest.yml to match the version type."
+          exit 1
