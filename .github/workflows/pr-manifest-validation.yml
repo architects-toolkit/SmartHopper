@@ -61,7 +61,7 @@ jobs:
         run: |
           # Extract the note/description section between the description block markers
           sed -n '/----/,/----/p' yak-package/manifest.yml | \
-            grep -v '----' | \
+            grep -v -e '----' | \
             grep -v '^$' | \
             sed 's/^  //' | \
             tr '\n' ' ' | \
