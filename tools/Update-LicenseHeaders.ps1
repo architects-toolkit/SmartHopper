@@ -8,10 +8,10 @@ param(
  
 Set-Location (Resolve-Path $Root)
  
-$newHeader = @'
+$csHeader = @'
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2024-{current_year} Marc Roca Musach
+ * Copyright (C) {year} Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,7 +29,16 @@ $newHeader = @'
 '@
 
 $currentYear = (Get-Date).Year
-$newHeader = $newHeader.Replace('{current_year}', $currentYear)
+$initialYear = 2024
+
+if ($currentYear -eq $initialYear) {
+    $yearRange = "$initialYear"
+}
+else {
+    $yearRange = "$initialYear-$currentYear"
+}
+
+$csHeader = $csHeader.Replace('{year}', $yearRange)
  
 function Remove-ExistingHeader {
     param(
@@ -81,12 +90,78 @@ function Remove-ExistingHeader {
     return $t
 }
  
+$csprojHeader = @'
+<!--
+  SmartHopper - AI-powered Grasshopper Plugin
+  Copyright (C) {year} Marc Roca Musach
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+-->
+'@
+
+$csprojHeader = $csprojHeader.Replace('{year}', $yearRange)
+
+function Remove-ExistingCsprojHeader {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Text
+    )
+
+    # Normalize: remove BOM if present
+    $t = $Text -replace '^[\uFEFF]', ''
+    
+    # Strip leading whitespace
+    $t = $t.TrimStart("`r", "`n", " ", "`t")
+    
+    # Strip XML declaration if present (e.g. <?xml version="1.0" encoding="utf-8"?>)
+    if ($t -match '^<\?xml') {
+        $endIdx = $t.IndexOf('?>')
+        if ($endIdx -ge 0) {
+            $t = $t.Substring($endIdx + 2).TrimStart("`r", "`n", " ", "`t")
+        }
+    }
+    
+    # Remove XML comment header at the beginning
+    if ($t -match '^<!--') {
+        $endIdx = $t.IndexOf('-->')
+        if ($endIdx -ge 0) {
+            $t = $t.Substring($endIdx + 3).TrimStart("`r", "`n", " ", "`t")
+        }
+    }
+    
+    # Strip XML declaration again (handles case where it was after the comment)
+    if ($t -match '^<\?xml') {
+        $endIdx = $t.IndexOf('?>')
+        if ($endIdx -ge 0) {
+            $t = $t.Substring($endIdx + 2).TrimStart("`r", "`n", " ", "`t")
+        }
+    }
+    
+    return $t
+}
+
 $changedCount = 0
  
 Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
     try {
         $path = $_.FullName
  
+        # Skip build artifact directories
+        if ($path -match '[/\\](obj|bin)[/\\]') {
+            return
+        }
+
         # Skip auto-generated files like Resources.Designer.cs
         if ($_.Name -match '\.Designer\.cs$') {
             Write-Host "Skipping auto-generated file: $path" -ForegroundColor Gray
@@ -97,7 +172,7 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
         $content = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
  
         $body = Remove-ExistingHeader -Text $content
-        $normalized = ($newHeader + "`r`n`r`n" + $body.TrimStart("`r", "`n"))
+        $normalized = ($csHeader + "`r`n`r`n" + $body.TrimStart("`r", "`n"))
 
         # Normalize line endings for comparison to avoid false positives
         $normalizedForComparison = $normalized -replace "\r\n", "`n"
@@ -122,6 +197,44 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
     }
 }
  
+Get-ChildItem -Path "..\src" -Recurse -Filter *.csproj | ForEach-Object {
+    try {
+        $path = $_.FullName
+
+        # Skip build artifact directories
+        if ($path -match '[/\\](obj|bin)[/\\]') {
+            return
+        }
+
+        # Read as UTF-8 text (handles BOM correctly)
+        $content = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+
+        $body = Remove-ExistingCsprojHeader -Text $content
+        $normalized = ($csprojHeader + "`r`n" + $body.TrimStart("`r", "`n"))
+
+        # Normalize line endings for comparison to avoid false positives
+        $normalizedForComparison = $normalized -replace "\r\n", "`n"
+        $originalForComparison = ($content -replace '^[\uFEFF]', '') -replace "\r?\n", "`n"
+        $isDifferent = $normalizedForComparison -ne $originalForComparison
+        if ($isDifferent) {
+            $changedCount++
+        }
+
+        if (-not $Check) {
+            [System.IO.File]::WriteAllText($path, $normalized, [System.Text.Encoding]::UTF8)
+            if ($isDifferent) {
+                Write-Host "Header normalized: $path"
+            }
+        }
+    }
+    catch {
+        Write-Host "Error updating $($_.FullName): $_" -ForegroundColor Red
+        if ($Check) {
+            exit 2
+        }
+    }
+}
+
 if ($Check) {
     if ($changedCount -gt 0) {
         Write-Host "Header normalization required in $changedCount file(s)." -ForegroundColor Yellow
