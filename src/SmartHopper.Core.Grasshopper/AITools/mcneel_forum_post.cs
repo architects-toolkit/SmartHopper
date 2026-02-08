@@ -1,11 +1,19 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2025 Marc Roca Musach
+ * Copyright (C) 2024-2026 Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -166,7 +174,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
 
-                // Collect IDs from optional "ids" array and legacy "id" field
+                // Collect IDs from optional "ids" array
                 var ids = new List<int>();
 
                 var idsToken = args["ids"];
@@ -185,12 +193,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 else if (idsToken != null && idsToken.Type == JTokenType.Integer)
                 {
                     ids.Add(idsToken.Value<int>());
-                }
-
-                int? idNullable = args["id"]?.Value<int>();
-                if (idNullable.HasValue && !ids.Contains(idNullable.Value))
-                {
-                    ids.Add(idNullable.Value);
                 }
 
                 if (ids.Count == 0)

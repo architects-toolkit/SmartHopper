@@ -60,11 +60,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate C# file headers
-        uses: ./.github/actions/code-style/header-fixer
-        with:
-          mode: check
-
       - name: Validate trailing whitespace
         uses: ./.github/actions/code-style/trailing-whitespace
         with:
@@ -74,6 +69,18 @@ jobs:
         uses: ./.github/actions/code-style/namespace-fixer
         with:
           mode: check
+
+  license-headers-check:
+    name: 📜 License Headers Check
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check LGPL license headers
+        shell: pwsh
+        run: |
+          pwsh -ExecutionPolicy Bypass -File .\tools\Update-LicenseHeaders.ps1 -Check
   
   changelog-check:
     name: 📝 Changelog Check

@@ -1,11 +1,19 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2025 Marc Roca Musach
+ * Copyright (C) 2024-2026 Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System.Linq;
@@ -19,8 +27,6 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {
     /// <summary>
     /// Injects a context interaction immutably at the beginning of the request body based on ContextFilter.
-    /// Mirrors the legacy dynamic injection previously done by AIBody.Interactions getter,
-    /// but as an explicit immutable transformation in the request policy phase.
     /// </summary>
     public sealed class ContextInjectionRequestPolicy : IRequestPolicy
     {
@@ -51,7 +57,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 return Task.CompletedTask;
             }
 
-            // Build the context message (same format as legacy AIBody)
+            // Build the context message
             var sb = new StringBuilder();
             sb.Append("Conversation context:\n\n");
             foreach (var kv in items)

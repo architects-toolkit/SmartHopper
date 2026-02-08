@@ -3,11 +3,11 @@
 name: SmartHopper
 version: {{VERSION}}
 description: >
-  SmartHopper brings new AI-powered components and an AI chat to Grasshopper3D.
+  SmartHopper, the Open Source AI plugin for Grasshopper3D, brings new AI-powered components and an AI chat to your canvas.
 
   ----
 
-  Please report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>
+  NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>
 
   ----
 

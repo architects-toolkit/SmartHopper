@@ -1,11 +1,19 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
- * Copyright (C) 2025 Marc Roca Musach
+ * Copyright (C) 2024-2026 Marc Roca Musach
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
 using System;
@@ -46,8 +54,11 @@ namespace SmartHopper.Core.UI.Chat
             private sealed class TurnRenderState
             {
                 public string TurnId { get; }
+
                 public bool IsFinalized { get; set; }
+
                 public bool HasPendingBoundary { get; set; }
+
                 public Dictionary<string, SegmentState> Segments { get; } = new Dictionary<string, SegmentState>(StringComparer.Ordinal);
 
                 public TurnRenderState(string turnId)
@@ -73,9 +84,13 @@ namespace SmartHopper.Core.UI.Chat
             private sealed class SegmentState
             {
                 public int SegmentNumber { get; set; } = 1;
+
                 public bool IsCommitted { get; set; }
+
                 public StreamState StreamState { get; set; }
+
                 public DateTime LastUpsertAt { get; set; }
+
                 public (string? Content, string? Reasoning) LastRenderedText { get; set; }
             }
 

@@ -1,5 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project>
+  <!-- Metadata for .NET project -->
+  <PropertyGroup>
+    <Version>$(SolutionVersion)</Version>
+    <Company>Architect's Toolkit</Company>
+    <Authors>Marc Roca Musach + SmartHopper Community</Authors>
+    <Copyright>Copyright (C) 2024-2026 Marc Roca Musach</Copyright>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- Use latest C# and enable nullable refs -->
     <LangVersion>latest</LangVersion>

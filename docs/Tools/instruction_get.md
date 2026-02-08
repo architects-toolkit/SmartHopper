@@ -31,7 +31,7 @@ Supported topics are declared in the tool schema. Examples include:
 - `discovery`
 - `scripting`
 - `knowledge`
-- (project-specific subtopics such as `ghjson`, `selected`, `errors`, `locks`, `visibility` may be routed to a common bundle)
+- (project-specific subtopics such as `ghjson`, `selected`, `errors`, `locks`, `visibility` may be routed to a common bundle; for GhJSON format details see [ghjson-dotnet](https://github.com/architects-toolkit/ghjson-dotnet))
 
 ## Output
 

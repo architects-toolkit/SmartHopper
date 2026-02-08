@@ -5,6 +5,28 @@ All notable changes to SmartHopper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0-alpha] - 2024-02-08
+
+### Changed
+
+- Added annual automation to update copyright years in `src/**/*.csproj` and normalize C# license headers (workflow: `chore-update-copyright-year.yml`, script: `tools/Update-CopyrightYear.ps1`).
+- GhJSON API Simplification:
+  - Refactored all AI tools to use organized ghjson-dotnet façade classes exclusively, removing deep namespace dependencies.
+  - All SmartHopper code now imports only `GhJSON.Core` and `GhJSON.Grasshopper` (no `GhJSON.Core.Models.*`, `GhJSON.Grasshopper.Serialization.*`, etc.).
+  - Removed legacy `ScriptParameterSettingsParser.cs` from SmartHopper (now in ghjson-dotnet façade).
+  - **Serialization options** now use `GhJsonGrasshopper.Options.Standard()`, `.Optimized()`, and `.Lite()` factory methods.
+  - **Script components** now use `GhJsonGrasshopper.Script.CreateGhJson()`, `.GetComponentInfo()`, `.DetectLanguageFromGuid()`, `.NormalizeLanguageKeyOrDefault()`.
+  - **Document operations** now use `GhJson.CreateDocument()`, `GhJson.Merge()`, `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`, `GhJson.Serialize()`.
+  - **Runtime data** extraction now uses `GhJsonGrasshopper.ExtractRuntimeData()` instead of deep serializer access.
+  - Tool-specific changes:
+    - `gh_get`: Delegates connection depth expansion and connection trimming to `GhJsonGrasshopper.GetWithOptions()`; uses `GhJsonGrasshopper.Options.*()` factories and `GhJsonGrasshopper.ExtractRuntimeData()`.
+    - `gh_put`: Delegates GhJSON placement to `GhJsonGrasshopper.Put()` and uses `PutOptions.PreserveExternalConnections` for edit-mode external wiring preservation; uses `GhJson.Parse()`, `GhJson.Fix()`, `GhJson.IsValid()`.
+    - `gh_merge`: Uses `GhJson.Merge()` façade instead of direct `GhJsonMerger` access.
+    - `gh_tidy_up`: Uses `GhJsonGrasshopper.Options.Standard()`.
+    - `script_edit`, `script_generate`: Use `GhJsonGrasshopper.Script.*` façade methods.
+    - `gh_connect`: Delegates canvas wiring to `GhJsonGrasshopper.ConnectComponents()`.
+- Changed `ISelectingComponent` to use `IGH_DocumentObject` instead of `IGH_ActiveObject` to support scribble selection.
+
 ## [1.2.4] - 2024-02-08
 
 ### Changed
