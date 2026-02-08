@@ -43,7 +43,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
         /// <summary>
         /// Gets the last interaction matching the specified agent, or null if none.
-        /// Mirrors legacy AIBody.GetLastInteraction(AIAgent).
         /// </summary>
         /// <param name="body">The AI body to query.</param>
         /// <param name="agent">Agent to filter interactions by.</param>
@@ -55,7 +54,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
         /// <summary>
         /// Gets the last interaction whose agent name matches the provided string, or null if none.
-        /// Mirrors legacy AIBody.GetLastInteraction(string).
         /// </summary>
         /// <param name="body">The AI body to query.</param>
         /// <param name="agent">Agent name to filter by.</param>
