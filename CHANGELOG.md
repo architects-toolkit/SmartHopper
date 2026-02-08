@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `gh_clear` AI tool for clearing all components from canvas with optional `keepLocked` filter.
   - Both tools delegate to ghjson-dotnet library for deletion operations.
   - All deletion operations support Ctrl+Z undo and automatically remove connected wires.
+- Canvas Report Tool:
+  - Added `gh_report` AI tool for generating a comprehensive canvas status report with object counts by type/topology, unique component names, group titles and pivots, scribble texts and pivots, viewport contents (with in-view GhJSON extract), file metadata, and all errors/warnings with component details.
+  - Optional `includeSummary` parameter to generate an AI-powered brief summary of the file purpose and current view.
+  - Added `AIGhReportComponent` Grasshopper component exposing the `gh_report` tool on the canvas with async execution, provider/model selection, and metrics output.
+- Viewport Filtering:
+  - Added `inView` parameter to `gh_get` tool to restrict results to components visible in the current canvas viewport.
+  - Added `gh_get_in_view` specialized wrapper tool for quick viewport-scoped queries.
+  - Updated `instruction_get` canvas instructions to mention `gh_report` and `gh_get_in_view`.
 
 ### Changed
 

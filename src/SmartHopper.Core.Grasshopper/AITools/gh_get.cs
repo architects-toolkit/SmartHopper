@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core;
@@ -26,6 +27,7 @@ using GhJSON.Core.Serialization;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.Query;
 using GhJSON.Grasshopper.Serialization;
+using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -93,10 +95,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""boolean"",
                             ""default"": false,
                             ""description"": ""Whether to include runtime/volatile data (actual values currently flowing through component outputs). Useful for inspecting computed results. Default is false. This is token-expansive!""
+                        },
+                        ""inView"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""When true, restricts results to components currently visible within the Grasshopper canvas viewport. Default is false (all components).""
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false, false));
 
             // Specialized wrapper: gh_get_selected
             yield return new AITool(
@@ -330,6 +337,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }",
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, true));
+
+            // Specialized wrapper: gh_get_in_view
+            yield return new AITool(
+                name: "gh_get_in_view",
+                description: "Read only components currently visible within the Grasshopper canvas viewport. Use this to understand what the user is currently looking at. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only in-view components; 1 includes directly connected components, etc.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, forceIncludeRuntimeData: false, forceInView: true));
         }
 
         /// <summary>
@@ -340,7 +364,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="predefinedTypeFilters">Predefined type filters to apply (used by wrapper tools).</param>
         /// <param name="forceIncludeRuntimeData">When true, forces inclusion of runtime data regardless of parameter value.</param>
         /// <returns>Task that returns the result of the operation.</returns>
-        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceIncludeRuntimeData = false)
+        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceIncludeRuntimeData = false, bool forceInView = false)
         {
             var output = new AIReturn() { Request = toolCall };
 
@@ -356,10 +380,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
                 var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
-                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}");
+                var inView = forceInView || (args["inView"]?.ToObject<bool>() ?? false);
+                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, inView: {inView}");
 
                 // Build the query using CanvasSelector
                 var selector = CanvasSelector.FromActiveCanvas();
+
+                // Viewport restriction
+                if (inView)
+                {
+                    var canvas = Instances.ActiveCanvas;
+                    if (canvas?.Viewport != null)
+                    {
+                        var viewportBounds = canvas.Viewport.VisibleRegion;
+                        selector.WithViewport(viewportBounds);
+                        Debug.WriteLine($"[gh_get] Viewport filter applied: {viewportBounds}");
+                    }
+                }
 
                 // GUID restriction
                 var guidStrings = args["guidFilter"]?.ToObject<List<string>>();

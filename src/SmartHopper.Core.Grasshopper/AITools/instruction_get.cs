@@ -38,7 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: ToolName,
-                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
+                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, viewport, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, ghpython, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
                 category: "Instructions",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -99,9 +99,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 case "errors":
                 case "locks":
                 case "visibility":
+                case "viewport":
                     return """
 Canvas state reading:
+- Use gh_report for a quick overview: object counts, topology, groups, scribbles, errors/warnings, viewport, and optional AI summary.
 - Use gh_get_selected when the user refers to "this/these/selected".
+- Use gh_get_in_view to see what is currently visible in the canvas viewport.
 - Use gh_get_errors to locate broken definitions.
 - Use gh_get_locked / gh_get_hidden / gh_get_visible for quick filters.
 - Use gh_get_start / gh_get_end to get a wide view of data sources (startnodes) or outputs (endnodes).
@@ -150,8 +153,10 @@ Knowledge base workflow:
 
                 case "scripting":
                 case "python":
+                case "python3":
                 case "csharp":
                 case "vb":
+                case "ghpython":
                     return """
 Scripting rules:
 - When the user asks to CREATE or MODIFY a Grasshopper script component, use the scripting tools (do not only reply in natural language).
@@ -182,7 +187,7 @@ Required workflows:
 """;
 
                 default:
-                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web.";
+                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are canvas, viewport, ghjson, selected, errors, locks, visibility, discovery, scripting, python, python3, csharp, vb, ghpython, knowledge, mcneel-forum, research, web.";
             }
         }
     }

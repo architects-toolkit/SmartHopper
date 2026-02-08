@@ -70,8 +70,10 @@
       <Project>{D4C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E1}</Project>
       <Name>SmartHopper.Core</Name>
     </ProjectReference>
-    <PackageReference Include="GhJSON.Core" Version="1.0.0" />
-    <PackageReference Include="GhJSON.Grasshopper" Version="1.0.0" />
+    <!-- <PackageReference Include="GhJSON.Core" Version="1.1.0" />
+    <PackageReference Include="GhJSON.Grasshopper" Version="1.1.0" /> -->
+    <ProjectReference Include="..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj" />
+    <ProjectReference Include="..\..\..\ghjson-dotnet\src\GhJSON.Grasshopper\GhJSON.Grasshopper.csproj" />
   </ItemGroup>
 
   <!-- For Windows only builds -->
