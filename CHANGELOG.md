@@ -5,11 +5,7 @@ All notable changes to SmartHopper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.4] - 2024-02-08
-
-### Changed
-
-- Bump to stable version
+## [1.3.0-alpha] - 2024-02-08
 
 ### Changed
 
@@ -31,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `gh_connect`: Delegates canvas wiring to `GhJsonGrasshopper.ConnectComponents()`.
 - Changed `ISelectingComponent` to use `IGH_DocumentObject` instead of `IGH_ActiveObject` to support scribble selection.
 
-## [1.2.4] - 2026-02-08
+## [1.2.4] - 2024-02-08
 
 ### Changed
 
