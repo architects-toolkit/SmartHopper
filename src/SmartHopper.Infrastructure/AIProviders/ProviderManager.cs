@@ -23,6 +23,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -421,21 +422,25 @@ namespace SmartHopper.Infrastructure.AIProviders
         private void VerifySignature(string filePath)
         {
             // Authenticode: ensure the certificate matches the host assembly's certificate
-            try
+            // X509Certificate.CreateFromSignedFile is only supported on Windows
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(filePath));
-                var baseCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
-                    Assembly.GetExecutingAssembly().Location));
-                if (!string.Equals(cert.Thumbprint, baseCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
-                    throw new CryptographicException($"Authenticode certificate mismatch for {Path.GetFileName(filePath)}.");
-            }
-            catch (CryptographicException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new CryptographicException($"Authenticode signature verification failed for {Path.GetFileName(filePath)}: {ex.Message}", ex);
+                try
+                {
+                    var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(filePath));
+                    var baseCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
+                        Assembly.GetExecutingAssembly().Location));
+                    if (!string.Equals(cert.Thumbprint, baseCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                        throw new CryptographicException($"Authenticode certificate mismatch for {Path.GetFileName(filePath)}.");
+                }
+                catch (CryptographicException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    throw new CryptographicException($"Authenticode signature verification failed for {Path.GetFileName(filePath)}: {ex.Message}", ex);
+                }
             }
 
             // Strong-name: ensure public key token matches the host assembly's token
