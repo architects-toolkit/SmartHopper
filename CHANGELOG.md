@@ -11,15 +11,26 @@ Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](htt
 
 ### Added
 
+- **Provider Hash Verification**: Added SHA-256 hash verification system for AI provider DLLs to enhance security on all platforms
+  - New "Verify Providers Hash" menu item in SmartHopper menu to manually verify provider integrity
+  - Comprehensive verification dialog showing verification status, local vs expected hashes, and detailed results
+  - Automatic hash generation during release workflow with public hash repository for verification
+  - Multi-tier verification with graceful degradation when hashes are unavailable
 - **Enhanced About Dialog**: Improved About dialog to automatically display current SmartHopper version and platform information using the new VersionHelper class
 
 ### Fixed
 
 - **macOS Compatibility**: Improved cross-platform compatibility for macOS users
+  - Provider loading now works on non-Windows platforms with appropriate security warnings (skip Authenticode signature verification where `X509Certificate.CreateFromSignedFile` is not supported)
   - URL handling fixed to prevent incorrect file:// URI generation by restricting `BuildFullUrl` absolute URI detection to HTTP/HTTPS schemes
   - Component state management updated to fire `ComponentStateManager` transition events outside `stateLock` to prevent deadlocks caused by re-entrant lock acquisition in event handlers
 - **Settings**:
   - Fixed first initialization is created using EncryptationVersion 2 by default which stores a local hash for secrets encryptation
+
+### Security
+
+- Enhanced provider security with SHA-256 hash verification system to protect against tampered provider DLLs
+- Platform-appropriate security measures: Authenticode + hash verification on Windows, only hash verification on macOS
 
 ### Known Issues
 
