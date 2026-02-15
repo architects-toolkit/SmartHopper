@@ -7,11 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](https://github.com/nof2504) for the contributions to this release.
+
 ### Fixed
 
-- fix(infrastructure): skip Authenticode signature verification on non-Windows platforms where `X509Certificate.CreateFromSignedFile` is not supported, allowing provider loading on macOS/Linux
-- fix(infrastructure): restrict `BuildFullUrl` absolute URI detection to HTTP/HTTPS schemes to prevent `Uri.TryCreate` from misidentifying relative paths as `file://` URIs on macOS/Linux
-- fix(core): fire `ComponentStateManager` transition events outside `stateLock` to prevent deadlocks caused by re-entrant lock acquisition in event handlers on macOS
+- **macOS Compatibility**: Improved cross-platform compatibility for macOS users
+  - Component state management updated to fire `ComponentStateManager` transition events outside `stateLock` to prevent deadlocks caused by re-entrant lock acquisition in event handlers
 
 ### Known Issues
 
