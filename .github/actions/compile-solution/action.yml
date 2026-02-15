@@ -1,0 +1,180 @@
+name: 'Compile Solution'
+description: 'Builds the SmartHopper solution and collects artifacts for specified platforms'
+inputs:
+  version:
+    description: 'Version to build (used for output directory naming)'
+    required: true
+  configuration:
+    description: 'Build configuration (Release/Debug)'
+    required: false
+    default: 'Release'
+  platforms:
+    description: 'JSON array of platform names to collect (e.g., ["net7.0-windows", "net7.0"])'
+    required: false
+    default: '["net7.0-windows", "net7.0"]'
+  signing-snk-base64:
+    description: 'Base64-encoded strong name key for assembly signing'
+    required: false
+    default: ''
+  libs-repo-pat:
+    description: 'Personal access token for private libs repository'
+    required: false
+    default: ''
+  signing-pfx-base64:
+    description: 'Base64-encoded PFX certificate for Authenticode signing'
+    required: false
+    default: ''
+  signing-pfx-password:
+    description: 'Password for PFX certificate'
+    required: false
+    default: ''
+  output-directory:
+    description: 'Output directory for collected artifacts'
+    required: false
+    default: 'artifacts'
+outputs:
+  artifacts-path:
+    description: 'Path to the directory containing collected artifacts'
+    value: ${{ inputs.output-directory }}
+  build-path:
+    description: 'Path to the build output directory'
+    value: ${{ steps.build.outputs.BUILD_PATH }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build Solution
+      id: build
+      uses: ./.github/actions/dotnet-build
+      with:
+        solution: SmartHopper.sln
+        configuration: ${{ inputs.configuration }}
+        signing_snk_base64: ${{ inputs.signing-snk-base64 }}
+        libs_repo_pat: ${{ inputs.libs-repo-pat }}
+        signing_pfx_base64: ${{ inputs.signing-pfx-base64 }}
+        signing_pfx_password: ${{ inputs.signing-pfx-password }}
+        version: ${{ inputs.version }}
+
+    - name: Collect Artifacts
+      shell: pwsh
+      run: |
+        $outputDir = "${{ inputs.output-directory }}"
+        $version = "${{ inputs.version }}"
+        $configuration = "${{ inputs.configuration }}"
+        $platformsJson = '${{ inputs.platforms }}'
+        
+        # Parse and validate platforms input
+        try {
+          $platforms = $platformsJson | ConvertFrom-Json -ErrorAction Stop
+        } catch {
+          Write-Host "##[error] Failed to parse platforms JSON: $_"
+          exit 1
+        }
+        
+        if ($null -eq $platforms -or $platforms.Count -eq 0) {
+          Write-Host "##[error] Platforms array is empty or invalid"
+          exit 1
+        }
+        
+        Write-Host "Collecting artifacts for version: $version"
+        Write-Host "Configuration: $configuration"
+        Write-Host "Platforms: $($platforms -join ', ')"
+        Write-Host "Output directory: $outputDir"
+        
+        # Create output directory
+        try {
+          New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+        } catch {
+          Write-Host "##[error] Failed to create output directory '$outputDir': $_"
+          exit 1
+        }
+        
+        $buildDir = "bin\$version\$configuration"
+        
+        if (!(Test-Path $buildDir)) {
+          Write-Host "##[error] Build directory '$buildDir' not found!"
+          Write-Host "##[error] Available directories in bin:"
+          if (Test-Path "bin") {
+            Get-ChildItem -Path "bin" -Directory | ForEach-Object { Write-Host "##[error]   $($_.FullName)" }
+          } else {
+            Write-Host "##[error]   (bin directory does not exist)"
+          }
+          exit 1
+        }
+        
+        Write-Host ""
+        Write-Host "Build directory: $buildDir"
+        
+        $totalFilesCopied = 0
+        
+        foreach ($platform in $platforms) {
+          $platformPath = Join-Path $buildDir $platform
+          
+          if (Test-Path $platformPath) {
+            Write-Host ""
+            Write-Host "Processing platform: $platform"
+            
+            $targetPath = Join-Path $outputDir $platform
+            try {
+              New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
+            } catch {
+              Write-Host "##[error] Failed to create target directory '$targetPath': $_"
+              exit 1
+            }
+            
+            Write-Host "  Source: $platformPath"
+            Write-Host "  Target: $targetPath"
+            
+            # Copy .dll and .gha files (not recursive - only from platform root)
+            $filesCopied = 0
+            try {
+              Get-ChildItem -Path $platformPath -File -ErrorAction Stop | 
+                Where-Object { $_.Extension -eq ".dll" -or $_.Extension -eq ".gha" } |
+                ForEach-Object {
+                  $targetFile = Join-Path $targetPath $_.Name
+                  Copy-Item $_.FullName -Destination $targetFile -Force -ErrorAction Stop
+                  Write-Host "    Copied: $($_.Name)"
+                  $filesCopied++
+                }
+            } catch {
+              Write-Host "##[error] Failed to copy artifacts from '$platformPath': $_"
+              exit 1
+            }
+            
+            Write-Host "  Files copied: $filesCopied"
+            $totalFilesCopied += $filesCopied
+            
+            # Verify copied files
+            $copiedFiles = Get-ChildItem -Path $targetPath -File
+            if ($copiedFiles.Count -ne $filesCopied) {
+              Write-Host "##[warning] Expected $filesCopied files but found $($copiedFiles.Count) in target"
+            }
+          } else {
+            Write-Host ""
+            Write-Host "##[warning] Platform folder '$platformPath' not found, skipping"
+          }
+        }
+        
+        Write-Host ""
+        Write-Host "=========================================="
+        Write-Host "Artifact Collection Complete"
+        Write-Host "=========================================="
+        Write-Host "Total files collected: $totalFilesCopied"
+        Write-Host "Output directory: $outputDir"
+        Write-Host ""
+        
+        if ($totalFilesCopied -eq 0) {
+          Write-Host "##[error] No artifacts were collected!"
+          Write-Host "##[error] Build may have failed or produced no DLL/GHA files"
+          exit 1
+        }
+        
+        # List all collected files
+        Write-Host "Collected artifacts:"
+        try {
+          Get-ChildItem -Path $outputDir -Recurse -File -ErrorAction Stop | ForEach-Object {
+            Write-Host "  $($_.FullName.Replace($PWD, '.'))"
+          }
+        } catch {
+          Write-Host "##[warning] Failed to list collected artifacts: $_"
+        }

@@ -114,81 +114,17 @@ jobs:
         Write-Host "This is a draft release. Skipping build and upload."
         exit 0
 
-    - name: Dotnet Build
-      uses: ./.github/actions/dotnet-build
+    - name: Compile Solution and Collect Artifacts
+      uses: ./.github/actions/compile-solution
       with:
-        solution: SmartHopper.sln
-        configuration: Release
-        signing_snk_base64: ${{ secrets.SIGNING_SNK_BASE64 }}
-        libs_repo_pat: ${{ secrets.LIBS_REPO_PAT }}
-        signing_pfx_base64: ${{ secrets.SIGNING_PFX_BASE64 }}
-        signing_pfx_password: ${{ secrets.SIGNING_PFX_PASSWORD }}
         version: ${{ steps.determine_version.outputs.VERSION }}
-
-    - name: Create Output Directory
-      shell: pwsh
-      run: |
-        $outputDir = "artifacts"
-        New-Item -ItemType Directory -Force -Path $outputDir
-        
-        # Get the version to build
-        $version = "${{ steps.determine_version.outputs.VERSION }}"
-        Write-Host "Building for version: $version"
-        
-        # Copy all build artifacts to the output directory
-        $buildDir = "bin\$version\Release"
-        
-        # Verify build directory exists
-        if (!(Test-Path $buildDir)) {
-          Write-Host "Error: Build directory '$buildDir' does not exist."
-          Write-Host "Available directories in bin:"
-          Get-ChildItem -Path "bin" -Directory | ForEach-Object { Write-Host $_.FullName }
-          exit 1
-        }
-        
-        # Define the target platforms
-        $platforms = @("net7.0-windows", "net7.0")
-        
-        # Copy only .gha and .dll files directly from each platform folder (not recursive)
-        foreach ($platform in $platforms) {
-          $platformPath = Join-Path $buildDir $platform
-          
-          if (Test-Path $platformPath) {
-            Write-Host "Processing platform: $platform"
-            
-            # Create the target directory
-            $targetPlatformPath = Join-Path $outputDir $platform
-            New-Item -ItemType Directory -Force -Path $targetPlatformPath
-            
-            # List files in the source directory to verify what's available
-            Write-Host "Files available in source directory ($platformPath):"
-            Get-ChildItem -Path $platformPath -File | ForEach-Object { Write-Host "  - $($_.Name)" }
-            
-            # Copy only .gha and .dll files directly in the platform folder (not recursive)
-            $filesCopied = 0
-            Get-ChildItem -Path $platformPath -File | 
-              Where-Object { ($_.Extension -eq ".dll" -or $_.Extension -eq ".gha") } |
-              ForEach-Object {
-                $targetFile = Join-Path $targetPlatformPath $_.Name
-                Write-Host "Copying $($_.FullName) to $targetFile"
-                Copy-Item $_.FullName -Destination $targetFile -Force
-                $filesCopied++
-              }
-            
-            Write-Host "Copied $filesCopied files to $targetPlatformPath"
-            
-            # Verify files were copied
-            $copiedFiles = Get-ChildItem -Path $targetPlatformPath -File
-            Write-Host "Files in target directory ($targetPlatformPath): $($copiedFiles.Count)"
-            $copiedFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
-          } else {
-            Write-Host "##[warning] Platform folder $platformPath not found, skipping"
-          }
-        }
-        
-        # List all copied files for verification
-        Write-Host "Files copied to artifacts directory:"
-        Get-ChildItem -Path $outputDir -Recurse | Select-Object FullName
+        configuration: Release
+        platforms: '["net7.0-windows", "net7.0"]'
+        signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
+        libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
+        signing-pfx-base64: ${{ secrets.SIGNING_PFX_BASE64 }}
+        signing-pfx-password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        output-directory: artifacts
 
     - name: Validate build artifacts
       shell: pwsh
@@ -299,55 +235,14 @@ jobs:
 
     - name: Calculate Provider SHA-256 Hashes
       id: calculate_hashes
-      shell: pwsh
-      run: |
-        $version = "${{ steps.determine_version.outputs.VERSION }}"
-        # Version format: 1.2.3 or 1.2.3-alpha (no "v" prefix)
-        $platforms = @("net7.0-windows", "net7.0")
-        $hashManifest = @{
-          version = $version
-          generated = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-          algorithm = "SHA-256"
-          providers = @{}
-          metadata = @{
-            buildNumber = "${{ github.run_number }}"
-            commitSha = "${{ github.sha }}"
-            repository = "${{ github.repository }}"
-          }
-        }
-        
-        foreach ($platform in $platforms) {
-          $platformPath = Join-Path "artifacts" $platform
-          
-          if (Test-Path $platformPath) {
-            Write-Host "Calculating hashes for platform: $platform"
-            
-            # Find all provider DLLs
-            $providerDlls = Get-ChildItem -Path $platformPath -Filter "SmartHopper.Providers.*.dll" -File
-            
-            foreach ($dll in $providerDlls) {
-              # Calculate SHA-256 hash
-              $hash = Get-FileHash -Path $dll.FullName -Algorithm SHA256
-              $hashValue = $hash.Hash.ToLower()
-              
-              # Store in manifest with platform suffix for cross-platform tracking
-              $key = "$($dll.Name)-$platform"
-              $hashManifest.providers[$key] = $hashValue
-              
-              Write-Host "  $($dll.Name): $hashValue"
-            }
-          }
-        }
-        
-        # Convert to JSON and save
-        $hashJson = ConvertTo-Json -InputObject $hashManifest -Depth 10
-        $hashFile = "provider-hashes-$version.json"
-        Set-Content -Path $hashFile -Value $hashJson -Encoding UTF8
-        
-        Write-Host "Hash manifest saved to: $hashFile"
-        Get-Content $hashFile | Write-Host
-        
-        echo "HASH_FILE=$hashFile" >> $env:GITHUB_OUTPUT
+      uses: ./.github/actions/calculate-provider-hashes
+      with:
+        artifacts-path: artifacts
+        version: ${{ steps.determine_version.outputs.VERSION }}
+        platforms: '["net7.0-windows", "net7.0"]'
+        build-number: ${{ github.run_number }}
+        commit-sha: ${{ github.sha }}
+        repository: ${{ github.repository }}
 
     - name: Upload Hash Manifest to Build Artifacts
       uses: actions/upload-artifact@v4
@@ -422,89 +317,13 @@ jobs:
         asset_name: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
         asset_content_type: application/json
 
-    - name: Publish Hash Manifest to Main Branch
+    - name: Publish Hash Manifest to GitHub Pages
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      shell: pwsh
-      run: |
-        $version = "${{ steps.determine_version.outputs.VERSION }}"
-        $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
-        
-        # Configure git
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        
-        # Ensure we're on main branch
-        git checkout main
-        git pull origin main
-        
-        # Create .github/pages directory structure
-        New-Item -ItemType Directory -Force -Path ".github/pages/hashes" | Out-Null
-        
-        # Copy hash file with version-specific name (always override)
-        Copy-Item $hashFile -Destination ".github/pages/hashes/$version.json" -Force
-        Write-Host "Copied hash manifest to .github/pages/hashes/$version.json"
-        
-        # Determine if this is a stable version (no alpha/beta/rc/dev)
-        $isStable = $version -notmatch '-(alpha|beta|rc|dev)'
-        
-        if ($isStable) {
-          # Update latest.json only for stable versions
-          Copy-Item $hashFile -Destination ".github/pages/hashes/latest.json" -Force
-          Write-Host "Updated latest.json (stable version)"
-        } else {
-          Write-Host "Skipping latest.json update (prerelease version)"
-        }
-        
-        # Create or update index page
-        $indexContent = @"
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>SmartHopper Provider Hash Repository</title>
-          <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-            h1 { color: #333; }
-            .version { margin: 10px 0; }
-            .stable { color: green; font-weight: bold; }
-            .prerelease { color: orange; }
-          </style>
-        </head>
-        <body>
-          <h1>SmartHopper Provider Hash Repository</h1>
-          <p>This repository contains SHA-256 hash manifests for SmartHopper provider DLLs.</p>
-          <h2>Available Versions:</h2>
-          <ul id="versions"></ul>
-          <script>
-            fetch('https://api.github.com/repos/${{ github.repository }}/contents/.github/pages/hashes')
-              .then(r => r.json())
-              .then(files => {
-                const ul = document.getElementById('versions');
-                files.filter(f => f.name.endsWith('.json'))
-                  .sort((a, b) => b.name.localeCompare(a.name))
-                  .forEach(f => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.href = 'https://raw.githubusercontent.com/${{ github.repository }}/main/.github/pages/hashes/' + f.name;
-                    a.textContent = f.name;
-                    const isStable = !f.name.match(/(alpha|beta|rc)/);
-                    li.className = isStable ? 'stable' : 'prerelease';
-                    li.appendChild(a);
-                    ul.appendChild(li);
-                  });
-              });
-          </script>
-        </body>
-        </html>
-        "@
-        Set-Content -Path ".github/pages/index.html" -Value $indexContent -Encoding UTF8
-        
-        # Commit and push to main
-        git add .github/pages/
-        git commit -m "Add provider hashes for $version" 2>$null
-        if ($LASTEXITCODE -eq 0) {
-          git push origin main
-          Write-Host "Hash manifest published to main branch"
-          Write-Host "Available at: https://raw.githubusercontent.com/${{ github.repository }}/main/.github/pages/hashes/$version.json"
-        } else {
-          Write-Host "No changes to commit (hash already exists, overridden)"
-        }
+      uses: ./.github/actions/publish-to-github-pages
+      with:
+        hash-file: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+        version: ${{ steps.determine_version.outputs.VERSION }}
+        pages-directory: '.github/pages/hashes'
+        update-latest: 'auto'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}

@@ -1,0 +1,100 @@
+name: 🧪 Test GitHub Pages Publish
+
+# Description: Manual workflow to test publishing hash manifests to GitHub Pages
+# without going through the full release flow. Useful for testing the publish
+# action in isolation with existing hash files.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hash-artifact-name:
+        description: 'Name of the artifact containing the hash file (from previous test-build-and-hash run)'
+        required: true
+        default: 'test-provider-hashes'
+      version:
+        description: 'Version string (e.g., 1.2.3 or 1.2.3-test)'
+        required: true
+      update-latest:
+        description: 'Update latest.json? (auto=detect from version, true=force, false=skip)'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-pages:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download Hash Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ github.event.inputs.hash-artifact-name }}
+        path: hash-artifacts/
+
+    - name: Verify Hash File
+      id: verify_hash
+      shell: bash
+      run: |
+        echo "Checking for hash files in hash-artifacts/"
+        ls -la hash-artifacts/
+        
+        # Find the hash file (should be provider-hashes-*.json)
+        HASH_FILE=$(find hash-artifacts -name "provider-hashes-*.json" -type f | head -n 1)
+        
+        if [ -z "$HASH_FILE" ]; then
+          echo "##[error] No hash file found in artifact!"
+          echo "Available files:"
+          find hash-artifacts -type f
+          exit 1
+        fi
+        
+        echo "Found hash file: $HASH_FILE"
+        echo "Content:"
+        cat "$HASH_FILE"
+        
+        echo "HASH_FILE=$HASH_FILE" >> $GITHUB_OUTPUT
+
+    - name: Publish to GitHub Pages
+      uses: ./.github/actions/publish-to-github-pages
+      with:
+        hash-file: ${{ steps.verify_hash.outputs.HASH_FILE }}
+        version: ${{ github.event.inputs.version }}
+        pages-directory: '.github/pages/hashes'
+        update-latest: ${{ github.event.inputs.update-latest }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}
+
+    - name: Publish Summary
+      shell: bash
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        REPO="${{ github.repository }}"
+        UPDATE_LATEST="${{ github.event.inputs.update-latest }}"
+        
+        echo ""
+        echo "=========================================="
+        echo "✅ GITHUB PAGES PUBLISH TEST COMPLETED"
+        echo "=========================================="
+        echo "Version: $VERSION"
+        echo "Update Latest: $UPDATE_LATEST"
+        echo ""
+        echo "📍 Published URLs:"
+        echo "  Version Hash: https://raw.githubusercontent.com/$REPO/main/.github/pages/hashes/$VERSION.json"
+        if [ "$UPDATE_LATEST" != "false" ]; then
+          echo "  Latest Hash:  https://raw.githubusercontent.com/$REPO/main/.github/pages/hashes/latest.json"
+        fi
+        echo ""
+        echo "  Index Page:   https://${REPO%/*}.github.io/${REPO#*/}/.github/pages/index.html"
+        echo "               (or check your GitHub Pages settings for the actual URL)"
+        echo ""
