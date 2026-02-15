@@ -24,10 +24,10 @@ inputs:
     required: false
     default: ''
 outputs:
-  hash-file:
+  HASH_FILE:
     description: 'Path to the generated hash manifest JSON file'
     value: ${{ steps.calculate.outputs.HASH_FILE }}
-  hash-count:
+  HASH_COUNT:
     description: 'Number of provider DLLs hashed'
     value: ${{ steps.calculate.outputs.HASH_COUNT }}
 
