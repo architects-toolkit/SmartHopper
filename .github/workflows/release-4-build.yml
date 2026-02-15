@@ -11,6 +11,8 @@ name: 🏁 4 Build Project
 # Permissions:
 # - contents:read - Required to read repository content for building
 # - contents:write - Required to upload assets to releases (only when triggered by release)
+# - pages:write - Required to deploy to GitHub Pages
+# - id-token:write - Required for GitHub Pages OIDC authentication
 
 on:
   workflow_dispatch:
@@ -28,6 +30,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build:
@@ -296,13 +300,30 @@ jobs:
           SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
           ${{ steps.calculate_hashes.outputs.HASH_FILE }}
 
-    - name: Publish Hash Manifest to GitHub Pages
+    - name: Generate GitHub Pages Content
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: ./.github/actions/publish-to-github-pages
+      uses: ./.github/actions/generate-github-pages
       with:
         hash-file: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
         version: ${{ steps.determine_version.outputs.VERSION }}
-        pages-directory: '.github/pages/hashes'
+        pages-directory: '.github/pages'
         update-latest: 'auto'
-        github-token: ${{ secrets.GITHUB_TOKEN }}
         repository: ${{ github.repository }}
+    
+    - name: Upload GitHub Pages Artifact
+      if: steps.determine_version.outputs.IS_RELEASE == 'true'
+      uses: ./.github/actions/publish-github-pages
+      with:
+        pages-directory: '.github/pages'
+
+  deploy-pages:
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_to_release == 'true')
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
