@@ -5,6 +5,18 @@ All notable changes to SmartHopper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- fix(infrastructure): skip Authenticode signature verification on non-Windows platforms where `X509Certificate.CreateFromSignedFile` is not supported, allowing provider loading on macOS/Linux
+- fix(infrastructure): restrict `BuildFullUrl` absolute URI detection to HTTP/HTTPS schemes to prevent `Uri.TryCreate` from misidentifying relative paths as `file://` URIs on macOS/Linux
+- fix(core): fire `ComponentStateManager` transition events outside `stateLock` to prevent deadlocks caused by re-entrant lock acquisition in event handlers on macOS
+
+### Known Issues
+
+- bug(ui): `WebChatDialog` (CanvasButton chat window) crashes on macOS with `NSInvalidArgumentException` because Eto.Forms' `WKWebViewHandler.LoadHtml()` calls `WKWebView.LoadFileUrl()` with an `https://` base URI (`https://smarthopper.local/`), which only accepts `file://` URLs
+
 ## [1.3.0-alpha] - 2024-02-08
 
 ### Changed

@@ -69,7 +69,8 @@ namespace SmartHopper.Infrastructure.AIProviders
                 throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
             }
 
-            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs))
+            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs)
+                && (abs.Scheme == Uri.UriSchemeHttp || abs.Scheme == Uri.UriSchemeHttps))
             {
                 return abs;
             }
