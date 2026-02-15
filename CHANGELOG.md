@@ -12,6 +12,7 @@ Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](htt
 ### Fixed
 
 - **macOS Compatibility**: Improved cross-platform compatibility for macOS users
+  - URL handling fixed to prevent incorrect file:// URI generation by restricting `BuildFullUrl` absolute URI detection to HTTP/HTTPS schemes
   - Component state management updated to fire `ComponentStateManager` transition events outside `stateLock` to prevent deadlocks caused by re-entrant lock acquisition in event handlers
 - **Settings**:
   - Fixed first initialization is created using EncryptationVersion 2 by default which stores a local hash for secrets encryptation
