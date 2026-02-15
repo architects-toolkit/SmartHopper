@@ -1,6 +1,6 @@
-name: 🧪 Test GitHub Pages Publish
+name: 👤 GitHub Pages Publish
 
-# Description: Manual workflow to test publishing hash manifests to GitHub Pages
+# Description: Manual workflow to publish hash manifests to GitHub Pages
 # without going through the full release flow. Useful for testing the publish
 # action in isolation with existing hash files.
 

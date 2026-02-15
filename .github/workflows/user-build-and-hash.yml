@@ -1,6 +1,6 @@
-name: 🧪 Test Build and Hash Generation
+name: 👤 User Build and Hash Generation
 
-# Description: Manual workflow to test the build process and hash generation
+# Description: Manual workflow to build and hash provider DLLs
 # without going through the full release flow. Useful for validating changes
 # to build scripts or hash calculation logic.
 
