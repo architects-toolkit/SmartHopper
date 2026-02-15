@@ -128,6 +128,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions.SpecialTurns.BuiltIn
                         if (toolResult.Result != null)
                         {
                             var resultStr = toolResult.Result.ToString();
+
                             // Truncate very long tool results
                             if (resultStr.Length > 500)
                             {

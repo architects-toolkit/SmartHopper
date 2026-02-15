@@ -6,6 +6,7 @@ name: pr-milestone
 on:
   pull_request:
     types: [opened]
+    branches: [main, dev, 'release/*']
 
 permissions:
   issues: write
@@ -15,6 +16,7 @@ permissions:
 jobs:
   assign-pr-to-milestone:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
     
     steps:
     - name: Checkout PR source branch

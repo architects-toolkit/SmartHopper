@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Eto.Drawing;
@@ -48,6 +49,9 @@ namespace SmartHopper.Core.UI.Chat
     /// </summary>
     internal partial class WebChatDialog : Form
     {
+        // Cache platform check result (platform never changes at runtime)
+        private static readonly bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
         // UI Component: full WebView-based UI
         private readonly WebView _webView = null!;
 
@@ -239,6 +243,7 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         DebugLog($"[WebChatDialog] UpsertMessageAfter WARNING: followKey is null/empty for key={domKey}, will fallback to normal upsert");
                     }
+
 #endif
 
                     var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
@@ -974,8 +979,14 @@ namespace SmartHopper.Core.UI.Chat
             {
                 try
                 {
-                    // Load the HTML into the WebView
-                    this._webView.LoadHtml(html, new Uri("https://smarthopper.local/"));
+                    // Load the HTML into the WebView.
+                    // On macOS, Eto.Forms WKWebViewHandler.LoadHtml() calls WKWebView.LoadFileUrl()
+                    // which only accepts file:// URIs. Pass null on non-Windows to use about:blank origin;
+                    // the JS-to-C# bridge uses WKUserContentController message handlers, not origin.
+                    Uri baseUri = IsWindows
+                        ? new Uri("https://smarthopper.local/")
+                        : null;
+                    this._webView.LoadHtml(html, baseUri);
 
                     // Do not mark initialized here; wait for DocumentLoaded to ensure CoreWebView2 is ready
                 }
@@ -1438,6 +1449,7 @@ namespace SmartHopper.Core.UI.Chat
                             this.ExecuteScript("showToast('Update failed: could not parse DOM keys');");
                             return;
                         }
+
                         if (domKeys == null || domKeys.Count == 0)
                         {
                             DebugLog("[WebChatDialog] UpdateChatView: No messages in DOM");
@@ -1530,6 +1542,7 @@ namespace SmartHopper.Core.UI.Chat
                 DebugLog($"[WebChatDialog] UpdateChatView error: {ex.Message}");
             }
         }
+
 #endif
 
         /// <summary>
