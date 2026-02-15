@@ -327,6 +327,7 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Processes the transition queue, executing each transition in order.
+        /// Events are fired outside the lock to prevent deadlocks.
         /// </summary>
         private void ProcessTransitionQueue()
         {
@@ -338,25 +339,53 @@ namespace SmartHopper.Core.ComponentBase
 
             this.isTransitioning = true;
 
+            // Collect events to fire outside the lock to prevent deadlocks
+            var eventsToFire = new List<(ComponentState OldState, ComponentState NewState, TransitionReason Reason)>();
+
             try
             {
                 while (this.pendingTransitions.Count > 0)
                 {
                     var request = this.pendingTransitions.Dequeue();
-                    this.ExecuteTransition(request);
+                    var transitionResult = this.ExecuteTransitionCore(request);
+                    if (transitionResult.HasValue)
+                    {
+                        eventsToFire.Add(transitionResult.Value);
+                    }
                 }
             }
             finally
             {
                 this.isTransitioning = false;
             }
+
+            // Fire events outside the lock to prevent deadlocks (macOS threading issue)
+            // Events are collected above and fired here after releasing isTransitioning,
+            // so that event handlers can safely read CurrentState without deadlocking.
+            if (eventsToFire.Count > 0)
+            {
+                System.Threading.Monitor.Exit(this.stateLock);
+                try
+                {
+                    foreach (var evt in eventsToFire)
+                    {
+                        this.FireTransitionEvents(evt.OldState, evt.NewState, evt.Reason);
+                    }
+                }
+                finally
+                {
+                    System.Threading.Monitor.Enter(this.stateLock);
+                }
+            }
         }
 
         /// <summary>
-        /// Executes a single state transition.
+        /// Executes the core state transition logic without firing events.
+        /// Returns the transition info if successful, null otherwise.
         /// </summary>
         /// <param name="request">The transition request to execute.</param>
-        private void ExecuteTransition(StateTransitionRequest request)
+        /// <returns>Transition info tuple if successful, null otherwise.</returns>
+        private (ComponentState OldState, ComponentState NewState, TransitionReason Reason)? ExecuteTransitionCore(StateTransitionRequest request)
         {
             // Already holding stateLock from caller
             var oldState = this.currentState;
@@ -366,7 +395,7 @@ namespace SmartHopper.Core.ComponentBase
             if (oldState == newState)
             {
                 Debug.WriteLine($"[{this.componentName}] Already in state {newState}, skipping transition");
-                return;
+                return null;
             }
 
             // Re-validate (state may have changed since queuing)
@@ -374,17 +403,26 @@ namespace SmartHopper.Core.ComponentBase
             {
                 var message = $"Transition from {oldState} to {newState} no longer valid";
                 Debug.WriteLine($"[{this.componentName}] {message}");
+                // Fire rejection event immediately (it's safe, doesn't access CurrentState)
                 this.TransitionRejected?.Invoke(oldState, newState, message);
-                return;
+                return null;
             }
 
             Debug.WriteLine($"[{this.componentName}] Transitioning: {oldState} -> {newState} (reason: {request.Reason})");
 
-            // Fire exit event
-            this.StateExited?.Invoke(oldState);
-
             // Update state
             this.currentState = newState;
+
+            return (oldState, newState, request.Reason);
+        }
+
+        /// <summary>
+        /// Fires all transition events. Must be called outside the lock.
+        /// </summary>
+        private void FireTransitionEvents(ComponentState oldState, ComponentState newState, TransitionReason reason)
+        {
+            // Fire exit event
+            this.StateExited?.Invoke(oldState);
 
             // Fire enter event
             this.StateEntered?.Invoke(newState);
