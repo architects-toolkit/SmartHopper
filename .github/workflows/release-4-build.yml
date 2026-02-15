@@ -299,18 +299,9 @@ jobs:
           
           # Create PR to main
           Write-Host "Creating PR to merge hash file to main..."
-          gh pr create \
-            --base main \
-            --head $tempBranch \
-            --title "chore: add provider hash manifest for $version" \
-            --body "Auto-generated PR to add provider hash manifest for version $version to the repository.
+          $prBody = "Auto-generated PR to add provider hash manifest for version $version to the repository.`n`n**Hash File:** \`hashes/$version.json\``n**Build:** #${{ github.run_number }}`n**Commit:** ${{ github.sha }}`n`nThis PR can be auto-merged."
           
-          **Hash File:** \`hashes/$version.json\`
-          **Build:** #${{ github.run_number }}
-          **Commit:** ${{ github.sha }}
-          
-          This PR can be auto-merged." \
-            || Write-Host "PR creation failed or already exists"
+          gh pr create --base main --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody || Write-Host "PR creation failed or already exists"
           
           # Auto-merge the PR if possible
           $prNumber = gh pr list --head $tempBranch --json number --jq '.[0].number'
