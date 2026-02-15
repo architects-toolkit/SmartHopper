@@ -243,6 +243,7 @@ namespace SmartHopper.Core.UI.Chat
                     {
                         DebugLog($"[WebChatDialog] UpsertMessageAfter WARNING: followKey is null/empty for key={domKey}, will fallback to normal upsert");
                     }
+
 #endif
 
                     var script = $"upsertMessageAfter({JsonConvert.SerializeObject(followKey)}, {JsonConvert.SerializeObject(domKey)}, {JsonConvert.SerializeObject(html)});";
@@ -1448,6 +1449,7 @@ namespace SmartHopper.Core.UI.Chat
                             this.ExecuteScript("showToast('Update failed: could not parse DOM keys');");
                             return;
                         }
+
                         if (domKeys == null || domKeys.Count == 0)
                         {
                             DebugLog("[WebChatDialog] UpdateChatView: No messages in DOM");
@@ -1540,6 +1542,7 @@ namespace SmartHopper.Core.UI.Chat
                 DebugLog($"[WebChatDialog] UpdateChatView error: {ex.Message}");
             }
         }
+
 #endif
 
         /// <summary>

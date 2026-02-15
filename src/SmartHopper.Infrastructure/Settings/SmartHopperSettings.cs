@@ -889,20 +889,20 @@ namespace SmartHopper.Infrastructure.Settings
                 {
                     // NEW INSTALLATION - Initialize with encryption version 2
                     Debug.WriteLine($"[Load] First run detected - initializing new settings");
-                    
+
                     // Create encryption key and store it securely
                     var key = GetOrCreateEncryptionKey();
                     if (key != null)
                     {
                         Debug.WriteLine($"[Load] Encryption key created and stored securely");
-                        
+
                         // Create new settings with encryption version 2
                         var settings = new SmartHopperSettings(encryptionVersion: 2);
-                        
+
                         // Save immediately to persist the configuration
                         settings.Save();
                         Debug.WriteLine($"[Load] New settings file created at: {SettingsPath}");
-                        
+
                         return settings;
                     }
                     else
@@ -940,7 +940,7 @@ namespace SmartHopper.Infrastructure.Settings
                 Debug.WriteLine($"[Settings] Saving settings to {SettingsPath}");
                 Debug.WriteLine($"[Settings] DefaultAIProvider: {this.DefaultAIProvider}");
                 Debug.WriteLine($"[Settings] DebounceTime: {this.DebounceTime}");
-                
+
                 // Log TrustedProviders content
                 if (this.TrustedProviders != null)
                 {

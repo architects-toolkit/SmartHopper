@@ -207,6 +207,7 @@ namespace SmartHopper.Infrastructure.Tests
                 {
                     largeContent[i] = (byte)(i % 256);
                 }
+
                 File.WriteAllBytes(tempFile, largeContent);
 
                 // Act

@@ -56,8 +56,8 @@ namespace SmartHopper.Menu.Items
             {
                 // Get version for display
                 string version = VersionHelper.GetDisplayVersion();
-                string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
-                    ? "net7.0-windows" 
+                string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? "net7.0-windows"
                     : "net7.0";
 
                 RhinoApp.WriteLine($"[SmartHopper] Starting provider hash verification...");

@@ -155,6 +155,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             // - Extra buffer for word wrapping variance: ~20px
             var messageHeight = totalLines * lineHeight;
             var contentHeight = messageHeight;
+
             // var contentHeight = 60 + messageHeight + 20 + 50 + 40 + 20;
             var dialogHeight = Math.Max(240, Math.Min(contentHeight, 600)); // Clamp between 240 and 600
 

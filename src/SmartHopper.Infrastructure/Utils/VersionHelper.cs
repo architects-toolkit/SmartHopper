@@ -39,7 +39,7 @@ namespace SmartHopper.Infrastructure.Utils
                 var assembly = Assembly.GetExecutingAssembly();
                 var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
                     .InformationalVersion;
-                
+
                 return version ?? "Unknown";
             }
             catch (Exception ex)
@@ -58,14 +58,14 @@ namespace SmartHopper.Infrastructure.Utils
             try
             {
                 string fullVersion = GetFullVersion();
-                
+
                 // Remove commit hash part (everything after '+')
                 int plusIndex = fullVersion.IndexOf('+');
                 if (plusIndex >= 0)
                 {
                     return fullVersion.Substring(0, plusIndex);
                 }
-                
+
                 return fullVersion;
             }
             catch (Exception ex)
@@ -84,7 +84,7 @@ namespace SmartHopper.Infrastructure.Utils
             string displayVersion = GetDisplayVersion();
             return displayVersion.Contains("-dev");
         }
-        
+
         /// <summary>
         /// Checks if the current version is a prerelease (alpha, beta, or rc).
         /// </summary>
@@ -92,8 +92,8 @@ namespace SmartHopper.Infrastructure.Utils
         public static bool IsPrerelease()
         {
             string displayVersion = GetDisplayVersion();
-            return displayVersion.Contains("-alpha") || 
-                   displayVersion.Contains("-beta") || 
+            return displayVersion.Contains("-alpha") ||
+                   displayVersion.Contains("-beta") ||
                    displayVersion.Contains("-rc");
         }
 
@@ -104,8 +104,8 @@ namespace SmartHopper.Infrastructure.Utils
         public static bool IsStable()
         {
             string displayVersion = GetDisplayVersion();
-            return !(displayVersion.Contains("-alpha") || 
-                   displayVersion.Contains("-beta") || 
+            return !(displayVersion.Contains("-alpha") ||
+                   displayVersion.Contains("-beta") ||
                    displayVersion.Contains("-rc") ||
                    displayVersion.Contains("-dev"));
         }
@@ -117,13 +117,13 @@ namespace SmartHopper.Infrastructure.Utils
         public static string GetPrereleaseTag()
         {
             string displayVersion = GetDisplayVersion();
-            
+
             var match = Regex.Match(displayVersion, @"-(alpha|beta|rc)");
             if (match.Success)
             {
                 return match.Groups[1].Value;
             }
-            
+
             return null;
         }
     }
