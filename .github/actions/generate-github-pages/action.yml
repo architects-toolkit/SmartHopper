@@ -94,10 +94,29 @@ runs:
         New-Item -ItemType Directory -Force -Path $hashesDir | Out-Null
         Write-Host "Created directory: $hashesDir"
         
-        # Copy hash file with version-specific name
+        # Copy hash files from repository /hashes folder
+        Write-Host ""
+        Write-Host "Copying hash files from repository..."
+        
+        # Check if /hashes folder exists in repository
+        if (Test-Path "hashes") {
+          $repoHashFiles = Get-ChildItem -Path "hashes" -Filter "*.json" -File
+          Write-Host "Found $($repoHashFiles.Count) hash file(s) in repository /hashes folder"
+          
+          # Copy all hash files from repository to pages directory
+          foreach ($hashFileItem in $repoHashFiles) {
+            $destPath = Join-Path $hashesDir $hashFileItem.Name
+            Copy-Item $hashFileItem.FullName -Destination $destPath -Force
+            Write-Host "  ✓ Copied $($hashFileItem.Name)"
+          }
+        } else {
+          Write-Host "Repository /hashes folder not found - this may be the first deployment"
+        }
+        
+        # Copy/overwrite current version's hash file
         $versionHashPath = Join-Path $hashesDir "$version.json"
         Copy-Item $hashFile -Destination $versionHashPath -Force
-        Write-Host "Copied hash manifest to: $versionHashPath"
+        Write-Host "Added/updated hash manifest for current version: $version.json"
         
         # Determine if we should update latest.json
         $isStable = $version -notmatch '-(alpha|beta|rc|dev)[\.\-]?[\d\w\.]*'
