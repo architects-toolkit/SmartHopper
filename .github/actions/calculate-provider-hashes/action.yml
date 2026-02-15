@@ -52,10 +52,40 @@ runs:
           exit 1
         }
         
+        # Validate platform names to prevent path traversal
+        foreach ($platform in $platforms) {
+          if ([string]::IsNullOrWhiteSpace($platform)) {
+            Write-Host "##[error] Platform name cannot be empty or whitespace"
+            exit 1
+          }
+          if ($platform -match '[\\/\.\.:]|^\.|\.\.') {
+            Write-Host "##[error] Invalid platform name (potential path traversal): '$platform'"
+            exit 1
+          }
+        }
+        
+        # Validate and sanitize artifacts path to prevent path traversal
+        $artifactsPath = "${{ inputs.artifacts-path }}"
+        if ([string]::IsNullOrWhiteSpace($artifactsPath)) {
+          Write-Host "##[error] Artifacts path cannot be empty"
+          exit 1
+        }
+        
+        # Resolve to absolute path and validate it doesn't escape workspace
+        $artifactsPath = $artifactsPath -replace '\.\.[\\/]', ''
+        $artifactsPath = $artifactsPath -replace '^[\\/]+', ''
+        
+        # Validate version format
+        $version = "${{ inputs.version }}"
+        if ($version -notmatch '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9\.\-]+)?$') {
+          Write-Host "##[error] Invalid version format: '$version'"
+          exit 1
+        }
+        
         # Build parameters for the hash calculation tool
         $params = @{
-          ArtifactsPath = "${{ inputs.artifacts-path }}"
-          Version = "${{ inputs.version }}"
+          ArtifactsPath = $artifactsPath
+          Version = $version
           Platforms = $platforms
         }
         
@@ -79,21 +109,51 @@ runs:
         }
         
         # Extract outputs - use default output file name
-        $hashFile = "provider-hashes-${{ inputs.version }}.json"
+        $hashFile = "provider-hashes-$version.json"
         
+        # Validate hash file exists and is not empty
         if (!(Test-Path $hashFile)) {
           Write-Host "##[error] Hash file was not created by the tool!"
           Write-Host "Expected file: $hashFile"
           exit 1
         }
         
-        # Count providers in the manifest with error handling
+        $fileInfo = Get-Item $hashFile -ErrorAction Stop
+        if ($fileInfo.Length -eq 0) {
+          Write-Host "##[error] Hash file is empty!"
+          exit 1
+        }
+        
+        # Count providers in the manifest with comprehensive error handling
         try {
           $manifestJson = Get-Content $hashFile -Raw -ErrorAction Stop
+          
+          if ([string]::IsNullOrWhiteSpace($manifestJson)) {
+            Write-Host "##[error] Hash manifest file is empty or contains only whitespace"
+            exit 1
+          }
+          
           $manifest = $manifestJson | ConvertFrom-Json -ErrorAction Stop
+          
+          # Validate manifest structure
+          if ($null -eq $manifest) {
+            Write-Host "##[error] Failed to parse hash manifest: result is null"
+            exit 1
+          }
           
           if ($null -eq $manifest.providers) {
             Write-Host "##[error] Hash manifest does not contain 'providers' property"
+            exit 1
+          }
+          
+          # Validate required fields
+          if ([string]::IsNullOrWhiteSpace($manifest.version)) {
+            Write-Host "##[error] Hash manifest missing 'version' field"
+            exit 1
+          }
+          
+          if ([string]::IsNullOrWhiteSpace($manifest.algorithm)) {
+            Write-Host "##[error] Hash manifest missing 'algorithm' field"
             exit 1
           }
           

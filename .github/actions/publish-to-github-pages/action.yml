@@ -28,20 +28,65 @@ runs:
     - name: Publish Hash Manifest
       shell: pwsh
       run: |
+        # Validate and sanitize inputs
         $version = "${{ inputs.version }}"
         $hashFile = "${{ inputs.hash-file }}"
         $pagesDir = "${{ inputs.pages-directory }}"
         $updateLatestInput = "${{ inputs.update-latest }}"
         $repository = "${{ inputs.repository }}"
         
+        # Validate version format
+        if ([string]::IsNullOrWhiteSpace($version)) {
+          Write-Host "##[error] Version cannot be empty"
+          exit 1
+        }
+        if ($version -notmatch '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9\.\-]+)?$') {
+          Write-Host "##[error] Invalid version format: '$version'"
+          exit 1
+        }
+        
+        # Validate repository format
+        if ([string]::IsNullOrWhiteSpace($repository)) {
+          Write-Host "##[error] Repository cannot be empty"
+          exit 1
+        }
+        if ($repository -notmatch '^[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-\.]+$') {
+          Write-Host "##[error] Invalid repository format: '$repository'. Expected 'owner/repo'"
+          exit 1
+        }
+        
+        # Validate and sanitize pages directory to prevent path traversal
+        if ([string]::IsNullOrWhiteSpace($pagesDir)) {
+          Write-Host "##[error] Pages directory cannot be empty"
+          exit 1
+        }
+        $pagesDir = $pagesDir -replace '\.\.[\\/]', ''
+        if ($pagesDir -match '\.\.' -or $pagesDir -match '^[\\/]') {
+          Write-Host "##[error] Invalid pages directory (potential path traversal): '$pagesDir'"
+          exit 1
+        }
+        
+        # Validate update-latest input
+        if ($updateLatestInput -notin @('auto', 'true', 'false', '')) {
+          Write-Host "##[error] Invalid update-latest value: '$updateLatestInput'. Must be 'auto', 'true', or 'false'"
+          exit 1
+        }
+        
         Write-Host "Publishing hash manifest to GitHub Pages"
         Write-Host "  Version: $version"
         Write-Host "  Hash file: $hashFile"
         Write-Host "  Pages directory: $pagesDir"
+        Write-Host "  Repository: $repository"
         
-        # Verify hash file exists
+        # Verify hash file exists and is not empty
         if (!(Test-Path $hashFile)) {
           Write-Host "##[error] Hash file '$hashFile' not found!"
+          exit 1
+        }
+        
+        $fileInfo = Get-Item $hashFile -ErrorAction Stop
+        if ($fileInfo.Length -eq 0) {
+          Write-Host "##[error] Hash file is empty!"
           exit 1
         }
         
@@ -53,24 +98,38 @@ runs:
         Write-Host ""
         Write-Host "Checking out main branch..."
         try {
-          $gitTimeout = 30  # seconds
+          # Check repository state before operations
+          $gitStatus = git status --porcelain 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to check git status: $gitStatus"
+          }
+          if ($gitStatus) {
+            Write-Host "##[warning] Working directory not clean, stashing changes"
+            git stash --include-untracked 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to stash changes"
+            }
+          }
           
-          # Fetch with timeout
-          $process = Start-Process -FilePath "git" -ArgumentList "fetch", "origin", "main" -NoNewWindow -PassThru -Wait -TimeoutSeconds $gitTimeout
-          if ($process.ExitCode -ne 0) {
-            throw "git fetch failed with exit code $($process.ExitCode)"
+          # Fetch with native PowerShell git
+          Write-Host "Fetching from origin..."
+          git fetch origin main 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw "git fetch failed with exit code $LASTEXITCODE"
           }
           
           # Checkout main
-          $process = Start-Process -FilePath "git" -ArgumentList "checkout", "main" -NoNewWindow -PassThru -Wait -TimeoutSeconds $gitTimeout
-          if ($process.ExitCode -ne 0) {
-            throw "git checkout failed with exit code $($process.ExitCode)"
+          Write-Host "Checking out main branch..."
+          git checkout main 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw "git checkout failed with exit code $LASTEXITCODE"
           }
           
           # Pull latest
-          $process = Start-Process -FilePath "git" -ArgumentList "pull", "origin", "main" -NoNewWindow -PassThru -Wait -TimeoutSeconds $gitTimeout
-          if ($process.ExitCode -ne 0) {
-            throw "git pull failed with exit code $($process.ExitCode)"
+          Write-Host "Pulling latest changes..."
+          git pull origin main 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw "git pull failed with exit code $LASTEXITCODE"
           }
         } catch {
           Write-Host "##[error] Git operation failed: $_"
@@ -89,7 +148,8 @@ runs:
         Write-Host "Copied hash manifest to: $versionHashPath"
         
         # Determine if we should update latest.json
-        $isStable = $version -notmatch '-(alpha|beta|rc|dev)'
+        # Improved regex to handle version formats like 1.0.0-alpha.1, 1.0.0-beta.2+build.123
+        $isStable = $version -notmatch '-(alpha|beta|rc|dev)[\.\-]?[\d\w\.]*'
         $shouldUpdateLatest = $false
         
         if ($updateLatestInput -eq "auto") {
@@ -268,20 +328,26 @@ runs:
         Write-Host "Committing changes..."
         try {
           $parentDir = Split-Path $pagesDir -Parent
-          git add $parentDir
+          git add $parentDir 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw "git add failed with exit code $LASTEXITCODE"
+          }
           
+          # Sanitize commit message to prevent injection
           $commitMessage = "Add provider hashes for $version"
+          $commitMessage = $commitMessage -replace '[`$]', ''
           
-          # Try to commit
-          $commitProcess = Start-Process -FilePath "git" -ArgumentList "commit", "-m", $commitMessage -NoNewWindow -PassThru -Wait -TimeoutSeconds 30
+          # Try to commit using native git
+          git commit -m $commitMessage 2>&1 | Out-Null
+          $commitExitCode = $LASTEXITCODE
           
-          if ($commitProcess.ExitCode -eq 0) {
+          if ($commitExitCode -eq 0) {
             # Commit succeeded, now push
             Write-Host "Pushing to main branch..."
-            $pushProcess = Start-Process -FilePath "git" -ArgumentList "push", "origin", "main" -NoNewWindow -PassThru -Wait -TimeoutSeconds 60
+            git push origin main 2>&1 | Out-Null
             
-            if ($pushProcess.ExitCode -ne 0) {
-              throw "git push failed with exit code $($pushProcess.ExitCode)"
+            if ($LASTEXITCODE -ne 0) {
+              throw "git push failed with exit code $LASTEXITCODE"
             }
             
             Write-Host ""
@@ -290,11 +356,11 @@ runs:
             if ($shouldUpdateLatest) {
               Write-Host "##[notice] Latest hash: https://raw.githubusercontent.com/${repository}/main/${pagesDir}/latest.json"
             }
-          } elseif ($commitProcess.ExitCode -eq 1) {
+          } elseif ($commitExitCode -eq 1) {
             # Exit code 1 typically means no changes to commit
             Write-Host "##[warning] No changes to commit (hash already exists, overridden)"
           } else {
-            throw "git commit failed with exit code $($commitProcess.ExitCode)"
+            throw "git commit failed with exit code $commitExitCode"
           }
         } catch {
           Write-Host "##[error] Failed to commit and push changes: $_"
