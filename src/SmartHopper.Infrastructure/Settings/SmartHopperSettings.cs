@@ -100,13 +100,15 @@ namespace SmartHopper.Infrastructure.Settings
         /// <summary>
         /// Initializes a new instance of the <see cref="SmartHopperSettings"/> class with default values.
         /// </summary>
-        public SmartHopperSettings()
+        /// <param name="encryptionVersion">The encryption version to use (1 = legacy AES, 2 = OS secure store). Defaults to 1 for backward compatibility.</param>
+        public SmartHopperSettings(int encryptionVersion = 1)
         {
             this.ProviderSettings = new Dictionary<string, Dictionary<string, object>>();
             this.DebounceTime = 1000;
             this.DefaultAIProvider = string.Empty;
             this.TrustedProviders = new Dictionary<string, bool>();
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
+            this.EncryptionVersion = encryptionVersion;
         }
 
         /// <summary>
@@ -854,6 +856,8 @@ namespace SmartHopper.Infrastructure.Settings
             {
                 if (File.Exists(SettingsPath))
                 {
+                    // EXISTING INSTALLATION - Load and migrate if needed
+                    Debug.WriteLine($"[Load] Loading existing settings from: {SettingsPath}");
                     var json = File.ReadAllText(SettingsPath);
                     var settings = JsonConvert.DeserializeObject<SmartHopperSettings>(json);
 
@@ -881,13 +885,41 @@ namespace SmartHopper.Infrastructure.Settings
                         return settings;
                     }
                 }
+                else
+                {
+                    // NEW INSTALLATION - Initialize with encryption version 2
+                    Debug.WriteLine($"[Load] First run detected - initializing new settings");
+
+                    // Create encryption key and store it securely
+                    var key = GetOrCreateEncryptionKey();
+                    if (key != null)
+                    {
+                        Debug.WriteLine($"[Load] Encryption key created and stored securely");
+
+                        // Create new settings with encryption version 2
+                        var settings = new SmartHopperSettings(encryptionVersion: 2);
+
+                        // Save immediately to persist the configuration
+                        settings.Save();
+                        Debug.WriteLine($"[Load] New settings file created at: {SettingsPath}");
+
+                        return settings;
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[Load] Warning: Could not create encryption key, falling back to legacy encryption");
+                        return new SmartHopperSettings(encryptionVersion: 1);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error loading settings: {ex.Message}");
+                Debug.WriteLine($"[Load] Error loading settings: {ex.Message}");
             }
 
-            return new SmartHopperSettings();
+            // Fallback: Return default settings with legacy encryption
+            Debug.WriteLine($"[Load] Returning default settings due to error");
+            return new SmartHopperSettings(encryptionVersion: 1);
         }
 
         /// <summary>
@@ -908,6 +940,20 @@ namespace SmartHopper.Infrastructure.Settings
                 Debug.WriteLine($"[Settings] Saving settings to {SettingsPath}");
                 Debug.WriteLine($"[Settings] DefaultAIProvider: {this.DefaultAIProvider}");
                 Debug.WriteLine($"[Settings] DebounceTime: {this.DebounceTime}");
+
+                // Log TrustedProviders content
+                if (this.TrustedProviders != null)
+                {
+                    Debug.WriteLine($"[Settings] TrustedProviders count: {this.TrustedProviders.Count}");
+                    foreach (var kvp in this.TrustedProviders)
+                    {
+                        Debug.WriteLine($"[Settings]   - {kvp.Key} = {kvp.Value}");
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"[Settings] TrustedProviders is null");
+                }
 
                 if (this.ProviderSettings != null)
                 {

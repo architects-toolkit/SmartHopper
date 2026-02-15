@@ -35,7 +35,7 @@ body:
     attributes:
       label: Rhino Version
       description: What version of Rhino are you using?
-      placeholder: e.g. RH8.26
+      placeholder: e.g. RH8.28
     validations:
       required: true
   
@@ -44,7 +44,7 @@ body:
     attributes:
       label: SmartHopper Version
       description: What version of SmartHopper are you using?
-      placeholder: e.g. 1.2.2-alpha
+      placeholder: e.g. 1.4.0-alpha
     validations:
       required: true
   

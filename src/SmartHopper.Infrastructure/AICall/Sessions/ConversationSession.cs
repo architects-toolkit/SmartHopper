@@ -299,6 +299,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                                 nsError = this.HandleAndNotifyError(ex);
                                 nsShouldBreak = true;
                             }
+
                             nsShouldBreak = true;
                         }
 
@@ -457,6 +458,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             state.ErrorYield = this.HandleAndNotifyError(ex);
                             state.ShouldBreak = true;
                         }
+
                         state.ShouldBreak = true;
                     }
 

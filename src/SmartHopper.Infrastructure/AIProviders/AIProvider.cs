@@ -69,12 +69,17 @@ namespace SmartHopper.Infrastructure.AIProviders
                 throw new ArgumentException("Endpoint cannot be null or empty", nameof(endpoint));
             }
 
-            if (Uri.TryCreate(endpoint, UriKind.Absolute, out var abs))
+            // On macOS, Uri.TryCreate with UriKind.Absolute treats paths like
+            // "/chat/completions" as file:///chat/completions.
+            // For security reasons, only accept HTTP(S) schemes for API endpoints.
+            // This prevents file:// URIs and other potentially unsafe schemes.
+            if (Uri.TryCreate(endpoint, UriKind.Absolute, out Uri abs)
+                && (abs.Scheme == Uri.UriSchemeHttp || abs.Scheme == Uri.UriSchemeHttps))
             {
                 return abs;
             }
 
-            var baseUri = this.DefaultServerUrl ?? throw new InvalidOperationException("DefaultServerUrl is not configured.");
+            var baseUri = this.DefaultServerUrl ?? throw new InvalidOperationException($"DefaultServerUrl is not configured for provider {this.Name}.");
 
             // Normalization of baseUri to ensure it ends with a trailing slash
             if (!baseUri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal))

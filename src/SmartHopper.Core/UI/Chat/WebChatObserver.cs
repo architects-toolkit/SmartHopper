@@ -236,6 +236,7 @@ namespace SmartHopper.Core.UI.Chat
                 catch
                 {
                 }
+
 #endif
             }
 
