@@ -93,7 +93,12 @@ runs:
           }
         }
         $hashFile = $resolvedHashFile
-        
+
+        # Cache hash file in runner temp before git operations (git stash/checkout can remove it)
+        $tempHashPath = Join-Path $env:RUNNER_TEMP (Split-Path $hashFile -Leaf)
+        Copy-Item $hashFile -Destination $tempHashPath -Force
+        $hashFile = $tempHashPath
+
         $fileInfo = Get-Item $hashFile -ErrorAction Stop
         if ($fileInfo.Length -eq 0) {
           Write-Host "##[error] Hash file is empty!"
