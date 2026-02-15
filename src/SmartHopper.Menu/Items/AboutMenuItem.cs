@@ -17,7 +17,6 @@
  */
 
 using System.Windows.Forms;
-using SmartHopper.Infrastructure.Utils;
 using SmartHopper.Menu.Dialogs;
 
 namespace SmartHopper.Menu.Items
