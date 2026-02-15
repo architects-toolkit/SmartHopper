@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.Initialization
 {
@@ -59,6 +60,12 @@ namespace SmartHopper.Infrastructure.Initialization
                     // Step 1: Load settings first (but don't refresh providers yet)
                     var settings = SmartHopperSettings.Instance;
                     Debug.WriteLine("[SmartHopperInitializer] Settings loaded");
+
+                    var displayVersion = VersionHelper.GetDisplayVersion();
+                    var fullVersion = VersionHelper.GetFullVersion();
+                    Debug.WriteLine($"[SmartHopperInitializer] Version (display): {displayVersion}");
+                    Debug.WriteLine($"[SmartHopperInitializer] Version (full): {fullVersion}");
+                    RhinoApp.WriteLine($"Loading SmartHopper {displayVersion}");
 
                     // Step 2: Access the ProviderManager to initialize it
                     var providerManager = ProviderManager.Instance;
