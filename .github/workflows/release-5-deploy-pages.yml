@@ -47,7 +47,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: main
-        fetch-depth: 1
+        fetch-depth: 0
     
     - name: Determine version
       id: version
