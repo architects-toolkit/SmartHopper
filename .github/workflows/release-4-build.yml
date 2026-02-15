@@ -248,6 +248,80 @@ jobs:
         commit-sha: ${{ github.sha }}
         repository: ${{ github.repository }}
 
+    - name: Commit Hash File to Repository
+      if: steps.determine_version.outputs.IS_RELEASE == 'true'
+      shell: pwsh
+      run: |
+        $version = "${{ steps.determine_version.outputs.VERSION }}"
+        $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
+        
+        Write-Host "Committing hash file to repository..."
+        Write-Host "  Version: $version"
+        Write-Host "  Hash file: $hashFile"
+        
+        # Create hashes directory if it doesn't exist
+        if (!(Test-Path "hashes")) {
+          New-Item -ItemType Directory -Force -Path "hashes" | Out-Null
+          Write-Host "Created /hashes directory"
+        }
+        
+        # Copy hash file to /hashes/{version}.json
+        $destPath = "hashes/$version.json"
+        Copy-Item $hashFile -Destination $destPath -Force
+        Write-Host "Copied hash file to: $destPath"
+        
+        # Configure git
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Fetch main branch
+        git fetch origin main
+        
+        # Create a temporary branch from main
+        $tempBranch = "hash-update-$version-${{ github.run_number }}"
+        git checkout -b $tempBranch origin/main
+        
+        # Copy the hash file
+        if (!(Test-Path "hashes")) {
+          New-Item -ItemType Directory -Force -Path "hashes" | Out-Null
+        }
+        Copy-Item $hashFile -Destination $destPath -Force
+        
+        # Commit and push
+        git add hashes/$version.json
+        if (git diff --staged --quiet) {
+          Write-Host "No changes to commit (hash file already exists with same content)"
+        } else {
+          git commit -m "chore: add provider hash manifest for version $version"
+          
+          # Push with admin token to bypass branch protection
+          git push origin $tempBranch
+          
+          # Create PR to main
+          Write-Host "Creating PR to merge hash file to main..."
+          gh pr create \
+            --base main \
+            --head $tempBranch \
+            --title "chore: add provider hash manifest for $version" \
+            --body "Auto-generated PR to add provider hash manifest for version $version to the repository.
+          
+          **Hash File:** \`hashes/$version.json\`
+          **Build:** #${{ github.run_number }}
+          **Commit:** ${{ github.sha }}
+          
+          This PR can be auto-merged." \
+            || Write-Host "PR creation failed or already exists"
+          
+          # Auto-merge the PR if possible
+          $prNumber = gh pr list --head $tempBranch --json number --jq '.[0].number'
+          if ($prNumber) {
+            Write-Host "Auto-merging PR #$prNumber..."
+            gh pr merge $prNumber --auto --squash --delete-branch || Write-Host "Auto-merge failed, manual merge required"
+          }
+        }
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Upload Hash Manifest to Build Artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -300,30 +374,14 @@ jobs:
           SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
           ${{ steps.calculate_hashes.outputs.HASH_FILE }}
 
-    - name: Generate GitHub Pages Content
+    - name: Workflow Complete
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: ./.github/actions/generate-github-pages
-      with:
-        hash-file: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
-        version: ${{ steps.determine_version.outputs.VERSION }}
-        pages-directory: '.github/pages'
-        update-latest: 'auto'
-        repository: ${{ github.repository }}
-    
-    - name: Upload GitHub Pages Artifact
-      if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: ./.github/actions/publish-github-pages
-      with:
-        pages-directory: '.github/pages'
-
-  deploy-pages:
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.upload_to_release == 'true')
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+      shell: pwsh
+      run: |
+        Write-Host "✓ Build workflow complete"
+        Write-Host ""
+        Write-Host "Next steps:"
+        Write-Host "  1. Review and merge the hash PR to main branch"
+        Write-Host "  2. GitHub Pages deployment will trigger automatically after merge"
+        Write-Host ""
+        Write-Host "Hash PR should be titled: 'chore: add provider hash manifest for ${{ steps.determine_version.outputs.VERSION }}'"

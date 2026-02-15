@@ -1,0 +1,119 @@
+name: 🏁 5 Deploy GitHub Pages on Hash PR Merge
+
+# Description: This workflow deploys GitHub Pages after a hash manifest PR is merged to main.
+# It reads all hash files from the /hashes folder in the repository and generates
+# a complete versions manifest for the GitHub Pages site.
+#
+# Triggers:
+# - Automatically when a PR to main is closed (and merged)
+# - Only processes PRs with title starting with "chore: add provider hash manifest"
+#
+# Permissions:
+# - contents:read - Required to read repository content
+# - pages:write - Required to deploy to GitHub Pages
+# - id-token:write - Required for GitHub Pages OIDC authentication
+
+on:
+  pull_request:
+    types: [ closed ]
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (extracts from latest release if empty)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy-pages:
+    # Only run if PR was merged and is a hash manifest PR, or manually triggered
+    if: |
+      (github.event.pull_request.merged == true && 
+       startsWith(github.event.pull_request.title, 'chore: add provider hash manifest')) ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 1
+    
+    - name: Determine version
+      id: version
+      shell: pwsh
+      run: |
+        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          $inputVersion = "${{ github.event.inputs.version }}"
+          if ($inputVersion) {
+            $version = $inputVersion
+          } else {
+            # Get version from latest release
+            $tags = git tag -l --sort=-v:refname
+            if ($tags) {
+              $version = $tags[0]
+            } else {
+              Write-Host "##[error] No version specified and no tags found"
+              exit 1
+            }
+          }
+        } else {
+          # Extract version from PR title: "chore: add provider hash manifest for 1.2.3"
+          $prTitle = "${{ github.event.pull_request.title }}"
+          if ($prTitle -match "for (.+)$") {
+            $version = $matches[1]
+          } else {
+            Write-Host "##[error] Could not extract version from PR title: $prTitle"
+            exit 1
+          }
+        }
+        
+        Write-Host "Deploying GitHub Pages for version: $version"
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+    
+    - name: Verify hash file exists
+      shell: pwsh
+      run: |
+        $version = "${{ steps.version.outputs.VERSION }}"
+        $hashFile = "hashes/$version.json"
+        
+        if (!(Test-Path $hashFile)) {
+          Write-Host "##[error] Hash file not found: $hashFile"
+          Write-Host "##[error] Available hash files in /hashes:"
+          if (Test-Path "hashes") {
+            Get-ChildItem -Path "hashes" -Filter "*.json" | ForEach-Object { Write-Host "  - $($_.Name)" }
+          } else {
+            Write-Host "##[error] /hashes folder does not exist!"
+          }
+          exit 1
+        }
+        
+        Write-Host "✓ Found hash file: $hashFile"
+    
+    - name: Generate GitHub Pages Content
+      uses: ./.github/actions/generate-github-pages
+      with:
+        hash-file: hashes/${{ steps.version.outputs.VERSION }}.json
+        version: ${{ steps.version.outputs.VERSION }}
+        pages-directory: '.github/pages'
+        update-latest: 'auto'
+        repository: ${{ github.repository }}
+    
+    - name: Upload GitHub Pages Artifact
+      uses: ./.github/actions/publish-github-pages
+      with:
+        pages-directory: '.github/pages'
+    
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

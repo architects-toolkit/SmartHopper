@@ -1,4 +1,4 @@
-name: 🚀 5 Upload to Yak Rhino Server
+name: 🚀 6 Upload to Yak Rhino Server
 
 # Description: This workflow uploads the release artifacts to the Yak Rhino Server.
 # It must be triggered manually after the release is built.
