@@ -108,10 +108,20 @@ if ($Platforms.Count -eq 0) {
     exit 1
 }
 
-# Validate platform names (basic validation)
+# Validate platform names (comprehensive validation)
 foreach ($platform in $Platforms) {
     if ([string]::IsNullOrWhiteSpace($platform)) {
         Write-Host "##[error] Platform names cannot be empty or whitespace."
+        exit 1
+    }
+    # Prevent path traversal: no slashes and no '..'
+    if ($platform -match '[\\/]' -or $platform -match '\.\.') {
+        Write-Host "##[error] Invalid platform name (contains path traversal or invalid characters): '$platform'"
+        exit 1
+    }
+    # Validate format (alphanumeric, dots, hyphens only)
+    if ($platform -notmatch '^[a-zA-Z0-9\.\-]+$') {
+        Write-Host "##[error] Invalid platform name format: '$platform'. Only alphanumeric, dots, and hyphens allowed."
         exit 1
     }
 }
@@ -137,7 +147,24 @@ if ($needsSolutionProps) {
     }
 
     try {
-        [xml]$solutionProps = Get-Content $solutionPropsPath -Raw
+        [xml]$solutionProps = Get-Content $solutionPropsPath -Raw -ErrorAction Stop
+        
+        # Validate XML structure before accessing properties
+        if ($null -eq $solutionProps) {
+            Write-Host "##[error] Failed to parse Solution.props: XML is null"
+            exit 1
+        }
+        
+        if ($null -eq $solutionProps.Project) {
+            Write-Host "##[error] Invalid Solution.props structure: missing Project element"
+            exit 1
+        }
+        
+        if ($null -eq $solutionProps.Project.PropertyGroup) {
+            Write-Host "##[error] Invalid Solution.props structure: missing PropertyGroup element"
+            exit 1
+        }
+        
         $solutionVersion = $solutionProps.Project.PropertyGroup.SolutionVersion
         
         if ([string]::IsNullOrWhiteSpace($solutionVersion)) {
@@ -161,6 +188,12 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
     }
 }
 
+# Validate version format (semantic versioning)
+if ($Version -notmatch '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9\.\-]+)?$') {
+    Write-Host "##[error] Invalid version format: '$Version'. Expected semantic versioning (e.g., 1.2.3 or 1.2.3-alpha)"
+    exit 1
+}
+
 # Resolve ArtifactsPath: use parameter if provided, otherwise infer from -DebugBuild/-ReleaseBuild
 if ([string]::IsNullOrWhiteSpace($ArtifactsPath)) {
     # Determine configuration (Debug or Release)
@@ -168,6 +201,13 @@ if ([string]::IsNullOrWhiteSpace($ArtifactsPath)) {
     
     $ArtifactsPath = Join-Path $solutionRoot "bin" $Version $configuration
     Write-Host "ArtifactsPath not specified; using inferred path for -$($configuration): $ArtifactsPath"
+}
+
+# Validate and sanitize artifacts path to prevent path traversal
+$ArtifactsPath = $ArtifactsPath -replace '\.\.[\\/]', ''
+if ($ArtifactsPath -match '\.\.') {
+    Write-Host "##[error] Artifacts path contains potential path traversal: '$ArtifactsPath'"
+    exit 1
 }
 
 Write-Host "=========================================="
@@ -193,14 +233,26 @@ $hashManifest = [ordered]@{
     metadata  = [ordered]@{}
 }
 
-# Add optional metadata
+# Add optional metadata with validation
 if ($BuildNumber) {
+    # Validate build number is numeric
+    if ($BuildNumber -notmatch '^[0-9]+$') {
+        Write-Host "##[warning] BuildNumber is not numeric: '$BuildNumber'. Including as-is."
+    }
     $hashManifest.metadata.buildNumber = $BuildNumber
 }
 if ($CommitSha) {
+    # Validate commit SHA format (40 hex characters for full SHA)
+    if ($CommitSha -notmatch '^[a-fA-F0-9]{7,40}$') {
+        Write-Host "##[warning] CommitSha format appears invalid: '$CommitSha'. Including as-is."
+    }
     $hashManifest.metadata.commitSha = $CommitSha
 }
 if ($Repository) {
+    # Validate repository format (owner/repo)
+    if ($Repository -notmatch '^[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-\.]+$') {
+        Write-Host "##[warning] Repository format appears invalid: '$Repository'. Expected 'owner/repo'."
+    }
     $hashManifest.metadata.repository = $Repository
 }
 
