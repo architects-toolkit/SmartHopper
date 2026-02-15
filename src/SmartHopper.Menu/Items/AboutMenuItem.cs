@@ -16,8 +16,8 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System.Reflection;
 using System.Windows.Forms;
+using SmartHopper.Infrastructure.Utils;
 using SmartHopper.Menu.Dialogs;
 
 namespace SmartHopper.Menu.Items
@@ -33,13 +33,10 @@ namespace SmartHopper.Menu.Items
         /// <returns>A ToolStripMenuItem configured to show the about dialog</returns>
         public static ToolStripMenuItem Create()
         {
-            string version = Assembly.GetExecutingAssembly()
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-                .InformationalVersion ?? "Unknown";
             var item = new ToolStripMenuItem("About");
             item.Click += (sender, e) =>
             {
-                var dialog = new AboutDialog(version);
+                var dialog = new AboutDialog();
                 dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow);
             };
             return item;
