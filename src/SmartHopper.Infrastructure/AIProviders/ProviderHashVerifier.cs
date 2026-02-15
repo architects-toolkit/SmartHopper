@@ -36,13 +36,13 @@ namespace SmartHopper.Infrastructure.AIProviders
     {
         /// <summary>Hash matches - provider is authentic</summary>
         Match,
-        
+
         /// <summary>Hash mismatch - potential security issue</summary>
         Mismatch,
-        
+
         /// <summary>Public hash unavailable - network or source issue</summary>
         Unavailable,
-        
+
         /// <summary>Hash not found in public manifest</summary>
         NotFound
     }
@@ -88,7 +88,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             try
             {
                 // Try version-specific hash first, fall back to latest
-                string[] urls = 
+                string[] urls =
                 {
                     $"{HashBaseUrl}/{version}.json",
                     $"{HashBaseUrl}/latest.json"
@@ -228,7 +228,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
 
                 string[] providerFiles = Directory.GetFiles(directory, "SmartHopper.Providers.*.dll");
-                
+
                 foreach (string providerFile in providerFiles)
                 {
                     string dllName = Path.GetFileName(providerFile);

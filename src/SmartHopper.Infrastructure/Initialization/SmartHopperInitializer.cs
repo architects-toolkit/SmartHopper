@@ -120,7 +120,7 @@ namespace SmartHopper.Infrastructure.Initialization
                 try
                 {
                     Debug.WriteLine("[SmartHopperInitializer] Reinitializing SmartHopper");
-                    
+
                     var providerManager = ProviderManager.Instance;
                     var settings = SmartHopperSettings.Instance;
 

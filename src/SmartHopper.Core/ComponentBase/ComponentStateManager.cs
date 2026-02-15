@@ -566,6 +566,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 Debug.WriteLine($"[{this.componentName}] End restoration (suppression still active for first solve)");
                 this.isRestoringFromFile = false;
+
                 // Note: suppressInputChangeDetection stays true until ClearSuppressionAfterFirstSolve() is called
             }
         }
@@ -852,7 +853,7 @@ namespace SmartHopper.Core.ComponentBase
                     this.debounceTimeMs = 0;
                     return;
                 }
-                
+
                 // Mark as elapsed to prevent race conditions
                 this.debounceTimeMs = 0;
             }

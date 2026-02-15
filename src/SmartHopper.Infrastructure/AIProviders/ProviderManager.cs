@@ -124,8 +124,8 @@ namespace SmartHopper.Infrastructure.AIProviders
                 string baseDirectory = Path.GetDirectoryName(assemblyLocation);
 
                 // Get platform and version
-                string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
-                    ? "net7.0-windows" 
+                string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? "net7.0-windows"
                     : "net7.0";
                 string version = VersionHelper.GetDisplayVersion();
 
@@ -166,8 +166,8 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // SHA-256 hash verification (enhanced security for all platforms)
                 try
                 {
-                    string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) 
-                        ? "net7.0-windows" 
+                    string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                        ? "net7.0-windows"
                         : "net7.0";
 
                     string version = VersionHelper.GetDisplayVersion();
@@ -216,6 +216,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
+
                     // Continue loading - don't block on verification errors
                 }
 
@@ -225,11 +226,11 @@ namespace SmartHopper.Infrastructure.AIProviders
                 // Prompt user for providers with no trust entry
                 Debug.WriteLine($"[ProviderManager] Checking trust for provider: {asmName}");
                 Debug.WriteLine($"[ProviderManager] TrustedProviders contains '{asmName}': {settings.TrustedProviders.ContainsKey(asmName)}");
-                
+
                 if (!settings.TrustedProviders.ContainsKey(asmName))
                 {
                     Debug.WriteLine($"[ProviderManager] Showing trust prompt for: {asmName}");
-                    
+
                     // Use TaskCompletionSource to properly wait for the dialog result
                     var tcs = new TaskCompletionSource<bool>();
                     RhinoApp.InvokeOnUiThread(new Action(() =>

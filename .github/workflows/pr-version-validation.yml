@@ -218,11 +218,11 @@ jobs:
             body += '- Increment **major** for breaking changes: `1.2.3` → `2.0.0`\n';
           } else if (result === 'same') {
             body += '### ⚠️ Identical Versions\n\n';
-            body += `Both branches have version \`${prVersion}\`.\n\n`;
+            body += `Both branches have version \`${version}\`.\n\n`;
             body += 'If this PR contains changes, consider incrementing the version in `Solution.props`.\n';
           } else if (result === 'upgrade') {
             body += '### ✅ Version Validation Passed\n\n';
-            body += `Version properly incremented: \`${targetVersion}\` → \`${prVersion}\`\n`;
+            body += `Version properly incremented: \`${targetVersion}\` → \`${version}\`\n`;
           } else if (result === 'skipped') {
             body += '### ⚠️ Version Comparison Skipped\n\n';
             body += 'Could not extract version from target branch.\n';

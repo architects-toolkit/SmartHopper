@@ -425,6 +425,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 return list;
             }
+
             foreach (var t in array)
             {
                 if (t is not JObject o)

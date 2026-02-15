@@ -62,12 +62,13 @@ namespace SmartHopper.Infrastructure.Tests
         {
             // GetDisplayVersion should not contain '+' character (commit hash separator)
             // Note: This test may not be meaningful in all build contexts
-            
+
             // Act
             var version = VersionHelper.GetDisplayVersion();
 
             // Assert
             Assert.NotNull(version);
+
             // If there was a commit hash, it should be removed
             // This test documents the expected behavior
         }
