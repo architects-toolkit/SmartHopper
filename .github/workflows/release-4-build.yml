@@ -331,24 +331,25 @@ jobs:
           exit 1
         }
         
-    - name: Upload Windows Rhino8 Release Asset
+    - name: Upload Release Assets
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: actions/upload-release-asset@v1
+      uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
-        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
-        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
-        asset_content_type: application/zip
-        
-    - name: Upload Mac Rhino8 Release Asset
+        tag_name: ${{ steps.determine_version.outputs.VERSION }}
+        files: |
+          SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
+          SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
+          ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+
+    - name: Publish Hash Manifest to GitHub Pages
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: ./.github/actions/publish-to-github-pages
       with:
-        upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
-        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
-        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
-        asset_content_type: application/zip
+        hash-file: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+        version: ${{ steps.determine_version.outputs.VERSION }}
+        pages-directory: '.github/pages/hashes'
+        update-latest: 'auto'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}
