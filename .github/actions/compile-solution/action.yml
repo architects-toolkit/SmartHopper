@@ -110,7 +110,7 @@ runs:
             Write-Host "##[error] Platform name cannot be empty or whitespace"
             exit 1
           }
-          if ($platform -match '[\\/\.\.:]|^\.|\.\.') {
+          if ($platform -match '[\\/]|^\.\.|^\.|.*\.\..*|.*:$') {
             Write-Host "##[error] Invalid platform name (potential path traversal): '$platform'"
             exit 1
           }
