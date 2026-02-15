@@ -1,20 +1,14 @@
 name: 'Generate GitHub Pages Content'
 description: 'Prepares hash manifest files and index page for GitHub Pages deployment'
 inputs:
-  hash-file:
-    description: 'Path to the hash manifest JSON file'
-    required: true
-  version:
-    description: 'Version string (e.g., 1.2.3 or 1.2.3-alpha)'
-    required: true
+  hashes-folder:
+    description: 'Path to the folder containing hash manifest JSON files'
+    required: false
+    default: 'hashes'
   pages-directory:
     description: 'Directory path for GitHub Pages files (relative to repo root)'
     required: false
     default: '.github/pages'
-  update-latest:
-    description: 'Whether to update latest.json (auto-detected for stable versions if "auto")'
-    required: false
-    default: 'auto'
   repository:
     description: 'GitHub repository (owner/repo)'
     required: true
@@ -25,21 +19,9 @@ runs:
     - name: Generate Pages Content
       shell: pwsh
       run: |
-        $version = "${{ inputs.version }}"
-        $hashFile = "${{ inputs.hash-file }}"
+        $hashesFolder = "${{ inputs.hashes-folder }}"
         $pagesDir = "${{ inputs.pages-directory }}"
-        $updateLatestInput = "${{ inputs.update-latest }}"
         $repository = "${{ inputs.repository }}"
-        
-        # Validate version format
-        if ([string]::IsNullOrWhiteSpace($version)) {
-          Write-Host "##[error] Version cannot be empty"
-          exit 1
-        }
-        if ($version -notmatch '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9\.\-]+)?$') {
-          Write-Host "##[error] Invalid version format: '$version'"
-          exit 1
-        }
         
         # Validate repository format
         if ([string]::IsNullOrWhiteSpace($repository)) {
@@ -62,30 +44,15 @@ runs:
           exit 1
         }
         
-        # Validate update-latest input
-        if ($updateLatestInput -notin @('auto', 'true', 'false', '')) {
-          Write-Host "##[error] Invalid update-latest value: '$updateLatestInput'. Must be 'auto', 'true', or 'false'"
-          exit 1
-        }
-        
         Write-Host "Generating GitHub Pages content"
-        Write-Host "  Version: $version"
-        Write-Host "  Hash file: $hashFile"
+        Write-Host "  Hashes folder: $hashesFolder"
         Write-Host "  Pages directory: $pagesDir"
         Write-Host "  Repository: $repository"
         
-        # Verify hash file exists
-        if (!(Test-Path $hashFile)) {
-          Write-Host "##[error] Hash file '$hashFile' not found!"
+        # Verify hashes folder exists
+        if (!(Test-Path $hashesFolder)) {
+          Write-Host "##[error] Hashes folder '$hashesFolder' not found!"
           Write-Host "##[error] Current directory: $(Get-Location)"
-          Write-Host "##[error] Files in current directory:"
-          Get-ChildItem -Filter "*.json" | ForEach-Object { Write-Host "  - $($_.Name)" }
-          exit 1
-        }
-        
-        $fileInfo = Get-Item $hashFile -ErrorAction Stop
-        if ($fileInfo.Length -eq 0) {
-          Write-Host "##[error] Hash file is empty!"
           exit 1
         }
         
@@ -94,53 +61,57 @@ runs:
         New-Item -ItemType Directory -Force -Path $hashesDir | Out-Null
         Write-Host "Created directory: $hashesDir"
         
-        # Copy hash files from repository /hashes folder
+        # Copy hash files from repository hashes folder
         Write-Host ""
         Write-Host "Copying hash files from repository..."
         
-        # Check if /hashes folder exists in repository
-        if (Test-Path "hashes") {
-          $repoHashFiles = Get-ChildItem -Path "hashes" -Filter "*.json" -File
-          Write-Host "Found $($repoHashFiles.Count) hash file(s) in repository /hashes folder"
+        $repoHashFiles = Get-ChildItem -Path $hashesFolder -Filter "*.json" -File
+        if ($repoHashFiles.Count -eq 0) {
+          Write-Host "##[error] No hash files found in $hashesFolder"
+          exit 1
+        }
+        
+        Write-Host "Found $($repoHashFiles.Count) hash file(s) in $hashesFolder"
+        
+        # Parse versions and categorize them
+        $versionInfo = @()
+        foreach ($hashFileItem in $repoHashFiles) {
+          $versionName = $hashFileItem.Name -replace '\.json$', ''
+          $isStable = $versionName -notmatch '-(alpha|beta|rc|dev)[\.\-]?[\d\w\.]*'
           
-          # Copy all hash files from repository to pages directory
-          foreach ($hashFileItem in $repoHashFiles) {
-            $destPath = Join-Path $hashesDir $hashFileItem.Name
-            Copy-Item $hashFileItem.FullName -Destination $destPath -Force
-            Write-Host "  ✓ Copied $($hashFileItem.Name)"
+          $versionInfo += @{
+            File = $hashFileItem
+            Version = $versionName
+            IsStable = $isStable
           }
+          
+          # Copy to pages hashes directory
+          $destPath = Join-Path $hashesDir $hashFileItem.Name
+          Copy-Item $hashFileItem.FullName -Destination $destPath -Force
+          Write-Host "  ✓ Copied $($hashFileItem.Name)"
+        }
+        
+        # Determine latest version for latest.json
+        Write-Host ""
+        Write-Host "Determining latest version..."
+        
+        # First, try to find latest stable version
+        $stableVersions = $versionInfo | Where-Object { $_.IsStable } | Sort-Object { $_.Version } -Descending
+        
+        $latestVersion = $null
+        if ($stableVersions.Count -gt 0) {
+          $latestVersion = $stableVersions[0]
+          Write-Host "  Latest stable version: $($latestVersion.Version)"
         } else {
-          Write-Host "Repository /hashes folder not found - this may be the first deployment"
+          # No stable versions, use latest prerelease
+          $latestVersion = $versionInfo | Sort-Object { $_.Version } -Descending | Select-Object -First 1
+          Write-Host "  No stable versions found, using latest prerelease: $($latestVersion.Version)"
         }
         
-        # Copy/overwrite current version's hash file
-        $versionHashPath = Join-Path $hashesDir "$version.json"
-        Copy-Item $hashFile -Destination $versionHashPath -Force
-        Write-Host "Added/updated hash manifest for current version: $version.json"
-        
-        # Determine if we should update latest.json
-        $isStable = $version -notmatch '-(alpha|beta|rc|dev)[\.\-]?[\d\w\.]*'
-        $shouldUpdateLatest = $false
-        
-        if ($updateLatestInput -eq "auto") {
-          $shouldUpdateLatest = $isStable
-          if ($isStable) {
-            Write-Host "Auto-detected stable version, will update latest.json"
-          } else {
-            Write-Host "Auto-detected prerelease version, will NOT update latest.json"
-          }
-        } elseif ($updateLatestInput -eq "true") {
-          $shouldUpdateLatest = $true
-          Write-Host "Forced update of latest.json"
-        } else {
-          Write-Host "Skipping latest.json update (disabled)"
-        }
-        
-        if ($shouldUpdateLatest) {
-          $latestHashPath = Join-Path $hashesDir "latest.json"
-          Copy-Item $hashFile -Destination $latestHashPath -Force
-          Write-Host "Updated latest.json"
-        }
+        # Copy latest version to latest.json
+        $latestHashPath = Join-Path $pagesDir "latest.json"
+        Copy-Item $latestVersion.File.FullName -Destination $latestHashPath -Force
+        Write-Host "  ✓ Created latest.json from $($latestVersion.Version)"
         
         # Generate versions manifest
         Write-Host ""
@@ -177,9 +148,9 @@ runs:
           repository = $repository
           versions = $versionsList
         }
-        $versionsJsonPath = Join-Path $hashesDir "versions.json"
+        $versionsJsonPath = Join-Path $pagesDir "versions.json"
         $versionsManifest | ConvertTo-Json -Depth 10 | Set-Content -Path $versionsJsonPath -Encoding UTF8
-        Write-Host "Created versions manifest at: $versionsJsonPath"
+        Write-Host "Created versions manifest in pages root: $versionsJsonPath"
         Write-Host "Listed $($versionsList.Count) version(s)"
         
         # Create index page
