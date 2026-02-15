@@ -205,12 +205,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             if (!hasActualInputTokens || !hasActualOutputTokens)
             {
                 var (estimatedInput, estimatedOutput) = EstimateTokensFromInteractions(body.Interactions);
-                
+
                 // Only populate estimated fields when actual tokens are missing
                 if (!hasActualInputTokens)
                 {
                     metrics.EstimatedInputTokens = estimatedInput;
                 }
+
                 if (!hasActualOutputTokens)
                 {
                     metrics.EstimatedOutputTokens = estimatedOutput;
@@ -278,10 +279,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                                 outputChars += textChars;
                                 Debug.WriteLine($"[EstimateTokensFromInteractions] Text output: {t.Agent}, chars: {textChars}");
                             }
+
                             break;
 
                         case AIInteractionToolResult tr:
                             toolResultCount++;
+
                             // Tool results are output (AI's tool execution results)
                             var resultChars = (tr.Name?.Length ?? 0) + (tr.Result?.ToString()?.Length ?? 0) + (tr.Id?.Length ?? 0);
                             outputChars += resultChars;
@@ -290,6 +293,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
                         case AIInteractionToolCall tc:
                             toolCallCount++;
+
                             // Tool calls are output (AI requesting tool execution)
                             var callChars = (tc.Name?.Length ?? 0) + (tc.Arguments?.ToString()?.Length ?? 0) + (tc.Id?.Length ?? 0) + (tc.Reasoning?.Length ?? 0);
                             outputChars += callChars;
@@ -314,6 +318,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                                 outputChars += defaultChars;
                                 Debug.WriteLine($"[EstimateTokensFromInteractions] Default output: {it.Agent}, chars: {defaultChars}");
                             }
+
                             break;
                     }
                 }
@@ -330,6 +335,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             catch (Exception ex)
             {
                 Debug.WriteLine($"[EstimateTokensFromInteractions] Error: {ex.Message}");
+
                 // Best-effort only.
                 return (0, 0);
             }

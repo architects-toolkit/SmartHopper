@@ -1,0 +1,132 @@
+name: 🔍 PR Build & Hash Validation
+
+# Description: Validates that PRs to main/dev/hotfix/release branches can build
+# successfully and generate valid hash manifests without conflicts.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+      - 'hotfix/**'
+      - 'release/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-build-and-hash:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout PR Branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Extract Version from Solution.props
+      id: extract_version
+      uses: ./.github/actions/versioning/get-version
+
+    - name: Compile Solution and Collect Artifacts
+      uses: ./.github/actions/compile-solution
+      with:
+        version: ${{ steps.extract_version.outputs.version }}
+        configuration: Release
+        platforms: '["net7.0-windows", "net7.0"]'
+        signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
+        libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
+        signing-pfx-base64: ${{ secrets.SIGNING_PFX_BASE64 }}
+        signing-pfx-password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        output-directory: artifacts
+
+    - name: Calculate Provider Hashes
+      id: calculate_hashes
+      uses: ./.github/actions/calculate-provider-hashes
+      with:
+        artifacts-path: artifacts
+        version: ${{ steps.extract_version.outputs.version }}
+        platforms: '["net7.0-windows", "net7.0"]'
+        build-number: ${{ github.run_number }}
+        commit-sha: ${{ github.sha }}
+        repository: ${{ github.repository }}
+
+    - name: Check for Hash File Conflicts
+      id: check_conflicts
+      shell: pwsh
+      run: |
+        $version = "${{ steps.extract_version.outputs.version }}"
+        $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
+        
+        # Checkout target branch to check for existing hash
+        $targetBranch = "${{ github.base_ref }}"
+        Write-Host "Checking target branch: $targetBranch"
+        
+        git fetch origin $targetBranch
+        $hashesPath = ".github/pages/hashes/"
+        $hashDirExists = git ls-tree --name-only "origin/$targetBranch" $hashesPath 2>$null
+        $conflictDetected = $false
+
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($hashDirExists)) {
+          # Directory exists on remote - check it out and validate conflicts
+          git checkout "origin/$targetBranch" -- $hashesPath 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Failed to checkout $hashesPath from origin/$targetBranch; cannot validate conflicts."
+            $LASTEXITCODE = 0
+            $conflictDetected = $false
+          } else {
+            # Successfully checked out - check for conflict
+            $existingHashPath = "$hashesPath$version.json"
+            if (Test-Path $existingHashPath) {
+              $conflictDetected = $true
+            }
+          }
+        } else {
+          # Directory doesn't exist on remote - no conflicts possible
+          Write-Host "Hash directory '$hashesPath' not present on origin/$targetBranch; no conflicts possible."
+          $LASTEXITCODE = 0
+          $conflictDetected = $false
+        }
+        
+        if ($conflictDetected) {
+          Write-Host "##[error] Hash file already exists for version $version!"
+          Write-Host "##[error] File path: $existingHashPath"
+          Write-Host ""
+          Write-Host "Existing hash content:"
+          Get-Content $existingHashPath
+          Write-Host ""
+          Write-Host "New hash content:"
+          Get-Content $hashFile
+          Write-Host ""
+          echo "CONFLICT=true" >> $env:GITHUB_OUTPUT
+          echo "CONFLICT_MESSAGE=Hash file for version $version already exists in target branch $targetBranch. You must increment the version in Solution.props." >> $env:GITHUB_OUTPUT
+          exit 1
+        } else {
+          Write-Host "✅ No hash file conflict detected for version $version"
+          echo "CONFLICT=false" >> $env:GITHUB_OUTPUT
+        }
+
+    - name: Validation Summary
+      if: always()
+      shell: pwsh
+      run: |
+        $version = "${{ steps.extract_version.outputs.version }}"
+        $hashCount = "${{ steps.calculate_hashes.outputs.HASH_COUNT }}"
+        $conflict = "${{ steps.check_conflicts.outputs.CONFLICT }}"
+        
+        Write-Host ""
+        Write-Host "=========================================="
+        Write-Host "PR BUILD & HASH VALIDATION SUMMARY"
+        Write-Host "=========================================="
+        Write-Host "Version: $version"
+        Write-Host "Providers Hashed: $hashCount"
+        Write-Host "Hash Conflict: $(if ($conflict -eq 'true') { '❌ CONFLICT DETECTED' } else { '✅ No Conflict' })"
+        Write-Host ""
+        
+        if ($conflict -eq "true") {
+          Write-Host "##[error] ❌ VALIDATION FAILED: Hash file conflict detected!"
+          Write-Host "##[error] Please increment the version in Solution.props"
+          exit 1
+        } else {
+          Write-Host "##[notice] ✅ VALIDATION PASSED: Build successful and no hash conflicts"
+        }

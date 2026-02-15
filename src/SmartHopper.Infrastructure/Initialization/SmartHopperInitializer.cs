@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using Rhino;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.Initialization
 {
@@ -60,23 +61,42 @@ namespace SmartHopper.Infrastructure.Initialization
                     var settings = SmartHopperSettings.Instance;
                     Debug.WriteLine("[SmartHopperInitializer] Settings loaded");
 
+                    var displayVersion = VersionHelper.GetDisplayVersion();
+                    var fullVersion = VersionHelper.GetFullVersion();
+                    Debug.WriteLine($"[SmartHopperInitializer] Version (display): {displayVersion}");
+                    Debug.WriteLine($"[SmartHopperInitializer] Version (full): {fullVersion}");
+                    RhinoApp.WriteLine($"Loading SmartHopper {displayVersion}");
+
                     // Step 2: Access the ProviderManager to initialize it
                     var providerManager = ProviderManager.Instance;
                     Debug.WriteLine("[SmartHopperInitializer] Provider manager initialized");
 
                     // Step 3: Now that both are initialized independently, refresh providers with settings
-                    RhinoApp.InvokeOnUiThread(() =>
+                    Debug.WriteLine("[SmartHopperInitializer] Refreshing providers asynchronously");
+
+                    // Fire-and-forget async initialization outside the lock
+                    _ = Task.Run(async () =>
                     {
-                        Debug.WriteLine("[SmartHopperInitializer] Refreshing providers on UI thread");
+                        try
+                        {
+                            // RefreshProvidersAsync will internally refresh settings once as providers are registered
+                            await providerManager.RefreshProvidersAsync().ConfigureAwait(false);
 
-                        // RefreshProviders will internally refresh settings once as providers are registered
-                        providerManager.RefreshProviders();
+                            // Step 4: Now that both settings and providers are fully initialized, run integrity check
+                            // Run integrity check on UI thread as it may interact with Rhino/Grasshopper
+                            RhinoApp.InvokeOnUiThread(() =>
+                            {
+                                settings.IntegrityCheck();
+                                Debug.WriteLine("[SmartHopperInitializer] Settings integrity check completed");
+                            });
 
-                        // Step 4: Now that both settings and providers are fully initialized, run integrity check
-                        settings.IntegrityCheck();
-                        Debug.WriteLine("[SmartHopperInitializer] Settings integrity check completed");
-
-                        Debug.WriteLine("[SmartHopperInitializer] Initialization complete");
+                            Debug.WriteLine("[SmartHopperInitializer] Initialization complete");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[SmartHopperInitializer] Async initialization error: {ex.Message}");
+                            Debug.WriteLine($"[SmartHopperInitializer] Stack trace: {ex.StackTrace}");
+                        }
                     });
 
                     isInitialized = true;
@@ -95,22 +115,22 @@ namespace SmartHopper.Infrastructure.Initialization
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Prevent initializer from crashing Grasshopper")]
         public static void Reinitialize()
         {
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 try
                 {
                     Debug.WriteLine("[SmartHopperInitializer] Reinitializing SmartHopper");
+
+                    var providerManager = ProviderManager.Instance;
+                    var settings = SmartHopperSettings.Instance;
+
+                    // Refresh providers asynchronously
+                    await providerManager.RefreshProvidersAsync().ConfigureAwait(false);
+
+                    // Apply settings to providers on UI thread
                     RhinoApp.InvokeOnUiThread(() =>
                     {
-                        var providerManager = ProviderManager.Instance;
-                        var settings = SmartHopperSettings.Instance;
-
-                        // Refresh providers
-                        providerManager.RefreshProviders();
-
-                        // Apply settings to providers
                         settings.RefreshProvidersLocalStorage();
-
                         Debug.WriteLine("[SmartHopperInitializer] Reinitialization complete");
                     });
                 }

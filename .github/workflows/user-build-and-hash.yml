@@ -1,0 +1,96 @@
+name: 👤 User Build and Hash Generation
+
+# Description: Manual workflow to build and hash provider DLLs
+# without going through the full release flow. Useful for validating changes
+# to build scripts or hash calculation logic.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build from'
+        required: true
+        default: 'dev'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-hash:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch }}
+        fetch-depth: 0
+
+    - name: Extract Version from Solution.props
+      id: extract_version
+      uses: ./.github/actions/versioning/get-version
+
+    - name: Compile Solution and Collect Artifacts
+      uses: ./.github/actions/compile-solution
+      with:
+        version: ${{ steps.extract_version.outputs.version }}
+        configuration: Release
+        platforms: '["net7.0-windows", "net7.0"]'
+        signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
+        libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
+        signing-pfx-base64: ${{ secrets.SIGNING_PFX_BASE64 }}
+        signing-pfx-password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        output-directory: artifacts
+
+    - name: Calculate Provider SHA-256 Hashes
+      id: calculate_hashes
+      uses: ./.github/actions/calculate-provider-hashes
+      with:
+        artifacts-path: artifacts
+        version: ${{ steps.extract_version.outputs.version }}
+        platforms: '["net7.0-windows", "net7.0"]'
+        build-number: ${{ github.run_number }}
+        commit-sha: ${{ github.sha }}
+        repository: ${{ github.repository }}
+
+    - name: Display Hash Manifest
+      shell: pwsh
+      run: |
+        $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
+        
+        Write-Host ""
+        Write-Host "=========================================="
+        Write-Host "Hash Manifest Generated Successfully!"
+        Write-Host "=========================================="
+        Write-Host "File: $hashFile"
+        Write-Host "Providers Hashed: ${{ steps.calculate_hashes.outputs.HASH_COUNT }}"
+        Write-Host ""
+        Write-Host "Content:"
+        Get-Content $hashFile | Write-Host
+        Write-Host ""
+
+    - name: Upload Hash Manifest as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-provider-hashes
+        path: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-build-artifacts
+        path: artifacts/
+
+    - name: Test Summary
+      shell: pwsh
+      run: |
+        Write-Host ""
+        Write-Host "=========================================="
+        Write-Host "✅ TEST BUILD COMPLETED SUCCESSFULLY"
+        Write-Host "=========================================="
+        Write-Host "Branch: ${{ github.event.inputs.branch }}"
+        Write-Host "Version: ${{ steps.extract_version.outputs.VERSION }}"
+        Write-Host "Hash File: ${{ steps.calculate_hashes.outputs.HASH_FILE }}"
+        Write-Host "Providers Hashed: ${{ steps.calculate_hashes.outputs.HASH_COUNT }}"
+        Write-Host ""
+        Write-Host "Artifacts uploaded for review in the Actions artifacts tab."
+        Write-Host ""
