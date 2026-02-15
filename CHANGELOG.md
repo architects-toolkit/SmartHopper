@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0-alpha] - 2026-02-15
+
 Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](https://github.com/nof2504) for the contributions to this release.
 
 ### Added
