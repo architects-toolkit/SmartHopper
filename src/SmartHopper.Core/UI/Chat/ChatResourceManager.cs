@@ -321,7 +321,7 @@ namespace SmartHopper.Core.UI.Chat
                 finishReason = interaction.Metrics.FinishReason ?? "unknown";
                 inTokens = interaction.Metrics.InputTokens;
                 outTokens = interaction.Metrics.OutputTokens;
-                
+
                 // Format context usage as percentage if available
                 if (interaction.Metrics.ContextUsagePercent.HasValue)
                 {

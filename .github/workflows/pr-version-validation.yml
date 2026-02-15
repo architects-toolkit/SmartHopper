@@ -1,0 +1,193 @@
+name: 🔍 PR Version Validation
+
+# Description: Prevents PRs from downgrading the version in Solution.props.
+# Ensures version numbers always move forward to maintain proper versioning.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+      - 'hotfix/**'
+      - 'release/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-version:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout PR Branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Get PR Version
+      id: pr_version
+      uses: ./.github/actions/versioning/get-version
+
+    - name: Checkout Target Branch Solution.props
+      shell: bash
+      run: |
+        TARGET_BRANCH="${{ github.base_ref }}"
+        echo "Target branch: $TARGET_BRANCH"
+        git fetch origin "$TARGET_BRANCH"
+        git checkout "origin/$TARGET_BRANCH" -- Solution.props
+
+    - name: Get Target Branch Version
+      id: target_version
+      uses: ./.github/actions/versioning/get-version
+      continue-on-error: true
+
+    - name: Check if Target Version Extracted
+      id: check_target
+      shell: bash
+      run: |
+        if [ -z "${{ steps.target_version.outputs.version }}" ]; then
+          echo "##[warning] Could not extract version from target branch, skipping comparison"
+          echo "SKIP_COMPARISON=true" >> $GITHUB_OUTPUT
+        else
+          echo "Target Version: ${{ steps.target_version.outputs.version }}"
+          echo "SKIP_COMPARISON=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Compare Versions
+      id: compare
+      shell: pwsh
+      run: |
+        $prVersion = "${{ steps.pr_version.outputs.version }}"
+        $targetVersion = "${{ steps.target_version.outputs.version }}"
+        $skipComparison = "${{ steps.check_target.outputs.SKIP_COMPARISON }}"
+        
+        if ($skipComparison -eq "true") {
+          Write-Host "##[warning] Skipping version comparison"
+          echo "RESULT=skipped" >> $env:GITHUB_OUTPUT
+          exit 0
+        }
+        
+        Write-Host "Comparing versions:"
+        Write-Host "  PR Version:     $prVersion"
+        Write-Host "  Target Version: $targetVersion"
+        
+        # Validate version format
+        function Validate-VersionFormat {
+          param([string]$versionString)
+          
+          # Remove leading 'v' if present
+          $versionString = $versionString -replace '^v', ''
+          
+          # Check if version matches semantic versioning pattern (with optional prerelease)
+          if ($versionString -notmatch '^\d+\.\d+(\.\d+)?(-[a-zA-Z0-9.]+)?$') {
+            throw "Invalid version format: '$versionString'. Expected format: X.Y[.Z][-prerelease]"
+          }
+          
+          return $versionString
+        }
+        
+        # Parse versions (handles formats like 1.2.3 or 1.2.3-alpha.123)
+        function Parse-Version {
+          param([string]$versionString)
+          
+          try {
+            $versionString = Validate-VersionFormat $versionString
+          } catch {
+            Write-Host "##[error] $_"
+            exit 1
+          }
+          
+          # Split on dash to separate base version from prerelease
+          $parts = $versionString -split '-', 2
+          $baseVersion = $parts[0]
+          $prerelease = if ($parts.Length -gt 1) { $parts[1] } else { "" }
+          
+          # Parse base version numbers with error handling
+          $numbers = $baseVersion -split '\.'
+          try {
+            $major = [int]($numbers[0])
+            $minor = if ($numbers.Length -gt 1) { [int]($numbers[1]) } else { 0 }
+            $patch = if ($numbers.Length -gt 2) { [int]($numbers[2]) } else { 0 }
+          } catch {
+            Write-Host "##[error] Failed to parse version numbers: $_"
+            exit 1
+          }
+          
+          return @{
+            Major = $major
+            Minor = $minor
+            Patch = $patch
+            Prerelease = $prerelease
+            Original = $versionString
+          }
+        }
+        
+        $prVer = Parse-Version $prVersion
+        $targetVer = Parse-Version $targetVersion
+        
+        # Compare versions
+        $isDowngrade = $false
+        $isSame = $false
+        $reason = ""
+        
+        if ($prVer.Major -lt $targetVer.Major) {
+          $isDowngrade = $true
+          $reason = "Major version downgrade ($($prVer.Major) < $($targetVer.Major))"
+        } elseif ($prVer.Major -eq $targetVer.Major) {
+          if ($prVer.Minor -lt $targetVer.Minor) {
+            $isDowngrade = $true
+            $reason = "Minor version downgrade ($($prVer.Minor) < $($targetVer.Minor))"
+          } elseif ($prVer.Minor -eq $targetVer.Minor) {
+            if ($prVer.Patch -lt $targetVer.Patch) {
+              $isDowngrade = $true
+              $reason = "Patch version downgrade ($($prVer.Patch) < $($targetVer.Patch))"
+            } elseif ($prVer.Patch -eq $targetVer.Patch) {
+              # Same base version - check prerelease
+              if ($prVer.Prerelease -eq $targetVer.Prerelease) {
+                $isSame = $true
+                $reason = "Versions are identical"
+              } else {
+                # Prerelease comparison is complex, just note it
+                $reason = "Same base version with different prerelease tags"
+              }
+            }
+          }
+        }
+        
+        Write-Host ""
+        if ($isDowngrade) {
+          Write-Host "##[error] ❌ VERSION DOWNGRADE DETECTED!"
+          Write-Host "##[error] $reason"
+          echo "RESULT=downgrade" >> $env:GITHUB_OUTPUT
+          echo "REASON=$reason" >> $env:GITHUB_OUTPUT
+          exit 1
+        } elseif ($isSame) {
+          Write-Host "##[warning] ⚠️  Versions are identical"
+          Write-Host "##[warning] Consider incrementing the version if this PR contains changes"
+          echo "RESULT=same" >> $env:GITHUB_OUTPUT
+          echo "REASON=$reason" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Host "##[notice] ✅ Version increment detected"
+          Write-Host "##[notice] $prVersion > $targetVersion"
+          echo "RESULT=upgrade" >> $env:GITHUB_OUTPUT
+          echo "REASON=Version properly incremented" >> $env:GITHUB_OUTPUT
+        }
+
+    - name: Validation Summary
+      if: always()
+      shell: pwsh
+      run: |
+        $version = "${{ steps.pr_version.outputs.version }}"
+        $targetVersion = "${{ steps.target_version.outputs.version }}"
+        $result = "${{ steps.compare.outputs.RESULT }}"
+        $reason = "${{ steps.compare.outputs.REASON }}"
+        
+        Write-Host ""
+        Write-Host "=========================================="
+        Write-Host "VERSION VALIDATION SUMMARY"
+        Write-Host "=========================================="
+        Write-Host "PR Version:     $version"
+        Write-Host "Target Version: $targetVersion"
+        Write-Host "Result:         $result"
+        Write-Host "Reason:         $reason"
+        Write-Host ""

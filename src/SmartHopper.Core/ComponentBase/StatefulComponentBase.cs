@@ -1426,11 +1426,13 @@ namespace SmartHopper.Core.ComponentBase
                             long bits = BitConverter.DoubleToInt64Bits(d);
                             return CombineHashCodes((int)bits, (int)(bits >> 32));
                         }
+
                     case float f:
                         {
                             int bits = BitConverter.SingleToInt32Bits(f);
                             return bits;
                         }
+
                     case string s:
                         return StableStringHash(s);
                     default:
