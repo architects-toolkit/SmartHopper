@@ -1,5 +1,5 @@
-name: 'Publish Hash Manifest to GitHub Pages'
-description: 'Publishes provider hash manifest to GitHub Pages directory in main branch'
+name: 'Generate GitHub Pages Content'
+description: 'Prepares hash manifest files and index page for GitHub Pages deployment'
 inputs:
   hash-file:
     description: 'Path to the hash manifest JSON file'
@@ -10,14 +10,11 @@ inputs:
   pages-directory:
     description: 'Directory path for GitHub Pages files (relative to repo root)'
     required: false
-    default: '.github/pages/hashes'
+    default: '.github/pages'
   update-latest:
-    description: 'Whether to update latest.json (auto-detected for stable versions if empty)'
+    description: 'Whether to update latest.json (auto-detected for stable versions if "auto")'
     required: false
     default: 'auto'
-  github-token:
-    description: 'GitHub token for committing to main branch'
-    required: true
   repository:
     description: 'GitHub repository (owner/repo)'
     required: true
@@ -25,10 +22,9 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Publish Hash Manifest
+    - name: Generate Pages Content
       shell: pwsh
       run: |
-        # Validate and sanitize inputs
         $version = "${{ inputs.version }}"
         $hashFile = "${{ inputs.hash-file }}"
         $pagesDir = "${{ inputs.pages-directory }}"
@@ -55,7 +51,7 @@ runs:
           exit 1
         }
         
-        # Validate and sanitize pages directory to prevent path traversal
+        # Validate pages directory
         if ([string]::IsNullOrWhiteSpace($pagesDir)) {
           Write-Host "##[error] Pages directory cannot be empty"
           exit 1
@@ -72,98 +68,38 @@ runs:
           exit 1
         }
         
-        Write-Host "Publishing hash manifest to GitHub Pages"
+        Write-Host "Generating GitHub Pages content"
         Write-Host "  Version: $version"
         Write-Host "  Hash file: $hashFile"
         Write-Host "  Pages directory: $pagesDir"
         Write-Host "  Repository: $repository"
         
-        # Verify hash file exists and is not empty
-        # Handle both absolute and relative paths
-        $resolvedHashFile = $hashFile
-        if (!(Test-Path $resolvedHashFile)) {
-          # Try looking in current directory if relative path doesn't work
-          $resolvedHashFile = Join-Path (Get-Location) $hashFile
-          if (!(Test-Path $resolvedHashFile)) {
-            Write-Host "##[error] Hash file '$hashFile' not found in current directory or root!"
-            Write-Host "##[error] Current directory: $(Get-Location)"
-            Write-Host "##[error] Files in current directory:"
-            Get-ChildItem -Filter "*.json" | ForEach-Object { Write-Host "  - $($_.Name)" }
-            exit 1
-          }
+        # Verify hash file exists
+        if (!(Test-Path $hashFile)) {
+          Write-Host "##[error] Hash file '$hashFile' not found!"
+          Write-Host "##[error] Current directory: $(Get-Location)"
+          Write-Host "##[error] Files in current directory:"
+          Get-ChildItem -Filter "*.json" | ForEach-Object { Write-Host "  - $($_.Name)" }
+          exit 1
         }
-        $hashFile = $resolvedHashFile
-
-        # Cache hash file in runner temp before git operations (git stash/checkout can remove it)
-        $tempHashPath = Join-Path $env:RUNNER_TEMP (Split-Path $hashFile -Leaf)
-        Copy-Item $hashFile -Destination $tempHashPath -Force
-        $hashFile = $tempHashPath
-
+        
         $fileInfo = Get-Item $hashFile -ErrorAction Stop
         if ($fileInfo.Length -eq 0) {
           Write-Host "##[error] Hash file is empty!"
           exit 1
         }
         
-        # Configure git
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        
-        # Ensure we're on main branch with timeout and error handling
-        Write-Host ""
-        Write-Host "Checking out main branch..."
-        try {
-          # Check repository state before operations
-          $gitStatus = git status --porcelain 2>&1
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to check git status: $gitStatus"
-          }
-          if ($gitStatus) {
-            Write-Host "##[warning] Working directory not clean, stashing changes"
-            git stash --include-untracked 2>&1 | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to stash changes"
-            }
-          }
-          
-          # Fetch with native PowerShell git
-          Write-Host "Fetching from origin..."
-          git fetch origin main 2>&1 | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            throw "git fetch failed with exit code $LASTEXITCODE"
-          }
-          
-          # Checkout main
-          Write-Host "Checking out main branch..."
-          git checkout main 2>&1 | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            throw "git checkout failed with exit code $LASTEXITCODE"
-          }
-          
-          # Pull latest
-          Write-Host "Pulling latest changes..."
-          git pull origin main 2>&1 | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            throw "git pull failed with exit code $LASTEXITCODE"
-          }
-        } catch {
-          Write-Host "##[error] Git operation failed: $_"
-          Write-Host "##[error] Repository may be in an inconsistent state. Manual cleanup may be required."
-          exit 1
-        }
-        
         # Create pages directory structure
-        Write-Host ""
-        Write-Host "Creating pages directory structure..."
-        New-Item -ItemType Directory -Force -Path $pagesDir | Out-Null
+        $hashesDir = Join-Path $pagesDir "hashes"
+        New-Item -ItemType Directory -Force -Path $hashesDir | Out-Null
+        Write-Host "Created directory: $hashesDir"
         
-        # Copy hash file with version-specific name (always override)
-        $versionHashPath = Join-Path $pagesDir "$version.json"
+        # Copy hash file with version-specific name
+        $versionHashPath = Join-Path $hashesDir "$version.json"
         Copy-Item $hashFile -Destination $versionHashPath -Force
         Write-Host "Copied hash manifest to: $versionHashPath"
         
         # Determine if we should update latest.json
-        # Improved regex to handle version formats like 1.0.0-alpha.1, 1.0.0-beta.2+build.123
         $isStable = $version -notmatch '-(alpha|beta|rc|dev)[\.\-]?[\d\w\.]*'
         $shouldUpdateLatest = $false
         
@@ -182,12 +118,12 @@ runs:
         }
         
         if ($shouldUpdateLatest) {
-          $latestHashPath = Join-Path $pagesDir "latest.json"
+          $latestHashPath = Join-Path $hashesDir "latest.json"
           Copy-Item $hashFile -Destination $latestHashPath -Force
           Write-Host "Updated latest.json"
         }
         
-        # Create or update index page
+        # Create index page
         Write-Host ""
         Write-Host "Creating index page..."
         $indexContent = @"
@@ -271,7 +207,7 @@ runs:
           <div id="versions" class="loading">Loading versions...</div>
           
           <script>
-            fetch('https://api.github.com/repos/${repository}/contents/${pagesDir}')
+            fetch('https://api.github.com/repos/${repository}/contents/.github/pages/hashes')
               .then(r => {
                 if (!r.ok) throw new Error('Failed to fetch versions');
                 return r.json();
@@ -291,16 +227,14 @@ runs:
                 
                 jsonFiles
                   .sort((a, b) => {
-                    // Put latest.json first
                     if (a.name === 'latest.json') return -1;
                     if (b.name === 'latest.json') return 1;
-                    // Then sort by version descending
                     return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' });
                   })
                   .forEach(f => {
                     const div = document.createElement('div');
                     const a = document.createElement('a');
-                    const rawUrl = 'https://raw.githubusercontent.com/${repository}/main/${pagesDir}/' + f.name;
+                    const rawUrl = 'https://raw.githubusercontent.com/${repository}/gh-pages/hashes/' + f.name;
                     a.href = rawUrl;
                     a.textContent = f.name.replace('.json', '');
                     
@@ -334,51 +268,8 @@ runs:
         </body>
         </html>
         "@
-        $indexPath = Join-Path (Split-Path $pagesDir -Parent) "index.html"
+        $indexPath = Join-Path $pagesDir "index.html"
         Set-Content -Path $indexPath -Value $indexContent -Encoding UTF8
-        Write-Host "Created/updated index page at: $indexPath"
-        
-        # Commit and push to main with error handling
+        Write-Host "Created index page at: $indexPath"
         Write-Host ""
-        Write-Host "Committing changes..."
-        try {
-          $parentDir = Split-Path $pagesDir -Parent
-          git add $parentDir 2>&1 | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            throw "git add failed with exit code $LASTEXITCODE"
-          }
-          
-          # Sanitize commit message to prevent injection
-          $commitMessage = "Add provider hashes for $version"
-          $commitMessage = $commitMessage -replace '[`$]', ''
-          
-          # Try to commit using native git
-          git commit -m $commitMessage 2>&1 | Out-Null
-          $commitExitCode = $LASTEXITCODE
-          
-          if ($commitExitCode -eq 0) {
-            # Commit succeeded, now push
-            Write-Host "Pushing to main branch..."
-            git push origin main 2>&1 | Out-Null
-            
-            if ($LASTEXITCODE -ne 0) {
-              throw "git push failed with exit code $LASTEXITCODE"
-            }
-            
-            Write-Host ""
-            Write-Host "##[notice] Hash manifest published successfully!"
-            Write-Host "##[notice] Version hash: https://raw.githubusercontent.com/${repository}/main/${pagesDir}/$version.json"
-            if ($shouldUpdateLatest) {
-              Write-Host "##[notice] Latest hash: https://raw.githubusercontent.com/${repository}/main/${pagesDir}/latest.json"
-            }
-          } elseif ($commitExitCode -eq 1) {
-            # Exit code 1 typically means no changes to commit
-            Write-Host "##[warning] No changes to commit (hash already exists, overridden)"
-          } else {
-            throw "git commit failed with exit code $commitExitCode"
-          }
-        } catch {
-          Write-Host "##[error] Failed to commit and push changes: $_"
-          Write-Host "##[error] Repository may be in an inconsistent state. Manual cleanup may be required."
-          exit 1
-        }
+        Write-Host "##[notice] GitHub Pages content generated successfully in: $pagesDir"
