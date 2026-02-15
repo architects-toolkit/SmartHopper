@@ -13,6 +13,8 @@ Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](htt
 
 - **macOS Compatibility**: Improved cross-platform compatibility for macOS users
   - Component state management updated to fire `ComponentStateManager` transition events outside `stateLock` to prevent deadlocks caused by re-entrant lock acquisition in event handlers
+- **Settings**:
+  - Fixed first initialization is created using EncryptationVersion 2 by default which stores a local hash for secrets encryptation
 
 ### Known Issues
 
