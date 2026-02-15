@@ -63,11 +63,32 @@ jobs:
         Write-Host "Checking target branch: $targetBranch"
         
         git fetch origin $targetBranch
-        git checkout "origin/$targetBranch" -- .github/pages/hashes/ 2>$null
+        $hashesPath = ".github/pages/hashes/"
+        $hashDirExists = git ls-tree --name-only "origin/$targetBranch" $hashesPath 2>$null
+        $conflictDetected = $false
+
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($hashDirExists)) {
+          # Directory exists on remote - check it out and validate conflicts
+          git checkout "origin/$targetBranch" -- $hashesPath 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Failed to checkout $hashesPath from origin/$targetBranch; cannot validate conflicts."
+            $LASTEXITCODE = 0
+            $conflictDetected = $false
+          } else {
+            # Successfully checked out - check for conflict
+            $existingHashPath = "$hashesPath$version.json"
+            if (Test-Path $existingHashPath) {
+              $conflictDetected = $true
+            }
+          }
+        } else {
+          # Directory doesn't exist on remote - no conflicts possible
+          Write-Host "Hash directory '$hashesPath' not present on origin/$targetBranch; no conflicts possible."
+          $LASTEXITCODE = 0
+          $conflictDetected = $false
+        }
         
-        $existingHashPath = ".github/pages/hashes/$version.json"
-        
-        if (Test-Path $existingHashPath) {
+        if ($conflictDetected) {
           Write-Host "##[error] Hash file already exists for version $version!"
           Write-Host "##[error] File path: $existingHashPath"
           Write-Host ""
