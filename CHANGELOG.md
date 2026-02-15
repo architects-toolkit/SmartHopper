@@ -5,6 +5,37 @@ All notable changes to SmartHopper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](https://github.com/nof2504) for the contributions to this release.
+
+### Added
+
+- **Provider Hash Verification**: Added SHA-256 hash verification system for AI provider DLLs to enhance security on all platforms
+  - New "Verify Providers Hash" menu item in SmartHopper menu to manually verify provider integrity
+  - Comprehensive verification dialog showing verification status, local vs expected hashes, and detailed results
+  - Automatic hash generation during release workflow with public hash repository for verification
+  - Multi-tier verification with graceful degradation when hashes are unavailable
+- **Enhanced About Dialog**: Improved About dialog to automatically display current SmartHopper version and platform information using the new VersionHelper class
+
+### Fixed
+
+- **macOS Compatibility**: Improved cross-platform compatibility for macOS users
+  - Provider loading now works on non-Windows platforms with appropriate security warnings (skip Authenticode signature verification where `X509Certificate.CreateFromSignedFile` is not supported)
+  - URL handling fixed to prevent incorrect file:// URI generation by restricting `BuildFullUrl` absolute URI detection to HTTP/HTTPS schemes
+  - Component state management updated to fire `ComponentStateManager` transition events outside `stateLock` to prevent deadlocks caused by re-entrant lock acquisition in event handlers
+- **Settings**:
+  - Fixed first initialization is created using EncryptationVersion 2 by default which stores a local hash for secrets encryptation
+
+### Security
+
+- Enhanced provider security with SHA-256 hash verification system to protect against tampered provider DLLs
+- Platform-appropriate security measures: Authenticode + hash verification on Windows, only hash verification on macOS
+
+### Known Issues
+
+- bug(ui): `WebChatDialog` (CanvasButton chat window) crashes on macOS with `NSInvalidArgumentException` because Eto.Forms' `WKWebViewHandler.LoadHtml()` calls `WKWebView.LoadFileUrl()` with an `https://` base URI (`https://smarthopper.local/`), which only accepts `file://` URLs
+
 ## [1.3.0-alpha] - 2024-02-08
 
 ### Changed

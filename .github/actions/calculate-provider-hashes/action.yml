@@ -1,0 +1,171 @@
+name: 'Calculate Provider SHA-256 Hashes'
+description: 'Calculates SHA-256 hashes for SmartHopper provider DLLs and generates a JSON manifest'
+inputs:
+  artifacts-path:
+    description: 'Path to the artifacts directory containing provider DLLs'
+    required: true
+  version:
+    description: 'Version string for the manifest (e.g., 1.2.3 or 1.2.3-alpha)'
+    required: true
+  platforms:
+    description: 'JSON array of platform names to process (e.g., ["net7.0-windows", "net7.0"])'
+    required: false
+    default: '["net7.0-windows", "net7.0"]'
+  build-number:
+    description: 'GitHub Actions build/run number'
+    required: false
+    default: ''
+  commit-sha:
+    description: 'Git commit SHA'
+    required: false
+    default: ''
+  repository:
+    description: 'GitHub repository (owner/repo)'
+    required: false
+    default: ''
+outputs:
+  HASH_FILE:
+    description: 'Path to the generated hash manifest JSON file'
+    value: ${{ steps.calculate.outputs.HASH_FILE }}
+  HASH_COUNT:
+    description: 'Number of provider DLLs hashed'
+    value: ${{ steps.calculate.outputs.HASH_COUNT }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Calculate Provider Hashes
+      id: calculate
+      shell: pwsh
+      run: |
+        # Parse and validate platforms input
+        $platformsJson = '${{ inputs.platforms }}'
+        try {
+          $platforms = $platformsJson | ConvertFrom-Json -ErrorAction Stop
+        } catch {
+          Write-Host "##[error] Failed to parse platforms JSON: $_"
+          exit 1
+        }
+        
+        if ($null -eq $platforms -or $platforms.Count -eq 0) {
+          Write-Host "##[error] Platforms array is empty or invalid"
+          exit 1
+        }
+        
+        # Validate platform names to prevent path traversal
+        foreach ($platform in $platforms) {
+          if ([string]::IsNullOrWhiteSpace($platform)) {
+            Write-Host "##[error] Platform name cannot be empty or whitespace"
+            exit 1
+          }
+          if ($platform -notmatch '^[a-zA-Z0-9\.-]+$') {
+            Write-Host "##[error] Invalid platform name (potential path traversal): '$platform'"
+            exit 1
+          }
+        }
+        
+        # Validate and sanitize artifacts path to prevent path traversal
+        $artifactsPath = "${{ inputs.artifacts-path }}"
+        if ([string]::IsNullOrWhiteSpace($artifactsPath)) {
+          Write-Host "##[error] Artifacts path cannot be empty"
+          exit 1
+        }
+        
+        # Resolve to absolute path and validate it doesn't escape workspace
+        $artifactsPath = $artifactsPath -replace '\.\.[\\/]', ''
+        $artifactsPath = $artifactsPath -replace '^[\\/]+', ''
+        
+        # Validate version format
+        $version = "${{ inputs.version }}"
+        if ($version -notmatch '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9\.\-]+)?$') {
+          Write-Host "##[error] Invalid version format: '$version'"
+          exit 1
+        }
+        
+        # Build parameters for the hash calculation tool
+        $params = @{
+          ArtifactsPath = $artifactsPath
+          Version = $version
+          Platforms = $platforms
+        }
+        
+        # Add optional parameters
+        if ("${{ inputs.build-number }}" -ne "") {
+          $params.BuildNumber = "${{ inputs.build-number }}"
+        }
+        if ("${{ inputs.commit-sha }}" -ne "") {
+          $params.CommitSha = "${{ inputs.commit-sha }}"
+        }
+        if ("${{ inputs.repository }}" -ne "") {
+          $params.Repository = "${{ inputs.repository }}"
+        }
+        
+        # Call the reusable hash calculation tool
+        try {
+          & ./tools/Calculate-ProviderHashes.ps1 @params -ErrorAction Stop
+        } catch {
+          Write-Host "##[error] Hash calculation failed: $_"
+          exit 1
+        }
+        
+        # Extract outputs - use default output file name
+        $hashFile = "provider-hashes-$version.json"
+        
+        # Validate hash file exists and is not empty
+        if (!(Test-Path $hashFile)) {
+          Write-Host "##[error] Hash file was not created by the tool!"
+          Write-Host "Expected file: $hashFile"
+          exit 1
+        }
+        
+        $fileInfo = Get-Item $hashFile -ErrorAction Stop
+        if ($fileInfo.Length -eq 0) {
+          Write-Host "##[error] Hash file is empty!"
+          exit 1
+        }
+        
+        # Count providers in the manifest with comprehensive error handling
+        try {
+          $manifestJson = Get-Content $hashFile -Raw -ErrorAction Stop
+          
+          if ([string]::IsNullOrWhiteSpace($manifestJson)) {
+            Write-Host "##[error] Hash manifest file is empty or contains only whitespace"
+            exit 1
+          }
+          
+          $manifest = $manifestJson | ConvertFrom-Json -ErrorAction Stop
+          
+          # Validate manifest structure
+          if ($null -eq $manifest) {
+            Write-Host "##[error] Failed to parse hash manifest: result is null"
+            exit 1
+          }
+          
+          if ($null -eq $manifest.providers) {
+            Write-Host "##[error] Hash manifest does not contain 'providers' property"
+            exit 1
+          }
+          
+          # Validate required fields
+          if ([string]::IsNullOrWhiteSpace($manifest.version)) {
+            Write-Host "##[error] Hash manifest missing 'version' field"
+            exit 1
+          }
+          
+          if ([string]::IsNullOrWhiteSpace($manifest.algorithm)) {
+            Write-Host "##[error] Hash manifest missing 'algorithm' field"
+            exit 1
+          }
+          
+          $hashCount = $manifest.providers.PSObject.Properties.Count
+          
+          if ($hashCount -eq 0) {
+            Write-Host "##[warning] No providers found in hash manifest"
+          }
+        } catch {
+          Write-Host "##[error] Failed to parse hash manifest: $_"
+          exit 1
+        }
+        
+        echo "HASH_FILE=$hashFile" >> $env:GITHUB_OUTPUT
+        echo "HASH_COUNT=$hashCount" >> $env:GITHUB_OUTPUT

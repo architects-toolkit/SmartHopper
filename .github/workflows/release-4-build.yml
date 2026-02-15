@@ -114,81 +114,17 @@ jobs:
         Write-Host "This is a draft release. Skipping build and upload."
         exit 0
 
-    - name: Dotnet Build
-      uses: ./.github/actions/dotnet-build
+    - name: Compile Solution and Collect Artifacts
+      uses: ./.github/actions/compile-solution
       with:
-        solution: SmartHopper.sln
-        configuration: Release
-        signing_snk_base64: ${{ secrets.SIGNING_SNK_BASE64 }}
-        libs_repo_pat: ${{ secrets.LIBS_REPO_PAT }}
-        signing_pfx_base64: ${{ secrets.SIGNING_PFX_BASE64 }}
-        signing_pfx_password: ${{ secrets.SIGNING_PFX_PASSWORD }}
         version: ${{ steps.determine_version.outputs.VERSION }}
-
-    - name: Create Output Directory
-      shell: pwsh
-      run: |
-        $outputDir = "artifacts"
-        New-Item -ItemType Directory -Force -Path $outputDir
-        
-        # Get the version to build
-        $version = "${{ steps.determine_version.outputs.VERSION }}"
-        Write-Host "Building for version: $version"
-        
-        # Copy all build artifacts to the output directory
-        $buildDir = "bin\$version\Release"
-        
-        # Verify build directory exists
-        if (!(Test-Path $buildDir)) {
-          Write-Host "Error: Build directory '$buildDir' does not exist."
-          Write-Host "Available directories in bin:"
-          Get-ChildItem -Path "bin" -Directory | ForEach-Object { Write-Host $_.FullName }
-          exit 1
-        }
-        
-        # Define the target platforms
-        $platforms = @("net7.0-windows", "net7.0")
-        
-        # Copy only .gha and .dll files directly from each platform folder (not recursive)
-        foreach ($platform in $platforms) {
-          $platformPath = Join-Path $buildDir $platform
-          
-          if (Test-Path $platformPath) {
-            Write-Host "Processing platform: $platform"
-            
-            # Create the target directory
-            $targetPlatformPath = Join-Path $outputDir $platform
-            New-Item -ItemType Directory -Force -Path $targetPlatformPath
-            
-            # List files in the source directory to verify what's available
-            Write-Host "Files available in source directory ($platformPath):"
-            Get-ChildItem -Path $platformPath -File | ForEach-Object { Write-Host "  - $($_.Name)" }
-            
-            # Copy only .gha and .dll files directly in the platform folder (not recursive)
-            $filesCopied = 0
-            Get-ChildItem -Path $platformPath -File | 
-              Where-Object { ($_.Extension -eq ".dll" -or $_.Extension -eq ".gha") } |
-              ForEach-Object {
-                $targetFile = Join-Path $targetPlatformPath $_.Name
-                Write-Host "Copying $($_.FullName) to $targetFile"
-                Copy-Item $_.FullName -Destination $targetFile -Force
-                $filesCopied++
-              }
-            
-            Write-Host "Copied $filesCopied files to $targetPlatformPath"
-            
-            # Verify files were copied
-            $copiedFiles = Get-ChildItem -Path $targetPlatformPath -File
-            Write-Host "Files in target directory ($targetPlatformPath): $($copiedFiles.Count)"
-            $copiedFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
-          } else {
-            Write-Host "##[warning] Platform folder $platformPath not found, skipping"
-          }
-        }
-        
-        # List all copied files for verification
-        Write-Host "Files copied to artifacts directory:"
-        Get-ChildItem -Path $outputDir -Recurse | Select-Object FullName
+        configuration: Release
+        platforms: '["net7.0-windows", "net7.0"]'
+        signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
+        libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
+        signing-pfx-base64: ${{ secrets.SIGNING_PFX_BASE64 }}
+        signing-pfx-password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        output-directory: artifacts
 
     - name: Validate build artifacts
       shell: pwsh
@@ -297,6 +233,23 @@ jobs:
         $zipPathsJson = ConvertTo-Json -InputObject $zipPaths -Compress
         echo "zip_paths=$zipPathsJson" >> $env:GITHUB_OUTPUT
 
+    - name: Calculate Provider SHA-256 Hashes
+      id: calculate_hashes
+      uses: ./.github/actions/calculate-provider-hashes
+      with:
+        artifacts-path: artifacts
+        version: ${{ steps.determine_version.outputs.VERSION }}
+        platforms: '["net7.0-windows", "net7.0"]'
+        build-number: ${{ github.run_number }}
+        commit-sha: ${{ github.sha }}
+        repository: ${{ github.repository }}
+
+    - name: Upload Hash Manifest to Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: provider-hashes
+        path: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -352,3 +305,25 @@ jobs:
         asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
         asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
         asset_content_type: application/zip
+        
+    - name: Upload Provider Hash Manifest to Release
+      if: steps.determine_version.outputs.IS_RELEASE == 'true'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
+        asset_path: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+        asset_name: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+        asset_content_type: application/json
+
+    - name: Publish Hash Manifest to GitHub Pages
+      if: steps.determine_version.outputs.IS_RELEASE == 'true'
+      uses: ./.github/actions/publish-to-github-pages
+      with:
+        hash-file: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+        version: ${{ steps.determine_version.outputs.VERSION }}
+        pages-directory: '.github/pages/hashes'
+        update-latest: 'auto'
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}

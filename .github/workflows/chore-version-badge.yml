@@ -15,9 +15,10 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - release/*
       - main
       - dev
+      - 'hotfix/**'
+      - 'release/**'
 
 permissions:
   contents: write

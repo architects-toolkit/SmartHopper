@@ -125,7 +125,7 @@ namespace SmartHopper.Infrastructure.Dialogs
 
             // Calculate required height based on message content
             const int dialogWidth = 400;
-            const int textWidth = 360;
+            const int textWidth = 100;
             const int lineHeight = 24; // Line height for 12pt font with spacing
             const int charsPerLine = 42; // Conservative estimate for wrapped text
 
@@ -154,11 +154,13 @@ namespace SmartHopper.Infrastructure.Dialogs
             // - Dialog padding (top + bottom): ~40px
             // - Extra buffer for word wrapping variance: ~20px
             var messageHeight = totalLines * lineHeight;
-            var contentHeight = 60 + messageHeight + 20 + 50 + 40 + 20;
+            var contentHeight = messageHeight;
+
+            // var contentHeight = 60 + messageHeight + 20 + 50 + 40 + 20;
             var dialogHeight = Math.Max(240, Math.Min(contentHeight, 600)); // Clamp between 240 and 600
 
             this.Size = new Size(dialogWidth, dialogHeight);
-            this.MinimumSize = new Size(350, 200);
+            this.MinimumSize = new Size(240, Math.Min(200 + contentHeight, 400));
 
             var bodyLabel = new Label
             {

@@ -24,6 +24,7 @@ using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Properties;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Menu.Dialogs
 {
@@ -40,10 +41,11 @@ namespace SmartHopper.Menu.Dialogs
         /// <summary>
         /// Initializes a new instance of the AboutDialog
         /// </summary>
-        /// <param name="version">The version of SmartHopper to display</param>
-        public AboutDialog(string version)
+        public AboutDialog()
         {
             this.Title = "About SmartHopper";
+
+            string version = VersionHelper.GetDisplayVersion();
 
             // Set window icon from embedded resource
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
