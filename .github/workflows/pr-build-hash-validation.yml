@@ -109,37 +109,3 @@ jobs:
         } else {
           Write-Host "##[notice] ✅ VALIDATION PASSED: Build successful and no hash conflicts"
         }
-
-    - name: Comment on PR
-      if: always()
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const version = '${{ steps.extract_version.outputs.version }}';
-          const hashCount = '${{ steps.calculate_hashes.outputs.HASH_COUNT }}';
-          const conflict = '${{ steps.check_conflicts.outputs.CONFLICT }}';
-          const conflictMessage = '${{ steps.check_conflicts.outputs.CONFLICT_MESSAGE }}';
-          
-          let body = '## 🔍 Build & Hash Validation Report\n\n';
-          body += `**Version:** \`${version}\`\n`;
-          body += `**Providers Hashed:** ${hashCount}\n\n`;
-          
-          if (conflict === 'true') {
-            body += '### ❌ Validation Failed\n\n';
-            body += `**Hash File Conflict Detected**\n\n`;
-            body += `${conflictMessage}\n\n`;
-            body += '**Action Required:** Increment the version in `Solution.props` to avoid overwriting existing hash files.\n';
-          } else {
-            body += '### ✅ Validation Passed\n\n';
-            body += '- Build completed successfully\n';
-            body += '- Hash manifest generated without errors\n';
-            body += '- No hash file conflicts detected\n';
-          }
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          });
