@@ -123,6 +123,46 @@ runs:
           Write-Host "Updated latest.json"
         }
         
+        # Generate versions manifest
+        Write-Host ""
+        Write-Host "Generating versions manifest..."
+        $versionsList = @()
+        
+        # Get all JSON files in hashes directory
+        $hashFiles = Get-ChildItem -Path $hashesDir -Filter "*.json" -File
+        foreach ($file in $hashFiles) {
+          $versionName = $file.Name -replace '\.json$', ''
+          $isLatest = $file.Name -eq "latest.json"
+          $isStableVersion = $versionName -notmatch '-(alpha|beta|rc|dev)[\.\-]?[\d\w\.]*'
+          
+          $versionsList += @{
+            name = $file.Name
+            version = $versionName
+            isLatest = $isLatest
+            isStable = $isStableVersion
+            url = "hashes/$($file.Name)"
+          }
+        }
+        
+        # Sort versions (latest first, then by version number descending)
+        $versionsList = $versionsList | Sort-Object -Property @{
+          Expression = { if ($_.isLatest) { 0 } else { 1 } }
+        }, @{
+          Expression = { $_.version }
+          Descending = $true
+        }
+        
+        # Write versions manifest
+        $versionsManifest = @{
+          generated = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+          repository = $repository
+          versions = $versionsList
+        }
+        $versionsJsonPath = Join-Path $hashesDir "versions.json"
+        $versionsManifest | ConvertTo-Json -Depth 10 | Set-Content -Path $versionsJsonPath -Encoding UTF8
+        Write-Host "Created versions manifest at: $versionsJsonPath"
+        Write-Host "Listed $($versionsList.Count) version(s)"
+        
         # Create index page
         Write-Host ""
         Write-Host "Creating index page..."
@@ -196,27 +236,28 @@ runs:
           </style>
         </head>
         <body>
-          <h1>🔐 SmartHopper Provider Hash Repository</h1>
+          <h1>SmartHopper Files Hash Repository</h1>
           
           <div class="info">
-            <p><strong>Purpose:</strong> This repository contains SHA-256 hash manifests for SmartHopper provider DLLs.</p>
+            <p><strong>Purpose:</strong> This repository contains SHA-256 hash manifests for SmartHopper files.</p>
             <p>These hashes are used to verify the integrity and authenticity of provider assemblies at runtime.</p>
           </div>
           
-          <h2>📦 Available Versions</h2>
+          <h2>Available Versions</h2>
           <div id="versions" class="loading">Loading versions...</div>
           
           <script>
-            fetch('https://api.github.com/repos/${repository}/contents/.github/pages/hashes')
+            // Fetch the versions manifest
+            fetch('hashes/versions.json')
               .then(r => {
-                if (!r.ok) throw new Error('Failed to fetch versions');
+                if (!r.ok) throw new Error('Failed to fetch versions manifest');
                 return r.json();
               })
-              .then(files => {
+              .then(data => {
                 const container = document.getElementById('versions');
-                const jsonFiles = files.filter(f => f.name.endsWith('.json'));
+                const versions = data.versions || [];
                 
-                if (jsonFiles.length === 0) {
+                if (versions.length === 0) {
                   container.innerHTML = '<p>No versions available yet.</p>';
                   container.className = '';
                   return;
@@ -225,31 +266,22 @@ runs:
                 container.innerHTML = '';
                 container.className = '';
                 
-                jsonFiles
-                  .sort((a, b) => {
-                    if (a.name === 'latest.json') return -1;
-                    if (b.name === 'latest.json') return 1;
-                    return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' });
-                  })
-                  .forEach(f => {
+                // Versions are already sorted in the manifest
+                versions.forEach(v => {
                     const div = document.createElement('div');
                     const a = document.createElement('a');
-                    const rawUrl = 'https://raw.githubusercontent.com/${repository}/gh-pages/hashes/' + f.name;
-                    a.href = rawUrl;
-                    a.textContent = f.name.replace('.json', '');
+                    a.href = v.url;
+                    a.textContent = v.version;
                     
-                    const isLatest = f.name === 'latest.json';
-                    const isStable = !f.name.match(/(alpha|beta|rc|dev)/);
-                    
-                    div.className = 'version ' + (isStable || isLatest ? 'stable' : 'prerelease');
+                    div.className = 'version ' + (v.isStable || v.isLatest ? 'stable' : 'prerelease');
                     div.appendChild(a);
                     
-                    if (isLatest) {
+                    if (v.isLatest) {
                       const badge = document.createElement('span');
                       badge.className = 'badge badge-stable';
                       badge.textContent = 'Latest Stable';
                       div.appendChild(badge);
-                    } else if (!isStable) {
+                    } else if (!v.isStable) {
                       const badge = document.createElement('span');
                       badge.className = 'badge badge-prerelease';
                       badge.textContent = 'Prerelease';
