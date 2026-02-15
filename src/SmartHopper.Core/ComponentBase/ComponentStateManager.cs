@@ -299,35 +299,46 @@ namespace SmartHopper.Core.ComponentBase
         {
             this.ThrowIfDisposed();
 
+            ComponentState rejectedFromState = default;
+            string rejectionMessage = null;
+
             lock (this.stateLock)
             {
                 // Validate the transition
                 if (!this.IsValidTransition(this.currentState, newState))
                 {
-                    var message = $"Invalid transition from {this.currentState} to {newState}";
-                    Debug.WriteLine($"[{this.componentName}] {message}");
-                    this.TransitionRejected?.Invoke(this.currentState, newState, message);
-                    return false;
+                    rejectionMessage = $"Invalid transition from {this.currentState} to {newState}";
+                    rejectedFromState = this.currentState;
+                    Debug.WriteLine($"[{this.componentName}] {rejectionMessage}");
                 }
-
-                // Queue the transition
-                var request = new StateTransitionRequest(newState, reason);
-                this.pendingTransitions.Enqueue(request);
-                Debug.WriteLine($"[{this.componentName}] Queued transition to {newState} (reason: {reason})");
-
-                // Process queue if not already transitioning
-                if (!this.isTransitioning)
+                else
                 {
-                    this.ProcessTransitionQueue();
-                }
+                    // Queue the transition
+                    var request = new StateTransitionRequest(newState, reason);
+                    this.pendingTransitions.Enqueue(request);
+                    Debug.WriteLine($"[{this.componentName}] Queued transition to {newState} (reason: {reason})");
 
-                return true;
+                    // Process queue if not already transitioning
+                    if (!this.isTransitioning)
+                    {
+                        this.ProcessTransitionQueue();
+                    }
+                }
             }
+
+            // Fire rejection event outside the lock to prevent re-entrant deadlocks
+            if (rejectionMessage != null)
+            {
+                this.TransitionRejected?.Invoke(rejectedFromState, newState, rejectionMessage);
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
         /// Processes the transition queue, executing each transition in order.
-        /// Events are fired outside the lock to prevent deadlocks.
+        /// Events are collected inside the lock and fired outside to prevent re-entrant deadlocks.
         /// </summary>
         private void ProcessTransitionQueue()
         {
@@ -339,53 +350,45 @@ namespace SmartHopper.Core.ComponentBase
 
             this.isTransitioning = true;
 
-            // Collect events to fire outside the lock to prevent deadlocks
-            var eventsToFire = new List<(ComponentState OldState, ComponentState NewState, TransitionReason Reason)>();
+            // Collect all transition results inside the lock in one pass
+            var pendingEvents = new List<(ComponentState oldState, ComponentState newState, bool isRejection, string rejectionMessage)>();
 
-            try
+            while (this.pendingTransitions.Count > 0)
             {
-                while (this.pendingTransitions.Count > 0)
+                var request = this.pendingTransitions.Dequeue();
+                var result = this.ExecuteTransitionCore(request);
+                if (result.HasValue)
                 {
-                    var request = this.pendingTransitions.Dequeue();
-                    var transitionResult = this.ExecuteTransitionCore(request);
-                    if (transitionResult.HasValue)
-                    {
-                        eventsToFire.Add(transitionResult.Value);
-                    }
+                    pendingEvents.Add(result.Value);
                 }
             }
-            finally
-            {
-                this.isTransitioning = false;
-            }
 
-            // Fire events outside the lock to prevent deadlocks (macOS threading issue)
-            // Events are collected above and fired here after releasing isTransitioning,
-            // so that event handlers can safely read CurrentState without deadlocking.
-            if (eventsToFire.Count > 0)
+            // Clear transitioning flag BEFORE releasing lock to prevent race conditions
+            this.isTransitioning = false;
+
+            // Fire all events outside the lock
+            // Event handlers may call RequestTransition(), which will queue new transitions
+            // for the next ProcessTransitionQueue() call
+            foreach (var evt in pendingEvents)
             {
-                System.Threading.Monitor.Exit(this.stateLock);
-                try
+                if (evt.isRejection)
                 {
-                    foreach (var evt in eventsToFire)
-                    {
-                        this.FireTransitionEvents(evt.OldState, evt.NewState, evt.Reason);
-                    }
+                    this.TransitionRejected?.Invoke(evt.oldState, evt.newState, evt.rejectionMessage);
                 }
-                finally
+                else
                 {
-                    System.Threading.Monitor.Enter(this.stateLock);
+                    this.FireTransitionEvents(evt.oldState, evt.newState);
                 }
             }
         }
 
         /// <summary>
-        /// Executes the core state transition logic without firing events.
-        /// Returns the transition info if successful, null otherwise.
+        /// Executes a single state transition without firing events.
+        /// Returns transition info for deferred event firing, or null if no transition occurred.
         /// </summary>
         /// <param name="request">The transition request to execute.</param>
-        /// <returns>Transition info tuple if successful, null otherwise.</returns>
-        private (ComponentState OldState, ComponentState NewState, TransitionReason Reason)? ExecuteTransitionCore(StateTransitionRequest request)
+        /// <returns>Transition info tuple, or null if skipped/rejected.</returns>
+        private (ComponentState oldState, ComponentState newState, bool isRejection, string rejectionMessage)? ExecuteTransitionCore(StateTransitionRequest request)
         {
             // Already holding stateLock from caller
             var oldState = this.currentState;
@@ -403,31 +406,26 @@ namespace SmartHopper.Core.ComponentBase
             {
                 var message = $"Transition from {oldState} to {newState} no longer valid";
                 Debug.WriteLine($"[{this.componentName}] {message}");
-                // Fire rejection event immediately (it's safe, doesn't access CurrentState)
-                this.TransitionRejected?.Invoke(oldState, newState, message);
-                return null;
+                return (oldState, newState, isRejection: true, rejectionMessage: message);
             }
 
             Debug.WriteLine($"[{this.componentName}] Transitioning: {oldState} -> {newState} (reason: {request.Reason})");
 
-            // Update state
+            // Update state (events fired by caller outside the lock)
             this.currentState = newState;
 
-            return (oldState, newState, request.Reason);
+            return (oldState, newState, isRejection: false, rejectionMessage: null);
         }
 
         /// <summary>
-        /// Fires all transition events. Must be called outside the lock.
+        /// Fires state transition events outside the lock.
         /// </summary>
-        private void FireTransitionEvents(ComponentState oldState, ComponentState newState, TransitionReason reason)
+        /// <param name="oldState">The previous state.</param>
+        /// <param name="newState">The new state.</param>
+        private void FireTransitionEvents(ComponentState oldState, ComponentState newState)
         {
-            // Fire exit event
             this.StateExited?.Invoke(oldState);
-
-            // Fire enter event
             this.StateEntered?.Invoke(newState);
-
-            // Fire changed event
             this.StateChanged?.Invoke(oldState, newState);
         }
 
@@ -494,21 +492,22 @@ namespace SmartHopper.Core.ComponentBase
         {
             this.ThrowIfDisposed();
 
+            ComponentState oldState;
+
             lock (this.stateLock)
             {
-                var oldState = this.currentState;
+                oldState = this.currentState;
                 if (oldState == newState)
                 {
                     return;
                 }
 
                 Debug.WriteLine($"[{this.componentName}] Force state: {oldState} -> {newState}");
-
-                this.StateExited?.Invoke(oldState);
                 this.currentState = newState;
-                this.StateEntered?.Invoke(newState);
-                this.StateChanged?.Invoke(oldState, newState);
             }
+
+            // Fire events outside the lock to prevent re-entrant deadlocks
+            this.FireTransitionEvents(oldState, newState);
         }
 
         /// <summary>
@@ -792,9 +791,10 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Restart timer
                 this.debounceTimer.Change(milliseconds, Timeout.Infinite);
-
-                this.DebounceStarted?.Invoke(targetState, milliseconds);
             }
+
+            // Fire event outside the lock to prevent re-entrant deadlocks
+            this.DebounceStarted?.Invoke(targetState, milliseconds);
         }
 
         /// <summary>
@@ -802,6 +802,8 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public void CancelDebounce()
         {
+            bool wasCancelled = false;
+
             lock (this.stateLock)
             {
                 if (this.debounceTimeMs > 0)
@@ -810,9 +812,14 @@ namespace SmartHopper.Core.ComponentBase
                     this.debounceTimer.Change(Timeout.Infinite, Timeout.Infinite);
                     this.debounceTimeMs = 0;
                     this.debounceGeneration++; // Invalidate any pending callbacks
-
-                    this.DebounceCancelled?.Invoke();
+                    wasCancelled = true;
                 }
+            }
+
+            // Fire event outside the lock to prevent re-entrant deadlocks
+            if (wasCancelled)
+            {
+                this.DebounceCancelled?.Invoke();
             }
         }
 
@@ -824,9 +831,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             int capturedGeneration;
             ComponentState targetState;
-            int capturedTimeMs;
 
-            // Capture all required data in a single lock to ensure consistency
+            // Single lock acquisition to capture all required data and validate
             lock (this.stateLock)
             {
                 // If debounce time is 0, timer has already been cancelled/reset
@@ -838,28 +844,17 @@ namespace SmartHopper.Core.ComponentBase
 
                 capturedGeneration = this.debounceGeneration;
                 targetState = this.debounceTargetState;
-                capturedTimeMs = this.debounceTimeMs;
-                
-                // Mark as elapsed immediately to prevent race conditions
-                this.debounceTimeMs = 0;
-            }
-
-            // Additional validation check outside the lock
-            lock (this.stateLock)
-            {
-                // Double-check generation and that we're still the active timer
-                if (capturedGeneration != this.debounceGeneration || capturedTimeMs == 0)
-                {
-                    Debug.WriteLine($"[{this.componentName}] Debounce callback stale (gen {capturedGeneration} != {this.debounceGeneration}, time {capturedTimeMs}), ignoring");
-                    return;
-                }
 
                 // Validate target state is still compatible with current state
                 if (!this.IsValidTransition(this.currentState, targetState))
                 {
                     Debug.WriteLine($"[{this.componentName}] Debounce target {targetState} no longer valid from {this.currentState}");
+                    this.debounceTimeMs = 0;
                     return;
                 }
+                
+                // Mark as elapsed to prevent race conditions
+                this.debounceTimeMs = 0;
             }
 
             Debug.WriteLine($"[{this.componentName}] Debounce elapsed, requesting transition to {targetState}");
