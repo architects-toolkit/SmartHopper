@@ -262,6 +262,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 Debug.WriteLine($"[ConversationSession.Debug] Error appending summarized marker: {ex.Message}");
             }
         }
+
 #endif
     }
 }

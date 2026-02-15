@@ -1,8 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project>
+  <Import Project="$(MSBuildThisFileDirectory)Solution.props" Condition="Exists('$(MSBuildThisFileDirectory)Solution.props')" />
   <!-- Metadata for .NET project -->
   <PropertyGroup>
-    <Version>$(SolutionVersion)</Version>
+    <Version Condition="'$(SolutionVersion)' != ''">$(SolutionVersion)</Version>
     <Company>Architect's Toolkit</Company>
     <Authors>Marc Roca Musach + SmartHopper Community</Authors>
     <Copyright>Copyright (C) 2024-2026 Marc Roca Musach</Copyright>

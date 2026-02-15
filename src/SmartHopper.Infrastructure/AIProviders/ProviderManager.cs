@@ -23,6 +23,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -30,6 +31,7 @@ using System.Threading.Tasks;
 using Rhino;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {
@@ -55,7 +57,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Discovers and loads provider assemblies from the same directory as the main application.
         /// </summary>
-        private void DiscoverProviders()
+        private async Task DiscoverProvidersAsync()
         {
             try
             {
@@ -69,7 +71,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     try
                     {
-                        this.LoadProviderAssembly(providerFile);
+                        await this.LoadProviderAssemblyAsync(providerFile).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -86,12 +88,12 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Manually triggers discovery of external AI providers.
         /// </summary>
-        public void RefreshProviders()
+        public async Task RefreshProvidersAsync()
         {
             Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
 
             // Discover new providers
-            this.DiscoverProviders();
+            await this.DiscoverProvidersAsync().ConfigureAwait(false);
 
             // After discovery, refresh settings for all providers
             Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
@@ -99,10 +101,50 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Manually triggers discovery of external AI providers (synchronous wrapper).
+        /// For backward compatibility. Prefer RefreshProvidersAsync() when possible.
+        /// </summary>
+        public void RefreshProviders()
+        {
+            // Run async method synchronously for backward compatibility
+            // This is safe when called from non-UI threads
+            this.RefreshProvidersAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Verifies all provider DLLs in the provider directory using SHA-256 hashes.
+        /// </summary>
+        /// <returns>Dictionary of DLL names to verification results</returns>
+        public async Task<Dictionary<string, ProviderVerificationResult>> VerifyAllProvidersAsync()
+        {
+            try
+            {
+                // Get the directory where the current assembly is located (same as DiscoverProvidersAsync)
+                string assemblyLocation = Assembly.GetExecutingAssembly().Location;
+                string baseDirectory = Path.GetDirectoryName(assemblyLocation);
+
+                // Get platform and version
+                string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? "net7.0-windows"
+                    : "net7.0";
+                string version = VersionHelper.GetDisplayVersion();
+
+                // Verify all providers
+                return await ProviderHashVerifier.VerifyAllProvidersAsync(baseDirectory, version, platform)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ProviderManager] Error verifying providers: {ex.Message}");
+                return new Dictionary<string, ProviderVerificationResult>();
+            }
+        }
+
+        /// <summary>
         /// Loads a provider assembly and registers any providers it contains.
         /// </summary>
         /// <param name="assemblyPath">The path to the provider assembly.</param>
-        private void LoadProviderAssembly(string assemblyPath)
+        private async Task LoadProviderAssemblyAsync(string assemblyPath)
         {
             try
             {
@@ -114,34 +156,107 @@ namespace SmartHopper.Infrastructure.AIProviders
                 catch (CryptographicException ex)
                 {
                     Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
-                    RhinoApp.InvokeOnUiThread(new Action(() =>
+                    await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
                     {
                         StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
-                    }));
+                    }))).ConfigureAwait(false);
                     return;
+                }
+
+                // SHA-256 hash verification (enhanced security for all platforms)
+                try
+                {
+                    string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                        ? "net7.0-windows"
+                        : "net7.0";
+
+                    string version = VersionHelper.GetDisplayVersion();
+
+                    var hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
+                        .ConfigureAwait(false);
+
+                    switch (hashResult.Status)
+                    {
+                        case ProviderVerificationStatus.Match:
+                            Debug.WriteLine($"[ProviderManager] SHA-256 verification passed for {Path.GetFileName(assemblyPath)}");
+                            break;
+
+                        case ProviderVerificationStatus.Mismatch:
+                            // CRITICAL: Hash mismatch indicates potential tampering
+                            await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                            {
+                                StyledMessageDialog.ShowError(
+                                    $"SECURITY WARNING: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
+                                    $"The file's SHA-256 hash does not match the published hash from official sources. " +
+                                    $"This could indicate file corruption or tampering.\n\n" +
+                                    $"Expected: {hashResult.PublicHash}\n" +
+                                    $"Actual: {hashResult.LocalHash}\n\n" +
+                                    $"Please re-download the provider from official SmartHopper sources.",
+                                    "Security Warning - SmartHopper"
+                                );
+                            }))).ConfigureAwait(false);
+                            return;
+
+                        case ProviderVerificationStatus.Unavailable:
+                        case ProviderVerificationStatus.NotFound:
+                            // WARNING: Cannot verify - log to console
+                            var warningMessage = hashResult.Status == ProviderVerificationStatus.Unavailable
+                                ? $"WARNING: Could not retrieve SHA-256 hash for '{Path.GetFileName(assemblyPath)}' from public repository.\n" +
+                                  $"This may be due to network connectivity issues or public hash repository unavailability.\n" +
+                                  $"Hash verification will be skipped. Ensure you trust this provider's source before enabling it."
+                                : $"WARNING: SHA-256 hash for '{Path.GetFileName(assemblyPath)}' not found in public repository.\n" +
+                                  $"This provider may be a custom/third-party provider or from a different SmartHopper version.\n" +
+                                  $"Ensure you trust this provider's source before enabling it.";
+
+                            RhinoApp.WriteLine(warningMessage);
+                            Debug.WriteLine($"[ProviderManager] {warningMessage}");
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
+
+                    // Continue loading - don't block on verification errors
                 }
 
                 var settings = SmartHopperSettings.Instance;
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
 
                 // Prompt user for providers with no trust entry
+                Debug.WriteLine($"[ProviderManager] Checking trust for provider: {asmName}");
+                Debug.WriteLine($"[ProviderManager] TrustedProviders contains '{asmName}': {settings.TrustedProviders.ContainsKey(asmName)}");
+
                 if (!settings.TrustedProviders.ContainsKey(asmName))
                 {
+                    Debug.WriteLine($"[ProviderManager] Showing trust prompt for: {asmName}");
+
+                    // Use TaskCompletionSource to properly wait for the dialog result
                     var tcs = new TaskCompletionSource<bool>();
                     RhinoApp.InvokeOnUiThread(new Action(() =>
                     {
-                        tcs.SetResult(StyledMessageDialog.ShowConfirmation($"Detected new AI provider '{asmName}'. Enable it?"));
+                        try
+                        {
+                            Debug.WriteLine($"[ProviderManager] Displaying confirmation dialog for: {asmName}");
+                            bool result = StyledMessageDialog.ShowConfirmation($"A new AI provider was detected\n'{asmName}'.\n\nDo you want to enable it?\n\nIf you do not enable it now, you can do it later in the SmartHopper settings.");
+                            Debug.WriteLine($"[ProviderManager] Dialog returned: {result} for: {asmName}");
+                            tcs.SetResult(result);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[ProviderManager] Dialog error for {asmName}: {ex.Message}");
+                            tcs.SetResult(false);
+                        }
                     }));
-                    if (tcs.Task.Result)
-                    {
-                        settings.TrustedProviders[asmName] = true;
-                        settings.Save();
-                    }
-                    else
-                    {
-                        settings.TrustedProviders[asmName] = false;
-                        settings.Save();
-                    }
+
+                    bool userConfirmed = await tcs.Task.ConfigureAwait(false);
+                    Debug.WriteLine($"[ProviderManager] User confirmed: {userConfirmed} for: {asmName}");
+                    settings.TrustedProviders[asmName] = userConfirmed;
+                    settings.Save();
+                }
+                else
+                {
+                    Debug.WriteLine($"[ProviderManager] Trust already exists for: {asmName} = {settings.TrustedProviders[asmName]}");
                 }
 
                 // Load the assembly
@@ -421,21 +536,33 @@ namespace SmartHopper.Infrastructure.AIProviders
         private void VerifySignature(string filePath)
         {
             // Authenticode: ensure the certificate matches the host assembly's certificate
-            try
+            // X509Certificate.CreateFromSignedFile is only supported on Windows
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(filePath));
-                var baseCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
-                    Assembly.GetExecutingAssembly().Location));
-                if (!string.Equals(cert.Thumbprint, baseCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
-                    throw new CryptographicException($"Authenticode certificate mismatch for {Path.GetFileName(filePath)}.");
-            }
-            catch (CryptographicException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new CryptographicException($"Authenticode signature verification failed for {Path.GetFileName(filePath)}: {ex.Message}", ex);
+                try
+                {
+                    var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(filePath));
+                    var baseCert = new X509Certificate2(X509Certificate.CreateFromSignedFile(
+                        Assembly.GetExecutingAssembly().Location));
+                    if (!string.Equals(cert.Thumbprint, baseCert.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                        throw new CryptographicException($"Authenticode certificate mismatch for {Path.GetFileName(filePath)}.");
+                }
+                catch (CryptographicException)
+                {
+                    throw;
+                }
+                catch (FileNotFoundException ex)
+                {
+                    throw new CryptographicException($"File is not a valid signed assembly: {Path.GetFileName(filePath)}", ex);
+                }
+                catch (BadImageFormatException ex)
+                {
+                    throw new CryptographicException($"File is not a valid assembly format: {Path.GetFileName(filePath)}", ex);
+                }
+                catch (Exception ex)
+                {
+                    throw new CryptographicException($"Authenticode signature verification failed for {Path.GetFileName(filePath)}: {ex.Message}", ex);
+                }
             }
 
             // Strong-name: ensure public key token matches the host assembly's token
@@ -450,6 +577,14 @@ namespace SmartHopper.Infrastructure.AIProviders
             catch (SecurityException)
             {
                 throw;
+            }
+            catch (FileNotFoundException ex)
+            {
+                throw new CryptographicException($"File is not a valid assembly: {Path.GetFileName(filePath)}", ex);
+            }
+            catch (BadImageFormatException ex)
+            {
+                throw new CryptographicException($"File is not a valid assembly format: {Path.GetFileName(filePath)}", ex);
             }
             catch (Exception ex)
             {

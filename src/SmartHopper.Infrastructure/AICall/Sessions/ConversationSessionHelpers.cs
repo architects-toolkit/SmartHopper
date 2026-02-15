@@ -415,6 +415,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     : string.Empty;
                 Debug.WriteLine($"[ConversationSession.UpdateLastReturn] Final aggregated metrics from body: Tokens In={aggregatedMetrics.InputTokensPrompt}, Out={aggregatedMetrics.OutputTokensGeneration}, Time={aggregatedMetrics.CompletionTime:F2}s, FinishReason={aggregatedMetrics.FinishReason}{contextUsageStr}");
             }
+
 #endif
             this._lastReturn = snapshot;
         }

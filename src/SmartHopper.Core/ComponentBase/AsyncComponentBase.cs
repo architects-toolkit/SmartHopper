@@ -241,6 +241,7 @@ namespace SmartHopper.Core.ComponentBase
                         {
                             this.Message = outMessage;
                         }
+
                         Debug.WriteLine($"[AsyncComponentBase] Worker {i + 1} output set, message: {outMessage}");
                     });
 
