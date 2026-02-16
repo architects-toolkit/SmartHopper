@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- fix(core): fire `ComponentStateManager` transition events outside `stateLock` using `Monitor.Exit`/`Monitor.Enter` to prevent deadlocks from re-entrant lock acquisition on macOS (adapted to 1.4.0 code structure)
+- fix(infrastructure): skip SHA-256 hash verification on non-Windows platforms where source-built assemblies produce different hashes than official releases
+- fix(tools): set GhJSON component `Id = 1` when `InstanceGuid` is null in `script_generate` and `script_edit` to satisfy GhJSON.Core validation requiring at least one identifier
+- fix(tools): add `SanitizeAndParseJson` to handle AI responses wrapped in markdown code blocks or non-JSON formatting in `script_generate` and `script_edit`
+- fix(infrastructure): improve `AIProvider.CallApi()` error messages for non-JSON API responses (e.g., HTML error pages from proxies)
+
 ## [1.4.0-alpha] - 2026-02-15
 
 Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](https://github.com/nof2504) for the contributions to this release.
