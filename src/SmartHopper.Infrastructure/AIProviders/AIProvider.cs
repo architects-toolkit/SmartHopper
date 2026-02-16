@@ -771,7 +771,19 @@ namespace SmartHopper.Infrastructure.AIProviders
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[{this.Name}] Call - Failed to parse JSON response: {ex.Message}");
-                        throw;
+
+                        // Provide a more useful error when the API returns non-JSON content (e.g., HTML error pages)
+                        var preview = content?.Length > 200 ? content.Substring(0, 200) + "..." : content;
+                        if (!string.IsNullOrEmpty(content) && content.TrimStart().StartsWith("<", StringComparison.Ordinal))
+                        {
+                            throw new Exception(
+                                $"The {this.Name} API returned an HTML response instead of JSON. " +
+                                $"This usually indicates a server error, proxy issue, or Cloudflare challenge. " +
+                                $"Response preview: {preview}");
+                        }
+
+                        throw new Exception(
+                            $"The {this.Name} API returned invalid JSON. Response preview: {preview}", ex);
                     }
 
                     var aiReturn = new AIReturn();

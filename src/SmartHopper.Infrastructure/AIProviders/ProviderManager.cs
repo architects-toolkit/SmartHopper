@@ -148,27 +148,34 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             try
             {
-                // Authenticode signature validation
-                try
+                // Authenticode signature validation (Windows-only, skip on macOS/Linux)
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    this.VerifySignature(assemblyPath);
-                }
-                catch (CryptographicException ex)
-                {
-                    Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
-                    await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                    try
                     {
-                        StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
-                    }))).ConfigureAwait(false);
-                    return;
+                        this.VerifySignature(assemblyPath);
+                    }
+                    catch (CryptographicException ex)
+                    {
+                        Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
+                        await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                        {
+                            StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
+                        }))).ConfigureAwait(false);
+                        return;
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine($"[ProviderManager] Skipping Authenticode verification on non-Windows platform for {Path.GetFileName(assemblyPath)}");
                 }
 
-                // SHA-256 hash verification (enhanced security for all platforms)
+                // SHA-256 hash verification (Windows only; macOS skips due to source-build hash differences)
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
                 try
                 {
-                    string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                        ? "net7.0-windows"
-                        : "net7.0";
+                    string platform = "net7.0-windows";
 
                     string version = VersionHelper.GetDisplayVersion();
 
@@ -182,7 +189,15 @@ namespace SmartHopper.Infrastructure.AIProviders
                             break;
 
                         case ProviderVerificationStatus.Mismatch:
-                            // CRITICAL: Hash mismatch indicates potential tampering
+                            // Log warning but don't block on macOS (source builds have different hashes)
+                            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                            {
+                                Debug.WriteLine($"[ProviderManager] SHA-256 mismatch on non-Windows platform for {Path.GetFileName(assemblyPath)} (expected: {hashResult.PublicHash}, actual: {hashResult.LocalHash}). Allowing load.");
+                                RhinoApp.WriteLine($"WARNING: Provider '{Path.GetFileName(assemblyPath)}' SHA-256 hash does not match published hash. This is expected for source-built assemblies.");
+                                break;
+                            }
+
+                            // CRITICAL on Windows: Hash mismatch indicates potential tampering
                             await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
                             {
                                 StyledMessageDialog.ShowError(
@@ -218,6 +233,11 @@ namespace SmartHopper.Infrastructure.AIProviders
                     Debug.WriteLine($"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
 
                     // Continue loading - don't block on verification errors
+                }
+                } // end if (Windows) for SHA-256 verification
+                else
+                {
+                    Debug.WriteLine($"[ProviderManager] Skipping SHA-256 hash verification on non-Windows platform for {Path.GetFileName(assemblyPath)}");
                 }
 
                 var settings = SmartHopperSettings.Instance;

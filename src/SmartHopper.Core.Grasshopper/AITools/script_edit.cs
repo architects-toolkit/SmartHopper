@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Constants;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -242,7 +243,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse AI response and validate with retry loop
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                var responseJson = JObject.Parse(response);
+                var responseJson = SanitizeAndParseJson(response);
 
                 var newScriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var newInputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -289,7 +290,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     // Parse corrected response
                     response = correctionResult.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                    responseJson = JObject.Parse(response);
+                    responseJson = SanitizeAndParseJson(response);
 
                     newScriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                     newInputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -397,6 +398,71 @@ namespace SmartHopper.Core.Grasshopper.AITools
             };
         }
 
+        /// <summary>
+        /// Attempts to extract and parse a JSON object from an AI response that may contain
+        /// markdown formatting, HTML tags, or other non-JSON wrapping.
+        /// </summary>
+        private static JObject SanitizeAndParseJson(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                throw new JsonException("AI response is empty.");
+            }
+
+            // Try direct parse first
+            try
+            {
+                return JObject.Parse(response);
+            }
+            catch (JsonException)
+            {
+                // Continue with sanitization attempts
+            }
+
+            // Try extracting JSON from markdown code blocks (```json ... ``` or ``` ... ```)
+            var trimmed = response.Trim();
+            var jsonBlockPattern = new System.Text.RegularExpressions.Regex(
+                @"```(?:json)?\s*\n?(.*?)\n?\s*```",
+                System.Text.RegularExpressions.RegexOptions.Singleline);
+            var match = jsonBlockPattern.Match(trimmed);
+            if (match.Success)
+            {
+                try
+                {
+                    return JObject.Parse(match.Groups[1].Value.Trim());
+                }
+                catch (JsonException)
+                {
+                    // Continue
+                }
+            }
+
+            // Try extracting first JSON object from the response
+            var firstBrace = trimmed.IndexOf('{');
+            var lastBrace = trimmed.LastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace)
+            {
+                try
+                {
+                    return JObject.Parse(trimmed.Substring(firstBrace, lastBrace - firstBrace + 1));
+                }
+                catch (JsonException)
+                {
+                    // Continue
+                }
+            }
+
+            // All attempts failed - provide a descriptive error
+            var preview = response.Length > 200 ? response.Substring(0, 200) + "..." : response;
+            if (trimmed.StartsWith("<", StringComparison.Ordinal))
+            {
+                throw new JsonException(
+                    $"AI returned HTML/XML instead of JSON. This may indicate a provider error. Preview: {preview}");
+            }
+
+            throw new JsonException($"AI response is not valid JSON. Preview: {preview}");
+        }
+
         private static string CreateScriptGhJson(
             string languageKey,
             string scriptCode,
@@ -421,6 +487,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 NickName = nickname,
                 InstanceGuid = instanceGuid,
+                Id = instanceGuid.HasValue ? null : 1,
                 Pivot = pivot,
             };
 
