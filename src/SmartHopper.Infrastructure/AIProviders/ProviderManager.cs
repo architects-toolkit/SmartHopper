@@ -189,14 +189,6 @@ namespace SmartHopper.Infrastructure.AIProviders
                             break;
 
                         case ProviderVerificationStatus.Mismatch:
-                            // Log warning but don't block on macOS (source builds have different hashes)
-                            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                            {
-                                Debug.WriteLine($"[ProviderManager] SHA-256 mismatch on non-Windows platform for {Path.GetFileName(assemblyPath)} (expected: {hashResult.PublicHash}, actual: {hashResult.LocalHash}). Allowing load.");
-                                RhinoApp.WriteLine($"WARNING: Provider '{Path.GetFileName(assemblyPath)}' SHA-256 hash does not match published hash. This is expected for source-built assemblies.");
-                                break;
-                            }
-
                             // CRITICAL on Windows: Hash mismatch indicates potential tampering
                             await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
                             {
