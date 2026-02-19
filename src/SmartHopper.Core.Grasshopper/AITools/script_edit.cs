@@ -27,6 +27,7 @@ using GhJSON.Core.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Constants;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -399,68 +400,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Attempts to extract and parse a JSON object from an AI response that may contain
-        /// markdown formatting, HTML tags, or other non-JSON wrapping.
+        /// Sanitizes and parses an AI response as a JSON object.
+        /// Delegates to <see cref="AIResponseParser.SanitizeAndParseJson"/>.
         /// </summary>
         private static JObject SanitizeAndParseJson(string response)
         {
-            if (string.IsNullOrWhiteSpace(response))
-            {
-                throw new JsonException("AI response is empty.");
-            }
-
-            // Try direct parse first
-            try
-            {
-                return JObject.Parse(response);
-            }
-            catch (JsonException)
-            {
-                // Continue with sanitization attempts
-            }
-
-            // Try extracting JSON from markdown code blocks (```json ... ``` or ``` ... ```)
-            var trimmed = response.Trim();
-            var jsonBlockPattern = new System.Text.RegularExpressions.Regex(
-                @"```(?:json)?\s*\n?(.*?)\n?\s*```",
-                System.Text.RegularExpressions.RegexOptions.Singleline);
-            var match = jsonBlockPattern.Match(trimmed);
-            if (match.Success)
-            {
-                try
-                {
-                    return JObject.Parse(match.Groups[1].Value.Trim());
-                }
-                catch (JsonException)
-                {
-                    // Continue
-                }
-            }
-
-            // Try extracting first JSON object from the response
-            var firstBrace = trimmed.IndexOf('{');
-            var lastBrace = trimmed.LastIndexOf('}');
-            if (firstBrace >= 0 && lastBrace > firstBrace)
-            {
-                try
-                {
-                    return JObject.Parse(trimmed.Substring(firstBrace, lastBrace - firstBrace + 1));
-                }
-                catch (JsonException)
-                {
-                    // Continue
-                }
-            }
-
-            // All attempts failed - provide a descriptive error
-            var preview = response.Length > 200 ? response.Substring(0, 200) + "..." : response;
-            if (trimmed.StartsWith("<", StringComparison.Ordinal))
-            {
-                throw new JsonException(
-                    $"AI returned HTML/XML instead of JSON. This may indicate a provider error. Preview: {preview}");
-            }
-
-            throw new JsonException($"AI response is not valid JSON. Preview: {preview}");
+            return AIResponseParser.SanitizeAndParseJson(response);
         }
 
         private static string CreateScriptGhJson(
