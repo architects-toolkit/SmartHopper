@@ -164,6 +164,11 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
 
                 // SHA-256 hash verification (enhanced security for all platforms)
+#if DEBUG
+                // Skip SHA-256 verification in debug builds: local builds will never match
+                // the hashes published from official GitHub releases.
+                Debug.WriteLine($"[ProviderManager] SHA-256 verification skipped for {Path.GetFileName(assemblyPath)} (debug build)");
+#else
                 try
                 {
                     string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
@@ -219,6 +224,7 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                     // Continue loading - don't block on verification errors
                 }
+#endif
 
                 var settings = SmartHopperSettings.Instance;
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
