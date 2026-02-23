@@ -1,0 +1,15 @@
+name: 'Publish to GitHub Pages'
+description: 'Uploads and deploys content to GitHub Pages'
+inputs:
+  pages-directory:
+    description: 'Directory containing the GitHub Pages content to deploy'
+    required: false
+    default: '.github/pages'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Upload GitHub Pages Artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ${{ inputs.pages-directory }}
