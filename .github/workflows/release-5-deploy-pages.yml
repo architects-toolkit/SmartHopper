@@ -1,0 +1,85 @@
+name: 🏁 5 Deploy GitHub Pages on Hash PR Merge
+
+# Description: This workflow deploys GitHub Pages after a hash manifest PR is merged to main.
+# It reads all hash files from the /hashes folder in the repository and generates
+# a complete versions manifest for the GitHub Pages site.
+#
+# Triggers:
+# - Automatically when a PR to main is closed (and merged)
+# - Only processes PRs with title starting with "chore: add provider hash manifest"
+#
+# Permissions:
+# - contents:read - Required to read repository content
+# - pages:write - Required to deploy to GitHub Pages
+# - id-token:write - Required for GitHub Pages OIDC authentication
+
+on:
+  pull_request:
+    types: [ closed ]
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (extracts from latest release if empty)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy-pages:
+    # Only run if PR was merged and is a hash manifest PR, or manually triggered
+    if: |
+      (github.event.pull_request.merged == true && 
+       startsWith(github.event.pull_request.title, 'chore: add provider hash manifest')) ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 0
+    
+    - name: Verify hashes folder exists
+      shell: pwsh
+      run: |
+        if (!(Test-Path "hashes")) {
+          Write-Host "##[error] /hashes folder does not exist!"
+          exit 1
+        }
+        
+        $hashFiles = Get-ChildItem -Path "hashes" -Filter "*.json" -File
+        if ($hashFiles.Count -eq 0) {
+          Write-Host "##[error] No hash files found in /hashes folder"
+          exit 1
+        }
+        
+        Write-Host "✓ Found $($hashFiles.Count) hash file(s) in /hashes folder:"
+        foreach ($file in $hashFiles) {
+          Write-Host "  - $($file.Name)"
+        }
+    
+    - name: Generate GitHub Pages Content
+      uses: ./.github/actions/generate-github-pages
+      with:
+        hashes-folder: 'hashes'
+        pages-directory: '.github/pages'
+        repository: ${{ github.repository }}
+    
+    - name: Upload GitHub Pages Artifact
+      uses: ./.github/actions/publish-github-pages
+      with:
+        pages-directory: '.github/pages'
+    
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

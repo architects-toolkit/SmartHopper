@@ -1,0 +1,297 @@
+name: 'Generate GitHub Pages Content'
+description: 'Prepares hash manifest files and index page for GitHub Pages deployment'
+inputs:
+  hashes-folder:
+    description: 'Path to the folder containing hash manifest JSON files'
+    required: false
+    default: 'hashes'
+  pages-directory:
+    description: 'Directory path for GitHub Pages files (relative to repo root)'
+    required: false
+    default: '.github/pages'
+  repository:
+    description: 'GitHub repository (owner/repo)'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate Pages Content
+      shell: pwsh
+      run: |
+        $hashesFolder = "${{ inputs.hashes-folder }}"
+        $pagesDir = "${{ inputs.pages-directory }}"
+        $repository = "${{ inputs.repository }}"
+        
+        # Validate repository format
+        if ([string]::IsNullOrWhiteSpace($repository)) {
+          Write-Host "##[error] Repository cannot be empty"
+          exit 1
+        }
+        if ($repository -notmatch '^[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-\.]+$') {
+          Write-Host "##[error] Invalid repository format: '$repository'. Expected 'owner/repo'"
+          exit 1
+        }
+        
+        # Validate pages directory
+        if ([string]::IsNullOrWhiteSpace($pagesDir)) {
+          Write-Host "##[error] Pages directory cannot be empty"
+          exit 1
+        }
+        $pagesDir = $pagesDir -replace '\.\.[\\/]', ''
+        if ($pagesDir -match '\.\.' -or $pagesDir -match '^[\\/]') {
+          Write-Host "##[error] Invalid pages directory (potential path traversal): '$pagesDir'"
+          exit 1
+        }
+        
+        Write-Host "Generating GitHub Pages content"
+        Write-Host "  Hashes folder: $hashesFolder"
+        Write-Host "  Pages directory: $pagesDir"
+        Write-Host "  Repository: $repository"
+        
+        # Verify hashes folder exists
+        if (!(Test-Path $hashesFolder)) {
+          Write-Host "##[error] Hashes folder '$hashesFolder' not found!"
+          Write-Host "##[error] Current directory: $(Get-Location)"
+          exit 1
+        }
+        
+        # Create pages directory structure
+        $hashesDir = Join-Path $pagesDir "hashes"
+        New-Item -ItemType Directory -Force -Path $hashesDir | Out-Null
+        Write-Host "Created directory: $hashesDir"
+        
+        # Copy hash files from repository hashes folder
+        Write-Host ""
+        Write-Host "Copying hash files from repository..."
+        
+        $repoHashFiles = Get-ChildItem -Path $hashesFolder -Filter "*.json" -File
+        if ($repoHashFiles.Count -eq 0) {
+          Write-Host "##[error] No hash files found in $hashesFolder"
+          exit 1
+        }
+        
+        Write-Host "Found $($repoHashFiles.Count) hash file(s) in $hashesFolder"
+        
+        # Parse versions and categorize them
+        $versionInfo = @()
+        foreach ($hashFileItem in $repoHashFiles) {
+          $versionName = $hashFileItem.Name -replace '\.json$', ''
+          $isStable = $versionName -notmatch '-(alpha|beta|rc|dev)[\.\-]?[\d\w\.]*'
+          
+          $versionInfo += @{
+            File = $hashFileItem
+            Version = $versionName
+            IsStable = $isStable
+          }
+          
+          # Copy to pages hashes directory
+          $destPath = Join-Path $hashesDir $hashFileItem.Name
+          Copy-Item $hashFileItem.FullName -Destination $destPath -Force
+          Write-Host "  ✓ Copied $($hashFileItem.Name)"
+        }
+        
+        # Determine latest version for latest.json
+        Write-Host ""
+        Write-Host "Determining latest version..."
+        
+        # First, try to find latest stable version
+        $stableVersions = $versionInfo | Where-Object { $_.IsStable } | Sort-Object { $_.Version } -Descending
+        
+        $latestVersion = $null
+        if ($stableVersions.Count -gt 0) {
+          $latestVersion = $stableVersions[0]
+          Write-Host "  Latest stable version: $($latestVersion.Version)"
+        } else {
+          # No stable versions, use latest prerelease
+          $latestVersion = $versionInfo | Sort-Object { $_.Version } -Descending | Select-Object -First 1
+          Write-Host "  No stable versions found, using latest prerelease: $($latestVersion.Version)"
+        }
+        
+        # Copy latest version to latest.json
+        $latestHashPath = Join-Path $pagesDir "latest.json"
+        Copy-Item $latestVersion.File.FullName -Destination $latestHashPath -Force
+        Write-Host "  ✓ Created latest.json from $($latestVersion.Version)"
+        
+        # Generate versions manifest
+        Write-Host ""
+        Write-Host "Generating versions manifest..."
+        $versionsList = @()
+        
+        # Get all JSON files in hashes directory
+        $hashFiles = Get-ChildItem -Path $hashesDir -Filter "*.json" -File
+        foreach ($file in $hashFiles) {
+          $versionName = $file.Name -replace '\.json$', ''
+          $isLatest = $file.Name -eq "latest.json"
+          $isStableVersion = $versionName -notmatch '-(alpha|beta|rc|dev)[\.\-]?[\d\w\.]*'
+          
+          $versionsList += @{
+            name = $file.Name
+            version = $versionName
+            isLatest = $isLatest
+            isStable = $isStableVersion
+            url = "hashes/$($file.Name)"
+          }
+        }
+        
+        # Sort versions (latest first, then by version number descending)
+        $versionsList = $versionsList | Sort-Object -Property @{
+          Expression = { if ($_.isLatest) { 0 } else { 1 } }
+        }, @{
+          Expression = { $_.version }
+          Descending = $true
+        }
+        
+        # Write versions manifest
+        $versionsManifest = @{
+          generated = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+          repository = $repository
+          versions = $versionsList
+        }
+        $versionsJsonPath = Join-Path $pagesDir "versions.json"
+        $versionsManifest | ConvertTo-Json -Depth 10 | Set-Content -Path $versionsJsonPath -Encoding UTF8
+        Write-Host "Created versions manifest in pages root: $versionsJsonPath"
+        Write-Host "Listed $($versionsList.Count) version(s)"
+        
+        # Create index page
+        Write-Host ""
+        Write-Host "Creating index page..."
+        $indexContent = @"
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>SmartHopper Provider Hash Repository</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+              max-width: 900px; 
+              margin: 50px auto; 
+              padding: 20px;
+              line-height: 1.6;
+              color: #333;
+            }
+            h1 { 
+              color: #2c3e50;
+              border-bottom: 3px solid #3498db;
+              padding-bottom: 10px;
+            }
+            h2 {
+              color: #34495e;
+              margin-top: 30px;
+            }
+            .version { 
+              margin: 8px 0;
+              padding: 8px;
+              border-radius: 4px;
+              transition: background-color 0.2s;
+            }
+            .version:hover {
+              background-color: #f8f9fa;
+            }
+            .stable { 
+              border-left: 4px solid #27ae60;
+              padding-left: 12px;
+            }
+            .prerelease { 
+              border-left: 4px solid #f39c12;
+              padding-left: 12px;
+            }
+            .stable a { color: #27ae60; font-weight: 600; }
+            .prerelease a { color: #f39c12; }
+            a { text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            .badge {
+              display: inline-block;
+              padding: 2px 8px;
+              border-radius: 3px;
+              font-size: 0.85em;
+              margin-left: 8px;
+              font-weight: 500;
+            }
+            .badge-stable { background-color: #d4edda; color: #155724; }
+            .badge-prerelease { background-color: #fff3cd; color: #856404; }
+            .info {
+              background-color: #e7f3ff;
+              border-left: 4px solid #3498db;
+              padding: 15px;
+              margin: 20px 0;
+              border-radius: 4px;
+            }
+            .loading {
+              color: #7f8c8d;
+              font-style: italic;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>SmartHopper Files Hash Repository</h1>
+          
+          <div class="info">
+            <p><strong>Purpose:</strong> This repository contains SHA-256 hash manifests for SmartHopper files.</p>
+            <p>These hashes are used to verify the integrity and authenticity of provider assemblies at runtime.</p>
+          </div>
+          
+          <h2>Available Versions</h2>
+          <div id="versions" class="loading">Loading versions...</div>
+          
+          <script>
+            // Fetch the versions manifest
+            fetch('hashes/versions.json')
+              .then(r => {
+                if (!r.ok) throw new Error('Failed to fetch versions manifest');
+                return r.json();
+              })
+              .then(data => {
+                const container = document.getElementById('versions');
+                const versions = data.versions || [];
+                
+                if (versions.length === 0) {
+                  container.innerHTML = '<p>No versions available yet.</p>';
+                  container.className = '';
+                  return;
+                }
+                
+                container.innerHTML = '';
+                container.className = '';
+                
+                // Versions are already sorted in the manifest
+                versions.forEach(v => {
+                    const div = document.createElement('div');
+                    const a = document.createElement('a');
+                    a.href = v.url;
+                    a.textContent = v.version;
+                    
+                    div.className = 'version ' + (v.isStable || v.isLatest ? 'stable' : 'prerelease');
+                    div.appendChild(a);
+                    
+                    if (v.isLatest) {
+                      const badge = document.createElement('span');
+                      badge.className = 'badge badge-stable';
+                      badge.textContent = 'Latest Stable';
+                      div.appendChild(badge);
+                    } else if (!v.isStable) {
+                      const badge = document.createElement('span');
+                      badge.className = 'badge badge-prerelease';
+                      badge.textContent = 'Prerelease';
+                      div.appendChild(badge);
+                    }
+                    
+                    container.appendChild(div);
+                  });
+              })
+              .catch(err => {
+                const container = document.getElementById('versions');
+                container.innerHTML = '<p style="color: #e74c3c;">Error loading versions: ' + err.message + '</p>';
+                container.className = '';
+              });
+          </script>
+        </body>
+        </html>
+        "@
+        $indexPath = Join-Path $pagesDir "index.html"
+        Set-Content -Path $indexPath -Value $indexContent -Encoding UTF8
+        Write-Host "Created index page at: $indexPath"
+        Write-Host ""
+        Write-Host "##[notice] GitHub Pages content generated successfully in: $pagesDir"

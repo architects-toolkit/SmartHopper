@@ -11,6 +11,8 @@ name: 🏁 4 Build Project
 # Permissions:
 # - contents:read - Required to read repository content for building
 # - contents:write - Required to upload assets to releases (only when triggered by release)
+# - pages:write - Required to deploy to GitHub Pages
+# - id-token:write - Required for GitHub Pages OIDC authentication
 
 on:
   workflow_dispatch:
@@ -28,6 +30,9 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+  pull-requests: write
 
 jobs:
   build:
@@ -244,6 +249,81 @@ jobs:
         commit-sha: ${{ github.sha }}
         repository: ${{ github.repository }}
 
+    - name: Commit Hash File to Repository
+      if: steps.determine_version.outputs.IS_RELEASE == 'true'
+      shell: pwsh
+      run: |
+        $version = "${{ steps.determine_version.outputs.VERSION }}"
+        $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
+        
+        Write-Host "Committing hash file to repository..."
+        Write-Host "  Version: $version"
+        Write-Host "  Hash file: $hashFile"
+        
+        # Create hashes directory if it doesn't exist
+        if (!(Test-Path "hashes")) {
+          New-Item -ItemType Directory -Force -Path "hashes" | Out-Null
+          Write-Host "Created /hashes directory"
+        }
+        
+        # Copy hash file to /hashes/{version}.json
+        $destPath = "hashes/$version.json"
+        Copy-Item $hashFile -Destination $destPath -Force
+        Write-Host "Copied hash file to: $destPath"
+        
+        # Configure git
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # Fetch main branch
+        git fetch origin main
+        
+        # Create a temporary branch from main
+        $tempBranch = "hash-update-$version-${{ github.run_number }}"
+        git checkout -b $tempBranch origin/main
+        
+        # Copy the hash file
+        if (!(Test-Path "hashes")) {
+          New-Item -ItemType Directory -Force -Path "hashes" | Out-Null
+        }
+        Copy-Item $hashFile -Destination $destPath -Force
+        
+        # Commit and push
+        git add hashes/$version.json
+        if (git diff --staged --quiet) {
+          Write-Host "No changes to commit (hash file already exists with same content)"
+        } else {
+          git commit -m "chore: add provider hash manifest for version $version"
+          
+          # Push with admin token to bypass branch protection
+          git push origin $tempBranch
+          
+          # Create PR to main
+          Write-Host "Creating PR to merge hash file to main..."
+          $prBody = "Auto-generated PR to add provider hash manifest for version $version to the repository.`n`n**Hash File:** \`hashes/$version.json\``n**Build:** #${{ github.run_number }}`n**Commit:** ${{ github.sha }}`n`nThis PR can be auto-merged."
+          
+          try {
+            gh pr create --base main --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody
+            Write-Host "✓ PR created successfully"
+            
+            # Auto-merge the PR if possible
+            $prNumber = gh pr list --head $tempBranch --json number --jq '.[0].number'
+            if ($prNumber) {
+              Write-Host "Auto-merging PR #$prNumber..."
+              gh pr merge $prNumber --auto --squash --delete-branch
+              Write-Host "✓ PR auto-merge enabled"
+            } else {
+              Write-Host "##[warning] Could not find PR number for auto-merge"
+            }
+          } catch {
+            Write-Host "##[error] Failed to create PR: $_"
+            Write-Host "Branch '$tempBranch' created but PR creation failed. Please create PR manually."
+            exit 1
+          }
+        }
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Upload Hash Manifest to Build Artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -284,46 +364,26 @@ jobs:
           exit 1
         }
         
-    - name: Upload Windows Rhino8 Release Asset
+    - name: Upload Release Assets
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: actions/upload-release-asset@v1
+      uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
-        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
-        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
-        asset_content_type: application/zip
-        
-    - name: Upload Mac Rhino8 Release Asset
-      if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
-        asset_path: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
-        asset_name: SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
-        asset_content_type: application/zip
-        
-    - name: Upload Provider Hash Manifest to Release
-      if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event_name == 'release' && github.event.release.upload_url || steps.get_release_url.outputs.UPLOAD_URL }}
-        asset_path: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
-        asset_name: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
-        asset_content_type: application/json
+        tag_name: ${{ steps.determine_version.outputs.VERSION }}
+        files: |
+          SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
+          SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
+          ${{ steps.calculate_hashes.outputs.HASH_FILE }}
 
-    - name: Publish Hash Manifest to GitHub Pages
+    - name: Workflow Complete
       if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      uses: ./.github/actions/publish-to-github-pages
-      with:
-        hash-file: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
-        version: ${{ steps.determine_version.outputs.VERSION }}
-        pages-directory: '.github/pages/hashes'
-        update-latest: 'auto'
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        repository: ${{ github.repository }}
+      shell: pwsh
+      run: |
+        Write-Host "✓ Build workflow complete"
+        Write-Host ""
+        Write-Host "Next steps:"
+        Write-Host "  1. Review and merge the hash PR to main branch"
+        Write-Host "  2. GitHub Pages deployment will trigger automatically after merge"
+        Write-Host ""
+        Write-Host "Hash PR should be titled: 'chore: add provider hash manifest for ${{ steps.determine_version.outputs.VERSION }}'"
