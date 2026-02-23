@@ -177,3 +177,14 @@
 - name: "scope: Canvas Assistant"
   color: "000"
   description: "Issues related to the Canvas Assistant logic"
+- name: "scope: Security"
+  color: "500"
+  description: "Issues related to Authenticode, SHA256, etc."
+
+# Labels for OS discrimination
+- name: "os: Windows"
+  color: "0078D4"
+  description: "Issues related to the Windows plugin"
+- name: "os: MacOS"
+  color: "999"
+  description: "Issues related to the MacOS plugin"
