@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- fix(core): fire `ComponentStateManager` transition events outside `stateLock` using `Monitor.Exit`/`Monitor.Enter` to prevent deadlocks from re-entrant lock acquisition on macOS (adapted to 1.4.0 code structure)
+- fix(core): eliminate race condition in `ComponentStateManager.ProcessTransitionQueue()` where `isTransitioning` flag was cleared before event firing, potentially allowing concurrent queue processing on macOS. The flag now remains true until after all events are fired, preventing out-of-order event processing and concurrent event handler execution.
 - fix(infrastructure): skip SHA-256 hash verification on non-Windows platforms where source-built assemblies produce different hashes than official releases
 - fix(tools): set GhJSON component `Id = 1` when `InstanceGuid` is null in `script_generate` and `script_edit` to satisfy GhJSON.Core validation requiring at least one identifier
 - fix(tools): add `SanitizeAndParseJson` to handle AI responses wrapped in markdown code blocks or non-JSON formatting in `script_generate` and `script_edit`

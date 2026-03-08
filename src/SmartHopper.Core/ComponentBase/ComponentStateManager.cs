@@ -364,38 +364,39 @@ namespace SmartHopper.Core.ComponentBase
                         pendingEvents.Add(result.Value);
                     }
                 }
+
+                // Fire all events TRULY outside the lock by temporarily releasing stateLock.
+                // This method is called from within lock(stateLock) in RequestTransition(),
+                // so we must explicitly exit/re-enter the monitor to prevent re-entrant
+                // deadlocks when event handlers call back into RequestTransition().
+                if (pendingEvents.Count > 0)
+                {
+                    System.Threading.Monitor.Exit(this.stateLock);
+                    try
+                    {
+                        foreach (var evt in pendingEvents)
+                        {
+                            if (evt.isRejection)
+                            {
+                                this.TransitionRejected?.Invoke(evt.oldState, evt.newState, evt.rejectionMessage);
+                            }
+                            else
+                            {
+                                this.FireTransitionEvents(evt.oldState, evt.newState);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        System.Threading.Monitor.Enter(this.stateLock);
+                    }
+                }
             }
             finally
             {
-                // Clear transitioning flag BEFORE releasing lock to prevent race conditions
+                // Clear transitioning flag AFTER event processing to prevent race conditions
+                // where another thread could start processing while we're firing events
                 this.isTransitioning = false;
-            }
-
-            // Fire all events TRULY outside the lock by temporarily releasing stateLock.
-            // This method is called from within lock(stateLock) in RequestTransition(),
-            // so we must explicitly exit/re-enter the monitor to prevent re-entrant
-            // deadlocks when event handlers call back into RequestTransition().
-            if (pendingEvents.Count > 0)
-            {
-                System.Threading.Monitor.Exit(this.stateLock);
-                try
-                {
-                    foreach (var evt in pendingEvents)
-                    {
-                        if (evt.isRejection)
-                        {
-                            this.TransitionRejected?.Invoke(evt.oldState, evt.newState, evt.rejectionMessage);
-                        }
-                        else
-                        {
-                            this.FireTransitionEvents(evt.oldState, evt.newState);
-                        }
-                    }
-                }
-                finally
-                {
-                    System.Threading.Monitor.Enter(this.stateLock);
-                }
             }
         }
 
