@@ -423,7 +423,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 NickName = nickname,
                 InstanceGuid = instanceGuid,
-                Id = instanceGuid.HasValue ? null : 1,
                 Pivot = pivot,
             };
 

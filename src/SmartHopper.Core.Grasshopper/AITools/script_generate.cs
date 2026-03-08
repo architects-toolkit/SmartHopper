@@ -394,7 +394,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Name = CreateComponentName(languageKey),
                 NickName = nickname,
                 InstanceGuid = instanceGuid,
-                Id = instanceGuid.HasValue ? null : 1,
                 Pivot = pivot,
             };
 
