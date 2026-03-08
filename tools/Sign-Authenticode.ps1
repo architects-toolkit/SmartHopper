@@ -30,7 +30,7 @@ param(
     [switch]$Generate,
     [string]$Base64,
     [string]$File,
-    [System.Security.SecureString]$Password,
+    [string]$Password,
     [switch]$Export,
     [switch]$Help,
     [string]$Sign,
@@ -38,6 +38,12 @@ param(
     [switch]$SignRelease,
     [string]$PfxPath
 )
+
+# Convert password string to SecureString if provided
+$securePassword = $null
+if (-not [string]::IsNullOrEmpty($Password)) {
+    $securePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
+}
 
 # default PFX paths; override via -PfxPath
 $solutionRoot = Split-Path -Parent $PSScriptRoot
@@ -73,19 +79,24 @@ if ($Help -or (-not $Generate -and -not $Base64 -and -not $File -and -not $Expor
 }
 
 if ($Generate) {
-    if (-not $Password -or $Password.Length -eq 0) {
-        Write-Error "-Password is required when generating a PFX certificate."
-        exit 1
+    if (-not $Password) {
+        $securePassword = Read-Host "Enter password for PFX certificate generation" -AsSecureString
+        if (-not $securePassword) {
+            Write-Error "-Password is required when generating a PFX certificate."
+            exit 1
+        }
     }
     Write-Host "Generating self-signed PFX certificate at $pfxPath"
-    $securePwd = $Password
     $cert = New-SelfSignedCertificate -Subject "CN=SmartHopperDev" -CertStoreLocation Cert:\CurrentUser\My -KeyExportPolicy Exportable -KeySpec Signature -Type CodeSigningCert
-    Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath $pfxPath -Password $securePwd
+    Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath $pfxPath -Password $securePassword
     Write-Host "PFX certificate created at $pfxPath"
 } elseif ($Base64) {
-    if (-not $Password -or $Password.Length -eq 0) {
-        Write-Error "-Password is required when importing a Base64 PFX."
-        exit 1
+    if (-not $Password) {
+        $securePassword = Read-Host "Enter password for Base64 PFX import" -AsSecureString
+        if (-not $securePassword) {
+            Write-Error "-Password is required when importing a Base64 PFX."
+            exit 1
+        }
     }
     Write-Host "Decoding Base64 PFX into $pfxPath"
     [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($Base64))
@@ -98,7 +109,7 @@ if ($Generate) {
             exit 1
         }
     }
-    if (-not $Password -or $Password.Length -eq 0) {
+    if (-not $Password) {
         Write-Error "-Password is required when exporting PFX."
         exit 1
     }
@@ -197,15 +208,15 @@ if ($Generate) {
     }
 
     # Ensure we have a password; if not, prompt interactively (useful for local/dev scenarios)
-    if (-not $Password -or $Password.Length -eq 0) {
-        $Password = Read-Host "Enter password for Authenticode signing (PFX)" -AsSecureString
-        if (-not $Password -or $Password.Length -eq 0) {
+    if (-not $securePassword) {
+        $securePassword = Read-Host "Enter password for Authenticode signing (PFX)" -AsSecureString
+        if (-not $securePassword) {
             Write-Error "-Password is required for signing operations."
             exit 1
         }
     }
 
-    $plainPassword = [System.Net.NetworkCredential]::new("", $Password).Password
+    $plainPassword = [System.Net.NetworkCredential]::new("", $securePassword).Password
 
     # Find signtool.exe once
     $signtoolPath = $null
@@ -305,7 +316,7 @@ if ($Generate) {
             & $signtoolPath sign /fd SHA256 /f "$pfxPath" /p "$plainPassword" $dll.FullName
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "File-based signing failed (exit code $LASTEXITCODE), falling back to store-based signing..."
-                $imported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $Password
+                $imported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
                 if (-not $imported) {
                     Write-Error "Failed to import PFX certificate. Please verify the PFX password and that the runner has permission to import certificates."
                     exit 1

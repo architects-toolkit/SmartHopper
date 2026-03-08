@@ -76,6 +76,17 @@ else {
 # ===== Step 2: Anonymize SmartHopperPublicKey =====
 Write-Host "`nStep 2: Anonymizing SmartHopperPublicKey..." -ForegroundColor Cyan
 
+# Check if SmartHopper.Infrastructure.csproj is staged for commit
+$stagedFiles = git diff --cached --name-only
+$csprojRelativePath = "src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj"
+$csprojIsStaged = $stagedFiles -contains $csprojRelativePath
+
+if (-not $csprojIsStaged) {
+    Write-Host "SmartHopper.Infrastructure.csproj is not staged - skipping anonymization." -ForegroundColor Yellow
+    Write-Host "`nAll pre-commit checks passed. Proceeding with commit." -ForegroundColor Green
+    exit 0
+}
+
 if (-not (Test-Path $anonymizeScript)) {
     Write-Error "Anonymize script not found at $anonymizeScript"
     exit 1
@@ -87,14 +98,35 @@ if (-not (Test-Path $csprojPath)) {
 }
 
 # Run anonymization to guarantee the placeholder is present.
+# Capture state before anonymization
+$csprojBefore = if (Test-Path $csprojPath) { Get-Content $csprojPath -Raw -Encoding utf8 } else { $null }
+
 & $anonymizeScript -CsprojPath $csprojPath
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Anonymization script failed (exit $LASTEXITCODE)."
     exit $LASTEXITCODE
 }
 
-# Stage the modified file so it's included in the current commit
-git add $csprojPath
+# Stage only changed lines in Infrastructure.csproj (similar to CHANGELOG.md)
+$csprojAfter = if (Test-Path $csprojPath) { Get-Content $csprojPath -Raw -Encoding utf8 } else { $null }
+if ($csprojBefore -ne $csprojAfter) {
+    Write-Host "Staging only changed lines in SmartHopper.Infrastructure.csproj..." -ForegroundColor Cyan
+
+    # Get the diff and apply only the actual changes (not the entire file)
+    $diffOutput = git diff $csprojPath
+    if ($diffOutput) {
+        # Apply the diff to staging area using git apply --cached
+        # This stages only the specific lines that changed
+        $diffOutput | git apply --cached - 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Staged only changed lines in SmartHopper.Infrastructure.csproj." -ForegroundColor Green
+        }
+        else {
+            Write-Warning "Failed to stage selective changes, falling back to full file staging."
+            git add $csprojPath 2>$null
+        }
+    }
+}
 
 # Verify the placeholder was applied to block commits with real keys.
 try {
