@@ -172,8 +172,8 @@ namespace SmartHopper.Infrastructure.AIProviders
                 }
 
                 // SHA-256 hash verification (cross-platform)
-                // Skip verification in DEBUG builds to allow local development
-#if !DEBUG
+                // In DEBUG builds, force soft check mode to allow local development
+                // In RELEASE builds, use the configured integrity check mode
                 try
                 {
                     string platform = VersionHelper.GetPlatform();
@@ -181,6 +181,15 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                     var hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
                         .ConfigureAwait(false);
+
+#if DEBUG
+                    // DEBUG: Force soft check mode regardless of settings
+                    var effectiveMode = ProviderIntegrityCheckMode.Soft;
+                    Debug.WriteLine($"[ProviderManager] DEBUG build: forcing soft integrity check mode for {Path.GetFileName(assemblyPath)}");
+#else
+                    // RELEASE: Use configured mode from settings
+                    var effectiveMode = SmartHopperSettings.Instance.ProviderIntegrityCheckMode;
+#endif
 
                     switch (hashResult.Status)
                     {
@@ -190,12 +199,12 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                         case ProviderVerificationStatus.Mismatch:
                             // Hash mismatch indicates potential tampering
-                            var mmSettings = SmartHopperSettings.Instance;
                             var mmAsmName = Path.GetFileNameWithoutExtension(assemblyPath);
 
-                            if (mmSettings.HardIntegrityCheck)
+                            if (effectiveMode == ProviderIntegrityCheckMode.Strict ||
+                                effectiveMode == ProviderIntegrityCheckMode.Hard)
                             {
-                                // Hard integrity check: Show error and prevent loading
+                                // Strict/Hard mode: Show error and prevent loading
                                 await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
                                 {
                                     StyledMessageDialog.ShowError(
@@ -217,7 +226,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                             }
                             else
                             {
-                                // Soft integrity check: Show warning and continue loading
+                                // Soft mode: Show warning and continue loading
                                 this._unverifiedProviders.Add(mmAsmName);
 
                                 await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
@@ -230,32 +239,76 @@ namespace SmartHopper.Infrastructure.AIProviders
                                         $"Expected: {hashResult.PublicHash}\n" +
                                         $"Actual: {hashResult.LocalHash}\n\n" +
                                         $"The provider has been loaded but will show a warning when used. " +
-                                        $"Enable 'Hard integrity check' in settings to block unverified providers.",
+                                        $"Change 'Integrity Check Mode' to 'Hard' or 'Strict' in settings to block unverified providers.",
                                         "Provider Integrity Check Warning - SmartHopper"
                                     );
                                 }))).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"SmartHopper Warning: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
-
-                                return;
                             }
 
                             break;
 
                         case ProviderVerificationStatus.Unavailable:
-                        case ProviderVerificationStatus.NotFound:
-                            // WARNING: Cannot verify - log to console
-                            var warningMessage = hashResult.Status == ProviderVerificationStatus.Unavailable
-                                ? $"WARNING: Could not retrieve SHA-256 hash for '{Path.GetFileName(assemblyPath)}' from public repository.\n" +
-                                  $"This may be due to network connectivity issues or public hash repository unavailability.\n" +
-                                  $"Hash verification will be skipped. Ensure you trust this provider's source before enabling it."
-                                : $"WARNING: SHA-256 hash for '{Path.GetFileName(assemblyPath)}' not found in public repository (platform: {platform}).\n" +
-                                  $"This provider may be a custom/third-party provider or from a different SmartHopper version.\n" +
-                                  $"Ensure you trust this provider's source before enabling it.";
+                            // Hash repository unavailable - network or source issue
+                            if (effectiveMode == ProviderIntegrityCheckMode.Strict)
+                            {
+                                // Strict mode: Block when hashes are unavailable
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                {
+                                    StyledMessageDialog.ShowError(
+                                        $"Provider '{Path.GetFileName(assemblyPath)}' cannot be loaded.\n\n" +
+                                        $"Unable to retrieve hash verification data from the official repository. " +
+                                        $"This may be due to network connectivity issues.\n\n" +
+                                        $"Strict integrity check mode requires hash verification for all providers. " +
+                                        $"Please check your internet connection and try again, or switch to 'Hard' or 'Soft' mode in settings.",
+                                        "Provider Integrity Check Failed - SmartHopper"
+                                    );
+                                }))).ConfigureAwait(false);
 
-                            RhinoApp.WriteLine(warningMessage);
-                            Debug.WriteLine($"[ProviderManager] {warningMessage}");
+                                RhinoApp.WriteLine($"[SmartHopper] Error: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash repository unavailable in Strict mode");
+                                Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash unavailable (Strict mode)");
+                                return;
+                            }
+                            else
+                            {
+                                // Hard/Soft mode: Log warning but allow
+                                RhinoApp.WriteLine($"[SmartHopper] Warning: Could not verify provider '{Path.GetFileName(assemblyPath)}' - hash check skipped. Enable only if you trust this source.");
+                                Debug.WriteLine($"[ProviderManager] Hash unavailable for {Path.GetFileName(assemblyPath)}, skipping verification");
+                            }
+                            break;
+
+                        case ProviderVerificationStatus.NotFound:
+                            // Hash not found - custom or third-party provider
+                            var nfAsmName = Path.GetFileNameWithoutExtension(assemblyPath);
+
+                            if (effectiveMode == ProviderIntegrityCheckMode.Strict ||
+                                effectiveMode == ProviderIntegrityCheckMode.Hard)
+                            {
+                                // Strict/Hard mode: Block unknown providers
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                {
+                                    StyledMessageDialog.ShowError(
+                                        $"Provider '{Path.GetFileName(assemblyPath)}' is not recognized.\n\n" +
+                                        $"SHA-256 hash not found in official repository (platform: {platform}). " +
+                                        $"This provider may be a custom/third-party provider or from a different SmartHopper version.\n\n" +
+                                        $"{effectiveMode} integrity check mode only allows verified providers. " +
+                                        $"Switch to 'Soft' mode in settings to allow third-party providers.",
+                                        "Provider Integrity Check Failed - SmartHopper"
+                                    );
+                                }))).ConfigureAwait(false);
+
+                                RhinoApp.WriteLine($"SmartHopper Error: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found in {effectiveMode} mode");
+                                Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found ({effectiveMode} mode)");
+                                return;
+                            }
+                            else
+                            {
+                                // Soft mode: Log warning but allow
+                                RhinoApp.WriteLine($"[SmartHopper] Warning: Provider '{Path.GetFileName(assemblyPath)}' is not verified - enable only if you trust this source.");
+                                Debug.WriteLine($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
+                            }
                             break;
                     }
                 }
@@ -265,9 +318,6 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                     // Continue loading - don't block on verification errors
                 }
-#else
-                Debug.WriteLine($"[ProviderManager] SHA-256 hash verification skipped in DEBUG build for {Path.GetFileName(assemblyPath)}");
-#endif
 
                 var settings = SmartHopperSettings.Instance;
                 var asmName = Path.GetFileNameWithoutExtension(assemblyPath);

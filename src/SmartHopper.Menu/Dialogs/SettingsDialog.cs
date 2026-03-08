@@ -51,7 +51,7 @@ namespace SmartHopper.Menu.Dialogs
         private readonly GeneralSettings _generalSettings;
         private readonly TrustedProvidersSettings _trustedProvidersSettings;
         private readonly AssistantSettings _assistantSettings;
-        private bool _hardIntegrityCheck;
+        private ProviderIntegrityCheckMode _providerIntegrityCheckMode;
 
         /// <summary>
         /// Initializes a new instance of the SettingsDialog with tabbed interface.
@@ -94,7 +94,7 @@ namespace SmartHopper.Menu.Dialogs
             };
 
             this._trustedProvidersSettings = new TrustedProvidersSettings(this._settings.TrustedProviders);
-            this._hardIntegrityCheck = this._settings.HardIntegrityCheck;
+            this._providerIntegrityCheckMode = this._settings.ProviderIntegrityCheckMode;
 
             this._assistantSettings = new AssistantSettings
             {
@@ -119,7 +119,7 @@ namespace SmartHopper.Menu.Dialogs
 
             // Load settings into pages
             this._generalPage.LoadSettings(this._generalSettings);
-            this._providersPage.LoadSettings(this._trustedProvidersSettings, this._hardIntegrityCheck);
+            this._providersPage.LoadSettings(this._trustedProvidersSettings, this._providerIntegrityCheckMode);
             this._assistantPage.LoadSettings(this._assistantSettings);
 
             this.CreateTabLayout();
@@ -203,7 +203,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 // Save settings from each tab page
                 this._generalPage.SaveSettings(this._generalSettings);
-                this._providersPage.SaveSettings(this._trustedProvidersSettings, out var hardIntegrityCheck);
+                this._providersPage.SaveSettings(this._trustedProvidersSettings, out var providerIntegrityCheckMode);
                 this._assistantPage.SaveSettings(this._assistantSettings);
 
                 // Save provider-specific settings
@@ -220,7 +220,7 @@ namespace SmartHopper.Menu.Dialogs
                 this._settings.SmartHopperAssistant.AssistantProvider = this._assistantSettings.AssistantProvider;
                 this._settings.SmartHopperAssistant.AssistantModel = this._assistantSettings.AssistantModel;
                 this._settings.TrustedProviders = new Dictionary<string, bool>(this._trustedProvidersSettings);
-                this._settings.HardIntegrityCheck = hardIntegrityCheck;
+                this._settings.ProviderIntegrityCheckMode = providerIntegrityCheckMode;
 
                 // Persist global settings
                 this._settings.Save();

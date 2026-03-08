@@ -9,13 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Provider Integrity Verification**: Made SHA-256 hash verification softer by default with optional hard mode
-  - New "Integrity check" section in Providers settings tab with "Enable hard integrity check" checkbox
-  - When disabled (default): Hash mismatches show a warning but provider is loaded and can be used; warning appears in component validation
-  - When enabled: Hash mismatches block provider loading with error dialog (previous behavior)
-  - Existing installations will default to soft verification (false) for better user experience
+- **Provider Integrity Verification**: Replaced boolean "hard integrity check" with three-tier integrity check mode system
+  - New dropdown in Providers settings tab with three modes: Soft, Hard, Strict
+  - **Soft** (default): Warns but allows providers with hash mismatches, unavailable hashes, or custom/third-party providers
+  - **Hard**: Blocks providers with hash mismatches or unknown providers (not found), but allows when hash repository is unavailable (network issues)
+  - **Strict**: Blocks on all verification failures including network unavailability - requires all providers to have valid published hashes
+  - Existing installations will automatically migrate from the old boolean setting (Soft = false, Hard/Strict = true mapped to appropriate behavior)
 
-- **Cross-Platform Provider Verification**: SHA-256 hash verification now supports both Windows and macOS with platform-specific hashes generated via dual-runner CI workflow (Windows for `net7.0-windows`, macOS for `net7.0`), with automatic bypass in DEBUG builds for local development
+- **Cross-Platform Provider Verification**: SHA-256 hash verification now supports both Windows and macOS with platform-specific hashes generated via dual-runner CI workflow (Windows for `net7.0-windows`, macOS for `net7.0`), with automatic switch to Soft Check in DEBUG builds for smooth local development
 
 ### Fixed
 

@@ -12,16 +12,62 @@ $expectedPlaceholder = "This value is automatically replaced by the build toolin
 # ===== Step 1: Update version date =====
 Write-Host "Step 1: Updating version date..." -ForegroundColor Cyan
 if (Test-Path $versionScript) {
+    # Capture pre-script state of all files that might be modified
+    $solutionPropsBefore = if (Test-Path $solutionPropsPath) { Get-Content $solutionPropsPath -Raw -Encoding utf8 } else { $null }
+    $readmeBefore = if (Test-Path $readmePath) { Get-Content $readmePath -Raw -Encoding utf8 } else { $null }
+    $changelogBefore = if (Test-Path $changelogPath) { Get-Content $changelogPath -Raw -Encoding utf8 } else { $null }
+
     & $versionScript -UpdateDateOnly
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Version update script failed (exit $LASTEXITCODE)."
         exit $LASTEXITCODE
     }
-    # Stage modified files
-    git add $solutionPropsPath 2>$null
-    git add $readmePath 2>$null
-    git add $changelogPath 2>$null
-    Write-Host "Version date updated and files staged." -ForegroundColor Green
+
+    # Stage only files that actually changed
+    $anyStaged = $false
+
+    # Check and stage Solution.props if changed
+    $solutionPropsAfter = if (Test-Path $solutionPropsPath) { Get-Content $solutionPropsPath -Raw -Encoding utf8 } else { $null }
+    if ($solutionPropsBefore -ne $solutionPropsAfter) {
+        git add $solutionPropsPath 2>$null
+        Write-Host "Staged changes to Solution.props." -ForegroundColor Green
+        $anyStaged = $true
+    }
+
+    # Check and stage README.md if changed
+    $readmeAfter = if (Test-Path $readmePath) { Get-Content $readmePath -Raw -Encoding utf8 } else { $null }
+    if ($readmeBefore -ne $readmeAfter) {
+        git add $readmePath 2>$null
+        Write-Host "Staged changes to README.md." -ForegroundColor Green
+        $anyStaged = $true
+    }
+
+    # Check and stage CHANGELOG.md if changed (using selective line staging)
+    $changelogAfter = if (Test-Path $changelogPath) { Get-Content $changelogPath -Raw -Encoding utf8 } else { $null }
+    if ($changelogBefore -ne $changelogAfter) {
+        Write-Host "Staging only changed lines in CHANGELOG.md..." -ForegroundColor Cyan
+
+        # Get the diff and apply only the actual changes (not the entire file)
+        $diffOutput = git diff $changelogPath
+        if ($diffOutput) {
+            # Apply the diff to staging area using git apply --cached
+            # This stages only the specific lines that changed
+            $diffOutput | git apply --cached - 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Staged only changed lines in CHANGELOG.md." -ForegroundColor Green
+                $anyStaged = $true
+            }
+            else {
+                Write-Warning "Failed to stage selective changes, falling back to full file staging."
+                git add $changelogPath 2>$null
+                $anyStaged = $true
+            }
+        }
+    }
+
+    if (-not $anyStaged) {
+        Write-Host "No version-related changes to stage." -ForegroundColor Yellow
+    }
 }
 else {
     Write-Warning "Version script not found at $versionScript, skipping version update."

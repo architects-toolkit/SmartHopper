@@ -73,12 +73,12 @@ namespace SmartHopper.Infrastructure.Settings
         public Dictionary<string, bool> TrustedProviders { get; set; }
 
         /// <summary>
-        /// Gets or sets whether to use hard integrity check verification for providers.
-        /// When enabled, hash mismatches will prevent provider loading.
-        /// When disabled, hash mismatches will show a warning but allow provider usage.
+        /// Gets or sets the provider integrity check mode for verification.
+        /// Controls how provider DLL hash verification failures are handled.
+        /// Default is Soft (warn but allow).
         /// </summary>
         [JsonProperty]
-        public bool HardIntegrityCheck { get; set; }
+        public ProviderIntegrityCheckMode ProviderIntegrityCheckMode { get; set; }
 
         /// <summary>
         /// Gets or sets settings related to the SmartHopper assistant features.
@@ -115,7 +115,7 @@ namespace SmartHopper.Infrastructure.Settings
             this.DebounceTime = 1000;
             this.DefaultAIProvider = string.Empty;
             this.TrustedProviders = new Dictionary<string, bool>();
-            this.HardIntegrityCheck = false; // Default to soft verification
+            this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
             this.EncryptionVersion = encryptionVersion;
         }

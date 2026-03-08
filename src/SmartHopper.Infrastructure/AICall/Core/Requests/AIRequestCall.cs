@@ -116,7 +116,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             {
                 // Check for provider integrity verification warning
                 var settings = SmartHopperSettings.Instance;
-                if (!settings.HardIntegrityCheck && ProviderManager.Instance.IsProviderUnverified(this.Provider))
+                if (settings.ProviderIntegrityCheckMode == ProviderIntegrityCheckMode.Soft &&
+                    ProviderManager.Instance.IsProviderUnverified(this.Provider))
                 {
                     // Soft integrity check is enabled and provider has hash mismatch - add warning
                     messages.Add(new AIRuntimeMessage(
@@ -126,7 +127,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                         $"Provider '{this.Provider}' failed SHA-256 integrity verification. " +
                         "The provider's hash does not match the official published hash. " +
                         "This could indicate file corruption or tampering, and your data could be compromised. " +
-                        "Enable 'Hard integrity check' in SmartHopper settings to block unverified providers."));
+                        "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in SmartHopper settings to block unverified providers."));
                     Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unverified - adding warning");
                 }
             }
