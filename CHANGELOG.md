@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Contributors Workflow**: Added automated GitHub workflow (`chore-update-contributors.yml`) to maintain the contributors section in CHANGELOG.md
+
 ### Changed
 
 - **Provider Integrity Verification**: Replaced boolean "hard integrity check" with three-tier integrity check mode system
@@ -27,7 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.0-alpha] - 2026-02-15
 
-Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](https://github.com/nof2504) for the contributions to this release.
+Many thanks to the following contributors to this release:
+
+- [nofcfy-fanqi](https://github.com/nofcfy-fanqi) **First contribution!**
+- [nof2504](https://github.com/nof2504) **First contribution!**
 
 ### Added
 
