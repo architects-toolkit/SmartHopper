@@ -1,8 +1,8 @@
-name: 🏁 4 Build Project
+name: 🏁 4 Build Project (Dual Platform)
 
-# Description: This workflow builds the project to verify that it compiles correctly.
-# It can be triggered manually to validate the build process without creating a release.
-# It also builds and attaches artifacts when a non-draft release is published.
+# Description: This workflow builds the project on both Windows and macOS runners
+# to ensure native compilation and accurate SHA-256 hash generation for each platform.
+# It merges the hash manifests and uploads artifacts when a release is published.
 #
 # Triggers:
 # - Manually via workflow_dispatch
@@ -10,7 +10,7 @@ name: 🏁 4 Build Project
 #
 # Permissions:
 # - contents:read - Required to read repository content for building
-# - contents:write - Required to upload assets to releases (only when triggered by release)
+# - contents:write - Required to upload assets to releases
 # - pages:write - Required to deploy to GitHub Pages
 # - id-token:write - Required for GitHub Pages OIDC authentication
 
@@ -35,8 +35,12 @@ permissions:
   pull-requests: write
 
 jobs:
-  build:
+  # Build on Windows for net7.0-windows platform
+  build-windows:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.determine_version.outputs.VERSION }}
+      is_release: ${{ steps.determine_version.outputs.IS_RELEASE }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -92,17 +96,9 @@ jobs:
         # Checkout the tag that matches the version
         git checkout $version
         if ($LASTEXITCODE -ne 0) {
-          Write-Host "##[error] Failed to checkout tag $version - does it exist?"
-          Write-Host "Available tags:"
-          git tag -l
+          Write-Host "##[error] Failed to checkout tag $version"
           exit 1
         }
-        
-        # Verify current commit matches tag
-        $tagCommit = git rev-parse $version
-        $headCommit = git rev-parse HEAD
-        Write-Host "Tag $version commit: $tagCommit"
-        Write-Host "Current HEAD commit: $headCommit"
     
     - name: Check if release is draft
       if: github.event_name == 'release'
@@ -116,145 +112,243 @@ jobs:
       if: github.event_name == 'release' && steps.check_draft.outputs.IS_DRAFT == 'true'
       shell: pwsh
       run: |
-        Write-Host "This is a draft release. Skipping build and upload."
+        Write-Host "This is a draft release. Skipping build."
         exit 0
 
-    - name: Compile Solution and Collect Artifacts
+    - name: Compile Solution (Windows)
       uses: ./.github/actions/compile-solution
       with:
         version: ${{ steps.determine_version.outputs.VERSION }}
         configuration: Release
-        platforms: '["net7.0-windows", "net7.0"]'
+        platforms: '["net7.0-windows"]'
         signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
         libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
         signing-pfx-base64: ${{ secrets.SIGNING_PFX_BASE64 }}
         signing-pfx-password: ${{ secrets.SIGNING_PFX_PASSWORD }}
-        output-directory: artifacts
+        output-directory: artifacts-windows
 
-    - name: Validate build artifacts
-      shell: pwsh
-      run: |
-        # Count the number of .csproj files in the solution
-        $csprojCount = (Get-ChildItem -Path "." -Recurse -Filter "*.csproj" | 
-                        Where-Object { $_.Name -like "SmartHopper.*" -and $_.Name -notlike "*.Test*" -and $_.Name -notlike "*Template*" } | 
-                        Measure-Object).Count
-        
-        Write-Host "Found $csprojCount SmartHopper .csproj files in the solution"
-        Write-Host "Expected projects: "
-        Get-ChildItem -Path "." -Recurse -Filter "*.csproj" | 
-          Where-Object { $_.Name -like "SmartHopper.*" -and $_.Name -notlike "*.Test*" -and $_.Name -notlike "*Template*" } |
-          ForEach-Object { Write-Host "  - $($_.Name)" }
-        
-        # Define the target platforms
-        $platforms = @("net7.0-windows", "net7.0")
-        $missingFiles = $false
-        
-        foreach ($platform in $platforms) {
-          # Check both the build directory and the artifacts directory
-          $buildDir = "bin\${{ steps.determine_version.outputs.VERSION }}\Release"
-          $buildPlatformPath = Join-Path $buildDir $platform
-          $artifactsPlatformPath = Join-Path "artifacts" $platform
-          
-          Write-Host "Checking platform: $platform"
-          
-          # Check build directory first
-          if (Test-Path $buildPlatformPath) {
-            # The -Include parameter doesn't work as expected without wildcards in the path
-            # Use a different approach to get the files
-            $allBuildDirFiles = Get-ChildItem -Path $buildPlatformPath -File
-            $smartHopperBuildFiles = $allBuildDirFiles | Where-Object { 
-              ($_.Name -like "SmartHopper.*.dll" -or $_.Name -like "SmartHopper.*.gha") -and 
-              $_.Name -notlike "*.Test*" -and $_.Name -notlike "*Template*" 
-            }
-            
-            Write-Host "Found $($smartHopperBuildFiles.Count) SmartHopper DLL/GHA files in build directory ($buildPlatformPath)"
-            $smartHopperBuildFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
-            
-            if ($smartHopperBuildFiles.Count -lt $csprojCount) {
-              Write-Host "##[warning] Fewer SmartHopper files in build directory than expected. This may indicate build issues."
-            }
-          } else {
-            Write-Host "##[warning] Build platform folder ${buildPlatformPath} not found"
-          }
-          
-          # Now check artifacts directory
-          if (Test-Path $artifactsPlatformPath) {
-            $smartHopperFileCount = (Get-ChildItem -Path $artifactsPlatformPath -File | 
-                                    Where-Object { ($_.Name -like "SmartHopper.*.dll" -or $_.Name -like "SmartHopper.*.gha") -and 
-                                                  $_.Name -notlike "*.Test*" -and $_.Name -notlike "*Template*" } | 
-                                    Measure-Object).Count
-            
-            Write-Host "Found $smartHopperFileCount SmartHopper DLL/GHA files in artifacts directory ($artifactsPlatformPath)"
-            
-            # Verify that we have the expected number of files
-            if ($smartHopperFileCount -lt $csprojCount) {
-              Write-Host "##[error] Missing SmartHopper files in $platform folder! Expected at least $csprojCount files but found only $smartHopperFileCount."
-              Write-Host "##[error] This could indicate that some projects failed to build or weren't copied correctly."
-              Write-Host "Files found in ${artifactsPlatformPath}:"
-              Get-ChildItem -Path $artifactsPlatformPath -File | ForEach-Object { Write-Host "  - $($_.Name)" }
-              $missingFiles = $true
-            }
-          } else {
-            Write-Host "##[warning] Artifacts platform folder ${artifactsPlatformPath} not found, skipping validation"
-          }
-        }
-        
-        if ($missingFiles) {
-          Write-Host "##[error] Build validation failed: Missing expected SmartHopper files in one or more platform folders."
-          exit 1
-        } else {
-          Write-Host "##[notice] Build validation successful: All expected SmartHopper files are present."
-        }
-
-    - name: Create ZIP Archives
-      if: steps.determine_version.outputs.IS_RELEASE == 'true'
-      id: create_zips
-      shell: pwsh
-      run: |
-        $version = "${{ steps.determine_version.outputs.VERSION }}"
-        $platforms = @{
-          "net7.0-windows" = "SmartHopper-$version-Rhino8-Windows.zip"
-          "net7.0" = "SmartHopper-$version-Rhino8-Mac-not-tested.zip"
-        }
-        
-        $zipPaths = @()
-        
-        foreach ($platform in $platforms.Keys) {
-          $zipName = $platforms[$platform]
-          $platformPath = Join-Path "artifacts" $platform
-          
-          if (Test-Path $platformPath) {
-            Write-Host "Creating zip for ${platform}: ${zipName}"
-            
-            # Create zip directly from the platform folder contents (not the folder itself)
-            Compress-Archive -Path "$platformPath\*" -DestinationPath $zipName -Force
-            $zipPaths += $zipName
-          } else {
-            Write-Host "Platform folder ${platformPath} not found, skipping"
-          }
-        }
-        
-        # Output the zip paths as a JSON array for the next step
-        $zipPathsJson = ConvertTo-Json -InputObject $zipPaths -Compress
-        echo "zip_paths=$zipPathsJson" >> $env:GITHUB_OUTPUT
-
-    - name: Calculate Provider SHA-256 Hashes
-      id: calculate_hashes
+    - name: Calculate Windows Provider Hashes
+      id: calculate_hashes_windows
       uses: ./.github/actions/calculate-provider-hashes
       with:
-        artifacts-path: artifacts
+        artifacts-path: artifacts-windows
         version: ${{ steps.determine_version.outputs.VERSION }}
-        platforms: '["net7.0-windows", "net7.0"]'
+        platforms: '["net7.0-windows"]'
         build-number: ${{ github.run_number }}
         commit-sha: ${{ github.sha }}
         repository: ${{ github.repository }}
 
-    - name: Commit Hash File to Repository
-      if: steps.determine_version.outputs.IS_RELEASE == 'true'
+    - name: Upload Windows Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-build
+        path: |
+          artifacts-windows/
+          ${{ steps.calculate_hashes_windows.outputs.HASH_FILE }}
+
+  # Build on macOS for net7.0 platform
+  build-macos:
+    runs-on: macos-latest
+    outputs:
+      version: ${{ steps.determine_version.outputs.VERSION }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Get latest release tag
+      id: get_latest_release
       shell: pwsh
       run: |
-        $version = "${{ steps.determine_version.outputs.VERSION }}"
-        $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
+        $tags = git tag -l --sort=-v:refname
+        if (-not $tags) {
+          Write-Host "##[error] No tags found in the repository."
+          exit 1
+        }
+        $latestTag = $tags[0]
+        Write-Host "Latest tag: $latestTag"
+        echo "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
+    
+    - name: Determine version to build
+      id: determine_version
+      shell: pwsh
+      run: |
+        $inputVersion = "${{ github.event.inputs.version }}"
+        $releaseTag = "${{ github.event.release.tag_name }}"
+        $latestTag = "${{ steps.get_latest_release.outputs.LATEST_TAG }}"
+        
+        if ($releaseTag) {
+          $version = $releaseTag
+        } elseif ($inputVersion) {
+          $version = $inputVersion
+        } else {
+          $version = $latestTag
+        }
+        
+        Write-Host "Building version: $version"
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        
+        git checkout $version
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "##[error] Failed to checkout tag $version"
+          exit 1
+        }
+
+    - name: Compile Solution (macOS)
+      uses: ./.github/actions/compile-solution
+      with:
+        version: ${{ steps.determine_version.outputs.VERSION }}
+        configuration: Release
+        platforms: '["net7.0"]'
+        signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
+        libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
+        output-directory: artifacts-macos
+
+    - name: Calculate macOS Provider Hashes
+      id: calculate_hashes_macos
+      uses: ./.github/actions/calculate-provider-hashes
+      with:
+        artifacts-path: artifacts-macos
+        version: ${{ steps.determine_version.outputs.VERSION }}
+        platforms: '["net7.0"]'
+        build-number: ${{ github.run_number }}
+        commit-sha: ${{ github.sha }}
+        repository: ${{ github.repository }}
+
+    - name: Upload macOS Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-build
+        path: |
+          artifacts-macos/
+          ${{ steps.calculate_hashes_macos.outputs.HASH_FILE }}
+
+  # Merge artifacts and hash manifests
+  merge-and-release:
+    needs: [build-windows, build-macos]
+    runs-on: windows-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download Windows Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: windows-build
+        path: windows-build
+
+    - name: Download macOS Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: macos-build
+        path: macos-build
+
+    - name: Merge Artifacts
+      shell: pwsh
+      run: |
+        $version = "${{ needs.build-windows.outputs.version }}"
+        
+        Write-Host "Merging artifacts for version: $version"
+        
+        # Create merged artifacts directory
+        New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
+        
+        # Copy Windows artifacts
+        if (Test-Path "windows-build/artifacts-windows/net7.0-windows") {
+          Copy-Item -Path "windows-build/artifacts-windows/net7.0-windows" -Destination "artifacts/" -Recurse -Force
+          Write-Host "Copied Windows artifacts"
+        }
+        
+        # Copy macOS artifacts
+        if (Test-Path "macos-build/artifacts-macos/net7.0") {
+          Copy-Item -Path "macos-build/artifacts-macos/net7.0" -Destination "artifacts/" -Recurse -Force
+          Write-Host "Copied macOS artifacts"
+        }
+
+    - name: Merge Hash Manifests
+      id: merge_hashes
+      shell: pwsh
+      run: |
+        $version = "${{ needs.build-windows.outputs.version }}"
+        
+        # Find hash files
+        $windowsHashFile = Get-ChildItem -Path "windows-build" -Filter "provider-hashes-*.json" -Recurse | Select-Object -First 1
+        $macosHashFile = Get-ChildItem -Path "macos-build" -Filter "provider-hashes-*.json" -Recurse | Select-Object -First 1
+        
+        if (-not $windowsHashFile -or -not $macosHashFile) {
+          Write-Host "##[error] Could not find hash files"
+          exit 1
+        }
+        
+        Write-Host "Windows hash file: $($windowsHashFile.FullName)"
+        Write-Host "macOS hash file: $($macosHashFile.FullName)"
+        
+        # Load hash manifests
+        $windowsHashes = Get-Content $windowsHashFile.FullName -Raw | ConvertFrom-Json
+        $macosHashes = Get-Content $macosHashFile.FullName -Raw | ConvertFrom-Json
+        
+        # Merge providers
+        $mergedProviders = @{}
+        foreach ($key in $windowsHashes.providers.PSObject.Properties.Name) {
+          $mergedProviders[$key] = $windowsHashes.providers.$key
+        }
+        foreach ($key in $macosHashes.providers.PSObject.Properties.Name) {
+          $mergedProviders[$key] = $macosHashes.providers.$key
+        }
+        
+        # Create merged manifest
+        $mergedManifest = @{
+          version = $version
+          generated = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+          algorithm = "SHA-256"
+          providers = $mergedProviders
+          metadata = @{
+            buildNumber = "${{ github.run_number }}"
+            commitSha = "${{ github.sha }}"
+            repository = "${{ github.repository }}"
+            platforms = @("net7.0-windows", "net7.0")
+          }
+        }
+        
+        # Save merged manifest
+        $outputFile = "provider-hashes-$version.json"
+        $mergedManifest | ConvertTo-Json -Depth 10 | Set-Content $outputFile
+        
+        Write-Host "Merged hash manifest created: $outputFile"
+        Write-Host "Total providers: $($mergedProviders.Count)"
+        
+        echo "HASH_FILE=$outputFile" >> $env:GITHUB_OUTPUT
+        echo "HASH_COUNT=$($mergedProviders.Count)" >> $env:GITHUB_OUTPUT
+
+    - name: Create ZIP Archives
+      if: needs.build-windows.outputs.is_release == 'true'
+      shell: pwsh
+      run: |
+        $version = "${{ needs.build-windows.outputs.version }}"
+        
+        # Create Windows ZIP
+        if (Test-Path "artifacts/net7.0-windows") {
+          $zipName = "SmartHopper-$version-Rhino8-Windows.zip"
+          Compress-Archive -Path "artifacts/net7.0-windows/*" -DestinationPath $zipName -Force
+          Write-Host "Created: $zipName"
+        }
+        
+        # Create macOS ZIP
+        if (Test-Path "artifacts/net7.0") {
+          $zipName = "SmartHopper-$version-Rhino8-Mac.zip"
+          Compress-Archive -Path "artifacts/net7.0/*" -DestinationPath $zipName -Force
+          Write-Host "Created: $zipName"
+        }
+
+    - name: Commit Hash File to Repository
+      if: needs.build-windows.outputs.is_release == 'true'
+      shell: pwsh
+      run: |
+        $version = "${{ needs.build-windows.outputs.version }}"
+        $hashFile = "${{ steps.merge_hashes.outputs.HASH_FILE }}"
         
         Write-Host "Committing hash file to repository..."
         Write-Host "  Version: $version"
@@ -293,97 +387,57 @@ jobs:
         if (git diff --staged --quiet) {
           Write-Host "No changes to commit (hash file already exists with same content)"
         } else {
-          git commit -m "chore: add provider hash manifest for version $version"
-          
-          # Push with admin token to bypass branch protection
+          git commit -m "chore: add provider hash manifest for version $version (dual platform)"
           git push origin $tempBranch
           
           # Create PR to main
           Write-Host "Creating PR to merge hash file to main..."
-          $prBody = "Auto-generated PR to add provider hash manifest for version $version to the repository.`n`n**Hash File:** \`hashes/$version.json\``n**Build:** #${{ github.run_number }}`n**Commit:** ${{ github.sha }}`n`nThis PR can be auto-merged."
+          $prBody = "Auto-generated PR to add provider hash manifest for version $version (native builds on Windows and macOS).`n`n**Hash File:** \`hashes/$version.json\``n**Build:** #${{ github.run_number }}`n**Platforms:** net7.0-windows (Windows runner), net7.0 (macOS runner)"
           
-          try {
-            gh pr create --base main --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody
-            Write-Host "✓ PR created successfully"
-            
-            # Auto-merge the PR if possible
-            $prNumber = gh pr list --head $tempBranch --json number --jq '.[0].number'
-            if ($prNumber) {
-              Write-Host "Auto-merging PR #$prNumber..."
-              gh pr merge $prNumber --auto --squash --delete-branch
-              Write-Host "✓ PR auto-merge enabled"
-            } else {
-              Write-Host "##[warning] Could not find PR number for auto-merge"
-            }
-          } catch {
-            Write-Host "##[error] Failed to create PR: $_"
-            Write-Host "Branch '$tempBranch' created but PR creation failed. Please create PR manually."
-            exit 1
+          gh pr create --base main --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody
+          
+          $prNumber = gh pr list --head $tempBranch --json number --jq '.[0].number'
+          if ($prNumber) {
+            gh pr merge $prNumber --auto --squash --delete-branch
           }
         }
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload Hash Manifest to Build Artifacts
+    - name: Upload Hash Manifest
       uses: actions/upload-artifact@v4
       with:
         name: provider-hashes
-        path: ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+        path: ${{ steps.merge_hashes.outputs.HASH_FILE }}
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: plugin-package
         path: artifacts/
-    
-    - name: Get Release Upload URL
-      if: steps.determine_version.outputs.IS_RELEASE == 'true' && github.event_name != 'release'
-      id: get_release_url
-      shell: pwsh
-      run: |
-        $version = "${{ steps.determine_version.outputs.VERSION }}"
-        $token = "${{ secrets.GITHUB_TOKEN }}"
-        $headers = @{
-          "Authorization" = "Bearer $token"
-          "Accept" = "application/vnd.github+json"
-          "X-GitHub-Api-Version" = "2022-11-28"
-        }
-        
-        # Get the release by tag
-        $releaseUrl = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$version"
-        Write-Host "Fetching release info from: $releaseUrl"
-        
-        try {
-          $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -Method Get
-          $uploadUrl = $release.upload_url
-          Write-Host "Found release upload URL: $uploadUrl"
-          echo "UPLOAD_URL=$uploadUrl" >> $env:GITHUB_OUTPUT
-        } catch {
-          Write-Host "Error fetching release: $_"
-          Write-Host "Release with tag $version might not exist or you don't have permission to access it."
-          exit 1
-        }
-        
+
     - name: Upload Release Assets
-      if: steps.determine_version.outputs.IS_RELEASE == 'true'
+      if: needs.build-windows.outputs.is_release == 'true'
       uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.determine_version.outputs.VERSION }}
+        tag_name: ${{ needs.build-windows.outputs.version }}
         files: |
-          SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Windows.zip
-          SmartHopper-${{ steps.determine_version.outputs.VERSION }}-Rhino8-Mac-not-tested.zip
-          ${{ steps.calculate_hashes.outputs.HASH_FILE }}
+          SmartHopper-${{ needs.build-windows.outputs.version }}-Rhino8-Windows.zip
+          SmartHopper-${{ needs.build-windows.outputs.version }}-Rhino8-Mac.zip
+          ${{ steps.merge_hashes.outputs.HASH_FILE }}
 
     - name: Workflow Complete
-      if: steps.determine_version.outputs.IS_RELEASE == 'true'
+      if: needs.build-windows.outputs.is_release == 'true'
       shell: pwsh
       run: |
-        Write-Host "✓ Build workflow complete"
+        Write-Host "✓ Dual-platform build workflow complete"
+        Write-Host ""
+        Write-Host "Platforms built:"
+        Write-Host "  - net7.0-windows (Windows runner)"
+        Write-Host "  - net7.0 (macOS runner)"
         Write-Host ""
         Write-Host "Next steps:"
         Write-Host "  1. Review and merge the hash PR to main branch"
-        Write-Host "  2. GitHub Pages deployment will trigger automatically after merge"
-        Write-Host ""
-        Write-Host "Hash PR should be titled: 'chore: add provider hash manifest for ${{ steps.determine_version.outputs.VERSION }}'"
+        Write-Host "  2. GitHub Pages deployment will trigger automatically"

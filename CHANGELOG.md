@@ -7,10 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Cross-Platform Provider Verification**: SHA-256 hash verification now supports both Windows and macOS with platform-specific hashes generated via dual-runner CI workflow (Windows for `net7.0-windows`, macOS for `net7.0`), with automatic bypass in DEBUG builds for local development
+
 ### Fixed
 
 - fix(core): eliminate race condition in `ComponentStateManager.ProcessTransitionQueue()` where `isTransitioning` flag was cleared before event firing, potentially allowing concurrent queue processing on macOS. The flag now remains true until after all events are fired, preventing out-of-order event processing and concurrent event handler execution.
-- fix(infrastructure): skip SHA-256 hash verification on non-Windows platforms where source-built assemblies produce different hashes than official releases
 - fix(tools): set GhJSON component `Id = 1` when `InstanceGuid` is null in `script_generate` and `script_edit` to satisfy GhJSON.Core validation requiring at least one identifier
 - fix(tools): add `SanitizeAndParseJson` to handle AI responses wrapped in markdown code blocks or non-JSON formatting in `script_generate` and `script_edit`
 - fix(infrastructure): improve `AIProvider.CallApi()` error messages for non-JSON API responses (e.g., HTML error pages from proxies)

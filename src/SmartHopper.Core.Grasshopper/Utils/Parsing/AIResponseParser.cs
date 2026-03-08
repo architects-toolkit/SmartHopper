@@ -575,7 +575,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             // Try extracting JSON from markdown code blocks
-            var codeBlockContent = ExtractFromMarkdownCodeBlock(trimmed);
+            var codeBlockContent = ExtractFromMarkdownCodeBlock(response);
             if (!string.IsNullOrEmpty(codeBlockContent))
             {
                 try
@@ -589,7 +589,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             // Try extracting the first complete JSON object by tracking brace depth
-            var jsonCandidate = ExtractFirstJsonObject(trimmed);
+            var jsonCandidate = ExtractFirstJsonObject(response);
             if (!string.IsNullOrEmpty(jsonCandidate))
             {
                 try
@@ -604,7 +604,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
 
             // All attempts failed - provide a descriptive error
             var preview = TruncateForDisplay(response);
-            if (trimmed.StartsWith("<", StringComparison.Ordinal))
+            if (response.StartsWith("<", StringComparison.Ordinal))
             {
                 throw new JsonException(
                     $"AI returned HTML/XML instead of JSON. This may indicate a provider error. Preview: {preview}");

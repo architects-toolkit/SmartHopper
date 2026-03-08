@@ -80,7 +80,8 @@ runs:
       shell: pwsh
       run: dotnet restore ${{ inputs.solution }}
 
-    - name: 'Initialize Visual Studio environment'
+    - name: 'Initialize Visual Studio environment (Windows only)'
+      if: runner.os == 'Windows'
       shell: pwsh
       run: |
         $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
@@ -102,7 +103,8 @@ runs:
         Write-Host "Building solution with SNK at: $snkPath"
         dotnet build ${{ inputs.solution }} --configuration ${{ inputs.configuration }} --no-restore /p:SignAssembly=true "/p:AssemblyOriginatorKeyFile=$snkPath"
 
-    - name: Decode Authenticode PFX from secrets
+    - name: Decode Authenticode PFX from secrets (Windows only)
+      if: runner.os == 'Windows'
       shell: pwsh
       run: |
         # Setup VS Developer environment
@@ -128,7 +130,8 @@ runs:
           Write-Host "No Authenticode PFX secret provided; skipping PFX decoding."
         }
 
-    - name: Authenticode-sign provider assemblies
+    - name: Authenticode-sign provider assemblies (Windows only)
+      if: runner.os == 'Windows'
       shell: pwsh
       run: |
         # Setup VS Developer environment
