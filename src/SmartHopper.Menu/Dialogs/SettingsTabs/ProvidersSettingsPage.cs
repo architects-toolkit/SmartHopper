@@ -144,15 +144,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Index 0 = Soft, Index 1 = Hard, Index 2 = Strict
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
-                Text = "Soft check - Warn but allow all issues (default)"
+                Text = "Soft - No blocking, just warn about issues (default)"
             });
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
-                Text = "Hard check - Block on hash mismatch and unknown providers"
+                Text = "Hard - Block altered and unknown providers, be permissive when offline"
             });
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
-                Text = "Strict - Block on all issues (highest security)"
+                Text = "Strict - Allow only verified providers from official repository (highest security)"
             });
 
             layout.Add(this._integrityCheckModeDropDown);
@@ -162,11 +162,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             layout.Add(new Label
             {
                 Text = "• Soft: Warns but allows providers with hash mismatches, unavailable hashes, or custom/third-party providers. " +
-                       "Best for development and third-party providers.\n\n" +
+                       "Best for development and custom providers.\n\n" +
                        "• Hard: Blocks providers with hash mismatches or unknown providers, " +
-                       "but allows when hash repository is unavailable. Good balance of security.\n\n" +
+                       "but allows when hash repository is unavailable (when offline or network issues). Good balance of security and flexibility.\n\n" +
                        "• Strict: Blocks on all verification failures including hash mismatches, unknown providers, and network unavailability. " +
-                       "Requires all providers to have valid published hashes.",
+                       "Requires all providers to have valid published hashes from the official repository and an active internet connection.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 9),
                 Wrap = WrapMode.Word,

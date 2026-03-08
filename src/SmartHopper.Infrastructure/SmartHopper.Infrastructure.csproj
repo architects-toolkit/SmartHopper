@@ -101,5 +101,6 @@
     <InternalsVisibleTo Include="SmartHopper.Providers.OpenRouter, PublicKey=$(SmartHopperPublicKey)" />
     <!-- Test assemblies -->
     <InternalsVisibleTo Include="SmartHopper.Infrastructure.Tests, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Components.Test, PublicKey=$(SmartHopperPublicKey)" />
   </ItemGroup>
 </Project>

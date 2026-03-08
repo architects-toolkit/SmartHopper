@@ -33,8 +33,8 @@ namespace SmartHopper.Infrastructure.Dialogs
     /// </summary>
     internal class ProviderVerificationDialog : Dialog
     {
-        private const int ContentWidth = 720;
-        private const int DialogWidth = ContentWidth + 260; // allows padding, status column, margins
+        private const int ContentWidth = 420;
+        private const int DialogWidth = ContentWidth + 240; // allows padding, status column, margins
 
         private static readonly Assembly ConfigAssembly = typeof(providersResources).Assembly;
         private const string IconResourceName = "SmartHopper.Infrastructure.Resources.smarthopper.ico";
@@ -50,7 +50,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             _platform = platform;
 
             this.Title = "Provider Verification - SmartHopper";
-            this.Resizable = true;
+            this.Resizable = false;
             this.Size = new Size(DialogWidth, 650);
             this.MinimumSize = new Size(ContentWidth + 100, 450);
             this.Padding = new Padding(20);
@@ -127,17 +127,28 @@ namespace SmartHopper.Infrastructure.Dialogs
         {
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper verifies that AI providers match the official published hashes. Mismatches may indicate file corruption or tampering."
+                Text = "SmartHopper verifies that AI providers match the official published hashes.\nMismatches may indicate file corruption or tampering.",
                 Font = new Font(SystemFont.Default, 10),
                 TextColor = SystemColors.DisabledText,
                 Wrap = WrapMode.Word,
-                Width = ContentWidth,
             };
+
+            // Clickable link to GitHub documentation
+            var helpLink = new Label
+            {
+                Text = "Read more about the integrity check failure risks in SmartHopper documentation",
+                Font = new Font(SystemFont.Default, 10),
+                TextColor = Colors.DodgerBlue,
+                Cursor = Cursors.Pointer,
+                Wrap = WrapMode.Word,
+            };
+
+            helpLink.MouseDown += (sender, e) => this.ShowHelpPage();
 
             return new StackLayout
             {
-                Spacing = 5,
-                Items = { descriptionLabel }
+                Spacing = 8,
+                Items = { descriptionLabel, helpLink }
             };
         }
 
