@@ -47,6 +47,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         private readonly Dictionary<string, IAIProvider> _providers = new Dictionary<string, IAIProvider>();
         private readonly Dictionary<string, IAIProviderSettings> _providerSettings = new Dictionary<string, IAIProviderSettings>();
         private readonly Dictionary<string, Assembly> _providerAssemblies = new Dictionary<string, Assembly>();
+        private readonly HashSet<string> _unverifiedProviders = new HashSet<string>(); // Tracks providers with hash mismatches
 
         private ProviderManager()
         {
@@ -188,21 +189,59 @@ namespace SmartHopper.Infrastructure.AIProviders
                             break;
 
                         case ProviderVerificationStatus.Mismatch:
-                            // CRITICAL: Hash mismatch indicates potential tampering
-                            await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                            // Hash mismatch indicates potential tampering
+                            var settings = SmartHopperSettings.Instance;
+                            var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
+
+                            if (settings.HardIntegrityCheck)
                             {
-                                StyledMessageDialog.ShowError(
-                                    $"SECURITY WARNING: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
-                                    $"The file's SHA-256 hash does not match the published hash from official sources. " +
-                                    $"This could indicate file corruption or tampering.\n\n" +
-                                    $"Platform: {platform}\n" +
-                                    $"Expected: {hashResult.PublicHash}\n" +
-                                    $"Actual: {hashResult.LocalHash}\n\n" +
-                                    $"Please re-download the provider from official SmartHopper sources.",
-                                    "Security Warning - SmartHopper"
-                                );
-                            }))).ConfigureAwait(false);
-                            return;
+                                // Hard integrity check: Show error and prevent loading
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                {
+                                    StyledMessageDialog.ShowError(
+                                        $"Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
+                                        $"The file's SHA-256 hash does not match the published hash from official sources. " +
+                                        $"This could indicate file corruption or tampering.\n\n" +
+                                        $"Platform: {platform}\n" +
+                                        $"Expected: {hashResult.PublicHash}\n" +
+                                        $"Actual: {hashResult.LocalHash}\n\n" +
+                                        $"Please re-download the provider from official SmartHopper sources.",
+                                        "Provider Integrity Check Failed - SmartHopper"
+                                    );
+                                }))).ConfigureAwait(false);
+
+                                RhinoApp.WriteLine($"SmartHopper Error: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
+                                Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
+
+                                return;
+                            }
+                            else
+                            {
+                                // Soft integrity check: Show warning and continue loading
+                                this._unverifiedProviders.Add(asmName);
+
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                {
+                                    StyledMessageDialog.ShowWarning(
+                                        $"WARNING: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
+                                        $"The file's SHA-256 hash does not match the published hash from official sources. " +
+                                        $"This could indicate file corruption or tampering.\n\n" +
+                                        $"Platform: {platform}\n" +
+                                        $"Expected: {hashResult.PublicHash}\n" +
+                                        $"Actual: {hashResult.LocalHash}\n\n" +
+                                        $"The provider has been loaded but will show a warning when used. " +
+                                        $"Enable 'Hard integrity check' in settings to block unverified providers.",
+                                        "Provider Integrity Check Warning - SmartHopper"
+                                    );
+                                }))).ConfigureAwait(false);
+
+                                RhinoApp.WriteLine($"SmartHopper Warning: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
+                                Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
+
+                                return;
+                            }
+
+                            break;
 
                         case ProviderVerificationStatus.Unavailable:
                         case ProviderVerificationStatus.NotFound:
@@ -465,6 +504,28 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             var provider = this.GetProvider(providerName);
             return provider?.Icon;
+        }
+
+        /// <summary>
+        /// Checks if a provider has failed integrity verification (hash mismatch).
+        /// </summary>
+        /// <param name="providerName">The name of the provider to check.</param>
+        /// <returns>True if the provider has a hash mismatch and was loaded with soft verification; otherwise, false.</returns>
+        public bool IsProviderUnverified(string providerName)
+        {
+            if (string.IsNullOrEmpty(providerName))
+            {
+                return false;
+            }
+
+            // Get the assembly name for this provider
+            if (this._providerAssemblies.TryGetValue(providerName, out var assembly))
+            {
+                var asmName = assembly.GetName().Name;
+                return this._unverifiedProviders.Contains(asmName);
+            }
+
+            return false;
         }
 
         /// <summary>

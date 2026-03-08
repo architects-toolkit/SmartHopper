@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Provider Integrity Verification**: Made SHA-256 hash verification softer by default with optional hard mode
+  - New "Integrity check" section in Providers settings tab with "Enable hard integrity check" checkbox
+  - When disabled (default): Hash mismatches show a warning but provider is loaded and can be used; warning appears in component validation
+  - When enabled: Hash mismatches block provider loading with error dialog (previous behavior)
+  - Existing installations will default to soft verification (false) for better user experience
+
 - **Cross-Platform Provider Verification**: SHA-256 hash verification now supports both Windows and macOS with platform-specific hashes generated via dual-runner CI workflow (Windows for `net7.0-windows`, macOS for `net7.0`), with automatic bypass in DEBUG builds for local development
 
 ### Fixed

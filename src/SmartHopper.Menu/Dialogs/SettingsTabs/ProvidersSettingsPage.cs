@@ -32,6 +32,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
     {
         private readonly Dictionary<string, CheckBox> _providerCheckBoxes;
         private readonly IAIProvider[] _providers;
+        private readonly CheckBox _hardIntegrityCheckBox;
 
         /// <summary>
         /// Initializes a new instance of the ProvidersSettingsPage class
@@ -112,6 +113,46 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 layout.Add(providerLayout);
             }
 
+            // Add spacing
+            layout.Add(new Panel { Height = 20 });
+
+            // Integrity Check Section
+            layout.Add(new Label
+            {
+                Text = "Integrity Check",
+                Font = new Font(SystemFont.Bold, 12),
+            });
+
+            layout.Add(new Label
+            {
+                Text = "Configure how provider integrity verification is handled when SHA-256 hash mismatches are detected.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500,
+            });
+
+            layout.Add(new Panel { Height = 10 });
+
+            // Hard integrity check checkbox
+            this._hardIntegrityCheckBox = new CheckBox
+            {
+                Text = "Enable hard integrity check",
+                Font = new Font(SystemFont.Default, 11),
+            };
+
+            layout.Add(this._hardIntegrityCheckBox);
+
+            layout.Add(new Label
+            {
+                Text = "When enabled, providers with hash mismatches will be blocked from loading. " +
+                       "When disabled, a warning is shown but the provider can still be used.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 9),
+                Wrap = WrapMode.Word,
+                Width = 500,
+            });
+
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
@@ -122,26 +163,32 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// Loads trusted providers settings into the UI controls
         /// </summary>
         /// <param name="settings">Trusted providers settings to load</param>
-        public void LoadSettings(TrustedProvidersSettings settings)
+        /// <param name="hardIntegrityCheck">Hard integrity check setting</param>
+        public void LoadSettings(TrustedProvidersSettings settings, bool hardIntegrityCheck)
         {
             foreach (var kvp in this._providerCheckBoxes)
             {
                 // Default to true if not specified, false if explicitly set to false
                 kvp.Value.Checked = !settings.ContainsKey(kvp.Key) || settings[kvp.Key];
             }
+
+            this._hardIntegrityCheckBox.Checked = hardIntegrityCheck;
         }
 
         /// <summary>
         /// Saves UI control values back to the trusted providers settings model
         /// </summary>
         /// <param name="settings">Trusted providers settings to update</param>
-        public void SaveSettings(TrustedProvidersSettings settings)
+        /// <param name="hardIntegrityCheck">Hard integrity check setting to update</param>
+        public void SaveSettings(TrustedProvidersSettings settings, out bool hardIntegrityCheck)
         {
             settings.Clear();
             foreach (var kvp in this._providerCheckBoxes)
             {
                 settings[kvp.Key] = kvp.Value.Checked ?? false;
             }
+
+            hardIntegrityCheck = this._hardIntegrityCheckBox.Checked ?? false;
         }
     }
 }

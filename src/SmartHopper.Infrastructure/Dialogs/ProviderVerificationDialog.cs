@@ -18,8 +18,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
+using System.Threading.Tasks;
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino.UI;
@@ -75,6 +75,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Items =
                 {
                     BuildHeaderPanel(),
+                    BuildDescriptionPanel(),
                     BuildResultsPanel(),
                     BuildSummaryPanel(),
                 }
@@ -119,6 +120,26 @@ namespace SmartHopper.Infrastructure.Dialogs
             {
                 Spacing = 5,
                 Items = { titleLabel, infoLabel }
+            };
+        }
+
+        private Control BuildDescriptionPanel()
+        {
+            var descriptionLabel = new Label
+            {
+                Text = "SmartHopper verifies that AI providers match the official published hashes. " +
+                       "Mismatches may indicate file corruption or tampering. " +
+                       "Click any hash to copy it to your clipboard.",
+                Font = new Font(SystemFont.Default, 10),
+                TextColor = Colors.DarkGray,
+                Wrap = WrapMode.Word,
+                Width = ContentWidth,
+            };
+
+            return new StackLayout
+            {
+                Spacing = 5,
+                Items = { descriptionLabel }
             };
         }
 
@@ -202,38 +223,14 @@ namespace SmartHopper.Infrastructure.Dialogs
 
             if (!string.IsNullOrEmpty(verification.LocalHash))
             {
-                detailsLayout.Items.Add(new Label
-                {
-                    Text = $"Local:  {verification.LocalHash}",
-                    Font = new Font(SystemFont.Default, 9),
-                    TextColor = SystemColors.DisabledText,
-                    Wrap = WrapMode.Word,
-                    Width = ContentWidth,
-                });
+                var localHashLabel = CreateClickableHashLabel($"Local:  {verification.LocalHash}", verification.LocalHash);
+                detailsLayout.Items.Add(localHashLabel);
             }
 
             if (!string.IsNullOrEmpty(verification.PublicHash))
             {
-                detailsLayout.Items.Add(new Label
-                {
-                    Text = $"Expected: {verification.PublicHash}",
-                    Font = new Font(SystemFont.Default, 9),
-                    TextColor = SystemColors.DisabledText,
-                    Wrap = WrapMode.Word,
-                    Width = ContentWidth,
-                });
-            }
-
-            if (!string.IsNullOrEmpty(verification.ErrorMessage))
-            {
-                detailsLayout.Items.Add(new Label
-                {
-                    Text = $"Note: {verification.ErrorMessage}",
-                    Font = new Font(SystemFont.Default, 9),
-                    TextColor = Colors.DarkGray,
-                    Wrap = WrapMode.Word,
-                    Width = ContentWidth,
-                });
+                var expectedHashLabel = CreateClickableHashLabel($"Expected: {verification.PublicHash}", verification.PublicHash);
+                detailsLayout.Items.Add(expectedHashLabel);
             }
 
             var headerLayout = new TableLayout
@@ -260,6 +257,68 @@ namespace SmartHopper.Infrastructure.Dialogs
             };
 
             return itemLayout;
+        }
+
+        private Label CreateClickableHashLabel(string displayText, string hashValue)
+        {
+            var label = new Label
+            {
+                Text = displayText,
+                Font = new Font(SystemFont.Default, 9),
+                TextColor = Colors.Gray,
+                Wrap = WrapMode.Word,
+                Width = ContentWidth,
+                Cursor = Cursors.Pointer,
+                ToolTip = "Click to copy hash to clipboard"
+            };
+
+            label.MouseDown += (sender, e) =>
+            {
+                try
+                {
+                    var clipboard = new Clipboard();
+                    clipboard.Text = hashValue;
+                    label.TextColor = Colors.DarkGreen;
+                    label.ToolTip = "Copied!";
+
+                    // Reset color after a short delay
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(1000).ConfigureAwait(false);
+                        Rhino.RhinoApp.InvokeOnUiThread(new Action(() =>
+                        {
+                            label.TextColor = Colors.Gray;
+                            label.ToolTip = "Click to copy hash to clipboard";
+                        }));
+                    });
+                }
+                catch
+                {
+                    // Silently ignore clipboard errors
+                }
+            };
+
+            return label;
+        }
+
+        private void ShowHelpPage()
+        {
+            try
+            {
+                string helpUrl = "https://github.com/architects-toolkit/SmartHopper/blob/main/docs/Help/integrity-check-failure.md";
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(helpUrl)
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Could not open help page: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxType.Error);
+            }
         }
 
         private Control BuildSummaryPanel()
@@ -345,19 +404,45 @@ namespace SmartHopper.Infrastructure.Dialogs
 
         private Control BuildButtonPanel()
         {
+            var buttonLayout = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                HorizontalContentAlignment = HorizontalAlignment.Right,
+                Items = { }
+            };
+
+            // Add "Which are the risks?" button if there are mismatches
+            bool hasMismatches = false;
+            foreach (var result in _results.Values)
+            {
+                if (result.Status == ProviderVerificationStatus.Mismatch)
+                {
+                    hasMismatches = true;
+                    break;
+                }
+            }
+
+            if (hasMismatches)
+            {
+                var helpButton = new Button
+                {
+                    Text = "Which are the risks?",
+                    MinimumSize = new Size(120, 30),
+                };
+                helpButton.Click += (sender, e) => this.ShowHelpPage();
+                buttonLayout.Items.Add(helpButton);
+            }
+
             var okButton = new Button
             {
                 Text = "OK",
                 MinimumSize = new Size(80, 30),
                 Command = new Command((sender, e) => this.Close())
             };
+            buttonLayout.Items.Add(okButton);
 
-            return new StackLayout
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalContentAlignment = HorizontalAlignment.Right,
-                Items = { okButton }
-            };
+            return buttonLayout;
         }
 
         /// <summary>

@@ -30,6 +30,8 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Execution;
 using SmartHopper.Infrastructure.AICall.Policies;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Streaming;
 
 
@@ -109,6 +111,24 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     AIRuntimeMessageOrigin.Validation,
                     AIMessageCode.ProviderMissing,
                     "Provider is required"));
+            }
+            else
+            {
+                // Check for provider integrity verification warning
+                var settings = SmartHopperSettings.Instance;
+                if (!settings.HardIntegrityCheck && ProviderManager.Instance.IsProviderUnverified(this.Provider))
+                {
+                    // Soft integrity check is enabled and provider has hash mismatch - add warning
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Warning,
+                        AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.UnknownProvider,
+                        $"Provider '{this.Provider}' failed SHA-256 integrity verification. " +
+                        "The provider's hash does not match the official published hash. " +
+                        "This could indicate file corruption or tampering, and your data could be compromised. " +
+                        "Enable 'Hard integrity check' in SmartHopper settings to block unverified providers."));
+                    Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unverified - adding warning");
+                }
             }
 
             if (this.ProviderInstance == null)
