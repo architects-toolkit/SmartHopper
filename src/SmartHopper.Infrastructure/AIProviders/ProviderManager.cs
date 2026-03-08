@@ -148,76 +148,90 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             try
             {
-                // Authenticode signature validation
-                try
+                // Authenticode signature validation (Windows-only, skip on macOS)
+                // TODO: skip on debug, keep on macOS
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    this.VerifySignature(assemblyPath);
-                }
-                catch (CryptographicException ex)
-                {
-                    Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
-                    await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                    try
                     {
-                        StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
-                    }))).ConfigureAwait(false);
-                    return;
-                }
-
-                // SHA-256 hash verification (enhanced security for all platforms)
-                try
-                {
-                    string platform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                        ? "net7.0-windows"
-                        : "net7.0";
-
-                    string version = VersionHelper.GetDisplayVersion();
-
-                    var hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
-                        .ConfigureAwait(false);
-
-                    switch (hashResult.Status)
+                        this.VerifySignature(assemblyPath);
+                    }
+                    catch (CryptographicException ex)
                     {
-                        case ProviderVerificationStatus.Match:
-                            Debug.WriteLine($"[ProviderManager] SHA-256 verification passed for {Path.GetFileName(assemblyPath)}");
-                            break;
-
-                        case ProviderVerificationStatus.Mismatch:
-                            // CRITICAL: Hash mismatch indicates potential tampering
-                            await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
-                            {
-                                StyledMessageDialog.ShowError(
-                                    $"SECURITY WARNING: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
-                                    $"The file's SHA-256 hash does not match the published hash from official sources. " +
-                                    $"This could indicate file corruption or tampering.\n\n" +
-                                    $"Expected: {hashResult.PublicHash}\n" +
-                                    $"Actual: {hashResult.LocalHash}\n\n" +
-                                    $"Please re-download the provider from official SmartHopper sources.",
-                                    "Security Warning - SmartHopper"
-                                );
-                            }))).ConfigureAwait(false);
-                            return;
-
-                        case ProviderVerificationStatus.Unavailable:
-                        case ProviderVerificationStatus.NotFound:
-                            // WARNING: Cannot verify - log to console
-                            var warningMessage = hashResult.Status == ProviderVerificationStatus.Unavailable
-                                ? $"WARNING: Could not retrieve SHA-256 hash for '{Path.GetFileName(assemblyPath)}' from public repository.\n" +
-                                  $"This may be due to network connectivity issues or public hash repository unavailability.\n" +
-                                  $"Hash verification will be skipped. Ensure you trust this provider's source before enabling it."
-                                : $"WARNING: SHA-256 hash for '{Path.GetFileName(assemblyPath)}' not found in public repository.\n" +
-                                  $"This provider may be a custom/third-party provider or from a different SmartHopper version.\n" +
-                                  $"Ensure you trust this provider's source before enabling it.";
-
-                            RhinoApp.WriteLine(warningMessage);
-                            Debug.WriteLine($"[ProviderManager] {warningMessage}");
-                            break;
+                        Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
+                        await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                        {
+                            StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
+                        }))).ConfigureAwait(false);
+                        return;
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Debug.WriteLine($"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
+                    Debug.WriteLine($"[ProviderManager] Skipping Authenticode verification on non-Windows platform for {Path.GetFileName(assemblyPath)}");
+                }
 
-                    // Continue loading - don't block on verification errors
+                // SHA-256 hash verification (Windows only; macOS skips due to source-build hash differences)
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    try
+                    {
+                        string platform = "net7.0-windows";
+
+                        string version = VersionHelper.GetDisplayVersion();
+
+                        var hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
+                            .ConfigureAwait(false);
+
+                        switch (hashResult.Status)
+                        {
+                            case ProviderVerificationStatus.Match:
+                                Debug.WriteLine($"[ProviderManager] SHA-256 verification passed for {Path.GetFileName(assemblyPath)}");
+                                break;
+
+                            case ProviderVerificationStatus.Mismatch:
+                                // CRITICAL: Hash mismatch indicates potential tampering
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                {
+                                    StyledMessageDialog.ShowError(
+                                        $"SECURITY WARNING: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
+                                        $"The file's SHA-256 hash does not match the published hash from official sources. " +
+                                        $"This could indicate file corruption or tampering.\n\n" +
+                                        $"Expected: {hashResult.PublicHash}\n" +
+                                        $"Actual: {hashResult.LocalHash}\n\n" +
+                                        $"Please re-download the provider from official SmartHopper sources.",
+                                        "Security Warning - SmartHopper"
+                                    );
+                                }))).ConfigureAwait(false);
+                                return;
+
+                            case ProviderVerificationStatus.Unavailable:
+                            case ProviderVerificationStatus.NotFound:
+                                // WARNING: Cannot verify - log to console
+                                var warningMessage = hashResult.Status == ProviderVerificationStatus.Unavailable
+                                    ? $"WARNING: Could not retrieve SHA-256 hash for '{Path.GetFileName(assemblyPath)}' from public repository.\n" +
+                                      $"This may be due to network connectivity issues or public hash repository unavailability.\n" +
+                                      $"Hash verification will be skipped. Ensure you trust this provider's source before enabling it."
+                                    : $"WARNING: SHA-256 hash for '{Path.GetFileName(assemblyPath)}' not found in public repository.\n" +
+                                      $"This provider may be a custom/third-party provider or from a different SmartHopper version.\n" +
+                                      $"Ensure you trust this provider's source before enabling it.";
+
+                                RhinoApp.WriteLine(warningMessage);
+                                Debug.WriteLine($"[ProviderManager] {warningMessage}");
+                                break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[ProviderManager] SHA-256 verification error for {assemblyPath}: {ex.Message}");
+
+                        // Continue loading - don't block on verification errors
+                    }
+                } // end if (Windows) for SHA-256 verification
+                  // TODO: remove
+                else
+                {
+                    Debug.WriteLine($"[ProviderManager] Skipping SHA-256 hash verification on non-Windows platform for {Path.GetFileName(assemblyPath)}");
                 }
 
                 var settings = SmartHopperSettings.Instance;

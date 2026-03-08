@@ -28,6 +28,7 @@ using GhJSON.Grasshopper;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Constants;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -215,7 +216,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse AI response and validate with retry loop
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                var responseJson = JObject.Parse(response);
+                var responseJson = SanitizeAndParseJson(response);
 
                 var language = responseJson["language"]?.ToString() ?? "python";
                 var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
@@ -266,7 +267,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     // Parse corrected response
                     response = correctionResult.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                    responseJson = JObject.Parse(response);
+                    responseJson = SanitizeAndParseJson(response);
 
                     scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                     inputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -364,6 +365,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
             };
         }
 
+        /// <summary>
+        /// Sanitizes and parses an AI response as a JSON object.
+        /// Delegates to <see cref="AIResponseParser.SanitizeAndParseJson"/>.
+        /// </summary>
+        private static JObject SanitizeAndParseJson(string response)
+        {
+            return AIResponseParser.SanitizeAndParseJson(response);
+        }
+
         private static string CreateComponentName(string languageKey)
         {
             return languageKey?.Trim().ToLowerInvariant() switch
@@ -393,6 +403,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Name = CreateComponentName(languageKey),
                 NickName = nickname,
                 InstanceGuid = instanceGuid,
+                Id = instanceGuid.HasValue ? null : 1,
                 Pivot = pivot,
             };
 

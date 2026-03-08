@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -542,6 +543,146 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             return jarray.ToString(Formatting.None);
+        }
+
+        #endregion
+
+        #region JSON Object Parsing
+
+        /// <summary>
+        /// Attempts to extract and parse a JSON object from an AI response that may contain
+        /// markdown formatting, HTML tags, or other non-JSON wrapping.
+        /// Uses brace-depth tracking to correctly extract the first complete JSON object.
+        /// </summary>
+        /// <param name="response">Raw response from the AI.</param>
+        /// <returns>Parsed <see cref="JObject"/>.</returns>
+        /// <exception cref="JsonException">Thrown when the response cannot be parsed as JSON.</exception>
+        public static JObject SanitizeAndParseJson(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                throw new JsonException("AI response is empty.");
+            }
+
+            // Try direct parse first
+            try
+            {
+                return JObject.Parse(response);
+            }
+            catch (JsonException)
+            {
+                // Continue with sanitization attempts
+            }
+
+            // Try extracting JSON from markdown code blocks (```json ... ``` or ``` ... ```)
+            var trimmed = response.Trim();
+            var match = MarkdownCodeBlockRegex().Match(trimmed);
+            if (match.Success)
+            {
+                try
+                {
+                    return JObject.Parse(match.Groups[1].Value.Trim());
+                }
+                catch (JsonException)
+                {
+                    // Continue
+                }
+            }
+
+            // Try extracting the first complete JSON object by tracking brace depth
+            var jsonCandidate = ExtractFirstJsonObject(trimmed);
+            if (!string.IsNullOrEmpty(jsonCandidate))
+            {
+                try
+                {
+                    return JObject.Parse(jsonCandidate);
+                }
+                catch (JsonException)
+                {
+                    // Continue
+                }
+            }
+
+            // All attempts failed - provide a descriptive error
+            var preview = response.Length > 200 ? response.Substring(0, 200) + "..." : response;
+            if (trimmed.StartsWith("<", StringComparison.Ordinal))
+            {
+                throw new JsonException(
+                    $"AI returned HTML/XML instead of JSON. This may indicate a provider error. Preview: {preview}");
+            }
+
+            throw new JsonException($"AI response is not valid JSON. Preview: {preview}");
+        }
+
+        /// <summary>
+        /// Extracts the first complete JSON object from a string by tracking brace depth,
+        /// correctly handling nested objects and string literals.
+        /// </summary>
+        /// <param name="text">The text to search for a JSON object.</param>
+        /// <returns>The first complete JSON object string, or null if none found.</returns>
+        private static string ExtractFirstJsonObject(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return null;
+            }
+
+            bool inString = false;
+            bool escape = false;
+            int depth = 0;
+            int startIndex = -1;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+
+                if (escape)
+                {
+                    escape = false;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    if (inString)
+                    {
+                        escape = true;
+                    }
+
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (inString)
+                {
+                    continue;
+                }
+
+                if (c == '{')
+                {
+                    if (depth == 0)
+                    {
+                        startIndex = i;
+                    }
+
+                    depth++;
+                }
+                else if (c == '}' && depth > 0)
+                {
+                    depth--;
+                    if (depth == 0 && startIndex >= 0)
+                    {
+                        return text.Substring(startIndex, i - startIndex + 1);
+                    }
+                }
+            }
+
+            return null;
         }
 
         #endregion

@@ -24,8 +24,10 @@ using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Constants;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -242,7 +244,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse AI response and validate with retry loop
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                var responseJson = JObject.Parse(response);
+                var responseJson = SanitizeAndParseJson(response);
 
                 var newScriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var newInputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -289,7 +291,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     // Parse corrected response
                     response = correctionResult.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                    responseJson = JObject.Parse(response);
+                    responseJson = SanitizeAndParseJson(response);
 
                     newScriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                     newInputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -397,6 +399,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
             };
         }
 
+        /// <summary>
+        /// Sanitizes and parses an AI response as a JSON object.
+        /// Delegates to <see cref="AIResponseParser.SanitizeAndParseJson"/>.
+        /// </summary>
+        private static JObject SanitizeAndParseJson(string response)
+        {
+            return AIResponseParser.SanitizeAndParseJson(response);
+        }
+
         private static string CreateScriptGhJson(
             string languageKey,
             string scriptCode,
@@ -421,6 +432,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 },
                 NickName = nickname,
                 InstanceGuid = instanceGuid,
+                Id = instanceGuid.HasValue ? null : 1,
                 Pivot = pivot,
             };
 

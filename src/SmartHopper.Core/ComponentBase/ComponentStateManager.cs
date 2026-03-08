@@ -353,31 +353,48 @@ namespace SmartHopper.Core.ComponentBase
             // Collect all transition results inside the lock in one pass
             var pendingEvents = new List<(ComponentState oldState, ComponentState newState, bool isRejection, string rejectionMessage)>();
 
-            while (this.pendingTransitions.Count > 0)
+            try
             {
-                var request = this.pendingTransitions.Dequeue();
-                var result = this.ExecuteTransitionCore(request);
-                if (result.HasValue)
+                while (this.pendingTransitions.Count > 0)
                 {
-                    pendingEvents.Add(result.Value);
+                    var request = this.pendingTransitions.Dequeue();
+                    var result = this.ExecuteTransitionCore(request);
+                    if (result.HasValue)
+                    {
+                        pendingEvents.Add(result.Value);
+                    }
                 }
             }
-
-            // Clear transitioning flag BEFORE releasing lock to prevent race conditions
-            this.isTransitioning = false;
-
-            // Fire all events outside the lock
-            // Event handlers may call RequestTransition(), which will queue new transitions
-            // for the next ProcessTransitionQueue() call
-            foreach (var evt in pendingEvents)
+            finally
             {
-                if (evt.isRejection)
+                // Clear transitioning flag BEFORE releasing lock to prevent race conditions
+                this.isTransitioning = false;
+            }
+
+            // Fire all events TRULY outside the lock by temporarily releasing stateLock.
+            // This method is called from within lock(stateLock) in RequestTransition(),
+            // so we must explicitly exit/re-enter the monitor to prevent re-entrant
+            // deadlocks when event handlers call back into RequestTransition().
+            if (pendingEvents.Count > 0)
+            {
+                System.Threading.Monitor.Exit(this.stateLock);
+                try
                 {
-                    this.TransitionRejected?.Invoke(evt.oldState, evt.newState, evt.rejectionMessage);
+                    foreach (var evt in pendingEvents)
+                    {
+                        if (evt.isRejection)
+                        {
+                            this.TransitionRejected?.Invoke(evt.oldState, evt.newState, evt.rejectionMessage);
+                        }
+                        else
+                        {
+                            this.FireTransitionEvents(evt.oldState, evt.newState);
+                        }
+                    }
                 }
-                else
+                finally
                 {
-                    this.FireTransitionEvents(evt.oldState, evt.newState);
+                    System.Threading.Monitor.Enter(this.stateLock);
                 }
             }
         }
