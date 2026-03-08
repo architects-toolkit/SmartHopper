@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Dependency Graph Layout Migration**: Migrated `gh_tidy_up` tool to use GhJSON layout engine
+  - Now uses `GhJson.CalculateLayout()` for base layout calculation
+  - Applies Grasshopper-aware refinements via `LayoutRefinementEngine`
+  - Maintains same spacing parameters (50px horizontal, 80px vertical)
+  - Improved layout quality with bounds-aware spacing, port alignment, and collision avoidance
 - **Provider Integrity Verification**: Replaced boolean "hard integrity check" with three-tier integrity check mode system
   - New dropdown in Providers settings tab with three modes: Soft, Hard, Strict
   - **Soft** (default): Warns but allows providers with hash mismatches, unavailable hashes, or custom/third-party providers
@@ -21,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Existing installations will automatically migrate from the old boolean setting (Soft = false, Hard/Strict = true mapped to appropriate behavior)
 
 - **Cross-Platform Provider Verification**: SHA-256 hash verification now supports both Windows and macOS with platform-specific hashes generated via dual-runner CI workflow (Windows for `net7.0-windows`, macOS for `net7.0`), with automatic switch to Soft Check in DEBUG builds for smooth local development
+
+### Removed
+
+- **Deprecated Graph Utilities**: Removed `DependencyGraphUtils.cs` and `NodeGridComponent.cs` from SmartHopper.Core.Grasshopper
+  - Functionality now provided by GhJSON.Core layout engine
+  - SmartHopper now consumes layout algorithms from GhJSON as the single source of truth
 
 ### Fixed
 
