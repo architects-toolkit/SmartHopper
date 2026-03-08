@@ -259,10 +259,10 @@ Many thanks to the following contributors to this release:
   - AI-selecting stateful components now use combined attributes that show both the "Select" button and AI provider badges, with the button rendered above the provider strip.
   - Selecting components now use the dialog link line color for hover highlights and draw a connector line from the combined selection center to the "Select" button.
 - Script components:
-  - `AIScriptGeneratorComponent` now orchestrates `script_generate` / `script_edit` together with `gh_get` / `gh_put` instead of the legacy `script_generator` tool, and exposes `GhJSON`, `Guid`, `Summary`, and `Message` outputs only.
-  - `AIScriptGeneratorComponent` and `AIScriptReviewComponent` no longer expose a `Guid` input; the target component is always provided via the selecting button.
+  - `AIScriptGenerateComponent` now orchestrates `script_generate` / `script_edit` together with `gh_get` / `gh_put` instead of the legacy `script_generator` tool, and exposes `GhJSON`, `Guid`, `Summary`, and `Message` outputs only.
+  - `AIScriptGenerateComponent` and `AIScriptReviewComponent` no longer expose a `Guid` input; the target component is always provided via the selecting button.
   - Removed the monolithic `script_generator` AI tool in favor of smaller, focused tools that operate purely on GhJSON.
-  - Updated `AIScriptGeneratorComponent` and `AIScriptReviewComponent` to support processing multiple inputs in parallel.
+  - Updated `AIScriptGenerateComponent` and `AIScriptReviewComponent` to support processing multiple inputs in parallel.
   - Renamed `script_fix` tool to `script_review` to better reflect its review-focused behavior.
   - `script_generate` no longer includes a pre-placement `instanceGuid` in its tool result; instance GUIDs are only exposed via `script_generate_and_place_on_canvas` / `gh_put` using the real canvas instance GUIDs.
 - `GhJsonDeserializer`:
@@ -427,7 +427,7 @@ Many thanks to the following contributors to this release:
 
 - **Legacy script tools and components**:
   - Removed `script_new` and `script_edit` AI tools in favor of the unified `script_generator` tool.
-  - Removed `AIScriptNewComponent` and `AIScriptEditComponent` Grasshopper components in favor of `AIScriptGeneratorComponent`.
+  - Removed `AIScriptNewComponent` and `AIScriptEditComponent` Grasshopper components in favor of `AIScriptGenerateComponent`.
 
 ### Fixed
 

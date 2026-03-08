@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Script
     /// Supports multiple prompts (create mode) or multiple selected components (edit mode).
     /// In edit mode, prompts and components are matched first-first, second-second, etc.
     /// </summary>
-    public class AIScriptGeneratorComponent : AISelectingStatefulAsyncComponentBase
+    public class AIScriptGenerateComponent : AISelectingStatefulAsyncComponentBase
     {
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("B9E66C95-2A7D-46AB-9E37-7C28F8202F4A");
@@ -55,11 +55,11 @@ namespace SmartHopper.Components.Script
         protected override IReadOnlyList<string> UsingAiTools => new[] { "script_generate", "script_edit", "gh_get" };
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AIScriptGeneratorComponent"/> class.
+        /// Initializes a new instance of the <see cref="AIScriptGenerateComponent"/> class.
         /// </summary>
-        public AIScriptGeneratorComponent()
+        public AIScriptGenerateComponent()
             : base(
-                  "AI Script Generator",
+                  "AI Script Generate",
                   "AIScriptGen",
                   "Create or edit Grasshopper script components from natural language instructions. Outputs GhJSON that can be placed on canvas using GH Put.\nIn create mode: processes each prompt as a separate branch.\nIn edit mode: matches prompts to selected components in order.",
                   "SmartHopper",
@@ -85,15 +85,15 @@ namespace SmartHopper.Components.Script
         /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIScriptGeneratorWorker(this, this.AddRuntimeMessage);
+            return new AIScriptGenerateWorker(this, this.AddRuntimeMessage);
         }
 
         /// <summary>
         /// Worker class that orchestrates script generation/editing using AI tools.
         /// </summary>
-        private sealed class AIScriptGeneratorWorker : AsyncWorkerBase
+        private sealed class AIScriptGenerateWorker : AsyncWorkerBase
         {
-            private readonly AIScriptGeneratorComponent parent;
+            private readonly AIScriptGenerateComponent parent;
             private List<GH_String> normalizedGuids;
             private List<GH_String> normalizedPrompts;
             private bool hasWork;
@@ -103,8 +103,8 @@ namespace SmartHopper.Components.Script
             private readonly GH_Structure<GH_String> resultSummary = new GH_Structure<GH_String>();
             private readonly GH_Structure<GH_String> resultInfo = new GH_Structure<GH_String>();
 
-            public AIScriptGeneratorWorker(
-                AIScriptGeneratorComponent parent,
+            public AIScriptGenerateWorker(
+                AIScriptGenerateComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
@@ -191,14 +191,14 @@ namespace SmartHopper.Components.Script
                         if (this.isEditMode)
                         {
                             var guid = this.normalizedGuids[i]?.Value ?? string.Empty;
-                            Debug.WriteLine($"[AIScriptGeneratorWorker] Edit mode: processing {i + 1}/{this.iterationCount} (guid={guid})");
+                            Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: processing {i + 1}/{this.iterationCount} (guid={guid})");
 
                             var result = await this.EditExistingScriptAsync(guid, prompt, token).ConfigureAwait(false);
                             this.StoreResult(path, result, isEdit: true);
                         }
                         else
                         {
-                            Debug.WriteLine($"[AIScriptGeneratorWorker] Create mode: processing prompt {i + 1}/{this.iterationCount}");
+                            Debug.WriteLine($"[AIScriptGenerateWorker] Create mode: processing prompt {i + 1}/{this.iterationCount}");
 
                             var result = await this.GenerateNewScriptAsync(prompt, token).ConfigureAwait(false);
                             this.StoreResult(path, result, isEdit: false);
@@ -207,7 +207,7 @@ namespace SmartHopper.Components.Script
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIScriptGeneratorWorker] Error: {ex.Message}");
+                    Debug.WriteLine($"[AIScriptGenerateWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
@@ -268,7 +268,7 @@ namespace SmartHopper.Components.Script
             /// </summary>
             private async Task<JObject> GenerateNewScriptAsync(string prompt, CancellationToken token)
             {
-                Debug.WriteLine("[AIScriptGeneratorWorker] Create mode: calling script_generate");
+                Debug.WriteLine("[AIScriptGenerateWorker] Create mode: calling script_generate");
 
                 var parameters = new JObject
                 {
@@ -284,7 +284,7 @@ namespace SmartHopper.Components.Script
             /// </summary>
             private async Task<JObject> EditExistingScriptAsync(string guid, string prompt, CancellationToken token)
             {
-                Debug.WriteLine($"[AIScriptGeneratorWorker] Edit mode: getting GhJSON for {guid}");
+                Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: getting GhJSON for {guid}");
 
                 // Step 1: Get existing component GhJSON using gh_get with guidFilter
                 var getParams = new JObject
@@ -321,7 +321,7 @@ namespace SmartHopper.Components.Script
                     };
                 }
 
-                Debug.WriteLine($"[AIScriptGeneratorWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
+                Debug.WriteLine($"[AIScriptGenerateWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
 
                 // Step 2: Edit the script using script_edit
                 var editParams = new JObject

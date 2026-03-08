@@ -79,7 +79,7 @@
   description: "Issues related to the AI Script Review component"
 - name: "component: AI ScriptGenerator"
   color: "000"
-  description: "Issues related to the AI Script Generator component"
+  description: "Issues related to the AI Script Generate component"
 - name: "component: AI ListEvaluate"
   color: "000"
   description: "Issues related to the AI List Evaluate component"
