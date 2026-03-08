@@ -29,14 +29,21 @@
 .PARAMETER DryRun
     When set, shows what would change without modifying any files.
 
+.PARAMETER UpdateDateOnly
+    When set, only updates the date part (.YYMMDD) of the current version if it exists.
+    Does not modify the base version (X.Y.Z) or pre-release type.
+
 .EXAMPLE
     .\Change-SolutionVersion.ps1
     .\Change-SolutionVersion.ps1 -Version 2.0.0
     .\Change-SolutionVersion.ps1 -Version 1.5.0 -DryRun
+    .\Change-SolutionVersion.ps1 -UpdateDateOnly
+    # If current version is 1.0.0-dev.250101, updates to 1.0.0-dev.YYMMDD (today's date)
 #>
 param(
     [string]$Version,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$UpdateDateOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -156,7 +163,19 @@ if (-not $parsed) {
 }
 
 # Determine base X.Y.Z for the new version
-if ($baseVersion) {
+if ($UpdateDateOnly) {
+    # Keep the same X.Y.Z and pre-release type, only update the date
+    $newMajor = $parsed.Major
+    $newMinor = $parsed.Minor
+    $newPatch = $parsed.Patch
+    
+    # Determine pre-release type - use existing or default to 'dev'
+    $preType = if ($parsed.PreType) { $parsed.PreType } else { 'dev' }
+    
+    $newVersion = "$newMajor.$newMinor.$newPatch-$preType.$today"
+    Write-Host "[UpdateDateOnly] Keeping base version $newMajor.$newMinor.$newPatch, updating to date: $today" -ForegroundColor Cyan
+}
+elseif ($baseVersion) {
     # Use explicit or branch-detected version as the base
     $baseParsed = Parse-Version $baseVersion
     if ($baseParsed) {
@@ -182,7 +201,9 @@ else {
     $newPatch = $parsed.Patch + 1
 }
 
-$newVersion = "$newMajor.$newMinor.$newPatch-dev.$today"
+if (-not $UpdateDateOnly) {
+    $newVersion = "$newMajor.$newMinor.$newPatch-dev.$today"
+}
 Write-Host "New version: $newVersion" -ForegroundColor Green
 
 if ($DryRun) {
