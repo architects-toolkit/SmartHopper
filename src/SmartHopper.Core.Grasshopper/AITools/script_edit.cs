@@ -244,7 +244,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse AI response and validate with retry loop
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                var responseJson = SanitizeAndParseJson(response);
+                var responseJson = AIResponseParser.SanitizeAndParseJson(response);
 
                 var newScriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var newInputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -291,7 +291,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     // Parse corrected response
                     response = correctionResult.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                    responseJson = SanitizeAndParseJson(response);
+                    responseJson = AIResponseParser.SanitizeAndParseJson(response);
 
                     newScriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                     newInputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -397,15 +397,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 "vbscript" => GhJsonExtensionKeys.VBScript,
                 _ => GhJsonExtensionKeys.Python,
             };
-        }
-
-        /// <summary>
-        /// Sanitizes and parses an AI response as a JSON object.
-        /// Delegates to <see cref="AIResponseParser.SanitizeAndParseJson"/>.
-        /// </summary>
-        private static JObject SanitizeAndParseJson(string response)
-        {
-            return AIResponseParser.SanitizeAndParseJson(response);
         }
 
         private static string CreateScriptGhJson(
