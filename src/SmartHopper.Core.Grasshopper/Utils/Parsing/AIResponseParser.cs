@@ -574,18 +574,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                 // Continue with sanitization attempts
             }
 
-            // Try extracting JSON from markdown code blocks (```json ... ``` or ``` ... ```)
-            var trimmed = response.Trim();
-            var match = MarkdownCodeBlockRegex().Match(trimmed);
-            if (match.Success)
+            // Try extracting JSON from markdown code blocks
+            var codeBlockContent = ExtractFromMarkdownCodeBlock(trimmed);
+            if (!string.IsNullOrEmpty(codeBlockContent))
             {
                 try
                 {
-                    return JObject.Parse(match.Groups[1].Value.Trim());
+                    return JObject.Parse(codeBlockContent);
                 }
                 catch (JsonException)
                 {
-                    // Continue
+                    // Continue with other extraction methods
                 }
             }
 
@@ -604,7 +603,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             // All attempts failed - provide a descriptive error
-            var preview = response.Length > 200 ? response.Substring(0, 200) + "..." : response;
+            var preview = TruncateForDisplay(response);
             if (trimmed.StartsWith("<", StringComparison.Ordinal))
             {
                 throw new JsonException(
@@ -615,8 +614,24 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
         }
 
         /// <summary>
-        /// Extracts the first complete JSON object from a string by tracking brace depth,
-        /// correctly handling nested objects and string literals.
+        /// Truncates text for display purposes, appending "..." if truncated.
+        /// </summary>
+        /// <param name="text">The text to truncate.</param>
+        /// <param name="maxLength">Maximum length before truncation. Default is 200.</param>
+        /// <returns>Truncated text with ellipsis if needed, or original text if within limit.</returns>
+        private static string TruncateForDisplay(string text, int maxLength = 200)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            {
+                return text;
+            }
+
+            return text.Substring(0, maxLength) + "...";
+        }
+
+        /// <summary>
+        /// Extracts the first complete JSON object from text by tracking brace depth.
+        /// Correctly handles nested objects and string literals with escape sequences.
         /// </summary>
         /// <param name="text">The text to search for a JSON object.</param>
         /// <returns>The first complete JSON object string, or null if none found.</returns>
@@ -628,54 +643,54 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             bool inString = false;
-            bool escape = false;
-            int depth = 0;
+            bool escapeNext = false;
+            int braceDepth = 0;
             int startIndex = -1;
 
             for (int i = 0; i < text.Length; i++)
             {
                 char c = text[i];
 
-                if (escape)
+                // Handle escape sequences within strings
+                if (escapeNext)
                 {
-                    escape = false;
+                    escapeNext = false;
                     continue;
                 }
 
-                if (c == '\\')
+                if (c == '\\' && inString)
                 {
-                    if (inString)
-                    {
-                        escape = true;
-                    }
-
+                    escapeNext = true;
                     continue;
                 }
 
+                // Toggle string state on unescaped quotes
                 if (c == '"')
                 {
                     inString = !inString;
                     continue;
                 }
 
+                // Skip everything inside strings
                 if (inString)
                 {
                     continue;
                 }
 
+                // Track brace depth to find complete JSON objects
                 if (c == '{')
                 {
-                    if (depth == 0)
+                    if (braceDepth == 0)
                     {
                         startIndex = i;
                     }
 
-                    depth++;
+                    braceDepth++;
                 }
-                else if (c == '}' && depth > 0)
+                else if (c == '}' && braceDepth > 0)
                 {
-                    depth--;
-                    if (depth == 0 && startIndex >= 0)
+                    braceDepth--;
+                    if (braceDepth == 0 && startIndex >= 0)
                     {
                         return text.Substring(startIndex, i - startIndex + 1);
                     }
