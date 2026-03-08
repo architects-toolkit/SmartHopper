@@ -26,6 +26,9 @@
     Explicit X.Y.Z base version to use. Takes priority over the version
     detected from the branch name.
 
+.PARAMETER Help
+    Displays detailed help information about this script.
+
 .PARAMETER DryRun
     When set, shows what would change without modifying any files.
 
@@ -42,9 +45,15 @@
 #>
 param(
     [string]$Version,
+    [switch]$Help,
     [switch]$DryRun,
     [switch]$UpdateDateOnly
 )
+
+if ($Help) {
+    Get-Help $PSCommandPath -Full
+    exit 0
+}
 
 $ErrorActionPreference = "Stop"
 
@@ -179,9 +188,17 @@ elseif ($baseVersion) {
     # Use explicit or branch-detected version as the base
     $baseParsed = Parse-Version $baseVersion
     if ($baseParsed) {
-        $newMajor = $baseParsed.Major
-        $newMinor = $baseParsed.Minor
-        $newPatch = $baseParsed.Patch
+        # Check if explicit version ends with exactly '-dev' (no date suffix)
+        if ($Version -match '-dev$') {
+            # Append date to -dev suffix
+            $newVersion = "$baseVersion.$today"
+            Write-Host "Explicit version ends with -dev, appending date: $newVersion" -ForegroundColor Cyan
+        }
+        else {
+            # Use version as-is (stable, -alpha, -beta, -rc, or -dev.YYMMDD already provided)
+            $newVersion = $Version
+            Write-Host "Using explicit version as-is: $newVersion" -ForegroundColor Cyan
+        }
     }
     else {
         Write-Error "Failed to parse base version: $baseVersion"
@@ -201,7 +218,7 @@ else {
     $newPatch = $parsed.Patch + 1
 }
 
-if (-not $UpdateDateOnly) {
+if (-not $UpdateDateOnly -and -not $newVersion) {
     $newVersion = "$newMajor.$newMinor.$newPatch-dev.$today"
 }
 Write-Host "New version: $newVersion" -ForegroundColor Green
