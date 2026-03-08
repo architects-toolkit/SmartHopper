@@ -131,7 +131,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                        "Mismatches may indicate file corruption or tampering. " +
                        "Click any hash to copy it to your clipboard.",
                 Font = new Font(SystemFont.Default, 10),
-                TextColor = Colors.DarkGray,
+                TextColor = SystemColors.DisabledText,
                 Wrap = WrapMode.Word,
                 Width = ContentWidth,
             };

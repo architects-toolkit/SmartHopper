@@ -138,7 +138,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             this._hardIntegrityCheckBox = new CheckBox
             {
                 Text = "Enable hard integrity check",
-                Font = new Font(SystemFont.Default, 11),
             };
 
             layout.Add(this._hardIntegrityCheckBox);

@@ -190,10 +190,10 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                         case ProviderVerificationStatus.Mismatch:
                             // Hash mismatch indicates potential tampering
-                            var settings = SmartHopperSettings.Instance;
-                            var asmName = Path.GetFileNameWithoutExtension(assemblyPath);
+                            var mmSettings = SmartHopperSettings.Instance;
+                            var mmAsmName = Path.GetFileNameWithoutExtension(assemblyPath);
 
-                            if (settings.HardIntegrityCheck)
+                            if (mmSettings.HardIntegrityCheck)
                             {
                                 // Hard integrity check: Show error and prevent loading
                                 await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
@@ -218,7 +218,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                             else
                             {
                                 // Soft integrity check: Show warning and continue loading
-                                this._unverifiedProviders.Add(asmName);
+                                this._unverifiedProviders.Add(mmAsmName);
 
                                 await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
                                 {
