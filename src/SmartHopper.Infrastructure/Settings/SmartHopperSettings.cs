@@ -81,6 +81,24 @@ namespace SmartHopper.Infrastructure.Settings
         public ProviderIntegrityCheckMode ProviderIntegrityCheckMode { get; set; }
 
         /// <summary>
+        /// Gets the effective provider integrity check mode, accounting for DEBUG builds.
+        /// In DEBUG builds, this always returns Soft mode to allow local development.
+        /// In RELEASE builds, this returns the configured mode from settings.
+        /// </summary>
+        public ProviderIntegrityCheckMode EffectiveProviderIntegrityCheckMode
+        {
+            get
+            {
+#if DEBUG
+                Debug.WriteLine("[SmartHopperSettings] DEBUG build: forcing soft integrity check mode");
+                return ProviderIntegrityCheckMode.Soft;
+#else
+                return this.ProviderIntegrityCheckMode;
+#endif
+            }
+        }
+
+        /// <summary>
         /// Gets or sets settings related to the SmartHopper assistant features.
         /// </summary>
         [JsonProperty(nameof(SmartHopperAssistant))]

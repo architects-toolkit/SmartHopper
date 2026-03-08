@@ -115,44 +115,39 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             else
             {
                 // Check for provider integrity verification warning
-                var settings = SmartHopperSettings.Instance;
-                if (settings.ProviderIntegrityCheckMode == ProviderIntegrityCheckMode.Soft &&
-                    ProviderManager.Instance.IsProviderUnverified(this.Provider))
+                var effectiveMode = SmartHopperSettings.Instance.EffectiveProviderIntegrityCheckMode;
+
+                if (ProviderManager.Instance.IsProviderMismatched(this.Provider))
                 {
-                    // Soft integrity check is enabled and provider has hash mismatch - add warning
                     messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Warning,
+                        effectiveMode == ProviderIntegrityCheckMode.Soft ? AIRuntimeMessageSeverity.Warning : AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Validation,
                         AIMessageCode.UnknownProvider,
                         $"Provider '{this.Provider}' failed SHA-256 integrity verification. " +
                         "The provider's hash does not match the official published hash. " +
-                        "This could indicate file corruption or tampering, and your data could be compromised. " +
-                        "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in SmartHopper settings to block unverified providers."));
+                        "This could indicate file corruption or tampering, and your data could be compromised."));
                     Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unverified - adding warning");
                 }
 
                 // Check for unavailable hash verification (network/repository issues)
-                if (settings.ProviderIntegrityCheckMode == ProviderIntegrityCheckMode.Soft &&
-                    ProviderManager.Instance.IsProviderUnavailable(this.Provider))
+                if (ProviderManager.Instance.IsProviderUnavailable(this.Provider))
                 {
                     // Hash repository was unavailable - add warning
                     messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Warning,
+                        effectiveMode == ProviderIntegrityCheckMode.Strict ? AIRuntimeMessageSeverity.Error : AIRuntimeMessageSeverity.Warning,
                         AIRuntimeMessageOrigin.Validation,
                         AIMessageCode.UnknownProvider,
                         $"Provider '{this.Provider}' could not be verified - hash check unavailable due to network issues. " +
-                        "Enable this provider only if you trust its source. " +
-                        "Change 'Integrity Check Mode' to 'Strict' in SmartHopper settings to block providers when verification is unavailable."));
+                        "Enable this provider only if you trust its source."));
                     Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' hash verification unavailable - adding warning");
                 }
 
                 // Check for unknown provider (not in hash manifest - custom/third-party)
-                if (settings.ProviderIntegrityCheckMode == ProviderIntegrityCheckMode.Soft &&
-                    ProviderManager.Instance.IsProviderUnknown(this.Provider))
+                if (ProviderManager.Instance.IsProviderUnknown(this.Provider))
                 {
                     // Provider not found in official hash manifest - add warning
                     messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Warning,
+                        effectiveMode == ProviderIntegrityCheckMode.Soft ? AIRuntimeMessageSeverity.Warning : AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Validation,
                         AIMessageCode.UnknownProvider,
                         $"Provider '{this.Provider}' is not known - it may be a custom or third-party provider. " +

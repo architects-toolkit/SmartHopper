@@ -127,9 +127,7 @@ namespace SmartHopper.Infrastructure.Dialogs
         {
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper verifies that AI providers match the official published hashes. " +
-                       "Mismatches may indicate file corruption or tampering. " +
-                       "Click any hash to copy it to your clipboard.",
+                Text = "SmartHopper verifies that AI providers match the official published hashes. Mismatches may indicate file corruption or tampering."
                 Font = new Font(SystemFont.Default, 10),
                 TextColor = SystemColors.DisabledText,
                 Wrap = WrapMode.Word,

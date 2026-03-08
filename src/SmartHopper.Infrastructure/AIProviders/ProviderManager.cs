@@ -185,14 +185,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     var hashResult = await ProviderHashVerifier.VerifyProviderAsync(assemblyPath, version, platform)
                         .ConfigureAwait(false);
 
-#if DEBUG
-                    // DEBUG: Force soft check mode regardless of settings
-                    var effectiveMode = ProviderIntegrityCheckMode.Soft;
-                    Debug.WriteLine($"[ProviderManager] DEBUG build: forcing soft integrity check mode for {Path.GetFileName(assemblyPath)}");
-#else
-                    // RELEASE: Use configured mode from settings
-                    var effectiveMode = SmartHopperSettings.Instance.ProviderIntegrityCheckMode;
-#endif
+                    var effectiveMode = SmartHopperSettings.Instance.EffectiveProviderIntegrityCheckMode;
 
                     switch (hashResult.Status)
                     {
@@ -222,7 +215,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                     );
                                 }))).ConfigureAwait(false);
 
-                                RhinoApp.WriteLine($"SmartHopper Error: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
+                                RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
 
                                 return;
@@ -247,7 +240,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                     );
                                 }))).ConfigureAwait(false);
 
-                                RhinoApp.WriteLine($"SmartHopper Warning: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
+                                RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' failed integrity verification");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
                             }
 
@@ -270,7 +263,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                     );
                                 }))).ConfigureAwait(false);
 
-                                RhinoApp.WriteLine($"[SmartHopper] Error: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash repository unavailable in Strict mode");
+                                RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash repository unavailable in Strict mode");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash unavailable (Strict mode)");
                                 return;
                             }
@@ -279,7 +272,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 // Hard/Soft mode: Log warning but allow
                                 var uaAsmName = Path.GetFileNameWithoutExtension(assemblyPath);
                                 this._unavailableProviders.Add(uaAsmName);
-                                RhinoApp.WriteLine($"[SmartHopper] Warning: Could not verify provider '{Path.GetFileName(assemblyPath)}' - hash check skipped. Enable only if you trust this source.");
+                                RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Could not verify provider '{Path.GetFileName(assemblyPath)}' - hash check skipped. Enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash unavailable for {Path.GetFileName(assemblyPath)}, skipping verification");
                             }
                             break;
@@ -304,7 +297,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                     );
                                 }))).ConfigureAwait(false);
 
-                                RhinoApp.WriteLine($"SmartHopper Error: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found in {effectiveMode} mode");
+                                RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' blocked - hash not found in {effectiveMode} mode");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found ({effectiveMode} mode)");
                                 return;
                             }
@@ -312,7 +305,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                             {
                                 // Soft mode: Log warning but allow
                                 this._unknownProviders.Add(nfAsmName);
-                                RhinoApp.WriteLine($"[SmartHopper] Warning: Provider '{Path.GetFileName(assemblyPath)}' is not known - enable only if you trust this source.");
+                                RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' is not known - enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
                             }
                             break;
@@ -567,7 +560,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <param name="providerName">The name of the provider to check.</param>
         /// <returns>True if the provider has a hash mismatch and was loaded with soft verification; otherwise, false.</returns>
-        public bool IsProviderUnverified(string providerName)
+        public bool IsProviderMismatched(string providerName)
         {
             if (string.IsNullOrEmpty(providerName))
             {
