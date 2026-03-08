@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(infrastructure): reduce provider hash verification timeout from 10s to 5s for faster offline detection and improved Settings dialog responsiveness
+- fix(infrastructure): add network availability check in `ProviderHashVerifier` to skip hash fetch attempts when offline, preventing unnecessary delays
+- fix(infrastructure): implement 15-minute manifest caching in `ProviderHashVerifier` using `ConcurrentDictionary` for thread safety, and centralize cache operations in `ReadHashManifest` method
 - fix(core): eliminate race condition in `ComponentStateManager.ProcessTransitionQueue()` where `isTransitioning` flag was cleared before event firing, potentially allowing concurrent queue processing on macOS. The flag now remains true until after all events are fired, preventing out-of-order event processing and concurrent event handler execution.
 - fix(tools): set GhJSON component `Id = 1` when `InstanceGuid` is null in `script_generate` and `script_edit` to satisfy GhJSON.Core validation requiring at least one identifier
 - fix(tools): add `SanitizeAndParseJson` to handle AI responses wrapped in markdown code blocks or non-JSON formatting in `script_generate` and `script_edit`

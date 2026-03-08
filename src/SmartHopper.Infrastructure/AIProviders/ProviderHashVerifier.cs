@@ -17,11 +17,13 @@
  */
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -89,7 +91,12 @@ namespace SmartHopper.Infrastructure.AIProviders
     internal class ProviderHashVerifier
     {
         private const string HashBaseUrl = "https://architects-toolkit.github.io/SmartHopper/hashes";
-        private static readonly HttpClient HttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        private static readonly HttpClient HttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
+        // Cache for hash manifests to avoid repeated network requests (thread-safe)
+        private static readonly ConcurrentDictionary<string, (DateTime fetched, Dictionary<string, string> manifest)> ManifestCache 
+            = new ConcurrentDictionary<string, (DateTime, Dictionary<string, string>)>();
+        private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(15);
 
         /// <summary>
         /// Calculates SHA-256 hash of a file.
@@ -105,9 +112,98 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
-        /// Fetches public hash manifest from GitHub Pages.
+        /// Checks if network connectivity is available.
         /// </summary>
-        private static async Task<Dictionary<string, string>> FetchPublicHashesAsync(string version)
+        private static bool IsNetworkAvailable()
+        {
+            try
+            {
+                return NetworkInterface.GetIsNetworkAvailable();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Cleans up expired entries from the manifest cache.
+        /// </summary>
+        private static void CleanupExpiredCacheEntries()
+        {
+            var now = DateTime.UtcNow;
+            var expiredKeys = new List<string>();
+            
+            foreach (var kvp in ManifestCache)
+            {
+                if (now - kvp.Value.fetched >= CacheExpiration)
+                {
+                    expiredKeys.Add(kvp.Key);
+                }
+            }
+            
+            foreach (var key in expiredKeys)
+            {
+                ManifestCache.TryRemove(key, out _);
+                Debug.WriteLine($"[ProviderHashVerifier] Cleaned up expired cache entry for version {key}");
+            }
+        }
+
+        /// <summary>
+        /// Reads the hash manifest from cache or fetches from the internet if not cached or expired.
+        /// This is the centralized method for manifest retrieval - all consumers should use this.
+        /// Cache lookup, storage, and cleanup are centralized here for thread safety.
+        /// </summary>
+        /// <param name="version">SmartHopper version (e.g., "v1.2.3")</param>
+        /// <param name="cleanupExpired">If true, cleans up all expired cache entries before returning</param>
+        /// <returns>The manifest dictionary, or null if unavailable</returns>
+        public static async Task<Dictionary<string, string>> ReadHashManifest(string version, bool cleanupExpired = false)
+        {
+            // Clean up all expired entries if requested (called from VerifyAllProvidersAsync)
+            if (cleanupExpired)
+            {
+                CleanupExpiredCacheEntries();
+            }
+            
+            // Check cache first (fast path) - thread-safe lookup
+            if (ManifestCache.TryGetValue(version, out var cached))
+            {
+                if (DateTime.UtcNow - cached.fetched < CacheExpiration)
+                {
+                    Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Using cached manifest for version {version}");
+                    return cached.manifest;
+                }
+                // Expired - remove it (thread-safe)
+                ManifestCache.TryRemove(version, out _);
+            }
+
+            // Not in cache or expired - check network and fetch
+            if (!IsNetworkAvailable())
+            {
+                Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Network unavailable, no cached manifest for version {version}");
+                return null;
+            }
+
+            var manifest = await FetchPublicHashesFromInternetAsync(version).ConfigureAwait(false);
+            
+            if (manifest != null)
+            {
+                // Cache the result for future use (thread-safe)
+                ManifestCache[version] = (DateTime.UtcNow, manifest);
+                Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Fetched and cached manifest for version {version}");
+            }
+            else
+            {
+                Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Failed to fetch manifest for version {version}");
+            }
+
+            return manifest;
+        }
+
+        /// <summary>
+        /// Fetches public hash manifest from GitHub Pages (internal implementation, no caching).
+        /// </summary>
+        private static async Task<Dictionary<string, string>> FetchPublicHashesFromInternetAsync(string version)
         {
             try
             {
@@ -180,7 +276,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 Debug.WriteLine($"[ProviderHashVerifier] Local hash for {Path.GetFileName(dllPath)}: {result.LocalHash}");
 
                 // Fetch public hashes
-                var publicHashes = await FetchPublicHashesAsync(version).ConfigureAwait(false);
+                var publicHashes = await ReadHashManifest(version).ConfigureAwait(false);
 
                 if (publicHashes == null)
                 {
@@ -250,6 +346,10 @@ namespace SmartHopper.Infrastructure.AIProviders
                     Debug.WriteLine($"[ProviderHashVerifier] Provider directory is invalid: '{directory ?? "<null>"}'");
                     return results;
                 }
+
+                // Trigger cache cleanup at start of batch verification
+                // This ensures expired entries are cleaned up before processing
+                await ReadHashManifest(version, cleanupExpired: true).ConfigureAwait(false);
 
                 string[] providerFiles = Directory.GetFiles(directory, "SmartHopper.Providers.*.dll");
 
