@@ -22,10 +22,12 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Core;
+using GhJSON.Core.DependencyGraph;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.LayoutRefinements;
 using GhJSON.Grasshopper.Serialization;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -135,22 +137,46 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var doc = GhJsonGrasshopper.Serialize(selected, SerializationOptions.Default);
-                var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
+
+                // Calculate base layout using GhJSON
+                var layoutOptions = new LayoutOptions
+                {
+                    SpacingX = 50f,
+                    SpacingY = 80f,
+                    IslandSpacingY = 80f
+                };
+                var layoutResult = GhJson.CalculateLayout(doc, layoutOptions);
+
+                // Apply Grasshopper-aware refinements
+                var refinementOptions = new LayoutRefinementOptions
+                {
+                    SpacingX = 50f,
+                    SpacingY = 80f,
+                    ApplyBoundsAwareSpacing = true,
+                    AlignParamsToInputPorts = true,
+                    AlignOneToOneConnections = true,
+                    MinimizeConnectionLengths = true,
+                    AvoidCollisions = true
+                };
+                var refinedPositions = LayoutRefinementEngine.ApplyRefinements(
+                    layoutResult,
+                    doc,
+                    refinementOptions);
 
                 if (!hasStart)
                 {
                     // Anchor grid at original pivot of top-left component
-                    var firstNode = layoutNodes.OrderBy(n => n.Pivot.X).ThenBy(n => n.Pivot.Y).First();
-                    var origObj = selected.First(o => o.InstanceGuid == firstNode.ComponentId);
+                    var firstPos = refinedPositions.OrderBy(kvp => kvp.Value.X).ThenBy(kvp => kvp.Value.Y).First();
+                    var origObj = selected.First(o => o.InstanceGuid == firstPos.Key);
                     var origPivot = origObj.Attributes.Pivot;
-                    origin = new PointF(origPivot.X - firstNode.Pivot.X, origPivot.Y - firstNode.Pivot.Y);
+                    origin = new PointF(origPivot.X - firstPos.Value.X, origPivot.Y - firstPos.Value.Y);
                 }
 
                 var moved = new List<string>();
-                foreach (var node in layoutNodes)
+                foreach (var kvp in refinedPositions)
                 {
-                    var guid = node.ComponentId;
-                    var rel = node.Pivot;
+                    var guid = kvp.Key;
+                    var rel = kvp.Value;
                     var target = new PointF(origin.X + rel.X, origin.Y + rel.Y);
                     var ok = CanvasAccess.MoveInstance(guid, target, relative: false);
                     Debug.WriteLine(ok
