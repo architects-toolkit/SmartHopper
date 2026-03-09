@@ -131,11 +131,12 @@ jobs:
             # Check if this is truly a first-time contributor to the project
             # by checking if they exist in any commit before the current release period
             is_first_time=true
-            if echo "$HISTORICAL" | grep -vF "$author" | grep -qF "$name"; then
+            # Use grep -F without -q to avoid SIGPIPE (exit 141) when reading from pipe
+            if echo "$HISTORICAL" | grep -vF "$author" | grep -F "$name" >/dev/null 2>&1; then
               # They committed before with same name but maybe different email
               is_first_time=false
             fi
-            if echo "$BEFORE_LAST_TAG" | grep -qF "$author"; then
+            if echo "$BEFORE_LAST_TAG" | grep -F "$author" >/dev/null 2>&1; then
               is_first_time=false
               echo "Not first-time: $name (committed before $LAST_TAG)"
               continue
