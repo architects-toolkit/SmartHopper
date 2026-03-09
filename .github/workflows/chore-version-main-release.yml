@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   remove-release-date:
@@ -55,11 +56,20 @@ jobs:
         if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
         uses: ./.github/actions/documentation/update-badges
 
-      - name: Commit and push changes
+      - name: Create Pull Request
         if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add Solution.props README.md
-          git commit -m "chore: remove date from version for main release"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: remove date from version for main release"
+          title: "chore: remove date from version for main release"
+          body: |
+            This PR removes the date suffix from the version in Solution.props to prepare for a main release.
+
+            This is an automated PR created by the Remove Release Version Date workflow.
+          branch: "chore/strip-version-date-${{ github.event.pull_request.head.ref }}"
+          base: ${{ github.event.pull_request.head.ref }}
+          delete-branch: true
+          labels: |
+            chore
+            automated

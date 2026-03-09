@@ -82,140 +82,116 @@ jobs:
       - name: Identify new contributors
         id: identify-contributors
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           LAST_TAG="${{ steps.last-release.outputs.last_tag }}"
-          
-          # Get all commit authors since the last tag (name <email> format)
+          REPO="${{ github.repository }}"
+
+          # --- 1. Get the authoritative commit list from git ---
           echo "Getting commits since $LAST_TAG..."
-          COMMITS=$(git log "$LAST_TAG..HEAD" --pretty=format:"%an <%ae>" | sort -u)
-          
-          if [ -z "$COMMITS" ]; then
+          GIT_SHAS=$(git log "$LAST_TAG..HEAD" --format="%H")
+
+          if [ -z "$GIT_SHAS" ]; then
             echo "No new commits since $LAST_TAG"
             echo "has_contributors=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
-          echo "Recent commit authors:"
-          echo "$COMMITS"
-          
-          # Get all historical contributors from all releases (for first-time detection)
-          echo "Getting historical contributors..."
-          HISTORICAL=$(git log --pretty=format:"%an <%ae>" | sort -u)
-          
-          # Get commits from the last tag (these are not new to the project)
-          BEFORE_LAST_TAG=$(git log --reverse "$LAST_TAG" --pretty=format:"%an <%ae>" 2>/dev/null | sort -u)
-          
-          # Build list of new contributors with GitHub usernames and commit counts
-          # Format per contributor: name|username|link|is_first_time|commit_count
+
+          echo "Commits since $LAST_TAG: $(echo "$GIT_SHAS" | wc -l | tr -d ' ')"
+
+          # --- 2. Get tag date in UTC for API since/until parameters ---
+          TAG_DATE=$(date -u -d "$(git log -1 --format=%cI "$LAST_TAG")" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || \
+                     git log -1 --format=%cI "$LAST_TAG")
+          echo "Tag date: $TAG_DATE"
+
+          # Write git SHAs to temp file for fast lookup
+          echo "$GIT_SHAS" > /tmp/git_shas.txt
+
+          # --- 3. Fetch commit metadata from GitHub API (paginated, since tag date) ---
+          echo "Fetching commit metadata from GitHub API..."
+          COMMITS_JSON=$(gh api --paginate "/repos/$REPO/commits?sha=HEAD&since=$TAG_DATE&per_page=100")
+
+          # Extract sha+login pairs from API response into a temp file
+          echo "$COMMITS_JSON" | jq -r '
+            .[] | select(.author != null and .author.login != null) |
+            "\(.sha) \(.author.login)"
+          ' > /tmp/sha_login_pairs.txt
+
+          # --- 4. Build commit count per login, filtered to git-confirmed SHAs ---
+          # Deduplication key: GitHub login (canonical identity, avoids name/email alias confusion)
+          declare -A LOGIN_COUNTS
+          while read -r sha login; do
+            [[ -z "$sha" || -z "$login" ]] && continue
+            if grep -qF "$sha" /tmp/git_shas.txt; then
+              LOGIN_COUNTS["$login"]=$(( ${LOGIN_COUNTS["$login"]:-0} + 1 ))
+            fi
+          done < /tmp/sha_login_pairs.txt
+
+          if [ ${#LOGIN_COUNTS[@]} -eq 0 ]; then
+            echo "No commits with linked GitHub accounts found since $LAST_TAG"
+            echo "has_contributors=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "GitHub-linked authors since $LAST_TAG:"
+          for login in "${!LOGIN_COUNTS[@]}"; do
+            echo "  $login: ${LOGIN_COUNTS[$login]} commit(s)"
+          done
+
+          # --- 5. For each unique login: skip bots, detect first-time, build output ---
           NEW_CONTRIBS=""
-          declare -A COMMIT_COUNTS
-          
-          # Count commits per author email in this release
-          while IFS= read -r author; do
-            [ -z "$author" ] && continue
-            email=$(echo "$author" | grep -oP '(?<=<)[^>]+')
-            COMMIT_COUNTS["$email"]=$(( ${COMMIT_COUNTS["$email"]:-0} + 1 ))
-          done <<< "$COMMITS"
-          
-          # Reset to process each unique contributor
-          COMMITS=$(git log "$LAST_TAG..HEAD" --pretty=format:"%an <%ae>" | sort -u)
-          
-          # For each recent commit author, try to find their GitHub username
-          while IFS= read -r author; do
-            [ -z "$author" ] && continue
-            
-            # Extract email
-            email=$(echo "$author" | grep -oP '(?<=<)[^>]+')
-            name=$(echo "$author" | sed 's/ <.*>//')
-            
-            # Check if this is truly a first-time contributor to the project
-            # by checking if they exist in any commit before the current release period
-            is_first_time=true
-            # Use grep -F with || true to avoid SIGPIPE (exit 141) when reading from pipe
-            if echo "$HISTORICAL" | grep -vF "$author" | grep -F "$name" 2>/dev/null | head -1 >/dev/null; then
-              # They committed before with same name but maybe different email
-              is_first_time=false
-            fi
-            if echo "$BEFORE_LAST_TAG" | grep -F "$author" 2>/dev/null | head -1 >/dev/null; then
-              is_first_time=false
-              echo "Not first-time: $name (committed before $LAST_TAG)"
+          SORTED_LOGINS=$(printf '%s\n' "${!LOGIN_COUNTS[@]}" | sort)
+
+          while IFS= read -r login; do
+            [ -z "$login" ] && continue
+
+            # Skip bots: login ending in [bot] or known bot accounts
+            if [[ "$login" == *"[bot]"* ]] || \
+               [[ "$login" == "github-actions" ]] || \
+               [[ "$login" == "dependabot" ]] || \
+               [[ "$login" == "actions-user" ]]; then
+              echo "Skipping bot: $login"
               continue
             fi
-            
-            # Get commit count for this author
-            commit_count=${COMMIT_COUNTS["$email"]:-0}
-            # Look for GitHub's noreply email pattern
-            github_username=""
-            if [[ "$email" =~ ^[0-9]+\+([^@]+)@users\.noreply\.github\.com$ ]]; then
-              github_username="${BASH_REMATCH[1]}"
-            elif [[ "$email" =~ ^([^@]+)@users\.noreply\.github\.com$ ]]; then
-              github_username="${BASH_REMATCH[1]}"
-            fi
-            
-            # If no GitHub username found, try to get it from the GitHub API
-            if [ -z "$github_username" ] && [ ! -z "$email" ]; then
-              # Search commits for this author to find GitHub username
-              commit_info=$(git log "$LAST_TAG..HEAD" --author="$email" --pretty=format:"%H" | head -1)
-              if [ ! -z "$commit_info" ]; then
-                # Try to get GitHub username from commit via API
-                api_response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                  "https://api.github.com/repos/${{ github.repository }}/commits/$commit_info" 2>/dev/null)
-                
-                if [ ! -z "$api_response" ]; then
-                  # Try to extract username from committer or author
-                  github_username=$(echo "$api_response" | jq -r '.author.login // .committer.login // empty')
-                fi
-              fi
-            fi
-            
-            # Skip bot accounts
-            if [[ "$github_username" == "github-actions" ]] || [[ "$github_username" == "github-actions[bot]" ]] || [[ "$github_username" == "actions-user" ]]; then
-              echo "Skipping bot: $github_username"
-              continue
-            fi
-            
-            # Deduplicate: skip if we already have this username
-            if [ ! -z "$github_username" ] && echo "$NEW_CONTRIBS" | grep -F "|${github_username}|" 2>/dev/null | head -1 >/dev/null; then
-              echo "Skipping duplicate: $github_username"
-              continue
-            fi
-            
-            # Build GitHub link
-            if [ -z "$github_username" ]; then
-              github_link=""
+
+            commit_count=${LOGIN_COUNTS["$login"]}
+
+            # First-time check: does this login have any commits at or before the tag date?
+            # Uses GitHub API with until=TAG_DATE and per_page=1 for efficiency (1 API call per contributor)
+            prev_response=$(gh api "/repos/$REPO/commits?author=$login&until=$TAG_DATE&per_page=1" 2>/dev/null || echo "[]")
+            prev_count=$(echo "$prev_response" | jq 'if type == "array" then length else 0 end')
+
+            if [ "${prev_count:-0}" -gt 0 ]; then
+              is_first_time="false"
+              echo "Not first-time: $login (has previous contributions)"
             else
-              github_link="https://github.com/$github_username"
+              is_first_time="true"
+              echo "First-time contributor: $login"
             fi
-            
-            # Add to list (format: name|username|link|is_first_time|commit_count)
-            if [ ! -z "$github_link" ]; then
-              NEW_CONTRIBS="${NEW_CONTRIBS}${name}|${github_username}|${github_link}|${is_first_time}|${commit_count}\n"
-            fi
-            
-          done <<< "$COMMITS"
-          
+
+            github_link="https://github.com/$login"
+            # Format: name|username|link|is_first_time|commit_count
+            NEW_CONTRIBS="${NEW_CONTRIBS}${login}|${login}|${github_link}|${is_first_time}|${commit_count}\n"
+
+          done <<< "$SORTED_LOGINS"
+
           if [ -z "$NEW_CONTRIBS" ]; then
-            echo "No new GitHub-linked contributors found"
+            echo "No new non-bot contributors found"
             echo "has_contributors=false" >> $GITHUB_OUTPUT
           else
-            # Sort contributors: first-time first, then by commit count (desc), then alphabetically
+            # Sort: first-time first (true > false alphabetically reversed), commit count desc, login alpha
             echo "Sorting contributors..."
-            echo -e "$NEW_CONTRIBS" | awk -F'|' '
+            printf "%b" "$NEW_CONTRIBS" | awk -F'|' '
               NF >= 5 {
-                # Sort key: is_first_time (reverse, so true comes first), commit_count (reverse), name
-                # is_first_time: $4 (true/false)
-                # commit_count: $5 (number)
-                # name: $1
                 printf "%s|%s|%s|%s|%s\n", $4, $5, $1, $2, $3
               }
             ' | sort -t'|' -k1,1r -k2,2rn -k3,3 | awk -F'|' '
               {
-                # Restore original order: name, username, link, is_first_time, commit_count
                 printf "%s|%s|%s|%s|%s\n", $3, $4, $5, $1, $2
               }
-            ' > /tmp/new_contributors_sorted.txt
-            
-            mv /tmp/new_contributors_sorted.txt /tmp/new_contributors.txt
+            ' > /tmp/new_contributors.txt
+
             echo "has_contributors=true" >> $GITHUB_OUTPUT
             echo "Found contributors:"
             cat /tmp/new_contributors.txt
