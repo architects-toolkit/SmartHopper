@@ -17,9 +17,18 @@
  */
 
 /*
- * This code uses PdfPig for PDF text extraction:
+ * This code uses PdfPig for PDF text extraction and layout analysis:
  * https://github.com/UglyToad/PdfPig
  * Apache License 2.0
+ *
+ * Layout analysis improvements inspired by:
+ * - MinerU (AGPL-3.0, https://github.com/opendatalab/MinerU):
+ *   xy-cut reading order, header/footer removal, heading detection by font size
+ * - Camelot (MIT, https://github.com/camelot-dev/camelot):
+ *   Stream-mode table detection via whitespace column-alignment clustering
+ * - Tabula (MIT, https://github.com/tabulapdf/tabula):
+ *   Column centroid clustering for table cell extraction
+ * All algorithms are independently reimplemented in C#; no source code was copied.
  */
 
 using System;
@@ -29,22 +38,46 @@ using System.Text;
 using System.Threading.Tasks;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.DocumentLayoutAnalysis;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.PageSegmenter;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.ReadingOrderDetector;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
     /// <summary>
     /// Converter for PDF files (.pdf).
-    /// Uses PdfPig for text extraction with MinerU-inspired layout intelligence:
-    /// - Column detection and reading order
-    /// - Header/footer removal
-    /// - Heading detection by font size
-    /// - Table detection
+    /// Uses PdfPig DocumentLayoutAnalysis for:
+    /// - NearestNeighbourWordExtractor for accurate word grouping in academic PDFs
+    /// - RecursiveXYCut page segmentation for multi-column layout detection
+    /// - DefaultReadingOrderDetector for correct top-to-bottom, left-to-right order
+    /// - Header/footer removal by cross-page text frequency analysis
+    /// - Heading detection by font size ratio
+    /// - Stream-mode table detection (whitespace column-alignment clustering)
+    /// - Markdown table rendering with pipe escaping
     /// - Scanned page detection
     /// </summary>
     public sealed class PdfConverter : IFileConverter
     {
+        /// <summary>X-position tolerance (PDF units) for clustering word left-edges into columns.</summary>
+        private const double ColumnTolerance = 10.0;
+
+        /// <summary>Minimum number of data rows required to classify a block as a table.</summary>
+        private const int MinTableRows = 3;
+
+        /// <summary>Minimum number of detected columns required to classify a block as a table.</summary>
+        private const int MinTableColumns = 2;
+
+        /// <summary>Minimum page count for a repeated text to be removed as header/footer.</summary>
+        private const int MinHeaderFooterRepeat = 3;
+
+        /// <summary>Maximum average words-per-line before a block is considered body text, not a table.</summary>
+        private const double MaxWordsPerLineForTable = 12.0;
+
+        /// <inheritdoc/>
         public IEnumerable<string> SupportedExtensions => new[] { ".pdf" };
 
+        /// <inheritdoc/>
         public async Task<FileConversionResult> ConvertAsync(string filePath, FileConversionOptions options)
         {
             return await Task.Run(() =>
@@ -52,74 +85,66 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 try
                 {
                     using var document = PdfDocument.Open(filePath);
-                    var markdown = new StringBuilder();
                     var result = FileConversionResult.Success(string.Empty, "pdf");
 
-                    // Extract metadata
-                    var info = document.Information;
-                    if (!string.IsNullOrWhiteSpace(info.Title))
-                    {
-                        result.Metadata["title"] = info.Title;
-                    }
-                    if (!string.IsNullOrWhiteSpace(info.Author))
-                    {
-                        result.Metadata["author"] = info.Author;
-                    }
-                    if (!string.IsNullOrWhiteSpace(info.CreationDate))
-                    {
-                        result.Metadata["created"] = info.CreationDate;
-                    }
+                    ExtractMetadata(document, result);
 
-                    // Collect text blocks from all pages for header/footer detection
-                    var allPageBlocks = new List<List<TextBlock>>();
-                    foreach (var page in document.GetPages())
-                    {
-                        var blocks = ExtractTextBlocks(page);
-                        allPageBlocks.Add(blocks);
-                    }
+                    var allPageData = CollectPageData(document);
 
-                    // Detect headers/footers if option is enabled
-                    var headersFooters = options.RemoveHeadersFooters 
-                        ? DetectHeadersFooters(allPageBlocks) 
+                    var headersFooters = options.RemoveHeadersFooters
+                        ? DetectHeadersFooters(allPageData)
                         : new HashSet<string>();
 
-                    // Process each page
+                    var markdown = new StringBuilder();
                     int pageNumber = 1;
-                    foreach (var blocks in allPageBlocks)
+
+                    foreach (var (page, blocks) in allPageData)
                     {
-                        // Check for scanned page
-                        if (blocks.Count == 0 || blocks.Sum(b => b.Text.Length) < 5)
+                        if (blocks.Count == 0 || blocks.Sum(b => GetBlockText(b).Length) < 5)
                         {
                             result.Warnings.Add($"⚠️ Page {pageNumber} appears to be scanned; text may be missing.");
                             pageNumber++;
                             continue;
                         }
 
-                        // Remove headers/footers
-                        var contentBlocks = blocks.Where(b => !headersFooters.Contains(b.Text)).ToList();
+                        var ordered = DefaultReadingOrderDetector.Instance.Get(blocks);
+                        var content = ordered
+                            .Where(b => !headersFooters.Contains(GetBlockText(b)))
+                            .ToList();
 
-                        // Sort blocks by reading order (column-aware)
-                        var sortedBlocks = SortByReadingOrder(contentBlocks);
-
-                        // Detect heading font size threshold
-                        double medianFontSize = GetMedianFontSize(sortedBlocks);
+                        double medianFontSize = GetMedianFontSize(content);
                         double headingThreshold = medianFontSize * 1.3;
 
-                        // Convert blocks to markdown
-                        foreach (var block in sortedBlocks)
+                        foreach (var block in content)
                         {
-                            if (options.DetectHeadings && block.FontSize > headingThreshold)
+                            if (options.PreserveTableStructure && IsTableBlock(block))
                             {
-                                // Heading - use font size to determine level
-                                int level = GetHeadingLevel(block.FontSize, medianFontSize);
-                                markdown.Append(new string('#', level)).Append(' ').AppendLine(block.Text);
-                                markdown.AppendLine();
+                                string table = RenderMarkdownTable(block);
+                                if (!string.IsNullOrWhiteSpace(table))
+                                {
+                                    markdown.AppendLine(table);
+                                    continue;
+                                }
+                            }
+
+                            string text = GetBlockText(block);
+                            if (string.IsNullOrWhiteSpace(text))
+                            {
+                                continue;
+                            }
+
+                            double fontSize = GetBlockFontSize(block);
+                            if (options.DetectHeadings && fontSize > headingThreshold)
+                            {
+                                int level = GetHeadingLevel(fontSize, medianFontSize);
+                                markdown.Append(new string('#', level)).Append(' ').AppendLine(text);
                             }
                             else
                             {
-                                markdown.AppendLine(block.Text);
-                                markdown.AppendLine();
+                                markdown.AppendLine(text);
                             }
+
+                            markdown.AppendLine();
                         }
 
                         pageNumber++;
@@ -135,173 +160,116 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }).ConfigureAwait(false);
         }
 
-        private static List<TextBlock> ExtractTextBlocks(Page page)
+        private static void ExtractMetadata(PdfDocument document, FileConversionResult result)
         {
-            var blocks = new List<TextBlock>();
-            var words = page.GetWords().ToList();
-            if (words.Count == 0)
-            {
-                return blocks;
-            }
-
-            // Group words into lines based on Y coordinate
-            var lines = new List<List<Word>>();
-            var currentLine = new List<Word> { words[0] };
-            double currentY = words[0].BoundingBox.Bottom;
-
-            for (int i = 1; i < words.Count; i++)
-            {
-                var word = words[i];
-                // If Y coordinate is close to current line, add to current line
-                if (Math.Abs(word.BoundingBox.Bottom - currentY) < 5)
-                {
-                    currentLine.Add(word);
-                }
-                else
-                {
-                    // Start new line
-                    lines.Add(currentLine);
-                    currentLine = new List<Word> { word };
-                    currentY = word.BoundingBox.Bottom;
-                }
-            }
-            lines.Add(currentLine);
-
-            // Convert lines to text blocks
-            foreach (var line in lines)
-            {
-                if (line.Count == 0) continue;
-
-                var text = string.Join(" ", line.Select(w => w.Text));
-                var fontSize = line.SelectMany(w => w.Letters).Average(l => l.FontSize);
-                var minX = line.Min(w => w.BoundingBox.Left);
-                var maxX = line.Max(w => w.BoundingBox.Right);
-                var minY = line.Min(w => w.BoundingBox.Bottom);
-                var maxY = line.Max(w => w.BoundingBox.Top);
-
-                blocks.Add(new TextBlock
-                {
-                    Text = text.Trim(),
-                    FontSize = fontSize,
-                    Left = minX,
-                    Right = maxX,
-                    Bottom = minY,
-                    Top = maxY
-                });
-            }
-
-            return blocks;
+            var info = document.Information;
+            if (!string.IsNullOrWhiteSpace(info.Title)) result.Metadata["title"] = info.Title;
+            if (!string.IsNullOrWhiteSpace(info.Author)) result.Metadata["author"] = info.Author;
+            if (!string.IsNullOrWhiteSpace(info.CreationDate)) result.Metadata["created"] = info.CreationDate;
         }
 
-        private static HashSet<string> DetectHeadersFooters(List<List<TextBlock>> allPageBlocks)
+        private static List<(Page Page, List<TextBlock> Blocks)> CollectPageData(PdfDocument document)
         {
-            if (allPageBlocks.Count < 3)
+            var pageData = new List<(Page, List<TextBlock>)>();
+
+            foreach (var page in document.GetPages())
+            {
+                var letters = page.Letters;
+                if (letters.Count == 0)
+                {
+                    pageData.Add((page, new List<TextBlock>()));
+                    continue;
+                }
+
+                // NearestNeighbourWordExtractor handles kerning and ligatures better than default
+                var words = NearestNeighbourWordExtractor.Instance.GetWords(letters).ToList();
+                if (words.Count == 0)
+                {
+                    pageData.Add((page, new List<TextBlock>()));
+                    continue;
+                }
+
+                // RecursiveXYCut detects multi-column layouts; MinimumWidth = page.Width/3
+                // prevents narrow marginal annotations from being treated as columns
+                var segmenter = new RecursiveXYCut(new RecursiveXYCut.RecursiveXYCutOptions
+                {
+                    MinimumWidth = page.Width / 3.0,
+                });
+
+                var blocks = segmenter.GetBlocks(words).ToList();
+                pageData.Add((page, blocks));
+            }
+
+            return pageData;
+        }
+
+        private static HashSet<string> DetectHeadersFooters(
+            List<(Page Page, List<TextBlock> Blocks)> allPageData)
+        {
+            if (allPageData.Count < MinHeaderFooterRepeat)
             {
                 return new HashSet<string>();
             }
 
-            var headersFooters = new HashSet<string>();
-            var pageHeight = allPageBlocks[0].Count > 0 
-                ? allPageBlocks[0].Max(b => b.Top) 
-                : 0;
+            var headerCounts = new Dictionary<string, int>();
+            var footerCounts = new Dictionary<string, int>();
 
-            if (pageHeight == 0)
+            foreach (var (page, blocks) in allPageData)
             {
-                return headersFooters;
-            }
+                double headerLine = page.Height * 0.92;
+                double footerLine = page.Height * 0.08;
 
-            double headerThreshold = pageHeight * 0.92; // Top 8%
-            double footerThreshold = pageHeight * 0.08; // Bottom 8%
-
-            // Count occurrences of text in header/footer regions
-            var headerTexts = new Dictionary<string, int>();
-            var footerTexts = new Dictionary<string, int>();
-
-            foreach (var blocks in allPageBlocks)
-            {
                 foreach (var block in blocks)
                 {
-                    if (block.Top > headerThreshold)
+                    string text = GetBlockText(block);
+                    if (string.IsNullOrWhiteSpace(text)) continue;
+
+                    var bb = block.BoundingBox;
+                    if (bb.Bottom > headerLine)
                     {
-                        headerTexts.TryGetValue(block.Text, out int count);
-                        headerTexts[block.Text] = count + 1;
+                        headerCounts.TryGetValue(text, out int c);
+                        headerCounts[text] = c + 1;
                     }
-                    else if (block.Bottom < footerThreshold)
+                    else if (bb.Top < footerLine)
                     {
-                        footerTexts.TryGetValue(block.Text, out int count);
-                        footerTexts[block.Text] = count + 1;
+                        footerCounts.TryGetValue(text, out int c);
+                        footerCounts[text] = c + 1;
                     }
                 }
             }
 
-            // Add texts that appear on 3+ pages
-            foreach (var kvp in headerTexts.Where(kvp => kvp.Value >= 3))
+            var result = new HashSet<string>();
+            foreach (var kvp in headerCounts.Where(k => k.Value >= MinHeaderFooterRepeat))
             {
-                headersFooters.Add(kvp.Key);
-            }
-            foreach (var kvp in footerTexts.Where(kvp => kvp.Value >= 3))
-            {
-                headersFooters.Add(kvp.Key);
+                result.Add(kvp.Key);
             }
 
-            return headersFooters;
-        }
-
-        private static List<TextBlock> SortByReadingOrder(List<TextBlock> blocks)
-        {
-            if (blocks.Count == 0)
+            foreach (var kvp in footerCounts.Where(k => k.Value >= MinHeaderFooterRepeat))
             {
-                return blocks;
-            }
-
-            // Detect columns by finding large horizontal gaps
-            var sortedByX = blocks.OrderBy(b => b.Left).ToList();
-            var columns = new List<List<TextBlock>>();
-            var currentColumn = new List<TextBlock> { sortedByX[0] };
-            double currentMaxX = sortedByX[0].Right;
-
-            for (int i = 1; i < sortedByX.Count; i++)
-            {
-                var block = sortedByX[i];
-                double gap = block.Left - currentMaxX;
-
-                // If gap is large (>50 units), start new column
-                if (gap > 50)
-                {
-                    columns.Add(currentColumn);
-                    currentColumn = new List<TextBlock> { block };
-                    currentMaxX = block.Right;
-                }
-                else
-                {
-                    currentColumn.Add(block);
-                    currentMaxX = Math.Max(currentMaxX, block.Right);
-                }
-            }
-            columns.Add(currentColumn);
-
-            // Sort each column top-to-bottom, then concatenate columns left-to-right
-            var result = new List<TextBlock>();
-            foreach (var column in columns)
-            {
-                result.AddRange(column.OrderByDescending(b => b.Top));
+                result.Add(kvp.Key);
             }
 
             return result;
         }
 
-        private static double GetMedianFontSize(List<TextBlock> blocks)
+        private static string GetBlockText(TextBlock block)
         {
-            if (blocks.Count == 0)
-            {
-                return 12.0;
-            }
+            return string.Join(" ", block.TextLines
+                .Select(l => string.Join(" ", l.Words.Select(w => w.Text)))).Trim();
+        }
 
-            var sizes = blocks.Select(b => b.FontSize).OrderBy(s => s).ToList();
+        private static double GetBlockFontSize(TextBlock block)
+        {
+            var letters = block.TextLines.SelectMany(l => l.Words).SelectMany(w => w.Letters);
+            return letters.Any() ? letters.Average(l => l.FontSize) : 12.0;
+        }
+
+        private static double GetMedianFontSize(IEnumerable<TextBlock> blocks)
+        {
+            var sizes = blocks.Select(GetBlockFontSize).OrderBy(s => s).ToList();
+            if (sizes.Count == 0) return 12.0;
             int mid = sizes.Count / 2;
-            return sizes.Count % 2 == 0 
-                ? (sizes[mid - 1] + sizes[mid]) / 2.0 
-                : sizes[mid];
+            return sizes.Count % 2 == 0 ? (sizes[mid - 1] + sizes[mid]) / 2.0 : sizes[mid];
         }
 
         private static int GetHeadingLevel(double fontSize, double medianFontSize)
@@ -315,14 +283,135 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             return 6;
         }
 
-        private sealed class TextBlock
+        // -------------------------------------------------------------------------
+        // Table detection — stream mode inspired by Camelot and Tabula
+        // -------------------------------------------------------------------------
+
+        /// <summary>
+        /// Returns true when a block's lines exhibit consistent multi-column alignment,
+        /// indicating tabular data rather than body text.
+        /// </summary>
+        private static bool IsTableBlock(TextBlock block)
         {
-            public string Text { get; set; } = string.Empty;
-            public double FontSize { get; set; }
-            public double Left { get; set; }
-            public double Right { get; set; }
-            public double Bottom { get; set; }
-            public double Top { get; set; }
+            var lines = block.TextLines.ToList();
+            if (lines.Count < MinTableRows) return false;
+
+            // Body-text paragraphs have many words per line; tables typically do not
+            double avgWords = lines.Average(l => l.Words.Count());
+            if (avgWords > MaxWordsPerLineForTable) return false;
+
+            return DetectColumnPositions(lines).Count >= MinTableColumns;
+        }
+
+        /// <summary>
+        /// Clusters word left-edges across all lines into stable column positions.
+        /// Uses a running-mean merge with <see cref="ColumnTolerance"/> as radius.
+        /// Only columns that appear in at least half the lines are retained.
+        /// </summary>
+        private static List<double> DetectColumnPositions(List<TextLine> lines)
+        {
+            var allLeft = lines
+                .SelectMany(l => l.Words)
+                .Select(w => w.BoundingBox.Left)
+                .OrderBy(x => x)
+                .ToList();
+
+            if (allLeft.Count == 0) return new List<double>();
+
+            // Running-mean clustering
+            var clusters = new List<(double Centroid, int Count)> { (allLeft[0], 1) };
+
+            foreach (var x in allLeft.Skip(1))
+            {
+                int nearest = -1;
+                double nearestDist = ColumnTolerance;
+
+                for (int i = 0; i < clusters.Count; i++)
+                {
+                    double d = Math.Abs(x - clusters[i].Centroid);
+                    if (d < nearestDist) { nearestDist = d; nearest = i; }
+                }
+
+                if (nearest >= 0)
+                {
+                    var (c, n) = clusters[nearest];
+                    clusters[nearest] = ((c * n + x) / (n + 1), n + 1);
+                }
+                else
+                {
+                    clusters.Add((x, 1));
+                }
+            }
+
+            // Discard columns that appear in fewer than half of all lines
+            int minAppearances = Math.Max(2, lines.Count / 2);
+            return clusters
+                .Where(cl => lines.Count(line =>
+                    line.Words.Any(w => Math.Abs(w.BoundingBox.Left - cl.Centroid) <= ColumnTolerance))
+                    >= minAppearances)
+                .OrderBy(cl => cl.Centroid)
+                .Select(cl => cl.Centroid)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Assigns each word in every line to its nearest column and renders a
+        /// GitHub-Flavoured Markdown pipe table.  The first row becomes the header.
+        /// </summary>
+        private static string RenderMarkdownTable(TextBlock block)
+        {
+            var lines = block.TextLines.ToList();
+            var columns = DetectColumnPositions(lines);
+            if (columns.Count < MinTableColumns) return string.Empty;
+
+            var rows = new List<string[]>();
+
+            foreach (var line in lines)
+            {
+                var cells = new string[columns.Count];
+                for (int i = 0; i < cells.Length; i++) cells[i] = string.Empty;
+
+                foreach (var word in line.Words)
+                {
+                    int col = FindNearestColumn(word.BoundingBox.Left, columns);
+                    if (col < 0) continue;
+                    string w = word.Text.Replace("|", "\\|");
+                    cells[col] = cells[col].Length == 0 ? w : cells[col] + " " + w;
+                }
+
+                rows.Add(cells);
+            }
+
+            if (rows.Count == 0) return string.Empty;
+
+            var sb = new StringBuilder();
+
+            // Header row
+            sb.Append("| ").Append(string.Join(" | ", rows[0])).AppendLine(" |");
+
+            // Separator
+            sb.Append("| ").Append(string.Join(" | ", Enumerable.Repeat("---", columns.Count))).AppendLine(" |");
+
+            // Data rows
+            foreach (var row in rows.Skip(1))
+            {
+                sb.Append("| ").Append(string.Join(" | ", row)).AppendLine(" |");
+            }
+
+            return sb.ToString();
+        }
+
+        private static int FindNearestColumn(double x, List<double> columns)
+        {
+            int best = -1;
+            double bestDist = ColumnTolerance * 2;
+            for (int i = 0; i < columns.Count; i++)
+            {
+                double d = Math.Abs(x - columns[i]);
+                if (d < bestDist) { bestDist = d; best = i; }
+            }
+
+            return best;
         }
     }
 }

@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Falls back to `HtmlConverter` for generic pages with readability scoring
   - New `WebToMdComponent` exposes URL-to-Markdown conversion directly on the Grasshopper canvas
 
+### Changed
+
+- **PDF Converter**: Improved layout analysis and table detection in `PdfConverter`
+  - Replaced custom word extractor with `NearestNeighbourWordExtractor` for better word grouping (kerning, ligatures)
+  - Replaced gap-based column detection with `RecursiveXYCut` page segmenter (`MinimumWidth = page.Width / 3`) for accurate multi-column layout handling
+  - Replaced manual reading-order sort with `DefaultReadingOrderDetector` for correct column-to-column reading order
+  - Added stream-mode table detection (Camelot/Tabula-inspired): clusters word left-edges into column positions, guards against false positives via `avgWordsPerLine` heuristic
+  - Added Markdown pipe-table rendering with GFM-compatible separator row and pipe-escaping in cell content
+  - Header/footer detection now uses `page.Height` from PdfPig page object (previously used inferred max-Y from blocks)
+
 ## [1.4.1-alpha] - 2026-03-09
 
 Many thanks to the following contributors to this release:
