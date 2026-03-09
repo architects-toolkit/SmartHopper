@@ -171,7 +171,8 @@ namespace SmartHopper.Infrastructure.Tests
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                throw new SkipException("Strong-name tests require Windows");
+                this.output.WriteLine("Skipping strong-name test on non-Windows platform");
+                return;
             }
 
             var manager = ProviderManager.Instance;

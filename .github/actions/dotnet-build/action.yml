@@ -132,7 +132,12 @@ runs:
           }
 
           Write-Host "Decoding Authenticode PFX from secrets..."
-          ./tools/Sign-Authenticode.ps1 -Base64 $env:PFX_BASE64 -Password $env:PFX_PASSWORD
+          # Write base64 to a temp file to avoid CLI argument parsing issues with long/special-char strings
+          $tmpB64 = [System.IO.Path]::GetTempFileName()
+          [System.IO.File]::WriteAllText($tmpB64, $env:PFX_BASE64.Trim())
+          $trimmedPassword = $env:PFX_PASSWORD.Trim()
+          ./tools/Sign-Authenticode.ps1 -File $tmpB64 -Password $trimmedPassword
+          Remove-Item $tmpB64 -Force -ErrorAction SilentlyContinue
         } else {
           Write-Host "No Authenticode PFX secret provided; skipping PFX decoding."
         }
@@ -180,5 +185,6 @@ runs:
         }
 
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
-        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password $env:PFX_PASSWORD
+        $trimmedPassword = $env:PFX_PASSWORD.Trim()
+        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password $trimmedPassword
         if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }

@@ -116,8 +116,10 @@ jobs:
         if: runner.os == 'Windows'
         run: dotnet test --no-build --configuration Release --results-directory TestResults
 
-      - name: Run all tests (macOS - net7.0 only)
+      - name: Run all tests (macOS - Infrastructure.Tests only)
         if: runner.os == 'macOS'
         run: |
-          # Run only net7.0 (non-Windows) tests on Mac to avoid framework mismatch
-          dotnet test --no-build --configuration Release --framework net7.0 --results-directory TestResults --verbosity normal
+          # Run only SmartHopper.Infrastructure.Tests on Mac: it is the only test project
+          # with a true net7.0 (non-Windows) target. Core.Tests and Core.Grasshopper.Tests
+          # depend on WindowsDesktop/WinForms APIs that are not available on macOS net7.0.
+          dotnet test src/SmartHopper.Infrastructure.Tests/SmartHopper.Infrastructure.Tests.csproj --no-build --configuration Release --framework net7.0 --results-directory TestResults --verbosity normal
