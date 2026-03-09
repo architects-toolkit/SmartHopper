@@ -131,12 +131,12 @@ jobs:
             # Check if this is truly a first-time contributor to the project
             # by checking if they exist in any commit before the current release period
             is_first_time=true
-            # Use grep -F without -q to avoid SIGPIPE (exit 141) when reading from pipe
-            if echo "$HISTORICAL" | grep -vF "$author" | grep -F "$name" >/dev/null 2>&1; then
+            # Use grep -F with || true to avoid SIGPIPE (exit 141) when reading from pipe
+            if echo "$HISTORICAL" | grep -vF "$author" | grep -F "$name" 2>/dev/null | head -1 >/dev/null; then
               # They committed before with same name but maybe different email
               is_first_time=false
             fi
-            if echo "$BEFORE_LAST_TAG" | grep -F "$author" >/dev/null 2>&1; then
+            if echo "$BEFORE_LAST_TAG" | grep -F "$author" 2>/dev/null | head -1 >/dev/null; then
               is_first_time=false
               echo "Not first-time: $name (committed before $LAST_TAG)"
               continue
@@ -175,7 +175,7 @@ jobs:
             fi
             
             # Deduplicate: skip if we already have this username
-            if [ ! -z "$github_username" ] && echo "$NEW_CONTRIBS" | grep -qF "|${github_username}|"; then
+            if [ ! -z "$github_username" ] && echo "$NEW_CONTRIBS" | grep -F "|${github_username}|" 2>/dev/null | head -1 >/dev/null; then
               echo "Skipping duplicate: $github_username"
               continue
             fi
