@@ -126,5 +126,17 @@ namespace SmartHopper.Infrastructure.Utils
 
             return null;
         }
+
+        /// <summary>
+        /// Gets the current platform identifier for hash verification.
+        /// </summary>
+        /// <returns>Platform string ("net7.0-windows" or "net7.0")</returns>
+        public static string GetPlatform()
+        {
+            return System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Windows)
+                ? "net7.0-windows"
+                : "net7.0";
+        }
     }
 }

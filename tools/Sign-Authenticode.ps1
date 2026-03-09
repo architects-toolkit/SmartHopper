@@ -8,10 +8,11 @@
   Creates a self-signed PFX certificate (signing.pfx) for Authenticode signing. Requires -Password.
 .PARAMETER Base64
   Base64-encoded PFX data; decodes into signing.pfx. Requires -Password for export and signing.
-.PARAMETER File
-  Path to a text file containing Base64-encoded PFX data; supersedes -Base64 for signing.
 .PARAMETER Password
   Password for PFX certificate import/export and signing operations.
+  WARNING: Passing passwords as plain strings exposes them in shell history and process listings.
+  For interactive use, omit this parameter to be prompted securely.
+  For CI/CD automation, use environment variables or secrets management.
 .PARAMETER Export
   Exports the signing.pfx file as Base64 text to stdout. Requires -Password.
 .PARAMETER Sign
@@ -29,8 +30,7 @@
 param(
     [switch]$Generate,
     [string]$Base64,
-    [string]$File,
-    [System.Security.SecureString]$Password,
+    [string]$Password,
     [switch]$Export,
     [switch]$Help,
     [string]$Sign,
@@ -38,6 +38,19 @@ param(
     [switch]$SignRelease,
     [string]$PfxPath
 )
+
+# Password handling: Accept string for CI/CD compatibility, but warn about security
+$securePassword = $null
+if (-not [string]::IsNullOrEmpty($Password)) {
+    # CI/CD mode: Convert plain-text password to SecureString
+    # WARNING: This exposes the password in shell history and process listings
+    $securePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
+    
+    # Only warn in interactive sessions (not in CI/CD)
+    if ([Environment]::UserInteractive -and -not $env:CI -and -not $env:GITHUB_ACTIONS) {
+        Write-Warning "Password provided as plain text. For better security, omit -Password to be prompted securely."
+    }
+}
 
 # default PFX paths; override via -PfxPath
 $solutionRoot = Split-Path -Parent $PSScriptRoot
@@ -57,8 +70,9 @@ function Show-Help {
     Write-Host "Options:"
     Write-Host "  -Generate               Creates a self-signed PFX certificate (signing.pfx). Requires -Password."
     Write-Host "  -Base64 <data>          Decodes Base64-encoded PFX into signing.pfx. Requires -Password."
-    Write-Host "  -File <path>            Path to a file containing Base64 PFX data; implies -Base64."
-    Write-Host "  -Password <pwd>         Password for PFX certificate import/export and signing."
+    Write-Host "  -Password <pwd>         Password for PFX certificate import/export and signing.
+                          WARNING: Plain-text passwords are insecure. Omit for secure prompt.
+                          For CI/CD, use secrets management (e.g., GitHub Secrets)."
     Write-Host "  -Export                 Exports signing.pfx as Base64 text to stdout. Requires -Password."
     Write-Host "  -Sign <path>            Authenticode-signs all SmartHopper.Providers.*.dll under <path>. Requires Base64 or Generate."
     Write-Host "  -SignDebug              Authenticode-signs assemblies in bin/<SolutionVersion>/Debug under the solution root."
@@ -67,25 +81,30 @@ function Show-Help {
     Write-Host "  -PfxPath <path>         Override default signing PFX path (default 'signing.pfx')."
 }
 
-if ($Help -or (-not $Generate -and -not $Base64 -and -not $File -and -not $Export -and -not $Sign -and -not $SignDebug -and -not $SignRelease)) {
+if ($Help -or (-not $Generate -and -not $Base64 -and -not $Export -and -not $Sign -and -not $SignDebug -and -not $SignRelease)) {
     Show-Help
     exit 0
 }
 
 if ($Generate) {
-    if (-not $Password -or $Password.Length -eq 0) {
-        Write-Error "-Password is required when generating a PFX certificate."
-        exit 1
+    if (-not $Password) {
+        $securePassword = Read-Host "Enter password for PFX certificate generation" -AsSecureString
+        if (-not $securePassword) {
+            Write-Error "-Password is required when generating a PFX certificate."
+            exit 1
+        }
     }
     Write-Host "Generating self-signed PFX certificate at $pfxPath"
-    $securePwd = $Password
     $cert = New-SelfSignedCertificate -Subject "CN=SmartHopperDev" -CertStoreLocation Cert:\CurrentUser\My -KeyExportPolicy Exportable -KeySpec Signature -Type CodeSigningCert
-    Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath $pfxPath -Password $securePwd
+    Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath $pfxPath -Password $securePassword
     Write-Host "PFX certificate created at $pfxPath"
 } elseif ($Base64) {
-    if (-not $Password -or $Password.Length -eq 0) {
-        Write-Error "-Password is required when importing a Base64 PFX."
-        exit 1
+    if (-not $Password) {
+        $securePassword = Read-Host "Enter password for Base64 PFX import" -AsSecureString
+        if (-not $securePassword) {
+            Write-Error "-Password is required when importing a Base64 PFX."
+            exit 1
+        }
     }
     Write-Host "Decoding Base64 PFX into $pfxPath"
     [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($Base64))
@@ -98,9 +117,12 @@ if ($Generate) {
             exit 1
         }
     }
-    if (-not $Password -or $Password.Length -eq 0) {
-        Write-Error "-Password is required when exporting PFX."
-        exit 1
+    if (-not $Password) {
+        $securePassword = Read-Host "Enter password for PFX export" -AsSecureString
+        if (-not $securePassword) {
+            Write-Error "-Password is required when exporting PFX."
+            exit 1
+        }
     }
     Write-Host "Exporting PFX as Base64:"
     $bytes = [IO.File]::ReadAllBytes($pfxPath)
@@ -146,12 +168,9 @@ if ($Generate) {
     if ($explicitSignProvided -and [string]::IsNullOrWhiteSpace($Sign) -or $SignDebug) {
         $debugPath = Join-Path $solutionRoot ("bin/$solutionVersion/Debug")
         $targetPaths += $debugPath
-        if ($explicitSignProvided -and [string]::IsNullOrWhiteSpace($Sign))
-        {
+        if ($explicitSignProvided -and [string]::IsNullOrWhiteSpace($Sign)) {
             Write-Host "No -Sign target path specified. Using default: $debugPath"
-        }
-        else
-        {
+        } else {
             Write-Host "Using inferred target path for -SignDebug: $debugPath"
         }
     }
@@ -171,15 +190,6 @@ if ($Generate) {
         exit 1
     }
 
-    # Read Base64 from file if requested
-    if ($File) {
-        if (-not (Test-Path $File)) {
-            Write-Error "Base64 file '$File' not found."
-            exit 1
-        }
-        Write-Host "Reading Base64 PFX data from '$File'"
-        $Base64 = Get-Content $File -Raw
-    }
     # Decode Base64 into PFX if provided
     if ($Base64) {
         Write-Host "Decoding Base64 PFX into $pfxPath"
@@ -191,21 +201,21 @@ if ($Generate) {
             $pfxPath = $defaultLocalPfx
             Write-Host "Using local PFX certificate file: $pfxPath"
         } else {
-            Write-Error "PFX file '$pfxPath' not found. Please use -Base64, -File, or ensure a signing.pfx exists in the solution root or next to this script."
+            Write-Error "PFX file '$pfxPath' not found. Please use -Base64, or ensure a signing.pfx exists in the solution root or next to this script."
             exit 1
         }
     }
 
     # Ensure we have a password; if not, prompt interactively (useful for local/dev scenarios)
-    if (-not $Password -or $Password.Length -eq 0) {
-        $Password = Read-Host "Enter password for Authenticode signing (PFX)" -AsSecureString
-        if (-not $Password -or $Password.Length -eq 0) {
+    if (-not $securePassword) {
+        $securePassword = Read-Host "Enter password for Authenticode signing (PFX)" -AsSecureString
+        if (-not $securePassword) {
             Write-Error "-Password is required for signing operations."
             exit 1
         }
     }
 
-    $plainPassword = [System.Net.NetworkCredential]::new("", $Password).Password
+    $plainPassword = [System.Net.NetworkCredential]::new("", $securePassword).Password
 
     # Find signtool.exe once
     $signtoolPath = $null
@@ -305,7 +315,7 @@ if ($Generate) {
             & $signtoolPath sign /fd SHA256 /f "$pfxPath" /p "$plainPassword" $dll.FullName
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "File-based signing failed (exit code $LASTEXITCODE), falling back to store-based signing..."
-                $imported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $Password
+                $imported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
                 if (-not $imported) {
                     Write-Error "Failed to import PFX certificate. Please verify the PFX password and that the runner has permission to import certificates."
                     exit 1

@@ -1,0 +1,323 @@
+name: 🙏 Update Contributors Section
+
+# Description: This workflow automatically updates the contributors section in CHANGELOG.md
+# under the [Unreleased] section based on commits since the last release tag.
+#
+# It identifies:
+# - Unique commit authors since the last release tag
+# - First-time contributors (those not present in any previous release)
+# - GitHub usernames linked to commits
+#
+# Triggers:
+# - Automatically on pushes to main, dev, release/*, and hotfix/* branches
+#
+# Permissions:
+# - contents:write - Required to create branches and PRs
+# - pull-requests:write - Required to create/update PRs
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - 'release/**'
+      - 'hotfix/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-contributors:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Get target branch and setup
+        run: |
+          TARGET_BRANCH="${{ github.ref_name }}"
+          echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
+          echo "CONTRIB_BRANCH=chore/update-contributors-$TARGET_BRANCH" >> $GITHUB_ENV
+
+      - name: Delete existing contributor branches
+        continue-on-error: true
+        run: |
+          echo "Cleaning up existing branches..."
+          git push origin --delete ${{ env.CONTRIB_BRANCH }} 2>/dev/null || true
+
+      - name: Close existing PRs
+        continue-on-error: true
+        run: |
+          PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --json number --jq '.[0].number')
+          if [ ! -z "$PR_NUMBER" ]; then
+            echo "Closing existing PR #$PR_NUMBER"
+            gh pr close $PR_NUMBER --delete-branch
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find last release tag
+        id: last-release
+        run: |
+          # Find the most recent release tag (matching v* or [0-9].* pattern)
+          LAST_TAG=$(git tag --list | grep -E '^v?[0-9]+\.[0-9]+' | sort -V | tail -1)
+          
+          if [ -z "$LAST_TAG" ]; then
+            echo "No release tag found, using first commit"
+            LAST_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          
+          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+          echo "Last release tag: $LAST_TAG"
+
+      - name: Identify new contributors
+        id: identify-contributors
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LAST_TAG="${{ steps.last-release.outputs.last_tag }}"
+          REPO="${{ github.repository }}"
+
+          # --- 1. Get the authoritative commit list from git ---
+          echo "Getting commits since $LAST_TAG..."
+          GIT_SHAS=$(git log "$LAST_TAG..HEAD" --format="%H")
+
+          if [ -z "$GIT_SHAS" ]; then
+            echo "No new commits since $LAST_TAG"
+            echo "has_contributors=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Commits since $LAST_TAG: $(echo "$GIT_SHAS" | wc -l | tr -d ' ')"
+
+          # --- 2. Get tag date in UTC for API since/until parameters ---
+          TAG_DATE=$(date -u -d "$(git log -1 --format=%cI "$LAST_TAG")" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || \
+                     git log -1 --format=%cI "$LAST_TAG")
+          echo "Tag date: $TAG_DATE"
+
+          # Write git SHAs to temp file for fast lookup
+          echo "$GIT_SHAS" > /tmp/git_shas.txt
+
+          # --- 3. Fetch commit metadata from GitHub API (paginated, since tag date) ---
+          echo "Fetching commit metadata from GitHub API..."
+          COMMITS_JSON=$(gh api --paginate "/repos/$REPO/commits?sha=HEAD&since=$TAG_DATE&per_page=100")
+
+          # Extract sha+login pairs from API response into a temp file
+          echo "$COMMITS_JSON" | jq -r '
+            .[] | select(.author != null and .author.login != null) |
+            "\(.sha) \(.author.login)"
+          ' > /tmp/sha_login_pairs.txt
+
+          # --- 4. Build commit count per login, filtered to git-confirmed SHAs ---
+          # Deduplication key: GitHub login (canonical identity, avoids name/email alias confusion)
+          declare -A LOGIN_COUNTS
+          while read -r sha login; do
+            [[ -z "$sha" || -z "$login" ]] && continue
+            if grep -qF "$sha" /tmp/git_shas.txt; then
+              LOGIN_COUNTS["$login"]=$(( ${LOGIN_COUNTS["$login"]:-0} + 1 ))
+            fi
+          done < /tmp/sha_login_pairs.txt
+
+          if [ ${#LOGIN_COUNTS[@]} -eq 0 ]; then
+            echo "No commits with linked GitHub accounts found since $LAST_TAG"
+            echo "has_contributors=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "GitHub-linked authors since $LAST_TAG:"
+          for login in "${!LOGIN_COUNTS[@]}"; do
+            echo "  $login: ${LOGIN_COUNTS[$login]} commit(s)"
+          done
+
+          # --- 5. For each unique login: skip bots, detect first-time, build output ---
+          NEW_CONTRIBS=""
+          SORTED_LOGINS=$(printf '%s\n' "${!LOGIN_COUNTS[@]}" | sort)
+
+          while IFS= read -r login; do
+            [ -z "$login" ] && continue
+
+            # Skip bots: login ending in [bot] or known bot accounts
+            if [[ "$login" == *"[bot]"* ]] || \
+               [[ "$login" == "github-actions" ]] || \
+               [[ "$login" == "dependabot" ]] || \
+               [[ "$login" == "actions-user" ]]; then
+              echo "Skipping bot: $login"
+              continue
+            fi
+
+            commit_count=${LOGIN_COUNTS["$login"]}
+
+            # First-time check: does this login have any commits at or before the tag date?
+            # Uses GitHub API with until=TAG_DATE and per_page=1 for efficiency (1 API call per contributor)
+            prev_response=$(gh api "/repos/$REPO/commits?author=$login&until=$TAG_DATE&per_page=1" 2>/dev/null || echo "[]")
+            prev_count=$(echo "$prev_response" | jq 'if type == "array" then length else 0 end')
+
+            if [ "${prev_count:-0}" -gt 0 ]; then
+              is_first_time="false"
+              echo "Not first-time: $login (has previous contributions)"
+            else
+              is_first_time="true"
+              echo "First-time contributor: $login"
+            fi
+
+            github_link="https://github.com/$login"
+            # Format: name|username|link|is_first_time|commit_count
+            NEW_CONTRIBS="${NEW_CONTRIBS}${login}|${login}|${github_link}|${is_first_time}|${commit_count}\n"
+
+          done <<< "$SORTED_LOGINS"
+
+          if [ -z "$NEW_CONTRIBS" ]; then
+            echo "No new non-bot contributors found"
+            echo "has_contributors=false" >> $GITHUB_OUTPUT
+          else
+            # Sort: first-time first (true > false alphabetically reversed), commit count desc, login alpha
+            echo "Sorting contributors..."
+            printf "%b" "$NEW_CONTRIBS" | awk -F'|' '
+              NF >= 5 {
+                printf "%s|%s|%s|%s|%s\n", $4, $5, $1, $2, $3
+              }
+            ' | sort -t'|' -k1,1r -k2,2rn -k3,3 | awk -F'|' '
+              {
+                printf "%s|%s|%s|%s|%s\n", $3, $4, $5, $1, $2
+              }
+            ' > /tmp/new_contributors.txt
+
+            echo "has_contributors=true" >> $GITHUB_OUTPUT
+            echo "Found contributors:"
+            cat /tmp/new_contributors.txt
+          fi
+
+      - name: Update CHANGELOG.md
+        id: update-changelog
+        if: steps.identify-contributors.outputs.has_contributors == 'true'
+        run: |
+          # Read the contributors file
+          if [ ! -f /tmp/new_contributors.txt ]; then
+            echo "No contributors file found"
+            exit 0
+          fi
+          
+          # Build the contributors section
+          CONTRIBUTORS_SECTION="Many thanks to the following contributors to this release:\n\n"
+          
+          while IFS='|' read -r name username link is_first_time commit_count; do
+            [ -z "$name" ] && continue
+            
+            first_time_badge=""
+            if [ "$is_first_time" = "true" ]; then
+              first_time_badge=" **First contribution!**"
+            fi
+            
+            if [ ! -z "$username" ]; then
+              CONTRIBUTORS_SECTION="${CONTRIBUTORS_SECTION}- [${username}](${link})${first_time_badge}\n"
+            fi
+          done < /tmp/new_contributors.txt
+          
+          CONTRIBUTORS_SECTION="${CONTRIBUTORS_SECTION}\n----\n"
+          
+          echo "Contributors section to add:"
+          echo -e "$CONTRIBUTORS_SECTION"
+          
+          # Read current CHANGELOG
+          CHANGELOG_CONTENT=$(cat CHANGELOG.md)
+          
+          # Check if [Unreleased] section exists
+          if ! echo "$CHANGELOG_CONTENT" | grep -q "^## \[Unreleased\]"; then
+            echo "ERROR: No [Unreleased] section found in CHANGELOG.md"
+            exit 1
+          fi
+          
+          # Check if contributors section already exists under [Unreleased]
+          # We need to find the position between [Unreleased] and the next ## or ###
+          
+          # Extract the Unreleased section (from ## [Unreleased] to the next ## [ or end of file)
+          UNRELEASED_SECTION=$(echo "$CHANGELOG_CONTENT" | sed -n '/^## \[Unreleased\]/,/^## \[/p' | head -n -1)
+          
+          # Check if contributors already exists in this section
+          if echo "$UNRELEASED_SECTION" | grep -q "Many thanks to the following contributors"; then
+            echo "Contributors section already exists in [Unreleased], skipping"
+            echo "changelog_updated=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if [Unreleased] section is effectively empty (dev->main merge scenario)
+          # Count non-empty lines after the header (excluding the header itself)
+          UNRELEASED_CONTENT_LINES=$(echo "$UNRELEASED_SECTION" | tail -n +2 | grep -v '^[[:space:]]*$' | wc -l)
+          if [ "$UNRELEASED_CONTENT_LINES" -eq 0 ]; then
+            echo "[Unreleased] section is empty (likely dev->main merge), skipping contributors update"
+            echo "changelog_updated=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Find the position to insert (after ## [Unreleased] line, before first ### or content)
+          # Look for the first ### after [Unreleased]
+          UNRELEASED_START=$(grep -n "^## \[Unreleased\]" CHANGELOG.md | head -1 | cut -d: -f1)
+          
+          # Find where to insert - after the Unreleased header line, before any ### 
+          # Check if there's already an empty line after [Unreleased]
+          NEXT_LINE=$(sed -n "$((UNRELEASED_START + 1))p" CHANGELOG.md)
+          
+          if [ -z "$NEXT_LINE" ]; then
+            # Empty line after header, insert after it
+            INSERT_LINE=$((UNRELEASED_START + 2))
+          else
+            # No empty line, insert after header
+            INSERT_LINE=$((UNRELEASED_START + 1))
+          fi
+          
+          # Create the new content
+          # Convert \n to actual newlines for sed
+          TEMP_FILE=$(mktemp)
+          echo -e "$CONTRIBUTORS_SECTION" > "$TEMP_FILE"
+          
+          # Insert the contributors section
+          head -n $((INSERT_LINE - 1)) CHANGELOG.md > /tmp/changelog_new.md
+          cat "$TEMP_FILE" >> /tmp/changelog_new.md
+          tail -n +$INSERT_LINE CHANGELOG.md >> /tmp/changelog_new.md
+          
+          mv /tmp/changelog_new.md CHANGELOG.md
+          
+          echo "CHANGELOG.md updated successfully"
+          echo "changelog_updated=true" >> $GITHUB_OUTPUT
+
+      - name: Create and push branch
+        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true'
+        run: |
+          echo "Creating new branch: ${{ env.CONTRIB_BRANCH }}"
+          git checkout -b ${{ env.CONTRIB_BRANCH }}
+          
+          # Check if there are actual changes to commit
+          if [[ -n "$(git status --porcelain CHANGELOG.md)" ]]; then
+            echo "Changes detected in CHANGELOG.md, committing and pushing"
+            git add CHANGELOG.md
+            git commit -m "docs: update contributors section for ${{ env.TARGET_BRANCH }}"
+            git push origin ${{ env.CONTRIB_BRANCH }}
+            echo "CHANGES_PUSHED=true" >> $GITHUB_ENV
+          else
+            echo "No changes detected in CHANGELOG.md"
+            echo "CHANGES_PUSHED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create PR
+        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true'
+        run: |
+          PR_TITLE="docs: update contributors section for ${{ env.TARGET_BRANCH }}"
+          PR_BODY=$(cat << 'EOF'
+          This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release.
+
+          This is an automated PR created by the Update Contributors workflow.
+          EOF)
+          
+          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

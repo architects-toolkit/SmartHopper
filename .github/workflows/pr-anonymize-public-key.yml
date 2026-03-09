@@ -1,0 +1,153 @@
+name: 🔐 Anonymize Public Key
+
+# Description: This workflow automatically anonymizes the SmartHopperPublicKey
+# in SmartHopper.Infrastructure.csproj when changes are pushed to protected branches.
+# It creates a PR with the anonymized key since direct commits to protected branches are blocked.
+#
+# Triggers:
+# - Automatically when SmartHopper.Infrastructure.csproj file is modified in protected branches
+# - Manually via workflow_dispatch
+#
+# Permissions:
+# - contents:write - Required to commit anonymization changes
+# - pull-requests:write - Required to create PRs with anonymization changes
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+      - 'hotfix/**'
+      - 'release/**'
+    paths:
+      - 'src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  anonymize-key:
+    name: 🔐 Anonymize Public Key
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Set branch names
+        id: set-branches
+        run: |
+          $TARGET_BRANCH = "${{ github.ref_name }}"
+          $ANON_BRANCH = "chore/anonymize-public-key-$TARGET_BRANCH"
+          echo "target_branch=$TARGET_BRANCH" >> $env:GITHUB_OUTPUT
+          echo "anon_branch=$ANON_BRANCH" >> $env:GITHUB_OUTPUT
+
+      - name: Delete existing anonymization branches
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Write-Host "Current branches before deletion:"
+          git branch -a
+          
+          # Delete remote branch if it exists
+          git push origin --delete ${{ steps.set-branches.outputs.anon_branch }} || Write-Host "No remote branch to delete"
+          
+          Write-Host "Branches after deletion:"
+          git branch -a
+
+      - name: Delete existing PR
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $PR_NUMBER = gh pr list --base ${{ steps.set-branches.outputs.target_branch }} --head ${{ steps.set-branches.outputs.anon_branch }} --json number --jq '.[0].number'
+          if ($PR_NUMBER) {
+            Write-Host "Found existing PR #$PR_NUMBER, closing it"
+            gh pr close $PR_NUMBER --delete-branch
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Anonymize Script
+        id: anonymize
+        shell: pwsh
+        run: |
+          $repoRoot = "${{ github.workspace }}"
+          $anonymizeScript = Join-Path $repoRoot "tools\Anonymize-SmartHopperPublicKey.ps1"
+          $csprojPath = Join-Path $repoRoot "src\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj"
+          
+          if (-not (Test-Path $anonymizeScript)) {
+            Write-Error "Anonymize script not found at $anonymizeScript"
+            exit 1
+          }
+          
+          # Run anonymization
+          & $anonymizeScript -CsprojPath $csprojPath
+          $exitCode = $LASTEXITCODE
+          
+          # Handle cases where LASTEXITCODE might be null or undefined
+          if ($null -eq $exitCode) {
+            $exitCode = 0
+          }
+          
+          if ($exitCode -ne 0) {
+            Write-Error "Anonymization script failed (exit $exitCode)."
+            exit $exitCode
+          }
+          
+          # Check if file was modified
+          $gitStatus = git status --porcelain $csprojPath
+          if ($gitStatus) {
+            Write-Host "Changes detected in $csprojPath"
+            echo "changes_made=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "No changes needed - file already anonymized"
+            echo "changes_made=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Create and push branch
+        if: steps.anonymize.outputs.changes_made == 'true'
+        id: create-branch
+        shell: pwsh
+        run: |
+          $ANON_BRANCH = "${{ steps.set-branches.outputs.anon_branch }}"
+          Write-Host "Creating new branch: $ANON_BRANCH"
+          git checkout -b $ANON_BRANCH
+          
+          git add src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj
+          
+          # Check if there are changes to commit
+          if (git diff --staged --quiet) {
+            Write-Host "No changes to commit, skipping PR creation"
+            echo "changes_pushed=false" >> $env:GITHUB_OUTPUT
+          } else {
+            git commit -m "chore: anonymize SmartHopperPublicKey"
+            git push origin $ANON_BRANCH
+            echo "changes_pushed=true" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Create PR
+        if: steps.anonymize.outputs.changes_made == 'true' && steps.create-branch.outputs.changes_pushed == 'true'
+        shell: pwsh
+        run: |
+          $PR_TITLE = "chore: anonymize SmartHopperPublicKey for ${{ steps.set-branches.outputs.target_branch }}"
+          $PR_BODY = @'
+          This PR anonymizes the SmartHopperPublicKey in SmartHopper.Infrastructure.csproj to replace any real public key with a harmless placeholder.
+
+          This ensures the repository remains safe to share without exposing internal strong-name signing keys.
+
+          This is an automated PR created by the Anonymize Public Key workflow.
+          '@
+
+          gh pr create --base ${{ steps.set-branches.outputs.target_branch }} --head ${{ steps.set-branches.outputs.anon_branch }} --title "$PR_TITLE" --body "$PR_BODY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

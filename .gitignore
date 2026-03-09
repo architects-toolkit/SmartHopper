@@ -58,5 +58,5 @@ design/icons/source/*
 *.snk
 *.pfx
 
-# Unlicensed libraries
-lib/Rhino/*
+# Local libraries
+lib/*

@@ -23,6 +23,10 @@ inputs:
   signing_pfx_password:
     description: 'Password for Authenticode PFX'
     required: false
+  skip_internals_visible_to:
+    description: 'Skip Update InternalsVisibleTo step (when already done in prep job)'
+    required: false
+    default: 'false'
   version:
     description: 'Version to use for build output directory (optional)'
     required: false
@@ -62,7 +66,8 @@ runs:
           Write-Host "signing.snk already exists"
         }
 
-    - name: 'Update InternalsVisibleTo with public key'
+    - name: 'Update InternalsVisibleTo with public key (Windows only)'
+      if: runner.os == 'Windows' && inputs.skip_internals_visible_to != 'true'
       shell: pwsh
       run: |
         Write-Host "Updating InternalsVisibleTo entries with public key from signing.snk"
@@ -80,7 +85,8 @@ runs:
       shell: pwsh
       run: dotnet restore ${{ inputs.solution }}
 
-    - name: 'Initialize Visual Studio environment'
+    - name: 'Initialize Visual Studio environment (Windows only)'
+      if: runner.os == 'Windows'
       shell: pwsh
       run: |
         $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
@@ -102,8 +108,12 @@ runs:
         Write-Host "Building solution with SNK at: $snkPath"
         dotnet build ${{ inputs.solution }} --configuration ${{ inputs.configuration }} --no-restore /p:SignAssembly=true "/p:AssemblyOriginatorKeyFile=$snkPath"
 
-    - name: Decode Authenticode PFX from secrets
+    - name: Decode Authenticode PFX from secrets (Windows only)
+      if: runner.os == 'Windows'
       shell: pwsh
+      env:
+        PFX_BASE64: ${{ inputs.signing_pfx_base64 }}
+        PFX_PASSWORD: ${{ inputs.signing_pfx_password }}
       run: |
         # Setup VS Developer environment
         $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
@@ -115,21 +125,24 @@ runs:
           }
         }
         
-        if (-not [string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_base64 }}")) {
-          if ([string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_password }}")) {
+        if (-not [string]::IsNullOrWhiteSpace($env:PFX_BASE64)) {
+          if ([string]::IsNullOrWhiteSpace($env:PFX_PASSWORD)) {
             Write-Error "signing_pfx_password is required when signing_pfx_base64 is provided."
             exit 1
           }
 
           Write-Host "Decoding Authenticode PFX from secrets..."
-          $securePassword = ConvertTo-SecureString "${{ inputs.signing_pfx_password }}" -AsPlainText -Force
-          ./tools/Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password $securePassword
+          $trimmedPassword = $env:PFX_PASSWORD.Trim()
+          ./tools/Sign-Authenticode.ps1 -Base64 $env:PFX_BASE64 -Password $trimmedPassword
         } else {
           Write-Host "No Authenticode PFX secret provided; skipping PFX decoding."
         }
 
-    - name: Authenticode-sign provider assemblies
+    - name: Authenticode-sign provider assemblies (Windows only)
+      if: runner.os == 'Windows'
       shell: pwsh
+      env:
+        PFX_PASSWORD: ${{ inputs.signing_pfx_password }}
       run: |
         # Setup VS Developer environment
         $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
@@ -162,13 +175,12 @@ runs:
           }
         }
         
-        if ([string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_password }}")) {
+        if ([string]::IsNullOrWhiteSpace($env:PFX_PASSWORD)) {
           Write-Error "signing_pfx_password is required for Authenticode signing."
           exit 1
         }
 
-        $securePassword = ConvertTo-SecureString "${{ inputs.signing_pfx_password }}" -AsPlainText -Force
-
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
-        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password $securePassword
+        $trimmedPassword = $env:PFX_PASSWORD.Trim()
+        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password $trimmedPassword
         if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }
