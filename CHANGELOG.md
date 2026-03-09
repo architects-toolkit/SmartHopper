@@ -13,14 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Provider Integrity Verification**: Replaced boolean "hard integrity check" with three-tier integrity check mode system
-  - New dropdown in Providers settings tab with three modes: Soft, Hard, Strict
-  - **Soft** (default): Warns but allows providers with hash mismatches, unavailable hashes, or custom/third-party providers
-  - **Hard**: Blocks providers with hash mismatches or unknown providers (not found), but allows when hash repository is unavailable (network issues)
-  - **Strict**: Blocks on all verification failures including network unavailability - requires all providers to have valid published hashes
-  - Existing installations will automatically migrate from the old boolean setting (Soft = false, Hard/Strict = true mapped to appropriate behavior)
+- **Provider Security & Verification**:
+  - Replaced boolean "hard integrity check" with a three-tier mode (Soft/Hard/Strict) selectable in Providers settings; installs migrate automatically to the new modes.
+  - SHA-256 hash verification now covers Windows and macOS with dual-runner CI hashes and DEBUG auto-switch to Soft Check for smoother local development.
 
-- **Cross-Platform Provider Verification**: SHA-256 hash verification now supports both Windows and macOS with platform-specific hashes generated via dual-runner CI workflow (Windows for `net7.0-windows`, macOS for `net7.0`), with automatic switch to Soft Check in DEBUG builds for smooth local development
+- **UX & Components**:
+  - Renamed `AIScriptGenerator` component to `AIScriptGenerate` for consistent AI script naming.
+  - Tuned dialog sizing, text wrapping, and integrity-check descriptions for clearer messaging.
+
+- **Tooling & Automation**:
+  - Enhanced `Change-SolutionVersion.ps1` with explicit version parsing and help output for reliable version bumps.
+  - Expanded `.gitignore` to exclude all local libraries (beyond Rhino).
+  - Improved pre-commit hook with selective staging and safer password handling, added post-commit hook to auto-update `InternalsVisibleTo`, and added a GitHub workflow to anonymize the public key on protected branches.
 
 ### Fixed
 
@@ -31,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix(tools): set GhJSON component `Id = 1` when `InstanceGuid` is null in `script_generate` and `script_edit` to satisfy GhJSON.Core validation requiring at least one identifier
 - fix(tools): add `SanitizeAndParseJson` to handle AI responses wrapped in markdown code blocks or non-JSON formatting in `script_generate` and `script_edit`
 - fix(infrastructure): improve `AIProvider.CallApi()` error messages for non-JSON API responses (e.g., HTML error pages from proxies)
+- fix(macOS): address mac compatibility issues (deadlock risk, GhJSON validation, and JSON parsing edge cases) tracked in [#389](https://github.com/architects-toolkit/SmartHopper/issues/389)
+- fix: additional stability and compatibility fixes tracked in [#395](https://github.com/architects-toolkit/SmartHopper/issues/395) and [#393](https://github.com/architects-toolkit/SmartHopper/issues/393)
 
 ## [1.4.0-alpha] - 2026-02-15
 
