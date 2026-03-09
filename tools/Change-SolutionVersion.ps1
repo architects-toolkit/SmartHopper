@@ -188,17 +188,22 @@ elseif ($baseVersion) {
     # Use explicit or branch-detected version as the base
     $baseParsed = Parse-Version $baseVersion
     if ($baseParsed) {
-        # Check if explicit version ends with exactly '-dev' (no date suffix)
-        if ($Version -match '-dev$') {
+        # Check if base version ends with exactly '-dev' (no date suffix)
+        if ($baseVersion -match '-dev$') {
             # Append date to -dev suffix
             $newVersion = "$baseVersion.$today"
-            Write-Host "Explicit version ends with -dev, appending date: $newVersion" -ForegroundColor Cyan
+            Write-Host "Base version ends with -dev, appending date: $newVersion" -ForegroundColor Cyan
         }
         else {
-            # Use version as-is (stable, -alpha, -beta, -rc, or -dev.YYMMDD already provided)
-            $newVersion = $Version
-            Write-Host "Using explicit version as-is: $newVersion" -ForegroundColor Cyan
+            # Use base version as-is (stable, -alpha, -beta, -rc, or -dev.YYMMDD already provided)
+            $newVersion = $baseVersion
+            Write-Host "Using base version as-is: $newVersion" -ForegroundColor Cyan
         }
+        
+        # Set numeric components from the parsed base version
+        $newMajor = $baseParsed.Major
+        $newMinor = $baseParsed.Minor
+        $newPatch = $baseParsed.Patch
     }
     else {
         Write-Error "Failed to parse base version: $baseVersion"

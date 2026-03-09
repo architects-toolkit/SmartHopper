@@ -68,12 +68,13 @@ If you've reinstalled but still see the error:
 
 ## Can I Still Use the Provider?
 
-Yes, but **we don't recommend it**. SmartHopper gives you two options:
+Yes, but **we don't recommend it**. SmartHopper gives you three options:
 
-- **Hard Integrity Check** (safer): Blocks unverified providers completely
 - **Soft Integrity Check** (default): Allows the provider but shows warnings
+- **Hard Integrity Check** (safer): Is more strict about loading unverified provider. This option only allows verified providers, but is permissive when there is no internet connection to verify them.
+- **Strict Integrity Check** (most secure): Uses the strictest rules and may block more providers. Providers are blocked unless they can be verified agains the official repository.
 
-You can change this setting in **SmartHopper Settings > Providers > Enable hard integrity check**.
+You can change this setting in **SmartHopper Settings > Providers > Integrity Check Mode** (a dropdown with Soft, Hard, and Strict).
 
 ---
 

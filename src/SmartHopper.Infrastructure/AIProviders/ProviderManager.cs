@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -47,10 +48,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         private readonly Dictionary<string, IAIProvider> _providers = new Dictionary<string, IAIProvider>();
         private readonly Dictionary<string, IAIProviderSettings> _providerSettings = new Dictionary<string, IAIProviderSettings>();
         private readonly Dictionary<string, Assembly> _providerAssemblies = new Dictionary<string, Assembly>();
-        private readonly HashSet<string> _mismatchedProviders = new HashSet<string>(); // Tracks providers with hash mismatches
-        private readonly HashSet<string> _unavailableProviders = new HashSet<string>(); // Tracks providers where hash check was unavailable (network issues)
-        private readonly HashSet<string> _unknownProviders = new HashSet<string>(); // Tracks providers not found in hash manifest (custom/third-party)
-        private static bool _hashFileUnavailableWarningShown = false; // Tracks if global hash file unavailable warning has been shown
+        private readonly ConcurrentDictionary<string, bool> _mismatchedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers with hash mismatches
+        private readonly ConcurrentDictionary<string, bool> _unavailableProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers where hash check was unavailable (network issues)
+        private readonly ConcurrentDictionary<string, bool> _unknownProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers not found in hash manifest (custom/third-party)
 
         private ProviderManager()
         {
@@ -65,6 +65,11 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             try
             {
+                // Clear tracking sets to ensure fresh state when providers are refreshed
+                this._mismatchedProviders.Clear();
+                this._unavailableProviders.Clear();
+                this._unknownProviders.Clear();
+
                 // Get the directory where the current assembly is located
                 string assemblyLocation = Assembly.GetExecutingAssembly().Location;
                 string baseDirectory = Path.GetDirectoryName(assemblyLocation);
@@ -223,7 +228,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                             else
                             {
                                 // Soft mode: Show warning and continue loading
-                                this._mismatchedProviders.Add(mmAsmName);
+                                this._mismatchedProviders[mmAsmName] = true;
 
                                 await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
                                 {
@@ -271,7 +276,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                             {
                                 // Hard/Soft mode: Log warning but allow
                                 var uaAsmName = Path.GetFileNameWithoutExtension(assemblyPath);
-                                this._unavailableProviders.Add(uaAsmName);
+                                this._unavailableProviders[uaAsmName] = true;
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Could not verify provider '{Path.GetFileName(assemblyPath)}' - hash check skipped. Enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash unavailable for {Path.GetFileName(assemblyPath)}, skipping verification");
                             }
@@ -304,7 +309,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                             else
                             {
                                 // Soft mode: Log warning but allow
-                                this._unknownProviders.Add(nfAsmName);
+                                this._unknownProviders[nfAsmName] = true;
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' is not known - enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
                             }
@@ -571,7 +576,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             if (this._providerAssemblies.TryGetValue(providerName, out var assembly))
             {
                 var asmName = assembly.GetName().Name;
-                return this._mismatchedProviders.Contains(asmName);
+                return this._mismatchedProviders.ContainsKey(asmName);
             }
 
             return false;
@@ -593,7 +598,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             if (this._providerAssemblies.TryGetValue(providerName, out var assembly))
             {
                 var asmName = assembly.GetName().Name;
-                return this._unavailableProviders.Contains(asmName);
+                return this._unavailableProviders.ContainsKey(asmName);
             }
 
             return false;
@@ -615,7 +620,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             if (this._providerAssemblies.TryGetValue(providerName, out var assembly))
             {
                 var asmName = assembly.GetName().Name;
-                return this._unknownProviders.Contains(asmName);
+                return this._unknownProviders.ContainsKey(asmName);
             }
 
             return false;
