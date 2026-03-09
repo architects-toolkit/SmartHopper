@@ -9,15 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Many thanks to the following contributors to this release:
 
-- [architects-toolkit](https://github.com/architects-toolkit) **First contribution!**
-- [actions-user](https://github.com/actions-user) **First contribution!**
-- [marc-romu](https://github.com/marc-romu) **First contribution!**
-- [actions-user](https://github.com/actions-user) **First contribution!**
-- [github-actions[bot]](https://github.com/github-actions[bot]) **First contribution!**
-- [github-actions[bot]](https://github.com/github-actions[bot]) **First contribution!**
-- [marc-romu](https://github.com/marc-romu) **First contribution!**
-- [marc-romu](https://github.com/marc-romu) **First contribution!**
-- [nofcfy-fanqi](https://github.com/nofcfy-fanqi) **First contribution!**
+- [marc-romu](https://github.com/marc-romu)
+- [nofcfy-fanqi](https://github.com/nofcfy-fanqi)
 
 ----
 
@@ -59,6 +52,7 @@ Many thanks to the following contributors to this release:
 
 - [nofcfy-fanqi](https://github.com/nofcfy-fanqi) **First contribution!**
 - [nof2504](https://github.com/nof2504) **First contribution!**
+- [marc-romu](https://github.com/marc-romu)
 
 ### Added
 
