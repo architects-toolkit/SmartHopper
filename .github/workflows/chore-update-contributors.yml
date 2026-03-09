@@ -196,24 +196,25 @@ jobs:
           if [ -z "$NEW_CONTRIBS" ]; then
             echo "No new GitHub-linked contributors found"
             echo "has_contributors=false" >> $GITHUB_OUTPUT
-          # Sort contributors: first-time first, then by commit count (desc), then alphabetically
-          echo "Sorting contributors..."
-          echo -e "$NEW_CONTRIBS" | awk -F'|' '
-            NF >= 5 {
-              # Sort key: is_first_time (reverse, so true comes first), commit_count (reverse), name
-              # is_first_time: $4 (true/false)
-              # commit_count: $5 (number)
-              # name: $1
-              printf "%s|%s|%s|%s|%s\n", $4, $5, $1, $2, $3
-            }
-          ' | sort -t'|' -k1,1r -k2,2rn -k3,3 | awk -F'|' '
-            {
-              # Restore original order: name, username, link, is_first_time, commit_count
-              printf "%s|%s|%s|%s|%s\n", $3, $4, $5, $1, $2
-            }
-          ' > /tmp/new_contributors_sorted.txt
-          
-          mv /tmp/new_contributors_sorted.txt /tmp/new_contributors.txt
+          else
+            # Sort contributors: first-time first, then by commit count (desc), then alphabetically
+            echo "Sorting contributors..."
+            echo -e "$NEW_CONTRIBS" | awk -F'|' '
+              NF >= 5 {
+                # Sort key: is_first_time (reverse, so true comes first), commit_count (reverse), name
+                # is_first_time: $4 (true/false)
+                # commit_count: $5 (number)
+                # name: $1
+                printf "%s|%s|%s|%s|%s\n", $4, $5, $1, $2, $3
+              }
+            ' | sort -t'|' -k1,1r -k2,2rn -k3,3 | awk -F'|' '
+              {
+                # Restore original order: name, username, link, is_first_time, commit_count
+                printf "%s|%s|%s|%s|%s\n", $3, $4, $5, $1, $2
+              }
+            ' > /tmp/new_contributors_sorted.txt
+            
+            mv /tmp/new_contributors_sorted.txt /tmp/new_contributors.txt
             echo "has_contributors=true" >> $GITHUB_OUTPUT
             echo "Found contributors:"
             cat /tmp/new_contributors.txt
@@ -268,6 +269,15 @@ jobs:
           # Check if contributors already exists in this section
           if echo "$UNRELEASED_SECTION" | grep -q "Many thanks to the following contributors"; then
             echo "Contributors section already exists in [Unreleased], skipping"
+            echo "changelog_updated=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if [Unreleased] section is effectively empty (dev->main merge scenario)
+          # Count non-empty lines after the header (excluding the header itself)
+          UNRELEASED_CONTENT_LINES=$(echo "$UNRELEASED_SECTION" | tail -n +2 | grep -v '^[[:space:]]*$' | wc -l)
+          if [ "$UNRELEASED_CONTENT_LINES" -eq 0 ]; then
+            echo "[Unreleased] section is empty (likely dev->main merge), skipping contributors update"
             echo "changelog_updated=false" >> $GITHUB_OUTPUT
             exit 0
           fi
