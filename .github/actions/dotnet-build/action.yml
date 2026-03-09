@@ -129,8 +129,7 @@ runs:
           }
 
           Write-Host "Decoding Authenticode PFX from secrets..."
-          $securePassword = ConvertTo-SecureString "${{ inputs.signing_pfx_password }}" -AsPlainText -Force
-          ./tools/Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password $securePassword
+          ./tools/Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password "${{ inputs.signing_pfx_password }}"
         } else {
           Write-Host "No Authenticode PFX secret provided; skipping PFX decoding."
         }
@@ -175,8 +174,6 @@ runs:
           exit 1
         }
 
-        $securePassword = ConvertTo-SecureString "${{ inputs.signing_pfx_password }}" -AsPlainText -Force
-
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
-        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password $securePassword
+        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ inputs.signing_pfx_password }}"
         if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }

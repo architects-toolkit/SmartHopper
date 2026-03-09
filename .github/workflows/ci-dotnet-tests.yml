@@ -112,5 +112,10 @@ jobs:
           version: ${{ steps.determine_version.outputs.version }}
           skip_internals_visible_to: true
 
-      - name: Run all tests
+      - name: Run all tests (Windows)
+        if: runner.os == 'Windows'
         run: dotnet test --no-build --configuration Release --results-directory TestResults
+
+      - name: Run all tests (macOS - net7.0 only)
+        if: runner.os == 'macOS'
+        run: dotnet test --no-build --configuration Release --framework net7.0 --results-directory TestResults
