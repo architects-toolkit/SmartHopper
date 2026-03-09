@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Many thanks to the following contributors to this release:
+
+- [marc-romu](https://github.com/marc-romu)
+- [nofcfy-fanqi](https://github.com/nofcfy-fanqi)
+
+----
+
 ### Added
 
 - **Contributors Workflow**: Added automated GitHub workflow (`chore-update-contributors.yml`) to maintain the contributors section in CHANGELOG.md
@@ -45,6 +52,7 @@ Many thanks to the following contributors to this release:
 
 - [nofcfy-fanqi](https://github.com/nofcfy-fanqi) **First contribution!**
 - [nof2504](https://github.com/nof2504) **First contribution!**
+- [marc-romu](https://github.com/marc-romu)
 
 ### Added
 
