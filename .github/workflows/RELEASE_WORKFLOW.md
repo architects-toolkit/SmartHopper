@@ -108,7 +108,7 @@ The workflow automatically:
 - Builds the solution in Release configuration
 - Creates platform-specific artifacts:
   - `SmartHopper-X.Y.Z-Rhino8-Windows.zip`
-  - `SmartHopper-X.Y.Z-Rhino8-Mac-not-tested.zip`
+  - `SmartHopper-X.Y.Z-Rhino8-Mac.zip`
 - Validates all expected DLLs are present
 - Uploads artifacts to the GitHub Release
 
