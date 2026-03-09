@@ -6,7 +6,7 @@ name: pr-milestone
 on:
   pull_request:
     types: [opened]
-    branches: [main, dev, 'release/*']
+    branches: [main, dev, 'release/*', 'hash-update/*']
 
 permissions:
   issues: write

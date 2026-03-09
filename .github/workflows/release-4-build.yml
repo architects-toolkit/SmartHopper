@@ -332,7 +332,7 @@ jobs:
         }
         
         # Save merged manifest
-        $outputFile = "provider-hashes-$version.json"
+        $outputFile = "SmartHopper-Provider-Integrity-Hashes-$version.json"
         $mergedManifest | ConvertTo-Json -Depth 10 | Set-Content $outputFile
         
         Write-Host "Merged hash manifest created: $outputFile"
