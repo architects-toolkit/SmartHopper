@@ -10,6 +10,9 @@
   Base64-encoded PFX data; decodes into signing.pfx. Requires -Password for export and signing.
 .PARAMETER Password
   Password for PFX certificate import/export and signing operations.
+  WARNING: Passing passwords as plain strings exposes them in shell history and process listings.
+  For interactive use, omit this parameter to be prompted securely.
+  For CI/CD automation, use environment variables or secrets management.
 .PARAMETER Export
   Exports the signing.pfx file as Base64 text to stdout. Requires -Password.
 .PARAMETER Sign
@@ -36,10 +39,17 @@ param(
     [string]$PfxPath
 )
 
-# Convert password string to SecureString if provided
+# Password handling: Accept string for CI/CD compatibility, but warn about security
 $securePassword = $null
 if (-not [string]::IsNullOrEmpty($Password)) {
+    # CI/CD mode: Convert plain-text password to SecureString
+    # WARNING: This exposes the password in shell history and process listings
     $securePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
+    
+    # Only warn in interactive sessions (not in CI/CD)
+    if ([Environment]::UserInteractive -and -not $env:CI -and -not $env:GITHUB_ACTIONS) {
+        Write-Warning "Password provided as plain text. For better security, omit -Password to be prompted securely."
+    }
 }
 
 # default PFX paths; override via -PfxPath
@@ -60,7 +70,9 @@ function Show-Help {
     Write-Host "Options:"
     Write-Host "  -Generate               Creates a self-signed PFX certificate (signing.pfx). Requires -Password."
     Write-Host "  -Base64 <data>          Decodes Base64-encoded PFX into signing.pfx. Requires -Password."
-    Write-Host "  -Password <pwd>         Password for PFX certificate import/export and signing."
+    Write-Host "  -Password <pwd>         Password for PFX certificate import/export and signing.
+                          WARNING: Plain-text passwords are insecure. Omit for secure prompt.
+                          For CI/CD, use secrets management (e.g., GitHub Secrets)."
     Write-Host "  -Export                 Exports signing.pfx as Base64 text to stdout. Requires -Password."
     Write-Host "  -Sign <path>            Authenticode-signs all SmartHopper.Providers.*.dll under <path>. Requires Base64 or Generate."
     Write-Host "  -SignDebug              Authenticode-signs assemblies in bin/<SolutionVersion>/Debug under the solution root."
@@ -106,8 +118,11 @@ if ($Generate) {
         }
     }
     if (-not $Password) {
-        Write-Error "-Password is required when exporting PFX."
-        exit 1
+        $securePassword = Read-Host "Enter password for PFX export" -AsSecureString
+        if (-not $securePassword) {
+            Write-Error "-Password is required when exporting PFX."
+            exit 1
+        }
     }
     Write-Host "Exporting PFX as Base64:"
     $bytes = [IO.File]::ReadAllBytes($pfxPath)
