@@ -132,12 +132,8 @@ runs:
           }
 
           Write-Host "Decoding Authenticode PFX from secrets..."
-          # Write base64 to a temp file to avoid CLI argument parsing issues with long/special-char strings
-          $tmpB64 = [System.IO.Path]::GetTempFileName()
-          [System.IO.File]::WriteAllText($tmpB64, $env:PFX_BASE64.Trim())
           $trimmedPassword = $env:PFX_PASSWORD.Trim()
-          ./tools/Sign-Authenticode.ps1 -File $tmpB64 -Password $trimmedPassword
-          Remove-Item $tmpB64 -Force -ErrorAction SilentlyContinue
+          ./tools/Sign-Authenticode.ps1 -Base64 $env:PFX_BASE64 -Password $trimmedPassword
         } else {
           Write-Host "No Authenticode PFX secret provided; skipping PFX decoding."
         }

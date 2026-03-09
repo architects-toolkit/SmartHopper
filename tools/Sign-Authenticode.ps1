@@ -8,8 +8,6 @@
   Creates a self-signed PFX certificate (signing.pfx) for Authenticode signing. Requires -Password.
 .PARAMETER Base64
   Base64-encoded PFX data; decodes into signing.pfx. Requires -Password for export and signing.
-.PARAMETER File
-  Path to a text file containing Base64-encoded PFX data; supersedes -Base64 for signing.
 .PARAMETER Password
   Password for PFX certificate import/export and signing operations.
 .PARAMETER Export
@@ -29,7 +27,6 @@
 param(
     [switch]$Generate,
     [string]$Base64,
-    [string]$File,
     [string]$Password,
     [switch]$Export,
     [switch]$Help,
@@ -43,8 +40,6 @@ param(
 $securePassword = $null
 if (-not [string]::IsNullOrEmpty($Password)) {
     $securePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
-    Write-Host "DEBUG: Received password with length: $($Password.Length)"
-    Write-Host "DEBUG: Password first char: '$($Password[0])', last char: '$($Password[-1])'"
 }
 
 # default PFX paths; override via -PfxPath
@@ -65,7 +60,6 @@ function Show-Help {
     Write-Host "Options:"
     Write-Host "  -Generate               Creates a self-signed PFX certificate (signing.pfx). Requires -Password."
     Write-Host "  -Base64 <data>          Decodes Base64-encoded PFX into signing.pfx. Requires -Password."
-    Write-Host "  -File <path>            Path to a file containing Base64 PFX data; implies -Base64."
     Write-Host "  -Password <pwd>         Password for PFX certificate import/export and signing."
     Write-Host "  -Export                 Exports signing.pfx as Base64 text to stdout. Requires -Password."
     Write-Host "  -Sign <path>            Authenticode-signs all SmartHopper.Providers.*.dll under <path>. Requires Base64 or Generate."
@@ -75,7 +69,7 @@ function Show-Help {
     Write-Host "  -PfxPath <path>         Override default signing PFX path (default 'signing.pfx')."
 }
 
-if ($Help -or (-not $Generate -and -not $Base64 -and -not $File -and -not $Export -and -not $Sign -and -not $SignDebug -and -not $SignRelease)) {
+if ($Help -or (-not $Generate -and -not $Base64 -and -not $Export -and -not $Sign -and -not $SignDebug -and -not $SignRelease)) {
     Show-Help
     exit 0
 }
@@ -159,12 +153,9 @@ if ($Generate) {
     if ($explicitSignProvided -and [string]::IsNullOrWhiteSpace($Sign) -or $SignDebug) {
         $debugPath = Join-Path $solutionRoot ("bin/$solutionVersion/Debug")
         $targetPaths += $debugPath
-        if ($explicitSignProvided -and [string]::IsNullOrWhiteSpace($Sign))
-        {
+        if ($explicitSignProvided -and [string]::IsNullOrWhiteSpace($Sign)) {
             Write-Host "No -Sign target path specified. Using default: $debugPath"
-        }
-        else
-        {
+        } else {
             Write-Host "Using inferred target path for -SignDebug: $debugPath"
         }
     }
@@ -184,15 +175,6 @@ if ($Generate) {
         exit 1
     }
 
-    # Read Base64 from file if requested
-    if ($File) {
-        if (-not (Test-Path $File)) {
-            Write-Error "Base64 file '$File' not found."
-            exit 1
-        }
-        Write-Host "Reading Base64 PFX data from '$File'"
-        $Base64 = Get-Content $File -Raw
-    }
     # Decode Base64 into PFX if provided
     if ($Base64) {
         Write-Host "Decoding Base64 PFX into $pfxPath"
@@ -204,7 +186,7 @@ if ($Generate) {
             $pfxPath = $defaultLocalPfx
             Write-Host "Using local PFX certificate file: $pfxPath"
         } else {
-            Write-Error "PFX file '$pfxPath' not found. Please use -Base64, -File, or ensure a signing.pfx exists in the solution root or next to this script."
+            Write-Error "PFX file '$pfxPath' not found. Please use -Base64, or ensure a signing.pfx exists in the solution root or next to this script."
             exit 1
         }
     }
@@ -219,48 +201,6 @@ if ($Generate) {
     }
 
     $plainPassword = [System.Net.NetworkCredential]::new("", $securePassword).Password
-    
-    # Debug: Show password length (never the actual password)
-    Write-Host "DEBUG: Plain password length: $($plainPassword.Length)"
-    Write-Host "DEBUG: Plain password first char: '$(if($plainPassword.Length -gt 0){$plainPassword[0]}else{"<empty>"})'"
-    Write-Host "DEBUG: Plain password last char: '$(if($plainPassword.Length -gt 0){$plainPassword[-1]}else{"<empty>"})'"
-    
-    # Validate PFX password by attempting to read the PFX header
-    Write-Host "DEBUG: Validating PFX password against certificate..."
-    try {
-        # Try to read PFX as secure string to validate password works
-        $testSecure = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
-        $testCred = [System.Net.NetworkCredential]::new("", $testSecure).Password
-        if ($testCred -ne $plainPassword) {
-            Write-Warning "DEBUG: Password round-trip validation failed - password may contain special characters that were mangled"
-        } else {
-            Write-Host "DEBUG: Password round-trip validation passed"
-        }
-    } catch {
-        Write-Warning "DEBUG: Password validation check failed: $($_.Exception.Message)"
-    }
-    
-    # Additional validation: Try to read the PFX file to verify password is correct
-    Write-Host "DEBUG: Attempting to read PFX certificate to verify password..."
-    try {
-        $pfxBytes = [IO.File]::ReadAllBytes($pfxPath)
-        # Try to create a certificate collection from the PFX - this will fail if password is wrong
-        $pfxCollection = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection
-        $pfxCollection.Import($pfxBytes, $plainPassword, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
-        Write-Host "DEBUG: PFX certificate successfully imported with provided password. Certificate count: $($pfxCollection.Count)"
-        if ($pfxCollection.Count -gt 0) {
-            $firstCert = $pfxCollection[0]
-            Write-Host "DEBUG: PFX contains certificate: $($firstCert.Subject), Thumbprint: $($firstCert.Thumbprint)"
-        }
-        # Clean up
-        $pfxCollection.Clear()
-    } catch [System.Security.Cryptography.CryptographicException] {
-        Write-Error "PFX password validation FAILED: The password is incorrect or the PFX file is corrupted. Error: $($_.Exception.Message)"
-        Write-Error "Please verify the SIGNING_PFX_PASSWORD secret matches the password used when the PFX was created."
-        exit 1
-    } catch {
-        Write-Warning "DEBUG: PFX validation check error (non-critical): $($_.Exception.Message)"
-    }
 
     # Find signtool.exe once
     $signtoolPath = $null
