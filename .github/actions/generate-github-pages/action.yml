@@ -108,10 +108,20 @@ runs:
           Write-Host "  No stable versions found, using latest prerelease: $($latestVersion.Version)"
         }
         
-        # Copy latest version to latest.json
-        $latestHashPath = Join-Path $pagesDir "latest.json"
-        Copy-Item $latestVersion.File.FullName -Destination $latestHashPath -Force
-        Write-Host "  ✓ Created latest.json from $($latestVersion.Version)"
+        # Copy latest version to latest.json only if it's a stable release
+        if ($latestVersion.IsStable) {
+          $latestHashPath = Join-Path $hashesDir "latest.json"
+          Copy-Item $latestVersion.File.FullName -Destination $latestHashPath -Force
+          Write-Host "  ✓ Created hashes/latest.json from stable version $($latestVersion.Version)"
+        } else {
+          Write-Host "  ⚠ Skipped latest.json - latest version $($latestVersion.Version) is a prerelease, not stable"
+          # Remove existing latest.json if it exists (to avoid stale latest pointing to old stable)
+          $existingLatest = Join-Path $hashesDir "latest.json"
+          if (Test-Path $existingLatest) {
+            Remove-Item $existingLatest -Force
+            Write-Host "  ✓ Removed stale hashes/latest.json"
+          }
+        }
         
         # Generate versions manifest
         Write-Host ""
@@ -148,9 +158,9 @@ runs:
           repository = $repository
           versions = $versionsList
         }
-        $versionsJsonPath = Join-Path $pagesDir "versions.json"
+        $versionsJsonPath = Join-Path $hashesDir "versions.json"
         $versionsManifest | ConvertTo-Json -Depth 10 | Set-Content -Path $versionsJsonPath -Encoding UTF8
-        Write-Host "Created versions manifest in pages root: $versionsJsonPath"
+        Write-Host "Created versions manifest in hashes folder: $versionsJsonPath"
         Write-Host "Listed $($versionsList.Count) version(s)"
         
         # Create index page
