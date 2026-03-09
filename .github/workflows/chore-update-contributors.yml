@@ -114,7 +114,7 @@ jobs:
           while IFS= read -r author; do
             [ -z "$author" ] && continue
             email=$(echo "$author" | grep -oP '(?<=<)[^>]+')
-            ((COMMIT_COUNTS["$email"]++))
+            COMMIT_COUNTS["$email"]=$(( ${COMMIT_COUNTS["$email"]:-0} + 1 ))
           done <<< "$COMMITS"
           
           # Reset to process each unique contributor
