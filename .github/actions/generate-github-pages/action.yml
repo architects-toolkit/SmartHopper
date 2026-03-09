@@ -109,9 +109,9 @@ runs:
         }
         
         # Copy latest version to latest.json
-        $latestHashPath = Join-Path $pagesDir "latest.json"
+        $latestHashPath = Join-Path $hashesDir "latest.json"
         Copy-Item $latestVersion.File.FullName -Destination $latestHashPath -Force
-        Write-Host "  ✓ Created latest.json from $($latestVersion.Version)"
+        Write-Host "  ✓ Created hashes/latest.json from $($latestVersion.Version)"
         
         # Generate versions manifest
         Write-Host ""
@@ -148,9 +148,9 @@ runs:
           repository = $repository
           versions = $versionsList
         }
-        $versionsJsonPath = Join-Path $pagesDir "versions.json"
+        $versionsJsonPath = Join-Path $hashesDir "versions.json"
         $versionsManifest | ConvertTo-Json -Depth 10 | Set-Content -Path $versionsJsonPath -Encoding UTF8
-        Write-Host "Created versions manifest in pages root: $versionsJsonPath"
+        Write-Host "Created versions manifest in hashes folder: $versionsJsonPath"
         Write-Host "Listed $($versionsList.Count) version(s)"
         
         # Create index page
