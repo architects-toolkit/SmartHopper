@@ -105,7 +105,7 @@ namespace SmartHopper.Menu.Items
                 }
 
                 // Log summary to console
-                RhinoApp.WriteLine($"[SmartHopper] Verification complete: {matchCount} verified, {mismatchCount} mismatched, {unavailableCount} unavailable, {notFoundCount} not found");
+                RhinoApp.WriteLine($"[SmartHopper] Provider integrity check complete: {matchCount} verified, {mismatchCount} mismatched, {unavailableCount} unavailable, {notFoundCount} unknown");
 
                 // Show specialized verification dialog with Eto.Forms styling
                 RhinoApp.InvokeOnUiThread(new Action(() =>

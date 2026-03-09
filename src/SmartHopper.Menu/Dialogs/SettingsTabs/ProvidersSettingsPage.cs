@@ -32,6 +32,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
     {
         private readonly Dictionary<string, CheckBox> _providerCheckBoxes;
         private readonly IAIProvider[] _providers;
+        private readonly DropDown _integrityCheckModeDropDown;
 
         /// <summary>
         /// Initializes a new instance of the ProvidersSettingsPage class
@@ -112,6 +113,66 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 layout.Add(providerLayout);
             }
 
+            // Add spacing
+            layout.Add(new Panel { Height = 20 });
+
+            // Integrity Check Section
+            layout.Add(new Label
+            {
+                Text = "Integrity Check Mode",
+                Font = new Font(SystemFont.Bold, 12),
+            });
+
+            layout.Add(new Label
+            {
+                Text = "Configure how provider integrity verification is handled when SHA-256 hash verification encounters issues.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500,
+            });
+
+            layout.Add(new Panel { Height = 10 });
+
+            // Integrity check mode dropdown
+            this._integrityCheckModeDropDown = new DropDown
+            {
+                Width = 500,
+            };
+
+            // Add mode options with descriptions
+            // Index 0 = Soft, Index 1 = Hard, Index 2 = Strict
+            this._integrityCheckModeDropDown.Items.Add(new ListItem
+            {
+                Text = "Soft - No blocking, just warn about issues (default)"
+            });
+            this._integrityCheckModeDropDown.Items.Add(new ListItem
+            {
+                Text = "Hard - Block altered and unknown providers, be permissive when offline"
+            });
+            this._integrityCheckModeDropDown.Items.Add(new ListItem
+            {
+                Text = "Strict - Allow only verified providers from official repository (highest security)"
+            });
+
+            layout.Add(this._integrityCheckModeDropDown);
+
+            layout.Add(new Panel { Height = 10 });
+
+            layout.Add(new Label
+            {
+                Text = "• Soft: Warns but allows providers with hash mismatches, unavailable hashes, or custom/third-party providers. " +
+                       "Best for development and custom providers.\n\n" +
+                       "• Hard: Blocks providers with hash mismatches or unknown providers, " +
+                       "but allows when hash repository is unavailable (when offline or network issues). Good balance of security and flexibility.\n\n" +
+                       "• Strict: Blocks on all verification failures including hash mismatches, unknown providers, and network unavailability. " +
+                       "Requires all providers to have valid published hashes from the official repository and an active internet connection.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 9),
+                Wrap = WrapMode.Word,
+                Width = 500,
+            });
+
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
@@ -122,12 +183,28 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// Loads trusted providers settings into the UI controls
         /// </summary>
         /// <param name="settings">Trusted providers settings to load</param>
-        public void LoadSettings(TrustedProvidersSettings settings)
+        /// <param name="integrityCheckMode">Integrity check mode setting</param>
+        public void LoadSettings(TrustedProvidersSettings settings, ProviderIntegrityCheckMode integrityCheckMode)
         {
             foreach (var kvp in this._providerCheckBoxes)
             {
                 // Default to true if not specified, false if explicitly set to false
                 kvp.Value.Checked = !settings.ContainsKey(kvp.Key) || settings[kvp.Key];
+            }
+
+            // Select the appropriate dropdown item based on mode
+            // Index mapping: 0 = Soft, 1 = Hard, 2 = Strict
+            int targetIndex = integrityCheckMode switch
+            {
+                ProviderIntegrityCheckMode.Soft => 0,
+                ProviderIntegrityCheckMode.Hard => 1,
+                ProviderIntegrityCheckMode.Strict => 2,
+                _ => 0
+            };
+
+            if (targetIndex >= 0 && targetIndex < this._integrityCheckModeDropDown.Items.Count)
+            {
+                this._integrityCheckModeDropDown.SelectedIndex = targetIndex;
             }
         }
 
@@ -135,13 +212,24 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         /// Saves UI control values back to the trusted providers settings model
         /// </summary>
         /// <param name="settings">Trusted providers settings to update</param>
-        public void SaveSettings(TrustedProvidersSettings settings)
+        /// <param name="integrityCheckMode">Integrity check mode setting to update</param>
+        public void SaveSettings(TrustedProvidersSettings settings, out ProviderIntegrityCheckMode integrityCheckMode)
         {
             settings.Clear();
             foreach (var kvp in this._providerCheckBoxes)
             {
                 settings[kvp.Key] = kvp.Value.Checked ?? false;
             }
+
+            // Get selected mode from dropdown based on index
+            // Index mapping: 0 = Soft, 1 = Hard, 2 = Strict
+            integrityCheckMode = this._integrityCheckModeDropDown.SelectedIndex switch
+            {
+                0 => ProviderIntegrityCheckMode.Soft,
+                1 => ProviderIntegrityCheckMode.Hard,
+                2 => ProviderIntegrityCheckMode.Strict,
+                _ => ProviderIntegrityCheckMode.Soft
+            };
         }
     }
 }

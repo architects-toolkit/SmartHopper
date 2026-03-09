@@ -32,6 +32,10 @@ inputs:
     description: 'Output directory for collected artifacts'
     required: false
     default: 'artifacts'
+  skip-internals-visible-to:
+    description: 'Skip Update InternalsVisibleTo step (when already done in prep job)'
+    required: false
+    default: 'false'
 outputs:
   artifacts-path:
     description: 'Path to the directory containing collected artifacts'
@@ -54,6 +58,7 @@ runs:
         signing_pfx_base64: ${{ inputs.signing-pfx-base64 }}
         signing_pfx_password: ${{ inputs.signing-pfx-password }}
         version: ${{ inputs.version }}
+        skip_internals_visible_to: ${{ inputs.skip-internals-visible-to }}
 
     - name: Collect Artifacts
       shell: pwsh

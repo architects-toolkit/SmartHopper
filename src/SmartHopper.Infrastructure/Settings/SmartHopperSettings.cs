@@ -73,6 +73,32 @@ namespace SmartHopper.Infrastructure.Settings
         public Dictionary<string, bool> TrustedProviders { get; set; }
 
         /// <summary>
+        /// Gets or sets the provider integrity check mode for verification.
+        /// Controls how provider DLL hash verification failures are handled.
+        /// Default is Soft (warn but allow).
+        /// </summary>
+        [JsonProperty]
+        public ProviderIntegrityCheckMode ProviderIntegrityCheckMode { get; set; }
+
+        /// <summary>
+        /// Gets the effective provider integrity check mode, accounting for DEBUG builds.
+        /// In DEBUG builds, this always returns Soft mode to allow local development.
+        /// In RELEASE builds, this returns the configured mode from settings.
+        /// </summary>
+        public ProviderIntegrityCheckMode EffectiveProviderIntegrityCheckMode
+        {
+            get
+            {
+#if DEBUG
+                Debug.WriteLine("[SmartHopperSettings] DEBUG build: forcing soft integrity check mode");
+                return ProviderIntegrityCheckMode.Soft;
+#else
+                return this.ProviderIntegrityCheckMode;
+#endif
+            }
+        }
+
+        /// <summary>
         /// Gets or sets settings related to the SmartHopper assistant features.
         /// </summary>
         [JsonProperty(nameof(SmartHopperAssistant))]
@@ -107,6 +133,7 @@ namespace SmartHopper.Infrastructure.Settings
             this.DebounceTime = 1000;
             this.DefaultAIProvider = string.Empty;
             this.TrustedProviders = new Dictionary<string, bool>();
+            this.ProviderIntegrityCheckMode = ProviderIntegrityCheckMode.Soft; // Default to soft verification
             this.SmartHopperAssistant = new SmartHopperAssistantSettings();
             this.EncryptionVersion = encryptionVersion;
         }

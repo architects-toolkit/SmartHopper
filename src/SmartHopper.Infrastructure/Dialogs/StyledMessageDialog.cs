@@ -19,6 +19,7 @@
 /*
  * StyledMessageDialog.cs
  * Provides styled Eto.Forms dialogs with SmartHopper branding for error, warning, info messages, and confirmations.
+ * Uses DynamicLayout for responsive text wrapping and dynamic content adaptation.
  */
 
 using System;
@@ -33,6 +34,7 @@ namespace SmartHopper.Infrastructure.Dialogs
 {
     /// <summary>
     /// Provides styled Eto.Forms dialogs for displaying info, warning, error messages, and confirmations with the SmartHopper logo.
+    /// Uses DynamicLayout for responsive content that properly wraps and adapts to dialog size.
     /// </summary>
     internal class StyledMessageDialog : Dialog
     {
@@ -68,7 +70,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             this._linkedInstanceGuid = linkedInstanceGuid;
             this._linkLineColor = linkLineColor;
             this.Title = title;
-            this.Resizable = true;
+            this.Resizable = false;
             this.Padding = new Padding(20);
 
             // Set window icon from embedded resource
@@ -79,6 +81,15 @@ namespace SmartHopper.Infrastructure.Dialogs
                     this.Icon = new Eto.Drawing.Icon(stream);
                 }
             }
+
+            // Dialog sizing - dynamic based on content
+            const int dialogWidth = 500;
+            const int minDialogHeight = 250;
+            const int maxDialogHeight = 600;
+            const int maxContentHeight = 400;
+
+            this.ClientSize = new Size(dialogWidth, this.CalculateDialogHeight(message, dialogWidth, minDialogHeight, maxDialogHeight));
+            this.MinimumSize = new Size(dialogWidth, 200);
 
             // Create smaller logo
             var logoView = new ImageView
@@ -93,15 +104,6 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Text = "SmartHopper says...",
                 Font = new Font(SystemFont.Bold, 16),
                 TextAlignment = TextAlignment.Center,
-            };
-
-            // Header with logo and title
-            var headerLayout = new StackLayout
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                Spacing = 10,
-                Items = { logoView, new StackLayoutItem(titleLabel, VerticalAlignment.Center) },
             };
 
             // Build prefix and body labels, coloring only the prefix
@@ -123,45 +125,16 @@ namespace SmartHopper.Infrastructure.Dialogs
             titleLabel.Text = prefixText + titleLabel.Text;
             titleLabel.TextColor = prefixColor;
 
-            // Calculate required height based on message content
-            const int dialogWidth = 400;
-            const int textWidth = 100;
-            const int lineHeight = 24; // Line height for 12pt font with spacing
-            const int charsPerLine = 42; // Conservative estimate for wrapped text
-
-            // Count actual lines (including newlines and wrapped text)
-            var lines = message.Split('\n');
-            var totalLines = 0;
-            foreach (var line in lines)
+            // Header with logo and title - centered using StackLayout (compatible with Rhino Eto.Forms)
+            var headerLayout = new StackLayout
             {
-                // Empty lines count as 1 (paragraph spacing)
-                if (string.IsNullOrEmpty(line))
-                {
-                    totalLines++;
-                }
-                else
-                {
-                    // Calculate wrapped lines with conservative estimate
-                    totalLines += Math.Max(1, (int)Math.Ceiling((double)line.Length / charsPerLine));
-                }
-            }
+                Orientation = Orientation.Horizontal,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                Spacing = 10,
+                Items = { logoView, new StackLayoutItem(titleLabel, VerticalAlignment.Center) }
+            };
 
-            // Calculate content height:
-            // - Header (logo + title): ~60px
-            // - Message area: lines * lineHeight
-            // - Spacing between sections: ~20px
-            // - Button row: ~50px
-            // - Dialog padding (top + bottom): ~40px
-            // - Extra buffer for word wrapping variance: ~20px
-            var messageHeight = totalLines * lineHeight;
-            var contentHeight = messageHeight;
-
-            // var contentHeight = 60 + messageHeight + 20 + 50 + 40 + 20;
-            var dialogHeight = Math.Max(240, Math.Min(contentHeight, 600)); // Clamp between 240 and 600
-
-            this.Size = new Size(dialogWidth, dialogHeight);
-            this.MinimumSize = new Size(240, Math.Min(200 + contentHeight, 400));
-
+            // Body label with word wrapping - explicit width required for wrapping inside Scrollable
             var bodyLabel = new Label
             {
                 Text = message,
@@ -169,16 +142,26 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Font = new Font(SystemFont.Default, 12),
                 TextColor = Colors.Black,
                 TextAlignment = TextAlignment.Left,
-                Width = textWidth,
+                VerticalAlignment = VerticalAlignment.Top,
+                Width = dialogWidth - 60 - 20 // Dialog width minus padding (20*2 + 10*2)
             };
 
-            // Message container with only the body
+            // Wrap message in scrollable for long content
+            var scrollableMessage = new Scrollable
+            {
+                Content = bodyLabel,
+                Border = BorderType.None,
+                ExpandContentWidth = false,
+                ExpandContentHeight = false,
+            };
+
+            // Message container
             var messageContainer = new TableLayout
             {
-                Spacing = new Size(5, 5),
+                Spacing = new Size(0, 0),
                 Rows =
                 {
-                    new TableRow(new TableCell(bodyLabel, true)),
+                    new TableRow(new TableCell(scrollableMessage, true)) { ScaleHeight = true },
                 },
             };
 
@@ -222,7 +205,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                 this.DefaultButton = okButton;
             }
 
-            // Main content layout - use ScaleHeight on message row to expand vertically
+            // Main content layout
             this.Content = new TableLayout
             {
                 Padding = new Padding(10),
@@ -238,7 +221,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                                 Items = { headerLayout }
                             })),
 
-                    // Message row left-aligned - use ScaleHeight to allow vertical expansion
+                    // Message row - expands vertically
                     new TableRow(messageContainer) { ScaleHeight = true },
 
                     // Button row right-aligned
@@ -255,8 +238,25 @@ namespace SmartHopper.Infrastructure.Dialogs
         }
 
         /// <summary>
-        /// Dialog type enumeration for styling purposes.
+        /// Calculates an appropriate dialog height based on message length.
         /// </summary>
+        private int CalculateDialogHeight(string message, int dialogWidth, int minHeight, int maxHeight)
+        {
+            // Estimate lines based on character count and average chars per line
+            const int avgCharsPerLine = 55; // Approximate for 500px width with 12pt font
+            int estimatedLines = Math.Max(1, (int)Math.Ceiling(message.Length / (double)avgCharsPerLine));
+
+            // Account for explicit line breaks
+            estimatedLines += message.Split('\n').Length - 1;
+
+            // Calculate height: header (~80px) + content lines (~20px each) + buttons (~80px) + padding (~60px)
+            int contentHeight = estimatedLines * 20;
+            int totalHeight = 80 + contentHeight + 80 + 60;
+
+            // Clamp to min/max bounds
+            return Math.Min(maxHeight, Math.Max(minHeight, totalHeight));
+        }
+
         private enum DialogType
         {
             Info,

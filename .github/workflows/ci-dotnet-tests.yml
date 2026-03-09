@@ -2,6 +2,10 @@ name: 🧪 .NET CI
 
 # Description: This workflow runs .NET tests on the SmartHopper solution to ensure that changes do not break functionality.
 # 
+# Flow:
+# 1. Prep job runs on Windows to execute Windows-only operations (Update InternalsVisibleTo, SNK generation)
+# 2. Build job runs on both Windows and macOS using matrix strategy, downloading pre-processed source from prep job
+# 
 # Triggers:
 # - push to main branch
 # - pull_request targeting main, dev and release branches
@@ -26,12 +30,67 @@ permissions:
   pull-requests: read
 
 jobs:
-  test:
+  # Job 1: Windows-only prep step - generates SNK, updates InternalsVisibleTo in csproj files
+  # This ensures the public key is embedded in source files before cross-platform compilation
+  prep:
     runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-          
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Decode strong-name key
+        shell: pwsh
+        run: |
+          if (-not (Test-Path signing.snk)) {
+            if ("${{ secrets.SIGNING_SNK_BASE64 }}" -ne "") {
+              Write-Host "Decoding signing.snk from Base64 secret"
+              pwsh tools/Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
+            } else {
+              Write-Host "Generating signing.snk"
+              pwsh tools/Sign-StrongNames.ps1 -Generate
+            }
+          } else {
+            Write-Host "signing.snk already exists"
+          }
+
+      - name: Update InternalsVisibleTo with public key
+        shell: pwsh
+        run: |
+          Write-Host "Updating InternalsVisibleTo entries with public key from signing.snk"
+          pwsh tools/Update-InternalsVisibleTo.ps1
+
+      - name: Upload pre-processed source
+        uses: actions/upload-artifact@v4
+        with:
+          name: preprocessed-source
+          path: |
+            src/**/*.csproj
+            signing.snk
+          retention-days: 1
+
+  # Job 2: Build and test on both Windows and macOS
+  # Uses pre-processed source from prep job (includes updated InternalsVisibleTo)
+  build:
+    needs: prep
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download pre-processed source
+        uses: actions/download-artifact@v4
+        with:
+          name: preprocessed-source
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -51,6 +110,16 @@ jobs:
           signing_pfx_base64: ${{ secrets.SIGNING_PFX_BASE64 }}
           signing_pfx_password: ${{ secrets.SIGNING_PFX_PASSWORD }}
           version: ${{ steps.determine_version.outputs.version }}
+          skip_internals_visible_to: true
 
-      - name: Run all tests
+      - name: Run all tests (Windows)
+        if: runner.os == 'Windows'
         run: dotnet test --no-build --configuration Release --results-directory TestResults
+
+      - name: Run all tests (macOS - Infrastructure.Tests only)
+        if: runner.os == 'macOS'
+        run: |
+          # Run only SmartHopper.Infrastructure.Tests on Mac: it is the only test project
+          # with a true net7.0 (non-Windows) target. Core.Tests and Core.Grasshopper.Tests
+          # depend on WindowsDesktop/WinForms APIs that are not available on macOS net7.0.
+          dotnet test src/SmartHopper.Infrastructure.Tests/SmartHopper.Infrastructure.Tests.csproj --no-build --configuration Release --framework net7.0 --results-directory TestResults --verbosity normal

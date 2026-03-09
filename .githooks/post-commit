@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Purpose: Update InternalsVisibleTo attributes after commit by invoking the PowerShell hook.
+
+set -euo pipefail
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+pwsh -NoProfile -ExecutionPolicy Bypass -File "$HOOK_DIR/post-commit.ps1"

@@ -426,7 +426,7 @@ processing schema.
 
 ### 6.6 Script components
 
-- **AIScriptGeneratorComponent**, **AIScriptReviewComponent** (`AISelectingStatefulAsyncComponentBase`) — do not implement for now.
+- **AIScriptGenerateComponent**, **AIScriptReviewComponent** (`AISelectingStatefulAsyncComponentBase`) — do not implement for now.
   - **Topology**: mix of branch‑ and item‑oriented behaviour depending on how code and parameters are represented.
   - **Recommendation**:
     - These components orchestrate script generation/review, often with richer UI and selection logic.

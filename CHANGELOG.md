@@ -7,9 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Contributors Workflow**: Added automated GitHub workflow (`chore-update-contributors.yml`) to maintain the contributors section in CHANGELOG.md
+
+### Changed
+
+- **Provider Security & Verification**:
+  - Replaced boolean "hard integrity check" with a three-tier mode (Soft/Hard/Strict) selectable in Providers settings; installs migrate automatically to the new modes.
+  - SHA-256 hash verification now covers Windows and macOS with dual-runner CI hashes and DEBUG auto-switch to Soft Check for smoother local development.
+
+- **UX & Components**:
+  - Renamed `AIScriptGenerator` component to `AIScriptGenerate` for consistent AI script naming.
+  - Tuned dialog sizing, text wrapping, and integrity-check descriptions for clearer messaging.
+
+- **Tooling & Automation**:
+  - Enhanced `Change-SolutionVersion.ps1` with explicit version parsing and help output for reliable version bumps.
+  - Expanded `.gitignore` to exclude all local libraries (beyond Rhino).
+  - Improved pre-commit hook with selective staging and safer password handling, added post-commit hook to auto-update `InternalsVisibleTo`, and added a GitHub workflow to anonymize the public key on protected branches.
+
+### Fixed
+
+- fix(ci): skip `Update-InternalsVisibleTo` step on macOS runners since `sn.exe` (Strong Name tool) is Windows-only; assemblies still strong-name signed with SNK file
+- fix(infrastructure): reduce provider hash verification timeout from 10s to 5s for faster offline detection and improved Settings dialog responsiveness
+- fix(infrastructure): add network availability check in `ProviderHashVerifier` to skip hash fetch attempts when offline, preventing unnecessary delays
+- fix(infrastructure): implement 15-minute manifest caching in `ProviderHashVerifier` using `ConcurrentDictionary` for thread safety, and centralize cache operations in `ReadHashManifest` method
+- fix(core): eliminate race condition in `ComponentStateManager.ProcessTransitionQueue()` where `isTransitioning` flag was cleared before event firing, potentially allowing concurrent queue processing on macOS. The flag now remains true until after all events are fired, preventing out-of-order event processing and concurrent event handler execution.
+- fix(tools): set GhJSON component `Id = 1` when `InstanceGuid` is null in `script_generate` and `script_edit` to satisfy GhJSON.Core validation requiring at least one identifier
+- fix(tools): add `SanitizeAndParseJson` to handle AI responses wrapped in markdown code blocks or non-JSON formatting in `script_generate` and `script_edit`
+- fix(infrastructure): improve `AIProvider.CallApi()` error messages for non-JSON API responses (e.g., HTML error pages from proxies)
+- fix(macOS): address mac compatibility issues (deadlock risk, GhJSON validation, and JSON parsing edge cases) tracked in [#389](https://github.com/architects-toolkit/SmartHopper/issues/389)
+- fix: additional stability and compatibility fixes tracked in [#395](https://github.com/architects-toolkit/SmartHopper/issues/395) and [#393](https://github.com/architects-toolkit/SmartHopper/issues/393)
+
 ## [1.4.0-alpha] - 2026-02-15
 
-Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](https://github.com/nof2504) for the contributions to this release.
+Many thanks to the following contributors to this release:
+
+- [nofcfy-fanqi](https://github.com/nofcfy-fanqi) **First contribution!**
+- [nof2504](https://github.com/nof2504) **First contribution!**
 
 ### Added
 
@@ -234,10 +269,10 @@ Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](htt
   - AI-selecting stateful components now use combined attributes that show both the "Select" button and AI provider badges, with the button rendered above the provider strip.
   - Selecting components now use the dialog link line color for hover highlights and draw a connector line from the combined selection center to the "Select" button.
 - Script components:
-  - `AIScriptGeneratorComponent` now orchestrates `script_generate` / `script_edit` together with `gh_get` / `gh_put` instead of the legacy `script_generator` tool, and exposes `GhJSON`, `Guid`, `Summary`, and `Message` outputs only.
-  - `AIScriptGeneratorComponent` and `AIScriptReviewComponent` no longer expose a `Guid` input; the target component is always provided via the selecting button.
+  - `AIScriptGenerateComponent` now orchestrates `script_generate` / `script_edit` together with `gh_get` / `gh_put` instead of the legacy `script_generator` tool, and exposes `GhJSON`, `Guid`, `Summary`, and `Message` outputs only.
+  - `AIScriptGenerateComponent` and `AIScriptReviewComponent` no longer expose a `Guid` input; the target component is always provided via the selecting button.
   - Removed the monolithic `script_generator` AI tool in favor of smaller, focused tools that operate purely on GhJSON.
-  - Updated `AIScriptGeneratorComponent` and `AIScriptReviewComponent` to support processing multiple inputs in parallel.
+  - Updated `AIScriptGenerateComponent` and `AIScriptReviewComponent` to support processing multiple inputs in parallel.
   - Renamed `script_fix` tool to `script_review` to better reflect its review-focused behavior.
   - `script_generate` no longer includes a pre-placement `instanceGuid` in its tool result; instance GUIDs are only exposed via `script_generate_and_place_on_canvas` / `gh_put` using the real canvas instance GUIDs.
 - `GhJsonDeserializer`:
@@ -402,7 +437,7 @@ Many thanks to [nofcfy-fanqi](https://github.com/nofcfy-fanqi) and [nof2504](htt
 
 - **Legacy script tools and components**:
   - Removed `script_new` and `script_edit` AI tools in favor of the unified `script_generator` tool.
-  - Removed `AIScriptNewComponent` and `AIScriptEditComponent` Grasshopper components in favor of `AIScriptGeneratorComponent`.
+  - Removed `AIScriptNewComponent` and `AIScriptEditComponent` Grasshopper components in favor of `AIScriptGenerateComponent`.
 
 ### Fixed
 
