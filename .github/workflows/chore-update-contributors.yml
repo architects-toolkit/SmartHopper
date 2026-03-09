@@ -102,8 +102,8 @@ jobs:
           echo "Getting historical contributors..."
           HISTORICAL=$(git log --pretty=format:"%an <%ae>" | sort -u)
           
-          # Get commits from before the last tag (these are not new to the project)
-          BEFORE_LAST_TAG=$(git log --reverse "..$LAST_TAG" --pretty=format:"%an <%ae>" 2>/dev/null | sort -u)
+          # Get commits from the last tag (these are not new to the project)
+          BEFORE_LAST_TAG=$(git log --reverse "$LAST_TAG" --pretty=format:"%an <%ae>" 2>/dev/null | sort -u)
           
           # Build list of new contributors with GitHub usernames and commit counts
           # Format per contributor: name|username|link|is_first_time|commit_count

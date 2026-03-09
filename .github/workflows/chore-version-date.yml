@@ -106,16 +106,17 @@ jobs:
         run: |
           echo "Creating new branch: ${{ steps.set-branches.outputs.date_branch }}"
           git checkout -b ${{ steps.set-branches.outputs.date_branch }}
-          git add Solution.props README.md
           
           # Check if there are changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to commit, skipping PR creation"
-            echo "changes_made=false" >> $GITHUB_OUTPUT
-          else
+          if [[ -n "$(git status --porcelain Solution.props README.md)" ]]; then
+            echo "Changes detected, committing and pushing"
+            git add Solution.props README.md
             git commit -m "chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}"
             git push origin ${{ steps.set-branches.outputs.date_branch }}
             echo "changes_made=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes detected in Solution.props or README.md"
+            echo "changes_made=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Create PR

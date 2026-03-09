@@ -173,6 +173,13 @@ if (-not $parsed) {
 
 # Determine base X.Y.Z for the new version
 if ($UpdateDateOnly) {
+    # Only update date for -dev versions
+    if ($parsed.PreType -ne 'dev') {
+        Write-Host "Current version is not a -dev version ($currentVersion). Skipping date update for non-dev versions." -ForegroundColor Yellow
+        Write-Host "  Version remains: $currentVersion" -ForegroundColor Green
+        exit 0
+    }
+    
     # Keep the same X.Y.Z and pre-release type, only update the date
     $newMajor = $parsed.Major
     $newMinor = $parsed.Minor
