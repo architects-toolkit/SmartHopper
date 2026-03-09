@@ -43,6 +43,8 @@ param(
 $securePassword = $null
 if (-not [string]::IsNullOrEmpty($Password)) {
     $securePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
+    Write-Host "DEBUG: Received password with length: $($Password.Length)"
+    Write-Host "DEBUG: Password first char: '$($Password[0])', last char: '$($Password[-1])'"
 }
 
 # default PFX paths; override via -PfxPath
@@ -217,6 +219,48 @@ if ($Generate) {
     }
 
     $plainPassword = [System.Net.NetworkCredential]::new("", $securePassword).Password
+    
+    # Debug: Show password length (never the actual password)
+    Write-Host "DEBUG: Plain password length: $($plainPassword.Length)"
+    Write-Host "DEBUG: Plain password first char: '$(if($plainPassword.Length -gt 0){$plainPassword[0]}else{"<empty>"})'"
+    Write-Host "DEBUG: Plain password last char: '$(if($plainPassword.Length -gt 0){$plainPassword[-1]}else{"<empty>"})'"
+    
+    # Validate PFX password by attempting to read the PFX header
+    Write-Host "DEBUG: Validating PFX password against certificate..."
+    try {
+        # Try to read PFX as secure string to validate password works
+        $testSecure = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
+        $testCred = [System.Net.NetworkCredential]::new("", $testSecure).Password
+        if ($testCred -ne $plainPassword) {
+            Write-Warning "DEBUG: Password round-trip validation failed - password may contain special characters that were mangled"
+        } else {
+            Write-Host "DEBUG: Password round-trip validation passed"
+        }
+    } catch {
+        Write-Warning "DEBUG: Password validation check failed: $($_.Exception.Message)"
+    }
+    
+    # Additional validation: Try to read the PFX file to verify password is correct
+    Write-Host "DEBUG: Attempting to read PFX certificate to verify password..."
+    try {
+        $pfxBytes = [IO.File]::ReadAllBytes($pfxPath)
+        # Try to create a certificate collection from the PFX - this will fail if password is wrong
+        $pfxCollection = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+        $pfxCollection.Import($pfxBytes, $plainPassword, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+        Write-Host "DEBUG: PFX certificate successfully imported with provided password. Certificate count: $($pfxCollection.Count)"
+        if ($pfxCollection.Count -gt 0) {
+            $firstCert = $pfxCollection[0]
+            Write-Host "DEBUG: PFX contains certificate: $($firstCert.Subject), Thumbprint: $($firstCert.Thumbprint)"
+        }
+        # Clean up
+        $pfxCollection.Clear()
+    } catch [System.Security.Cryptography.CryptographicException] {
+        Write-Error "PFX password validation FAILED: The password is incorrect or the PFX file is corrupted. Error: $($_.Exception.Message)"
+        Write-Error "Please verify the SIGNING_PFX_PASSWORD secret matches the password used when the PFX was created."
+        exit 1
+    } catch {
+        Write-Warning "DEBUG: PFX validation check error (non-critical): $($_.Exception.Message)"
+    }
 
     # Find signtool.exe once
     $signtoolPath = $null

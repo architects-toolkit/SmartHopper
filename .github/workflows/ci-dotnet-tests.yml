@@ -118,4 +118,6 @@ jobs:
 
       - name: Run all tests (macOS - net7.0 only)
         if: runner.os == 'macOS'
-        run: dotnet test --no-build --configuration Release --framework net7.0 --results-directory TestResults
+        run: |
+          # Run only net7.0 (non-Windows) tests on Mac to avoid framework mismatch
+          dotnet test --no-build --configuration Release --framework net7.0 --results-directory TestResults --verbosity normal
