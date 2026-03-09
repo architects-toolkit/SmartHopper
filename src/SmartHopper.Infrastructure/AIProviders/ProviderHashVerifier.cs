@@ -94,8 +94,8 @@ namespace SmartHopper.Infrastructure.AIProviders
         private static readonly HttpClient HttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
 
         // Cache for hash manifests to avoid repeated network requests (thread-safe)
-        private static readonly ConcurrentDictionary<string, (DateTime fetched, Dictionary<string, string> manifest)> ManifestCache 
-            = new ConcurrentDictionary<string, (DateTime, Dictionary<string, string>)>();
+        private static readonly ConcurrentDictionary<string, (DateTime fetched, Dictionary<string, string> manifest)> ManifestCache = new ConcurrentDictionary<string, (DateTime, Dictionary<string, string>)>();
+
         private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(15);
 
         /// <summary>
