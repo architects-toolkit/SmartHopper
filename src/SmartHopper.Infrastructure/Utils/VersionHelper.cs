@@ -81,20 +81,29 @@ namespace SmartHopper.Infrastructure.Utils
         /// <returns>True if version contains a development tag, false otherwise</returns>
         public static bool IsDevelopment()
         {
-            string displayVersion = GetDisplayVersion();
-            return displayVersion.Contains("-dev");
+            if (IsStable())
+            {
+                return false;
+            }
+
+            string tag = GetPrereleaseTag();
+            return tag != null && tag.Equals("dev", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
-        /// Checks if the current version is a prerelease (alpha, beta, or rc).
+        /// Checks if the current version is a prerelease (e.g., alpha, beta, rc).
+        /// Note: Development versions are not considered prereleases.
         /// </summary>
-        /// <returns>True if version contains prerelease tag, false otherwise</returns>
+        /// <returns>True if version contains prerelease tag (excluding dev), false otherwise</returns>
         public static bool IsPrerelease()
         {
-            string displayVersion = GetDisplayVersion();
-            return displayVersion.Contains("-alpha") ||
-                   displayVersion.Contains("-beta") ||
-                   displayVersion.Contains("-rc");
+            if (IsStable())
+            {
+                return false;
+            }
+
+            string tag = GetPrereleaseTag();
+            return tag != null && !tag.Equals("dev", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -104,21 +113,18 @@ namespace SmartHopper.Infrastructure.Utils
         public static bool IsStable()
         {
             string displayVersion = GetDisplayVersion();
-            return !(displayVersion.Contains("-alpha") ||
-                   displayVersion.Contains("-beta") ||
-                   displayVersion.Contains("-rc") ||
-                   displayVersion.Contains("-dev"));
+            return !displayVersion.Contains("-");
         }
 
         /// <summary>
-        /// Gets the prerelease tag if present (alpha, beta, rc).
+        /// Gets the prerelease tag if present (e.g., dev, alpha, beta, rc).
         /// </summary>
         /// <returns>Prerelease tag or null if stable version</returns>
         public static string GetPrereleaseTag()
         {
             string displayVersion = GetDisplayVersion();
 
-            var match = Regex.Match(displayVersion, @"-(alpha|beta|rc)");
+            var match = Regex.Match(displayVersion, @"-([a-zA-Z]+)(?:[\.\+]|$)");
             if (match.Success)
             {
                 return match.Groups[1].Value;
