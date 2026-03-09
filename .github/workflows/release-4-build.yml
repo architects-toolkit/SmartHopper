@@ -175,6 +175,7 @@ jobs:
         libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
         signing-pfx-base64: ${{ secrets.SIGNING_PFX_BASE64 }}
         signing-pfx-password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        skip-internals-visible-to: 'true'
         output-directory: artifacts-windows
 
     - name: Calculate Windows Provider Hashes
@@ -219,6 +220,7 @@ jobs:
         platforms: '["net7.0"]'
         signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
         libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
+        skip-internals-visible-to: 'true'
         output-directory: artifacts-macos
 
     - name: Calculate macOS Provider Hashes

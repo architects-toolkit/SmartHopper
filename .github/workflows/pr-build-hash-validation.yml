@@ -63,8 +63,52 @@ jobs:
           echo "✅ No manual hash file edits detected."
         fi
 
-  validate-build-and-hash:
+  # Windows-only prep step: generates SNK, updates InternalsVisibleTo in csproj files
+  # This ensures the public key is embedded in source files before cross-platform compilation
+  prep:
     needs: validate-no-manual-hash-edits
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '7.0.x'
+
+    - name: Decode strong-name key
+      shell: pwsh
+      run: |
+        if (-not (Test-Path signing.snk)) {
+          if ("${{ secrets.SIGNING_SNK_BASE64 }}" -ne "") {
+            Write-Host "Decoding signing.snk from Base64 secret"
+            pwsh tools/Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
+          } else {
+            Write-Host "Generating signing.snk"
+            pwsh tools/Sign-StrongNames.ps1 -Generate
+          }
+        } else {
+          Write-Host "signing.snk already exists"
+        }
+
+    - name: Update InternalsVisibleTo with public key
+      shell: pwsh
+      run: |
+        Write-Host "Updating InternalsVisibleTo entries with public key from signing.snk"
+        pwsh tools/Update-InternalsVisibleTo.ps1
+
+    - name: Upload pre-processed source
+      uses: actions/upload-artifact@v4
+      with:
+        name: preprocessed-source
+        path: |
+          src/**/*.csproj
+          signing.snk
+        retention-days: 1
+
+  validate-build-and-hash:
+    needs: [validate-no-manual-hash-edits, prep]
     strategy:
       matrix:
         include:
@@ -78,6 +122,11 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+
+    - name: Download pre-processed source
+      uses: actions/download-artifact@v4
+      with:
+        name: preprocessed-source
 
     - name: Extract Version from Solution.props
       id: extract_version
@@ -93,6 +142,7 @@ jobs:
         libs-repo-pat: ${{ secrets.LIBS_REPO_PAT }}
         signing-pfx-base64: ${{ secrets.SIGNING_PFX_BASE64 }}
         signing-pfx-password: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        skip-internals-visible-to: 'true'
         output-directory: artifacts
 
     - name: Calculate Provider Hashes

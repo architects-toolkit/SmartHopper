@@ -111,6 +111,9 @@ runs:
     - name: Decode Authenticode PFX from secrets (Windows only)
       if: runner.os == 'Windows'
       shell: pwsh
+      env:
+        PFX_BASE64: ${{ inputs.signing_pfx_base64 }}
+        PFX_PASSWORD: ${{ inputs.signing_pfx_password }}
       run: |
         # Setup VS Developer environment
         $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
@@ -122,14 +125,14 @@ runs:
           }
         }
         
-        if (-not [string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_base64 }}")) {
-          if ([string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_password }}")) {
+        if (-not [string]::IsNullOrWhiteSpace($env:PFX_BASE64)) {
+          if ([string]::IsNullOrWhiteSpace($env:PFX_PASSWORD)) {
             Write-Error "signing_pfx_password is required when signing_pfx_base64 is provided."
             exit 1
           }
 
           Write-Host "Decoding Authenticode PFX from secrets..."
-          ./tools/Sign-Authenticode.ps1 -Base64 "${{ inputs.signing_pfx_base64 }}" -Password "${{ inputs.signing_pfx_password }}"
+          ./tools/Sign-Authenticode.ps1 -Base64 $env:PFX_BASE64 -Password $env:PFX_PASSWORD
         } else {
           Write-Host "No Authenticode PFX secret provided; skipping PFX decoding."
         }
@@ -137,6 +140,8 @@ runs:
     - name: Authenticode-sign provider assemblies (Windows only)
       if: runner.os == 'Windows'
       shell: pwsh
+      env:
+        PFX_PASSWORD: ${{ inputs.signing_pfx_password }}
       run: |
         # Setup VS Developer environment
         $vsDevCmd = 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat'
@@ -169,11 +174,11 @@ runs:
           }
         }
         
-        if ([string]::IsNullOrWhiteSpace("${{ inputs.signing_pfx_password }}")) {
+        if ([string]::IsNullOrWhiteSpace($env:PFX_PASSWORD)) {
           Write-Error "signing_pfx_password is required for Authenticode signing."
           exit 1
         }
 
         Write-Host "Auth-signing SmartHopper provider DLLs in $buildPath"
-        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password "${{ inputs.signing_pfx_password }}"
+        ./tools/Sign-Authenticode.ps1 -Sign $buildPath -Password $env:PFX_PASSWORD
         if ($LASTEXITCODE -ne 0) { Write-Error "Authenticode signing failed for provider assemblies"; exit $LASTEXITCODE }

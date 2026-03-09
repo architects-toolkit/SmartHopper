@@ -52,5 +52,9 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" ExcludeAssets="all" GeneratePathProperty="true" />
     <Reference Include="$(PkgMicrosoft_NETFramework_ReferenceAssemblies_net48)\build\.NETFramework\v4.8\System.Windows.Forms.dll" Private="False" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.11" ExcludeAssets="runtime" />
+    <!-- Prevent transitive WindowsDesktop framework references from propagating to testhost -->
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App" />
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WindowsForms" />
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App.WPF" />
   </ItemGroup>
 </Project>
