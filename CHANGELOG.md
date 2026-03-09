@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1-alpha] - 2026-03-09
+
 Many thanks to the following contributors to this release:
 
 - [marc-romu](https://github.com/marc-romu)
