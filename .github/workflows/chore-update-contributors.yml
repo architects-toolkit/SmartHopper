@@ -81,6 +81,7 @@ jobs:
 
       - name: Identify new contributors
         id: identify-contributors
+        shell: bash
         run: |
           LAST_TAG="${{ steps.last-release.outputs.last_tag }}"
           

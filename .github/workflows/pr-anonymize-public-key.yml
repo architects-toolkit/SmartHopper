@@ -92,10 +92,16 @@ jobs:
           
           # Run anonymization
           & $anonymizeScript -CsprojPath $csprojPath
+          $exitCode = $LASTEXITCODE
           
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Anonymization script failed (exit $LASTEXITCODE)."
-            exit $LASTEXITCODE
+          # Handle cases where LASTEXITCODE might be null or undefined
+          if ($null -eq $exitCode) {
+            $exitCode = 0
+          }
+          
+          if ($exitCode -ne 0) {
+            Write-Error "Anonymization script failed (exit $exitCode)."
+            exit $exitCode
           }
           
           # Check if file was modified
