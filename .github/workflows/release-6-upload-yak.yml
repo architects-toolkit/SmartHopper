@@ -25,6 +25,15 @@ on:
         required: false
         type: string
         default: ''
+      platform:
+        description: 'Platform(s) to upload to Yak'
+        required: true
+        type: choice
+        options:
+          - windows
+          - macos
+          - both
+        default: 'both'
       upload_to_yak:
         description: 'Confirm upload to Yak?'
         required: false
@@ -76,6 +85,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifacts
         
       - name: Download Windows release asset
+        if: inputs.platform == 'windows' || inputs.platform == 'both'
         uses: robinraju/release-downloader@v1
         with:
           repository: ${{ github.repository }}
@@ -85,6 +95,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Download Mac release asset
+        if: inputs.platform == 'macos' || inputs.platform == 'both'
         uses: robinraju/release-downloader@v1
         with:
           repository: ${{ github.repository }}
@@ -99,21 +110,31 @@ jobs:
           $windowsFile = "artifacts/SmartHopper-${{ steps.get_version.outputs.version }}-Rhino8-Windows.zip"
           $macFile = "artifacts/SmartHopper-${{ steps.get_version.outputs.version }}-Rhino8-Mac.zip"
           
-          if (-not (Test-Path $windowsFile)) {
-            Write-Host "::error::Windows asset not found after download: $windowsFile"
-            exit 1
+          if ("${{ inputs.platform }}" -eq 'windows' -or "${{ inputs.platform }}" -eq 'both') {
+            if (-not (Test-Path $windowsFile)) {
+              Write-Host "::error::Windows asset not found after download: $windowsFile"
+              exit 1
+            }
+            Write-Host "Windows asset verified: $windowsFile"
           }
           
-          if (-not (Test-Path $macFile)) {
-            Write-Host "::error::Mac asset not found after download: $macFile"
-            exit 1
+          if ("${{ inputs.platform }}" -eq 'macos' -or "${{ inputs.platform }}" -eq 'both') {
+            if (-not (Test-Path $macFile)) {
+              Write-Host "::error::Mac asset not found after download: $macFile"
+              exit 1
+            }
+            Write-Host "Mac asset verified: $macFile"
           }
           
           Write-Host "Assets downloaded successfully"
           
           # Rename files to make them easier to reference in Yak commands
-          Move-Item -Path $windowsFile -Destination "artifacts/windows.zip" -Force
-          Move-Item -Path $macFile -Destination "artifacts/mac.zip" -Force
+          if (Test-Path $windowsFile) {
+            Move-Item -Path $windowsFile -Destination "artifacts/windows.zip" -Force
+          }
+          if (Test-Path $macFile) {
+            Move-Item -Path $macFile -Destination "artifacts/mac.zip" -Force
+          }
 
       - name: Download Yak CLI
         shell: pwsh
@@ -123,6 +144,7 @@ jobs:
 
       - name: Build Windows Yak package
         id: build_windows
+        if: inputs.platform == 'windows' || inputs.platform == 'both'
         shell: pwsh
         run: |
           $version = "${{ steps.get_version.outputs.version }}"
@@ -140,14 +162,42 @@ jobs:
           echo "windows_yak_package=$zip" >> $env:GITHUB_OUTPUT
           Pop-Location
 
-      - name: Upload Yak package artifact
+      - name: Upload Windows Yak package artifact
+        if: inputs.platform == 'windows' || inputs.platform == 'both'
         uses: actions/upload-artifact@v4
         with:
           name: windows-yak-package
           path: yak-windows/*.yak
 
+      - name: Build macOS Yak package
+        id: build_macos
+        if: inputs.platform == 'macos' || inputs.platform == 'both'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_version.outputs.version }}"
+          $pkgDir = "yak-macos"
+          Remove-Item $pkgDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $pkgDir
+          Expand-Archive -Path "artifacts/mac.zip" -DestinationPath $pkgDir -Force
+          Copy-Item -Path "yak-package\*" -Destination $pkgDir -Recurse -Force
+          # Inject actual version into manifest
+          (Get-Content "$pkgDir/manifest.yml") -replace '{{VERSION}}', $version | Set-Content "$pkgDir/manifest.yml"
+
+          Push-Location $pkgDir
+          ../yak.exe build --platform mac
+          $zip = Get-ChildItem -Filter "*.yak" | Select-Object -ExpandProperty FullName
+          echo "macos_yak_package=$zip" >> $env:GITHUB_OUTPUT
+          Pop-Location
+
+      - name: Upload macOS Yak package artifact
+        if: inputs.platform == 'macos' || inputs.platform == 'both'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-yak-package
+          path: yak-macos/*.yak
+
       - name: Upload Windows Yak package to Yak
-        if: inputs.upload_to_yak
+        if: (inputs.platform == 'windows' || inputs.platform == 'both') && inputs.upload_to_yak
         shell: pwsh
         run: |
           $FilePath = "${{ steps.build_windows.outputs.windows_yak_package }}"
@@ -183,4 +233,45 @@ jobs:
         env:
           YAK_TOKEN: ${{ secrets.YAK_AUTH_TOKEN }}
 
-      # Mac pipeline is currently disabled; add mac build/upload with `yak build --platform mac` as needed
+      - name: Upload macOS Yak package to Yak
+        if: (inputs.platform == 'macos' || inputs.platform == 'both') && inputs.upload_to_yak
+        shell: pwsh
+        run: |
+          $FilePath = "${{ steps.build_macos.outputs.macos_yak_package }}"
+          if (-not (Test-Path $FilePath)) {
+              Write-Host "::error::Yak package not found at: $FilePath"
+              exit 1
+          }
+          $sourceFlag = ""
+          if ("${{ inputs.testing }}" -eq "true") {
+              $sourceFlag = "--source https://test.yak.rhino3d.com"
+              Write-Host "Uploading to test Yak server"
+          } else {
+              Write-Host "Uploading to production Yak server"
+          }
+          Write-Host "Uploading macOS Yak package: $FilePath"
+          Write-Host "File exists: $(Test-Path $FilePath)"
+          Write-Host "File size: $(if (Test-Path $FilePath) { (Get-Item $FilePath).Length } else { 'N/A' }) bytes"
+
+          $exe  = Join-Path $PWD 'yak.exe'
+          $args = @('push')
+          if ($sourceFlag) { $args += $sourceFlag.Split(' ') }
+          $args += $FilePath
+
+          Write-Host "Running: $exe $($args -join ' ')"
+          & $exe @args
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Failed to upload macOS Yak package"
+            exit 1
+          } else {
+            Write-Host "Successfully uploaded macOS Yak package"
+          }
+        env:
+          YAK_TOKEN: ${{ secrets.YAK_AUTH_TOKEN }}
+
+      # Note: Yak supports multiple distributions per version. Uploading Windows and macOS
+      # separately (or at different times) is fully supported. Both packages will appear
+      # as distributions under the same version on the Yak server (e.g., smarthopper-1.0.0-rh8-win.yak
+      # and smarthopper-1.0.0-rh8-mac.yak). Users on each platform will automatically receive
+      # the correct distribution when installing via the Package Manager.
