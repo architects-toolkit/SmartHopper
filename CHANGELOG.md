@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(ci): skip `Update-InternalsVisibleTo` step on macOS runners since `sn.exe` (Strong Name tool) is Windows-only; assemblies still strong-name signed with SNK file
 - fix(infrastructure): reduce provider hash verification timeout from 10s to 5s for faster offline detection and improved Settings dialog responsiveness
 - fix(infrastructure): add network availability check in `ProviderHashVerifier` to skip hash fetch attempts when offline, preventing unnecessary delays
 - fix(infrastructure): implement 15-minute manifest caching in `ProviderHashVerifier` using `ConcurrentDictionary` for thread safety, and centralize cache operations in `ReadHashManifest` method

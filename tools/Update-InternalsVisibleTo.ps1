@@ -63,6 +63,12 @@ Write-Host "Extracting public key from: $SnkPath"
 
 # Find sn.exe to extract public key
 function Find-SnExe {
+    # On non-Windows platforms, sn.exe is not available
+    if (-not ($IsWindows -or $env:OS -eq "Windows_NT")) {
+        Write-Warning "sn.exe is not available on non-Windows platforms."
+        return $null
+    }
+    
     $snCmd = Get-Command sn.exe -ErrorAction SilentlyContinue
     if ($snCmd) {
         return $snCmd.Source
@@ -109,6 +115,12 @@ function Find-SnExe {
 
 $snExe = Find-SnExe
 if (-not $snExe) {
+    # On non-Windows, this is expected - skip gracefully
+    if (-not ($IsWindows -or $env:OS -eq "Windows_NT")) {
+        Write-Warning "Skipping InternalsVisibleTo update on non-Windows platform."
+        Write-Host "The public key is already committed in the repository (not sensitive)."
+        exit 0
+    }
     Write-Error "sn.exe not found. Please install the Windows SDK or run in a Developer PowerShell."
     exit 1
 }

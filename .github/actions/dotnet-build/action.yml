@@ -23,6 +23,10 @@ inputs:
   signing_pfx_password:
     description: 'Password for Authenticode PFX'
     required: false
+  skip_internals_visible_to:
+    description: 'Skip Update InternalsVisibleTo step (when already done in prep job)'
+    required: false
+    default: 'false'
   version:
     description: 'Version to use for build output directory (optional)'
     required: false
@@ -62,7 +66,8 @@ runs:
           Write-Host "signing.snk already exists"
         }
 
-    - name: 'Update InternalsVisibleTo with public key'
+    - name: 'Update InternalsVisibleTo with public key (Windows only)'
+      if: runner.os == 'Windows' && inputs.skip_internals_visible_to != 'true'
       shell: pwsh
       run: |
         Write-Host "Updating InternalsVisibleTo entries with public key from signing.snk"

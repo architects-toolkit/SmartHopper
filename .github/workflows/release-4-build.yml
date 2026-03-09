@@ -2,7 +2,11 @@ name: 🏁 4 Build Project (Dual Platform)
 
 # Description: This workflow builds the project on both Windows and macOS runners
 # to ensure native compilation and accurate SHA-256 hash generation for each platform.
-# It merges the hash manifests and uploads artifacts when a release is published.
+# 
+# Flow:
+# 1. Prep job runs on Windows to execute Windows-only operations (Update InternalsVisibleTo, SNK generation)
+# 2. Build jobs run on both Windows and macOS, downloading pre-processed source from prep job
+# 3. Hash manifests are merged and artifacts uploaded
 #
 # Triggers:
 # - Manually via workflow_dispatch
@@ -35,8 +39,9 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Build on Windows for net7.0-windows platform
-  build-windows:
+  # Job 1: Windows-only prep step - generates SNK, updates InternalsVisibleTo in csproj files
+  # This ensures the public key is embedded in source files before cross-platform compilation
+  prep:
     runs-on: windows-latest
     outputs:
       version: ${{ steps.determine_version.outputs.VERSION }}
@@ -115,10 +120,55 @@ jobs:
         Write-Host "This is a draft release. Skipping build."
         exit 0
 
+    - name: Decode strong-name key
+      shell: pwsh
+      run: |
+        if (-not (Test-Path signing.snk)) {
+          if ("${{ secrets.SIGNING_SNK_BASE64 }}" -ne "") {
+            Write-Host "Decoding signing.snk from Base64 secret"
+            pwsh tools/Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
+          } else {
+            Write-Host "Generating signing.snk"
+            pwsh tools/Sign-StrongNames.ps1 -Generate
+          }
+        } else {
+          Write-Host "signing.snk already exists"
+        }
+
+    - name: Update InternalsVisibleTo with public key
+      shell: pwsh
+      run: |
+        Write-Host "Updating InternalsVisibleTo entries with public key from signing.snk"
+        pwsh tools/Update-InternalsVisibleTo.ps1
+
+    - name: Upload pre-processed source
+      uses: actions/upload-artifact@v4
+      with:
+        name: preprocessed-source-release
+        path: |
+          src/**/*.csproj
+          signing.snk
+        retention-days: 1
+
+  # Build on Windows for net7.0-windows platform
+  build-windows:
+    needs: prep
+    runs-on: windows-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Download pre-processed source
+      uses: actions/download-artifact@v4
+      with:
+        name: preprocessed-source-release
+
     - name: Compile Solution (Windows)
       uses: ./.github/actions/compile-solution
       with:
-        version: ${{ steps.determine_version.outputs.VERSION }}
+        version: ${{ needs.prep.outputs.version }}
         configuration: Release
         platforms: '["net7.0-windows"]'
         signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
@@ -132,7 +182,7 @@ jobs:
       uses: ./.github/actions/calculate-provider-hashes
       with:
         artifacts-path: artifacts-windows
-        version: ${{ steps.determine_version.outputs.VERSION }}
+        version: ${{ needs.prep.outputs.version }}
         platforms: '["net7.0-windows"]'
         build-number: ${{ github.run_number }}
         commit-sha: ${{ github.sha }}
@@ -148,57 +198,23 @@ jobs:
 
   # Build on macOS for net7.0 platform
   build-macos:
+    needs: prep
     runs-on: macos-latest
-    outputs:
-      version: ${{ steps.determine_version.outputs.VERSION }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
     
-    - name: Get latest release tag
-      id: get_latest_release
-      shell: pwsh
-      run: |
-        $tags = git tag -l --sort=-v:refname
-        if (-not $tags) {
-          Write-Host "##[error] No tags found in the repository."
-          exit 1
-        }
-        $latestTag = $tags[0]
-        Write-Host "Latest tag: $latestTag"
-        echo "LATEST_TAG=$latestTag" >> $env:GITHUB_OUTPUT
-    
-    - name: Determine version to build
-      id: determine_version
-      shell: pwsh
-      run: |
-        $inputVersion = "${{ github.event.inputs.version }}"
-        $releaseTag = "${{ github.event.release.tag_name }}"
-        $latestTag = "${{ steps.get_latest_release.outputs.LATEST_TAG }}"
-        
-        if ($releaseTag) {
-          $version = $releaseTag
-        } elseif ($inputVersion) {
-          $version = $inputVersion
-        } else {
-          $version = $latestTag
-        }
-        
-        Write-Host "Building version: $version"
-        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-        
-        git checkout $version
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "##[error] Failed to checkout tag $version"
-          exit 1
-        }
+    - name: Download pre-processed source
+      uses: actions/download-artifact@v4
+      with:
+        name: preprocessed-source-release
 
     - name: Compile Solution (macOS)
       uses: ./.github/actions/compile-solution
       with:
-        version: ${{ steps.determine_version.outputs.VERSION }}
+        version: ${{ needs.prep.outputs.version }}
         configuration: Release
         platforms: '["net7.0"]'
         signing-snk-base64: ${{ secrets.SIGNING_SNK_BASE64 }}
@@ -210,7 +226,7 @@ jobs:
       uses: ./.github/actions/calculate-provider-hashes
       with:
         artifacts-path: artifacts-macos
-        version: ${{ steps.determine_version.outputs.VERSION }}
+        version: ${{ needs.prep.outputs.version }}
         platforms: '["net7.0"]'
         build-number: ${{ github.run_number }}
         commit-sha: ${{ github.sha }}
@@ -226,7 +242,7 @@ jobs:
 
   # Merge artifacts and hash manifests
   merge-and-release:
-    needs: [build-windows, build-macos]
+    needs: [prep, build-windows, build-macos]
     runs-on: windows-latest
     steps:
     - name: Checkout repository
@@ -249,7 +265,7 @@ jobs:
     - name: Merge Artifacts
       shell: pwsh
       run: |
-        $version = "${{ needs.build-windows.outputs.version }}"
+        $version = "${{ needs.prep.outputs.version }}"
         
         Write-Host "Merging artifacts for version: $version"
         
@@ -272,7 +288,7 @@ jobs:
       id: merge_hashes
       shell: pwsh
       run: |
-        $version = "${{ needs.build-windows.outputs.version }}"
+        $version = "${{ needs.prep.outputs.version }}"
         
         # Find hash files
         $windowsHashFile = Get-ChildItem -Path "windows-build" -Filter "provider-hashes-*.json" -Recurse | Select-Object -First 1
@@ -324,10 +340,10 @@ jobs:
         echo "HASH_COUNT=$($mergedProviders.Count)" >> $env:GITHUB_OUTPUT
 
     - name: Create ZIP Archives
-      if: needs.build-windows.outputs.is_release == 'true'
+      if: needs.prep.outputs.is_release == 'true'
       shell: pwsh
       run: |
-        $version = "${{ needs.build-windows.outputs.version }}"
+        $version = "${{ needs.prep.outputs.version }}"
         
         # Create Windows ZIP
         if (Test-Path "artifacts/net7.0-windows") {
@@ -344,10 +360,10 @@ jobs:
         }
 
     - name: Commit Hash File to Repository
-      if: needs.build-windows.outputs.is_release == 'true'
+      if: needs.prep.outputs.is_release == 'true'
       shell: pwsh
       run: |
-        $version = "${{ needs.build-windows.outputs.version }}"
+        $version = "${{ needs.prep.outputs.version }}"
         $hashFile = "${{ steps.merge_hashes.outputs.HASH_FILE }}"
         
         Write-Host "Committing hash file to repository..."
@@ -417,19 +433,19 @@ jobs:
         path: artifacts/
 
     - name: Upload Release Assets
-      if: needs.build-windows.outputs.is_release == 'true'
+      if: needs.prep.outputs.is_release == 'true'
       uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ needs.build-windows.outputs.version }}
+        tag_name: ${{ needs.prep.outputs.version }}
         files: |
-          SmartHopper-${{ needs.build-windows.outputs.version }}-Rhino8-Windows.zip
-          SmartHopper-${{ needs.build-windows.outputs.version }}-Rhino8-Mac.zip
+          SmartHopper-${{ needs.prep.outputs.version }}-Rhino8-Windows.zip
+          SmartHopper-${{ needs.prep.outputs.version }}-Rhino8-Mac.zip
           ${{ steps.merge_hashes.outputs.HASH_FILE }}
 
     - name: Workflow Complete
-      if: needs.build-windows.outputs.is_release == 'true'
+      if: needs.prep.outputs.is_release == 'true'
       shell: pwsh
       run: |
         Write-Host "✓ Dual-platform build workflow complete"
