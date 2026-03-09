@@ -104,8 +104,20 @@ jobs:
           # Get commits from before the last tag (these are not new to the project)
           BEFORE_LAST_TAG=$(git log --reverse "..$LAST_TAG" --pretty=format:"%an <%ae>" 2>/dev/null | sort -u)
           
-          # Build list of new contributors with GitHub usernames
+          # Build list of new contributors with GitHub usernames and commit counts
+          # Format per contributor: name|username|link|is_first_time|commit_count
           NEW_CONTRIBS=""
+          declare -A COMMIT_COUNTS
+          
+          # Count commits per author email in this release
+          while IFS= read -r author; do
+            [ -z "$author" ] && continue
+            email=$(echo "$author" | grep -oP '(?<=<)[^>]+')
+            ((COMMIT_COUNTS["$email"]++))
+          done <<< "$COMMITS"
+          
+          # Reset to process each unique contributor
+          COMMITS=$(git log "$LAST_TAG..HEAD" --pretty=format:"%an <%ae>" | sort -u)
           
           # For each recent commit author, try to find their GitHub username
           while IFS= read -r author; do
@@ -115,15 +127,21 @@ jobs:
             email=$(echo "$author" | grep -oP '(?<=<)[^>]+')
             name=$(echo "$author" | sed 's/ <.*>//')
             
-            # Check if this person committed before the last tag (not a first-time contributor to the project)
+            # Check if this is truly a first-time contributor to the project
+            # by checking if they exist in any commit before the current release period
             is_first_time=true
+            if echo "$HISTORICAL" | grep -vF "$author" | grep -qF "$name"; then
+              # They committed before with same name but maybe different email
+              is_first_time=false
+            fi
             if echo "$BEFORE_LAST_TAG" | grep -qF "$author"; then
               is_first_time=false
               echo "Not first-time: $name (committed before $LAST_TAG)"
               continue
             fi
             
-            # Try to find GitHub username from commit
+            # Get commit count for this author
+            commit_count=${COMMIT_COUNTS["$email"]:-0}
             # Look for GitHub's noreply email pattern
             github_username=""
             if [[ "$email" =~ ^[0-9]+\+([^@]+)@users\.noreply\.github\.com$ ]]; then
@@ -148,17 +166,28 @@ jobs:
               fi
             fi
             
-            # If still no GitHub username, create a link from name
+            # Skip bot accounts
+            if [[ "$github_username" == "github-actions" ]] || [[ "$github_username" == "github-actions[bot]" ]] || [[ "$github_username" == "actions-user" ]]; then
+              echo "Skipping bot: $github_username"
+              continue
+            fi
+            
+            # Deduplicate: skip if we already have this username
+            if [ ! -z "$github_username" ] && echo "$NEW_CONTRIBS" | grep -qF "|${github_username}|"; then
+              echo "Skipping duplicate: $github_username"
+              continue
+            fi
+            
+            # Build GitHub link
             if [ -z "$github_username" ]; then
-              # Use the name as-is without GitHub link
               github_link=""
             else
               github_link="https://github.com/$github_username"
             fi
             
-            # Add to list (format: name|username|link|is_first_time)
+            # Add to list (format: name|username|link|is_first_time|commit_count)
             if [ ! -z "$github_link" ]; then
-              NEW_CONTRIBS="${NEW_CONTRIBS}${name}|${github_username}|${github_link}|${is_first_time}\n"
+              NEW_CONTRIBS="${NEW_CONTRIBS}${name}|${github_username}|${github_link}|${is_first_time}|${commit_count}\n"
             fi
             
           done <<< "$COMMITS"
@@ -166,8 +195,24 @@ jobs:
           if [ -z "$NEW_CONTRIBS" ]; then
             echo "No new GitHub-linked contributors found"
             echo "has_contributors=false" >> $GITHUB_OUTPUT
-          else
-            echo -e "$NEW_CONTRIBS" > /tmp/new_contributors.txt
+          # Sort contributors: first-time first, then by commit count (desc), then alphabetically
+          echo "Sorting contributors..."
+          echo -e "$NEW_CONTRIBS" | awk -F'|' '
+            NF >= 5 {
+              # Sort key: is_first_time (reverse, so true comes first), commit_count (reverse), name
+              # is_first_time: $4 (true/false)
+              # commit_count: $5 (number)
+              # name: $1
+              printf "%s|%s|%s|%s|%s\n", $4, $5, $1, $2, $3
+            }
+          ' | sort -t'|' -k1,1r -k2,2rn -k3,3 | awk -F'|' '
+            {
+              # Restore original order: name, username, link, is_first_time, commit_count
+              printf "%s|%s|%s|%s|%s\n", $3, $4, $5, $1, $2
+            }
+          ' > /tmp/new_contributors_sorted.txt
+          
+          mv /tmp/new_contributors_sorted.txt /tmp/new_contributors.txt
             echo "has_contributors=true" >> $GITHUB_OUTPUT
             echo "Found contributors:"
             cat /tmp/new_contributors.txt
@@ -186,7 +231,7 @@ jobs:
           # Build the contributors section
           CONTRIBUTORS_SECTION="Many thanks to the following contributors to this release:\n\n"
           
-          while IFS='|' read -r name username link is_first_time; do
+          while IFS='|' read -r name username link is_first_time commit_count; do
             [ -z "$name" ] && continue
             
             first_time_badge=""
