@@ -255,5 +255,19 @@ namespace SmartHopper.Components.Properties {
                 return ((Bitmap)(obj));
             }
         }
+
+        internal static Bitmap filetomd {
+            get {
+                object obj = ResourceManager.GetObject("filetomd", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap webtomd {
+            get {
+                object obj = ResourceManager.GetObject("webtomd", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
     }
 }

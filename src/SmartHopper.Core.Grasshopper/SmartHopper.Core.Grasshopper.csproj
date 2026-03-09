@@ -40,12 +40,16 @@
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="HtmlAgilityPack" Version="1.12.1" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
+    <PackageReference Include="MimeKit" Version="4.15.1" />
+    <PackageReference Include="PdfPig" Version="0.1.13" />
     <PackageReference Include="RhinoCommon" Version="8.24.25281.15001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="JsonSchema.Net" Version="7.2.2" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <Reference Include="RhinoCodePlatform.GH">
       <HintPath>$(SolutionDir)\lib\Rhino\8.24\RhinoCodePlatform.GH.dll</HintPath>
       <Private>false</Private>

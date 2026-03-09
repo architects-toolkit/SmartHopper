@@ -26,7 +26,7 @@ SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered co
   Get help creating, editing and fixing Script components in Python, IronPython, C#, and VB<span>.NET</span>.
 
 - 🔧 **AI‑powered components**
-  Use Grasshopper in a way that was impossible before AI — generate text, generate and sort lists based on prompt, create images, and more.
+  Use Grasshopper in a way that was impossible before AI — generate text, generate and sort lists based on prompt, create images, convert files to Markdown, and more.
 
 - 🤝 Multiple compatible providers (check the [full provider feature matrix](DEV.md#➡️-available-providers) for details)
 

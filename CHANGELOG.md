@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **File-to-Markdown Conversion**: New `file_to_md` AI tool and `FileToMdComponent` for converting local files to Markdown
+  - Supports 12 formats: PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF
+  - PDF conversion with MinerU-inspired layout intelligence (column detection, reading order, header/footer removal, heading detection, scanned-page warnings)
+  - Office document conversion preserving headings, tables, lists, and formatting
+  - Native .NET implementation using PdfPig, DocumentFormat.OpenXml, MimeKit (no Python dependencies)
+  - Extensible `IFileConverter` plugin architecture with `FileConverterRegistry` dispatcher
+- **Improved HTML Extraction**: Enhanced `web_generic_page_read` generic HTML fallback with magic-html-inspired readability scoring
+  - Content scoring by text density and link density
+  - Boilerplate removal (nav, header, footer, ads, etc.)
+  - Semantic container prioritization (article, main)
+- **Web-to-Markdown Conversion**: Added new `web_to_md` tool and `WebToMdComponent` using unified converter architecture
+  - New `UrlConverter` leverages same `IFileConverter` framework as `file_to_md`
+  - Specialized handlers for Wikipedia, GitHub, GitLab, Discourse, Stack Exchange
+  - Falls back to `HtmlConverter` for generic pages with readability scoring
+  - New `WebToMdComponent` exposes URL-to-Markdown conversion directly on the Grasshopper canvas
+
 ## [1.4.1-alpha] - 2026-03-09
 
 Many thanks to the following contributors to this release:

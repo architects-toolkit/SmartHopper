@@ -16,6 +16,18 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+/*
+ * Portions of this code inspired by:
+ * https://github.com/deanmalmgren/textract
+ * MIT License
+ * Copyright (c) Dean Malmgren
+ * 
+ * Key concepts adapted:
+ * - URL-based converter using IFileConverter pattern
+ * - Dispatcher architecture for content-type routing
+ * - Specialized handlers for different URL types
+ */
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -24,99 +36,44 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Converters.Formats;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.AITools;
 
-namespace SmartHopper.Core.Grasshopper.AITools
+namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
     /// <summary>
-    /// Provides AI tools for fetching webpage text content,
-    /// omitting HTML, scripts, styles, images, and respecting robots.txt rules.
+    /// Converter for URLs (web pages).
+    /// Fetches content from URLs with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange,
+    /// and falls back to HtmlConverter for generic pages.
     /// </summary>
-    public partial class web_generic_page_read : IAIToolProvider
+    public sealed class UrlConverter : IFileConverter
     {
-        #region Compiled Regex Patterns
+        private readonly HtmlConverter htmlConverter;
 
-        /// <summary>
-        /// Regex pattern for normalizing whitespace to single spaces.
-        /// </summary>
-        [GeneratedRegex(@"\s+")]
-        private static partial Regex WhitespaceRegex();
-
-        #endregion
-
-        /// <summary>
-        /// Name of the AI tool provided by this class.
-        /// </summary>
-        private readonly string toolName = "web_generic_page_read";
-        /// <summary>
-        /// Returns the list of tools provided by this class.
-        /// </summary>
-        /// <returns></returns>
-        public IEnumerable<AITool> GetTools()
+        public UrlConverter()
         {
-            yield return new AITool(
-                name: this.toolName,
-                description: "Retrieve plain text or markdown content of a webpage at the given URL (supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages), excluding HTML, scripts, styles, and images. Respects robots.txt. Use this when you already have a URL and need page content before reasoning or summarizing.",
-                category: "Knowledge",
-                parametersSchema: @"{
-                    ""type"": ""object"",
-                    ""properties"": {
-                        ""url"": {
-                            ""type"": ""string"",
-                            ""format"": ""uri"",
-                            ""description"": ""The URL of the webpage to fetch.""
-                        }
-                    },
-                    ""required"": [""url""]
-                }",
-                execute: this.GenericPageReadAsync);
+            this.htmlConverter = new HtmlConverter();
         }
 
-        /// <summary>
-        /// Fetches the text content of a webpage given its URL, if allowed by robots.txt.
-        /// </summary>
-        /// <param name="parameters">A JObject containing the URL parameter.</param>
-        private async Task<AIReturn> GenericPageReadAsync(AIToolCall toolCall)
+        public IEnumerable<string> SupportedExtensions => new[] { ".url" }; // Pseudo-extension for URL handling
+
+        public async Task<FileConversionResult> ConvertAsync(string filePath, FileConversionOptions options)
         {
-            // Prepare the output
-            var output = new AIReturn()
+            // For UrlConverter, filePath is actually a URL
+            var url = filePath;
+
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
             {
-                Request = toolCall,
-            };
+                return FileConversionResult.Failure("url", $"Invalid URL: {url}");
+            }
 
             try
             {
-                // Local tool: skip metrics validation (provider/model/finish_reason not required)
-                toolCall.SkipMetricsValidation = true;
-
-                // Extract parameters
-                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
-                string url = args["url"]?.ToString();
-                if (string.IsNullOrEmpty(url))
-                {
-                    output.CreateError("Missing 'url' parameter.");
-                    return output;
-                }
-
-                if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
-                {
-                    output.CreateError($"Invalid URL: {url}");
-                    return output;
-                }
-
                 using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SmartHopper/1.0 (+https://github.com/architects-toolkit/SmartHopper)");
+                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SmartHopper/1.5 (+https://github.com/architects-toolkit/SmartHopper)");
 
                 // Check robots.txt
                 Uri robotsUri = new(uri.GetLeftPart(UriPartial.Authority) + "/robots.txt");
@@ -129,8 +86,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         var robots = new WebUtilities(robotsContent);
                         if (!robots.IsPathAllowed(uri.PathAndQuery))
                         {
-                            output.CreateError($"Access to '{uri}' is disallowed by robots.txt.");
-                            return output;
+                            return FileConversionResult.Failure("url", $"Access to '{uri}' is disallowed by robots.txt.");
                         }
                     }
                 }
@@ -141,7 +97,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 string? textContent = null;
                 string contentFormat = "markdown";
+                var result = new FileConversionResult { DetectedFormat = "url" };
 
+                // Try specialized fetchers first
                 if (IsWikimediaHost(uri))
                 {
                     textContent = await TryFetchWikimediaPlainTextAsync(uri, httpClient).ConfigureAwait(false);
@@ -181,43 +139,51 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
+                // Fallback to generic HTML conversion using HtmlConverter
                 if (string.IsNullOrWhiteSpace(textContent))
                 {
                     var html = await httpClient.GetStringAsync(uri).ConfigureAwait(false);
-                    Debug.WriteLine($"[WebTools] Fetched HTML from {url}. Length: {html.Length}");
-                    textContent = ConvertHtmlToMarkdown(html);
+                    Debug.WriteLine($"[UrlConverter] Fetched HTML from {url}. Length: {html.Length}");
+                    
+                    // Save HTML to temp file for HtmlConverter
+                    var tempFile = Path.GetTempFileName();
+                    try
+                    {
+                        await File.WriteAllTextAsync(tempFile, html).ConfigureAwait(false);
+                        var htmlResult = await this.htmlConverter.ConvertAsync(tempFile, options).ConfigureAwait(false);
+                        textContent = htmlResult.MarkdownContent;
+                        result.Metadata = htmlResult.Metadata;
+                        result.Warnings = htmlResult.Warnings;
+                    }
+                    finally
+                    {
+                        if (File.Exists(tempFile))
+                        {
+                            File.Delete(tempFile);
+                        }
+                    }
                 }
 
                 if (string.IsNullOrWhiteSpace(textContent))
                 {
-                    output.CreateError("The requested page did not return any readable content.");
-                    return output;
+                    return FileConversionResult.Failure("url", "The requested page did not return any readable content.");
                 }
 
-                var toolResult = new JObject
-                {
-                    ["content"] = textContent,
-                    ["format"] = contentFormat,
-                    ["source"] = url,
-                };
+                result.MarkdownContent = textContent;
+                result.Metadata["source"] = url;
+                result.Metadata["format"] = contentFormat;
 
-                var builder = AIBodyBuilder.Create();
-                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
-                var immutable = builder.Build();
-                output.CreateSuccess(immutable, toolCall);
-                return output;
+                return result;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebTools] Error in GenericPageReadAsync: {ex.Message}");
-                output.CreateError($"Error: {ex.Message}");
-                return output;
+                Debug.WriteLine($"[UrlConverter] Error: {ex.Message}");
+                return FileConversionResult.Failure("url", $"Error fetching URL: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Attempts to retrieve clean plain text for Wikimedia-powered pages using their API.
-        /// </summary>
+        #region Specialized Fetchers
+
         private static async Task<string?> TryFetchWikimediaPlainTextAsync(Uri pageUri, HttpClient httpClient)
         {
             if (!TryExtractWikimediaTitle(pageUri, out string? title))
@@ -275,9 +241,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return null;
         }
 
-        /// <summary>
-        /// Attempts to fetch raw markdown posts from Discourse forums.
-        /// </summary>
         private static async Task<string?> TryFetchDiscourseRawContentAsync(Uri uri, HttpClient httpClient)
         {
             if (!LooksLikeDiscourse(uri))
@@ -465,6 +428,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return null;
             }
         }
+
+        #endregion
+
+        #region Helper Methods
 
         private static bool LooksLikeDiscourse(Uri uri)
         {
@@ -671,80 +638,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return false;
         }
 
-        private static string ConvertHtmlToMarkdown(string html)
-        {
-            if (string.IsNullOrWhiteSpace(html))
-            {
-                return string.Empty;
-            }
-
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
-            // Apply magic-html-inspired readability pre-pass to extract main content
-            var mainContent = HtmlReadabilityHelper.ExtractMainContent(doc);
-            if (mainContent == null)
-            {
-                mainContent = doc.DocumentNode;
-            }
-
-            // Convert links to Markdown format
-            var links = mainContent.SelectNodes(".//a[@href]");
-            if (links != null)
-            {
-                foreach (var link in links.ToList())
-                {
-                    var href = link.GetAttributeValue("href", string.Empty);
-                    var linkText = link.InnerText.Trim();
-                    if (string.IsNullOrWhiteSpace(linkText))
-                    {
-                        link.Remove();
-                        continue;
-                    }
-
-                    var md = $"[{linkText}]({href})";
-                    var replacement = doc.CreateTextNode(md);
-                    link.ParentNode?.ReplaceChild(replacement, link);
-                }
-            }
-
-            // Convert headings to Markdown format
-            var headingNodes = mainContent.SelectNodes(".//h1 | .//h2 | .//h3 | .//h4 | .//h5 | .//h6");
-            if (headingNodes != null)
-            {
-                foreach (var heading in headingNodes.ToList())
-                {
-                    int level = int.Parse(heading.Name.Substring(1), NumberStyles.Integer, CultureInfo.InvariantCulture);
-                    string headingText = heading.InnerText.Trim();
-                    string mdHeading = new string('#', level) + " " + headingText + Environment.NewLine + Environment.NewLine;
-                    var mdNode = doc.CreateTextNode(mdHeading);
-                    heading.ParentNode?.ReplaceChild(mdNode, heading);
-                }
-            }
-
-            // Convert paragraphs to Markdown format
-            var paragraphNodes = mainContent.SelectNodes(".//p");
-            if (paragraphNodes != null)
-            {
-                foreach (var paragraph in paragraphNodes.ToList())
-                {
-                    var paragraphText = paragraph.InnerText.Trim();
-                    if (string.IsNullOrWhiteSpace(paragraphText))
-                    {
-                        paragraph.Remove();
-                        continue;
-                    }
-
-                    var mdParagraph = doc.CreateTextNode(paragraphText + Environment.NewLine + Environment.NewLine);
-                    paragraph.ParentNode?.ReplaceChild(mdParagraph, paragraph);
-                }
-            }
-
-            string text = mainContent.InnerText;
-            text = WhitespaceRegex().Replace(text, " ").Trim();
-            return text;
-        }
-
         private sealed record GitContentResult(string Content, string Format);
 
         private static readonly string[] WikimediaRootDomains =
@@ -759,5 +652,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             "wikiversity.org",
             "wikivoyage.org",
         };
+
+        #endregion
     }
 }

@@ -38,6 +38,8 @@ This document aggregates development-facing information.
 | AI List Evaluate (AiListEvaluate)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
 | Web Page Read (WebPageRead)<br><sub>Retrieve plain text content of a webpage (Wikipedia, Discourse, GitHub, Stack Exchange, etc.)</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Web To Markdown (WebToMd)<br><sub>Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| File To Markdown (FileToMd)<br><sub>Convert local files (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) to Markdown</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Search (McNeelForumSearch)<br><sub>Search McNeel Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Post Get (McNeelForumPostGet)<br><sub>Retrieve a McNeel Discourse forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Post Open (McNeelForumPostOpen)<br><sub>Open a McNeel forum post URL in the default browser</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -71,7 +73,8 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `script_edit` | Script | Edit Grasshopper script components based on instructions (hidden from chat) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_edit_and_replace_on_canvas` | Script | Edit a script component by GUID and replace it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
 | `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic (canvas, ghjson, scripting, etc.) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `web_generic_page_read` | Knowledge | Retrieve plain text content of a webpage with robots.txt compliance | ⚪ | 🟡 | 🟠 | 🟢 |
+| `web_to_md` | Knowledge | Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange | ⚪ | 🟡 | 🟠 | 🟢 |
+| `file_to_md` | Knowledge | Convert local files to Markdown (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_search` | Knowledge | Search McNeel Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_post_get` | Knowledge | Retrieve filtered McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_post_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |

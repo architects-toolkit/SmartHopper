@@ -1,0 +1,163 @@
+﻿/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024-2026 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Converters;
+using SmartHopper.Core.Grasshopper.Converters.Formats;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AITools;
+
+namespace SmartHopper.Core.Grasshopper.AITools
+{
+    /// <summary>
+    /// Provides AI tool for converting web pages (URLs) to Markdown.
+    /// Supports Wikipedia, GitHub, GitLab, Discourse, Stack Exchange, and generic HTML pages.
+    /// </summary>
+    public sealed class web_to_md : IAIToolProvider
+    {
+        private readonly string toolName = "web_to_md";
+        private static UrlConverter? urlConverter;
+
+        /// <summary>
+        /// Gets or creates the URL converter.
+        /// </summary>
+        private static UrlConverter GetUrlConverter()
+        {
+            if (urlConverter == null)
+            {
+                urlConverter = new UrlConverter();
+            }
+
+            return urlConverter;
+        }
+
+        public IEnumerable<AITool> GetTools()
+        {
+            yield return new AITool(
+                name: this.toolName,
+                description: "Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you need to read the contents of a web page.",
+                category: "Knowledge",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""url"": {
+                            ""type"": ""string"",
+                            ""format"": ""uri"",
+                            ""description"": ""The URL of the webpage to convert to Markdown.""
+                        }
+                    },
+                    ""required"": [""url""]
+                }",
+                execute: this.WebToMdAsync);
+        }
+
+        private async Task<AIReturn> WebToMdAsync(AIToolCall toolCall)
+        {
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
+            try
+            {
+                // Local tool: skip metrics validation
+                toolCall.SkipMetricsValidation = true;
+
+                // Extract parameters
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+                
+                string url = args["url"]?.ToString();
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    output.CreateError("Missing 'url' parameter.");
+                    return output;
+                }
+
+                // Get conversion options
+                var options = new FileConversionOptions
+                {
+                    PreserveTableStructure = true,
+                    RemoveHeadersFooters = false, // Not applicable for web pages
+                    DetectHeadings = true,
+                    MaxContentLength = 0
+                };
+
+                // Convert the URL
+                var converter = GetUrlConverter();
+                var result = await converter.ConvertAsync(url, options).ConfigureAwait(false);
+
+                if (!result.IsSuccess)
+                {
+                    var errorMessage = result.Warnings.Count > 0 
+                        ? string.Join("; ", result.Warnings) 
+                        : "Conversion failed.";
+                    output.CreateError(errorMessage);
+                    return output;
+                }
+
+                // Build result
+                var toolResult = new JObject
+                {
+                    ["content"] = result.MarkdownContent,
+                    ["source"] = url,
+                };
+
+                // Add metadata if present
+                if (result.Metadata.Count > 0)
+                {
+                    var metadata = new JObject();
+                    foreach (var kvp in result.Metadata)
+                    {
+                        metadata[kvp.Key] = kvp.Value;
+                    }
+                    toolResult["metadata"] = metadata;
+                }
+
+                // Add warnings if present
+                if (result.Warnings.Count > 0)
+                {
+                    var warnings = new JArray();
+                    foreach (var warning in result.Warnings)
+                    {
+                        warnings.Add(warning);
+                    }
+                    toolResult["warnings"] = warnings;
+                }
+
+                var builder = AIBodyBuilder.Create();
+                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
+                var immutable = builder.Build();
+                output.CreateSuccess(immutable, toolCall);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WebToMd] Error in WebToMdAsync: {ex.Message}");
+                output.CreateError($"Error: {ex.Message}");
+                return output;
+            }
+        }
+    }
+}
