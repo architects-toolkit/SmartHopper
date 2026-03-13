@@ -10,11 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Batch API Support**: Implemented `IAIBatchProvider` in OpenAI, Anthropic, and MistralAI providers
-  - **OpenAI**: Uploads a single-request JSONL file to `/v1/files`, creates a batch via `/v1/batches`, polls status, downloads output from `/v1/files/{output_file_id}/content`, and cancels via `/v1/batches/{id}/cancel`
-  - **Anthropic**: Submits inline via `POST /v1/messages/batches`, polls `processing_status` on `GET /v1/messages/batches/{id}`, downloads JSONL results from `results_url`, and cancels via `POST /v1/messages/batches/{id}/cancel`
+  - **OpenAI**: Uploads a multi-request JSONL file to `/v1/files`, creates a batch via `/v1/batches`, polls status, downloads output from `/v1/files/{output_file_id}/content`, and cancels via `/v1/batches/{id}/cancel`
+  - **Anthropic**: Submits multiple items inline via `POST /v1/messages/batches`, polls `processing_status` on `GET /v1/messages/batches/{id}`, downloads JSONL results from `results_url`, and cancels via `POST /v1/messages/batches/{id}/cancel`
   - **MistralAI**: Uses inline batching via `POST /v1/batch/jobs`, polls job status on `GET /v1/batch/jobs/{id}`, downloads output from `/v1/files/{output_file}/content`, and cancels via `POST /v1/batch/jobs/{id}/cancel`
-  - **Custom ID**: All providers generate SmartHopper custom IDs (`sh-{timestamp}-{random}`) used as `custom_id` in batch requests for traceability in provider dashboards and output files
-  - **Persistence**: `AIStatefulAsyncComponentBase` persists batch state (including `CustomId`) across file save/close/reopen cycles
+  - **Custom ID**: All providers generate per-item SmartHopper custom IDs (`sh-{yyyyMMddHHmmss}-{endpoint}-{NN}-{random8}`) used as `custom_id` in batch requests for traceability
+  - **Persistence**: `AIStatefulAsyncComponentBase` persists batch state (including `CustomIds` list and sentinel IDs) across file save/close/reopen cycles
+- **`BatchTier` parameter in `AIRequestParameters`**: New dedicated `bool BatchTier` property replaces the former `service_tier=batch` Extras workaround. Exposed as a `Batch (B)` boolean input on `AISettingsComponent`. Fluent builder methods `WithBatchTier` / `ClearBatchTier` added to `AIRequestParametersBuilder`. Fully serialized in `GH_AIRequestParameters`.
+- **`AITool.BuildRequest` delegate**: New optional `Func<AIToolCall, AIRequestCall> BuildRequest` property on `AITool`. When set, the base class uses it to construct the provider request without executing it, enabling batch aggregation. `text_generate` implements `BuildGenerateRequest` and registers it.
+- **Multi-item batch queue in `AIStatefulAsyncComponentBase`**: `CallAiToolAsync` now intercepts calls in batch mode — when `BatchTier=true` and the tool has a `BuildRequest` delegate, the request is queued (sentinel placeholder returned) instead of executed immediately. After all items are processed, `SubmitBatchQueueAsync()` submits the entire queue in a single provider batch call.
+- **`ReconstructOutputTree<T>` helper**: Static utility method on `AIStatefulAsyncComponentBase` that replaces sentinel strings (`##SH_BATCH:{customId}##`) in a `GH_Structure<GH_String>` with decoded results, preserving tree paths and non-sentinel items.
+- **`AITextGenerate` batch completion**: Overrides `OnBatchCompleted` to decode each provider result body, reconstruct the output tree via `ReconstructOutputTree`, and re-render the component with real values.
 - **File-to-Markdown Conversion**: New `file_to_md` AI tool and `FileToMdComponent` for converting local files to Markdown
   - Supports 12 formats: PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF
   - PDF conversion with MinerU-inspired layout intelligence (column detection, reading order, header/footer removal, heading detection, scanned-page warnings)
@@ -55,6 +60,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AIStatefulAsyncComponentBase`**: `Model (M)` generic text input replaced by `Settings (S)` generic parameter. Accepts `AIRequestParameters` (from `AISettingsComponent`) or a plain model name string for backwards compatibility. `GetModel()` now reads from `AIRequestParameters.Model` with the same provider-default fallback as before.
 - **All providers** (`OpenAI`, `Anthropic`, `MistralAI`, `DeepSeek`, `OpenRouter`): `Encode()` now performs per-property resolution — each parameter (Temperature, MaxTokens, TopP, Seed, and provider-specific extras) reads from `request.Parameters` first, falling back to global provider settings. Previously all providers read exclusively from global settings.
 - **`AIRequestBase`**: Added `AIRequestParameters Parameters { get; set; }` property.
+- **`IAIBatchProvider.SubmitBatchAsync`**: Signature changed from single-item `(AIRequestCall, CancellationToken)` to multi-item `(IReadOnlyList<(string CustomId, AIRequestCall Request)>, CancellationToken)`. All three providers (Anthropic, OpenAI, MistralAI) updated accordingly. *(Breaking change for custom `IAIBatchProvider` implementations.)*
+- **`AIBatchSubmission`**: `CustomId` (single string) superseded by `CustomIds` (`IReadOnlyList<string>`); `CustomId` is now a compat shim returning the first element. `GenerateCustomId()` now accepts `endpoint` and `index` parameters for richer IDs.
+- **`AIBatchStatus`**: `ResultBody` (single `JObject`) replaced by `Results` (`IReadOnlyDictionary<string, JObject>`) mapping each custom ID to its provider response body. *(Breaking change for custom `IAIBatchProvider` implementations.)*
+- **`OnBatchCompleted`**: Signature changed from `(AIReturn)` to `(IReadOnlyDictionary<string, JObject>)` to carry per-item results. *(Breaking change for components overriding this hook.)*
+
+### Removed
+
+- **`service_tier` extra descriptor** removed from `OpenAIProvider`, `AnthropicProvider`, and `MistralAIProvider` `GetExtraDescriptors()`. Batch processing is now controlled exclusively via the dedicated `BatchTier` boolean on `AIRequestParameters`/`AISettingsComponent`. Existing `.ghx` files that wired `service_tier=batch` through `AIExtraSettingsComponent` will silently ignore the extra; reconnect the `Batch` input on `AISettingsComponent` instead.
 
 ## [1.4.1-alpha] - 2026-03-09
 

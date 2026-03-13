@@ -17,6 +17,8 @@
  */
 
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 
@@ -60,37 +62,56 @@ namespace SmartHopper.Infrastructure.AICall.Batch
         /// <summary>Gets the UTC timestamp when the batch was submitted.</summary>
         public DateTimeOffset SubmittedAt { get; }
 
-        /// <summary>Gets the serialized request that was submitted.</summary>
+        /// <summary>Gets the serialized request body that was submitted (for persistence/diagnostics).</summary>
         public string SerializedRequest { get; }
 
         /// <summary>
-        /// Gets the SmartHopper-generated custom ID used to identify this request
-        /// in provider batch outputs. Format: <c>sh-{timestamp:yyyyMMdd}-{random}</c>.
+        /// Gets all SmartHopper-generated custom IDs for the items in this batch.
+        /// Format: <c>sh-{yyyyMMddHHmmss}-{endpoint}-{NN}-{random8}</c>.
         /// </summary>
-        public string CustomId { get; }
+        public IReadOnlyList<string> CustomIds { get; }
 
         /// <summary>
-        /// Initializes a new <see cref="AIBatchSubmission"/>.
+        /// Gets the first custom ID, for single-item backward compatibility and file persistence.
+        /// Returns null if <see cref="CustomIds"/> is empty.
         /// </summary>
-        public AIBatchSubmission(string batchId, string providerName, string serializedRequest, string customId = null)
+        public string CustomId => this.CustomIds?.Count > 0 ? this.CustomIds[0] : null;
+
+        /// <summary>
+        /// Initializes a new multi-item <see cref="AIBatchSubmission"/>.
+        /// </summary>
+        public AIBatchSubmission(string batchId, string providerName, string serializedRequest, IReadOnlyList<string> customIds)
         {
             this.BatchId = batchId ?? throw new ArgumentNullException(nameof(batchId));
             this.ProviderName = providerName ?? throw new ArgumentNullException(nameof(providerName));
             this.SubmittedAt = DateTimeOffset.UtcNow;
             this.SerializedRequest = serializedRequest;
-            this.CustomId = customId ?? GenerateCustomId();
+            this.CustomIds = customIds ?? new List<string>().AsReadOnly();
         }
 
         /// <summary>
-        /// Generates a new SmartHopper custom ID.
-        /// Format: <c>sh-{timestamp:yyyyMMdd}-{8-char-random}</c>.
+        /// Initializes a new single-item <see cref="AIBatchSubmission"/> (used during file reload).
         /// </summary>
-        /// <returns>A unique custom ID for batch request tracking.</returns>
-        public static string GenerateCustomId()
+        public AIBatchSubmission(string batchId, string providerName, string serializedRequest, string customId)
+            : this(batchId, providerName, serializedRequest,
+                   string.IsNullOrEmpty(customId) ? (IReadOnlyList<string>)new List<string>().AsReadOnly() : new ReadOnlyCollection<string>(new[] { customId }))
         {
-            var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd");
+        }
+
+        /// <summary>
+        /// Generates a SmartHopper custom ID for a batch item.
+        /// Format: <c>sh-{yyyyMMddHHmmss}-{endpoint}-{NN:00}-{random8}</c>.
+        /// </summary>
+        /// <param name="endpoint">Tool endpoint name (e.g. "text_generate"). Defaults to "req" if null.</param>
+        /// <param name="index">Zero-based index of this item within the batch.</param>
+        /// <returns>A unique custom ID for batch request tracking.</returns>
+        public static string GenerateCustomId(string endpoint = null, int index = 0)
+        {
+            var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
+            var ep = string.IsNullOrWhiteSpace(endpoint) ? "req" : endpoint.Replace("_", "-").ToLowerInvariant();
+            var idx = index.ToString("D2");
             var random = Guid.NewGuid().ToString("N").Substring(0, 8);
-            return $"sh-{timestamp}-{random}";
+            return $"sh-{timestamp}-{ep}-{idx}-{random}";
         }
     }
 
@@ -105,14 +126,17 @@ namespace SmartHopper.Infrastructure.AICall.Batch
         /// <summary>Gets the provider-assigned batch identifier.</summary>
         public string BatchId { get; }
 
-        /// <summary>Gets the raw provider response body (used to decode results).</summary>
-        public JObject ResultBody { get; }
-
         /// <summary>Gets an optional human-readable error message (set when State is Failed).</summary>
         public string ErrorMessage { get; }
 
         /// <summary>Gets the UTC timestamp of this status check.</summary>
         public DateTimeOffset CheckedAt { get; } = DateTimeOffset.UtcNow;
+
+        /// <summary>
+        /// Gets a dictionary mapping each <c>customId</c> to its decoded provider response body.
+        /// Populated when <see cref="State"/> is <see cref="AIBatchState.Completed"/>.
+        /// </summary>
+        public IReadOnlyDictionary<string, JObject> Results { get; }
 
         /// <summary>Initializes a non-completed status.</summary>
         public AIBatchStatus(string batchId, AIBatchState state, string errorMessage = null)
@@ -122,12 +146,12 @@ namespace SmartHopper.Infrastructure.AICall.Batch
             this.ErrorMessage = errorMessage;
         }
 
-        /// <summary>Initializes a completed status with result data.</summary>
-        public AIBatchStatus(string batchId, JObject resultBody)
+        /// <summary>Initializes a completed status with a multi-item results dictionary.</summary>
+        public AIBatchStatus(string batchId, IReadOnlyDictionary<string, JObject> results)
         {
             this.BatchId = batchId;
             this.State = AIBatchState.Completed;
-            this.ResultBody = resultBody;
+            this.Results = results;
         }
     }
 }

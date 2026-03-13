@@ -63,6 +63,7 @@ namespace SmartHopper.Components.AI
             pManager.AddNumberParameter("Top P", "P", "Top-P nucleus sampling (0.0–1.0). Leave disconnected to omit.\nSupported by OpenAI, Anthropic, MistralAI, DeepSeek (not all providers).", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Seed", "Sd", "Reproducibility seed. Leave disconnected to omit.\nSupported by OpenAI, MistralAI, DeepSeek (not Anthropic).", GH_ParamAccess.item);
             pManager.AddTextParameter("Extras", "X", "Provider-specific extra settings as a JSON object. Connect an AI Extra Settings component output here.", GH_ParamAccess.item, string.Empty);
+            pManager.AddBooleanParameter("Batch", "B", "When true, all AI calls in a single run are aggregated into one batch HTTP request (async, lower cost). Requires the active provider to support batch processing.", GH_ParamAccess.item, false);
 
             // All inputs are optional
             pManager[0].Optional = true;
@@ -71,6 +72,7 @@ namespace SmartHopper.Components.AI
             pManager[3].Optional = true;
             pManager[4].Optional = true;
             pManager[5].Optional = true;
+            pManager[6].Optional = true;
         }
 
         /// <inheritdoc/>
@@ -129,6 +131,12 @@ namespace SmartHopper.Components.AI
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Extras JSON is invalid and will be ignored: {ex.Message}");
                 }
+            }
+
+            bool batch = false;
+            if (DA.GetData("Batch", ref batch) && batch)
+            {
+                builder.WithBatchTier(true);
             }
 
             DA.SetData("Settings", new GH_AIRequestParameters(builder.Build()));

@@ -79,6 +79,12 @@ namespace SmartHopper.Core.Grasshopper.Types
                 parts.Append($"Extras({v.Extras.Count})");
             }
 
+            if (v.BatchTier)
+            {
+                if (parts.Length > 0) parts.Append(", ");
+                parts.Append("Batch");
+            }
+
             return parts.Length > 0 ? $"AI Settings [{parts}]" : "AI Settings (defaults)";
         }
 
@@ -152,16 +158,25 @@ namespace SmartHopper.Core.Grasshopper.Types
             try
             {
                 var v = this.Value;
+
                 if (v == null) return true;
+
                 if (!string.IsNullOrEmpty(v.Model)) writer.SetString("Model", v.Model);
+
                 if (v.Temperature.HasValue) writer.SetDouble("Temperature", v.Temperature.Value);
+
                 if (v.MaxTokens.HasValue) writer.SetInt32("MaxTokens", v.MaxTokens.Value);
+
                 if (v.TopP.HasValue) writer.SetDouble("TopP", v.TopP.Value);
+
                 if (v.Seed.HasValue) writer.SetInt32("Seed", v.Seed.Value);
+
                 if (v.Extras != null && v.Extras.Count > 0)
                 {
                     writer.SetString("Extras", JsonConvert.SerializeObject(v.Extras));
                 }
+
+                if (v.BatchTier) writer.SetBoolean("BatchTier", v.BatchTier);
 
                 return true;
             }
@@ -194,6 +209,8 @@ namespace SmartHopper.Core.Grasshopper.Types
                         }
                     }
                 }
+
+                if (reader.ItemExists("BatchTier")) builder.WithBatchTier(reader.GetBoolean("BatchTier"));
 
                 this.Value = builder.Build();
                 return true;

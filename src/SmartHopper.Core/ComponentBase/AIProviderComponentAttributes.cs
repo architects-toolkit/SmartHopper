@@ -19,6 +19,7 @@
 using System.Drawing;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
+using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
@@ -32,7 +33,7 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public class AIProviderComponentAttributes : GH_ComponentAttributes
     {
-        private readonly AIProviderComponentBase owner;
+        private readonly IProviderComponent owner;
         private const int BADGESIZE = 16; // Size of the provider logo badge
         private const float MINZOOMTHRESHOLD = 0.5f; // Minimum zoom level to show the badge
         protected const int PROVIDERSTRIPHEIGHT = 20; // Height of the provider strip
@@ -55,8 +56,8 @@ namespace SmartHopper.Core.ComponentBase
         /// Creates a new instance of AIProviderComponentAttributes.
         /// </summary>
         /// <param name="owner">The AI component that owns these attributes.</param>
-        public AIProviderComponentAttributes(AIProviderComponentBase owner)
-            : base(owner)
+        public AIProviderComponentAttributes(IProviderComponent owner)
+            : base(owner as GH_Component)
         {
             this.owner = owner;
         }
@@ -104,7 +105,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Get the actual provider name (resolving Default to the actual provider)
                 string actualProviderName = this.owner.GetActualAIProviderName();
-                if (this.owner.GetActualAIProviderName() == AIProviderComponentBase.DEFAULT_PROVIDER)
+                if (this.owner.GetActualAIProviderName() == ProviderComponentHelper.DEFAULT_PROVIDER)
                 {
                     actualProviderName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }
@@ -190,7 +191,7 @@ namespace SmartHopper.Core.ComponentBase
                     this.providerLabelAutoHidden = false; // reset for next hover
                 }
 
-                this.owner.OnDisplayExpired(false);
+                (this.owner as GH_Component)?.OnDisplayExpired(false);
             }
 
             return base.RespondToMouseMove(sender, e);
@@ -207,7 +208,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 // Mark as auto-hidden and request display refresh
                 this.providerLabelAutoHidden = true;
-                try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
+                try { (this.owner as GH_Component)?.OnDisplayExpired(false); } catch { /* ignore */ }
                 this.StopProviderLabelTimer();
             };
             this.providerLabelTimer.Start();

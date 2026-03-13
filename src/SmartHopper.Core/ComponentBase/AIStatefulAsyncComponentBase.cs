@@ -25,6 +25,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -61,6 +62,19 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>Active batch submission, or null when not in batch mode.</summary>
         private AIBatchSubmission _batchSubmission;
+
+        /// <summary>
+        /// Queue of (CustomId, Request) pairs collected during a batch-mode component run.
+        /// Populated by <see cref="CallAiToolAsync"/> when <see cref="IsBatchRequest"/> is true.
+        /// Consumed and cleared by <see cref="SubmitBatchQueueAsync"/>.
+        /// </summary>
+        private List<(string CustomId, AIRequestCall Request)> _batchQueue;
+
+        /// <summary>
+        /// Set of all sentinel custom IDs generated for the current (or most-recent) batch run.
+        /// Persisted across file save/reload so <see cref="OnBatchCompleted"/> can reconstruct trees.
+        /// </summary>
+        private HashSet<string> _batchSentinelIds;
 
         /// <summary>Timer that fires batch status polls.</summary>
         private Timer _batchPollTimer;
@@ -314,6 +328,34 @@ namespace SmartHopper.Core.ComponentBase
                 .Add(toolCallInteraction)
                 .Build();
             toolCall.Body = immutableBody;
+
+            // Batch interception: if batch mode is active and the tool supports BuildRequest,
+            // queue the request instead of executing it and return a sentinel placeholder.
+            if (this.IsBatchRequest())
+            {
+                var tools = AIToolManager.GetTools();
+                if (tools.TryGetValue(toolName, out var batchTool) && batchTool.BuildRequest != null)
+                {
+                    try
+                    {
+                        var batchRequest = batchTool.BuildRequest(toolCall);
+                        var index = this._batchQueue?.Count ?? 0;
+                        var customId = AIBatchSubmission.GenerateCustomId(toolName, index);
+
+                        if (this._batchQueue == null) this._batchQueue = new List<(string, AIRequestCall)>();
+                        if (this._batchSentinelIds == null) this._batchSentinelIds = new HashSet<string>();
+                        this._batchQueue.Add((customId, batchRequest));
+                        this._batchSentinelIds.Add(customId);
+
+                        Debug.WriteLine($"[AIStatefulAsync] Queued batch item #{index}: customId={customId}, tool={toolName}");
+                        return new JObject { ["result"] = $"##SH_BATCH:{customId}##" };
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[AIStatefulAsync] BuildRequest failed for '{toolName}': {ex.Message}, falling back to sync");
+                    }
+                }
+            }
 
             // Validation/capability messages will be surfaced from AIReturn after execution
 
@@ -696,32 +738,29 @@ namespace SmartHopper.Core.ComponentBase
         #region BATCH
 
         /// <summary>
-        /// Determines whether the current request parameters specify batch mode.
-        /// Batch mode is requested when the Extras dictionary contains <c>service_tier=batch</c>
-        /// (OpenAI) or <c>service_tier=batch</c> (Anthropic / MistralAI).
+        /// Determines whether the current request parameters specify batch mode
+        /// by checking the <see cref="AIRequestParameters.BatchTier"/> flag.
         /// </summary>
-        protected bool IsBatchRequest()
-        {
-            var extras = this._requestParameters?.Extras;
-            if (extras == null) return false;
-            if (extras.TryGetValue("service_tier", out var tier))
-            {
-                return string.Equals(tier?.ToString(), "batch", StringComparison.OrdinalIgnoreCase);
-            }
-
-            return false;
-        }
+        protected bool IsBatchRequest() => this._requestParameters?.BatchTier == true;
 
         /// <summary>
-        /// Submits a batch request via <see cref="IAIBatchProvider"/> and starts the poll timer.
-        /// Call this from the async worker when <see cref="IsBatchRequest"/> returns true,
-        /// instead of executing the normal synchronous provider call.
+        /// Gets a value indicating whether there are queued batch requests waiting to be submitted.
         /// </summary>
-        /// <param name="request">The fully-specified request to submit.</param>
+        protected bool HasBatchQueue => this._batchQueue?.Count > 0;
+
+        /// <summary>
+        /// Submits all queued batch requests as a single batch job via <see cref="IAIBatchProvider"/>
+        /// and starts the poll timer. Call this from <c>DoWorkAsync</c> after
+        /// <c>RunProcessingAsync</c> has finished collecting all items into the queue.
+        /// </summary>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>True if submission succeeded; false if the provider doesn't support batch.</returns>
-        protected async Task<bool> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        /// <returns>True if submission succeeded; false if the provider doesn't support batch or the queue is empty.</returns>
+        protected async Task<bool> SubmitBatchQueueAsync(CancellationToken cancellationToken = default)
         {
+            var queue = this._batchQueue;
+            if (queue == null || queue.Count == 0) return false;
+            this._batchQueue = null;
+
             var providerName = this.GetActualAIProviderName();
             var provider = ProviderManager.Instance.GetProvider(providerName);
 
@@ -734,7 +773,7 @@ namespace SmartHopper.Core.ComponentBase
 
             try
             {
-                var submission = await batchProvider.SubmitBatchAsync(request, cancellationToken).ConfigureAwait(false);
+                var submission = await batchProvider.SubmitBatchAsync(queue, cancellationToken).ConfigureAwait(false);
                 this._batchSubmission = submission;
                 this.Message = $"Batch submitted ({submission.BatchId.Substring(0, Math.Min(12, submission.BatchId.Length))}...)";
                 this.StartBatchPollTimer();
@@ -818,20 +857,15 @@ namespace SmartHopper.Core.ComponentBase
                         StopBatchPollTimer();
                         _batchSubmission = null;
 
-                        // Decode results using normal provider Decode path
-                        if (status.ResultBody != null)
+                        if (status.Results != null)
                         {
                             try
                             {
-                                var interactions = provider.Decode(status.ResultBody);
-                                var ret = new AIReturn();
-                                ret.CreateSuccess(interactions, null);
-                                this.SetAIReturnSnapshot(ret);
-                                this.OnBatchCompleted(ret);
+                                this.OnBatchCompleted(status.Results);
                             }
                             catch (Exception ex)
                             {
-                                Debug.WriteLine($"[AIStatefulAsync] Batch decode error: {ex.Message}");
+                                Debug.WriteLine($"[AIStatefulAsync] OnBatchCompleted error: {ex.Message}");
                             }
                         }
 
@@ -865,12 +899,64 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Called when a batch job completes. Override in derived classes to process batch results
-        /// and set persistent outputs. Default implementation does nothing.
+        /// Called when a batch job completes. Override in derived classes to decode results,
+        /// reconstruct output trees, and set persistent outputs.
         /// </summary>
-        /// <param name="result">The decoded batch result.</param>
-        protected virtual void OnBatchCompleted(AIReturn result)
+        /// <param name="results">
+        /// Dictionary mapping each <c>customId</c> (sentinel key) to the provider-specific
+        /// raw response body. Use the provider's <c>Decode</c> method on each value to extract
+        /// the AI response.
+        /// </param>
+        protected virtual void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
         {
+        }
+
+        /// <summary>
+        /// Reconstructs a Grasshopper data tree by replacing sentinel placeholder strings
+        /// (format: <c>##SH_BATCH:{customId}##</c>) with decoded values.
+        /// Paths and non-sentinel items are preserved unchanged.
+        /// </summary>
+        /// <typeparam name="T">The output Grasshopper goo type.</typeparam>
+        /// <param name="sentinelTree">Tree containing sentinel strings and normal items.</param>
+        /// <param name="results">Dictionary from customId to provider response body.</param>
+        /// <param name="decode">Function that converts (customId, resultBody) into a goo item.</param>
+        /// <returns>New tree with sentinels replaced by decoded values.</returns>
+        protected static GH_Structure<T> ReconstructOutputTree<T>(
+            GH_Structure<GH_String> sentinelTree,
+            IReadOnlyDictionary<string, JObject> results,
+            Func<string, JObject, T> decode)
+            where T : IGH_Goo
+        {
+            const string prefix = "##SH_BATCH:";
+            const string suffix = "##";
+            var newTree = new GH_Structure<T>();
+            if (sentinelTree == null) return newTree;
+
+            foreach (var path in sentinelTree.Paths)
+            {
+                var branch = sentinelTree.get_Branch(path);
+                var newBranch = new List<T>();
+                foreach (GH_String item in branch)
+                {
+                    var str = item?.Value ?? string.Empty;
+                    if (str.StartsWith(prefix, StringComparison.Ordinal) &&
+                        str.EndsWith(suffix, StringComparison.Ordinal))
+                    {
+                        var customId = str.Substring(prefix.Length, str.Length - prefix.Length - suffix.Length);
+                        if (results != null && results.TryGetValue(customId, out var resultBody))
+                        {
+                            newBranch.Add(decode(customId, resultBody));
+                            continue;
+                        }
+                    }
+
+                    if (item is T t) newBranch.Add(t);
+                }
+
+                newTree.AppendRange(newBranch, path);
+            }
+
+            return newTree;
         }
 
         /// <inheritdoc/>
@@ -887,8 +973,19 @@ namespace SmartHopper.Core.ComponentBase
                     writer.SetString("BatchProvider", _batchSubmission.ProviderName);
                     writer.SetString("BatchRequest", _batchSubmission.SerializedRequest ?? string.Empty);
                     writer.SetString("BatchSubmittedAt", _batchSubmission.SubmittedAt.ToString("O"));
-                    writer.SetString("BatchCustomId", _batchSubmission.CustomId ?? string.Empty);
-                    Debug.WriteLine($"[AIStatefulAsync] Write: persisted batch state, batchId={_batchSubmission.BatchId}, customId={_batchSubmission.CustomId}");
+
+                    if (_batchSubmission.CustomIds != null && _batchSubmission.CustomIds.Count > 0)
+                    {
+                        writer.SetString("BatchCustomIds", new JArray(_batchSubmission.CustomIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
+                    }
+
+                    Debug.WriteLine($"[AIStatefulAsync] Write: persisted batch state, batchId={_batchSubmission.BatchId}, items={_batchSubmission.CustomIds?.Count ?? 0}");
+                }
+
+                // Persist sentinel IDs so OnBatchCompleted can reconstruct trees after reload
+                if (_batchSentinelIds != null && _batchSentinelIds.Count > 0)
+                {
+                    writer.SetString("BatchSentinelIds", new JArray(_batchSentinelIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
                 }
             }
             catch (Exception ex)
@@ -911,12 +1008,29 @@ namespace SmartHopper.Core.ComponentBase
                     var batchId = reader.GetString("BatchId");
                     var providerName = reader.ItemExists("BatchProvider") ? reader.GetString("BatchProvider") : string.Empty;
                     var serializedReq = reader.ItemExists("BatchRequest") ? reader.GetString("BatchRequest") : string.Empty;
-                    var customId = reader.ItemExists("BatchCustomId") ? reader.GetString("BatchCustomId") : null;
+
+                    IReadOnlyList<string> customIds = null;
+                    if (reader.ItemExists("BatchCustomIds"))
+                    {
+                        var idsJson = reader.GetString("BatchCustomIds");
+                        if (!string.IsNullOrEmpty(idsJson))
+                        {
+                            customIds = JArray.Parse(idsJson).Values<string>().ToList().AsReadOnly();
+                        }
+                    }
+                    else if (reader.ItemExists("BatchCustomId"))
+                    {
+                        // Legacy single-ID format
+                        var singleId = reader.GetString("BatchCustomId");
+                        if (!string.IsNullOrEmpty(singleId))
+                            customIds = new List<string> { singleId }.AsReadOnly();
+                    }
 
                     if (!string.IsNullOrEmpty(batchId) && !string.IsNullOrEmpty(providerName))
                     {
-                        _batchSubmission = new AIBatchSubmission(batchId, providerName, serializedReq, customId);
-                        Debug.WriteLine($"[AIStatefulAsync] Read: restored batch state, batchId={batchId}, customId={customId}");
+                        _batchSubmission = new AIBatchSubmission(batchId, providerName, serializedReq,
+                            customIds ?? new List<string>().AsReadOnly());
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored batch state, batchId={batchId}, items={customIds?.Count ?? 0}");
 
                         // Resume polling — defer until after component is fully loaded
                         Rhino.RhinoApp.InvokeOnUiThread(() =>
@@ -927,6 +1041,16 @@ namespace SmartHopper.Core.ComponentBase
                                 StartBatchPollTimer();
                             }
                         });
+                    }
+                }
+
+                if (reader.ItemExists("BatchSentinelIds"))
+                {
+                    var sentinelJson = reader.GetString("BatchSentinelIds");
+                    if (!string.IsNullOrEmpty(sentinelJson))
+                    {
+                        _batchSentinelIds = new HashSet<string>(JArray.Parse(sentinelJson).Values<string>());
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored {_batchSentinelIds.Count} sentinel IDs");
                     }
                 }
             }

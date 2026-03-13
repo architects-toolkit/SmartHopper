@@ -1328,26 +1328,33 @@ namespace SmartHopper.Providers.OpenAI
         #region IAIBatchProvider
 
         /// <inheritdoc/>
-        public async Task<AIBatchSubmission> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        public async Task<AIBatchSubmission> SubmitBatchAsync(IReadOnlyList<(string CustomId, AIRequestCall Request)> items, CancellationToken cancellationToken = default)
         {
-            request = this.PreCall(request);
+            if (items == null || items.Count == 0) throw new ArgumentException("At least one item is required", nameof(items));
 
-            // Generate custom ID early so it's used as custom_id in the batch request
-            var customId = AIBatchSubmission.GenerateCustomId();
+            // Build multi-line JSONL: one line per request
+            var jsonlBuilder = new System.Text.StringBuilder();
+            string firstEncodedBody = null;
+            var customIds = new List<string>();
 
-            // Encode the full chat completions request body
-            var encodedBody = this.Encode(request);
-            var bodyObj = JObject.Parse(encodedBody);
-
-            // Build JSONL line per OpenAI Batch API specification
-            var batchLine = new JObject
+            foreach (var (customId, request) in items)
             {
-                ["custom_id"] = customId,
-                ["method"] = "POST",
-                ["url"] = "/v1/chat/completions",
-                ["body"] = bodyObj,
-            };
-            var jsonlBytes = Encoding.UTF8.GetBytes(batchLine.ToString(Newtonsoft.Json.Formatting.None));
+                var preparedRequest = this.PreCall(request);
+                var encodedBody = this.Encode(preparedRequest);
+                if (firstEncodedBody == null) firstEncodedBody = encodedBody;
+                var bodyObj = JObject.Parse(encodedBody);
+                var batchLine = new JObject
+                {
+                    ["custom_id"] = customId,
+                    ["method"] = "POST",
+                    ["url"] = "/v1/chat/completions",
+                    ["body"] = bodyObj,
+                };
+                jsonlBuilder.AppendLine(batchLine.ToString(Newtonsoft.Json.Formatting.None));
+                customIds.Add(customId);
+            }
+
+            var jsonlBytes = Encoding.UTF8.GetBytes(jsonlBuilder.ToString());
 
             var apiKey = this.GetApiKey();
             using var client = new HttpClient();
@@ -1399,8 +1406,8 @@ namespace SmartHopper.Providers.OpenAI
             var batchId = batchResult["id"]?.ToString()
                 ?? throw new InvalidOperationException("[OpenAI] Batch creation response missing 'id'");
 
-            Debug.WriteLine($"[OpenAI] Batch submitted: batchId={batchId}, customId={customId}");
-            return new AIBatchSubmission(batchId, this.Name, encodedBody, customId);
+            Debug.WriteLine($"[OpenAI] Batch submitted: batchId={batchId}, count={items.Count}");
+            return new AIBatchSubmission(batchId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
         }
 
         /// <inheritdoc/>
@@ -1455,8 +1462,7 @@ namespace SmartHopper.Providers.OpenAI
                     }
 
                     // Each output line: {"custom_id": "sh-...", "response": {"status_code": 200, "body": {...}}}
-                    JObject resultBody = null;
-                    var expectedCustomId = submission.CustomId ?? "req-0";
+                    var resultsDict = new Dictionary<string, JObject>();
                     foreach (var line in fileContent.Split('\n'))
                     {
                         var trimmed = line.Trim();
@@ -1464,23 +1470,22 @@ namespace SmartHopper.Providers.OpenAI
                         try
                         {
                             var resultLine = JObject.Parse(trimmed);
-                            if (string.Equals(resultLine["custom_id"]?.ToString(), expectedCustomId, StringComparison.Ordinal))
-                            {
-                                var responseObj = resultLine["response"] as JObject;
-                                resultBody = responseObj?["body"] as JObject;
-                                break;
-                            }
+                            var lineCustomId = resultLine["custom_id"]?.ToString();
+                            if (string.IsNullOrEmpty(lineCustomId)) continue;
+                            var responseObj = resultLine["response"] as JObject;
+                            var resultBody = responseObj?["body"] as JObject;
+                            if (resultBody != null) resultsDict[lineCustomId] = resultBody;
                         }
                         catch { /* skip malformed lines */ }
                     }
 
-                    if (resultBody == null)
+                    if (resultsDict.Count == 0)
                     {
                         return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            $"Could not find result for custom_id='{expectedCustomId}' in output file");
+                            "No successful results found in batch output file");
                     }
 
-                    return new AIBatchStatus(submission.BatchId, resultBody);
+                    return new AIBatchStatus(submission.BatchId, (IReadOnlyDictionary<string, JObject>)new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict));
                 }
 
                 case "failed":
@@ -1530,10 +1535,6 @@ namespace SmartHopper.Providers.OpenAI
         {
             return new[]
             {
-                new AIExtraDescriptor("service_tier", "Service Tier",
-                    "Processing tier: 'default' (auto), 'flex' (lower cost, slower), 'priority' (fastest). Use 'batch' to submit via the Batch API (async, ~50% cost).",
-                    typeof(string), "default",
-                    new[] { "default", "flex", "priority", "batch" }),
                 new AIExtraDescriptor("reasoning_effort", "Reasoning Effort",
                     "Reasoning token budget for o-series and gpt-5 models. 'low' is fastest, 'high' is most thorough.",
                     typeof(string), "medium",

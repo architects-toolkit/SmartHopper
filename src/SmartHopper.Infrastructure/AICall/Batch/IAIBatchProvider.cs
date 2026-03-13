@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -24,21 +25,28 @@ namespace SmartHopper.Infrastructure.AICall.Batch
 {
     /// <summary>
     /// Optional interface implemented by AI providers that support asynchronous batch processing.
-    /// When a component detects <c>service_tier=batch</c> (or equivalent) in the request parameters,
-    /// it calls <see cref="SubmitBatchAsync"/> and then polls <see cref="GetBatchStatusAsync"/>
-    /// at configurable intervals until the batch completes.
+    /// When a component has <c>BatchTier=true</c> in its request parameters, all per-item tool calls
+    /// are collected into a queue and submitted as a single batch HTTP request via
+    /// <see cref="SubmitBatchAsync"/>. Status is polled via <see cref="GetBatchStatusAsync"/>.
     /// </summary>
     public interface IAIBatchProvider
     {
         /// <summary>
-        /// Submits a request as a batch job and returns a submission handle.
-        /// The provider encodes the request body using its normal <c>Encode</c> method,
-        /// then posts it to the provider's batch submission endpoint.
+        /// Submits multiple requests as a single batch job and returns a submission handle.
+        /// The provider encodes each request using its normal <c>Encode</c> method and posts
+        /// all of them in one HTTP call to the provider's batch endpoint.
         /// </summary>
-        /// <param name="request">The fully-specified AI request to submit as a batch.</param>
+        /// <param name="items">
+        /// Ordered list of <c>(CustomId, Request)</c> pairs. Each <c>CustomId</c> is a unique
+        /// SmartHopper-generated identifier (format: <c>sh-{timestamp}-{endpoint}-{NN}-{random8}</c>)
+        /// used to correlate results from the provider's JSONL output.
+        /// </param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>A <see cref="AIBatchSubmission"/> containing the provider-assigned batch ID.</returns>
-        Task<AIBatchSubmission> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default);
+        /// <returns>
+        /// A <see cref="AIBatchSubmission"/> containing the provider-assigned batch ID and
+        /// all submitted custom IDs.
+        /// </returns>
+        Task<AIBatchSubmission> SubmitBatchAsync(IReadOnlyList<(string CustomId, AIRequestCall Request)> items, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Polls the provider for the current status of a previously submitted batch.

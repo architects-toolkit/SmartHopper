@@ -1121,30 +1121,31 @@ namespace SmartHopper.Providers.Anthropic
         #region IAIBatchProvider
 
         /// <inheritdoc/>
-        public async Task<AIBatchSubmission> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        public async Task<AIBatchSubmission> SubmitBatchAsync(IReadOnlyList<(string CustomId, AIRequestCall Request)> items, CancellationToken cancellationToken = default)
         {
-            request = this.PreCall(request);
-
-            // Generate custom ID early so it's used as custom_id in the batch request
-            var customId = AIBatchSubmission.GenerateCustomId();
-
-            // Encode the full Messages API body (model, messages, max_tokens, system, ...)
-            var encodedBody = this.Encode(request);
-            var paramsObj = JObject.Parse(encodedBody);
+            if (items == null || items.Count == 0) throw new ArgumentException("At least one item is required", nameof(items));
 
             // Anthropic Batch API: POST /v1/messages/batches
             // Each request: { "custom_id": "...", "params": { ...Messages API params... } }
-            var batchRequest = new JObject
+            var requestsArray = new JArray();
+            string firstEncodedBody = null;
+            var customIds = new List<string>();
+
+            foreach (var (customId, request) in items)
             {
-                ["requests"] = new JArray
+                var preparedRequest = this.PreCall(request);
+                var encodedBody = this.Encode(preparedRequest);
+                if (firstEncodedBody == null) firstEncodedBody = encodedBody;
+                var paramsObj = JObject.Parse(encodedBody);
+                requestsArray.Add(new JObject
                 {
-                    new JObject
-                    {
-                        ["custom_id"] = customId,
-                        ["params"] = paramsObj,
-                    },
-                },
-            };
+                    ["custom_id"] = customId,
+                    ["params"] = paramsObj,
+                });
+                customIds.Add(customId);
+            }
+
+            var batchRequest = new JObject { ["requests"] = requestsArray };
 
             var apiKey = this.GetApiKey();
             using var client = new HttpClient();
@@ -1167,8 +1168,8 @@ namespace SmartHopper.Providers.Anthropic
             var batchId = result["id"]?.ToString()
                 ?? throw new InvalidOperationException("[Anthropic] Batch creation response missing 'id'");
 
-            Debug.WriteLine($"[Anthropic] Batch submitted: id={batchId}, customId={customId}");
-            return new AIBatchSubmission(batchId, this.Name, encodedBody, customId);
+            Debug.WriteLine($"[Anthropic] Batch submitted: id={batchId}, count={items.Count}");
+            return new AIBatchSubmission(batchId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
         }
 
         /// <inheritdoc/>
@@ -1232,9 +1233,8 @@ namespace SmartHopper.Providers.Anthropic
                     }
 
                     // Each result line: {"custom_id": "sh-...", "result": {"type": "succeeded", "message": {...}}}
-                    JObject messageResult = null;
-                    string resultErrorMsg = null;
-                    var expectedCustomId = submission.CustomId ?? "req-0";
+                    var resultsDict = new Dictionary<string, JObject>();
+
                     foreach (var line in resultsContent.Split('\n'))
                     {
                         var trimmed = line.Trim();
@@ -1242,33 +1242,26 @@ namespace SmartHopper.Providers.Anthropic
                         try
                         {
                             var resultLine = JObject.Parse(trimmed);
-                            if (string.Equals(resultLine["custom_id"]?.ToString(), expectedCustomId, StringComparison.Ordinal))
+                            var lineCustomId = resultLine["custom_id"]?.ToString();
+                            if (string.IsNullOrEmpty(lineCustomId)) continue;
+                            var resultObj = resultLine["result"] as JObject;
+                            var resultType = resultObj?["type"]?.ToString();
+                            if (string.Equals(resultType, "succeeded", StringComparison.OrdinalIgnoreCase))
                             {
-                                var resultObj = resultLine["result"] as JObject;
-                                var resultType = resultObj?["type"]?.ToString();
-                                if (string.Equals(resultType, "succeeded", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    messageResult = resultObj["message"] as JObject;
-                                }
-                                else
-                                {
-                                    resultErrorMsg = resultObj?["error"]?.ToString()
-                                        ?? $"Request ended with type '{resultType}'";
-                                }
-
-                                break;
+                                var messageResult = resultObj["message"] as JObject;
+                                if (messageResult != null) resultsDict[lineCustomId] = messageResult;
                             }
                         }
                         catch { /* skip malformed lines */ }
                     }
 
-                    if (messageResult == null)
+                    if (resultsDict.Count == 0)
                     {
                         return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            resultErrorMsg ?? $"Could not find result for custom_id='{expectedCustomId}' in results");
+                            "No successful results found in batch output");
                     }
 
-                    return new AIBatchStatus(submission.BatchId, messageResult);
+                    return new AIBatchStatus(submission.BatchId, (IReadOnlyDictionary<string, JObject>)new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict));
                 }
 
                 default:
@@ -1307,10 +1300,6 @@ namespace SmartHopper.Providers.Anthropic
         {
             return new[]
             {
-                new AIExtraDescriptor("service_tier", "Service Tier",
-                    "Processing tier: 'standard' (default) or 'batch' (async, ~50% cost).",
-                    typeof(string), null,
-                    new[] { "standard", "batch" }),
                 new AIExtraDescriptor("top_k", "Top K",
                     "Only sample from the top K options for each token. Recommended for advanced use only.",
                     typeof(int), null),

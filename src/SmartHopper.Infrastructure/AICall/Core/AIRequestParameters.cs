@@ -25,7 +25,7 @@ namespace SmartHopper.Infrastructure.AICall.Core
     /// <summary>
     /// Immutable per-request AI configuration. Providers read each property individually
     /// with fallback precedence: AIRequestParameters → global provider settings → provider defaults.
-    /// Provider-specific settings (e.g. service_tier, reasoning_effort) are passed via <see cref="Extras"/>.
+    /// Provider-specific settings (e.g. reasoning_effort) are passed via <see cref="Extras"/>.
     /// </summary>
     public sealed record AIRequestParameters
     {
@@ -46,13 +46,20 @@ namespace SmartHopper.Infrastructure.AICall.Core
 
         /// <summary>
         /// Gets provider-specific extra parameters as key/value pairs serialized to JSON.
-        /// Well-known keys: "service_tier" (OpenAI/Anthropic/MistralAI),
-        /// "reasoning_effort" (OpenAI o-series/gpt-5), "safe_prompt" (MistralAI),
+        /// Well-known keys: "reasoning_effort" (OpenAI o-series/gpt-5), "safe_prompt" (MistralAI),
         /// "top_k" (Anthropic), "allow_fallback" (OpenRouter), "sort" (OpenRouter),
         /// "presence_penalty"/"frequency_penalty" (OpenAI, DeepSeek),
         /// "parallel_tool_calls" (OpenAI).
         /// </summary>
         public IReadOnlyDictionary<string, JToken> Extras { get; init; }
+
+        /// <summary>
+        /// Gets a value indicating whether to use asynchronous batch processing.
+        /// When <c>true</c>, all tool calls in a single component run are aggregated into
+        /// one batch HTTP request and submitted via <c>IAIBatchProvider</c>.
+        /// Only effective if the active provider implements <c>IAIBatchProvider</c>.
+        /// </summary>
+        public bool BatchTier { get; init; }
 
         /// <summary>Gets an empty (default) instance with no overrides.</summary>
         public static AIRequestParameters Empty { get; } = new AIRequestParameters();
@@ -78,6 +85,7 @@ namespace SmartHopper.Infrastructure.AICall.Core
         private int? _maxTokens;
         private double? _topP;
         private int? _seed;
+        private bool _batchTier;
         private readonly Dictionary<string, JToken> _extras = new Dictionary<string, JToken>();
 
         /// <inheritdoc cref="AIRequestParameters.Model"/>
@@ -94,6 +102,9 @@ namespace SmartHopper.Infrastructure.AICall.Core
 
         /// <inheritdoc cref="AIRequestParameters.Seed"/>
         public AIRequestParametersBuilder WithSeed(int? seed) { _seed = seed; return this; }
+
+        /// <inheritdoc cref="AIRequestParameters.BatchTier"/>
+        public AIRequestParametersBuilder WithBatchTier(bool batchTier) { _batchTier = batchTier; return this; }
 
         /// <summary>Adds or overwrites a single extra parameter.</summary>
         public AIRequestParametersBuilder WithExtra(string key, JToken value)
@@ -152,6 +163,9 @@ namespace SmartHopper.Infrastructure.AICall.Core
         /// <summary>Clears the seed override.</summary>
         public AIRequestParametersBuilder ClearSeed() { _seed = null; return this; }
 
+        /// <summary>Resets the batch tier flag to false.</summary>
+        public AIRequestParametersBuilder ClearBatchTier() { _batchTier = false; return this; }
+
         /// <summary>Clears all extra parameters.</summary>
         public AIRequestParametersBuilder ClearExtras() { _extras.Clear(); return this; }
 
@@ -163,6 +177,7 @@ namespace SmartHopper.Infrastructure.AICall.Core
             MaxTokens = _maxTokens,
             TopP = _topP,
             Seed = _seed,
+            BatchTier = _batchTier,
             Extras = new ReadOnlyDictionary<string, JToken>(_extras),
         };
     }

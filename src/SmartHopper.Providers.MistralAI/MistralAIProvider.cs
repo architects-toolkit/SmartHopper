@@ -1039,34 +1039,41 @@ namespace SmartHopper.Providers.MistralAI
         #region IAIBatchProvider
 
         /// <inheritdoc/>
-        public async Task<AIBatchSubmission> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        public async Task<AIBatchSubmission> SubmitBatchAsync(IReadOnlyList<(string CustomId, AIRequestCall Request)> items, CancellationToken cancellationToken = default)
         {
-            request = this.PreCall(request);
+            if (items == null || items.Count == 0) throw new ArgumentException("At least one item is required", nameof(items));
 
-            // Generate custom ID early so it's used as custom_id in the batch request
-            var customId = AIBatchSubmission.GenerateCustomId();
-
-            // Encode the full chat completions request body
-            var encodedBody = this.Encode(request);
-            var bodyObj = JObject.Parse(encodedBody);
-
-            // Extract model from body; it goes to the job-level field, not inside each request
-            var model = bodyObj["model"]?.ToString() ?? request.Model;
-            bodyObj.Remove("model");
-
-            // Mistral supports inline batching (up to 10k requests) via POST /v1/batch/jobs
+            // Mistral supports inline batching via POST /v1/batch/jobs
+            // Model goes at the job level, not inside each request
             // Each inline request: { "custom_id": "sh-...", "body": { ...chat params without model... } }
+            var requestsArray = new JArray();
+            string firstEncodedBody = null;
+            string jobModel = null;
+            var customIds = new List<string>();
+
+            foreach (var (customId, request) in items)
+            {
+                var preparedRequest = this.PreCall(request);
+                var encodedBody = this.Encode(preparedRequest);
+                if (firstEncodedBody == null) firstEncodedBody = encodedBody;
+                var bodyObj = JObject.Parse(encodedBody);
+
+                // Extract model from first item for job-level field
+                if (jobModel == null) jobModel = bodyObj["model"]?.ToString() ?? request.Model;
+                bodyObj.Remove("model");
+
+                requestsArray.Add(new JObject
+                {
+                    ["custom_id"] = customId,
+                    ["body"] = bodyObj,
+                });
+                customIds.Add(customId);
+            }
+
             var jobRequest = new JObject
             {
-                ["requests"] = new JArray
-                {
-                    new JObject
-                    {
-                        ["custom_id"] = customId,
-                        ["body"] = bodyObj,
-                    },
-                },
-                ["model"] = model,
+                ["requests"] = requestsArray,
+                ["model"] = jobModel,
                 ["endpoint"] = "/v1/chat/completions",
             };
 
@@ -1091,8 +1098,8 @@ namespace SmartHopper.Providers.MistralAI
             var jobId = result["id"]?.ToString()
                 ?? throw new InvalidOperationException("[MistralAI] Batch job creation response missing 'id'");
 
-            Debug.WriteLine($"[MistralAI] Batch job submitted: id={jobId}, customId={customId}");
-            return new AIBatchSubmission(jobId, this.Name, encodedBody, customId);
+            Debug.WriteLine($"[MistralAI] Batch job submitted: id={jobId}, count={items.Count}");
+            return new AIBatchSubmission(jobId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
         }
 
         /// <inheritdoc/>
@@ -1147,8 +1154,7 @@ namespace SmartHopper.Providers.MistralAI
                     }
 
                     // Each output line mirrors the chat completions response structure
-                    JObject resultBody = null;
-                    var expectedCustomId = submission.CustomId ?? "0";
+                    var resultsDict = new Dictionary<string, JObject>();
                     foreach (var line in fileContent.Split('\n'))
                     {
                         var trimmed = line.Trim();
@@ -1156,25 +1162,24 @@ namespace SmartHopper.Providers.MistralAI
                         try
                         {
                             var resultLine = JObject.Parse(trimmed);
-                            if (string.Equals(resultLine["custom_id"]?.ToString(), expectedCustomId, StringComparison.Ordinal))
-                            {
-                                // Mistral output may wrap response inside "response"."body" or directly
-                                resultBody = resultLine["response"]?["body"] as JObject
-                                    ?? resultLine["body"] as JObject
-                                    ?? resultLine;
-                                break;
-                            }
+                            var lineCustomId = resultLine["custom_id"]?.ToString();
+                            if (string.IsNullOrEmpty(lineCustomId)) continue;
+                            // Mistral output may wrap response inside "response"."body" or directly
+                            var resultBody = resultLine["response"]?["body"] as JObject
+                                ?? resultLine["body"] as JObject
+                                ?? resultLine;
+                            resultsDict[lineCustomId] = resultBody;
                         }
                         catch { /* skip malformed lines */ }
                     }
 
-                    if (resultBody == null)
+                    if (resultsDict.Count == 0)
                     {
                         return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            $"Could not find result for custom_id='{expectedCustomId}' in output file");
+                            "No successful results found in batch output file");
                     }
 
-                    return new AIBatchStatus(submission.BatchId, resultBody);
+                    return new AIBatchStatus(submission.BatchId, (IReadOnlyDictionary<string, JObject>)new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict));
                 }
 
                 case "FAILED":
@@ -1226,10 +1231,6 @@ namespace SmartHopper.Providers.MistralAI
                 new AIExtraDescriptor("safe_prompt", "Safe Prompt",
                     "Inject a safety system prompt before all conversations to reduce unsafe responses.",
                     typeof(bool), null),
-                new AIExtraDescriptor("service_tier", "Service Tier",
-                    "Processing tier: 'standard' (default) or 'batch' (async, ~50% cost).",
-                    typeof(string), null,
-                    new[] { "standard", "batch" }),
             };
         }
     }
