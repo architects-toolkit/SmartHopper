@@ -27,16 +27,21 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Batch;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
 
@@ -50,9 +55,18 @@ namespace SmartHopper.Core.ComponentBase
     public abstract class AIStatefulAsyncComponentBase : AIProviderComponentBase
     {
         /// <summary>
-        /// The model to use for AI processing. Set up from the component's inputs.
+        /// Per-request AI parameters (model, temperature, max tokens, extras) from the Settings input.
         /// </summary>
-        private string model;
+        private AIRequestParameters _requestParameters;
+
+        /// <summary>Active batch submission, or null when not in batch mode.</summary>
+        private AIBatchSubmission _batchSubmission;
+
+        /// <summary>Timer that fires batch status polls.</summary>
+        private Timer _batchPollTimer;
+
+        /// <summary>Guards against concurrent poll calls.</summary>
+        private int _batchPollRunning;
 
         /// <summary>
         /// Last AI return snapshot stored by this component.
@@ -156,7 +170,8 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific inputs
             this.RegisterAdditionalInputParams(pManager);
 
-            pManager.AddTextParameter("Model", "M", "Specify the name of the AI model to use, in the format specified by the provider.\nIf none is specified, the default model will be used.\nYou can define the default model in the SmartHopper settings menu.", GH_ParamAccess.item, string.Empty);
+            pManager.AddGenericParameter("Settings", "S", "AI request settings (model, temperature, tokens, extras).\nConnect an AI Settings component or enter a model name as text for quick setup.\nLeave empty to use all provider defaults.", GH_ParamAccess.item);
+            pManager[pManager.ParamCount - 1].Optional = true;
             pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
         }
 
@@ -187,9 +202,29 @@ namespace SmartHopper.Core.ComponentBase
         /// </remarks>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            string? model = null;
-            DA.GetData("Model", ref model);
-            this.SetModel(model);
+            Grasshopper.Kernel.Types.IGH_Goo rawGoo = null;
+            if (DA.GetData("Settings", ref rawGoo) && rawGoo != null)
+            {
+                var scriptVar = rawGoo.ScriptVariable();
+                if (scriptVar is AIRequestParameters p)
+                {
+                    this.SetParameters(p);
+                }
+                else if (scriptVar is string s)
+                {
+                    this.SetParameters(AIRequestParameters.FromModel(s.Trim()));
+                }
+                else
+                {
+                    // Try string cast path (GH_String etc.)
+                    string fallbackStr = rawGoo.ToString();
+                    this.SetParameters(AIRequestParameters.FromModel(fallbackStr?.Trim()));
+                }
+            }
+            else
+            {
+                this.SetParameters(AIRequestParameters.Empty);
+            }
 
             // Update badge cache using current inputs before executing the solution
             this.UpdateBadgeCache();
@@ -204,36 +239,40 @@ namespace SmartHopper.Core.ComponentBase
         // Provider selection functionality is now inherited from AIProviderComponentBase
 
         /// <summary>
-        /// Sets the model to use for AI processing.
+        /// Sets the AI request parameters from the Settings input.
         /// </summary>
-        /// <param name="model">The model to use.</param>
-        protected void SetModel(string model)
+        /// <param name="parameters">The AI request parameters to use.</param>
+        protected void SetParameters(AIRequestParameters parameters)
         {
-            this.model = model;
+            this._requestParameters = parameters ?? AIRequestParameters.Empty;
         }
 
         /// <summary>
-        /// Gets the model to use for AI processing.
+        /// Gets the current AI request parameters.
         /// </summary>
-        /// <returns>The model to use, or empty string for default model.</returns>
+        /// <returns>The current <see cref="AIRequestParameters"/>, never null.</returns>
+        protected AIRequestParameters GetParameters() => this._requestParameters ?? AIRequestParameters.Empty;
+
+        /// <summary>
+        /// Gets the resolved model name for AI processing.
+        /// If the parameters specify a model, it is returned as-is.
+        /// Otherwise the provider's capability-aware default is used.
+        /// </summary>
+        /// <returns>The model name to use, or empty string for provider default.</returns>
         protected string GetModel()
         {
-            // Get the model, using provider settings default if empty
-            string model = this.model;
+            var modelFromParams = this._requestParameters?.Model;
             var provider = this.GetActualAIProvider();
             if (provider == null)
             {
-                // Handle null provider scenario, return default model
-                return string.Empty;
+                return modelFromParams ?? string.Empty;
             }
 
-            // If user specified a model, pass it through
-            if (!string.IsNullOrWhiteSpace(model))
+            if (!string.IsNullOrWhiteSpace(modelFromParams))
             {
-                return model;
+                return modelFromParams;
             }
 
-            // Otherwise, use provider-level default resolution (respects settings and capabilities)
             var selected = provider.GetDefaultModel(this.RequiredCapability, useSettings: true);
             return selected ?? string.Empty;
         }
@@ -270,6 +309,7 @@ namespace SmartHopper.Core.ComponentBase
             toolCall.Provider = providerName;
             toolCall.Model = model;
             toolCall.Endpoint = toolName;
+            toolCall.Parameters = this.GetParameters();
             var immutableBody = AIBodyBuilder.Create()
                 .Add(toolCallInteraction)
                 .Build();
@@ -649,6 +689,253 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             return stringTree;
+        }
+
+        #endregion
+
+        #region BATCH
+
+        /// <summary>
+        /// Determines whether the current request parameters specify batch mode.
+        /// Batch mode is requested when the Extras dictionary contains <c>service_tier=batch</c>
+        /// (OpenAI) or <c>service_tier=batch</c> (Anthropic / MistralAI).
+        /// </summary>
+        protected bool IsBatchRequest()
+        {
+            var extras = this._requestParameters?.Extras;
+            if (extras == null) return false;
+            if (extras.TryGetValue("service_tier", out var tier))
+            {
+                return string.Equals(tier?.ToString(), "batch", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Submits a batch request via <see cref="IAIBatchProvider"/> and starts the poll timer.
+        /// Call this from the async worker when <see cref="IsBatchRequest"/> returns true,
+        /// instead of executing the normal synchronous provider call.
+        /// </summary>
+        /// <param name="request">The fully-specified request to submit.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>True if submission succeeded; false if the provider doesn't support batch.</returns>
+        protected async Task<bool> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        {
+            var providerName = this.GetActualAIProviderName();
+            var provider = ProviderManager.Instance.GetProvider(providerName);
+
+            if (provider is not IAIBatchProvider batchProvider)
+            {
+                this.SetPersistentRuntimeMessage("batch_unsupported", GH_RuntimeMessageLevel.Warning,
+                    $"Provider '{providerName}' does not support batch processing. Falling back to synchronous mode.", false);
+                return false;
+            }
+
+            try
+            {
+                var submission = await batchProvider.SubmitBatchAsync(request, cancellationToken).ConfigureAwait(false);
+                this._batchSubmission = submission;
+                this.Message = $"Batch submitted ({submission.BatchId.Substring(0, Math.Min(12, submission.BatchId.Length))}...)";
+                this.StartBatchPollTimer();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] Batch submit failed: {ex.Message}");
+                this.SetPersistentRuntimeMessage("batch_error", GH_RuntimeMessageLevel.Error,
+                    $"Batch submission failed: {ex.Message}", false);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Starts (or restarts) the poll timer using the configured interval from <see cref="SmartHopperSettings.BatchPollIntervalMinutes"/>.
+        /// </summary>
+        private void StartBatchPollTimer()
+        {
+            StopBatchPollTimer();
+
+            int intervalMs = Math.Max(1, SmartHopperSettings.Instance.BatchPollIntervalMinutes) * 60 * 1000;
+            _batchPollTimer = new Timer(OnBatchPollTimerTick, null, intervalMs, intervalMs);
+            Debug.WriteLine($"[AIStatefulAsync] Batch poll timer started, interval={intervalMs}ms, batchId={_batchSubmission?.BatchId}");
+        }
+
+        /// <summary>Stops and disposes the poll timer without cancelling the batch.</summary>
+        private void StopBatchPollTimer()
+        {
+            var t = Interlocked.Exchange(ref _batchPollTimer, null);
+            t?.Dispose();
+        }
+
+        /// <summary>Timer callback — fires on a thread-pool thread.</summary>
+        private void OnBatchPollTimerTick(object state)
+        {
+            // Prevent overlapping polls
+            if (Interlocked.CompareExchange(ref _batchPollRunning, 1, 0) != 0) return;
+
+            try
+            {
+                _ = PollBatchStatusAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] Poll tick error: {ex.Message}");
+                Interlocked.Exchange(ref _batchPollRunning, 0);
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously polls the provider for batch status and processes results when ready.
+        /// </summary>
+        private async Task PollBatchStatusAsync()
+        {
+            var submission = _batchSubmission;
+            if (submission == null)
+            {
+                StopBatchPollTimer();
+                Interlocked.Exchange(ref _batchPollRunning, 0);
+                return;
+            }
+
+            try
+            {
+                var providerName = submission.ProviderName;
+                var provider = ProviderManager.Instance.GetProvider(providerName);
+
+                if (provider is not IAIBatchProvider batchProvider)
+                {
+                    StopBatchPollTimer();
+                    return;
+                }
+
+                var status = await batchProvider.GetBatchStatusAsync(submission).ConfigureAwait(false);
+                Debug.WriteLine($"[AIStatefulAsync] Batch poll result: state={status.State}, batchId={submission.BatchId}");
+
+                switch (status.State)
+                {
+                    case AIBatchState.Completed:
+                        StopBatchPollTimer();
+                        _batchSubmission = null;
+
+                        // Decode results using normal provider Decode path
+                        if (status.ResultBody != null)
+                        {
+                            try
+                            {
+                                var interactions = provider.Decode(status.ResultBody);
+                                var ret = new AIReturn();
+                                ret.CreateSuccess(interactions, null);
+                                this.SetAIReturnSnapshot(ret);
+                                this.OnBatchCompleted(ret);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[AIStatefulAsync] Batch decode error: {ex.Message}");
+                            }
+                        }
+
+                        Rhino.RhinoApp.InvokeOnUiThread(() => this.ExpireSolution(true));
+                        break;
+
+                    case AIBatchState.Failed:
+                    case AIBatchState.Cancelled:
+                    case AIBatchState.Expired:
+                        StopBatchPollTimer();
+                        _batchSubmission = null;
+                        this.SetPersistentRuntimeMessage("batch_done", GH_RuntimeMessageLevel.Warning,
+                            $"Batch {status.State.ToString().ToLowerInvariant()}: {status.ErrorMessage ?? "no details"}", false);
+                        Rhino.RhinoApp.InvokeOnUiThread(() => this.ExpireSolution(true));
+                        break;
+
+                    default:
+                        // Still running — update message
+                        this.Message = $"Batch {status.State.ToString().ToLowerInvariant()}...";
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] PollBatchStatus error: {ex.Message}");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _batchPollRunning, 0);
+            }
+        }
+
+        /// <summary>
+        /// Called when a batch job completes. Override in derived classes to process batch results
+        /// and set persistent outputs. Default implementation does nothing.
+        /// </summary>
+        /// <param name="result">The decoded batch result.</param>
+        protected virtual void OnBatchCompleted(AIReturn result)
+        {
+        }
+
+        /// <inheritdoc/>
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer)
+        {
+            if (!base.Write(writer)) return false;
+
+            try
+            {
+                // Persist batch state so polling can resume after file close/reopen
+                if (_batchSubmission != null)
+                {
+                    writer.SetString("BatchId", _batchSubmission.BatchId);
+                    writer.SetString("BatchProvider", _batchSubmission.ProviderName);
+                    writer.SetString("BatchRequest", _batchSubmission.SerializedRequest ?? string.Empty);
+                    writer.SetString("BatchSubmittedAt", _batchSubmission.SubmittedAt.ToString("O"));
+                    writer.SetString("BatchCustomId", _batchSubmission.CustomId ?? string.Empty);
+                    Debug.WriteLine($"[AIStatefulAsync] Write: persisted batch state, batchId={_batchSubmission.BatchId}, customId={_batchSubmission.CustomId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] Write batch state error: {ex.Message}");
+            }
+
+            return true;
+        }
+
+        /// <inheritdoc/>
+        public override bool Read(GH_IO.Serialization.GH_IReader reader)
+        {
+            if (!base.Read(reader)) return false;
+
+            try
+            {
+                if (reader.ItemExists("BatchId"))
+                {
+                    var batchId = reader.GetString("BatchId");
+                    var providerName = reader.ItemExists("BatchProvider") ? reader.GetString("BatchProvider") : string.Empty;
+                    var serializedReq = reader.ItemExists("BatchRequest") ? reader.GetString("BatchRequest") : string.Empty;
+                    var customId = reader.ItemExists("BatchCustomId") ? reader.GetString("BatchCustomId") : null;
+
+                    if (!string.IsNullOrEmpty(batchId) && !string.IsNullOrEmpty(providerName))
+                    {
+                        _batchSubmission = new AIBatchSubmission(batchId, providerName, serializedReq, customId);
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored batch state, batchId={batchId}, customId={customId}");
+
+                        // Resume polling — defer until after component is fully loaded
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            if (_batchSubmission != null)
+                            {
+                                this.Message = $"Batch polling ({batchId.Substring(0, Math.Min(12, batchId.Length))}...)";
+                                StartBatchPollTimer();
+                            }
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] Read batch state error: {ex.Message}");
+            }
+
+            return true;
         }
 
         #endregion

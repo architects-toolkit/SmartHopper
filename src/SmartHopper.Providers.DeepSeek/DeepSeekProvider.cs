@@ -151,8 +151,10 @@ namespace SmartHopper.Providers.DeepSeek
                 return "GET and DELETE requests do not use a request body";
             }
 
-            int maxTokens = this.GetSetting<int>("MaxTokens");
-            double temperature = this.GetSetting<double>("Temperature");
+            var p = request.Parameters;
+
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
 
             Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
@@ -349,6 +351,32 @@ namespace SmartHopper.Providers.DeepSeek
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
             };
+
+            // Apply seed if provided
+            if (p?.Seed.HasValue == true)
+            {
+                requestBody["seed"] = p.Seed.Value;
+            }
+
+            // Apply top_p if provided
+            if (p?.TopP.HasValue == true)
+            {
+                requestBody["top_p"] = p.TopP.Value;
+            }
+
+            // Apply presence_penalty / frequency_penalty from extras
+            if (p?.Extras != null)
+            {
+                if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                {
+                    requestBody["presence_penalty"] = ppToken;
+                }
+
+                if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                {
+                    requestBody["frequency_penalty"] = fpToken;
+                }
+            }
 
             // Add JSON response format if schema is provided (centralized wrapping)
             if (!string.IsNullOrWhiteSpace(request.Body.JsonOutputSchema))
@@ -1221,6 +1249,20 @@ namespace SmartHopper.Providers.DeepSeek
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return new[]
+            {
+                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    "Penalizes tokens already present in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double), null),
+                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double), null),
+            };
         }
     }
 }

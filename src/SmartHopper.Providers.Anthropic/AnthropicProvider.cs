@@ -29,6 +29,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -46,7 +47,7 @@ namespace SmartHopper.Providers.Anthropic
     /// Provider implementation for Anthropic's Messages API, including schema wrapping,
     /// tool call encoding, and streaming support via SSE.
     /// </summary>
-    public sealed class AnthropicProvider : AIProvider<AnthropicProvider>
+    public sealed class AnthropicProvider : AIProvider<AnthropicProvider>, IAIBatchProvider
     {
         private AnthropicProvider()
         {
@@ -383,8 +384,10 @@ namespace SmartHopper.Providers.Anthropic
                 return "GET and DELETE requests do not use a request body";
             }
 
-            int maxTokens = this.GetSetting<int>("MaxTokens");
-            double temperature = this.GetSetting<double>("Temperature");
+            var p = request.Parameters;
+
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
             if (double.IsNaN(temperature) || temperature <= 0) temperature = 0.5;
 
             string jsonSchema = request.Body.JsonOutputSchema;
@@ -515,6 +518,26 @@ namespace SmartHopper.Providers.Anthropic
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
             };
+
+            // Apply top_p if provided
+            if (p?.TopP.HasValue == true)
+            {
+                requestBody["top_p"] = p.TopP.Value;
+            }
+
+            // Apply provider-specific extras
+            if (p?.Extras != null)
+            {
+                if (p.Extras.TryGetValue("top_k", out var tkToken) && tkToken != null)
+                {
+                    requestBody["top_k"] = tkToken;
+                }
+
+                if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
+                {
+                    requestBody["service_tier"] = stToken;
+                }
+            }
 
             // Add JSON schema if provided (centralized wrapping)
             if (requiresJsonOutput)
@@ -1093,6 +1116,205 @@ namespace SmartHopper.Providers.Anthropic
 
             var caps = ModelManager.Instance.GetCapabilities("Anthropic", model);
             return caps?.HasCapability(AICapability.Text2Json) == true;
+        }
+
+        #region IAIBatchProvider
+
+        /// <inheritdoc/>
+        public async Task<AIBatchSubmission> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        {
+            request = this.PreCall(request);
+
+            // Generate custom ID early so it's used as custom_id in the batch request
+            var customId = AIBatchSubmission.GenerateCustomId();
+
+            // Encode the full Messages API body (model, messages, max_tokens, system, ...)
+            var encodedBody = this.Encode(request);
+            var paramsObj = JObject.Parse(encodedBody);
+
+            // Anthropic Batch API: POST /v1/messages/batches
+            // Each request: { "custom_id": "...", "params": { ...Messages API params... } }
+            var batchRequest = new JObject
+            {
+                ["requests"] = new JArray
+                {
+                    new JObject
+                    {
+                        ["custom_id"] = customId,
+                        ["params"] = paramsObj,
+                    },
+                },
+            };
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+
+            var batchUrl = this.BuildFullUrl("/messages/batches");
+            var response = await client.PostAsync(
+                batchUrl,
+                new StringContent(batchRequest.ToString(), Encoding.UTF8, "application/json"),
+                cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"[Anthropic] Batch creation failed ({(int)response.StatusCode}): {content}");
+            }
+
+            var result = JObject.Parse(content);
+            var batchId = result["id"]?.ToString()
+                ?? throw new InvalidOperationException("[Anthropic] Batch creation response missing 'id'");
+
+            Debug.WriteLine($"[Anthropic] Batch submitted: id={batchId}, customId={customId}");
+            return new AIBatchSubmission(batchId, this.Name, encodedBody, customId);
+        }
+
+        /// <inheritdoc/>
+        public async Task<AIBatchStatus> GetBatchStatusAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+
+            var statusUrl = this.BuildFullUrl($"/messages/batches/{submission.BatchId}");
+            var response = await client.GetAsync(statusUrl, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                    $"HTTP {(int)response.StatusCode}: {content}");
+            }
+
+            var json = JObject.Parse(content);
+            var processingStatus = json["processing_status"]?.ToString() ?? string.Empty;
+            Debug.WriteLine($"[Anthropic] Batch status check: id={submission.BatchId}, processing_status={processingStatus}");
+
+            switch (processingStatus.ToLowerInvariant())
+            {
+                case "in_progress":
+                case "canceling":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
+
+                case "ended":
+                {
+                    // Determine if it ended due to cancellation
+                    var cancelInitiatedAt = json["cancel_initiated_at"]?.ToString();
+                    var requestCounts = json["request_counts"] as JObject;
+                    var succeeded = requestCounts?["succeeded"]?.Value<int>() ?? 0;
+                    var errored = requestCounts?["errored"]?.Value<int>() ?? 0;
+
+                    if (!string.IsNullOrEmpty(cancelInitiatedAt) && succeeded == 0 && errored == 0)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Cancelled);
+                    }
+
+                    var resultsUrl = json["results_url"]?.ToString();
+                    if (string.IsNullOrEmpty(resultsUrl))
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            "Batch ended but results_url is missing");
+                    }
+
+                    // Download results JSONL from results_url
+                    var resultsResponse = await client.GetAsync(resultsUrl, cancellationToken).ConfigureAwait(false);
+                    var resultsContent = await resultsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (!resultsResponse.IsSuccessStatusCode)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            $"Failed to download results ({(int)resultsResponse.StatusCode}): {resultsContent}");
+                    }
+
+                    // Each result line: {"custom_id": "sh-...", "result": {"type": "succeeded", "message": {...}}}
+                    JObject messageResult = null;
+                    string resultErrorMsg = null;
+                    var expectedCustomId = submission.CustomId ?? "req-0";
+                    foreach (var line in resultsContent.Split('\n'))
+                    {
+                        var trimmed = line.Trim();
+                        if (string.IsNullOrEmpty(trimmed)) continue;
+                        try
+                        {
+                            var resultLine = JObject.Parse(trimmed);
+                            if (string.Equals(resultLine["custom_id"]?.ToString(), expectedCustomId, StringComparison.Ordinal))
+                            {
+                                var resultObj = resultLine["result"] as JObject;
+                                var resultType = resultObj?["type"]?.ToString();
+                                if (string.Equals(resultType, "succeeded", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    messageResult = resultObj["message"] as JObject;
+                                }
+                                else
+                                {
+                                    resultErrorMsg = resultObj?["error"]?.ToString()
+                                        ?? $"Request ended with type '{resultType}'";
+                                }
+
+                                break;
+                            }
+                        }
+                        catch { /* skip malformed lines */ }
+                    }
+
+                    if (messageResult == null)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            resultErrorMsg ?? $"Could not find result for custom_id='{expectedCustomId}' in results");
+                    }
+
+                    return new AIBatchStatus(submission.BatchId, messageResult);
+                }
+
+                default:
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Submitted);
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task CancelBatchAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+
+            var cancelUrl = this.BuildFullUrl($"/messages/batches/{submission.BatchId}/cancel");
+            var response = await client.PostAsync(cancelUrl, null, cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                Debug.WriteLine($"[Anthropic] Batch cancel failed ({(int)response.StatusCode}): {content}");
+            }
+            else
+            {
+                Debug.WriteLine($"[Anthropic] Batch {submission.BatchId} cancelled successfully");
+            }
+        }
+
+        #endregion
+
+        /// <inheritdoc/>
+        public override IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return new[]
+            {
+                new AIExtraDescriptor("service_tier", "Service Tier",
+                    "Processing tier: 'standard' (default) or 'batch' (async, ~50% cost).",
+                    typeof(string), null,
+                    new[] { "standard", "batch" }),
+                new AIExtraDescriptor("top_k", "Top K",
+                    "Only sample from the top K options for each token. Recommended for advanced use only.",
+                    typeof(int), null),
+            };
         }
     }
 }

@@ -540,6 +540,17 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Gets the extra parameter descriptors for a provider.
+        /// </summary>
+        /// <param name="providerName">The name of the provider.</param>
+        /// <returns>An enumerable of <see cref="AIExtraDescriptor"/> instances, or empty if provider not found.</returns>
+        public IEnumerable<AIExtraDescriptor> GetExtraDescriptors(string providerName)
+        {
+            var provider = this.GetProvider(providerName);
+            return provider?.GetExtraDescriptors() ?? Enumerable.Empty<AIExtraDescriptor>();
+        }
+
+        /// <summary>
         /// Gets the assembly containing a provider.
         /// </summary>
         /// <param name="providerName">The name of the provider.</param>

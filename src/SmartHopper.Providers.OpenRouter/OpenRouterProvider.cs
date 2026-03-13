@@ -142,11 +142,15 @@ namespace SmartHopper.Providers.OpenRouter
             }
 
             // Parameters
-            int maxTokens = this.GetSetting<int>("MaxTokens");
-            double temperature;
+            var p = request.Parameters;
 
-            // Temperature stored as string in settings to align with other providers
-            if (!double.TryParse(this.GetSetting<string>("Temperature"), out temperature))
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            double temperature;
+            if (p?.Temperature.HasValue == true)
+            {
+                temperature = p.Temperature.Value;
+            }
+            else if (!double.TryParse(this.GetSetting<string>("Temperature"), out temperature))
             {
                 temperature = 0.5;
             }
@@ -188,10 +192,16 @@ namespace SmartHopper.Providers.OpenRouter
                 }
             }
 
-            // Provider selection settings
-            bool allowFallbacks = this.GetSetting<bool>("AllowFallbacks"); // default true
-            string sort = this.GetSetting<string>("Sort") ?? "price";      // default price
-            string dataCollection = this.GetSetting<string>("DataCollection") ?? "deny"; // default deny
+            // Provider selection settings: extras take precedence over global settings
+            bool allowFallbacks = (p?.Extras != null && p.Extras.TryGetValue("allow_fallback", out var afToken))
+                ? afToken?.Value<bool>() ?? this.GetSetting<bool>("AllowFallbacks")
+                : this.GetSetting<bool>("AllowFallbacks");
+            string sort = (p?.Extras != null && p.Extras.TryGetValue("sort", out var sortToken))
+                ? sortToken?.ToString() ?? this.GetSetting<string>("Sort") ?? "price"
+                : this.GetSetting<string>("Sort") ?? "price";
+            string dataCollection = (p?.Extras != null && p.Extras.TryGetValue("data_collection", out var dcToken))
+                ? dcToken?.ToString() ?? this.GetSetting<string>("DataCollection") ?? "deny"
+                : this.GetSetting<string>("DataCollection") ?? "deny";
 
             var body = new JObject
             {
@@ -206,6 +216,18 @@ namespace SmartHopper.Providers.OpenRouter
                     ["data_collection"] = dataCollection,
                 },
             };
+
+            // Apply seed if provided
+            if (p?.Seed.HasValue == true)
+            {
+                body["seed"] = p.Seed.Value;
+            }
+
+            // Apply top_p if provided
+            if (p?.TopP.HasValue == true)
+            {
+                body["top_p"] = p.TopP.Value;
+            }
 
             // Add tools if requested
             if (!string.IsNullOrWhiteSpace(request.Body.ToolFilter))
@@ -903,6 +925,25 @@ namespace SmartHopper.Providers.OpenRouter
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return new[]
+            {
+                new AIExtraDescriptor("allow_fallback", "Allow Fallback",
+                    "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
+                    typeof(bool), null),
+                new AIExtraDescriptor("sort", "Sort",
+                    "Provider routing sort order: 'price' (cheapest), 'throughput' (fastest), or 'latency' (lowest latency).",
+                    typeof(string), "price",
+                    new[] { "price", "throughput", "latency" }),
+                new AIExtraDescriptor("data_collection", "Data Collection",
+                    "Whether to allow provider to collect data from requests: 'allow' or 'deny'.",
+                    typeof(string), "deny",
+                    new[] { "allow", "deny" }),
+            };
         }
     }
 }

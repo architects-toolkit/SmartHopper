@@ -28,6 +28,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -43,7 +44,7 @@ namespace SmartHopper.Providers.OpenAI
     /// <summary>
     /// OpenAI provider implementation for SmartHopper.
     /// </summary>
-    public partial class OpenAIProvider : AIProvider<OpenAIProvider>
+    public partial class OpenAIProvider : AIProvider<OpenAIProvider>, IAIBatchProvider
     {
         #region Compiled Regex Patterns
 
@@ -431,8 +432,17 @@ namespace SmartHopper.Providers.OpenAI
         /// </summary>
         private string FormatChatCompletionsRequestBody(AIRequestCall request, JArray messages)
         {
-            int maxTokens = this.GetSetting<int>("MaxTokens");
-            string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
+            var p = request.Parameters;
+
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
+            string reasoningEffort = p?.Extras != null && p.Extras.TryGetValue("reasoning_effort", out var reToken)
+                ? reToken?.ToString() ?? this.GetSetting<string>("ReasoningEffort") ?? "medium"
+                : this.GetSetting<string>("ReasoningEffort") ?? "medium";
+            string serviceTier = p?.Extras != null && p.Extras.TryGetValue("service_tier", out var stToken)
+                ? stToken?.ToString()
+                : null;
+
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
 
@@ -456,7 +466,44 @@ namespace SmartHopper.Providers.OpenAI
             else
             {
                 requestBody["max_tokens"] = maxTokens;
-                requestBody["temperature"] = this.GetSetting<double>("Temperature");
+                requestBody["temperature"] = temperature;
+            }
+
+            // Apply seed if provided
+            if (p?.Seed.HasValue == true)
+            {
+                requestBody["seed"] = p.Seed.Value;
+            }
+
+            // Apply top_p if provided
+            if (p?.TopP.HasValue == true)
+            {
+                requestBody["top_p"] = p.TopP.Value;
+            }
+
+            // Apply service_tier if provided
+            if (!string.IsNullOrEmpty(serviceTier))
+            {
+                requestBody["service_tier"] = serviceTier;
+            }
+
+            // Apply presence_penalty / frequency_penalty from extras
+            if (p?.Extras != null)
+            {
+                if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                {
+                    requestBody["presence_penalty"] = ppToken;
+                }
+
+                if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                {
+                    requestBody["frequency_penalty"] = fpToken;
+                }
+
+                if (p.Extras.TryGetValue("parallel_tool_calls", out var ptcToken) && ptcToken != null)
+                {
+                    requestBody["parallel_tool_calls"] = ptcToken;
+                }
             }
 
             // Add response format if JSON schema is provided
@@ -1276,6 +1323,231 @@ namespace SmartHopper.Providers.OpenAI
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }
+        }
+
+        #region IAIBatchProvider
+
+        /// <inheritdoc/>
+        public async Task<AIBatchSubmission> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        {
+            request = this.PreCall(request);
+
+            // Generate custom ID early so it's used as custom_id in the batch request
+            var customId = AIBatchSubmission.GenerateCustomId();
+
+            // Encode the full chat completions request body
+            var encodedBody = this.Encode(request);
+            var bodyObj = JObject.Parse(encodedBody);
+
+            // Build JSONL line per OpenAI Batch API specification
+            var batchLine = new JObject
+            {
+                ["custom_id"] = customId,
+                ["method"] = "POST",
+                ["url"] = "/v1/chat/completions",
+                ["body"] = bodyObj,
+            };
+            var jsonlBytes = Encoding.UTF8.GetBytes(batchLine.ToString(Newtonsoft.Json.Formatting.None));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            // Step 1: Upload JSONL file to /v1/files
+            using var multipart = new MultipartFormDataContent();
+            multipart.Add(new StringContent("batch"), "purpose");
+            var fileByteContent = new ByteArrayContent(jsonlBytes);
+            fileByteContent.Headers.ContentType =
+                new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            multipart.Add(fileByteContent, "file", "batch_input.jsonl");
+
+            var uploadUrl = this.BuildFullUrl("/files");
+            var uploadResponse = await client.PostAsync(uploadUrl, multipart, cancellationToken).ConfigureAwait(false);
+            var uploadContent = await uploadResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!uploadResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"[OpenAI] Batch file upload failed ({(int)uploadResponse.StatusCode}): {uploadContent}");
+            }
+
+            var uploadResult = JObject.Parse(uploadContent);
+            var fileId = uploadResult["id"]?.ToString()
+                ?? throw new InvalidOperationException("[OpenAI] Batch file upload response missing 'id'");
+
+            // Step 2: Create batch job
+            var batchBody = new JObject
+            {
+                ["input_file_id"] = fileId,
+                ["endpoint"] = "/v1/chat/completions",
+                ["completion_window"] = "24h",
+            };
+
+            var batchUrl = this.BuildFullUrl("/batches");
+            var batchResponse = await client.PostAsync(
+                batchUrl,
+                new StringContent(batchBody.ToString(), Encoding.UTF8, "application/json"),
+                cancellationToken).ConfigureAwait(false);
+            var batchContent = await batchResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!batchResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"[OpenAI] Batch creation failed ({(int)batchResponse.StatusCode}): {batchContent}");
+            }
+
+            var batchResult = JObject.Parse(batchContent);
+            var batchId = batchResult["id"]?.ToString()
+                ?? throw new InvalidOperationException("[OpenAI] Batch creation response missing 'id'");
+
+            Debug.WriteLine($"[OpenAI] Batch submitted: batchId={batchId}, customId={customId}");
+            return new AIBatchSubmission(batchId, this.Name, encodedBody, customId);
+        }
+
+        /// <inheritdoc/>
+        public async Task<AIBatchStatus> GetBatchStatusAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            var statusUrl = this.BuildFullUrl($"/batches/{submission.BatchId}");
+            var response = await client.GetAsync(statusUrl, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                    $"HTTP {(int)response.StatusCode}: {content}");
+            }
+
+            var json = JObject.Parse(content);
+            var status = json["status"]?.ToString() ?? string.Empty;
+            Debug.WriteLine($"[OpenAI] Batch status check: id={submission.BatchId}, status={status}");
+
+            switch (status.ToLowerInvariant())
+            {
+                case "validating":
+                case "in_progress":
+                case "finalizing":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
+
+                case "completed":
+                {
+                    var outputFileId = json["output_file_id"]?.ToString();
+                    if (string.IsNullOrEmpty(outputFileId))
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            "Batch completed but output_file_id is missing");
+                    }
+
+                    // Download and parse output JSONL
+                    var fileUrl = this.BuildFullUrl($"/files/{outputFileId}/content");
+                    var fileResponse = await client.GetAsync(fileUrl, cancellationToken).ConfigureAwait(false);
+                    var fileContent = await fileResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (!fileResponse.IsSuccessStatusCode)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            $"Failed to download output file ({(int)fileResponse.StatusCode}): {fileContent}");
+                    }
+
+                    // Each output line: {"custom_id": "sh-...", "response": {"status_code": 200, "body": {...}}}
+                    JObject resultBody = null;
+                    var expectedCustomId = submission.CustomId ?? "req-0";
+                    foreach (var line in fileContent.Split('\n'))
+                    {
+                        var trimmed = line.Trim();
+                        if (string.IsNullOrEmpty(trimmed)) continue;
+                        try
+                        {
+                            var resultLine = JObject.Parse(trimmed);
+                            if (string.Equals(resultLine["custom_id"]?.ToString(), expectedCustomId, StringComparison.Ordinal))
+                            {
+                                var responseObj = resultLine["response"] as JObject;
+                                resultBody = responseObj?["body"] as JObject;
+                                break;
+                            }
+                        }
+                        catch { /* skip malformed lines */ }
+                    }
+
+                    if (resultBody == null)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            $"Could not find result for custom_id='{expectedCustomId}' in output file");
+                    }
+
+                    return new AIBatchStatus(submission.BatchId, resultBody);
+                }
+
+                case "failed":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                        json["errors"]?.ToString());
+
+                case "expired":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Expired);
+
+                case "cancelling":
+                case "cancelled":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Cancelled);
+
+                default:
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Submitted);
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task CancelBatchAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            var cancelUrl = this.BuildFullUrl($"/batches/{submission.BatchId}/cancel");
+            var response = await client.PostAsync(cancelUrl, null, cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                Debug.WriteLine($"[OpenAI] Batch cancel failed ({(int)response.StatusCode}): {content}");
+            }
+            else
+            {
+                Debug.WriteLine($"[OpenAI] Batch {submission.BatchId} cancelled successfully");
+            }
+        }
+
+        #endregion
+
+        /// <inheritdoc/>
+        public override IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return new[]
+            {
+                new AIExtraDescriptor("service_tier", "Service Tier",
+                    "Processing tier: 'default' (auto), 'flex' (lower cost, slower), 'priority' (fastest). Use 'batch' to submit via the Batch API (async, ~50% cost).",
+                    typeof(string), "default",
+                    new[] { "default", "flex", "priority", "batch" }),
+                new AIExtraDescriptor("reasoning_effort", "Reasoning Effort",
+                    "Reasoning token budget for o-series and gpt-5 models. 'low' is fastest, 'high' is most thorough.",
+                    typeof(string), "medium",
+                    new[] { "low", "medium", "high" }),
+                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double), null),
+                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double), null),
+                new AIExtraDescriptor("parallel_tool_calls", "Parallel Tool Calls",
+                    "Whether the model may call multiple tools in parallel. True by default.",
+                    typeof(bool), null),
+            };
         }
     }
 }

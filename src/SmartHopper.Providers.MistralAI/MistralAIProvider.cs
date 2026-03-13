@@ -27,6 +27,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -38,7 +39,7 @@ using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.MistralAI
 {
-    public sealed class MistralAIProvider : AIProvider<MistralAIProvider>
+    public sealed class MistralAIProvider : AIProvider<MistralAIProvider>, IAIBatchProvider
     {
         private MistralAIProvider()
         {
@@ -258,8 +259,10 @@ namespace SmartHopper.Providers.MistralAI
 
             // Encode request body for Mistral. Supports string and AIText content in interactions.
 
-            int maxTokens = this.GetSetting<int>("MaxTokens");
-            double temperature = this.GetSetting<double>("Temperature");
+            var p = request.Parameters;
+
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
 
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
@@ -288,6 +291,30 @@ namespace SmartHopper.Providers.MistralAI
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
             };
+
+            // Apply top_p if provided
+            if (p?.TopP.HasValue == true)
+            {
+                requestBody["top_p"] = p.TopP.Value;
+            }
+
+            // Apply seed if provided
+            if (p?.Seed.HasValue == true)
+            {
+                requestBody["random_seed"] = p.Seed.Value;
+            }
+
+            // Apply safe_prompt extra if provided
+            if (p?.Extras != null && p.Extras.TryGetValue("safe_prompt", out var spToken) && spToken != null)
+            {
+                requestBody["safe_prompt"] = spToken;
+            }
+
+            // Apply service_tier extra if provided
+            if (p?.Extras != null && p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
+            {
+                requestBody["service_tier"] = stToken;
+            }
 
             // Add JSON schema if provided (centralized wrapping)
             if (!string.IsNullOrWhiteSpace(jsonSchema))
@@ -1007,6 +1034,203 @@ namespace SmartHopper.Providers.MistralAI
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }
+        }
+
+        #region IAIBatchProvider
+
+        /// <inheritdoc/>
+        public async Task<AIBatchSubmission> SubmitBatchAsync(AIRequestCall request, CancellationToken cancellationToken = default)
+        {
+            request = this.PreCall(request);
+
+            // Generate custom ID early so it's used as custom_id in the batch request
+            var customId = AIBatchSubmission.GenerateCustomId();
+
+            // Encode the full chat completions request body
+            var encodedBody = this.Encode(request);
+            var bodyObj = JObject.Parse(encodedBody);
+
+            // Extract model from body; it goes to the job-level field, not inside each request
+            var model = bodyObj["model"]?.ToString() ?? request.Model;
+            bodyObj.Remove("model");
+
+            // Mistral supports inline batching (up to 10k requests) via POST /v1/batch/jobs
+            // Each inline request: { "custom_id": "sh-...", "body": { ...chat params without model... } }
+            var jobRequest = new JObject
+            {
+                ["requests"] = new JArray
+                {
+                    new JObject
+                    {
+                        ["custom_id"] = customId,
+                        ["body"] = bodyObj,
+                    },
+                },
+                ["model"] = model,
+                ["endpoint"] = "/v1/chat/completions",
+            };
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            var jobUrl = this.BuildFullUrl("/batch/jobs");
+            var response = await client.PostAsync(
+                jobUrl,
+                new StringContent(jobRequest.ToString(), System.Text.Encoding.UTF8, "application/json"),
+                cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"[MistralAI] Batch job creation failed ({(int)response.StatusCode}): {content}");
+            }
+
+            var result = JObject.Parse(content);
+            var jobId = result["id"]?.ToString()
+                ?? throw new InvalidOperationException("[MistralAI] Batch job creation response missing 'id'");
+
+            Debug.WriteLine($"[MistralAI] Batch job submitted: id={jobId}, customId={customId}");
+            return new AIBatchSubmission(jobId, this.Name, encodedBody, customId);
+        }
+
+        /// <inheritdoc/>
+        public async Task<AIBatchStatus> GetBatchStatusAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            var statusUrl = this.BuildFullUrl($"/batch/jobs/{submission.BatchId}");
+            var response = await client.GetAsync(statusUrl, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                    $"HTTP {(int)response.StatusCode}: {content}");
+            }
+
+            var json = JObject.Parse(content);
+            var status = json["status"]?.ToString() ?? string.Empty;
+            Debug.WriteLine($"[MistralAI] Batch status check: id={submission.BatchId}, status={status}");
+
+            switch (status.ToUpperInvariant())
+            {
+                case "QUEUED":
+                case "RUNNING":
+                case "CANCELLATION_REQUESTED":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
+
+                case "SUCCESS":
+                {
+                    var outputFileId = json["output_file"]?.ToString();
+                    if (string.IsNullOrEmpty(outputFileId))
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            "Batch succeeded but output_file is missing");
+                    }
+
+                    // Download and parse output JSONL
+                    var fileUrl = this.BuildFullUrl($"/files/{outputFileId}/content");
+                    var fileResponse = await client.GetAsync(fileUrl, cancellationToken).ConfigureAwait(false);
+                    var fileContent = await fileResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (!fileResponse.IsSuccessStatusCode)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            $"Failed to download output file ({(int)fileResponse.StatusCode}): {fileContent}");
+                    }
+
+                    // Each output line mirrors the chat completions response structure
+                    JObject resultBody = null;
+                    var expectedCustomId = submission.CustomId ?? "0";
+                    foreach (var line in fileContent.Split('\n'))
+                    {
+                        var trimmed = line.Trim();
+                        if (string.IsNullOrEmpty(trimmed)) continue;
+                        try
+                        {
+                            var resultLine = JObject.Parse(trimmed);
+                            if (string.Equals(resultLine["custom_id"]?.ToString(), expectedCustomId, StringComparison.Ordinal))
+                            {
+                                // Mistral output may wrap response inside "response"."body" or directly
+                                resultBody = resultLine["response"]?["body"] as JObject
+                                    ?? resultLine["body"] as JObject
+                                    ?? resultLine;
+                                break;
+                            }
+                        }
+                        catch { /* skip malformed lines */ }
+                    }
+
+                    if (resultBody == null)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            $"Could not find result for custom_id='{expectedCustomId}' in output file");
+                    }
+
+                    return new AIBatchStatus(submission.BatchId, resultBody);
+                }
+
+                case "FAILED":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                        json["error"]?.ToString());
+
+                case "TIMEOUT_EXCEEDED":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Expired);
+
+                case "CANCELLED":
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Cancelled);
+
+                default:
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Submitted);
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task CancelBatchAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            var cancelUrl = this.BuildFullUrl($"/batch/jobs/{submission.BatchId}/cancel");
+            var response = await client.PostAsync(cancelUrl, null, cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var cancelContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                Debug.WriteLine($"[MistralAI] Batch cancel failed ({(int)response.StatusCode}): {cancelContent}");
+            }
+            else
+            {
+                Debug.WriteLine($"[MistralAI] Batch job {submission.BatchId} cancelled successfully");
+            }
+        }
+
+        #endregion
+
+        /// <inheritdoc/>
+        public override IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return new[]
+            {
+                new AIExtraDescriptor("safe_prompt", "Safe Prompt",
+                    "Inject a safety system prompt before all conversations to reduce unsafe responses.",
+                    typeof(bool), null),
+                new AIExtraDescriptor("service_tier", "Service Tier",
+                    "Processing tier: 'standard' (default) or 'batch' (async, ~50% cost).",
+                    typeof(string), null,
+                    new[] { "standard", "batch" }),
+            };
         }
     }
 }

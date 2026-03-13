@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Batch API Support**: Implemented `IAIBatchProvider` in OpenAI, Anthropic, and MistralAI providers
+  - **OpenAI**: Uploads a single-request JSONL file to `/v1/files`, creates a batch via `/v1/batches`, polls status, downloads output from `/v1/files/{output_file_id}/content`, and cancels via `/v1/batches/{id}/cancel`
+  - **Anthropic**: Submits inline via `POST /v1/messages/batches`, polls `processing_status` on `GET /v1/messages/batches/{id}`, downloads JSONL results from `results_url`, and cancels via `POST /v1/messages/batches/{id}/cancel`
+  - **MistralAI**: Uses inline batching via `POST /v1/batch/jobs`, polls job status on `GET /v1/batch/jobs/{id}`, downloads output from `/v1/files/{output_file}/content`, and cancels via `POST /v1/batch/jobs/{id}/cancel`
+  - **Custom ID**: All providers generate SmartHopper custom IDs (`sh-{timestamp}-{random}`) used as `custom_id` in batch requests for traceability in provider dashboards and output files
+  - **Persistence**: `AIStatefulAsyncComponentBase` persists batch state (including `CustomId`) across file save/close/reopen cycles
 - **File-to-Markdown Conversion**: New `file_to_md` AI tool and `FileToMdComponent` for converting local files to Markdown
   - Supports 12 formats: PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF
   - PDF conversion with MinerU-inspired layout intelligence (column detection, reading order, header/footer removal, heading detection, scanned-page warnings)
@@ -32,6 +38,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved header/footer detection with expanded zones (12%/88%) and short-text repetition tracking across pages
   - Added Markdown pipe-table rendering with GFM-compatible syntax, empty-cell quality gates, and code-block fallback for irregular structures
   - Added boilerplate filters and targeted page-number suppression for cleaner output
+- **AI Settings component** (`AISettingsComponent`): New stateless component that assembles `AIRequestParameters` from universal cross-provider inputs (Model, Temperature, Max Tokens, Top P, Seed) and an optional Extras JSON object. Output `Settings (S)` wire connects to any AI component.
+- **AI Extra Settings component** (`AIExtraSettingsComponent`): New stateless component with dynamically generated inputs driven by the selected provider's registered extra descriptors. Inputs rebuild automatically when the provider changes, preserving existing wire connections. Output JSON connects to `AISettingsComponent.Extras`.
+- **`AIRequestParameters` record** (`SmartHopper.Infrastructure`): Immutable per-request AI configuration (Model, Temperature, MaxTokens, TopP, Seed, Extras). Fluent `AIRequestParametersBuilder` included. Supersedes the bare model-name string as the primary settings transport.
+- **`GH_AIRequestParameters` type wrapper** (`SmartHopper.Core.Grasshopper`): Grasshopper `IGH_Goo` wrapper for `AIRequestParameters`. Accepts backwards-compatible cast from plain string (model name). Fully serialized in GH files.
+- **`AIExtraDescriptor`** (`SmartHopper.Infrastructure`): Descriptor class for provider-specific extra parameters (key, display name, description, type, default, allowed values).
+- **`IAIProvider.GetExtraDescriptors()`**: New interface method; base `AIProvider` returns empty list; all five providers (OpenAI, Anthropic, MistralAI, DeepSeek, OpenRouter) implement provider-specific extras.
+- **`ProviderManager.GetExtraDescriptors(string)`**: Convenience method that delegates to the named provider.
+- **`IAIBatchProvider` interface** (`SmartHopper.Infrastructure`): Optional interface for providers that support async batch processing. Declares `SubmitBatchAsync`, `GetBatchStatusAsync`, and `CancelBatchAsync`.
+- **Batch polling loop** in `AIStatefulAsyncComponentBase`: `IsBatchRequest()`, `SubmitBatchAsync()`, timer-driven `PollBatchStatusAsync()`, and `OnBatchCompleted()` virtual hook. Poll interval driven by `SmartHopperSettings.BatchPollIntervalMinutes`.
+- **Batch save/restore**: `AIStatefulAsyncComponentBase.Write`/`Read` persist pending batch ID, provider, and serialized request so polling resumes automatically after file close/reopen.
+- **`SmartHopperSettings.BatchPollIntervalMinutes`** (default 2): Global setting controlling the minimum interval between batch status polls.
+
+### Changed
+
+- **`AIStatefulAsyncComponentBase`**: `Model (M)` generic text input replaced by `Settings (S)` generic parameter. Accepts `AIRequestParameters` (from `AISettingsComponent`) or a plain model name string for backwards compatibility. `GetModel()` now reads from `AIRequestParameters.Model` with the same provider-default fallback as before.
+- **All providers** (`OpenAI`, `Anthropic`, `MistralAI`, `DeepSeek`, `OpenRouter`): `Encode()` now performs per-property resolution — each parameter (Temperature, MaxTokens, TopP, Seed, and provider-specific extras) reads from `request.Parameters` first, falling back to global provider settings. Previously all providers read exclusively from global settings.
+- **`AIRequestBase`**: Added `AIRequestParameters Parameters { get; set; }` property.
 
 ## [1.4.1-alpha] - 2026-03-09
 
