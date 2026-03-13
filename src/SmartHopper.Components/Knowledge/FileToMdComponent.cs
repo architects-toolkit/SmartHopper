@@ -200,17 +200,28 @@ namespace SmartHopper.Components.Knowledge
                         this.processingOptions,
                         token).ConfigureAwait(false);
 
-                    this.resultMarkdown = new GH_Structure<GH_String>();
-                    this.resultFormat = new GH_Structure<GH_String>();
+                    // Only initialize result structures if they weren't already populated
+                    this.resultMarkdown ??= new GH_Structure<GH_String>();
+                    this.resultFormat ??= new GH_Structure<GH_String>();
 
                     if (resultTrees.TryGetValue("Markdown", out var markdownTree))
                     {
                         this.resultMarkdown = markdownTree;
+                        Debug.WriteLine($"[FileToMd] Retrieved Markdown tree with {markdownTree.DataCount} items");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[FileToMd] WARNING: 'Markdown' not found in resultTrees. Keys: " + string.Join(", ", resultTrees.Keys));
                     }
 
                     if (resultTrees.TryGetValue("Format", out var formatTree))
                     {
                         this.resultFormat = formatTree;
+                        Debug.WriteLine($"[FileToMd] Retrieved Format tree with {formatTree.DataCount} items");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[FileToMd] WARNING: 'Format' not found in resultTrees");
                     }
                 }
                 catch (Exception ex)
@@ -222,6 +233,7 @@ namespace SmartHopper.Components.Knowledge
 
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
+                Debug.WriteLine($"[FileToMd] SetOutput called - Markdown has {this.resultMarkdown?.DataCount ?? 0} items, Format has {this.resultFormat?.DataCount ?? 0} items");
                 this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
                 errorMessage = null;
