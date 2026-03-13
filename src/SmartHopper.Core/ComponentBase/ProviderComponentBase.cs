@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -17,24 +17,18 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.Windows.Forms;
+using Grasshopper.Kernel;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
-    /// Base class for async components that need AI provider selection functionality.
-    /// Provides the provider selection context menu and related functionality on top of
-    /// the stateful async component functionality.
+    /// Base class for non-async Grasshopper components that need AI provider selection functionality.
+    /// Provides provider selection context menu and related functionality.
     /// </summary>
-    public abstract class AIProviderComponentBase : StatefulComponentBase, IProviderComponent
+    public abstract class ProviderComponentBase : GH_Component, IProviderComponent
     {
-        /// <summary>
-        /// Special value used to indicate that the default provider from settings should be used.
-        /// </summary>
-        public const string DEFAULT_PROVIDER = ProviderComponentHelper.DEFAULT_PROVIDER;
-
         /// <summary>
         /// The currently selected AI provider.
         /// </summary>
@@ -46,16 +40,49 @@ namespace SmartHopper.Core.ComponentBase
         private string previousSelectedProvider = ProviderComponentHelper.DEFAULT_PROVIDER;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AIProviderComponentBase"/> class.
+        /// Initializes a new instance of the <see cref="ProviderComponentBase"/> class.
         /// </summary>
         /// <param name="name">The name of the component.</param>
         /// <param name="nickname">The nickname of the component.</param>
         /// <param name="description">The description of the component.</param>
         /// <param name="category">The category of the component.</param>
         /// <param name="subcategory">The subcategory of the component.</param>
-        protected AIProviderComponentBase(string name, string nickname, string description, string category, string subcategory)
+        protected ProviderComponentBase(string name, string nickname, string description, string category, string subcategory)
             : base(name, nickname, description, category, subcategory)
         {
+        }
+
+        /// <inheritdoc/>
+        public string SelectedProviderName => this.aiProvider;
+
+        /// <inheritdoc/>
+        public void SetSelectedProviderName(string providerName)
+        {
+            this.aiProvider = providerName;
+        }
+
+        /// <inheritdoc/>
+        public string GetActualAIProviderName()
+        {
+            return ProviderComponentHelper.GetActualProviderName(this.aiProvider);
+        }
+
+        /// <inheritdoc/>
+        public AIProvider GetActualAIProvider()
+        {
+            return ProviderComponentHelper.GetActualProvider(this.aiProvider);
+        }
+
+        /// <inheritdoc/>
+        public bool HasProviderChanged()
+        {
+            if (this.aiProvider != this.previousSelectedProvider)
+            {
+                this.previousSelectedProvider = this.aiProvider;
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -72,20 +99,17 @@ namespace SmartHopper.Core.ComponentBase
                 providerName =>
                 {
                     this.aiProvider = providerName;
+                    this.OnProviderChanged();
                     this.ExpireSolution(true);
                 });
         }
 
-        /// <inheritdoc/>
-        public string GetActualAIProviderName()
+        /// <summary>
+        /// Called when the provider selection changes. Override to implement custom behavior.
+        /// </summary>
+        protected virtual void OnProviderChanged()
         {
-            return ProviderComponentHelper.GetActualProviderName(this.aiProvider);
-        }
-
-        /// <inheritdoc/>
-        public AIProvider GetActualAIProvider()
-        {
-            return ProviderComponentHelper.GetActualProvider(this.aiProvider);
+            // Override in derived classes if needed
         }
 
         /// <summary>
@@ -131,39 +155,6 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             return false;
-        }
-
-        /// <inheritdoc/>
-        public string SelectedProviderName => this.aiProvider;
-
-        /// <inheritdoc/>
-        public void SetSelectedProviderName(string providerName)
-        {
-            this.aiProvider = providerName;
-        }
-
-        /// <inheritdoc/>
-        public bool HasProviderChanged()
-        {
-            if (this.aiProvider != this.previousSelectedProvider)
-            {
-                this.previousSelectedProvider = this.aiProvider;
-                return true;
-            }
-
-            return false;
-        }
-
-        protected override List<string> InputsChanged()
-        {
-            List<string> changedInputs = base.InputsChanged();
-
-            if (this.HasProviderChanged())
-            {
-                changedInputs.Add("AIProvider");
-            }
-
-            return changedInputs;
         }
     }
 }

@@ -17,13 +17,13 @@
  */
 
 using System;
-using System.Drawing;
+using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.AI
@@ -33,21 +33,13 @@ namespace SmartHopper.Components.AI
     /// based on the selected AI provider's registered <see cref="AIExtraDescriptor"/> set.
     /// Output is a JSON object string to connect to the Extras input of <see cref="AISettingsComponent"/>.
     /// </summary>
-    public class AIExtraSettingsComponent : GH_Component, IGH_VariableParameterComponent
+    public class AIExtraSettingsComponent : ProviderComponentBase, IGH_VariableParameterComponent
     {
-        private const string DefaultProvider = "Default";
-
-        /// <summary>Selected provider name; persisted in GH file.</summary>
-        private string _selectedProvider = DefaultProvider;
-
         /// <summary>Provider name for which the current params were built.</summary>
         private string _builtForProvider;
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("8872AB8F-A76E-4FBB-96B8-1C3838D2C51B");
-
-        /// <inheritdoc/>
-        protected override Bitmap Icon => null;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.secondary;
@@ -77,7 +69,7 @@ namespace SmartHopper.Components.AI
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            var effectiveProvider = this.GetEffectiveProviderName();
+            var effectiveProvider = this.GetActualAIProviderName();
 
             // Rebuild inputs if provider changed
             if (effectiveProvider != _builtForProvider)
@@ -154,68 +146,15 @@ namespace SmartHopper.Components.AI
 
         // ─── Provider selection ────────────────────────────────────────────────────
 
-        /// <inheritdoc/>
-        protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
+        /// <summary>
+        /// Called when the provider selection changes.
+        /// </summary>
+        protected override void OnProviderChanged()
         {
-            base.AppendAdditionalComponentMenuItems(menu);
-
-            var providersMenu = new ToolStripMenuItem("Select AI Provider");
-            menu.Items.Add(providersMenu);
-
-            var defaultItem = new ToolStripMenuItem(DefaultProvider)
-            {
-                Checked = _selectedProvider == DefaultProvider,
-                CheckOnClick = true,
-                Tag = DefaultProvider,
-            };
-            defaultItem.Click += OnProviderMenuItemClick;
-            providersMenu.DropDownItems.Add(defaultItem);
-
-            foreach (var provider in ProviderManager.Instance.GetProviders())
-            {
-                var item = new ToolStripMenuItem(provider.Name)
-                {
-                    Checked = provider.Name == _selectedProvider,
-                    CheckOnClick = true,
-                    Tag = provider.Name,
-                };
-                item.Click += OnProviderMenuItemClick;
-                providersMenu.DropDownItems.Add(item);
-            }
+            RebuildInputParams(GetActualAIProviderName());
         }
 
-        private void OnProviderMenuItemClick(object sender, EventArgs e)
-        {
-            if (sender is ToolStripMenuItem clicked)
-            {
-                _selectedProvider = clicked.Tag?.ToString() ?? DefaultProvider;
-
-                // Uncheck siblings
-                var parent = clicked.OwnerItem as ToolStripMenuItem;
-                if (parent != null)
-                {
-                    foreach (ToolStripMenuItem item in parent.DropDownItems)
-                    {
-                        if (item != clicked) item.Checked = false;
-                    }
-                }
-
-                RebuildInputParams(GetEffectiveProviderName());
-                ExpireSolution(true);
-            }
-        }
-
-        private string GetEffectiveProviderName()
-        {
-            if (_selectedProvider == DefaultProvider)
-            {
-                return ProviderManager.Instance.GetDefaultAIProvider() ?? DefaultProvider;
-            }
-
-            return _selectedProvider;
-        }
-
-        private void RebuildInputParams(string providerName)
+        internal void RebuildInputParams(string providerName)
         {
             var descriptors = ProviderManager.Instance.GetExtraDescriptors(providerName).ToList();
 
@@ -302,28 +241,6 @@ namespace SmartHopper.Components.AI
             }
 
             return param;
-        }
-
-        // ─── Serialization ─────────────────────────────────────────────────────────
-
-        /// <inheritdoc/>
-        public override bool Write(GH_IO.Serialization.GH_IWriter writer)
-        {
-            if (!base.Write(writer)) return false;
-            writer.SetString("SelectedProvider", _selectedProvider);
-            return true;
-        }
-
-        /// <inheritdoc/>
-        public override bool Read(GH_IO.Serialization.GH_IReader reader)
-        {
-            if (!base.Read(reader)) return false;
-            if (reader.ItemExists("SelectedProvider"))
-            {
-                _selectedProvider = reader.GetString("SelectedProvider");
-            }
-
-            return true;
         }
     }
 }
