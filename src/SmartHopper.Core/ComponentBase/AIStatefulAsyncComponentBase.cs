@@ -757,6 +757,13 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>True if submission succeeded; false if the provider doesn't support batch or the queue is empty.</returns>
         protected async Task<bool> SubmitBatchQueueAsync(CancellationToken cancellationToken = default)
         {
+            // Prevent duplicate batch submissions
+            if (this._batchSubmission != null)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] Batch submission already active ({this._batchSubmission.BatchId}), skipping duplicate submission");
+                return false;
+            }
+            
             var queue = this._batchQueue;
             if (queue == null || queue.Count == 0) return false;
             this._batchQueue = null;
