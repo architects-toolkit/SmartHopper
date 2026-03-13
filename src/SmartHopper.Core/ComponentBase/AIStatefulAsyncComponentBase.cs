@@ -869,6 +869,8 @@ namespace SmartHopper.Core.ComponentBase
                             }
                         }
 
+                        // Transition to Completed state now that batch is done
+                        this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
                         Rhino.RhinoApp.InvokeOnUiThread(() => this.ExpireSolution(true));
                         break;
 
@@ -879,6 +881,8 @@ namespace SmartHopper.Core.ComponentBase
                         _batchSubmission = null;
                         this.SetPersistentRuntimeMessage("batch_done", GH_RuntimeMessageLevel.Warning,
                             $"Batch {status.State.ToString().ToLowerInvariant()}: {status.ErrorMessage ?? "no details"}", false);
+                        // Transition to Error state for terminal failures
+                        this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
                         Rhino.RhinoApp.InvokeOnUiThread(() => this.ExpireSolution(true));
                         break;
 
@@ -1062,7 +1066,26 @@ namespace SmartHopper.Core.ComponentBase
             return true;
         }
 
-        #endregion
+        /// <inheritdoc/>
+        protected override void OnWorkerCompleted()
+        {
+            // If a batch is active, don't transition to Completed yet.
+            // The batch polling will handle the transition when results are ready.
+            if (this._batchSubmission != null)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] OnWorkerCompleted: Batch submission active ({this._batchSubmission.BatchId}), staying in Processing state");
+                // Stay in Processing state - batch polling will transition to Completed
+                // Still commit hashes so we don't re-trigger processing
+                this.StateManager.CommitHashes();
+                this.StateManager.CancelDebounce();
+                // Don't call base.OnWorkerCompleted() which would transition to Completed
+                // Don't expire solution - the batch poll will do it when complete
+                return;
+            }
+
+            // No active batch - proceed with normal completion
+            base.OnWorkerCompleted();
+        }
 
         /// <summary>
         /// Surfaces structured runtime messages contained in an <see cref="IAIReturn"/> as persistent
@@ -1105,5 +1128,6 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        #endregion
     }
 }
