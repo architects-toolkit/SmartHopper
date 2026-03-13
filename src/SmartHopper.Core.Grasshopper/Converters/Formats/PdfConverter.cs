@@ -28,6 +28,8 @@
  *   Stream-mode table detection via whitespace column-alignment clustering
  * - Tabula (MIT, https://github.com/tabulapdf/tabula):
  *   Column centroid clustering for table cell extraction
+ * - PyMuPDF / MuPDF (AGPL-3.0, https://pymupdf.readthedocs.io/):
+ *   Lattice-mode table detection via PDF vector graphics (page.Paths) as primary signal
  * All algorithms are independently reimplemented in C#; no source code was copied.
  */
 
@@ -35,6 +37,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
@@ -42,6 +45,7 @@ using UglyToad.PdfPig.DocumentLayoutAnalysis;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.PageSegmenter;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.ReadingOrderDetector;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
+using UglyToad.PdfPig.Graphics;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
@@ -80,6 +84,39 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
         /// <summary>Maximum fraction of cells allowed to be empty before the block is rejected as a table.</summary>
         private const double MaxEmptyCellFraction = 0.5;
+
+        /// <summary>
+        /// When a TABLE caption immediately precedes a block, use this lower gap multiplier
+        /// for forced table detection (table presence is already confirmed by the caption).
+        /// </summary>
+        private const double ColumnGapMultiplierForced = 1.5;
+
+        /// <summary>
+        /// Maximum word count for a block to be tracked as a candidate running header/footer
+        /// anywhere on the page (not only in the top/bottom margin zones).
+        /// </summary>
+        private const int MaxShortRepeatBlockWords = 5;
+
+        /// <summary>Matches section-number artifacts some PDF exporters emit on their own line (e.g. "# 7").</summary>
+        private static readonly Regex SectionArtifactPattern =
+            new Regex(@"^#\s*\d+$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Matches TABLE captions: "TABLE 1", "Table A", "TABLE XI", etc.
+        /// Supports digits, single letters (A-Z or a-z), and roman numerals (I-XII).
+        /// </summary>
+        private static readonly Regex TableCaptionPattern =
+            new Regex(@"^(?:TABLE|Table)\s+(?:\d+|[A-Z]|[a-z]|[IVXivx]+)", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Matches FIGURE captions: "FIGURE 1", "Figure A", "Fig. XI", etc.
+        /// Supports digits, single letters (A-Z or a-z), and roman numerals (I-XII).
+        /// </summary>
+        private static readonly Regex FigureCaptionPattern =
+            new Regex(@"^(?:FIGURE|Figure|Fig\.)\s+(?:\d+|[A-Z]|[a-z]|[IVXivx]+)", RegexOptions.Compiled);
+
+        /// <summary>Matches blocks whose entire text is a 1–4 digit number (used to detect large-font page-number glyphs).</summary>
+        private static readonly Regex NumericOnlyPattern = new Regex(@"^\d{1,4}$", RegexOptions.Compiled);
 
         /// <inheritdoc/>
         public IEnumerable<string> SupportedExtensions => new[] { ".pdf" };
@@ -122,33 +159,93 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         double medianFontSize = GetMedianFontSize(content);
                         double headingThreshold = medianFontSize * 1.3;
 
+                        bool nextBlockForceTable = false;
+
                         foreach (var block in content)
                         {
-                            if (options.PreserveTableStructure && IsTableBlock(block))
+                            // Use unstyled text for pattern matching and caption detection
+                            string text = GetBlockText(block);
+
+                            if (string.IsNullOrWhiteSpace(text))
                             {
-                                string table = RenderMarkdownTable(block);
-                                if (!string.IsNullOrWhiteSpace(table))
-                                {
-                                    markdown.AppendLine(table);
-                                    continue;
-                                }
+                                nextBlockForceTable = false;
+                                continue;
                             }
 
-                            string text = GetBlockText(block);
-                            if (string.IsNullOrWhiteSpace(text))
+                            // ---- Boilerplate filters ----
+                            // PDF section-number artifacts (e.g. "# 7")
+                            if (SectionArtifactPattern.IsMatch(text)) continue;
+                            // Continuation markers
+                            if (text.IndexOf("continued on next page", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                            // Large-font standalone page numbers (e.g. "8", "9") at page margins:
+                            // suppressed only when the block's font would trigger heading detection
+                            // AND the block sits in the top or bottom 12 % of the page.
+                            if (NumericOnlyPattern.IsMatch(text)
+                                && GetBlockFontSize(block) > headingThreshold
+                                && (block.BoundingBox.Bottom > page.Height * 0.88
+                                    || block.BoundingBox.Top < page.Height * 0.12))
                             {
                                 continue;
                             }
 
-                            double fontSize = GetBlockFontSize(block);
-                            if (options.DetectHeadings && fontSize > headingThreshold)
+                            bool isTableCaption = TableCaptionPattern.IsMatch(text);
+                            int wordCount = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                            bool isFigureCaption = !isTableCaption
+                                && FigureCaptionPattern.IsMatch(text)
+                                && wordCount <= 25;
+
+                            // Read and immediately reset the force flag so it applies only once
+                            bool forceTable = nextBlockForceTable;
+                            nextBlockForceTable = isTableCaption;
+
+                            // ---- Table rendering ----
+                            if (options.PreserveTableStructure && !isTableCaption && !isFigureCaption)
                             {
+                                bool isLattice = HasLatticeLines(page, block);
+                                bool forcedRender = forceTable || isLattice;
+
+                                if (forcedRender || IsTableBlock(block))
+                                {
+                                    string table = RenderMarkdownTable(block, forcedRender);
+                                    if (!string.IsNullOrWhiteSpace(table))
+                                    {
+                                        markdown.AppendLine(table);
+                                        continue;
+                                    }
+
+                                    // Code-block fallback: when a TABLE caption explicitly forced
+                                    // table rendering but the structure is too irregular for pipe
+                                    // syntax, preserve content as preformatted text to avoid data loss.
+                                    if (forceTable)
+                                    {
+                                        markdown.AppendLine("```text");
+                                        markdown.AppendLine(GetBlockText(block));
+                                        markdown.AppendLine("```");
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            // ---- Caption and body text rendering ----
+                            double fontSize = GetBlockFontSize(block);
+
+                            if (isTableCaption || isFigureCaption)
+                            {
+                                // Captions already bold via markdown wrapper; use styled text for inner content
+                                string styledCaption = GetBlockTextWithStyling(block);
+                                markdown.Append("**").Append(styledCaption.Replace("|", "\\|")).AppendLine("**");
+                            }
+                            else if (options.DetectHeadings && fontSize > headingThreshold)
+                            {
+                                // Headings use plain text (markdown heading syntax doesn't support inline styling)
                                 int level = GetHeadingLevel(fontSize, medianFontSize);
                                 markdown.Append(new string('#', level)).Append(' ').AppendLine(text);
                             }
                             else
                             {
-                                markdown.AppendLine(text);
+                                // Body paragraphs: apply inline bold/italic styling
+                                string styledText = GetBlockTextWithStyling(block);
+                                markdown.AppendLine(styledText);
                             }
 
                             markdown.AppendLine();
@@ -221,10 +318,18 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             var headerCounts = new Dictionary<string, int>();
             var footerCounts = new Dictionary<string, int>();
 
+            // Running headers in multi-column academic PDFs often appear at the top of
+            // each column rather than at the absolute page top, so they fall outside the
+            // position-based zone.  Track all short blocks (<= MaxShortRepeatBlockWords)
+            // regardless of position and filter by repeat count separately.
+            var shortTextCounts = new Dictionary<string, int>();
+
             foreach (var (page, blocks) in allPageData)
             {
-                double headerLine = page.Height * 0.92;
-                double footerLine = page.Height * 0.08;
+                // Widened from 8 %/92 % to 12 %/88 % to catch journal running headers
+                // that sit just inside the content area.
+                double headerLine = page.Height * 0.88;
+                double footerLine = page.Height * 0.12;
 
                 foreach (var block in blocks)
                 {
@@ -242,6 +347,14 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         footerCounts.TryGetValue(text, out int c);
                         footerCounts[text] = c + 1;
                     }
+
+                    // Track short blocks from anywhere on the page
+                    int words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                    if (words <= MaxShortRepeatBlockWords)
+                    {
+                        shortTextCounts.TryGetValue(text, out int sc);
+                        shortTextCounts[text] = sc + 1;
+                    }
                 }
             }
 
@@ -256,6 +369,11 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 result.Add(kvp.Key);
             }
 
+            foreach (var kvp in shortTextCounts.Where(k => k.Value >= MinHeaderFooterRepeat))
+            {
+                result.Add(kvp.Key);
+            }
+
             return result;
         }
 
@@ -263,6 +381,82 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         {
             return string.Join(" ", block.TextLines
                 .Select(l => string.Join(" ", l.Words.Select(w => w.Text)))).Trim();
+        }
+
+        /// <summary>
+        /// Extracts block text with inline Markdown styling (bold, italic) based on font names.
+        /// PDFs encode styling via font family names (e.g., "Arial-Bold", "Times-Italic").
+        /// Consecutive words sharing the same bold/italic state are merged into a single style run
+        /// so output reads "**word1 word2 word3**" rather than "**word1** **word2** **word3**".
+        /// Underline is not supported because PDFs render underlines as separate vector graphics.
+        /// </summary>
+        private static string GetBlockTextWithStyling(TextBlock block)
+        {
+            return string.Join(" ", block.TextLines.Select(GetStyledLineText)).Trim();
+        }
+
+        /// <summary>
+        /// Returns a single line of Markdown with style runs: consecutive words with identical
+        /// bold/italic state are wrapped in one marker instead of one per word.
+        /// </summary>
+        private static string GetStyledLineText(TextLine line)
+        {
+            var words = line.Words.ToList();
+            if (words.Count == 0) return string.Empty;
+
+            var sb = new StringBuilder();
+            int i = 0;
+            while (i < words.Count)
+            {
+                var (isBold, isItalic) = GetWordStyle(words[i]);
+
+                // Extend run while the style is unchanged
+                int j = i + 1;
+                while (j < words.Count)
+                {
+                    var (nb, ni) = GetWordStyle(words[j]);
+                    if (nb != isBold || ni != isItalic) break;
+                    j++;
+                }
+
+                string runText = string.Join(" ", words.GetRange(i, j - i).Select(w => EscapeMarkdownChars(w.Text)));
+                if (sb.Length > 0) sb.Append(' ');
+                if (isBold && isItalic) sb.Append("***").Append(runText).Append("***");
+                else if (isBold) sb.Append("**").Append(runText).Append("**");
+                else if (isItalic) sb.Append('*').Append(runText).Append('*');
+                else sb.Append(runText);
+                i = j;
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Returns the bold/italic state of a word by inspecting its first letter's font name.
+        /// PDF words are typically typeset in a single font, so sampling the first letter is reliable.
+        /// </summary>
+        private static (bool IsBold, bool IsItalic) GetWordStyle(Word word)
+        {
+            if (!word.Letters.Any()) return (false, false);
+
+            string fontName = word.Letters.First().FontName ?? string.Empty;
+
+            bool isBold = fontName.IndexOf("Bold", StringComparison.OrdinalIgnoreCase) >= 0
+                       || fontName.IndexOf("-B", StringComparison.Ordinal) >= 0
+                       || fontName.IndexOf(",Bold", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            bool isItalic = fontName.IndexOf("Italic", StringComparison.OrdinalIgnoreCase) >= 0
+                         || fontName.IndexOf("Oblique", StringComparison.OrdinalIgnoreCase) >= 0
+                         || fontName.IndexOf("-I", StringComparison.Ordinal) >= 0
+                         || fontName.IndexOf(",Italic", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            return (isBold, isItalic);
+        }
+
+        /// <summary>Escapes Markdown reserved characters inside plain word text before wrapping in style markers.</summary>
+        private static string EscapeMarkdownChars(string text)
+        {
+            return text.Replace("*", "\\*").Replace("_", "\\_");
         }
 
         private static double GetBlockFontSize(TextBlock block)
@@ -319,6 +513,54 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         }
 
         /// <summary>
+        /// Detects whether a text block is surrounded by drawn line segments (lattice-mode table).
+        /// Checks the PDF page's stroked paths: a block qualifies when at least three horizontal
+        /// and one vertical stroked path segment overlap its bounding region.
+        /// Inspired by PyMuPDF's lattice strategy — more reliable than whitespace-gap detection
+        /// for tables with explicit cell borders. Fails gracefully if path data is unavailable.
+        /// </summary>
+        private static bool HasLatticeLines(Page page, TextBlock block)
+        {
+            if (page == null || block == null) return false;
+            try
+            {
+                var bbox = block.BoundingBox;
+                const double tolerance = 5.0;
+                const double maxLineThickness = 3.0;
+                const double minLineLength = 15.0;
+
+                int hLineCount = 0;
+                int vLineCount = 0;
+
+                foreach (var path in page.Paths)
+                {
+                    if (!path.IsStroked) continue;
+
+                    var rect = path.GetBoundingRectangle();
+                    if (rect == null) continue;
+
+                    var r = rect.Value;
+
+                    // Must overlap the block's bounding box (with tolerance)
+                    if (r.Right < bbox.Left - tolerance || r.Left > bbox.Right + tolerance) continue;
+                    if (r.Top < bbox.Bottom - tolerance || r.Bottom > bbox.Top + tolerance) continue;
+
+                    double w = r.Width;
+                    double h = r.Height;
+
+                    if (h <= maxLineThickness && w >= minLineLength) hLineCount++;
+                    else if (w <= maxLineThickness && h >= minLineLength) vLineCount++;
+                }
+
+                return hLineCount >= 3 && vLineCount >= 1;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Finds X-positions where a consistently large inter-word gap exists across
         /// at least half of the block's lines.  These positions are the column
         /// separators of a table.
@@ -331,7 +573,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         /// only clusters present in ≥ half the lines are kept.
         /// </para>
         /// </summary>
-        private static List<double> FindConsistentColumnSeparators(List<TextLine> lines)
+        private static List<double> FindConsistentColumnSeparators(List<TextLine> lines, double gapMultiplier = ColumnGapMultiplier)
         {
             var allGapSizes = new List<double>();
             var lineGapData = new List<List<(double Mid, double Size)>>();
@@ -359,7 +601,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
             allGapSizes.Sort();
             double medianGap = allGapSizes[allGapSizes.Count / 2];
-            double largeGapThreshold = Math.Max(medianGap * ColumnGapMultiplier, MinAbsoluteColumnGap);
+            double largeGapThreshold = Math.Max(medianGap * gapMultiplier, MinAbsoluteColumnGap);
 
             // Collect midpoints of all large gaps across all lines
             var largeMids = lineGapData
@@ -409,10 +651,11 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         /// a GitHub-Flavoured Markdown pipe table.  The first row becomes the header.
         /// Returns an empty string if the quality checks fail (too many empty cells).
         /// </summary>
-        private static string RenderMarkdownTable(TextBlock block)
+        private static string RenderMarkdownTable(TextBlock block, bool forcedByCaption = false)
         {
             var lines = block.TextLines.ToList();
-            var separators = FindConsistentColumnSeparators(lines);
+            double gapMult = forcedByCaption ? ColumnGapMultiplierForced : ColumnGapMultiplier;
+            var separators = FindConsistentColumnSeparators(lines, gapMult);
             if (separators.Count < 1) return string.Empty;
 
             int columnCount = separators.Count + 1;
@@ -426,7 +669,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 foreach (var word in line.Words)
                 {
                     int col = GetCellIndex(word.BoundingBox.Left, separators);
-                    string w = word.Text.Replace("|", "\\|");
+                    string w = word.Text.Replace("|", "\\|").Replace("*", "\\*").Replace("_", "\\_");
                     cells[col] = cells[col].Length == 0 ? w : cells[col] + " " + w;
                 }
 

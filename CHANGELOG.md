@@ -15,26 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Office document conversion preserving headings, tables, lists, and formatting
   - Native .NET implementation using PdfPig, DocumentFormat.OpenXml, MimeKit (no Python dependencies)
   - Extensible `IFileConverter` plugin architecture with `FileConverterRegistry` dispatcher
-- **Improved HTML Extraction**: Enhanced `web_generic_page_read` generic HTML fallback with magic-html-inspired readability scoring
-  - Content scoring by text density and link density
-  - Boilerplate removal (nav, header, footer, ads, etc.)
-  - Semantic container prioritization (article, main)
-- **Web-to-Markdown Conversion**: Added new `web_to_md` tool and `WebToMdComponent` using unified converter architecture
+- **Web-to-Markdown Conversion**: New `web_to_md` tool and `WebToMdComponent` for converting web pages to Markdown
   - New `UrlConverter` leverages same `IFileConverter` framework as `file_to_md`
   - Specialized handlers for Wikipedia, GitHub, GitLab, Discourse, Stack Exchange
   - Falls back to `HtmlConverter` for generic pages with readability scoring
   - New `WebToMdComponent` exposes URL-to-Markdown conversion directly on the Grasshopper canvas
-
-### Changed
-
-- **PDF Converter**: Improved layout analysis and table detection in `PdfConverter`
-  - Replaced custom word extractor with `NearestNeighbourWordExtractor` for better word grouping (kerning, ligatures)
-  - Replaced gap-based column detection with `RecursiveXYCut` page segmenter (`MinimumWidth = page.Width / 3`) for accurate multi-column layout handling
-  - Replaced manual reading-order sort with `DefaultReadingOrderDetector` for correct column-to-column reading order
-  - Added gap-based column-separator detection for table recognition: measures inter-word gaps per line, computes block-wide median spacing, and identifies column boundaries only where gaps ≥ 2.5× median appear consistently across ≥ half the lines — eliminates false positives on abstracts and body text
-  - Added Markdown pipe-table rendering with GFM-compatible separator row and pipe-escaping in cell content
-  - Added empty-cell quality gate: blocks where >50% of cells are empty are not rendered as tables
-  - Header/footer detection now uses `page.Height` from PdfPig page object (previously used inferred max-Y from blocks)
+- **Improved HTML Extraction**: Enhanced `web_generic_page_read` generic HTML fallback with magic-html-inspired readability scoring
+  - Content scoring by text density and link density
+  - Boilerplate removal (nav, header, footer, ads, etc.)
+  - Semantic container prioritization (article, main)
+- **PDF Converter Enhancements**: Improved layout analysis and table detection in `PdfConverter`
+  - Replaced custom word extractor with `NearestNeighbourWordExtractor` and custom column detection with `RecursiveXYCut` page segmenter for accurate multi-column layout handling
+  - Added intelligent table detection via whitespace-gap analysis (2.5× median spacing threshold) and lattice-mode detection via PDF vector graphics paths
+  - Added caption detection for tables (`TABLE N`) and figures (`FIGURE N`, `Fig. N`) with automatic formatting and context-aware processing
+  - Added inline text styling preservation (**bold**, *italic*) with span-level merging for cleaner output
+  - Improved header/footer detection with expanded zones (12%/88%) and short-text repetition tracking across pages
+  - Added Markdown pipe-table rendering with GFM-compatible syntax, empty-cell quality gates, and code-block fallback for irregular structures
+  - Added boilerplate filters and targeted page-number suppression for cleaner output
 
 ## [1.4.1-alpha] - 2026-03-09
 
