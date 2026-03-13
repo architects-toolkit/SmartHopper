@@ -32,6 +32,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Text
@@ -74,28 +75,21 @@ namespace SmartHopper.Components.Text
         {
             if (results == null || this._sentinelResultTree == null) return;
 
-            var providerName = this.GetActualAIProviderName();
-            var provider = ProviderManager.Instance.GetProvider(providerName);
-            if (provider == null) return;
-
-            this._reconstructedResultTree = ReconstructOutputTree<GH_String>(
+            this._reconstructedResultTree = this.ProcessBatchResults<GH_String>(
+                "Result",
                 this._sentinelResultTree,
                 results,
                 (customId, resultBody) =>
                 {
-                    try
-                    {
-                        var interactions = provider.Decode(resultBody);
-                        var lastText = interactions
-                            ?.OfType<AIInteractionText>()
-                            .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-                        return new GH_String(lastText?.Content ?? string.Empty);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[AITextGenerate] Decode error for {customId}: {ex.Message}");
-                        return new GH_String(string.Empty);
-                    }
+                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    if (provider == null) return new GH_String(string.Empty);
+
+                    var interactions = provider.Decode(resultBody);
+                    var lastText = interactions
+                        ?.OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                    return new GH_String(lastText?.Content ?? string.Empty);
                 });
         }
 

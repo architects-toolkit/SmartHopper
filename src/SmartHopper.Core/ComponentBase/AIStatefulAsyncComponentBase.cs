@@ -735,6 +735,36 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
+        #region PROGRESS
+
+        /// <summary>
+        /// Gets the current state message with progress information.
+        /// When batch processing is active, preserves the batch message instead of showing individual item progress.
+        /// </summary>
+        /// <returns>A formatted state message string.</returns>
+        public override string GetStateMessage()
+        {
+            // If batch is active, preserve the batch message and don't let progress updates overwrite it
+            if (this._batchSubmission != null)
+            {
+                // Return current message if it's already a batch-related message
+                if (!string.IsNullOrEmpty(this.Message) && 
+                    (this.Message.StartsWith("Batch ", StringComparison.OrdinalIgnoreCase) ||
+                     this.Message.StartsWith("Batch polling", StringComparison.OrdinalIgnoreCase) ||
+                     this.Message.StartsWith("Batch submitted", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return this.Message;
+                }
+
+                // Default batch message if current message is not batch-related
+                return $"Processing batch ({this._batchSubmission.CustomIds?.Count ?? 0} items)...";
+            }
+
+            return base.GetStateMessage();
+        }
+
+        #endregion
+
         #region BATCH
 
         /// <summary>
@@ -920,6 +950,77 @@ namespace SmartHopper.Core.ComponentBase
         /// </param>
         protected virtual void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
         {
+        }
+
+        /// <summary>
+        /// Helper method to process batch results: reconstructs output tree by replacing sentinels,
+        /// persists the reconstructed tree, and aggregates metrics from all batch items.
+        /// Call this from <see cref="OnBatchCompleted"/> to handle common batch completion logic.
+        /// </summary>
+        /// <typeparam name="T">The output Grasshopper goo type.</typeparam>
+        /// <param name="outputParamName">Name of the output parameter to persist (e.g., "Result").</param>
+        /// <param name="sentinelTree">Tree containing sentinel strings from batch submission.</param>
+        /// <param name="results">Dictionary from customId to provider response body.</param>
+        /// <param name="decode">Function that converts (customId, resultBody) into a goo item.</param>
+        /// <returns>The reconstructed output tree with sentinels replaced by decoded values.</returns>
+        protected GH_Structure<T> ProcessBatchResults<T>(
+            string outputParamName,
+            GH_Structure<GH_String> sentinelTree,
+            IReadOnlyDictionary<string, JObject> results,
+            Func<string, JObject, T> decode)
+            where T : IGH_Goo
+        {
+            if (results == null || sentinelTree == null)
+            {
+                return new GH_Structure<T>();
+            }
+
+            var providerName = this.GetActualAIProviderName();
+            var provider = ProviderManager.Instance.GetProvider(providerName);
+            if (provider == null)
+            {
+                return new GH_Structure<T>();
+            }
+
+            var allInteractions = new List<IAIInteraction>();
+
+            var reconstructedTree = ReconstructOutputTree<T>(
+                sentinelTree,
+                results,
+                (customId, resultBody) =>
+                {
+                    try
+                    {
+                        var interactions = provider.Decode(resultBody);
+                        if (interactions != null)
+                        {
+                            allInteractions.AddRange(interactions);
+                        }
+
+                        return decode(customId, resultBody);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[AIStatefulAsync] Batch decode error for {customId}: {ex.Message}");
+                        return decode(customId, resultBody);
+                    }
+                });
+
+            // Persist the reconstructed tree so RestorePersistentOutputs picks it up on the next solve
+            if (reconstructedTree != null)
+            {
+                this.SetPersistentOutput(outputParamName, reconstructedTree, null);
+            }
+
+            // Build aggregated AIReturn so metrics are available after batch completion
+            if (allInteractions.Count > 0)
+            {
+                var batchReturn = new AIReturn();
+                batchReturn.CreateSuccess(allInteractions);
+                this.SetAIReturnSnapshot(batchReturn);
+            }
+
+            return reconstructedTree;
         }
 
         /// <summary>
