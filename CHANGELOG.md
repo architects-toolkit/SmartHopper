@@ -31,8 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Replaced custom word extractor with `NearestNeighbourWordExtractor` for better word grouping (kerning, ligatures)
   - Replaced gap-based column detection with `RecursiveXYCut` page segmenter (`MinimumWidth = page.Width / 3`) for accurate multi-column layout handling
   - Replaced manual reading-order sort with `DefaultReadingOrderDetector` for correct column-to-column reading order
-  - Added stream-mode table detection (Camelot/Tabula-inspired): clusters word left-edges into column positions, guards against false positives via `avgWordsPerLine` heuristic
+  - Added gap-based column-separator detection for table recognition: measures inter-word gaps per line, computes block-wide median spacing, and identifies column boundaries only where gaps ≥ 2.5× median appear consistently across ≥ half the lines — eliminates false positives on abstracts and body text
   - Added Markdown pipe-table rendering with GFM-compatible separator row and pipe-escaping in cell content
+  - Added empty-cell quality gate: blocks where >50% of cells are empty are not rendered as tables
   - Header/footer detection now uses `page.Height` from PdfPig page object (previously used inferred max-Y from blocks)
 
 ## [1.4.1-alpha] - 2026-03-09

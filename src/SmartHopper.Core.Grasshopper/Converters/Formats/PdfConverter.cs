@@ -59,20 +59,27 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
     /// </summary>
     public sealed class PdfConverter : IFileConverter
     {
-        /// <summary>X-position tolerance (PDF units) for clustering word left-edges into columns.</summary>
-        private const double ColumnTolerance = 10.0;
-
         /// <summary>Minimum number of data rows required to classify a block as a table.</summary>
         private const int MinTableRows = 3;
-
-        /// <summary>Minimum number of detected columns required to classify a block as a table.</summary>
-        private const int MinTableColumns = 2;
 
         /// <summary>Minimum page count for a repeated text to be removed as header/footer.</summary>
         private const int MinHeaderFooterRepeat = 3;
 
-        /// <summary>Maximum average words-per-line before a block is considered body text, not a table.</summary>
-        private const double MaxWordsPerLineForTable = 12.0;
+        /// <summary>
+        /// A column separator gap must be at least this multiple of the block's
+        /// median inter-word spacing to be considered a table column boundary.
+        /// Body text has roughly uniform spacing, so no gap exceeds this threshold.
+        /// </summary>
+        private const double ColumnGapMultiplier = 2.5;
+
+        /// <summary>Absolute minimum width (PDF units ≈ 1/72 in) for a column separator gap, regardless of median spacing.</summary>
+        private const double MinAbsoluteColumnGap = 10.0;
+
+        /// <summary>Cluster radius (PDF units) when grouping separator midpoints across lines.</summary>
+        private const double ColumnSeparatorTolerance = 20.0;
+
+        /// <summary>Maximum fraction of cells allowed to be empty before the block is rejected as a table.</summary>
+        private const double MaxEmptyCellFraction = 0.5;
 
         /// <inheritdoc/>
         public IEnumerable<string> SupportedExtensions => new[] { ".pdf" };
@@ -284,48 +291,90 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         }
 
         // -------------------------------------------------------------------------
-        // Table detection — stream mode inspired by Camelot and Tabula
+        // Table detection — gap-based stream mode (Camelot/Tabula-inspired)
+        //
+        // Core insight: body text has roughly uniform inter-word spacing throughout
+        // a block, so NO gap exceeds ColumnGapMultiplier × median.  A real table
+        // always has one or more column-separator gaps that are much wider than the
+        // within-cell word spacing, and those gaps appear at consistent X positions
+        // across most rows.  Left-edge clustering (old approach) failed because word
+        // starts are distributed across the full line width in paragraph text.
         // -------------------------------------------------------------------------
 
         /// <summary>
-        /// Returns true when a block's lines exhibit consistent multi-column alignment,
-        /// indicating tabular data rather than body text.
+        /// Returns true only when the block contains at least one consistent
+        /// large-gap column separator, unambiguously indicating tabular content.
         /// </summary>
         private static bool IsTableBlock(TextBlock block)
         {
             var lines = block.TextLines.ToList();
             if (lines.Count < MinTableRows) return false;
 
-            // Body-text paragraphs have many words per line; tables typically do not
+            // Blocks with very few words per line (e.g. single-word lines) are
+            // equations or captions, not tables.
             double avgWords = lines.Average(l => l.Words.Count());
-            if (avgWords > MaxWordsPerLineForTable) return false;
+            if (avgWords < 1.5) return false;
 
-            return DetectColumnPositions(lines).Count >= MinTableColumns;
+            return FindConsistentColumnSeparators(lines).Count >= 1;
         }
 
         /// <summary>
-        /// Clusters word left-edges across all lines into stable column positions.
-        /// Uses a running-mean merge with <see cref="ColumnTolerance"/> as radius.
-        /// Only columns that appear in at least half the lines are retained.
+        /// Finds X-positions where a consistently large inter-word gap exists across
+        /// at least half of the block's lines.  These positions are the column
+        /// separators of a table.
+        /// <para>
+        /// Algorithm: for each line compute all inter-word gaps.  Determine the
+        /// block-wide median gap (= normal word spacing).  Any gap ≥
+        /// <see cref="ColumnGapMultiplier"/> × median AND ≥
+        /// <see cref="MinAbsoluteColumnGap"/> is a candidate separator.  Candidate
+        /// midpoints are clustered with <see cref="ColumnSeparatorTolerance"/>;
+        /// only clusters present in ≥ half the lines are kept.
+        /// </para>
         /// </summary>
-        private static List<double> DetectColumnPositions(List<TextLine> lines)
+        private static List<double> FindConsistentColumnSeparators(List<TextLine> lines)
         {
-            var allLeft = lines
-                .SelectMany(l => l.Words)
-                .Select(w => w.BoundingBox.Left)
+            var allGapSizes = new List<double>();
+            var lineGapData = new List<List<(double Mid, double Size)>>();
+
+            foreach (var line in lines)
+            {
+                var words = line.Words.OrderBy(w => w.BoundingBox.Left).ToList();
+                var lineGaps = new List<(double Mid, double Size)>();
+
+                for (int i = 1; i < words.Count; i++)
+                {
+                    double gap = words[i].BoundingBox.Left - words[i - 1].BoundingBox.Right;
+                    if (gap > 0)
+                    {
+                        double mid = (words[i - 1].BoundingBox.Right + words[i].BoundingBox.Left) / 2.0;
+                        lineGaps.Add((mid, gap));
+                        allGapSizes.Add(gap);
+                    }
+                }
+
+                lineGapData.Add(lineGaps);
+            }
+
+            if (allGapSizes.Count == 0) return new List<double>();
+
+            allGapSizes.Sort();
+            double medianGap = allGapSizes[allGapSizes.Count / 2];
+            double largeGapThreshold = Math.Max(medianGap * ColumnGapMultiplier, MinAbsoluteColumnGap);
+
+            // Collect midpoints of all large gaps across all lines
+            var largeMids = lineGapData
+                .SelectMany(lg => lg.Where(g => g.Size >= largeGapThreshold).Select(g => g.Mid))
                 .OrderBy(x => x)
                 .ToList();
 
-            if (allLeft.Count == 0) return new List<double>();
+            if (largeMids.Count == 0) return new List<double>();
 
-            // Running-mean clustering
-            var clusters = new List<(double Centroid, int Count)> { (allLeft[0], 1) };
-
-            foreach (var x in allLeft.Skip(1))
+            // Cluster separator midpoints with running-mean
+            var clusters = new List<(double Centroid, int Count)> { (largeMids[0], 1) };
+            foreach (var x in largeMids.Skip(1))
             {
                 int nearest = -1;
-                double nearestDist = ColumnTolerance;
-
+                double nearestDist = ColumnSeparatorTolerance;
                 for (int i = 0; i < clusters.Count; i++)
                 {
                     double d = Math.Abs(x - clusters[i].Centroid);
@@ -343,11 +392,12 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 }
             }
 
-            // Discard columns that appear in fewer than half of all lines
+            // Keep only separators that appear in at least half the lines
             int minAppearances = Math.Max(2, lines.Count / 2);
             return clusters
-                .Where(cl => lines.Count(line =>
-                    line.Words.Any(w => Math.Abs(w.BoundingBox.Left - cl.Centroid) <= ColumnTolerance))
+                .Where(cl => lineGapData.Count(lg =>
+                    lg.Any(g => g.Size >= largeGapThreshold &&
+                                Math.Abs(g.Mid - cl.Centroid) <= ColumnSeparatorTolerance))
                     >= minAppearances)
                 .OrderBy(cl => cl.Centroid)
                 .Select(cl => cl.Centroid)
@@ -355,26 +405,27 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         }
 
         /// <summary>
-        /// Assigns each word in every line to its nearest column and renders a
-        /// GitHub-Flavoured Markdown pipe table.  The first row becomes the header.
+        /// Splits each line at the detected column separator positions and renders
+        /// a GitHub-Flavoured Markdown pipe table.  The first row becomes the header.
+        /// Returns an empty string if the quality checks fail (too many empty cells).
         /// </summary>
         private static string RenderMarkdownTable(TextBlock block)
         {
             var lines = block.TextLines.ToList();
-            var columns = DetectColumnPositions(lines);
-            if (columns.Count < MinTableColumns) return string.Empty;
+            var separators = FindConsistentColumnSeparators(lines);
+            if (separators.Count < 1) return string.Empty;
 
+            int columnCount = separators.Count + 1;
             var rows = new List<string[]>();
 
             foreach (var line in lines)
             {
-                var cells = new string[columns.Count];
+                var cells = new string[columnCount];
                 for (int i = 0; i < cells.Length; i++) cells[i] = string.Empty;
 
                 foreach (var word in line.Words)
                 {
-                    int col = FindNearestColumn(word.BoundingBox.Left, columns);
-                    if (col < 0) continue;
+                    int col = GetCellIndex(word.BoundingBox.Left, separators);
                     string w = word.Text.Replace("|", "\\|");
                     cells[col] = cells[col].Length == 0 ? w : cells[col] + " " + w;
                 }
@@ -384,15 +435,14 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
             if (rows.Count == 0) return string.Empty;
 
+            // Quality gate: reject if more than half of all cells are empty
+            int totalCells = rows.Count * columnCount;
+            int emptyCells = rows.Sum(r => r.Count(string.IsNullOrWhiteSpace));
+            if (emptyCells > totalCells * MaxEmptyCellFraction) return string.Empty;
+
             var sb = new StringBuilder();
-
-            // Header row
             sb.Append("| ").Append(string.Join(" | ", rows[0])).AppendLine(" |");
-
-            // Separator
-            sb.Append("| ").Append(string.Join(" | ", Enumerable.Repeat("---", columns.Count))).AppendLine(" |");
-
-            // Data rows
+            sb.Append("| ").Append(string.Join(" | ", Enumerable.Repeat("---", columnCount))).AppendLine(" |");
             foreach (var row in rows.Skip(1))
             {
                 sb.Append("| ").Append(string.Join(" | ", row)).AppendLine(" |");
@@ -401,17 +451,18 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             return sb.ToString();
         }
 
-        private static int FindNearestColumn(double x, List<double> columns)
+        /// <summary>
+        /// Returns the cell index (0-based) for a word at <paramref name="wordLeft"/>
+        /// given a list of separator X-positions.
+        /// </summary>
+        private static int GetCellIndex(double wordLeft, List<double> separators)
         {
-            int best = -1;
-            double bestDist = ColumnTolerance * 2;
-            for (int i = 0; i < columns.Count; i++)
+            for (int i = 0; i < separators.Count; i++)
             {
-                double d = Math.Abs(x - columns[i]);
-                if (d < bestDist) { bestDist = d; best = i; }
+                if (wordLeft < separators[i]) return i;
             }
 
-            return best;
+            return separators.Count;
         }
     }
 }
