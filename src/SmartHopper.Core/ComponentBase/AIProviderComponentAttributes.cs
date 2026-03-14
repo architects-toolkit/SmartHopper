@@ -52,6 +52,13 @@ namespace SmartHopper.Core.ComponentBase
         private bool providerLabelAutoHidden;
 
         /// <summary>
+        /// Gets or sets the tooltip template for the provider icon.
+        /// Use %provider% as a placeholder for the actual provider name.
+        /// Default: "Connected to %provider%".
+        /// </summary>
+        public string ProviderTooltipTemplate { get; set; } = "Connected to %provider%";
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AIProviderComponentAttributes"/> class.
         /// Creates a new instance of AIProviderComponentAttributes.
         /// </summary>
@@ -144,7 +151,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Draw inline label for provider when hovered and not auto-hidden (rendered after icon)
                 if (this.hoverProviderIcon && !this.providerLabelAutoHidden && this.providerIconRect.Width > 0 && canvas.Viewport.Zoom >= MINZOOMTHRESHOLD)
                 {
-                    var label = $"Connected to {actualProviderName}";
+                    var label = this.ProviderTooltipTemplate.Replace("%provider%", actualProviderName);
                     if (this.ShouldDeferProviderLabelRendering())
                     {
                         this.deferredLabelRect = this.providerIconRect;

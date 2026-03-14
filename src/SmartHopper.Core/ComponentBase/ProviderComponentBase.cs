@@ -117,7 +117,12 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public override void CreateAttributes()
         {
-            this.m_attributes = new AIProviderComponentAttributes(this);
+            var attrs = new AIProviderComponentAttributes(this)
+            {
+                ProviderTooltipTemplate = "Settings for %provider%"
+            };
+
+            this.m_attributes = attrs;
         }
 
         /// <summary>

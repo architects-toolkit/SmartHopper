@@ -827,7 +827,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             StopBatchPollTimer();
 
-            int intervalMs = Math.Max(1, SmartHopperSettings.Instance.BatchPollIntervalMinutes) * 60 * 1000;
+            int intervalMs = Math.Max(1, SmartHopperSettings.Instance.BatchPollIntervalSeconds) * 1000;
             _batchPollTimer = new Timer(OnBatchPollTimerTick, null, intervalMs, intervalMs);
             Debug.WriteLine($"[AIStatefulAsync] Batch poll timer started, interval={intervalMs}ms, batchId={_batchSubmission?.BatchId}");
         }
