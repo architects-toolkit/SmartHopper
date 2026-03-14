@@ -1416,7 +1416,11 @@ namespace SmartHopper.Providers.OpenAI
                 case "validating":
                 case "in_progress":
                 case "finalizing":
-                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
+                {
+                    var requestCounts = json["request_counts"] as JObject;
+                    int? completedCount = requestCounts?["completed"]?.Value<int>();
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress, completedCount: completedCount);
+                }
 
                 case "completed":
                 {

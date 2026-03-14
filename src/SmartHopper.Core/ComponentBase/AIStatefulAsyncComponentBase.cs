@@ -82,6 +82,9 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>Guards against concurrent poll calls.</summary>
         private int _batchPollRunning;
 
+        /// <summary>Number of items completed so far in the active batch, for live progress display.</summary>
+        private int _batchProgressCompleted;
+
         /// <summary>
         /// Last AI return snapshot stored by this component.
         /// </summary>
@@ -515,9 +518,11 @@ namespace SmartHopper.Core.ComponentBase
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics and batch queue for new Processing run");
                 this.AIReturnSnapshot = null;
                 
-                // Clear batch queue to prevent accumulation across multiple solve instances
+                // Clear batch queue and progress to prevent accumulation across multiple solve instances
                 this._batchQueue = null;
                 this._batchSentinelIds = null;
+                this._batchProgressCompleted = 0;
+                this.ResetProgress();
                 
                 this.metricsInitializedForRun = true;
             }
@@ -744,15 +749,29 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Gets the current state message with progress information.
-        /// When batch processing is active, preserves the batch message instead of showing individual item progress.
+        /// During batch data-tree collection shows "Preparing X/X..."; while polling shows live "Processing batch (Y/X)...".
         /// </summary>
         /// <returns>A formatted state message string.</returns>
         public override string GetStateMessage()
         {
-            // If batch is active, set a batch-related message
+            // Don't show batch messages in terminal states - always use base message
+            if (this.CurrentState != ComponentState.Processing)
+            {
+                return base.GetStateMessage();
+            }
+
+            // Batch submitted and polling: show live progress counter
             if (this._batchSubmission != null)
             {
-                return $"Batch with {this._batchSubmission.CustomIds?.Count ?? 0} items...";
+                var total = this._batchSubmission.CustomIds?.Count ?? 0;
+                return $"Processing batch ({this._batchProgressCompleted}/{total})...";
+            }
+
+            // Batch mode active but not yet submitted: data-tree is collecting items
+            // Null-check ProgressInfo to prevent exceptions during component initialization
+            if (this.IsBatchRequest() && this.ProgressInfo?.IsActive == true)
+            {
+                return $"Preparing {this.ProgressInfo.ProgressString}...";
             }
 
             return base.GetStateMessage();
@@ -807,7 +826,8 @@ namespace SmartHopper.Core.ComponentBase
             {
                 var submission = await batchProvider.SubmitBatchAsync(queue, cancellationToken).ConfigureAwait(false);
                 this._batchSubmission = submission;
-                this.Message = $"Processing batch...";
+                this._batchProgressCompleted = 0;
+                this.Message = $"Processing batch (0/{submission.CustomIds?.Count ?? 0})...";
                 this.StartBatchPollTimer();
                 return true;
             }
@@ -885,6 +905,20 @@ namespace SmartHopper.Core.ComponentBase
 
                 switch (status.State)
                 {
+                    case AIBatchState.InProgress:
+                        if (status.CompletedCount.HasValue)
+                        {
+                            _batchProgressCompleted = status.CompletedCount.Value;
+                            var total = _batchSubmission?.CustomIds?.Count ?? 0;
+                            Rhino.RhinoApp.InvokeOnUiThread(() =>
+                            {
+                                this.Message = $"Processing batch ({_batchProgressCompleted}/{total})...";
+                                this.OnDisplayExpired(false);
+                            });
+                        }
+
+                        break;
+
                     case AIBatchState.Completed:
                         StopBatchPollTimer();
                         _batchSubmission = null;

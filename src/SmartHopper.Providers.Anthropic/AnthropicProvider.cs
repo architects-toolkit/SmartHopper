@@ -1197,7 +1197,11 @@ namespace SmartHopper.Providers.Anthropic
             {
                 case "in_progress":
                 case "canceling":
-                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
+                {
+                    var requestCounts = json["request_counts"] as JObject;
+                    int? completedCount = requestCounts?["succeeded"]?.Value<int>();
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress, completedCount: completedCount);
+                }
 
                 case "ended":
                 {

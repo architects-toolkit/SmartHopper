@@ -133,17 +133,29 @@ namespace SmartHopper.Infrastructure.AICall.Batch
         public DateTimeOffset CheckedAt { get; } = DateTimeOffset.UtcNow;
 
         /// <summary>
+        /// Gets the number of items completed so far.
+        /// Populated for <see cref="AIBatchState.InProgress"/> states when the provider reports it.
+        /// Null when unknown.
+        /// </summary>
+        public int? CompletedCount { get; }
+
+        /// <summary>
         /// Gets a dictionary mapping each <c>customId</c> to its decoded provider response body.
         /// Populated when <see cref="State"/> is <see cref="AIBatchState.Completed"/>.
         /// </summary>
         public IReadOnlyDictionary<string, JObject> Results { get; }
 
         /// <summary>Initializes a non-completed status.</summary>
-        public AIBatchStatus(string batchId, AIBatchState state, string errorMessage = null)
+        /// <param name="batchId">Provider batch identifier.</param>
+        /// <param name="state">Current batch state.</param>
+        /// <param name="errorMessage">Optional error message for failed states.</param>
+        /// <param name="completedCount">Number of items completed so far (for in-progress reporting).</param>
+        public AIBatchStatus(string batchId, AIBatchState state, string errorMessage = null, int? completedCount = null)
         {
             this.BatchId = batchId;
             this.State = state;
             this.ErrorMessage = errorMessage;
+            this.CompletedCount = completedCount;
         }
 
         /// <summary>Initializes a completed status with a multi-item results dictionary.</summary>

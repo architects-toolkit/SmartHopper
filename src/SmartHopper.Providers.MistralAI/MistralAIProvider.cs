@@ -1155,7 +1155,10 @@ namespace SmartHopper.Providers.MistralAI
                 case "QUEUED":
                 case "RUNNING":
                 case "CANCELLATION_REQUESTED":
-                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
+                {
+                    int? completedCount = json["succeeded_requests"]?.Value<int>();
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress, completedCount: completedCount);
+                }
 
                 case "SUCCESS":
                 {
