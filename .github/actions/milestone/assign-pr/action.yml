@@ -1,42 +1,38 @@
-name: pr-milestone
+name: 'Assign PR to Milestone'
+description: 'Reads version from Solution.props and assigns a PR to the appropriate milestone, creating it if necessary. Mimics pr-milestone.yml behavior.'
 
-# PR Milestone Assignment Workflow
-# Automatically assigns PRs to milestones based on version in Solution.props
+inputs:
+  pr-number:
+    description: 'PR number to assign to milestone'
+    required: true
+  token:
+    description: 'GitHub token with issues:write and pull-requests:write permissions'
+    required: true
+  working-directory:
+    description: 'Directory containing Solution.props (defaults to repository root)'
+    required: false
+    default: '.'
+  comment-on-pr:
+    description: 'Whether to add a comment on the PR about milestone assignment'
+    required: false
+    default: 'true'
 
-on:
-  pull_request:
-    types: [opened]
-    branches: [main, dev, 'release/*', 'hash-update/*']
-
-permissions:
-  issues: write
-  pull-requests: write
-  contents: read
-
-jobs:
-  assign-pr-to-milestone:
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    
-    steps:
-    - name: Checkout PR source branch
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
-      
-    - name: Read version from Solution.props and assign to milestone
+runs:
+  using: 'composite'
+  steps:
+    - name: Read version and assign to milestone
       uses: actions/github-script@v7
       with:
+        github-token: ${{ inputs.token }}
         script: |
           const fs = require('fs');
           const path = require('path');
           
-          // Read Solution.props file
-          const solutionPropsPath = 'Solution.props';
+          const workingDir = '${{ inputs.working-directory }}';
+          const solutionPropsPath = path.join(workingDir, 'Solution.props');
           
           if (!fs.existsSync(solutionPropsPath)) {
-            console.log('Solution.props file not found');
+            console.log('Solution.props file not found at:', solutionPropsPath);
             return;
           }
           
@@ -54,15 +50,9 @@ jobs:
           console.log('Found full version:', fullVersion);
           
           // Parse and process version
-          // The following logic processes the version string to make it suitable for milestone assignment:
           // - Build numbers (e.g., ".250720") are removed because they are not relevant for milestone assignment.
-          // - The suffix "-dev" is replaced with "-alpha" because there are no milestones for development versions, 
-          //   and development versions are treated as alpha releases.
-          // Examples: "0.4.0-dev.250720" -> "0.4.0-alpha"
-          //           "0.4.1-alpha" -> "0.4.1-alpha"  
-          //           "0.4.2-beta.250123" -> "0.4.2-beta"
+          // - The suffix "-dev" is replaced with "-alpha" because there are no milestones for development versions.
           
-          // Remove everything after the last dot (suppress build number)
           let processedVersion = fullVersion;
           const lastDotIndex = processedVersion.lastIndexOf('.');
           if (lastDotIndex > processedVersion.indexOf('-')) {
@@ -112,23 +102,27 @@ jobs:
           }
           
           // Assign PR to milestone
+          const prNumber = parseInt('${{ inputs.pr-number }}', 10);
+          
           try {
             await github.rest.issues.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
+              issue_number: prNumber,
               milestone: targetMilestone.number
             });
             
-            console.log(`Successfully assigned PR #${context.payload.pull_request.number} to milestone "${targetMilestone.title}"`);
+            console.log(`Successfully assigned PR #${prNumber} to milestone "${targetMilestone.title}"`);
             
-            // Add a comment to the PR
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: `🏷️ This PR has been automatically assigned to milestone **${targetMilestone.title}** based on the version in \`Solution.props\`.`
-            });
+            // Add a comment to the PR if requested
+            if ('${{ inputs.comment-on-pr }}' === 'true') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: `🏷️ This PR has been automatically assigned to milestone **${targetMilestone.title}** based on the version in \`Solution.props\`.`
+              });
+            }
             
           } catch (error) {
             console.error('Error assigning PR to milestone:', error);

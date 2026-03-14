@@ -332,7 +332,7 @@ jobs:
         }
         
         # Save merged manifest
-        $outputFile = "provider-hashes-$version.json"
+        $outputFile = "SmartHopper-Provider-Integrity-Hashes-$version.json"
         $mergedManifest | ConvertTo-Json -Depth 10 | Set-Content $outputFile
         
         Write-Host "Merged hash manifest created: $outputFile"
@@ -415,9 +415,31 @@ jobs:
           gh pr create --base main --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody
           
           $prNumber = gh pr list --head $tempBranch --json number --jq '.[0].number'
+          
+          # Assign PR to milestone before auto-merge
           if ($prNumber) {
-            gh pr merge $prNumber --auto --squash --delete-branch
+            # Output PR number for next step
+            echo "hash_pr_number=$prNumber" >> $env:GITHUB_OUTPUT
           }
+        }
+      id: hash-pr
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Assign Hash PR to Milestone
+      if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''
+      uses: ./.github/actions/milestone/assign-pr
+      with:
+        pr-number: ${{ steps.hash-pr.outputs.hash_pr_number }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Auto-merge Hash PR
+      if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''
+      shell: pwsh
+      run: |
+        $prNumber = "${{ steps.hash-pr.outputs.hash_pr_number }}"
+        if ($prNumber) {
+          gh pr merge $prNumber --auto --squash --delete-branch
         }
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

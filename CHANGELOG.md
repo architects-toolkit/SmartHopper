@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2-alpha] - 2026-03-14
+
+Many thanks to the following contributors to this release:
+
+- [marc-romu](https://github.com/marc-romu)
+
+----
+
+This release successfully passes macOS verification of provider hashes! This is the first macOS compatible release available through Yak/Rhino package manager. Thank you [nofcfy-fanqi](https://github.com/nofcfy-fanqi) for testing!
+
+### Fixed
+
+- Fixed `Id` missing GhJSON validation error in script tools.
+- (automatically added) Fixes "Compatibility with Mac" ([#263](https://github.com/architects-toolkit/SmartHopper/issues/263)).
+
 ## [1.4.1-alpha] - 2026-03-09
 
 Many thanks to the following contributors to this release:

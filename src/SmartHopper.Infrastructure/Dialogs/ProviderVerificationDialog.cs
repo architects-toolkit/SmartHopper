@@ -232,12 +232,26 @@ namespace SmartHopper.Infrastructure.Dialogs
 
             if (!string.IsNullOrEmpty(verification.LocalHash))
             {
-                var localHashLabel = CreateClickableHashLabel($"Local:  {verification.LocalHash}", verification.LocalHash);
-                detailsLayout.Items.Add(localHashLabel);
+                if (verification.Status == ProviderVerificationStatus.Match &&
+                    verification.LocalHash == verification.PublicHash)
+                {
+                    // For verified providers with matching hashes, show only one hash
+                    var hashLabel = CreateClickableHashLabel($"Hash: {verification.LocalHash}", verification.LocalHash);
+                    detailsLayout.Items.Add(hashLabel);
+                }
+                else
+                {
+                    // For other statuses, show local hash inline
+                    var localHashLabel = CreateClickableHashLabel($"Local: {verification.LocalHash}", verification.LocalHash);
+                    detailsLayout.Items.Add(localHashLabel);
+                }
             }
 
-            if (!string.IsNullOrEmpty(verification.PublicHash))
+            if (!string.IsNullOrEmpty(verification.PublicHash) &&
+                !(verification.Status == ProviderVerificationStatus.Match &&
+                  verification.LocalHash == verification.PublicHash))
             {
+                // Show expected hash inline (only when different from local)
                 var expectedHashLabel = CreateClickableHashLabel($"Expected: {verification.PublicHash}", verification.PublicHash);
                 detailsLayout.Items.Add(expectedHashLabel);
             }

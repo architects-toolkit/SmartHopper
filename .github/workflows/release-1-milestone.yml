@@ -112,5 +112,16 @@ jobs:
             --head release/${{ github.event.milestone.title }} \
             --title "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes" \
             --body $'This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges'
+          
+          # Capture PR number
+          PR_NUMBER=$(gh pr list --base dev --head release/${{ github.event.milestone.title }} --json number --jq '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assign PR to Milestone
+        if: steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
