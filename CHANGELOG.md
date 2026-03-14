@@ -11,7 +11,7 @@ This release successfully passes macOS verification of provider hashes! This is 
 
 ### Fixed
 
-- Mitigated the script tools `Id` GhJSON validation fix.
+- Fixed `Id` missing GhJSON validation error in script tools.
 
 ## [1.4.1-alpha] - 2026-03-09
 
