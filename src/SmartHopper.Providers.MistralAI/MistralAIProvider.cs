@@ -1039,10 +1039,11 @@ namespace SmartHopper.Providers.MistralAI
         {
             if (items == null || items.Count == 0) throw new ArgumentException("At least one item is required", nameof(items));
 
-            // Mistral supports inline batching via POST /v1/batch/jobs
-            // Model goes at the job level, not inside each request
-            // Each inline request: { "custom_id": "sh-...", "body": { ...chat params without model... } }
-            var requestsArray = new JArray();
+            // MistralAI batch API requires:
+            // 1. Upload JSONL file to /v1/files with purpose="batch"
+            // 2. Create batch job with input_files array containing file ID
+            // JSONL format: {"custom_id": "...", "body": {...chat params without model...}}
+            var jsonlBuilder = new StringBuilder();
             string firstEncodedBody = null;
             string jobModel = null;
             var customIds = new List<string>();
@@ -1056,46 +1057,73 @@ namespace SmartHopper.Providers.MistralAI
 
                 // Extract model from first item for job-level field
                 if (jobModel == null) jobModel = bodyObj["model"]?.ToString() ?? request.Model;
-                bodyObj.Remove("model");
+                bodyObj.Remove("model"); // Model goes at job level, not in each request
 
-                requestsArray.Add(new JObject
+                var jsonlLine = new JObject
                 {
                     ["custom_id"] = customId,
                     ["body"] = bodyObj,
-                });
+                };
+                jsonlBuilder.AppendLine(jsonlLine.ToString(Newtonsoft.Json.Formatting.None));
                 customIds.Add(customId);
             }
 
-            var jobRequest = new JObject
-            {
-                ["requests"] = requestsArray,
-                ["model"] = jobModel,
-                ["endpoint"] = "/v1/chat/completions",
-            };
+            var jsonlBytes = Encoding.UTF8.GetBytes(jsonlBuilder.ToString());
 
             var apiKey = this.GetApiKey();
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
-            var jobUrl = this.BuildFullUrl("/batch/jobs");
-            var response = await client.PostAsync(
-                jobUrl,
-                new StringContent(jobRequest.ToString(), System.Text.Encoding.UTF8, "application/json"),
-                cancellationToken).ConfigureAwait(false);
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            // Step 1: Upload JSONL file to /v1/files
+            using var multipart = new MultipartFormDataContent();
+            multipart.Add(new StringContent("batch"), "purpose");
+            var fileByteContent = new ByteArrayContent(jsonlBytes);
+            fileByteContent.Headers.ContentType =
+                new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            multipart.Add(fileByteContent, "file", "batch_input.jsonl");
 
-            if (!response.IsSuccessStatusCode)
+            var uploadUrl = this.BuildFullUrl("/files");
+            var uploadResponse = await client.PostAsync(uploadUrl, multipart, cancellationToken).ConfigureAwait(false);
+            var uploadContent = await uploadResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!uploadResponse.IsSuccessStatusCode)
             {
-                throw new InvalidOperationException($"[MistralAI] Batch job creation failed ({(int)response.StatusCode}): {content}");
+                throw new InvalidOperationException($"[MistralAI] Batch file upload failed ({(int)uploadResponse.StatusCode}): {uploadContent}");
             }
 
-            var result = JObject.Parse(content);
-            var jobId = result["id"]?.ToString()
-                ?? throw new InvalidOperationException("[MistralAI] Batch job creation response missing 'id'");
+            var uploadResult = JObject.Parse(uploadContent);
+            var fileId = uploadResult["id"]?.ToString()
+                ?? throw new InvalidOperationException("[MistralAI] Batch file upload response missing 'id'");
 
-            Debug.WriteLine($"[MistralAI] Batch job submitted: id={jobId}, count={items.Count}");
-            return new AIBatchSubmission(jobId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
+            Debug.WriteLine($"[MistralAI] Batch file uploaded: fileId={fileId}, size={jsonlBytes.Length} bytes");
+
+            // Step 2: Create batch job with uploaded file
+            var batchBody = new JObject
+            {
+                ["input_files"] = new JArray(fileId),
+                ["model"] = jobModel,
+                ["endpoint"] = "/v1/chat/completions",
+            };
+
+            var batchUrl = this.BuildFullUrl("/batch/jobs");
+            var batchResponse = await client.PostAsync(
+                batchUrl,
+                new StringContent(batchBody.ToString(), Encoding.UTF8, "application/json"),
+                cancellationToken).ConfigureAwait(false);
+            var batchContent = await batchResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!batchResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"[MistralAI] Batch creation failed ({(int)batchResponse.StatusCode}): {batchContent}");
+            }
+
+            var batchResult = JObject.Parse(batchContent);
+            var batchId = batchResult["id"]?.ToString()
+                ?? throw new InvalidOperationException("[MistralAI] Batch creation response missing 'id'");
+
+            Debug.WriteLine($"[MistralAI] Batch submitted: batchId={batchId}, count={items.Count}");
+            return new AIBatchSubmission(batchId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
         }
 
         /// <inheritdoc/>
