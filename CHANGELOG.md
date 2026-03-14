@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2-alpha] - 2026-03-14
+
+### Fixed
+- (automatically added) Fixes "Compatibility with Mac" ([#263](https://github.com/architects-toolkit/SmartHopper/issues/263)).
+
 ## [1.4.1-alpha] - 2026-03-09
 
 Many thanks to the following contributors to this release:
