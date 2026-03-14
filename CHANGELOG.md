@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+This release successfully passes macOS verification of provider hashes! This is the first macOS compatible release available through Yak/Rhino package manager. Thank you [nofcfy-fanqi](https://github.com/nofcfy-fanqi) for testing!
+
+### Fixed
+
+- Mitigated the script tools `Id` GhJSON validation fix.
+
 ## [1.4.1-alpha] - 2026-03-09
 
 Many thanks to the following contributors to this release:
