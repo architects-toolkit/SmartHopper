@@ -519,24 +519,21 @@ namespace SmartHopper.Providers.Anthropic
                 ["temperature"] = temperature,
             };
 
-            // Apply top_p if provided
-            if (p?.TopP.HasValue == true)
-            {
-                requestBody["top_p"] = p.TopP.Value;
-            }
-
-            // Apply provider-specific extras
+            // Apply optional parameters from extras only
             if (p?.Extras != null)
             {
-                if (p.Extras.TryGetValue("top_k", out var tkToken) && tkToken != null)
-                {
-                    requestBody["top_k"] = tkToken;
-                }
-
+                if (p.Extras.TryGetValue("seed", out var seedToken) && seedToken != null)
+                    requestBody["seed"] = seedToken.Value<int?>();
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                    requestBody["top_p"] = topPToken.Value<double?>();
+                if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
+                    requestBody["top_k"] = topKToken.Value<int?>();
+                if (p.Extras.TryGetValue("effort", out var effortToken) && effortToken != null)
+                    requestBody["effort"] = effortToken;
+                if (p.Extras.TryGetValue("container", out var containerToken) && containerToken != null)
+                    requestBody["container"] = containerToken;
                 if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
-                {
                     requestBody["service_tier"] = stToken;
-                }
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -1300,9 +1297,28 @@ namespace SmartHopper.Providers.Anthropic
         {
             return new[]
             {
-                new AIExtraDescriptor("top_k", "Top K",
-                    "Only sample from the top K options for each token. Recommended for advanced use only.",
+                // General parameters (shared across providers)
+                new AIExtraDescriptor("seed", "Seed",
+                    "Reproducibility seed for deterministic sampling. Use the same seed to get similar outputs. Leave empty for random.",
                     typeof(int), null),
+                new AIExtraDescriptor("top_p", "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double), null),
+                new AIExtraDescriptor("top_k", "Top K",
+                    "Only sample from the top K options for each token. Lower values make output more focused.",
+                    typeof(int), null),
+                // Anthropic-specific parameters
+                new AIExtraDescriptor("effort", "Effort",
+                    "The amount of effort to use in the output. 'low' is fastest, 'high' is most thorough.",
+                    typeof(string), "medium",
+                    new[] { "low", "medium", "high" }),
+                new AIExtraDescriptor("container", "Container",
+                    "Container type for the response format. Anthropic-specific.",
+                    typeof(string), null),
+                new AIExtraDescriptor("service_tier", "Service Tier",
+                    "Service tier for request processing. 'auto' or 'default'.",
+                    typeof(string), "auto",
+                    new[] { "auto", "default" }),
             };
         }
     }

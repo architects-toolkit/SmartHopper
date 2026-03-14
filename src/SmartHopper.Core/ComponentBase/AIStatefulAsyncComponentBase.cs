@@ -512,8 +512,13 @@ namespace SmartHopper.Core.ComponentBase
             //  - Not already initialized for this run (prevents repeated clears on multiple presolves)
             if (this.CurrentState == ComponentState.Processing && this.Run && this.Workers.Count == 0 && !this.metricsInitializedForRun)
             {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics for new Processing run");
+                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics and batch queue for new Processing run");
                 this.AIReturnSnapshot = null;
+                
+                // Clear batch queue to prevent accumulation across multiple solve instances
+                this._batchQueue = null;
+                this._batchSentinelIds = null;
+                
                 this.metricsInitializedForRun = true;
             }
         }
@@ -744,20 +749,10 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>A formatted state message string.</returns>
         public override string GetStateMessage()
         {
-            // If batch is active, preserve the batch message and don't let progress updates overwrite it
+            // If batch is active, set a batch-related message
             if (this._batchSubmission != null)
             {
-                // Return current message if it's already a batch-related message
-                if (!string.IsNullOrEmpty(this.Message) && 
-                    (this.Message.StartsWith("Batch ", StringComparison.OrdinalIgnoreCase) ||
-                     this.Message.StartsWith("Batch polling", StringComparison.OrdinalIgnoreCase) ||
-                     this.Message.StartsWith("Batch submitted", StringComparison.OrdinalIgnoreCase)))
-                {
-                    return this.Message;
-                }
-
-                // Default batch message if current message is not batch-related
-                return $"Processing batch ({this._batchSubmission.CustomIds?.Count ?? 0} items)...";
+                return $"Batch with {this._batchSubmission.CustomIds?.Count ?? 0} items...";
             }
 
             return base.GetStateMessage();
@@ -812,7 +807,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 var submission = await batchProvider.SubmitBatchAsync(queue, cancellationToken).ConfigureAwait(false);
                 this._batchSubmission = submission;
-                this.Message = $"Batch submitted ({submission.BatchId.Substring(0, Math.Min(12, submission.BatchId.Length))}...)";
+                this.Message = $"Processing batch...";
                 this.StartBatchPollTimer();
                 return true;
             }
@@ -921,11 +916,6 @@ namespace SmartHopper.Core.ComponentBase
                         // Transition to Error state for terminal failures
                         this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
                         Rhino.RhinoApp.InvokeOnUiThread(() => this.ExpireSolution(true));
-                        break;
-
-                    default:
-                        // Still running — update message
-                        this.Message = $"Batch {status.State.ToString().ToLowerInvariant()}...";
                         break;
                 }
             }
@@ -1144,13 +1134,18 @@ namespace SmartHopper.Core.ComponentBase
                             customIds ?? new List<string>().AsReadOnly());
                         Debug.WriteLine($"[AIStatefulAsync] Read: restored batch state, batchId={batchId}, items={customIds?.Count ?? 0}");
 
+                        // Restore component to Processing state so sentinel values aren't output
+                        this.StateManager.ForceState(ComponentState.Processing);
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored state to Processing for active batch");
+
                         // Resume polling — defer until after component is fully loaded
                         Rhino.RhinoApp.InvokeOnUiThread(() =>
                         {
                             if (_batchSubmission != null)
                             {
-                                this.Message = $"Batch polling ({batchId.Substring(0, Math.Min(12, batchId.Length))}...)";
                                 StartBatchPollTimer();
+                                // Expire solution to trigger recompute with Processing state
+                                this.ExpireSolution(true);
                             }
                         });
                     }
@@ -1172,6 +1167,20 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             return true;
+        }
+
+        /// <inheritdoc/>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            // Stop batch polling when component is removed from document (file closed)
+            // Polling will resume when file is reopened via Read() method
+            if (this._batchPollTimer != null)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument: Stopping batch poll timer");
+                this.StopBatchPollTimer();
+            }
+
+            base.RemovedFromDocument(document);
         }
 
         /// <inheritdoc/>

@@ -352,30 +352,19 @@ namespace SmartHopper.Providers.DeepSeek
                 ["temperature"] = temperature,
             };
 
-            // Apply seed if provided
-            if (p?.Seed.HasValue == true)
-            {
-                requestBody["seed"] = p.Seed.Value;
-            }
-
-            // Apply top_p if provided
-            if (p?.TopP.HasValue == true)
-            {
-                requestBody["top_p"] = p.TopP.Value;
-            }
-
-            // Apply presence_penalty / frequency_penalty from extras
+            // Apply optional parameters from extras only
             if (p?.Extras != null)
             {
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                    requestBody["top_p"] = topPToken.Value<double?>();
                 if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
-                {
                     requestBody["presence_penalty"] = ppToken;
-                }
-
                 if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
-                {
                     requestBody["frequency_penalty"] = fpToken;
-                }
+                if (p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
+                    requestBody["logprobs"] = logprobsToken.Value<bool?>();
+                if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
+                    requestBody["top_logprobs"] = topLogprobsToken.Value<int?>();
             }
 
             // Add JSON response format if schema is provided (centralized wrapping)
@@ -1256,12 +1245,23 @@ namespace SmartHopper.Providers.DeepSeek
         {
             return new[]
             {
+                // General parameters (shared across providers)
+                new AIExtraDescriptor("top_p", "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double), null),
                 new AIExtraDescriptor("presence_penalty", "Presence Penalty",
                     "Penalizes tokens already present in the text (-2.0 to 2.0). Positive values encourage new topics.",
                     typeof(double), null),
                 new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
                     typeof(double), null),
+                // DeepSeek-specific parameters
+                new AIExtraDescriptor("logprobs", "Log Probabilities",
+                    "Return log probabilities of output tokens. Useful for analyzing model confidence.",
+                    typeof(bool), null),
+                new AIExtraDescriptor("top_logprobs", "Top Logprobs",
+                    "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
+                    typeof(int), null),
             };
         }
     }

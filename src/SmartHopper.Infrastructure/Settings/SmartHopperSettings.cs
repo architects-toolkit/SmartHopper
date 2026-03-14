@@ -99,12 +99,12 @@ namespace SmartHopper.Infrastructure.Settings
         }
 
         /// <summary>
-        /// Gets or sets the minimum interval in minutes between batch status poll requests.
+        /// Gets or sets the minimum interval in seconds between batch status poll requests.
         /// Applies to all providers that support batch processing.
-        /// Default is 2 minutes; minimum enforced is 1 minute.
+        /// Default is 20 seconds; minimum enforced is 10 seconds.
         /// </summary>
         [JsonProperty]
-        public int BatchPollIntervalMinutes { get; set; } = 2;
+        public int BatchPollIntervalSeconds { get; set; } = 20;
 
         /// <summary>
         /// Gets or sets settings related to the SmartHopper assistant features.

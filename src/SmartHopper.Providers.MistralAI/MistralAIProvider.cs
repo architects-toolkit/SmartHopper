@@ -292,28 +292,24 @@ namespace SmartHopper.Providers.MistralAI
                 ["temperature"] = temperature,
             };
 
-            // Apply top_p if provided
-            if (p?.TopP.HasValue == true)
+            // Apply optional parameters from extras only
+            if (p?.Extras != null)
             {
-                requestBody["top_p"] = p.TopP.Value;
-            }
-
-            // Apply seed if provided
-            if (p?.Seed.HasValue == true)
-            {
-                requestBody["random_seed"] = p.Seed.Value;
-            }
-
-            // Apply safe_prompt extra if provided
-            if (p?.Extras != null && p.Extras.TryGetValue("safe_prompt", out var spToken) && spToken != null)
-            {
-                requestBody["safe_prompt"] = spToken;
-            }
-
-            // Apply service_tier extra if provided
-            if (p?.Extras != null && p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
-            {
-                requestBody["service_tier"] = stToken;
+                // Mistral uses random_seed, not seed
+                if (p.Extras.TryGetValue("random_seed", out var seedToken) && seedToken != null)
+                    requestBody["random_seed"] = seedToken.Value<int?>();
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                    requestBody["top_p"] = topPToken.Value<double?>();
+                if (p.Extras.TryGetValue("frequency_penalty", out var freqPenaltyToken) && freqPenaltyToken != null)
+                    requestBody["frequency_penalty"] = freqPenaltyToken.Value<double?>();
+                if (p.Extras.TryGetValue("presence_penalty", out var presPenaltyToken) && presPenaltyToken != null)
+                    requestBody["presence_penalty"] = presPenaltyToken.Value<double?>();
+                if (p.Extras.TryGetValue("n", out var nToken) && nToken != null)
+                    requestBody["n"] = nToken.Value<int?>();
+                if (p.Extras.TryGetValue("safe_prompt", out var spToken) && spToken != null)
+                    requestBody["safe_prompt"] = spToken;
+                if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
+                    requestBody["service_tier"] = stToken;
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -1228,9 +1224,29 @@ namespace SmartHopper.Providers.MistralAI
         {
             return new[]
             {
+                // General parameters (shared across providers)
+                new AIExtraDescriptor("random_seed", "Random Seed",
+                    "Reproducibility seed for deterministic sampling. Mistral uses random_seed instead of seed. Leave empty for random.",
+                    typeof(int), null),
+                new AIExtraDescriptor("top_p", "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double), null),
+                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double), null),
+                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double), null),
+                // Mistral-specific parameters
+                new AIExtraDescriptor("n", "N (Completions)",
+                    "Number of completions to generate for each prompt. Useful for getting multiple variations.",
+                    typeof(int), null),
                 new AIExtraDescriptor("safe_prompt", "Safe Prompt",
                     "Inject a safety system prompt before all conversations to reduce unsafe responses.",
                     typeof(bool), null),
+                new AIExtraDescriptor("service_tier", "Service Tier",
+                    "Service tier for request processing. May affect speed/availability.",
+                    typeof(string), null),
             };
         }
     }

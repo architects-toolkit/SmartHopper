@@ -217,16 +217,29 @@ namespace SmartHopper.Providers.OpenRouter
                 },
             };
 
-            // Apply seed if provided
-            if (p?.Seed.HasValue == true)
+            // Apply seed, top_p, and other optional parameters from extras only
+            if (p?.Extras != null)
             {
-                body["seed"] = p.Seed.Value;
-            }
-
-            // Apply top_p if provided
-            if (p?.TopP.HasValue == true)
-            {
-                body["top_p"] = p.TopP.Value;
+                if (p.Extras.TryGetValue("seed", out var seedToken) && seedToken != null)
+                    body["seed"] = seedToken.Value<int?>();
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                    body["top_p"] = topPToken.Value<double?>();
+                if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
+                    body["top_k"] = topKToken.Value<int?>();
+                if (p.Extras.TryGetValue("frequency_penalty", out var freqPenaltyToken) && freqPenaltyToken != null)
+                    body["frequency_penalty"] = freqPenaltyToken.Value<double?>();
+                if (p.Extras.TryGetValue("presence_penalty", out var presPenaltyToken) && presPenaltyToken != null)
+                    body["presence_penalty"] = presPenaltyToken.Value<double?>();
+                if (p.Extras.TryGetValue("repetition_penalty", out var repPenaltyToken) && repPenaltyToken != null)
+                    body["repetition_penalty"] = repPenaltyToken.Value<double?>();
+                if (p.Extras.TryGetValue("min_p", out var minPToken) && minPToken != null)
+                    body["min_p"] = minPToken.Value<double?>();
+                if (p.Extras.TryGetValue("top_a", out var topAToken) && topAToken != null)
+                    body["top_a"] = topAToken.Value<double?>();
+                if (p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
+                    body["logprobs"] = logprobsToken.Value<bool?>();
+                if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
+                    body["top_logprobs"] = topLogprobsToken.Value<int?>();
             }
 
             // Add tools if requested
@@ -932,6 +945,39 @@ namespace SmartHopper.Providers.OpenRouter
         {
             return new[]
             {
+                // General parameters (shared across providers)
+                new AIExtraDescriptor("seed", "Seed",
+                    "Reproducibility seed for deterministic sampling. Use the same seed to get similar outputs. Leave empty for random.",
+                    typeof(int), null),
+                new AIExtraDescriptor("top_p", "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double), null),
+                new AIExtraDescriptor("top_k", "Top K",
+                    "Only sample from the top K options for each token. Lower values make output more focused.",
+                    typeof(int), null),
+                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double), null),
+                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double), null),
+                // OpenRouter-specific parameters
+                new AIExtraDescriptor("repetition_penalty", "Repetition Penalty",
+                    "Alternative penalty for repeated tokens (0.0–2.0). Higher values reduce repetition more strongly.",
+                    typeof(double), null),
+                new AIExtraDescriptor("min_p", "Min P",
+                    "Minimum probability for token sampling (0.0–1.0). Tokens below this threshold are ignored.",
+                    typeof(double), null),
+                new AIExtraDescriptor("top_a", "Top A",
+                    "Alternative nucleus sampling method. Threshold based on probability of most likely token.",
+                    typeof(double), null),
+                new AIExtraDescriptor("logprobs", "Log Probabilities",
+                    "Return log probabilities of output tokens. Useful for analyzing model confidence.",
+                    typeof(bool), null),
+                new AIExtraDescriptor("top_logprobs", "Top Logprobs",
+                    "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
+                    typeof(int), null),
+                // Provider selection settings
                 new AIExtraDescriptor("allow_fallback", "Allow Fallback",
                     "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
                     typeof(bool), null),
