@@ -51,6 +51,12 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         public int InputTokensCached { get; set; }
 
         /// <summary>
+        /// Gets or sets the number of input tokens written to the cache by the AI call (Anthropic: cache_creation_input_tokens).
+        /// These are billed at a higher rate than normal input tokens on first write.
+        /// </summary>
+        public int InputTokensCacheWrite { get; set; }
+
+        /// <summary>
         /// Gets or sets the number of input tokens from the prompt that were used by the AI call.
         /// </summary>
         public int InputTokensPrompt { get; set; }
@@ -58,7 +64,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         /// <summary>
         /// Gets the number of input tokens used by the AI call.
         /// </summary>
-        public int InputTokens => this.InputTokensCached + this.InputTokensPrompt;
+        public int InputTokens => this.InputTokensCached + this.InputTokensCacheWrite + this.InputTokensPrompt;
 
         /// <summary>
         /// Gets or sets the number of output tokens for reasoning that were used by the AI call.
@@ -204,7 +210,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
 
             if (!skipLog)
             {
-                Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
+                Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
             }
 
             if (other.Provider != null)
@@ -224,6 +230,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
 
             this.InputTokensPrompt += other.InputTokensPrompt;
             this.InputTokensCached += other.InputTokensCached;
+            this.InputTokensCacheWrite += other.InputTokensCacheWrite;
             this.OutputTokensReasoning += other.OutputTokensReasoning;
             this.OutputTokensGeneration += other.OutputTokensGeneration;
             this.EstimatedInputTokens += other.EstimatedInputTokens;
@@ -242,6 +249,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             var providerDefault = string.IsNullOrEmpty(metrics.Provider) || string.Equals(metrics.Provider, "Unknown", System.StringComparison.Ordinal);
             var modelDefault = string.IsNullOrEmpty(metrics.Model);
             var tokensZero = metrics.InputTokensCached == 0
+                             && metrics.InputTokensCacheWrite == 0
                              && metrics.InputTokensPrompt == 0
                              && metrics.OutputTokensReasoning == 0
                              && metrics.OutputTokensGeneration == 0;

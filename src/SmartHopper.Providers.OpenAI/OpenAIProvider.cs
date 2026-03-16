@@ -481,6 +481,10 @@ namespace SmartHopper.Providers.OpenAI
                     requestBody["top_logprobs"] = topLogprobsToken.Value<int?>();
                 if (p.Extras.TryGetValue("n", out var nToken) && nToken != null)
                     requestBody["n"] = nToken.Value<int?>();
+                if (p.Extras.TryGetValue("prompt_cache_retention", out var cacheRetentionToken) && cacheRetentionToken != null)
+                    requestBody["prompt_cache_retention"] = cacheRetentionToken.ToString();
+                if (p.Extras.TryGetValue("prompt_cache_key", out var cacheKeyToken) && cacheKeyToken != null)
+                    requestBody["prompt_cache_key"] = cacheKeyToken.ToString();
             }
 
             // Add response format if JSON schema is provided
@@ -613,7 +617,13 @@ namespace SmartHopper.Providers.OpenAI
 
                 if (usage != null)
                 {
-                    metrics.InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
+                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>() ?? 0;
+
+                    // Extract cached tokens from nested prompt_tokens_details object
+                    var promptDetails = usage["prompt_tokens_details"] as JObject;
+                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
+                    metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
+
                     metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
 
                     // Extract reasoning tokens from nested completion_tokens_details object (o1/o3/GPT-5 models)
@@ -1044,6 +1054,10 @@ namespace SmartHopper.Providers.OpenAI
                         if (pt.HasValue) promptTokens = pt.Value;
                         if (ct.HasValue) completionTokens = ct.Value;
 
+                        // Extract cached tokens from nested prompt_tokens_details object
+                        var promptDetails = usage["prompt_tokens_details"] as JObject;
+                        var cachedTokens = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
+
                         // Extract reasoning tokens from nested completion_tokens_details object (o1/o3/GPT-5 models)
                         var completionDetails = usage["completion_tokens_details"] as JObject;
                         var rt = completionDetails?["reasoning_tokens"]?.Value<int?>() ?? 0;
@@ -1053,7 +1067,8 @@ namespace SmartHopper.Providers.OpenAI
                         {
                             Provider = this.Provider.Name,
                             Model = request.Model,
-                            InputTokensPrompt = pt ?? 0,
+                            InputTokensCached = cachedTokens,
+                            InputTokensPrompt = (pt ?? 0) - cachedTokens,
                             OutputTokensGeneration = ct ?? 0,
                             OutputTokensReasoning = rt,
                         });
@@ -1540,6 +1555,14 @@ namespace SmartHopper.Providers.OpenAI
                     "Reasoning token budget for o-series and gpt-5 models. 'low' is fastest, 'high' is most thorough.",
                     typeof(string), "medium",
                     new[] { "low", "medium", "high" }),
+                // OpenAI prompt caching parameters
+                new AIExtraDescriptor("prompt_cache_retention", "Cache Retention",
+                    "Cache retention policy for repeated prompt prefixes. 'in_memory' (5-10 min, default) or '24h' (extended, for gpt-4.1+). Recommended for batch jobs.",
+                    typeof(string), null,
+                    new[] { "in_memory", "24h" }),
+                new AIExtraDescriptor("prompt_cache_key", "Cache Key",
+                    "Optional string to improve cache routing when many requests share a long common prefix. Combine with '24h' retention for batch jobs.",
+                    typeof(string), null),
             };
         }
     }

@@ -146,8 +146,6 @@ namespace SmartHopper.Providers.Anthropic
                 request.Headers["anthropic-version"] = "2023-06-01";
             }
 
-            this.ApplyStructuredOutputsBetaHeader(request);
-
             return request;
         }
 
@@ -581,6 +579,16 @@ namespace SmartHopper.Providers.Anthropic
                 }
             }
 
+            // Apply automatic prompt caching when enable_caching=true:
+            // Adds top-level cache_control so Anthropic automatically caches the longest stable prefix.
+            bool enableCaching = p?.Extras != null
+                && p.Extras.TryGetValue("enable_caching", out var ecToken)
+                && ecToken?.Value<bool>() == true;
+            if (enableCaching)
+            {
+                requestBody["cache_control"] = new JObject { ["type"] = "ephemeral" };
+            }
+
             // Add tools if requested: map OpenAI-style tools to Anthropic 'tools'
             if (!string.IsNullOrWhiteSpace(toolFilter))
             {
@@ -759,6 +767,8 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     m.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? m.InputTokensPrompt;
                     m.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? m.OutputTokensGeneration;
+                    m.InputTokensCached = usage["cache_read_input_tokens"]?.Value<int>() ?? m.InputTokensCached;
+                    m.InputTokensCacheWrite = usage["cache_creation_input_tokens"]?.Value<int>() ?? m.InputTokensCacheWrite;
                 }
 
                 m.FinishReason = response["stop_reason"]?.ToString() ?? m.FinishReason;
@@ -1015,6 +1025,8 @@ namespace SmartHopper.Providers.Anthropic
                         {
                             streamMetrics.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
                             streamMetrics.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
+                            streamMetrics.InputTokensCached = usage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached;
+                            streamMetrics.InputTokensCacheWrite = usage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite;
                         }
 
                         // The stop_reason is nested under "delta" in message_delta events
@@ -1072,35 +1084,6 @@ namespace SmartHopper.Providers.Anthropic
 
                 final.SetBody(finalBuilder.Build());
                 yield return final;
-            }
-        }
-
-        private void ApplyStructuredOutputsBetaHeader(AIRequestCall request)
-        {
-            if (request?.Body?.RequiresJsonOutput != true)
-            {
-                return;
-            }
-
-            if (!SupportsStructuredOutputs(request.Model))
-            {
-                return;
-            }
-
-            const string betaHeaderName = "anthropic-beta";
-            const string betaValue = "structured-outputs-2025-11-13";
-
-            if (!request.Headers.TryGetValue(betaHeaderName, out var existing) || string.IsNullOrWhiteSpace(existing))
-            {
-                request.Headers[betaHeaderName] = betaValue;
-                return;
-            }
-
-            if (!existing.Contains(betaValue, StringComparison.OrdinalIgnoreCase))
-            {
-                request.Headers[betaHeaderName] = existing.EndsWith(",", StringComparison.Ordinal)
-                    ? existing + betaValue
-                    : string.Concat(existing, ",", betaValue);
             }
         }
 
@@ -1323,6 +1306,10 @@ namespace SmartHopper.Providers.Anthropic
                     "Service tier for request processing. 'auto' or 'default'.",
                     typeof(string), "auto",
                     new[] { "auto", "default" }),
+                // Anthropic prompt caching parameters
+                new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
+                    "Automatically caches the longest stable prompt prefix (>1024 tokens for Sonnet, >4096 tokens for Opus and Haiku). Reduces latency and cost on repeated calls sharing the same context. Highly recommended for batch processing.",
+                    typeof(bool), null),
             };
         }
     }

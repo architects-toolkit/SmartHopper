@@ -240,6 +240,8 @@ namespace SmartHopper.Providers.OpenRouter
                     body["logprobs"] = logprobsToken.Value<bool?>();
                 if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
                     body["top_logprobs"] = topLogprobsToken.Value<int?>();
+                if (p.Extras.TryGetValue("enable_caching", out var enableCachingToken) && enableCachingToken?.Value<bool>() == true)
+                    body["cache_control"] = new JObject { ["type"] = "ephemeral" };
             }
 
             // Add tools if requested
@@ -511,7 +513,13 @@ namespace SmartHopper.Providers.OpenRouter
                 var usage = response["usage"] as JObject;
                 if (usage != null)
                 {
-                    metrics.InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? 0;
+                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>() ?? 0;
+
+                    // Extract cached tokens from nested prompt_tokens_details object
+                    var promptDetails = usage["prompt_tokens_details"] as JObject;
+                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
+                    metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
+
                     metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? 0;
                 }
 
@@ -989,6 +997,10 @@ namespace SmartHopper.Providers.OpenRouter
                     "Whether to allow provider to collect data from requests: 'allow' or 'deny'.",
                     typeof(string), "deny",
                     new[] { "allow", "deny" }),
+                // OpenRouter prompt caching parameters
+                new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
+                    "Adds cache_control to the request body, enabling prompt caching for supported providers routed through OpenRouter.",
+                    typeof(bool), null),
             };
         }
     }
