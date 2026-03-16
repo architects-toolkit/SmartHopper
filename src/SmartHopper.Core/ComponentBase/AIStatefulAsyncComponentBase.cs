@@ -40,6 +40,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
@@ -1025,7 +1026,7 @@ namespace SmartHopper.Core.ComponentBase
                         if (interactions != null)
                         {
                             allInteractions.AddRange(interactions);
-                            
+
                             // Extract metrics from each interaction
                             foreach (var interaction in interactions)
                             {
@@ -1055,7 +1056,7 @@ namespace SmartHopper.Core.ComponentBase
             if (allInteractions.Count > 0)
             {
                 var batchReturn = new AIReturn();
-                
+
                 // Aggregate metrics from all batch items
                 AIMetrics aggregatedMetrics = null;
                 if (allMetrics.Count > 0)
@@ -1063,9 +1064,9 @@ namespace SmartHopper.Core.ComponentBase
                     aggregatedMetrics = new AIMetrics
                     {
                         Provider = this.GetActualAIProviderName(),
-                        Model = this.GetModel()
+                        Model = this.GetModel(),
                     };
-                    
+
                     foreach (var metrics in allMetrics)
                     {
                         aggregatedMetrics.Combine(metrics);
