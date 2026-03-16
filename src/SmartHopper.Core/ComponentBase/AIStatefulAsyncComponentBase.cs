@@ -1012,6 +1012,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             var allInteractions = new List<IAIInteraction>();
+            var allMetrics = new List<AIMetrics>();
 
             var reconstructedTree = ReconstructOutputTree<T>(
                 sentinelTree,
@@ -1024,6 +1025,15 @@ namespace SmartHopper.Core.ComponentBase
                         if (interactions != null)
                         {
                             allInteractions.AddRange(interactions);
+                            
+                            // Extract metrics from each interaction
+                            foreach (var interaction in interactions)
+                            {
+                                if (interaction.Metrics != null)
+                                {
+                                    allMetrics.Add(interaction.Metrics);
+                                }
+                            }
                         }
 
                         return decode(customId, resultBody);
@@ -1045,7 +1055,27 @@ namespace SmartHopper.Core.ComponentBase
             if (allInteractions.Count > 0)
             {
                 var batchReturn = new AIReturn();
-                batchReturn.CreateSuccess(allInteractions);
+                
+                // Aggregate metrics from all batch items
+                AIMetrics aggregatedMetrics = null;
+                if (allMetrics.Count > 0)
+                {
+                    aggregatedMetrics = new AIMetrics
+                    {
+                        Provider = this.GetActualAIProviderName(),
+                        Model = this.GetModel()
+                    };
+                    
+                    foreach (var metrics in allMetrics)
+                    {
+                        aggregatedMetrics.Combine(metrics);
+                    }
+                    
+                    Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items, " +
+                                  $"InputTokens={aggregatedMetrics.InputTokens}, OutputTokens={aggregatedMetrics.OutputTokens}");
+                }
+                
+                batchReturn.CreateSuccess(allInteractions, metrics: aggregatedMetrics);
                 this.SetAIReturnSnapshot(batchReturn);
             }
 
