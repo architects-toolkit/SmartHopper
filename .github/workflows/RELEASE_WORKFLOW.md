@@ -21,11 +21,14 @@ Triggered manually via `release-1-milestone.yml` when a milestone is ready to re
 
 ## Promotion Release Flow
 
-Automatic stage progression after 30 days with no issues:
+Automatic stage progression when ALL conditions are met:
 
 1. Daily cron job checks all prerelease versions (alpha/beta/rc)
-2. If no open issues for 30 days → promotes to next stage
-3. Creates promotion PR (e.g., `1.4.3-alpha` → `1.4.3-beta`)
+2. **Promotion requires ALL three conditions**:
+   - ✅ **No open issues with version label** (any stage of base version, e.g., `version: 1.4.3-alpha`)
+   - ✅ **Original release published at least 30 days ago**
+   - ✅ **Last closed issue with original version label at least 30 days ago**
+3. If all conditions met → creates promotion PR (e.g., `1.4.3-alpha` → `1.4.3-beta`)
 4. On merge, release-1-milestone can be triggered for the new version
 
 ## When to Use Regular Releases
@@ -197,11 +200,17 @@ All PRs (release → dev, dev → main) run:
 
 ### Promotion Release Example
 
-**Scenario**: Version `1.4.3-alpha` has been stable for 30 days with no issues.
+**Scenario**: Version `1.4.3-alpha` meets all promotion criteria.
+
+**Validation Checks (checking `1.4.3-alpha` for promotion to `1.4.3-beta`):**
+
+1. ✅ **Version label issues**: No open issues labeled `version: 1.4.3` or `version: 1.4.3-alpha`
+2. ✅ **Release age**: `1.4.3-alpha` published 35 days ago (≥30 days required)
+3. ✅ **Last closed issue**: Last issue labeled `version: 1.4.3-alpha` closed 32 days ago (≥30 days required)
 
 **Process:**
 
-1. **Daily cron** checks `1.4.3-alpha` milestone - no open issues
+1. **Daily cron** validates `1.4.3-alpha` against all three conditions
 2. **release-promotion.yml** creates PR: `release/1.4.3-beta` → `dev`
 3. Review and merge PR to `dev`
 4. **Workflow 2** creates PR from `dev` to `main`
@@ -214,6 +223,12 @@ All PRs (release → dev, dev → main) run:
    - Creates `1.5.0-alpha` milestone (next minor)
    - Closes older `1.x.x-beta` milestones
 10. Run **Workflow 5** to upload to Yak
+
+**Blocking Scenarios** (promotion will NOT happen):
+
+- ❌ Any open issue labeled `version: 1.4.3` or `version: 1.4.3-alpha` (bugs still unresolved)
+- ❌ `1.4.3-alpha` release published < 30 days ago
+- ❌ Last issue with `version: 1.4.3-alpha` label closed < 30 days ago
 
 ### Regular Release Example
 
