@@ -1,0 +1,87 @@
+name: 'Check Issues for Version'
+description: 'Check if any open issues exist with a specific version label within a time period'
+inputs:
+  version:
+    description: 'Version to check for issues (e.g., 1.4.2-alpha)'
+    required: true
+  days-lookback:
+    description: 'Number of days to look back for issues (default: 30)'
+    required: false
+    default: '30'
+  token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+
+outputs:
+  has-issues:
+    description: 'Whether any open issues exist with this version label'
+    value: ${{ steps.check-issues.outputs.has_issues }}
+  issue-count:
+    description: 'Number of open issues with this version label'
+    value: ${{ steps.check-issues.outputs.issue_count }}
+  issues-list:
+    description: 'Comma-separated list of issue numbers'
+    value: ${{ steps.check-issues.outputs.issues_list }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check for issues with version label
+      id: check-issues
+      shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        $version = "${{ inputs.version }}"
+        $labelName = "version: $version"
+        $daysLookback = [int]"${{ inputs.days-lookback }}"
+        $repo = "${{ github.repository }}"
+        
+        Write-Host "Checking for issues with label: $labelName"
+        Write-Host "Looking back $daysLookback days"
+        
+        $headers = @{
+          "Authorization" = "Bearer $env:GITHUB_TOKEN"
+          "Accept" = "application/vnd.github.v3+json"
+        }
+        
+        # Calculate cutoff date
+        $cutoffDate = (Get-Date).AddDays(-$daysLookback).ToString("yyyy-MM-ddTHH:mm:ssZ")
+        
+        # Search for open issues with this label created since cutoff
+        $issues = @()
+        $page = 1
+        $perPage = 100
+        
+        do {
+          $uri = "https://api.github.com/repos/$repo/issues?state=open&labels=$([Uri]::EscapeDataString($labelName))&since=$cutoffDate&per_page=$perPage&page=$page"
+          
+          try {
+            $pageIssues = Invoke-RestMethod -Uri $uri -Headers $headers -Method GET
+            $issues += $pageIssues
+            
+            if ($pageIssues.Count -lt $perPage) {
+              break
+            }
+            $page++
+          } catch {
+            Write-Error "Failed to fetch issues: $($_.Exception.Message)"
+            exit 1
+          }
+        } while ($pageIssues.Count -eq $perPage)
+        
+        $issueCount = $issues.Count
+        $issueNumbers = ($issues | ForEach-Object { $_.number }) -join ","
+        
+        Write-Host "Found $issueCount open issues with label '$labelName'"
+        
+        if ($issueCount -gt 0) {
+          Write-Host "Issues: $issueNumbers"
+          echo "has_issues=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "has_issues=false" >> $env:GITHUB_OUTPUT
+        }
+        
+        echo "issue_count=$issueCount" >> $env:GITHUB_OUTPUT
+        echo "issues_list=$issueNumbers" >> $env:GITHUB_OUTPUT

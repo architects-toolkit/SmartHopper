@@ -1,0 +1,195 @@
+name: 'Promote Version'
+description: 'Promote a version from one stage to the next (alpha→beta→rc→stable)'
+inputs:
+  current-version:
+    description: 'Current version (e.g., 1.4.2-alpha)'
+    required: true
+  token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+  auto-merge:
+    description: 'Auto-merge the PR after creation'
+    required: false
+    default: 'false'
+
+outputs:
+  new-version:
+    description: 'The promoted version'
+    value: ${{ steps.promote.outputs.new_version }}
+  previous-stage:
+    description: 'The previous stage (alpha/beta/rc)'
+    value: ${{ steps.promote.outputs.previous_stage }}
+  new-stage:
+    description: 'The new stage (beta/rc/stable)'
+    value: ${{ steps.promote.outputs.new_stage }}
+  pr-created:
+    description: 'Whether a PR was created'
+    value: ${{ steps.promote.outputs.pr_created }}
+  pr-number:
+    description: 'The PR number if created'
+    value: ${{ steps.promote.outputs.pr_number }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Parse and promote version
+      id: parse
+      shell: pwsh
+      run: |
+        $currentVersion = "${{ inputs.current-version }}"
+        
+        # Parse version: X.Y.Z-SUFFIX or X.Y.Z
+        if ($currentVersion -match '^([0-9]+)\.([0-9]+)\.([0-9]+)(?:-([a-zA-Z0-9]+))?$') {
+          $major = $matches[1]
+          $minor = $matches[2]
+          $patch = $matches[3]
+          $suffix = $matches[4]
+          
+          echo "major=$major" >> $env:GITHUB_OUTPUT
+          echo "minor=$minor" >> $env:GITHUB_OUTPUT
+          echo "patch=$patch" >> $env:GITHUB_OUTPUT
+          echo "suffix=$suffix" >> $env:GITHUB_OUTPUT
+          
+          # Determine promotion path
+          switch ($suffix.ToLower()) {
+            'alpha' {
+              $newVersion = "$major.$minor.$patch-beta"
+              $previousStage = 'alpha'
+              $newStage = 'beta'
+            }
+            'beta' {
+              $newVersion = "$major.$minor.$patch-rc"
+              $previousStage = 'beta'
+              $newStage = 'rc'
+            }
+            'rc' {
+              $newVersion = "$major.$minor.$patch"
+              $previousStage = 'rc'
+              $newStage = 'stable'
+            }
+            default {
+              Write-Error "Unknown or missing version suffix: $suffix. Cannot determine promotion path."
+              exit 1
+            }
+          }
+          
+          Write-Host "Promoting: $currentVersion -> $newVersion"
+          echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
+          echo "previous_stage=$previousStage" >> $env:GITHUB_OUTPUT
+          echo "new_stage=$newStage" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Error "Invalid version format: $currentVersion"
+          exit 1
+        }
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: dev
+
+    - name: Set up Git user
+      shell: bash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "action@github.com"
+
+    - name: Remove existing release branch if it exists
+      shell: bash
+      run: |
+        NEW_VERSION="${{ steps.parse.outputs.new_version }}"
+        if git ls-remote --exit-code --heads origin release/$NEW_VERSION; then
+          git push origin --delete release/$NEW_VERSION
+        fi
+
+    - name: Create release branch
+      shell: bash
+      run: |
+        NEW_VERSION="${{ steps.parse.outputs.new_version }}"
+        git checkout -b release/$NEW_VERSION
+
+    - name: Update version in Solution.props
+      uses: ./.github/actions/versioning/update-version
+      with:
+        new-version: ${{ steps.parse.outputs.new_version }}
+
+    - name: Update changelog section
+      uses: ./.github/actions/documentation/update-changelog
+      with:
+        action: create-release
+        version: ${{ steps.parse.outputs.new_version }}
+
+    - name: Commit and push changes
+      shell: bash
+      run: |
+        NEW_VERSION="${{ steps.parse.outputs.new_version }}"
+        PREVIOUS_STAGE="${{ steps.parse.outputs.previous_stage }}"
+        NEW_STAGE="${{ steps.parse.outputs.new_stage }}"
+        
+        git add Solution.props CHANGELOG.md
+        git commit -m "chore: promote version to $NEW_VERSION ($PREVIOUS_STAGE -> $NEW_STAGE)"
+        git push origin release/$NEW_VERSION
+
+    - name: Create Pull Request
+      id: create-pr
+      shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        $newVersion = "${{ steps.parse.outputs.new_version }}"
+        $previousStage = "${{ steps.parse.outputs.previous_stage }}"
+        $newStage = "${{ steps.parse.outputs.new_stage }}"
+        $repo = "${{ github.repository }}"
+        
+        $prBody = @"
+        ## Version Promotion: ``$previousStage`` → ``$newStage``
+        
+        This PR automatically promotes the version from ``$previousStage`` to ``$newStage`` after no issues were reported for ``${{ inputs.current-version }}`` in the last 30 days.
+        
+        ### Changes
+        - Updated version in `Solution.props` from `${{ inputs.current-version }}` to ``$newVersion``
+        - Created new release section in CHANGELOG.md
+        
+        ### Next Steps
+        1. Review and merge this PR to ``dev``
+        2. The ``release-2-pr-to-dev-closed.yml`` workflow will automatically create a PR to ``main``
+        3. After merging to ``main``, the release will be published
+        
+        ---
+        *This PR was automatically generated by the release promotion workflow.*
+        "@
+        
+        # Create PR
+        $prJson = gh pr create `
+          --base dev `
+          --head "release/$newVersion" `
+          --title "chore: promote version to $newVersion ($previousStage -> $newStage)" `
+          --body $prBody `
+          --json number
+        
+        if ($LASTEXITCODE -eq 0) {
+          $prNumber = ($prJson | ConvertFrom-Json).number
+          Write-Host "Created PR #$prNumber"
+          echo "pr_created=true" >> $env:GITHUB_OUTPUT
+          echo "pr_number=$prNumber" >> $env:GITHUB_OUTPUT
+          
+          # Auto-merge if requested
+          if ("${{ inputs.auto-merge }}" -eq "true") {
+            Write-Host "Auto-merging PR #$prNumber"
+            gh pr merge $prNumber --auto --squash --delete-branch
+          }
+        } else {
+          Write-Error "Failed to create PR"
+          exit 1
+        }
+
+    - name: Output results
+      id: promote
+      shell: pwsh
+      run: |
+        echo "new_version=${{ steps.parse.outputs.new_version }}" >> $env:GITHUB_OUTPUT
+        echo "previous_stage=${{ steps.parse.outputs.previous_stage }}" >> $env:GITHUB_OUTPUT
+        echo "new_stage=${{ steps.parse.outputs.new_stage }}" >> $env:GITHUB_OUTPUT
+        echo "pr_created=${{ steps.create-pr.outputs.pr_created }}" >> $env:GITHUB_OUTPUT
+        echo "pr_number=${{ steps.create-pr.outputs.pr_number }}" >> $env:GITHUB_OUTPUT
