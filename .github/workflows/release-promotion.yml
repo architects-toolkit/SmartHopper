@@ -152,31 +152,36 @@ jobs:
         id: should-promote
         shell: pwsh
         run: |
-          $hasIssues = "${{ steps.check-issues.outputs.has-issues }}" -eq "true"
+          $canPromote = "${{ steps.check-issues.outputs.can-promote }}" -eq "true"
           $forcePromote = "${{ github.event.inputs.force-promote }}" -eq "true"
-          $issueCount = "${{ steps.check-issues.outputs.issue-count }}"
+          $blockingReason = "${{ steps.check-issues.outputs.blocking-reason }}"
           $version = "${{ matrix.version }}"
           
-          Write-Host "Checking promotion for version: $version"
-          Write-Host "Has issues: $hasIssues"
-          Write-Host "Issue count: $issueCount"
-          Write-Host "Force promote: $forcePromote"
-          
-          # Check if version is old enough (at least 30 days since release)
-          # This is a basic check - in a full implementation you'd query the release date
+          Write-Host "=== Promotion Decision for $version ==="
+          Write-Host ""
+          Write-Host "Validation Results:"
+          Write-Host "  • Milestone open issues: ${{ steps.check-issues.outputs.milestone-open-count }}"
+          Write-Host "  • Release age: ${{ steps.check-issues.outputs.release-age-days }} days"
+          Write-Host "  • Last closed issue age: ${{ steps.check-issues.outputs.last-closed-age-days }} days"
+          Write-Host "  • Can promote: $canPromote"
+          if (-not $canPromote) {
+            Write-Host "  • Blocking reason: $blockingReason"
+          }
+          Write-Host "  • Force promote: $forcePromote"
+          Write-Host ""
           
           if ($forcePromote) {
-            Write-Host "⚠️ Force promotion enabled - promoting despite $issueCount issues"
+            Write-Host "⚠️ FORCE PROMOTION ENABLED - Bypassing all validation checks"
             echo "should_promote=true" >> $env:GITHUB_OUTPUT
             echo "reason=force_promote" >> $env:GITHUB_OUTPUT
-          } elseif (-not $hasIssues) {
-            Write-Host "✅ No issues reported for 30 days - ready for promotion"
+          } elseif ($canPromote) {
+            Write-Host "✅ ALL CONDITIONS MET - Promoting $version"
             echo "should_promote=true" >> $env:GITHUB_OUTPUT
-            echo "reason=no_issues" >> $env:GITHUB_OUTPUT
+            echo "reason=all_conditions_met" >> $env:GITHUB_OUTPUT
           } else {
-            Write-Host "⏸️ $issueCount issues still open - deferring promotion"
+            Write-Host "❌ PROMOTION BLOCKED - $blockingReason"
             echo "should_promote=false" >> $env:GITHUB_OUTPUT
-            echo "reason=issues_exist" >> $env:GITHUB_OUTPUT
+            echo "reason=$blockingReason" >> $env:GITHUB_OUTPUT
           }
 
       - name: Promote version
@@ -198,17 +203,35 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "## Promotion Check for ${{ matrix.version }}"
+          echo "## 🔄 Promotion Check for ${{ matrix.version }}"
           echo ""
-          echo "- Has Issues: ${{ steps.check-issues.outputs.has-issues }}"
-          echo "- Issue Count: ${{ steps.check-issues.outputs.issue-count }}"
-          echo "- Should Promote: ${{ steps.should-promote.outputs.should-promote }}"
-          echo "- Reason: ${{ steps.should-promote.outputs.reason }}"
+          echo "### Validation Checks"
+          echo ""
+          echo "| Check | Status | Details |"
+          echo "|-------|--------|---------|"
+          echo "| **Version Label Issues** | ${{ steps.check-issues.outputs.has-issues == 'false' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.issue-count }} open issue(s) with label |"
+          echo "| **Release Age** | ${{ steps.check-issues.outputs.release-old-enough == 'true' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.release-age-days }} days (min: 30) |"
+          echo "| **Last Closed Issue** | ${{ steps.check-issues.outputs.last-closed-old-enough == 'true' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.last-closed-age-days }} days since last close |"
+          echo ""
+          echo "### Decision"
+          echo ""
+          echo "- **Can Promote:** ${{ steps.check-issues.outputs.can-promote }}"
+          echo "- **Should Promote:** ${{ steps.should-promote.outputs.should-promote }}"
+          echo "- **Reason:** ${{ steps.should-promote.outputs.reason }}"
+          if [ "${{ steps.check-issues.outputs.can-promote }}" != "true" ]; then
+            echo "- **Blocking Reason:** ${{ steps.check-issues.outputs.blocking-reason }}"
+          fi
           echo ""
           if [ "${{ steps.should-promote.outputs.should-promote }}" == "true" ]; then
-            echo "- ✅ Promoted: ${{ matrix.version }} → ${{ steps.promote.outputs.new-version }}"
-            echo "- Previous Stage: ${{ steps.promote.outputs.previous-stage }}"
-            echo "- New Stage: ${{ steps.promote.outputs.new-stage }}"
-            echo "- PR Created: ${{ steps.promote.outputs.pr-created }}"
-            echo "- PR Number: ${{ steps.promote.outputs.pr-number }}"
+            echo "### ✅ Promotion Successful"
+            echo ""
+            echo "- **Promoted:** ${{ matrix.version }} → ${{ steps.promote.outputs.new-version }}"
+            echo "- **Previous Stage:** ${{ steps.promote.outputs.previous-stage }}"
+            echo "- **New Stage:** ${{ steps.promote.outputs.new-stage }}"
+            echo "- **PR Created:** ${{ steps.promote.outputs.pr-created }}"
+            echo "- **PR Number:** #${{ steps.promote.outputs.pr-number }}"
+          else
+            echo "### ❌ Promotion Blocked"
+            echo ""
+            echo "Version ${{ matrix.version }} cannot be promoted at this time."
           fi
