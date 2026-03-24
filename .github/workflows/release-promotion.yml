@@ -68,20 +68,6 @@ jobs:
               };
             }
             
-            // Get open milestones (paginate to ensure we fetch all)
-            const milestones = await github.paginate(
-              github.rest.issues.listMilestones,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'open',
-                per_page: 100
-              }
-            );
-            
-            const openMilestoneVersions = new Set(milestones.map(m => m.title));
-            console.log('Open milestones:', Array.from(openMilestoneVersions));
-            
             const { data: releases } = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -95,12 +81,11 @@ jobs:
               // Use specific version from input
               versionsToCheck = [specificVersion];
             } else {
-              // Filter for alpha, beta, rc releases (not stable) that have open milestones
+              // Filter for alpha, beta, rc releases (not stable)
+              // Note: We don't check for open milestones because milestones are closed at release time
               const preReleases = releases.filter(r => {
                 const tag = r.tag_name;
-                const isPreRelease = tag.includes('-alpha') || tag.includes('-beta') || tag.includes('-rc');
-                const hasOpenMilestone = openMilestoneVersions.has(tag);
-                return isPreRelease && hasOpenMilestone;
+                return tag.includes('-alpha') || tag.includes('-beta') || tag.includes('-rc');
               });
               
               // Group by base version and suffix, keep only latest of each suffix
