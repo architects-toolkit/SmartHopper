@@ -1,25 +1,29 @@
-name: 🏁 1 Prepare Release on Milestone Close
+name: 🏁 1 Prepare Release Branch
 
-# Description: This workflow automatically prepares a release branch when a milestone is closed.
-# It extracts the milestone title as the version number and compiles release notes from
-# all issues and pull requests associated with the milestone.
+# Description: This workflow prepares a release branch for a specified version.
+# It updates the version number and compiles release notes from all issues and 
+# pull requests associated with the milestone.
 #
 # Triggers:
-# - Automatically when a milestone is closed
+# - Manual dispatch from GitHub Actions page (specify version as input)
 #
 # Permissions:
 # - contents:write - Required to create GitHub releases
 # - issues:read - Required to read issue information for release notes
 # - pull-requests:write - Required to create pull requests
-#
+
 permissions:
   contents: write
   issues: read
   pull-requests: write
 
 on:
-  milestone:
-    types: [ closed ]
+  workflow_dispatch:
+    inputs:
+      milestone-title:
+        description: 'Milestone title (version number, e.g., 1.4.3 or 1.4.3-beta)'
+        required: true
+        type: string
 
 jobs:
   release-preparation:
@@ -37,12 +41,12 @@ jobs:
 
       - name: Remove existing release branch if it exists
         run: |
-          if git ls-remote --exit-code --heads origin release/${{ github.event.milestone.title }}; then
-            git push origin --delete release/${{ github.event.milestone.title }}
+          if git ls-remote --exit-code --heads origin release/${{ inputs.milestone-title }}; then
+            git push origin --delete release/${{ inputs.milestone-title }}
           fi
 
       - name: Create release branch
-        run: git checkout -b release/${{ github.event.milestone.title }}
+        run: git checkout -b release/${{ inputs.milestone-title }}
 
       - name: Replace SmartHopperPublicKey with placeholder
         run: |
@@ -62,7 +66,7 @@ jobs:
       - name: Update version in Solution.props
         uses: ./.github/actions/versioning/update-version
         with:
-          new-version: ${{ github.event.milestone.title }}
+          new-version: ${{ inputs.milestone-title }}
 
       - name: Include missing issues in changelog
         uses: ./.github/actions/documentation/update-changelog-issues
@@ -74,7 +78,7 @@ jobs:
         uses: ./.github/actions/documentation/update-changelog
         with:
           action: create-release
-          version: ${{ github.event.milestone.title }}
+          version: ${{ inputs.milestone-title }}
           
       - name: Update README badges
         uses: ./.github/actions/documentation/update-badges
@@ -101,20 +105,20 @@ jobs:
       - name: Commit and push changes
         run: |
           git add Solution.props CHANGELOG.md README.md src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj src/
-          git commit -m "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes"
-          git push origin release/${{ github.event.milestone.title }}
+          git commit -m "chore: prepare release ${{ inputs.milestone-title }} with version update and code style fixes"
+          git push origin release/${{ inputs.milestone-title }}
 
       - name: Create Pull Request
         id: create-pr
         run: |
           gh pr create \
             --base dev \
-            --head release/${{ github.event.milestone.title }} \
-            --title "chore: prepare release ${{ github.event.milestone.title }} with version update and code style fixes" \
-            --body $'This PR prepares the release for version ${{ github.event.milestone.title }} with version update and code style fixes:\n\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges'
+            --head release/${{ inputs.milestone-title }} \
+            --title "chore: prepare release ${{ inputs.milestone-title }} with version update and code style fixes" \
+            --body $'This PR prepares the release for version ${{ inputs.milestone-title }} with version update and code style fixes:\n\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges'
           
           # Capture PR number
-          PR_NUMBER=$(gh pr list --base dev --head release/${{ github.event.milestone.title }} --json number --jq '.[0].number')
+          PR_NUMBER=$(gh pr list --base dev --head release/${{ inputs.milestone-title }} --json number --jq '.[0].number')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

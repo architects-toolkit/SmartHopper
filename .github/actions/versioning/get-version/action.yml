@@ -39,16 +39,21 @@ runs:
       shell: pwsh
       run: |
         $VERSION = '${{ steps.get-version.outputs.version }}'
-        if ($VERSION -match '^(\d+)\.(\d+)\.(\d+)(-[A-Za-z0-9]+(\.[0-9]+)?)?$') {
+        if ($VERSION -match '^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.]+))?$') {
           $major = $Matches[1]
           $minor = $Matches[2]
           $patch = $Matches[3]
           $suffix = $Matches[4]
+          
+          # Extract stage from suffix (e.g., 'alpha' from 'alpha.240101')
+          $stage = if ($suffix) { $suffix.Split('.')[0].ToLower() } else { 'stable' }
+          
           "major=$major" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
           "minor=$minor" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
           "patch=$patch" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
           "suffix=$suffix" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
-          Write-Host "Parsed version: Major=$major, Minor=$minor, Patch=$patch, Suffix=$suffix"
+          "stage=$stage" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Parsed version: Major=$major, Minor=$minor, Patch=$patch, Suffix=$suffix, Stage=$stage"
         } else {
           Write-Error "Error: Version format doesn't follow semantic versioning: $VERSION"
           exit 1

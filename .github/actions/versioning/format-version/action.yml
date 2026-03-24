@@ -1,0 +1,41 @@
+name: 'Format Version'
+description: 'Format version components back into a semantic version string'
+inputs:
+  major:
+    description: 'Major version component'
+    required: true
+  minor:
+    description: 'Minor version component'
+    required: true
+  patch:
+    description: 'Patch version component'
+    required: true
+  suffix:
+    description: 'Optional suffix (e.g., alpha.240101)'
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: 'Formatted version string'
+    value: ${{ steps.format.outputs.version }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Format version
+      id: format
+      shell: pwsh
+      run: |
+        $major = "${{ inputs.major }}"
+        $minor = "${{ inputs.minor }}"
+        $patch = "${{ inputs.patch }}"
+        $suffix = "${{ inputs.suffix }}"
+        
+        $version = "$major.$minor.$patch"
+        if ($suffix) {
+          $version += "-$suffix"
+        }
+        
+        Write-Host "Formatted version: $version"
+        "version=$version" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
