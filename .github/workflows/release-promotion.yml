@@ -68,12 +68,16 @@ jobs:
               };
             }
             
-            // Get open milestones
-            const { data: milestones } = await github.rest.issues.listMilestones({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open'
-            });
+            // Get open milestones (paginate to ensure we fetch all)
+            const milestones = await github.paginate(
+              github.rest.issues.listMilestones,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100
+              }
+            );
             
             const openMilestoneVersions = new Set(milestones.map(m => m.title));
             console.log('Open milestones:', Array.from(openMilestoneVersions));

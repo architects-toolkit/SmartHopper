@@ -79,12 +79,15 @@ runs:
           
           // Close older milestones of the same stage within the same major version
           async function closeOlderMilestones(stage, majorVersion) {
-            const { data: allMilestones } = await github.rest.issues.listMilestones({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              per_page: 100
-            });
+            const allMilestones = await github.paginate(
+              github.rest.issues.listMilestones,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100
+              }
+            );
             
             // Filter for same stage AND same major version
             const sameStageMilestones = allMilestones.filter(m => {

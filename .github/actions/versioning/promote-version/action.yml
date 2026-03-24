@@ -90,7 +90,7 @@ runs:
     - name: Remove existing release branch if it exists
       shell: bash
       run: |
-        NEW_VERSION="${{ steps.parse.outputs.new_version }}"
+        NEW_VERSION="${{ steps.promote.outputs.new_version }}"
         if git ls-remote --exit-code --heads origin release/$NEW_VERSION; then
           git push origin --delete release/$NEW_VERSION
         fi
@@ -98,26 +98,26 @@ runs:
     - name: Create release branch
       shell: bash
       run: |
-        NEW_VERSION="${{ steps.parse.outputs.new_version }}"
+        NEW_VERSION="${{ steps.promote.outputs.new_version }}"
         git checkout -b release/$NEW_VERSION
 
     - name: Update version in Solution.props
       uses: ./.github/actions/versioning/update-version
       with:
-        new-version: ${{ steps.parse.outputs.new_version }}
+        new-version: ${{ steps.promote.outputs.new_version }}
 
     - name: Update changelog section
       uses: ./.github/actions/documentation/update-changelog
       with:
         action: create-release
-        version: ${{ steps.parse.outputs.new_version }}
+        version: ${{ steps.promote.outputs.new_version }}
 
     - name: Commit and push changes
       shell: bash
       run: |
-        NEW_VERSION="${{ steps.parse.outputs.new_version }}"
-        PREVIOUS_STAGE="${{ steps.parse.outputs.previous_stage }}"
-        NEW_STAGE="${{ steps.parse.outputs.new_stage }}"
+        NEW_VERSION="${{ steps.promote.outputs.new_version }}"
+        PREVIOUS_STAGE="${{ steps.promote.outputs.previous_stage }}"
+        NEW_STAGE="${{ steps.promote.outputs.new_stage }}"
         
         git add Solution.props CHANGELOG.md
         git commit -m "chore: promote version to $NEW_VERSION ($PREVIOUS_STAGE -> $NEW_STAGE)"
@@ -129,9 +129,9 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
-        $newVersion = "${{ steps.parse.outputs.new_version }}"
-        $previousStage = "${{ steps.parse.outputs.previous_stage }}"
-        $newStage = "${{ steps.parse.outputs.new_stage }}"
+        $newVersion = "${{ steps.promote.outputs.new_version }}"
+        $previousStage = "${{ steps.promote.outputs.previous_stage }}"
+        $newStage = "${{ steps.promote.outputs.new_stage }}"
         $repo = "${{ github.repository }}"
         
         $prBody = @"
@@ -177,7 +177,7 @@ runs:
         }
 
     - name: Output results
-      id: promote
+      id: output
       shell: pwsh
       run: |
         echo "new_version=${{ steps.parse.outputs.new_version }}" >> $env:GITHUB_OUTPUT
