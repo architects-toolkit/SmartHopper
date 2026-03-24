@@ -113,24 +113,28 @@ jobs:
               // Group by major version and suffix, keep only latest of each
               // (latest = first occurrence since releases are sorted newest first)
               const versionsByMajorAndSuffix = {};
+              const blockedSuffixKeys = new Set();
               
               for (const release of preReleases) {
                 const parsed = parseVersion(release.tag_name);
                 if (!parsed) continue;
                 
-                // Skip if target version milestone already exists and is closed (already released)
-                const targetVersion = getTargetVersion(parsed);
-                if (targetVersion && closedMilestoneTitles.has(targetVersion)) {
-                  console.log(`Skipping ${release.tag_name}: target ${targetVersion} milestone already closed`);
-                  continue;
-                }
-                
                 // Group by major + suffix only → one candidate per major per stage
                 const suffixKey = `${parsed.major}:${parsed.suffix}`;
                 
-                if (!versionsByMajorAndSuffix[suffixKey]) {
-                  versionsByMajorAndSuffix[suffixKey] = release.tag_name;
+                // Skip if this group is already blocked or already has a candidate
+                if (blockedSuffixKeys.has(suffixKey) || versionsByMajorAndSuffix[suffixKey]) continue;
+                
+                // Skip if target version milestone already exists and is closed (already released)
+                // Block the entire group so older versions in the same major:suffix don't get promoted
+                const targetVersion = getTargetVersion(parsed);
+                if (targetVersion && closedMilestoneTitles.has(targetVersion)) {
+                  console.log(`Skipping ${release.tag_name}: target ${targetVersion} milestone already closed (blocking entire ${suffixKey} group)`);
+                  blockedSuffixKeys.add(suffixKey);
+                  continue;
                 }
+                
+                versionsByMajorAndSuffix[suffixKey] = release.tag_name;
               }
               
               versionsToCheck = Object.values(versionsByMajorAndSuffix);
