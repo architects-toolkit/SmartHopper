@@ -68,11 +68,34 @@ jobs:
               };
             }
             
-            const { data: releases } = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 20
-            });
+            // Compute target version for a given prerelease version
+            function getTargetVersion(parsed) {
+              const base = `${parsed.major}.${parsed.minor}.${parsed.patch}`;
+              if (parsed.suffix === 'alpha') return `${base}-beta`;
+              if (parsed.suffix === 'beta')  return `${base}-rc`;
+              if (parsed.suffix === 'rc')    return base;
+              return null;
+            }
+            
+            const [{ data: releases }, allMilestones] = await Promise.all([
+              github.rest.repos.listReleases({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 20
+              }),
+              github.paginate(github.rest.issues.listMilestones, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all',
+                per_page: 100
+              })
+            ]);
+            
+            // Build a set of closed milestone titles for quick lookup
+            const closedMilestoneTitles = new Set(
+              allMilestones.filter(m => m.state === 'closed').map(m => m.title)
+            );
+            console.log('Closed milestones:', Array.from(closedMilestoneTitles));
             
             const specificVersion = '${{ github.event.inputs.version }}';
             let versionsToCheck = [];
@@ -82,30 +105,35 @@ jobs:
               versionsToCheck = [specificVersion];
             } else {
               // Filter for alpha, beta, rc releases (not stable)
-              // Note: We don't check for open milestones because milestones are closed at release time
               const preReleases = releases.filter(r => {
                 const tag = r.tag_name;
                 return tag.includes('-alpha') || tag.includes('-beta') || tag.includes('-rc');
               });
               
-              // Group by minor version and suffix, keep only latest patch of each
-              const versionsByMinorAndSuffix = {};
+              // Group by major version and suffix, keep only latest of each
+              // (latest = first occurrence since releases are sorted newest first)
+              const versionsByMajorAndSuffix = {};
               
               for (const release of preReleases) {
                 const parsed = parseVersion(release.tag_name);
                 if (!parsed) continue;
                 
-                // Group by major.minor (not patch) + suffix
-                const minorKey = `${parsed.major}.${parsed.minor}`;
-                const suffixKey = `${minorKey}:${parsed.suffix}`;
+                // Skip if target version milestone already exists and is closed (already released)
+                const targetVersion = getTargetVersion(parsed);
+                if (targetVersion && closedMilestoneTitles.has(targetVersion)) {
+                  console.log(`Skipping ${release.tag_name}: target ${targetVersion} milestone already closed`);
+                  continue;
+                }
                 
-                // Keep first occurrence (releases are sorted newest first)
-                if (!versionsByMinorAndSuffix[suffixKey]) {
-                  versionsByMinorAndSuffix[suffixKey] = release.tag_name;
+                // Group by major + suffix only → one candidate per major per stage
+                const suffixKey = `${parsed.major}:${parsed.suffix}`;
+                
+                if (!versionsByMajorAndSuffix[suffixKey]) {
+                  versionsByMajorAndSuffix[suffixKey] = release.tag_name;
                 }
               }
               
-              versionsToCheck = Object.values(versionsByMinorAndSuffix);
+              versionsToCheck = Object.values(versionsByMajorAndSuffix);
             }
             
             console.log('Versions to check for promotion:', versionsToCheck);
@@ -159,15 +187,15 @@ jobs:
           
           if ($forcePromote) {
             Write-Host "⚠️ FORCE PROMOTION ENABLED - Bypassing all validation checks"
-            Add-Content -Path $env:GITHUB_OUTPUT -Value "should_promote=true"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "should-promote=true"
             Add-Content -Path $env:GITHUB_OUTPUT -Value "reason=force_promote"
           } elseif ($canPromote) {
             Write-Host "✅ ALL CONDITIONS MET - Promoting $version"
-            Add-Content -Path $env:GITHUB_OUTPUT -Value "should_promote=true"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "should-promote=true"
             Add-Content -Path $env:GITHUB_OUTPUT -Value "reason=all_conditions_met"
           } else {
             Write-Host "❌ PROMOTION BLOCKED - $blockingReason"
-            Add-Content -Path $env:GITHUB_OUTPUT -Value "should_promote=false"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "should-promote=false"
             Add-Content -Path $env:GITHUB_OUTPUT -Value "reason=$blockingReason"
           }
 
