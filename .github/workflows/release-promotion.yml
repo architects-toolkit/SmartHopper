@@ -88,22 +88,24 @@ jobs:
                 return tag.includes('-alpha') || tag.includes('-beta') || tag.includes('-rc');
               });
               
-              // Group by base version and suffix, keep only latest of each suffix
-              const versionsByBaseAndSuffix = {};
+              // Group by minor version and suffix, keep only latest patch of each
+              const versionsByMinorAndSuffix = {};
               
               for (const release of preReleases) {
                 const parsed = parseVersion(release.tag_name);
                 if (!parsed) continue;
                 
-                const baseKey = `${parsed.major}.${parsed.minor}.${parsed.patch}`;
-                const suffixKey = `${baseKey}:${parsed.suffix}`;
+                // Group by major.minor (not patch) + suffix
+                const minorKey = `${parsed.major}.${parsed.minor}`;
+                const suffixKey = `${minorKey}:${parsed.suffix}`;
                 
-                if (!versionsByBaseAndSuffix[suffixKey]) {
-                  versionsByBaseAndSuffix[suffixKey] = release.tag_name;
+                // Keep first occurrence (releases are sorted newest first)
+                if (!versionsByMinorAndSuffix[suffixKey]) {
+                  versionsByMinorAndSuffix[suffixKey] = release.tag_name;
                 }
               }
               
-              versionsToCheck = Object.values(versionsByBaseAndSuffix);
+              versionsToCheck = Object.values(versionsByMinorAndSuffix);
             }
             
             console.log('Versions to check for promotion:', versionsToCheck);
@@ -157,16 +159,16 @@ jobs:
           
           if ($forcePromote) {
             Write-Host "⚠️ FORCE PROMOTION ENABLED - Bypassing all validation checks"
-            echo "should_promote=true" >> $env:GITHUB_OUTPUT
-            echo "reason=force_promote" >> $env:GITHUB_OUTPUT
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "should_promote=true"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "reason=force_promote"
           } elseif ($canPromote) {
             Write-Host "✅ ALL CONDITIONS MET - Promoting $version"
-            echo "should_promote=true" >> $env:GITHUB_OUTPUT
-            echo "reason=all_conditions_met" >> $env:GITHUB_OUTPUT
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "should_promote=true"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "reason=all_conditions_met"
           } else {
             Write-Host "❌ PROMOTION BLOCKED - $blockingReason"
-            echo "should_promote=false" >> $env:GITHUB_OUTPUT
-            echo "reason=$blockingReason" >> $env:GITHUB_OUTPUT
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "should_promote=false"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "reason=$blockingReason"
           }
 
       - name: Promote version
