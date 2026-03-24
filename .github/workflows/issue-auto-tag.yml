@@ -101,11 +101,17 @@ jobs:
 
       - name: Summary
         if: always()
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          DETECTED_VERSION: ${{ steps.parse-version.outputs.detected_version }}
+          LABEL_NAME: ${{ steps.create-label.outputs.label-name }}
+          LABEL_CREATED: ${{ steps.create-label.outputs.label-created }}
         run: |
           echo "## Issue Auto-Tagging Summary"
           echo ""
-          echo "- Issue: #${{ github.event.issue.number }}"
-          echo "- Title: ${{ github.event.issue.title }}"
-          echo "- Detected Version: ${{ steps.parse-version.outputs.detected_version }}"
-          echo "- Label Applied: ${{ steps.create-label.outputs.label-name }}"
-          echo "- Label Created: ${{ steps.create-label.outputs.label-created }}"
+          echo "- Issue: #$ISSUE_NUMBER"
+          echo "- Title: $ISSUE_TITLE"
+          echo "- Detected Version: $DETECTED_VERSION"
+          echo "- Label Applied: $LABEL_NAME"
+          echo "- Label Created: $LABEL_CREATED"
