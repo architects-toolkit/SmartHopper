@@ -47,21 +47,24 @@ runs:
         }
         
         # Calculate cutoff date
-        $cutoffDate = (Get-Date).AddDays(-$daysLookback).ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $cutoffDate = (Get-Date).AddDays(-$daysLookback).ToString("yyyy-MM-dd")
         
-        # Search for open issues with this label created since cutoff
+        # Use Search API with created date filter for accurate "created since" semantics
+        # This is more accurate than the REST API's 'since' parameter which filters by updated_at
         $issues = @()
         $page = 1
         $perPage = 100
         
         do {
-          $uri = "https://api.github.com/repos/$repo/issues?state=open&labels=$([Uri]::EscapeDataString($labelName))&since=$cutoffDate&per_page=$perPage&page=$page"
+          # Search API query: state:open label:"version: X.Y.Z" created:>=YYYY-MM-DD
+          $query = "state:open label:""$labelName"" created:>=$cutoffDate repo:$repo"
+          $uri = "https://api.github.com/search/issues?q=$([Uri]::EscapeDataString($query))&per_page=$perPage&page=$page"
           
           try {
-            $pageIssues = Invoke-RestMethod -Uri $uri -Headers $headers -Method GET
-            $issues += $pageIssues
+            $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method GET
+            $issues += $response.items
             
-            if ($pageIssues.Count -lt $perPage) {
+            if ($response.items.Count -lt $perPage) {
               break
             }
             $page++
@@ -69,7 +72,7 @@ runs:
             Write-Error "Failed to fetch issues: $($_.Exception.Message)"
             exit 1
           }
-        } while ($pageIssues.Count -eq $perPage)
+        } while ($response.items.Count -eq $perPage)
         
         $issueCount = $issues.Count
         $issueNumbers = ($issues | ForEach-Object { $_.number }) -join ","

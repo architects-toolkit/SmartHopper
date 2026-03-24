@@ -26,6 +26,7 @@ runs:
       with:
         github-token: ${{ inputs.token }}
         script: |
+          // ===== SHARED VERSION UTILITIES (used across versioning actions) =====
           // Parse semantic version from string
           function parseVersion(versionStr) {
             const match = versionStr.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
@@ -35,7 +36,7 @@ runs:
               major: parseInt(match[1]),
               minor: parseInt(match[2]),
               patch: parseInt(match[3]),
-              suffix: match[4] || 'stable',
+              suffix: match[4] || null,
               original: versionStr
             };
           }
@@ -43,11 +44,12 @@ runs:
           // Format version object back to string
           function formatVersion(version) {
             let versionStr = `${version.major}.${version.minor}.${version.patch}`;
-            if (version.suffix && version.suffix !== 'stable') {
+            if (version.suffix) {
               versionStr += `-${version.suffix}`;
             }
             return versionStr;
           }
+          // ===== END SHARED VERSION UTILITIES =====
           
           // Create a milestone
           async function createMilestone(title, description) {
@@ -69,8 +71,14 @@ runs:
             }
           }
           
-          // Close older milestones of the same suffix within the same major version
-          async function closeOlderMilestones(suffix, majorVersion) {
+          // Extract stage from suffix (e.g., 'alpha' from 'alpha.240101')
+          function getStage(suffix) {
+            if (!suffix || suffix === 'stable') return 'stable';
+            return suffix.split('.')[0].toLowerCase();
+          }
+          
+          // Close older milestones of the same stage within the same major version
+          async function closeOlderMilestones(stage, majorVersion) {
             const { data: allMilestones } = await github.rest.issues.listMilestones({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -78,13 +86,13 @@ runs:
               per_page: 100
             });
             
-            // Filter for same suffix AND same major version
-            const sameSuffixMilestones = allMilestones.filter(m => {
+            // Filter for same stage AND same major version
+            const sameStageMilestones = allMilestones.filter(m => {
               const mParsed = parseVersion(m.title);
-              return mParsed && mParsed.suffix === suffix && mParsed.major === majorVersion;
+              return mParsed && getStage(mParsed.suffix) === stage && mParsed.major === majorVersion;
             });
             
-            sameSuffixMilestones.sort((a, b) => {
+            sameStageMilestones.sort((a, b) => {
               const aParsed = parseVersion(a.title);
               const bParsed = parseVersion(b.title);
               
@@ -93,9 +101,9 @@ runs:
             });
             
             const closedTitles = [];
-            for (let i = 1; i < sameSuffixMilestones.length; i++) {
-              const oldMilestone = sameSuffixMilestones[i];
-              console.log(`Closing older ${suffix} milestone (major ${majorVersion}): ${oldMilestone.title}`);
+            for (let i = 1; i < sameStageMilestones.length; i++) {
+              const oldMilestone = sameStageMilestones[i];
+              console.log(`Closing older ${stage} milestone (major ${majorVersion}): ${oldMilestone.title}`);
               
               await github.rest.issues.updateMilestone({
                 owner: context.repo.owner,
@@ -122,8 +130,11 @@ runs:
           const createdMilestones = [];
           const closedMilestones = [];
           
+          // Extract stage from suffix
+          const stage = getStage(parsed.suffix);
+          
           // Alpha releases create two milestones: beta and next minor alpha
-          if (parsed.suffix === 'alpha') {
+          if (stage === 'alpha') {
             // Create beta milestone
             const betaVersion = {
               major: parsed.major,
@@ -151,7 +162,7 @@ runs:
             if (nextAlphaResult.created) createdMilestones.push(nextMinorAlphaStr);
           }
           // Beta releases create rc milestone
-          else if (parsed.suffix === 'beta') {
+          else if (stage === 'beta') {
             const rcVersion = {
               major: parsed.major,
               minor: parsed.minor,
@@ -167,7 +178,7 @@ runs:
             closedMilestones.push(...closedRcs);
           }
           // RC releases create stable milestone
-          else if (parsed.suffix === 'rc') {
+          else if (stage === 'rc') {
             const stableVersion = {
               major: parsed.major,
               minor: parsed.minor,

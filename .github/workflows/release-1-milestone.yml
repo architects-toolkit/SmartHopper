@@ -1,17 +1,17 @@
-name: 🏁 1 Prepare Release on Milestone Close
+name: 🏁 1 Prepare Release Branch
 
-# Description: This workflow prepares a release branch for a milestone.
-# It extracts the milestone title as the version number and compiles release notes from
-# all issues and pull requests associated with the milestone.
+# Description: This workflow prepares a release branch for a specified version.
+# It updates the version number and compiles release notes from all issues and 
+# pull requests associated with the milestone.
 #
 # Triggers:
-# - Manual dispatch from GitHub Actions page (select any milestone)
+# - Manual dispatch from GitHub Actions page (specify version as input)
 #
 # Permissions:
 # - contents:write - Required to create GitHub releases
 # - issues:read - Required to read issue information for release notes
 # - pull-requests:write - Required to create pull requests
-#
+
 permissions:
   contents: write
   issues: read
