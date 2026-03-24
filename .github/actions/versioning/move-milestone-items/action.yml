@@ -154,18 +154,18 @@ runs:
             return prerelease.split('.')[0].toLowerCase();
           }
           
-          // For alpha, beta, rc: move to next minor with same stage
+          // For alpha, beta, rc: move to next minor alpha
           if (closedVersion.prerelease && closedVersion.prerelease !== 'stable') {
             const stage = getStage(closedVersion.prerelease);
             const nextMinorAlpha = {
               major: closedVersion.major,
               minor: closedVersion.minor + 1,
               patch: 0,
-              prerelease: stage
+              prerelease: 'alpha'
             };
             const nextMinorAlphaTitle = formatVersion(nextMinorAlpha);
             
-            console.log(`Closed milestone is ${closedVersion.prerelease} (stage: ${stage}), looking for next minor ${stage}: ${nextMinorAlphaTitle}`);
+            console.log(`Closed milestone is ${closedVersion.prerelease} (stage: ${stage}), looking for next minor alpha: ${nextMinorAlphaTitle}`);
             
             targetMilestone = await findMilestone(nextMinorAlphaTitle);
             if (!targetMilestone) {
