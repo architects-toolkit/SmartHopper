@@ -489,3 +489,39 @@ jobs:
         Write-Host "Next steps:"
         Write-Host "  1. Review and merge the hash PR to main branch"
         Write-Host "  2. GitHub Pages deployment will trigger automatically"
+
+  # Trigger Yak upload after build succeeds — only for stable (non-prerelease) releases
+  # This replaces the standalone release-auto-upload-yak.yml trigger to avoid a race condition
+  # where Yak upload fires before build artifacts are ready.
+  trigger-yak-upload:
+    needs: [merge-and-release]
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Trigger Yak upload workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = '${{ github.event.release.tag_name }}';
+            const releaseVersion = tag.replace(/^v/, '');
+
+            console.log(`Build succeeded. Triggering Yak upload for stable release: ${releaseVersion}`);
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-6-upload-yak.yml',
+              ref: 'main',
+              inputs: {
+                version: releaseVersion,
+                platform: 'both',
+                upload_to_yak: 'true',
+                testing: 'false'
+              }
+            });
+
+            console.log('✅ Yak upload workflow triggered successfully');

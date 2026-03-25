@@ -1,0 +1,142 @@
+name: Stabilization 0 - 🌿 Init Path
+
+# Description: Initializes a stabilization path when a no-suffix milestone (e.g. "1.4.2") is created.
+# Creates dedicated dev-X.Y.Z and main-X.Y.Z branches from the latest matching prerelease tag.
+#
+# Triggers:
+# - milestone.created when title matches X.Y.Z (no suffix)
+#
+# Permissions:
+# - contents: write - Required to create branches
+
+on:
+  milestone:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  init-stabilization-path:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'milestone' && !contains(github.event.milestone.title, '-') && github.event.milestone.title != '' }}
+    steps:
+      - name: Validate milestone title format
+        id: validate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '${{ github.event.milestone.title }}';
+            const isStableVersion = /^\d+\.\d+\.\d+$/.test(title);
+            if (!isStableVersion) {
+              console.log(`Milestone '${title}' is not a stable X.Y.Z version. Skipping.`);
+              core.setOutput('is-stabilization', 'false');
+            } else {
+              console.log(`Milestone '${title}' is a stabilization milestone. Proceeding.`);
+              core.setOutput('is-stabilization', 'true');
+            }
+
+      - name: Checkout repository
+        if: steps.validate.outputs.is-stabilization == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git user
+        if: steps.validate.outputs.is-stabilization == 'true'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "action@github.com"
+
+      - name: Find latest prerelease tag for this version
+        if: steps.validate.outputs.is-stabilization == 'true'
+        id: find-tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ github.event.milestone.title }}';
+            console.log(`Looking for latest prerelease tag matching ${version}-*`);
+
+            const tags = await github.paginate(github.rest.repos.listTags, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+
+            // Filter tags starting with version- (e.g. 1.4.2-alpha, 1.4.2-beta)
+            const stagePriority = { rc: 3, beta: 2, alpha: 1 };
+            const matchingTags = tags
+              .map(t => t.name)
+              .filter(name => name.startsWith(`${version}-`))
+              .sort((a, b) => {
+                const aStage = Object.keys(stagePriority).find(s => a.includes(`-${s}`)) || '';
+                const bStage = Object.keys(stagePriority).find(s => b.includes(`-${s}`)) || '';
+                return (stagePriority[bStage] || 0) - (stagePriority[aStage] || 0);
+              });
+
+            if (matchingTags.length > 0) {
+              console.log(`Found matching tags: ${matchingTags.join(', ')}`);
+              console.log(`Using tag: ${matchingTags[0]}`);
+              core.setOutput('tag', matchingTags[0]);
+              core.setOutput('source', matchingTags[0]);
+            } else {
+              console.log(`No prerelease tags found for ${version}. Falling back to main branch.`);
+              core.setOutput('tag', '');
+              core.setOutput('source', 'main');
+            }
+
+      - name: Create stabilization branches
+        if: steps.validate.outputs.is-stabilization == 'true'
+        run: |
+          VERSION="${{ github.event.milestone.title }}"
+          SOURCE="${{ steps.find-tag.outputs.source }}"
+          TAG="${{ steps.find-tag.outputs.tag }}"
+
+          echo "Creating stabilization branches for ${VERSION} from ${SOURCE}"
+
+          # Fetch all tags and branches
+          git fetch --tags origin
+
+          # Determine the git ref to branch from
+          if [ -n "$TAG" ]; then
+            REF="refs/tags/${TAG}"
+          else
+            git fetch origin main
+            REF="origin/main"
+          fi
+
+          echo "Using ref: ${REF}"
+
+          # Create dev-X.Y.Z branch
+          DEV_BRANCH="dev-${VERSION}"
+          if git ls-remote --exit-code --heads origin "$DEV_BRANCH" > /dev/null 2>&1; then
+            echo "Branch ${DEV_BRANCH} already exists, skipping."
+          else
+            git checkout -b "$DEV_BRANCH" "$REF"
+            git push origin "$DEV_BRANCH"
+            echo "✅ Created ${DEV_BRANCH} from ${SOURCE}"
+          fi
+
+          # Create main-X.Y.Z branch
+          MAIN_BRANCH="main-${VERSION}"
+          if git ls-remote --exit-code --heads origin "$MAIN_BRANCH" > /dev/null 2>&1; then
+            echo "Branch ${MAIN_BRANCH} already exists, skipping."
+          else
+            git checkout -b "$MAIN_BRANCH" "$REF"
+            git push origin "$MAIN_BRANCH"
+            echo "✅ Created ${MAIN_BRANCH} from ${SOURCE}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: steps.validate.outputs.is-stabilization == 'true'
+        run: |
+          echo "## 🌿 Stabilization Path Initialized"
+          echo ""
+          echo "- **Version:** ${{ github.event.milestone.title }}"
+          echo "- **Source:** ${{ steps.find-tag.outputs.source }}"
+          echo "- **dev branch:** dev-${{ github.event.milestone.title }}"
+          echo "- **main branch:** main-${{ github.event.milestone.title }}"
+          echo ""
+          echo "Next: wait for \`release-promotion.yml\` to detect and promote the current staged release."

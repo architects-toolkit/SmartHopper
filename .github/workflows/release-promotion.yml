@@ -1,12 +1,14 @@
 name: 🔄 Release Promotion (Alpha→Beta→RC→Stable)
 
-# Description: Automatically promotes versions through release stages when no issues
+# Description: Automatically promotes stabilization versions through release stages when no issues
 # are reported within 30 days of release.
 #
 # Flow:
-# 1. Checks for issues labeled with the released version
-# 2. If no issues found after 30 days, promotes to next stage (alpha→beta→rc→stable)
-# 3. Creates release branch and PR for the promotion
+# 1. Scans open no-suffix milestones (e.g. "1.4.2") to discover active stabilization paths
+# 2. For each, finds the current staged release (alpha/beta/rc)
+# 3. Checks promotion eligibility (age ≥ 30d, no open issues)
+# 4. If eligible: creates next-stage milestone, closes current staged milestone,
+#    and dispatches release-1-milestone.yml for the new stage
 #
 # Triggers:
 # - Workflow dispatch (manual)
@@ -17,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Specific version to check for promotion (leave empty to check all recent releases)'
+        description: 'Specific staged version to check (e.g. 1.4.2-alpha). Leave empty to check all stabilization paths.'
         required: false
         type: string
         default: ''
@@ -34,8 +36,9 @@ on:
 
 permissions:
   contents: write
-  issues: read
+  issues: write
   pull-requests: write
+  actions: write
 
 jobs:
   determine-versions-to-check:
@@ -58,90 +61,69 @@ jobs:
             function parseVersion(versionStr) {
               const match = versionStr.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
               if (!match) return null;
-              
               return {
                 major: parseInt(match[1]),
                 minor: parseInt(match[2]),
                 patch: parseInt(match[3]),
-                suffix: match[4] || 'stable',
+                suffix: match[4] || null,
                 original: versionStr
               };
             }
-            
-            // Compute target version for a given prerelease version
-            function getTargetVersion(parsed) {
-              const base = `${parsed.major}.${parsed.minor}.${parsed.patch}`;
-              if (parsed.suffix === 'alpha') return `${base}-beta`;
-              if (parsed.suffix === 'beta')  return `${base}-rc`;
-              if (parsed.suffix === 'rc')    return base;
-              return null;
-            }
-            
-            const [{ data: releases }, allMilestones] = await Promise.all([
-              github.rest.repos.listReleases({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                per_page: 20
-              }),
-              github.paginate(github.rest.issues.listMilestones, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'all',
-                per_page: 100
-              })
-            ]);
-            
-            // Build a set of closed milestone titles for quick lookup
-            const closedMilestoneTitles = new Set(
-              allMilestones.filter(m => m.state === 'closed').map(m => m.title)
-            );
-            console.log('Closed milestones:', Array.from(closedMilestoneTitles));
-            
+
             const specificVersion = '${{ github.event.inputs.version }}';
             let versionsToCheck = [];
-            
+
             if (specificVersion) {
-              // Use specific version from input
               versionsToCheck = [specificVersion];
             } else {
-              // Filter for alpha, beta, rc releases (not stable)
-              const preReleases = releases.filter(r => {
-                const tag = r.tag_name;
-                return tag.includes('-alpha') || tag.includes('-beta') || tag.includes('-rc');
-              });
-              
-              // Group by major version and suffix, keep only latest of each
-              // (latest = first occurrence since releases are sorted newest first)
-              const versionsByMajorAndSuffix = {};
-              const blockedSuffixKeys = new Set();
-              
-              for (const release of preReleases) {
-                const parsed = parseVersion(release.tag_name);
-                if (!parsed) continue;
-                
-                // Group by major + suffix only → one candidate per major per stage
-                const suffixKey = `${parsed.major}:${parsed.suffix}`;
-                
-                // Skip if this group is already blocked or already has a candidate
-                if (blockedSuffixKeys.has(suffixKey) || versionsByMajorAndSuffix[suffixKey]) continue;
-                
-                // Skip if target version milestone already exists and is closed (already released)
-                // Block the entire group so older versions in the same major:suffix don't get promoted
-                const targetVersion = getTargetVersion(parsed);
-                if (targetVersion && closedMilestoneTitles.has(targetVersion)) {
-                  console.log(`Skipping ${release.tag_name}: target ${targetVersion} milestone already closed (blocking entire ${suffixKey} group)`);
-                  blockedSuffixKeys.add(suffixKey);
-                  continue;
+              // Discover active stabilization paths via open no-suffix milestones
+              const [openMilestones, { data: releases }] = await Promise.all([
+                github.paginate(github.rest.issues.listMilestones, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'open',
+                  per_page: 100
+                }),
+                github.rest.repos.listReleases({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  per_page: 100
+                })
+              ]);
+
+              // Filter to X.Y.Z milestones (no suffix = stabilization path marker)
+              const stabilizationMilestones = openMilestones.filter(m => /^\d+\.\d+\.\d+$/.test(m.title));
+              console.log('Active stabilization milestones:', stabilizationMilestones.map(m => m.title));
+
+              // Build a set of all release tag names for fast lookup
+              const releaseTags = new Set(releases.map(r => r.tag_name));
+
+              // For each stabilization path, find the current staged release
+              // Priority: rc > beta > alpha (promote the most advanced stage that exists)
+              const stagePriority = ['rc', 'beta', 'alpha'];
+
+              for (const milestone of stabilizationMilestones) {
+                const base = milestone.title; // e.g. "1.4.2"
+                let currentStaged = null;
+
+                for (const stage of stagePriority) {
+                  const candidate = `${base}-${stage}`;
+                  if (releaseTags.has(candidate)) {
+                    currentStaged = candidate;
+                    console.log(`Stabilization path ${base}: current staged release is ${candidate}`);
+                    break;
+                  }
                 }
-                
-                versionsByMajorAndSuffix[suffixKey] = release.tag_name;
+
+                if (currentStaged) {
+                  versionsToCheck.push(currentStaged);
+                } else {
+                  console.log(`Stabilization path ${base}: no staged release found yet, skipping.`);
+                }
               }
-              
-              versionsToCheck = Object.values(versionsByMajorAndSuffix);
             }
-            
+
             console.log('Versions to check for promotion:', versionsToCheck);
-            
             core.setOutput('versions', JSON.stringify(versionsToCheck));
             core.setOutput('has_versions', versionsToCheck.length > 0 ? 'true' : 'false');
 
@@ -175,7 +157,7 @@ jobs:
           $forcePromote = "${{ github.event.inputs.force-promote }}" -eq "true"
           $blockingReason = "${{ steps.check-issues.outputs.blocking-reason }}"
           $version = "${{ matrix.version }}"
-          
+
           Write-Host "=== Promotion Decision for $version ==="
           Write-Host ""
           Write-Host "Validation Results:"
@@ -188,7 +170,7 @@ jobs:
           }
           Write-Host "  • Force promote: $forcePromote"
           Write-Host ""
-          
+
           if ($forcePromote) {
             Write-Host "⚠️ FORCE PROMOTION ENABLED - Bypassing all validation checks"
             Add-Content -Path $env:GITHUB_OUTPUT -Value "should-promote=true"
@@ -203,21 +185,111 @@ jobs:
             Add-Content -Path $env:GITHUB_OUTPUT -Value "reason=$blockingReason"
           }
 
-      - name: Promote version
+      - name: Compute next stage version
         if: steps.should-promote.outputs.should-promote == 'true'
-        id: promote
-        uses: ./.github/actions/versioning/promote-version
+        id: compute-next
+        uses: actions/github-script@v7
         with:
-          current-version: ${{ matrix.version }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          auto-merge: 'false'
+          script: |
+            const current = '${{ matrix.version }}';
+            const match = current.match(/^(\d+\.\d+\.\d+)-(\w+)$/);
+            if (!match) {
+              core.setFailed(`Cannot parse version: ${current}`);
+              return;
+            }
+            const base = match[1];
+            const stage = match[2];
+            let nextVersion, nextStage;
+            if (stage === 'alpha') { nextVersion = `${base}-beta`; nextStage = 'beta'; }
+            else if (stage === 'beta') { nextVersion = `${base}-rc`; nextStage = 'rc'; }
+            else if (stage === 'rc') { nextVersion = base; nextStage = 'stable'; }
+            else { core.setFailed(`Unknown stage: ${stage}`); return; }
+
+            console.log(`Promoting ${current} → ${nextVersion}`);
+            core.setOutput('next-version', nextVersion);
+            core.setOutput('next-stage', nextStage);
+            core.setOutput('base-version', base);
+            core.setOutput('current-stage', stage);
+
+      - name: Create next-stage milestone
+        if: steps.should-promote.outputs.should-promote == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const nextVersion = '${{ steps.compute-next.outputs.next-version }}';
+            const nextStage = '${{ steps.compute-next.outputs.next-stage }}';
+            if (nextStage === 'stable') {
+              console.log('Promoting to stable — no new milestone needed (parent milestone already exists).');
+              return;
+            }
+            try {
+              await github.rest.issues.createMilestone({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: nextVersion,
+                description: `Auto-created by release-promotion for ${nextVersion}`
+              });
+              console.log(`✅ Created milestone: ${nextVersion}`);
+            } catch (e) {
+              if (e.message.includes('already exists')) {
+                console.log(`ℹ️ Milestone ${nextVersion} already exists`);
+              } else {
+                throw e;
+              }
+            }
+
+      - name: Close current staged milestone
+        if: steps.should-promote.outputs.should-promote == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const currentVersion = '${{ matrix.version }}';
+            const milestones = await github.paginate(github.rest.issues.listMilestones, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const milestone = milestones.find(m => m.title === currentVersion);
+            if (milestone) {
+              await github.rest.issues.updateMilestone({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                milestone_number: milestone.number,
+                state: 'closed'
+              });
+              console.log(`✅ Closed milestone: ${currentVersion}`);
+            } else {
+              console.log(`ℹ️ Milestone '${currentVersion}' not found or already closed`);
+            }
 
       - name: Create new version label
         if: steps.should-promote.outputs.should-promote == 'true'
         uses: ./.github/actions/versioning/create-version-label
         with:
-          version: ${{ steps.promote.outputs.new-version }}
+          version: ${{ steps.compute-next.outputs.next-version }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch release-1-milestone.yml
+        if: steps.should-promote.outputs.should-promote == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const nextVersion = '${{ steps.compute-next.outputs.next-version }}';
+            console.log(`Dispatching release-1-milestone.yml for ${nextVersion}`);
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-1-milestone.yml',
+              ref: 'main',
+              inputs: {
+                'milestone-title': nextVersion
+              }
+            });
+            console.log(`✅ Dispatched release-1-milestone.yml for ${nextVersion}`);
 
       - name: Summary
         if: always()
@@ -242,13 +314,11 @@ jobs:
           fi
           echo ""
           if [ "${{ steps.should-promote.outputs.should-promote }}" == "true" ]; then
-            echo "### ✅ Promotion Successful"
+            echo "### ✅ Promotion Dispatched"
             echo ""
-            echo "- **Promoted:** ${{ matrix.version }} → ${{ steps.promote.outputs.new-version }}"
-            echo "- **Previous Stage:** ${{ steps.promote.outputs.previous-stage }}"
-            echo "- **New Stage:** ${{ steps.promote.outputs.new-stage }}"
-            echo "- **PR Created:** ${{ steps.promote.outputs.pr-created }}"
-            echo "- **PR Number:** #${{ steps.promote.outputs.pr-number }}"
+            echo "- **Promoting:** ${{ matrix.version }} → ${{ steps.compute-next.outputs.next-version }}"
+            echo "- **New Stage:** ${{ steps.compute-next.outputs.next-stage }}"
+            echo "- **release-1-milestone.yml dispatched for:** ${{ steps.compute-next.outputs.next-version }}"
           else
             echo "### ❌ Promotion Blocked"
             echo ""
