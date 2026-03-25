@@ -75,8 +75,8 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Markdown", "Md", "Markdown content of the file.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Images", "Img", "Images extracted from the document (PDF/DOCX/PPTX). Each item is a GH_ExtractedImage carrying base64 data, MIME type, and source context. Branched per input file. Connect to Image Viewer or AIImgToText.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Format", "Fmt", "Detected original format (e.g., pdf, docx, html).", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Images", "Img", "Images extracted from the document (PDF/DOCX/PPTX). Each item is a GH_ExtractedImage carrying base64 data, MIME type, and source context. Connect to Image Viewer or AIImgToText.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
@@ -136,32 +136,39 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    foreach (var path in this.inputTrees["File Path"].AllData(true))
+                    var fileTree = this.inputTrees["File Path"];
+                    foreach (var branchPath in fileTree.Paths)
                     {
-                        token.ThrowIfCancellationRequested();
-
-                        var ghPath = path as GH_String;
-                        if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
+                        var branch = fileTree.get_Branch(branchPath);
+                        for (int i = 0; i < branch.Count; i++)
                         {
-                            this.resultMarkdown.Append(new GH_String(string.Empty));
-                            this.resultFormat.Append(new GH_String(string.Empty));
-                            continue;
-                        }
+                            token.ThrowIfCancellationRequested();
 
-                        string filePath = ghPath.Value;
-                        var (markdown, format, images, warnings) = await ConvertFileAsync(filePath).ConfigureAwait(false);
+                            var outputPath = branchPath.AppendElement(i);
+                            var ghPath = branch[i] as GH_String;
 
-                        this.resultMarkdown.Append(new GH_String(markdown));
-                        this.resultFormat.Append(new GH_String(format));
+                            if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
+                            {
+                                this.resultMarkdown.Append(new GH_String(string.Empty), outputPath);
+                                this.resultFormat.Append(new GH_String(string.Empty), outputPath);
+                                continue;
+                            }
 
-                        foreach (var img in images)
-                        {
-                            this.resultImages.Append(new GH_ExtractedImage(img));
-                        }
+                            string filePath = ghPath.Value;
+                            var (markdown, format, images, warnings) = await ConvertFileAsync(filePath).ConfigureAwait(false);
 
-                        foreach (var w in warnings)
-                        {
-                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w);
+                            this.resultMarkdown.Append(new GH_String(markdown), outputPath);
+                            this.resultFormat.Append(new GH_String(format), outputPath);
+
+                            foreach (var img in images)
+                            {
+                                this.resultImages.Append(new GH_ExtractedImage(img), outputPath);
+                            }
+
+                            foreach (var w in warnings)
+                            {
+                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w);
+                            }
                         }
                     }
                 }
@@ -180,8 +187,8 @@ namespace SmartHopper.Components.Knowledge
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
                 this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
-                this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_ExtractedImage>(), DA);
+                this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
                 errorMessage = null;
             }
 
