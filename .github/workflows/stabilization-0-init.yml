@@ -8,6 +8,7 @@ name: Stabilization 0 - 🌿 Init Path
 #
 # Permissions:
 # - contents: write - Required to create branches
+# - workflows: write - Required to push branches with workflow files
 
 on:
   milestone:
@@ -15,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  workflows: write
 
 jobs:
   init-stabilization-path:
