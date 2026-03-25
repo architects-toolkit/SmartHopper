@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`AIImgToTextComponent`**: Fixed MistralAI (and other providers) receiving a placeholder string (`"Image [img-3] Page 13 (image/jpeg)"`) instead of actual base64 data when a `GH_ExtractedImage` was connected to the Image input. Changed input from `AddTextParameter` to `AddGenericParameter` and added explicit `GH_ExtractedImage` detection in the worker to extract `Base64Data` and `MimeType` directly, instead of relying on Grasshopper's string cast which calls `ToString()`.
+
 ### Added
 
 - **Batch API Support**: Implemented `IAIBatchProvider` in OpenAI, Anthropic, and MistralAI providers

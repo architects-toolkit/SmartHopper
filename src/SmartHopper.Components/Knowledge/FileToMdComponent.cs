@@ -88,7 +88,7 @@ namespace SmartHopper.Components.Knowledge
         private sealed class FileToMdWorker : AsyncWorkerBase
         {
             private readonly FileToMdComponent parent;
-            private Dictionary<string, GH_Structure<GH_String>> inputTrees;
+            private GH_Structure<GH_String> filePathTree;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultMarkdown;
@@ -106,16 +106,11 @@ namespace SmartHopper.Components.Knowledge
             /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                var filePathTree = new GH_Structure<GH_String>();
-                DA.GetDataTree("File Path", out filePathTree);
+                this.filePathTree = new GH_Structure<GH_String>();
+                DA.GetDataTree("File Path", out this.filePathTree);
 
-                this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
-                {
-                    { "File Path", filePathTree ?? new GH_Structure<GH_String>() },
-                };
-
-                this.hasWork = filePathTree != null && filePathTree.PathCount > 0 && filePathTree.DataCount > 0;
-                dataCount = this.hasWork ? filePathTree.DataCount : 0;
+                this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
+                dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
 
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
@@ -136,10 +131,9 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    var fileTree = this.inputTrees["File Path"];
-                    foreach (var branchPath in fileTree.Paths)
+                    foreach (var branchPath in this.filePathTree.Paths)
                     {
-                        var branch = fileTree.get_Branch(branchPath);
+                        var branch = this.filePathTree.get_Branch(branchPath);
                         for (int i = 0; i < branch.Count; i++)
                         {
                             token.ThrowIfCancellationRequested();

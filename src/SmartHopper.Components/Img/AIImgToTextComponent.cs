@@ -29,6 +29,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Grasshopper.Types;
 
 namespace SmartHopper.Components.Img
 {
@@ -83,7 +84,7 @@ namespace SmartHopper.Components.Img
         /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Image", "I", "Image to describe. Accepts: (1) absolute file path to an image file (.png, .jpg, .gif, .bmp, .webp, .tiff), (2) public HTTP/HTTPS URL, or (3) raw base64-encoded image data.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Image", "I", "Image to describe. Accepts: (1) GH_ExtractedImage from file extraction components, (2) absolute file path to an image file (.png, .jpg, .gif, .bmp, .webp, .tiff), (3) public HTTP/HTTPS URL, or (4) raw base64-encoded image data.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Prompt", "P", "Custom description prompt for the AI. Leave empty to use the built-in prompt: 'Describe this image in detail.'", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
@@ -134,11 +135,11 @@ namespace SmartHopper.Components.Img
         {
             private readonly AIImgToTextComponent parent;
             private readonly ProcessingOptions processingOptions;
-            private Dictionary<string, GH_Structure<GH_String>> inputTrees;
             private bool hasWork;
 
             private string prompt;
 
+            private Dictionary<string, GH_Structure<IGH_Goo>> inputTrees;
             private GH_Structure<GH_String> resultDescriptions;
 
             public AIImgToTextWorker(
@@ -158,16 +159,16 @@ namespace SmartHopper.Components.Img
             /// <param name="dataCount">Number of data items to process.</param>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                var imageTree = new GH_Structure<GH_String>();
+                var imageTree = new GH_Structure<IGH_Goo>();
                 DA.GetDataTree("Image", out imageTree);
 
                 var promptParam = new GH_String();
                 DA.GetData("Prompt", ref promptParam);
                 this.prompt = promptParam?.Value;
 
-                this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
+                this.inputTrees = new Dictionary<string, GH_Structure<IGH_Goo>>
                 {
-                    { "Image", imageTree ?? new GH_Structure<GH_String>() },
+                    { "Image", imageTree ?? new GH_Structure<IGH_Goo>() },
                 };
 
                 this.hasWork = imageTree != null && imageTree.DataCount > 0;
@@ -196,7 +197,7 @@ namespace SmartHopper.Components.Img
 
                 try
                 {
-                    var resultTrees = await this.parent.RunProcessingAsync<GH_String, GH_String>(
+                    var resultTrees = await this.parent.RunProcessingAsync<IGH_Goo, GH_String>(
                         this.inputTrees,
                         async branchInputs =>
                         {
@@ -210,42 +211,75 @@ namespace SmartHopper.Components.Img
                                 return outputs;
                             }
 
-                            foreach (var ghImage in imageBranch)
+                            foreach (var item in imageBranch)
                             {
                                 token.ThrowIfCancellationRequested();
 
-                                string imageValue = ghImage?.Value;
-                                if (string.IsNullOrWhiteSpace(imageValue))
+                                var imgParams = new JObject();
+                                bool hasImage = false;
+
+                                if (item is GH_ExtractedImage extractedImage && extractedImage.Value != null)
+                                {
+                                    string b64 = extractedImage.Value.Base64Data;
+                                    if (!string.IsNullOrWhiteSpace(b64))
+                                    {
+                                        imgParams["imageBase64"] = b64;
+                                        imgParams["mimeType"] = extractedImage.Value.MimeType ?? "image/png";
+                                        hasImage = true;
+                                    }
+                                }
+                                else
+                                {
+                                    string imageValue = null;
+                                    if (item is GH_String ghStr)
+                                    {
+                                        imageValue = ghStr.Value;
+                                    }
+                                    else if (item != null)
+                                    {
+                                        var castStr = new GH_String();
+                                        if (item.CastTo(ref castStr))
+                                        {
+                                            imageValue = castStr?.Value;
+                                        }
+                                    }
+
+                                    if (!string.IsNullOrWhiteSpace(imageValue))
+                                    {
+                                        if (imageValue.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                                            imageValue.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            imgParams["imageUrl"] = imageValue;
+                                            hasImage = true;
+                                        }
+                                        else if (File.Exists(imageValue))
+                                        {
+                                            var bytes = File.ReadAllBytes(imageValue);
+                                            imgParams["imageBase64"] = Convert.ToBase64String(bytes);
+                                            imgParams["mimeType"] = GetMimeType(imageValue);
+                                            hasImage = true;
+                                        }
+                                        else
+                                        {
+                                            imgParams["imageBase64"] = imageValue;
+                                            hasImage = true;
+                                        }
+                                    }
+                                }
+
+                                if (!hasImage)
                                 {
                                     outputs["Description"].Add(new GH_String(string.Empty));
                                     continue;
                                 }
 
+                                if (!string.IsNullOrWhiteSpace(this.prompt))
+                                {
+                                    imgParams["prompt"] = this.prompt;
+                                }
+
                                 try
                                 {
-                                    var imgParams = new JObject();
-
-                                    if (imageValue.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                                        imageValue.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        imgParams["imageUrl"] = imageValue;
-                                    }
-                                    else if (File.Exists(imageValue))
-                                    {
-                                        var bytes = File.ReadAllBytes(imageValue);
-                                        imgParams["imageBase64"] = Convert.ToBase64String(bytes);
-                                        imgParams["mimeType"] = GetMimeType(imageValue);
-                                    }
-                                    else
-                                    {
-                                        imgParams["imageBase64"] = imageValue;
-                                    }
-
-                                    if (!string.IsNullOrWhiteSpace(this.prompt))
-                                    {
-                                        imgParams["prompt"] = this.prompt;
-                                    }
-
                                     var toolResult = await this.parent.CallAiToolAsync("img_to_text", imgParams).ConfigureAwait(false);
 
                                     if (toolResult != null)
@@ -255,7 +289,7 @@ namespace SmartHopper.Components.Img
                                     }
                                     else
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"img_to_text returned no result for input: {imageValue.Substring(0, Math.Min(60, imageValue.Length))}...");
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"img_to_text returned no result.");
                                         outputs["Description"].Add(new GH_String(string.Empty));
                                     }
                                 }
