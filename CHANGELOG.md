@@ -24,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AITool.BuildRequest` delegate**: New optional `Func<AIToolCall, AIRequestCall> BuildRequest` property on `AITool`. When set, the base class uses it to construct the provider request without executing it, enabling batch aggregation. `text_generate` implements `BuildGenerateRequest` and registers it.
 - **`IAIBatchProvider` interface** (`SmartHopper.Infrastructure`): Optional interface for providers that support async batch processing. Declares `SubmitBatchAsync`, `GetBatchStatusAsync`, and `CancelBatchAsync`.
 - **`SmartHopperSettings.BatchPollIntervalMinutes`** (default 2): Global setting controlling the minimum interval between batch status polls.
+- **Vision Input Support**: Added image input capabilities for AI vision models (image understanding/description)
+  - New `AIInteractionImage.CreateVisionInput()` and `CreateVisionInputFromBase64()` methods for vision input (distinct from image generation)
+  - New `MimeType` property on `AIInteractionImage` for base64-encoded image format identification
+  - New `AIBodyBuilder.AddImageInput()` and `AddImageInputFromBase64()` fluent methods for vision requests
+  - OpenAI provider: proper base64 data URI encoding for vision (`data:{mime};base64,{data}`)
+  - Anthropic provider: native vision encoding using `image` content blocks with `base64` and `url` source types
+  - MistralAI provider: OpenAI-compatible `image_url` content block encoding with data URI support
+  - New **`img_to_text`** AI tool (`SmartHopper.Core.Grasshopper/AITools/img_to_text.cs`) — describes or analyzes an image using a vision model; accepts `imageUrl` or `imageBase64` + optional `mimeType` and `prompt`; requires `AICapability.Image2Text`; returns `{ description }` with `ToolResultEnvelope`
+  - New **`GH_ExtractedImage`** Goo type (`SmartHopper.Core.Grasshopper/Types/GH_ExtractedImage.cs`) — Grasshopper wrapper for `ExtractedImage` carrying `Base64Data`, `MimeType`, `Id`, `Context`, and `PageOrSlide`; `ScriptVariable()` returns `Bitmap` for compatibility with `ImageViewerComponent`; casts to/from `GH_String` (base64), `Bitmap`, and raw `string`; fully serializable in GH files
+  - **`FileToMdComponent` `Images` output** — reverted to `StatefulComponentBase` (no AI required); now has single `File Path` input; always extracts embedded images from PDF/DOCX/PPTX and outputs them as `GH_ExtractedImage` tree on a new `Images` output alongside `Markdown` and `Format`
+  - New **`AIFileToMdComponent`** (`SmartHopper.Components/Knowledge/AIFileToMdComponent.cs`) — AI-powered variant; inputs: `File Path` (tree), `Image Mode` (text, optional), `Image Prompt` (text, optional); Image Modes: `embed` (default) — base64 data URI in markdown with short AI caption as alt text; `describe` — long AI text description replaces image; `caption` — short AI title replaces image; outputs `Markdown` and `Images` (`GH_ExtractedImage` tree)
+  - **`file_to_md` tool image modes** — replaced `inline` with `embed`; added `caption` mode; `imageMode` default changed to `embed`; added `DefaultImageCaptionPrompt` for `embed`/`caption` modes; tool now **always** returns raw `images` JArray regardless of `describeImages`, so both `FileToMdComponent` and `AIFileToMdComponent` share the same output format
+  - New **`AIImgToTextComponent`** (`SmartHopper.Components/Img/AIImgToTextComponent.cs`) — standalone Grasshopper component for describing images via vision AI; inputs: `Image` (tree: file path, URL, or base64/`GH_ExtractedImage`), `Prompt` (optional); outputs `Description` text tree
 - **Prompt-caching for AI providers**: `OpenAI`, `Anthropic` and `OpenRouter` now have some extra settings parameters to enable prompt caching.
 - **File-to-Markdown Conversion**: New `file_to_md` AI tool and `FileToMdComponent` for converting local files to Markdown
   - Supports 12 formats: PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF
@@ -31,6 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Office document conversion preserving headings, tables, lists, and formatting
   - Native .NET implementation using PdfPig, DocumentFormat.OpenXml, MimeKit (no Python dependencies)
   - Extensible `IFileConverter` plugin architecture with `FileConverterRegistry` dispatcher
+  - **Image Extraction**: `extractImages` parameter on `file_to_md` tool extracts embedded images from PDF, DOCX, and PPTX as base64 data
+    - PDF: Uses PdfPig `page.GetImages()` with PNG conversion via `TryGetPng`; JPEG magic-byte fallback for embedded JPEGs
+    - DOCX: Extracts from `MainDocumentPart.ImageParts` with MIME type preservation
+    - PPTX: Extracts from each `SlidePart.ImageParts` with slide number context
+    - New `ExtractedImage` class (`Id`, `Base64Data`, `MimeType`, `Context`, `PageOrSlide`)
+    - Images returned in tool result as `images` array with per-image metadata
   - **PDF Converter Enhancements**: Improved layout analysis and table detection
     - Replaced custom word extractor with `NearestNeighbourWordExtractor` and custom column detection with `RecursiveXYCut` page segmenter for accurate multi-column layout handling
     - Added intelligent table detection via whitespace-gap analysis (2.5× median spacing threshold) and lattice-mode detection via PDF vector graphics paths

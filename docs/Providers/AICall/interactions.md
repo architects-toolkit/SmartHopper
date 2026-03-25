@@ -21,11 +21,19 @@ Covers `IAIInteraction` and concrete message types.
 ## AIInteractionImage
 
 - File: `AIInteractionImage.cs`
-- Purpose: image generation results and prompts
-- Fields: `ImageUrl`, `ImageData`, `RevisedPrompt`, `OriginalPrompt`, `ImageSize` (default `1024x1024`), `ImageQuality` (default `standard`), `ImageStyle` (default `vivid`)
+- Purpose: image generation results, prompts, and vision input (image understanding)
+- Fields: `ImageUrl`, `ImageData`, `RevisedPrompt`, `OriginalPrompt`, `ImageSize` (default `1024x1024`), `ImageQuality` (default `standard`), `ImageStyle` (default `vivid`), `MimeType` (for vision base64 input)
 - Methods:
-  - `CreateRequest(prompt, size?, quality?, style?)` records desired parameters
+  - `CreateRequest(prompt, size?, quality?, style?)` records desired image generation parameters
   - `SetResult(imageUrl?, imageData?, revisedPrompt?)` (one of url/data required)
+  - `CreateVisionInput(Uri imageUrl)` creates a vision input from a URL
+  - `CreateVisionInput(string imageUrl)` creates a vision input from a URL string
+  - `CreateVisionInputFromBase64(string base64Data, string mimeType = "image/png")` creates a vision input from base64-encoded image data
+- Provider encoding:
+  - **OpenAI**: `image_url` content block with URL or `data:{mime};base64,{data}` data URI
+  - **Anthropic**: `image` content block with `base64` or `url` source type
+  - **MistralAI**: OpenAI-compatible `image_url` content block with data URI support
+  - **DeepSeek**: falls back to `OriginalPrompt` text (no `ImageInput` capability)
 
 ## AIInteractionToolCall
   

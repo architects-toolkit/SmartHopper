@@ -19,10 +19,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -38,6 +40,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
     {
         private readonly string toolName = "file_to_md";
         private static FileConverterRegistry? registry;
+
+        /// <summary>
+        /// Default prompt used for <c>describe</c> mode: long, thorough description.
+        /// </summary>
+        private const string DefaultImageDescriptionPrompt =
+            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured.";
+
+        /// <summary>
+        /// Default prompt used for <c>caption</c> and <c>embed</c> modes: short, one-sentence caption.
+        /// </summary>
+        private const string DefaultImageCaptionPrompt =
+            "Write a concise, descriptive caption for this image in one sentence.";
 
         /// <summary>
         /// Gets or creates the converter registry with all built-in converters.
@@ -91,6 +105,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""boolean"",
                             ""description"": ""Whether to attempt to remove headers and footers (PDF, DOCX). Default: true."",
                             ""default"": true
+                        },
+                        ""extractImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to extract embedded images from the document as base64 data. Applies to PDF, DOCX, and PPTX. Default: false."",
+                            ""default"": false
+                        },
+                        ""describeImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""When true, uses AI to describe each extracted image and embeds the results in the markdown output. Forces extractImages=true automatically. Requires an AI provider with vision capability. Default: false."",
+                            ""default"": false
+                        },
+                        ""imageMode"": {
+                            ""type"": ""string"",
+                            ""description"": ""Controls how described images appear in the markdown. 'embed' (default): embed image as base64 data URI with short AI caption as alt text. 'describe': replace image with a long AI text description. 'caption': replace image with a short AI-generated title."",
+                            ""default"": ""embed""
+                        },
+                        ""imageDescriptionPrompt"": {
+                            ""type"": ""string"",
+                            ""description"": ""Custom prompt for AI image description. If omitted, a built-in detailed description prompt is used.""
                         }
                     },
                     ""required"": [""filePath""]
@@ -122,10 +155,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Get conversion options
+                bool describeImages = args["describeImages"]?.Value<bool>() ?? false;
+                string imageMode = args["imageMode"]?.ToString() ?? "embed";
+                string imageDescriptionPrompt = args["imageDescriptionPrompt"]?.ToString();
+
                 var options = new FileConversionOptions
                 {
                     PreserveTableStructure = args["preserveTableStructure"]?.Value<bool>() ?? true,
                     RemoveHeadersFooters = args["removeHeadersFooters"]?.Value<bool>() ?? true,
+                    ExtractImages = (args["extractImages"]?.Value<bool>() ?? false) || describeImages,
                     DetectHeadings = true,
                     MaxContentLength = 0
                 };
@@ -162,6 +200,77 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult["metadata"] = metadata;
                 }
 
+                // Always return raw images array when images were extracted
+                if (result.Images.Count > 0)
+                {
+                    var imagesArray = new JArray();
+                    foreach (var image in result.Images)
+                    {
+                        imagesArray.Add(new JObject
+                        {
+                            ["id"] = image.Id,
+                            ["mimeType"] = image.MimeType,
+                            ["context"] = image.Context,
+                            ["pageOrSlide"] = image.PageOrSlide,
+                            ["base64Data"] = image.Base64Data,
+                        });
+                    }
+                    toolResult["images"] = imagesArray;
+                    toolResult["imageCount"] = result.Images.Count;
+                }
+
+                // Describe images via AI and append to markdown
+                if (describeImages && result.Images.Count > 0)
+                {
+                    string providerName = toolCall.Provider?.ToString();
+                    if (string.IsNullOrWhiteSpace(providerName))
+                    {
+                        result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
+                    }
+                    else
+                    {
+                        // Select default prompt based on mode
+                        string defaultPrompt = (imageMode == "describe")
+                            ? DefaultImageDescriptionPrompt
+                            : DefaultImageCaptionPrompt;
+
+                        string effectivePrompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
+                            ? defaultPrompt
+                            : imageDescriptionPrompt;
+
+                        var imagesSb = new StringBuilder();
+                        imagesSb.AppendLine();
+                        imagesSb.AppendLine("---");
+                        imagesSb.AppendLine();
+                        imagesSb.AppendLine("## Document Images");
+                        imagesSb.AppendLine();
+
+                        foreach (var image in result.Images)
+                        {
+                            string aiText = await DescribeImageAsync(image, effectivePrompt, toolCall).ConfigureAwait(false);
+
+                            if (imageMode == "embed")
+                            {
+                                imagesSb.AppendLine($"*{image.Context}*");
+                                imagesSb.AppendLine();
+                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.Base64Data})");
+                                imagesSb.AppendLine();
+                            }
+                            else
+                            {
+                                // describe or caption: text-only block
+                                imagesSb.AppendLine($"**[{image.Id} — {image.Context}]**");
+                                imagesSb.AppendLine();
+                                imagesSb.AppendLine(aiText);
+                                imagesSb.AppendLine();
+                            }
+                        }
+
+                        result.MarkdownContent += imagesSb.ToString();
+                        toolResult["content"] = result.MarkdownContent;
+                    }
+                }
+
                 // Add warnings if present
                 if (result.Warnings.Count > 0)
                 {
@@ -184,6 +293,52 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[FileToMd] Error in FileToMdAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
+            }
+        }
+
+        /// <summary>
+        /// Calls the <c>img_to_text</c> tool to obtain a text description of an extracted image.
+        /// </summary>
+        /// <param name="image">The extracted image to describe.</param>
+        /// <param name="prompt">The description prompt to send to the AI.</param>
+        /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
+        /// <returns>The AI-generated text description, or a fallback string on failure.</returns>
+        private static async Task<string> DescribeImageAsync(ExtractedImage image, string prompt, AIToolCall sourceToolCall)
+        {
+            try
+            {
+                var imgArgs = new JObject
+                {
+                    ["imageBase64"] = image.Base64Data,
+                    ["mimeType"] = image.MimeType,
+                    ["prompt"] = prompt,
+                };
+
+                var imgInteraction = new AIInteractionToolCall
+                {
+                    Name = "img_to_text",
+                    Arguments = imgArgs,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var imgToolCall = new AIToolCall
+                {
+                    Endpoint = "img_to_text",
+                    Provider = sourceToolCall.Provider,
+                    Model = sourceToolCall.Model,
+                    Parameters = sourceToolCall.Parameters,
+                };
+
+                imgToolCall.FromToolCallInteraction(imgInteraction);
+
+                var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
+                var toolResultInteraction = imgResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                return toolResultInteraction?.Result?["description"]?.ToString() ?? "[Image could not be described]"; 
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[file_to_md] DescribeImageAsync failed: {ex.Message}");
+                return "[Image description failed]";
             }
         }
     }

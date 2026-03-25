@@ -317,18 +317,50 @@ namespace SmartHopper.Providers.Anthropic
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
-                // Anthropic does not support image generation; fallback to prompt as text
-                var prompt = imageInteraction.OriginalPrompt ?? string.Empty;
-                if (string.IsNullOrEmpty(prompt))
+                // Vision input: send image for understanding/description
+                if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
                 {
-                    return null;
+                    // Base64-encoded image data
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    return new JObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JObject
+                        {
+                            ["type"] = "base64",
+                            ["media_type"] = mimeType,
+                            ["data"] = imageInteraction.ImageData,
+                        },
+                    };
                 }
-
-                return new JObject
+                else if (imageInteraction.ImageUrl != null)
                 {
-                    ["type"] = "text",
-                    ["text"] = prompt,
-                };
+                    // URL-based image
+                    return new JObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JObject
+                        {
+                            ["type"] = "url",
+                            ["url"] = imageInteraction.ImageUrl.ToString(),
+                        },
+                    };
+                }
+                else
+                {
+                    // No image data; fall back to prompt text if available
+                    var prompt = imageInteraction.OriginalPrompt ?? string.Empty;
+                    if (string.IsNullOrEmpty(prompt))
+                    {
+                        return null;
+                    }
+
+                    return new JObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = prompt,
+                    };
+                }
             }
 
             // Unknown interaction type - skip

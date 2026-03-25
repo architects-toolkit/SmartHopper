@@ -237,8 +237,38 @@ namespace SmartHopper.Providers.MistralAI
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
-                // Mistral does not (yet) support vision in the same way; fallback to prompt as content
-                messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+                // Vision input: send image using OpenAI-compatible image_url content block
+                string imageUrlValue = null;
+                if (imageInteraction.ImageUrl != null)
+                {
+                    imageUrlValue = imageInteraction.ImageUrl.ToString();
+                }
+                else if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                {
+                    // Construct a data URI from base64 data
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    imageUrlValue = $"data:{mimeType};base64,{imageInteraction.ImageData}";
+                }
+
+                if (imageUrlValue != null)
+                {
+                    messageObj["content"] = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "image_url",
+                            ["image_url"] = new JObject
+                            {
+                                ["url"] = imageUrlValue,
+                            },
+                        },
+                    };
+                }
+                else
+                {
+                    // No image data; fall back to prompt text
+                    messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+                }
             }
             else
             {

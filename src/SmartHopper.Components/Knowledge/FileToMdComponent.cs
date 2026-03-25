@@ -28,7 +28,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Grasshopper.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -36,61 +36,74 @@ using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Components.Knowledge
 {
+    /// <summary>
+    /// Grasshopper component that converts local files to Markdown and extracts embedded images.
+    /// Non-AI: no provider or model required. Use <c>AIFileToMdComponent</c> for AI-powered image description.
+    /// </summary>
     public class FileToMdComponent : StatefulComponentBase
     {
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("C0EF8C72-1233-4613-902C-2E07321BB2E3");
 
+        /// <inheritdoc/>
         protected override Bitmap Icon => Resources.filetomd;
 
+        /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FileToMdComponent"/> class.
+        /// </summary>
         public FileToMdComponent()
             : base(
                   "File To Markdown",
                   "FileToMd",
-                  "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text.",
+                  "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text and extract embedded images. No AI required. Use AIFileToMd for AI-powered image description.",
                   "SmartHopper",
                   "Knowledge")
         {
             this.RunOnlyOnInputChanges = false;
         }
 
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("File Path", "F", "REQUIRED absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
         }
 
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Markdown", "Md", "Markdown content of the file.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Format", "Fmt", "Detected original format (e.g., pdf, docx, html).", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Images", "Img", "Images extracted from the document (PDF/DOCX/PPTX). Each item is a GH_ExtractedImage carrying base64 data, MIME type, and source context. Connect to Image Viewer or AIImgToText.", GH_ParamAccess.tree);
         }
 
+        /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new FileToMdWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new FileToMdWorker(this, this.AddRuntimeMessage);
         }
 
         private sealed class FileToMdWorker : AsyncWorkerBase
         {
             private readonly FileToMdComponent parent;
-            private readonly ProcessingOptions processingOptions;
             private Dictionary<string, GH_Structure<GH_String>> inputTrees;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
+            private GH_Structure<GH_ExtractedImage> resultImages;
 
             public FileToMdWorker(
                 FileToMdComponent parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
-                ProcessingOptions processingOptions)
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
-                this.processingOptions = processingOptions;
             }
 
+            /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 var filePathTree = new GH_Structure<GH_String>();
@@ -106,10 +119,16 @@ namespace SmartHopper.Components.Knowledge
 
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
+                this.resultImages = new GH_Structure<GH_ExtractedImage>();
             }
 
+            /// <inheritdoc/>
             public override async Task DoWorkAsync(CancellationToken token)
             {
+                this.resultMarkdown = new GH_Structure<GH_String>();
+                this.resultFormat = new GH_Structure<GH_String>();
+                this.resultImages = new GH_Structure<GH_ExtractedImage>();
+
                 if (!this.hasWork)
                 {
                     return;
@@ -117,112 +136,38 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    var resultTrees = await this.parent.RunProcessingAsync<GH_String, GH_String>(
-                        this.inputTrees,
-                        async branchInputs =>
+                    foreach (var path in this.inputTrees["File Path"].AllData(true))
+                    {
+                        token.ThrowIfCancellationRequested();
+
+                        var ghPath = path as GH_String;
+                        if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                         {
-                            var outputs = new Dictionary<string, List<GH_String>>
-                            {
-                                { "File Path", new List<GH_String>() },
-                                { "Markdown", new List<GH_String>() },
-                                { "Format", new List<GH_String>() },
-                            };
+                            this.resultMarkdown.Append(new GH_String(string.Empty));
+                            this.resultFormat.Append(new GH_String(string.Empty));
+                            continue;
+                        }
 
-                            foreach (var kvp in branchInputs)
-                            {
-                                var filePaths = kvp.Value;
+                        string filePath = ghPath.Value;
+                        var (markdown, format, images, warnings) = await ConvertFileAsync(filePath).ConfigureAwait(false);
 
-                                foreach (var ghFilePath in filePaths)
-                                {
-                                    if (ghFilePath == null || string.IsNullOrWhiteSpace(ghFilePath.Value))
-                                    {
-                                        outputs["Markdown"].Add(new GH_String(string.Empty));
-                                        outputs["Format"].Add(new GH_String(string.Empty));
-                                        continue;
-                                    }
+                        this.resultMarkdown.Append(new GH_String(markdown));
+                        this.resultFormat.Append(new GH_String(format));
 
-                                    string filePath = ghFilePath.Value;
+                        foreach (var img in images)
+                        {
+                            this.resultImages.Append(new GH_ExtractedImage(img));
+                        }
 
-                                    var parameters = new JObject
-                                    {
-                                        ["filePath"] = filePath,
-                                        ["preserveTableStructure"] = true,
-                                        ["removeHeadersFooters"] = true
-                                    };
-
-                                    var toolCallInteraction = new AIInteractionToolCall
-                                    {
-                                        Name = "file_to_md",
-                                        Arguments = parameters,
-                                        Agent = AIAgent.Assistant,
-                                    };
-
-                                    var toolCall = new AIToolCall
-                                    {
-                                        Endpoint = "file_to_md",
-                                    };
-
-                                    toolCall.FromToolCallInteraction(toolCallInteraction);
-                                    toolCall.SkipMetricsValidation = true;
-
-                                    AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                                    var toolResult = toolResultInteraction?.Result;
-
-                                    if (toolResult == null)
-                                    {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'file_to_md' returned no result for '{filePath}'.");
-                                        outputs["Markdown"].Add(new GH_String(string.Empty));
-                                        outputs["Format"].Add(new GH_String(string.Empty));
-                                        continue;
-                                    }
-
-                                    string content = toolResult["content"]?.ToString() ?? string.Empty;
-                                    string format = toolResult["originalFormat"]?.ToString() ?? string.Empty;
-
-                                    outputs["Markdown"].Add(new GH_String(content));
-                                    outputs["Format"].Add(new GH_String(format));
-
-                                    // Add warnings if present
-                                    var warnings = toolResult["warnings"] as JArray;
-                                    if (warnings != null && warnings.Count > 0)
-                                    {
-                                        foreach (var warning in warnings)
-                                        {
-                                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, warning.ToString());
-                                        }
-                                    }
-                                }
-                            }
-
-                            return outputs;
-                        },
-                        this.processingOptions,
-                        token).ConfigureAwait(false);
-
-                    // Only initialize result structures if they weren't already populated
-                    this.resultMarkdown ??= new GH_Structure<GH_String>();
-                    this.resultFormat ??= new GH_Structure<GH_String>();
-
-                    if (resultTrees.TryGetValue("Markdown", out var markdownTree))
-                    {
-                        this.resultMarkdown = markdownTree;
-                        Debug.WriteLine($"[FileToMd] Retrieved Markdown tree with {markdownTree.DataCount} items");
+                        foreach (var w in warnings)
+                        {
+                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w);
+                        }
                     }
-                    else
-                    {
-                        Debug.WriteLine("[FileToMd] WARNING: 'Markdown' not found in resultTrees. Keys: " + string.Join(", ", resultTrees.Keys));
-                    }
-
-                    if (resultTrees.TryGetValue("Format", out var formatTree))
-                    {
-                        this.resultFormat = formatTree;
-                        Debug.WriteLine($"[FileToMd] Retrieved Format tree with {formatTree.DataCount} items");
-                    }
-                    else
-                    {
-                        Debug.WriteLine("[FileToMd] WARNING: 'Format' not found in resultTrees");
-                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Operation was cancelled.");
                 }
                 catch (Exception ex)
                 {
@@ -231,12 +176,80 @@ namespace SmartHopper.Components.Knowledge
                 }
             }
 
+            /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
-                Debug.WriteLine($"[FileToMd] SetOutput called - Markdown has {this.resultMarkdown?.DataCount ?? 0} items, Format has {this.resultFormat?.DataCount ?? 0} items");
                 this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_ExtractedImage>(), DA);
                 errorMessage = null;
+            }
+
+            private static async Task<(string markdown, string format, List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage> images, List<string> warnings)> ConvertFileAsync(string filePath)
+            {
+                var parameters = new JObject
+                {
+                    ["filePath"] = filePath,
+                    ["preserveTableStructure"] = true,
+                    ["removeHeadersFooters"] = true,
+                    ["extractImages"] = true,
+                };
+
+                var toolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "file_to_md",
+                    Arguments = parameters,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var toolCall = new AIToolCall
+                {
+                    Endpoint = "file_to_md",
+                };
+
+                toolCall.FromToolCallInteraction(toolCallInteraction);
+                toolCall.SkipMetricsValidation = true;
+
+                AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
+                var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                var toolResult = toolResultInteraction?.Result;
+
+                if (toolResult == null)
+                {
+                    return (string.Empty, string.Empty, new List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage>(), new List<string> { $"Tool 'file_to_md' returned no result for '{filePath}'." });
+                }
+
+                string content = toolResult["content"]?.ToString() ?? string.Empty;
+                string format = toolResult["originalFormat"]?.ToString() ?? string.Empty;
+
+                var images = new List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage>();
+                var imagesArray = toolResult["images"] as JArray;
+                if (imagesArray != null)
+                {
+                    foreach (var imgToken in imagesArray)
+                    {
+                        var imgObj = imgToken as JObject;
+                        if (imgObj == null) continue;
+                        images.Add(new SmartHopper.Core.Grasshopper.Converters.ExtractedImage(
+                            imgObj["id"]?.ToString() ?? "img",
+                            imgObj["base64Data"]?.ToString() ?? string.Empty,
+                            imgObj["mimeType"]?.ToString() ?? "image/png",
+                            imgObj["context"]?.ToString() ?? string.Empty,
+                            imgObj["pageOrSlide"]?.Value<int>() ?? 0));
+                    }
+                }
+
+                var warnings = new List<string>();
+                var warningsArray = toolResult["warnings"] as JArray;
+                if (warningsArray != null)
+                {
+                    foreach (var w in warningsArray)
+                    {
+                        warnings.Add(w.ToString());
+                    }
+                }
+
+                return (content, format, images, warnings);
             }
         }
     }

@@ -57,6 +57,12 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public List<string> Warnings { get; set; } = new List<string>();
 
         /// <summary>
+        /// Gets or sets images extracted from the document.
+        /// Only populated when <see cref="FileConversionOptions.ExtractImages"/> is enabled.
+        /// </summary>
+        public List<ExtractedImage> Images { get; set; } = new List<ExtractedImage>();
+
+        /// <summary>
         /// Gets whether the conversion was successful (i.e., MarkdownContent is not empty).
         /// </summary>
         public bool IsSuccess => !string.IsNullOrWhiteSpace(this.MarkdownContent);

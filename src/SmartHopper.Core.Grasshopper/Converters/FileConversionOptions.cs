@@ -55,6 +55,14 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public bool DetectHeadings { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets whether to extract embedded images from the document.
+        /// When enabled, images are extracted as base64 data and stored in the conversion result.
+        /// Applies to PDF, DOCX, and PPTX formats.
+        /// Default: false.
+        /// </summary>
+        public bool ExtractImages { get; set; } = false;
+
+        /// <summary>
         /// Gets or sets the maximum content length in characters.
         /// If the converted content exceeds this length, it will be truncated.
         /// A value of 0 or less means no limit.
@@ -79,7 +87,8 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 PreserveTableStructure = this.PreserveTableStructure,
                 RemoveHeadersFooters = this.RemoveHeadersFooters,
                 DetectHeadings = this.DetectHeadings,
-                MaxContentLength = this.MaxContentLength
+                MaxContentLength = this.MaxContentLength,
+                ExtractImages = this.ExtractImages,
             };
         }
     }

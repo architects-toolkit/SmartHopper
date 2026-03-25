@@ -269,19 +269,40 @@ namespace SmartHopper.Providers.OpenAI
             else if (interaction is AIInteractionImage imageInteraction)
             {
                 // Handle image interactions (for vision models)
-                var contentArray = new JArray
+                string imageUrlValue;
+                if (imageInteraction.ImageUrl != null)
                 {
-                    new JObject
+                    imageUrlValue = imageInteraction.ImageUrl.ToString();
+                }
+                else if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                {
+                    // Construct a data URI from base64 data
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    imageUrlValue = $"data:{mimeType};base64,{imageInteraction.ImageData}";
+                }
+                else
+                {
+                    // No image data available; fall back to prompt text
+                    msgContent = imageInteraction.OriginalPrompt ?? string.Empty;
+                    imageUrlValue = null;
+                }
+
+                if (imageUrlValue != null)
+                {
+                    var contentArray = new JArray
                     {
-                        ["type"] = "image_url",
-                        ["image_url"] = new JObject
+                        new JObject
                         {
-                            ["url"] = imageInteraction.ImageUrl?.ToString() ?? imageInteraction.ImageData,
+                            ["type"] = "image_url",
+                            ["image_url"] = new JObject
+                            {
+                                ["url"] = imageUrlValue,
+                            },
                         },
-                    },
-                };
-                messageObj["content"] = contentArray;
-                contentSetExplicitly = true;
+                    };
+                    messageObj["content"] = contentArray;
+                    contentSetExplicitly = true;
+                }
             }
             else
             {

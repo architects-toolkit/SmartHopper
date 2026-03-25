@@ -70,6 +70,51 @@ AI: [Calls file_to_md tool with filePath: "C:\reports\Q4-2025.pdf"]
 - **filePath** (required): Absolute path to the file
 - **preserveTableStructure** (optional, default: true): Convert tables to Markdown table format
 - **removeHeadersFooters** (optional, default: true): Attempt to remove headers/footers (PDF, DOCX)
+- **extractImages** (optional, default: false): Extract embedded images as base64 data (PDF, DOCX, PPTX)
+
+## Image Extraction
+
+When `extractImages: true` is passed to the `file_to_md` tool, embedded images are extracted as base64 data and returned alongside the Markdown content.
+
+### Supported Formats
+
+- **PDF** — uses PdfPig `page.GetImages()` per page; attempts PNG conversion via `TryGetPng`, falls back to raw JPEG bytes (detected via `FF D8 FF` magic bytes)
+- **DOCX** — iterates `MainDocumentPart.ImageParts`; preserves the original MIME type from the part content type
+- **PPTX** — iterates `SlidePart.ImageParts` per slide; tags each image with its slide number
+
+### Tool Result Structure
+
+When images are extracted, the tool result includes two extra fields:
+
+```json
+{
+  "content": "# My Document\n...",
+  "originalFormat": "pdf",
+  "imageCount": 2,
+  "images": [
+    {
+      "id": "img-1",
+      "mimeType": "image/png",
+      "context": "Page 1",
+      "pageOrSlide": 1,
+      "base64Data": "iVBORw0KGgoAAAANSUhEUgAA..."
+    },
+    {
+      "id": "img-2",
+      "mimeType": "image/jpeg",
+      "context": "Page 3",
+      "pageOrSlide": 3,
+      "base64Data": "/9j/4AAQSkZJRgABAQEA..."
+    }
+  ]
+}
+```
+
+### Notes
+
+- Image extraction is **disabled by default** to avoid unnecessary processing overhead
+- Failed individual images produce a warning rather than failing the whole conversion
+- The base64 data can be passed directly to `AIBodyBuilder.AddImageInputFromBase64()` for vision AI requests (Phase 3)
 
 ## PDF Conversion Details
 
@@ -134,11 +179,19 @@ FileConverterRegistry (dispatcher)
 ├── IsSupported(extension)
 └── ConvertAsync(filePath, options)
 
+ExtractedImage
+├── Id: string             (e.g., "img-1")
+├── Base64Data: string     (base64-encoded image bytes)
+├── MimeType: string       (e.g., "image/png", "image/jpeg")
+├── Context: string        (e.g., "Page 3", "Slide 2", "Document body")
+└── PageOrSlide: int       (1-based; 0 if not applicable)
+
 FileConversionResult
 ├── MarkdownContent: string
 ├── DetectedFormat: string
 ├── Metadata: Dictionary<string, string>
-└── Warnings: List<string>
+├── Warnings: List<string>
+└── Images: List<ExtractedImage>
 ```
 
 ### Adding Custom Converters
@@ -180,7 +233,7 @@ No Python or external runtime dependencies required.
 ## Limitations
 
 - **OCR**: Scanned PDFs require external OCR processing (not included)
-- **Images**: Image content is represented as placeholders (e.g., `[Image: description]`)
+- **Image Descriptions**: Images are extracted as raw base64 data; comprehensive descriptions require the `img_to_text` tool
 - **Complex Tables**: Very complex table layouts may not convert perfectly
 - **Formulas**: Mathematical formulas in PDFs are extracted as plain text
 - **Macros**: Office document macros are not executed or extracted

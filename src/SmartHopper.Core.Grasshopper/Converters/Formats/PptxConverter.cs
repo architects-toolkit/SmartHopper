@@ -74,10 +74,18 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                     // Process each slide
                     int slideNumber = 1;
+                    int imageIndex = 0;
                     foreach (var slideId in slideIds)
                     {
                         var slidePart = (SlidePart)presentationPart.GetPartById(slideId.RelationshipId!);
                         ProcessSlide(slidePart, slideNumber, markdown);
+
+                        // Extract images from the slide when enabled
+                        if (options.ExtractImages)
+                        {
+                            imageIndex = ExtractSlideImages(slidePart, slideNumber, imageIndex, result);
+                        }
+
                         slideNumber++;
                     }
 
@@ -212,6 +220,53 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// Extracts embedded images from a PPTX slide part.
+        /// </summary>
+        private static int ExtractSlideImages(SlidePart slidePart, int slideNumber, int imageIndex, FileConversionResult result)
+        {
+            try
+            {
+                foreach (var imagePart in slidePart.ImageParts)
+                {
+                    imageIndex++;
+                    try
+                    {
+                        using var stream = imagePart.GetStream();
+                        using var ms = new MemoryStream();
+                        stream.CopyTo(ms);
+                        var bytes = ms.ToArray();
+
+                        if (bytes.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        string mimeType = imagePart.ContentType ?? "image/png";
+                        string base64Data = System.Convert.ToBase64String(bytes);
+
+                        var extracted = new ExtractedImage(
+                            id: $"img-{imageIndex}",
+                            base64Data: base64Data,
+                            mimeType: mimeType,
+                            context: $"Slide {slideNumber}",
+                            pageOrSlide: slideNumber);
+                        result.Images.Add(extracted);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Warnings.Add($"\u26a0\ufe0f Slide {slideNumber}, image {imageIndex}: could not extract: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add($"\u26a0\ufe0f Slide {slideNumber}: image extraction failed: {ex.Message}");
+            }
+
+            return imageIndex;
         }
 
         private static string GetNotesText(NotesSlidePart notesPart)

@@ -141,12 +141,23 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                     var markdown = new StringBuilder();
                     int pageNumber = 1;
+                    int imageIndex = 0;
 
                     foreach (var (page, blocks) in allPageData)
                     {
                         if (blocks.Count == 0 || blocks.Sum(b => GetBlockText(b).Length) < 5)
                         {
                             result.Warnings.Add($"⚠️ Page {pageNumber} appears to be scanned; text may be missing.");
+                        }
+
+                        // Extract images from the page when enabled
+                        if (options.ExtractImages)
+                        {
+                            imageIndex = ExtractPageImages(page, pageNumber, imageIndex, result);
+                        }
+
+                        if (blocks.Count == 0 || blocks.Sum(b => GetBlockText(b).Length) < 5)
+                        {
                             pageNumber++;
                             continue;
                         }
@@ -262,6 +273,78 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     return FileConversionResult.Failure("pdf", $"Failed to convert PDF: {ex.Message}");
                 }
             }).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Extracts images from a PDF page using PdfPig's GetImages() API.
+        /// Tries TryGetPng first for decoded bitmap data; falls back to RawBytes for embedded JPEGs.
+        /// </summary>
+        /// <param name="page">The PDF page to extract images from.</param>
+        /// <param name="pageNumber">Current page number (1-based).</param>
+        /// <param name="imageIndex">Running image counter across all pages.</param>
+        /// <param name="result">The conversion result to add extracted images to.</param>
+        /// <returns>Updated image index after processing this page.</returns>
+        private static int ExtractPageImages(Page page, int pageNumber, int imageIndex, FileConversionResult result)
+        {
+            try
+            {
+                foreach (var image in page.GetImages())
+                {
+                    imageIndex++;
+                    string base64Data = null;
+                    string mimeType = "image/png";
+
+                    if (image.TryGetPng(out var pngBytes))
+                    {
+                        base64Data = System.Convert.ToBase64String(pngBytes);
+                        mimeType = "image/png";
+                    }
+                    else
+                    {
+                        // RawBytes is often a valid JPEG for embedded images
+                        var rawBytes = image.RawBytes.ToArray();
+                        if (rawBytes.Length > 0)
+                        {
+                            // Detect JPEG by magic bytes (FF D8 FF)
+                            if (rawBytes.Length >= 3
+                                && rawBytes[0] == 0xFF
+                                && rawBytes[1] == 0xD8
+                                && rawBytes[2] == 0xFF)
+                            {
+                                base64Data = System.Convert.ToBase64String(rawBytes);
+                                mimeType = "image/jpeg";
+                            }
+                            else
+                            {
+                                // Unknown format; store as generic octet-stream
+                                base64Data = System.Convert.ToBase64String(rawBytes);
+                                mimeType = "application/octet-stream";
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(base64Data))
+                    {
+                        var extracted = new ExtractedImage(
+                            id: $"img-{imageIndex}",
+                            base64Data: base64Data,
+                            mimeType: mimeType,
+                            context: $"Page {pageNumber}",
+                            pageOrSlide: pageNumber);
+                        result.Images.Add(extracted);
+                    }
+                    else
+                    {
+                        result.Warnings.Add($"⚠️ Page {pageNumber}, image {imageIndex}: could not extract image data.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add($"⚠️ Page {pageNumber}: image extraction failed: {ex.Message}");
+            }
+
+            return imageIndex;
         }
 
         private static void ExtractMetadata(PdfDocument document, FileConversionResult result)

@@ -79,6 +79,12 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         }
                     }
 
+                    // Extract images when enabled
+                    if (options.ExtractImages)
+                    {
+                        ExtractImages(doc.MainDocumentPart, result);
+                    }
+
                     result.MarkdownContent = markdown.ToString().Trim();
                     return result;
                 }
@@ -231,6 +237,57 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
 
             markdown.AppendLine();
+        }
+
+        /// <summary>
+        /// Extracts embedded images from the DOCX document's main part.
+        /// </summary>
+        private static void ExtractImages(MainDocumentPart mainPart, FileConversionResult result)
+        {
+            if (mainPart == null)
+            {
+                return;
+            }
+
+            int imageIndex = 0;
+            try
+            {
+                foreach (var imagePart in mainPart.ImageParts)
+                {
+                    imageIndex++;
+                    try
+                    {
+                        using var stream = imagePart.GetStream();
+                        using var ms = new MemoryStream();
+                        stream.CopyTo(ms);
+                        var bytes = ms.ToArray();
+
+                        if (bytes.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        string mimeType = imagePart.ContentType ?? "image/png";
+                        string base64Data = System.Convert.ToBase64String(bytes);
+
+                        var extracted = new ExtractedImage(
+                            id: $"img-{imageIndex}",
+                            base64Data: base64Data,
+                            mimeType: mimeType,
+                            context: "Document body",
+                            pageOrSlide: 0);
+                        result.Images.Add(extracted);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Warnings.Add($"\u26a0\ufe0f Image {imageIndex}: could not extract: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add($"\u26a0\ufe0f Image extraction failed: {ex.Message}");
+            }
         }
 
         private static string EscapeMarkdown(string text)
