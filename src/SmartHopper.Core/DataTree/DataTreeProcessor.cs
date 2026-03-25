@@ -950,6 +950,59 @@ namespace SmartHopper.Core.DataTree
             return result;
         }
 
+        /// <summary>
+        /// Heterogeneous-output overload of <see cref="RunAsync{T,U}"/>.
+        /// All output channels return <see cref="IGH_Goo"/> items so that a single processing
+        /// call can populate output trees of different concrete types (e.g. both
+        /// <c>GH_String</c> and <c>GH_ExtractedImage</c>).
+        /// Use <see cref="ExtractTypedTree{U}"/> to pull a strongly-typed tree from the result.
+        /// </summary>
+        public static Task<Dictionary<string, GH_Structure<IGH_Goo>>> RunAsync<T>(
+            Dictionary<string, GH_Structure<T>> inputTrees,
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<IGH_Goo>>>> function,
+            ProcessingOptions options,
+            Action<int, int> progressCallback = null,
+            CancellationToken token = default)
+            where T : IGH_Goo
+            => RunAsync<T, IGH_Goo>(inputTrees, function, options, progressCallback, token);
+
+        /// <summary>
+        /// Extracts a strongly-typed <see cref="GH_Structure{U}"/> from a heterogeneous result
+        /// produced by <see cref="RunAsync{T}"/>.
+        /// Items that cannot be cast to <typeparamref name="U"/> are silently skipped.
+        /// </summary>
+        /// <typeparam name="U">The concrete <see cref="IGH_Goo"/> type to extract.</typeparam>
+        /// <param name="result">The untyped result dictionary returned by <see cref="RunAsync{T}"/>.</param>
+        /// <param name="key">The output channel name to extract.</param>
+        /// <returns>A typed <see cref="GH_Structure{U}"/>, or an empty structure when the key is absent.</returns>
+        public static GH_Structure<U> ExtractTypedTree<U>(
+            Dictionary<string, GH_Structure<IGH_Goo>> result,
+            string key)
+            where U : class, IGH_Goo
+        {
+            if (result == null || !result.TryGetValue(key, out var src))
+            {
+                return new GH_Structure<U>();
+            }
+
+            var typed = new GH_Structure<U>();
+            foreach (var path in src.Paths)
+            {
+                var branch = src.get_Branch(path);
+                if (branch == null)
+                {
+                    continue;
+                }
+
+                foreach (var item in branch)
+                {
+                    typed.Append(item as U, path);
+                }
+            }
+
+            return typed;
+        }
+
         #endregion
 
         #region NORMALIZATION

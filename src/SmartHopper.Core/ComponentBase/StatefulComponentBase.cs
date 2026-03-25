@@ -786,6 +786,37 @@ namespace SmartHopper.Core.ComponentBase
             return result;
         }
 
+        /// <summary>
+        /// Heterogeneous-output overload: runs data-tree processing where different output
+        /// channels can carry items of different concrete <see cref="IGH_Goo"/> types.
+        /// Use <see cref="DataTree.DataTreeProcessor.ExtractTypedTree{U}"/> on the returned
+        /// dictionary to obtain strongly-typed <see cref="GH_Structure{T}"/> trees.
+        /// </summary>
+        protected async Task<Dictionary<string, GH_Structure<IGH_Goo>>> RunProcessingAsync<T>(
+            Dictionary<string, GH_Structure<T>> trees,
+            Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<IGH_Goo>>>> function,
+            DataTree.ProcessingOptions options,
+            CancellationToken token = default)
+            where T : IGH_Goo
+        {
+            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, options);
+
+            this.SetDataCount(dataCount);
+            this.InitializeProgress(iterationCount);
+
+            var result = await DataTree.DataTreeProcessor.RunAsync(
+                trees,
+                function,
+                options,
+                progressCallback: (current, total) =>
+                {
+                    this.UpdateProgress(current);
+                },
+                token).ConfigureAwait(false);
+
+            return result;
+        }
+
         #endregion
 
         #region Persistence

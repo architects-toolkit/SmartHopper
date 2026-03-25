@@ -28,6 +28,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -80,14 +81,23 @@ namespace SmartHopper.Components.Knowledge
         }
 
         /// <inheritdoc/>
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.ItemGraft,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = false,
+        };
+
+        /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new FileToMdWorker(this, this.AddRuntimeMessage);
+            return new FileToMdWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class FileToMdWorker : AsyncWorkerBase
         {
             private readonly FileToMdComponent parent;
+            private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
             private bool hasWork;
 
@@ -97,10 +107,12 @@ namespace SmartHopper.Components.Knowledge
 
             public FileToMdWorker(
                 FileToMdComponent parent,
-                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
+                this.processingOptions = processingOptions;
             }
 
             /// <inheritdoc/>
@@ -131,40 +143,62 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    foreach (var branchPath in this.filePathTree.Paths)
+                    var inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                     {
-                        var branch = this.filePathTree.get_Branch(branchPath);
-                        for (int i = 0; i < branch.Count; i++)
+                        { "File Path", this.filePathTree },
+                    };
+
+                    var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
+                        inputTrees,
+                        async branchInputs =>
                         {
-                            token.ThrowIfCancellationRequested();
-
-                            var outputPath = branchPath.AppendElement(i);
-                            var ghPath = branch[i] as GH_String;
-
-                            if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
+                            var outputs = new Dictionary<string, List<IGH_Goo>>
                             {
-                                this.resultMarkdown.Append(new GH_String(string.Empty), outputPath);
-                                this.resultFormat.Append(new GH_String(string.Empty), outputPath);
-                                continue;
+                                { "Markdown", new List<IGH_Goo>() },
+                                { "Format", new List<IGH_Goo>() },
+                                { "Images", new List<IGH_Goo>() },
+                            };
+
+                            if (!branchInputs.TryGetValue("File Path", out var pathBranch) || pathBranch == null)
+                            {
+                                return outputs;
                             }
 
-                            string filePath = ghPath.Value;
-                            var (markdown, format, images, warnings) = await ConvertFileAsync(filePath).ConfigureAwait(false);
-
-                            this.resultMarkdown.Append(new GH_String(markdown), outputPath);
-                            this.resultFormat.Append(new GH_String(format), outputPath);
-
-                            foreach (var img in images)
+                            foreach (var ghPath in pathBranch)
                             {
-                                this.resultImages.Append(new GH_ExtractedImage(img), outputPath);
+                                token.ThrowIfCancellationRequested();
+
+                                if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
+                                {
+                                    outputs["Markdown"].Add(new GH_String(string.Empty));
+                                    outputs["Format"].Add(new GH_String(string.Empty));
+                                    continue;
+                                }
+
+                                var (markdown, format, images, warnings) = await ConvertFileAsync(ghPath.Value).ConfigureAwait(false);
+
+                                outputs["Markdown"].Add(new GH_String(markdown));
+                                outputs["Format"].Add(new GH_String(format));
+
+                                foreach (var img in images)
+                                {
+                                    outputs["Images"].Add(new GH_ExtractedImage(img));
+                                }
+
+                                foreach (var w in warnings)
+                                {
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w);
+                                }
                             }
 
-                            foreach (var w in warnings)
-                            {
-                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w);
-                            }
-                        }
-                    }
+                            return outputs;
+                        },
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
+
+                    this.resultMarkdown = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Markdown");
+                    this.resultFormat = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Format");
+                    this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_ExtractedImage>(resultTrees, "Images");
                 }
                 catch (OperationCanceledException)
                 {

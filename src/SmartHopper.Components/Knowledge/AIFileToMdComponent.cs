@@ -52,6 +52,14 @@ namespace SmartHopper.Components.Knowledge
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "img_to_text" };
 
+        /// <inheritdoc/>
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.ItemGraft,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = false,
+        };
+
         /// <summary>
         /// Initializes a new instance of the <see cref="AIFileToMdComponent"/> class.
         /// </summary>
@@ -150,83 +158,102 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    foreach (var branchPath in this.filePathTree.Paths)
+                    var inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                     {
-                        var branch = this.filePathTree.get_Branch(branchPath);
-                        for (int i = 0; i < branch.Count; i++)
+                        { "File Path", this.filePathTree },
+                    };
+
+                    var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
+                        inputTrees,
+                        async branchInputs =>
                         {
-                            token.ThrowIfCancellationRequested();
-
-                            var outputPath = branchPath.AppendElement(i);
-                            var ghPath = branch[i] as GH_String;
-
-                            if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
+                            var outputs = new Dictionary<string, List<IGH_Goo>>
                             {
-                                this.resultMarkdown.Append(new GH_String(string.Empty), outputPath);
-                                this.resultFormat.Append(new GH_String(string.Empty), outputPath);
-                                continue;
-                            }
-
-                            string filePath = ghPath.Value;
-
-                            var parameters = new JObject
-                            {
-                                ["filePath"] = filePath,
-                                ["preserveTableStructure"] = true,
-                                ["removeHeadersFooters"] = true,
-                                ["describeImages"] = true,
-                                ["imageMode"] = this.imageMode ?? "embed",
+                                { "Markdown", new List<IGH_Goo>() },
+                                { "Format", new List<IGH_Goo>() },
+                                { "Images", new List<IGH_Goo>() },
                             };
 
-                            if (!string.IsNullOrWhiteSpace(this.imagePrompt))
+                            if (!branchInputs.TryGetValue("File Path", out var pathBranch) || pathBranch == null)
                             {
-                                parameters["imageDescriptionPrompt"] = this.imagePrompt;
+                                return outputs;
                             }
 
-                            var toolResult = await this.parent.CallAiToolAsync("file_to_md", parameters).ConfigureAwait(false);
-
-                            if (toolResult == null)
+                            foreach (var ghPath in pathBranch)
                             {
-                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'file_to_md' returned no result for '{filePath}'.");
-                                this.resultMarkdown.Append(new GH_String(string.Empty), outputPath);
-                                this.resultFormat.Append(new GH_String(string.Empty), outputPath);
-                                continue;
-                            }
+                                token.ThrowIfCancellationRequested();
 
-                            string content = toolResult["content"]?.ToString() ?? string.Empty;
-                            string format = toolResult["originalFormat"]?.ToString() ?? string.Empty;
-                            this.resultMarkdown.Append(new GH_String(content), outputPath);
-                            this.resultFormat.Append(new GH_String(format), outputPath);
-
-                            // Raw images (always returned by tool when extracted)
-                            var imagesArray = toolResult["images"] as JArray;
-                            if (imagesArray != null)
-                            {
-                                foreach (var imgToken in imagesArray)
+                                if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
-                                    var imgObj = imgToken as JObject;
-                                    if (imgObj == null) continue;
-                                    var img = new SmartHopper.Core.Grasshopper.Converters.ExtractedImage(
-                                        imgObj["id"]?.ToString() ?? "img",
-                                        imgObj["base64Data"]?.ToString() ?? string.Empty,
-                                        imgObj["mimeType"]?.ToString() ?? "image/png",
-                                        imgObj["context"]?.ToString() ?? string.Empty,
-                                        imgObj["pageOrSlide"]?.Value<int>() ?? 0);
-                                    this.resultImages.Append(new GH_ExtractedImage(img), outputPath);
+                                    outputs["Markdown"].Add(new GH_String(string.Empty));
+                                    outputs["Format"].Add(new GH_String(string.Empty));
+                                    continue;
+                                }
+
+                                string filePath = ghPath.Value;
+
+                                var parameters = new JObject
+                                {
+                                    ["filePath"] = filePath,
+                                    ["preserveTableStructure"] = true,
+                                    ["removeHeadersFooters"] = true,
+                                    ["describeImages"] = true,
+                                    ["imageMode"] = this.imageMode ?? "embed",
+                                };
+
+                                if (!string.IsNullOrWhiteSpace(this.imagePrompt))
+                                {
+                                    parameters["imageDescriptionPrompt"] = this.imagePrompt;
+                                }
+
+                                var toolResult = await this.parent.CallAiToolAsync("file_to_md", parameters).ConfigureAwait(false);
+
+                                if (toolResult == null)
+                                {
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'file_to_md' returned no result for '{filePath}'.");
+                                    outputs["Markdown"].Add(new GH_String(string.Empty));
+                                    outputs["Format"].Add(new GH_String(string.Empty));
+                                    continue;
+                                }
+
+                                outputs["Markdown"].Add(new GH_String(toolResult["content"]?.ToString() ?? string.Empty));
+                                outputs["Format"].Add(new GH_String(toolResult["originalFormat"]?.ToString() ?? string.Empty));
+
+                                var imagesArray = toolResult["images"] as JArray;
+                                if (imagesArray != null)
+                                {
+                                    foreach (var imgToken in imagesArray)
+                                    {
+                                        var imgObj = imgToken as JObject;
+                                        if (imgObj == null) continue;
+                                        var img = new SmartHopper.Core.Grasshopper.Converters.ExtractedImage(
+                                            imgObj["id"]?.ToString() ?? "img",
+                                            imgObj["base64Data"]?.ToString() ?? string.Empty,
+                                            imgObj["mimeType"]?.ToString() ?? "image/png",
+                                            imgObj["context"]?.ToString() ?? string.Empty,
+                                            imgObj["pageOrSlide"]?.Value<int>() ?? 0);
+                                        outputs["Images"].Add(new GH_ExtractedImage(img));
+                                    }
+                                }
+
+                                var warningsArray = toolResult["warnings"] as JArray;
+                                if (warningsArray != null)
+                                {
+                                    foreach (var w in warningsArray)
+                                    {
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w.ToString());
+                                    }
                                 }
                             }
 
-                            // Surface tool warnings
-                            var warningsArray = toolResult["warnings"] as JArray;
-                            if (warningsArray != null)
-                            {
-                                foreach (var w in warningsArray)
-                                {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w.ToString());
-                                }
-                            }
-                        }
-                    }
+                            return outputs;
+                        },
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
+
+                    this.resultMarkdown = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Markdown");
+                    this.resultFormat = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Format");
+                    this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_ExtractedImage>(resultTrees, "Images");
                 }
                 catch (OperationCanceledException)
                 {
