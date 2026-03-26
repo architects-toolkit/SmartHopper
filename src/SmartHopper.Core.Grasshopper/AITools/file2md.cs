@@ -128,10 +128,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""filePath""]
                 }",
-                execute: this.FileToMdAsync);
+                execute: this.File2MdAsync);
         }
 
-        private async Task<AIReturn> FileToMdAsync(AIToolCall toolCall)
+        private async Task<AIReturn> File2MdAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -293,7 +293,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[FileToMd] Error in FileToMdAsync: {ex.Message}");
+                Debug.WriteLine($"[File2Md] Error in File2MdAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

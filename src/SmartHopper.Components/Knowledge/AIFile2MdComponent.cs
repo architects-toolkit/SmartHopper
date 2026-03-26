@@ -36,7 +36,7 @@ namespace SmartHopper.Components.Knowledge
     /// <summary>
     /// Grasshopper component that converts local files to Markdown with optional AI-powered image description.
     /// Requires a vision-capable AI provider when image description is enabled.
-    /// Use <c>FileToMdComponent</c> for plain conversion without AI.
+    /// Use <c>File2MdComponent</c> for plain conversion without AI.
     /// </summary>
     public class AIFile2MdComponent : AIStatefulAsyncComponentBase
     {
@@ -261,7 +261,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIFileToMd] Error: {ex.Message}");
+                    Debug.WriteLine($"[AIFile2Md] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

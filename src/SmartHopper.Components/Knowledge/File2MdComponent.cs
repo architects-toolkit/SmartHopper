@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Knowledge
     /// Grasshopper component that converts local files to Markdown and extracts embedded images.
     /// Non-AI: no provider or model required. Use <c>AIFile2MdComponent</c> for AI-powered image description.
     /// </summary>
-    public class FileToMdComponent : StatefulComponentBase
+    public class File2MdComponent : StatefulComponentBase
     {
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("C0EF8C72-1233-4613-902C-2E07321BB2E3");
@@ -53,13 +53,13 @@ namespace SmartHopper.Components.Knowledge
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="FileToMdComponent"/> class.
+        /// Initializes a new instance of the <see cref="File2MdComponent"/> class.
         /// </summary>
-        public FileToMdComponent()
+        public File2MdComponent()
             : base(
                   "File To Markdown",
-                  "FileToMd",
-                  "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text and extract embedded images. No AI required. Use AIFileToMd for AI-powered image description.",
+                  "File2Md",
+                  "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text and extract embedded images. No AI required. Use AIFile2Md for AI-powered image description.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -91,12 +91,12 @@ namespace SmartHopper.Components.Knowledge
         /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new FileToMdWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
+            return new File2MdWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
-        private sealed class FileToMdWorker : AsyncWorkerBase
+        private sealed class File2MdWorker : AsyncWorkerBase
         {
-            private readonly FileToMdComponent parent;
+            private readonly File2MdComponent parent;
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
             private bool hasWork;
@@ -105,8 +105,8 @@ namespace SmartHopper.Components.Knowledge
             private GH_Structure<GH_String> resultFormat;
             private GH_Structure<GH_ExtractedImage> resultImages;
 
-            public FileToMdWorker(
-                FileToMdComponent parent,
+            public File2MdWorker(
+                File2MdComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -206,7 +206,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[FileToMd] Error: {ex.Message}");
+                    Debug.WriteLine($"[File2Md] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

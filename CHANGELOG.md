@@ -22,7 +22,7 @@ Many thanks to the following contributors to this release:
   - `list_evaluate` → `textlist2boolean`
   - `img_generate` → `text2img`
   - `img_to_text` → `img2text`
-  - `file_to_md` → `file2md`
+  - `file2md` → `file2md`
   - `web_to_md` → `web2md`
   - `web_generic_page_read` → **REMOVED** (use `web2md` instead)
 
@@ -33,13 +33,13 @@ Many thanks to the following contributors to this release:
   - `AIListEvaluate` → `AIList2BooleanComponent`
   - `AIImgGenerateComponent` → `AIText2ImgComponent`
   - `AIImgToTextComponent` → `AIImg2TextComponent`
-  - `AIFileToMdComponent` → `AIFile2MdComponent`
+  - `AIFile2MdComponent` → `AIFile2MdComponent`
   - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
 
 ### Changed
 
 - **`DataTreeProcessor.RunAsync` heterogeneous output support**: Added `RunAsync<T>` overload (delegates to `RunAsync<T, IGH_Goo>`) and `ExtractTypedTree<U>` helper so a single processing call can populate output channels of different concrete `IGH_Goo` types. Matching `RunProcessingAsync<T>` overload added to `StatefulComponentBase`.
-- **`FileToMdComponent` / `AIFileToMdComponent`**: Replaced manual `foreach` tree iteration with `RunProcessingAsync<GH_String>` + `ExtractTypedTree<U>`, gaining flat-tree broadcasting and consistent `ItemGraft` path management. `ComponentProcessingOptions` property added to both components.
+- **`File2MdComponent` / `AIFile2MdComponent`**: Replaced manual `foreach` tree iteration with `RunProcessingAsync<GH_String>` + `ExtractTypedTree<U>`, gaining flat-tree broadcasting and consistent `ItemGraft` path management. `ComponentProcessingOptions` property added to both components.
 
 ### Fixed
 
@@ -86,18 +86,18 @@ Many thanks to the following contributors to this release:
   - MistralAI provider: OpenAI-compatible `image_url` content block encoding with data URI support
   - New **`img_to_text`** AI tool (`SmartHopper.Core.Grasshopper/AITools/img_to_text.cs`) — describes or analyzes an image using a vision model; accepts `imageUrl` or `imageBase64` + optional `mimeType` and `prompt`; requires `AICapability.Image2Text`; returns `{ description }` with `ToolResultEnvelope`
   - New **`GH_ExtractedImage`** Goo type (`SmartHopper.Core.Grasshopper/Types/GH_ExtractedImage.cs`) — Grasshopper wrapper for `ExtractedImage` carrying `Base64Data`, `MimeType`, `Id`, `Context`, and `PageOrSlide`; `ScriptVariable()` returns `Bitmap` for compatibility with `ImageViewerComponent`; casts to/from `GH_String` (base64), `Bitmap`, and raw `string`; fully serializable in GH files
-  - **`FileToMdComponent` `Images` output** — reverted to `StatefulComponentBase` (no AI required); now has single `File Path` input; always extracts embedded images from PDF/DOCX/PPTX and outputs them as `GH_ExtractedImage` tree on a new `Images` output alongside `Markdown` and `Format`
-  - New **`AIFileToMdComponent`** (`SmartHopper.Components/Knowledge/AIFileToMdComponent.cs`) — AI-powered variant; inputs: `File Path` (tree), `Image Mode` (text, optional), `Image Prompt` (text, optional); Image Modes: `embed` (default) — base64 data URI in markdown with short AI caption as alt text; `describe` — long AI text description replaces image; `caption` — short AI title replaces image; outputs `Markdown` and `Images` (`GH_ExtractedImage` tree)
-  - **`file_to_md` tool image modes** — replaced `inline` with `embed`; added `caption` mode; `imageMode` default changed to `embed`; added `DefaultImageCaptionPrompt` for `embed`/`caption` modes; tool now **always** returns raw `images` JArray regardless of `describeImages`, so both `FileToMdComponent` and `AIFileToMdComponent` share the same output format
+  - **`File2MdComponent` `Images` output** — reverted to `StatefulComponentBase` (no AI required); now has single `File Path` input; always extracts embedded images from PDF/DOCX/PPTX and outputs them as `GH_ExtractedImage` tree on a new `Images` output alongside `Markdown` and `Format`
+  - New **`AIFile2MdComponent`** (`SmartHopper.Components/Knowledge/AIFile2MdComponent.cs`) — AI-powered variant; inputs: `File Path` (tree), `Image Mode` (text, optional), `Image Prompt` (text, optional); Image Modes: `embed` (default) — base64 data URI in markdown with short AI caption as alt text; `describe` — long AI text description replaces image; `caption` — short AI title replaces image; outputs `Markdown` and `Images` (`GH_ExtractedImage` tree)
+  - **`file2md` tool image modes** — replaced `inline` with `embed`; added `caption` mode; `imageMode` default changed to `embed`; added `DefaultImageCaptionPrompt` for `embed`/`caption` modes; tool now **always** returns raw `images` JArray regardless of `describeImages`, so both `File2MdComponent` and `AIFile2MdComponent` share the same output format
   - New **`AIImgToTextComponent`** (`SmartHopper.Components/Img/AIImgToTextComponent.cs`) — standalone Grasshopper component for describing images via vision AI; inputs: `Image` (tree: file path, URL, or base64/`GH_ExtractedImage`), `Prompt` (optional); outputs `Description` text tree
 - **Prompt-caching for AI providers**: `OpenAI`, `Anthropic` and `OpenRouter` now have some extra settings parameters to enable prompt caching.
-- **File-to-Markdown Conversion**: New `file_to_md` AI tool and `FileToMdComponent` for converting local files to Markdown
+- **File-to-Markdown Conversion**: New `file2md` AI tool and `File2MdComponent` for converting local files to Markdown
   - Supports 12 formats: PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF
   - PDF conversion with MinerU-inspired layout intelligence (column detection, reading order, header/footer removal, heading detection, scanned-page warnings)
   - Office document conversion preserving headings, tables, lists, and formatting
   - Native .NET implementation using PdfPig, DocumentFormat.OpenXml, MimeKit (no Python dependencies)
   - Extensible `IFileConverter` plugin architecture with `FileConverterRegistry` dispatcher
-  - **Image Extraction**: `extractImages` parameter on `file_to_md` tool extracts embedded images from PDF, DOCX, and PPTX as base64 data
+  - **Image Extraction**: `extractImages` parameter on `file2md` tool extracts embedded images from PDF, DOCX, and PPTX as base64 data
     - PDF: Uses PdfPig `page.GetImages()` with PNG conversion via `TryGetPng`; JPEG magic-byte fallback for embedded JPEGs
     - DOCX: Extracts from `MainDocumentPart.ImageParts` with MIME type preservation
     - PPTX: Extracts from each `SlidePart.ImageParts` with slide number context
@@ -112,7 +112,7 @@ Many thanks to the following contributors to this release:
     - Added Markdown pipe-table rendering with GFM-compatible syntax, empty-cell quality gates, and code-block fallback for irregular structures
     - Added boilerplate filters and targeted page-number suppression for cleaner output
 - **Web-to-Markdown Conversion**: New `web_to_md` tool and `WebToMdComponent` for converting web pages to Markdown
-  - New `UrlConverter` leverages same `IFileConverter` framework as `file_to_md`
+  - New `UrlConverter` leverages same `IFileConverter` framework as `file2md`
   - Specialized handlers for Wikipedia, GitHub, GitLab, Discourse, Stack Exchange
   - Falls back to `HtmlConverter` for generic pages with readability scoring
   - New `WebToMdComponent` exposes URL-to-Markdown conversion directly on the Grasshopper canvas
