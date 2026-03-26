@@ -313,13 +313,11 @@ jobs:
         id: create-pr
         run: |
           PR_TITLE="docs: update contributors section for ${{ env.TARGET_BRANCH }}"
-          PR_BODY=$(cat << 'EOF'
-          This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release.
-
-          This is an automated PR created by the Update Contributors workflow.
-          EOF)
+          PR_BODY=$(printf '%s\n\n%s' \
+            "This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release." \
+            "This is an automated PR created by the Update Contributors workflow.")
           
-          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY" --json number --jq '.number'
+          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY"
           
           # Capture PR number
           PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --json number --jq '.[0].number')
