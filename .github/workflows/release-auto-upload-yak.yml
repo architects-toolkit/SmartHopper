@@ -1,0 +1,61 @@
+name: 🚀 Auto Upload to Yak on Stable Release
+
+# Description: Automatically uploads release artifacts to Yak when a non-prerelease
+# release is published.
+#
+# Prerequisites:
+# - A YAK_AUTH_TOKEN secret must be configured in your repository settings
+#
+# Triggers:
+# - Automatically when a release is published and is NOT a prerelease
+#
+# Permissions:
+# - contents:read - Required to read repository content
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  check-and-upload:
+    # Only run for non-prerelease releases
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+
+    steps:
+      - name: Extract version from release
+        id: extract_version
+        run: |
+          # Extract version from release tag (remove 'v' prefix if present)
+          tag="${{ github.event.release.tag_name }}"
+          version="${tag#v}"
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "Detected stable release version: $version"
+
+      - name: Trigger Yak Upload Workflow
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const version = '${{ steps.extract_version.outputs.version }}';
+            
+            console.log(`Triggering Yak upload for non-prerelease release ${version}`);
+            
+            // Trigger the yak upload workflow
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-6-upload-yak.yml',
+              ref: 'main',
+              inputs: {
+                version: version,
+                platform: 'both',
+                upload_to_yak: 'true',
+                testing: 'false'
+              }
+            });
+            
+            console.log('✅ Yak upload workflow triggered successfully');

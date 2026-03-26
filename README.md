@@ -44,7 +44,7 @@ Install, enable a provider, and set up an API key.
 
 **System requirements:**
 
-- Rhino 8.24 or newer
+- Rhino 8.24 or newer on Windows or macOS
 - Distributed through the Rhino Package Manager
 - You need to have a provider API key to use most of SmartHopper features
 

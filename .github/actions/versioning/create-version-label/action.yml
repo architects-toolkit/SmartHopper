@@ -1,0 +1,75 @@
+name: 'Create Version Label'
+description: 'Create or verify a version label in the repository'
+inputs:
+  version:
+    description: 'Version to create label for (e.g., 1.4.2-alpha)'
+    required: true
+  token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+  color:
+    description: 'Label color (hex without #, default: 0366d6)'
+    required: false
+    default: '0366d6'
+
+outputs:
+  label-created:
+    description: 'Whether the label was newly created'
+    value: ${{ steps.create-label.outputs.created }}
+  label-exists:
+    description: 'Whether the label already existed'
+    value: ${{ steps.create-label.outputs.exists }}
+  label-name:
+    description: 'The full label name created'
+    value: ${{ steps.create-label.outputs.label }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create or verify version label
+      id: create-label
+      shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        $version = "${{ inputs.version }}"
+        $labelName = "version: $version"
+        $color = "${{ inputs.color }}"
+        $repo = "${{ github.repository }}"
+        
+        Write-Host "Processing version label: $labelName"
+        
+        # Check if label already exists
+        $headers = @{
+          "Authorization" = "Bearer $env:GITHUB_TOKEN"
+          "Accept" = "application/vnd.github.v3+json"
+        }
+        
+        try {
+          $existingLabel = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/labels/$([Uri]::EscapeDataString($labelName))" -Headers $headers -Method GET -ErrorAction SilentlyContinue
+          Write-Host "Label already exists: $labelName"
+          echo "created=false" >> $env:GITHUB_OUTPUT
+          echo "exists=true" >> $env:GITHUB_OUTPUT
+          echo "label=$labelName" >> $env:GITHUB_OUTPUT
+        } catch {
+          # Label doesn't exist, create it
+          Write-Host "Creating new label: $labelName"
+          
+          $body = @{
+            name = $labelName
+            color = $color
+            description = "Issues related to version $version"
+          } | ConvertTo-Json
+          
+          try {
+            $newLabel = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/labels" -Headers $headers -Method POST -Body $body -ContentType "application/json"
+            Write-Host "Successfully created label: $labelName"
+            echo "created=true" >> $env:GITHUB_OUTPUT
+            echo "exists=true" >> $env:GITHUB_OUTPUT
+            echo "label=$labelName" >> $env:GITHUB_OUTPUT
+          } catch {
+            Write-Error "Failed to create label: $($_.Exception.Message)"
+            exit 1
+          }
+        }
