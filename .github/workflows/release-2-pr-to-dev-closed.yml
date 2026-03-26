@@ -35,6 +35,7 @@ jobs:
     steps:
       - name: Create PR (on PR closed)
         if: ${{ github.event_name == 'pull_request' }}
+        id: create-pr-event
         run: |
           gh pr create \
             --repo ${{ github.repository }} \
@@ -42,11 +43,23 @@ jobs:
             --head dev \
             --title "${{ github.event.pull_request.head.ref }}" \
             --body "${{ github.event.pull_request.body }}"
+          
+          # Capture PR number
+          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Assign PR to Milestone (on PR closed)
+        if: ${{ github.event_name == 'pull_request' && steps.create-pr-event.outputs.pr_number != '' }}
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr-event.outputs.pr_number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create PR (manual dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: create-pr-dispatch
         run: |
           gh pr create \
             --repo ${{ github.repository }} \
@@ -54,5 +67,16 @@ jobs:
             --head dev \
             --title "${{ github.event.inputs['pr-title'] }}" \
             --body "${{ github.event.inputs['pr-body'] }}"
+          
+          # Capture PR number
+          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assign PR to Milestone (manual dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.create-pr-dispatch.outputs.pr_number != '' }}
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr-dispatch.outputs.pr_number }}
+          token: ${{ secrets.GITHUB_TOKEN }}

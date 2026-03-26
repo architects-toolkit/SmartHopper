@@ -310,6 +310,7 @@ jobs:
 
       - name: Create PR
         if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true'
+        id: create-pr
         run: |
           PR_TITLE="docs: update contributors section for ${{ env.TARGET_BRANCH }}"
           PR_BODY=$(cat << 'EOF'
@@ -318,6 +319,17 @@ jobs:
           This is an automated PR created by the Update Contributors workflow.
           EOF)
           
-          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY"
+          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY" --json number --jq '.number'
+          
+          # Capture PR number
+          PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --json number --jq '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assign PR to Milestone
+        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true' && steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          token: ${{ secrets.GITHUB_TOKEN }}

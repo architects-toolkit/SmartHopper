@@ -82,6 +82,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.calculate-version.outputs.was-date-updated == 'true' && steps.check-changes.outputs.has_changes == 'true'
+        id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -97,3 +98,10 @@ jobs:
           labels: |
             chore
             automated
+
+      - name: Assign PR to Milestone
+        if: steps.calculate-version.outputs.was-date-updated == 'true' && steps.check-changes.outputs.has_changes == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}

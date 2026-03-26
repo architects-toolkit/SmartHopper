@@ -266,6 +266,7 @@ jobs:
 
       - name: Create PR to update dev branch if version collision
         if: steps.check-dev.outputs.DEV_COLLISION == 'true'
+        id: create-dev-pr
         run: |
           # Set branch name for dev version update
           DEV_UPDATE_BRANCH="chore/bump-dev-version-for-hotfix-${{ steps.extract-version.outputs.version }}"
@@ -318,10 +319,21 @@ jobs:
           
           gh pr create --base dev --head $DEV_UPDATE_BRANCH --title "$PR_TITLE" --body "$PR_BODY"
           
+          # Capture PR number
+          DEV_PR_NUMBER=$(gh pr list --base dev --head $DEV_UPDATE_BRANCH --json number --jq '.[0].number')
+          echo "dev_pr_number=$DEV_PR_NUMBER" >> $GITHUB_OUTPUT
+          
           # Return to release branch
           git checkout ${{ steps.set-branch.outputs.release_branch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assign Dev PR to Milestone
+        if: steps.check-dev.outputs.DEV_COLLISION == 'true' && steps.create-dev-pr.outputs.dev_pr_number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-dev-pr.outputs.dev_pr_number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Pull Request to main
         id: create-pr
@@ -331,8 +343,19 @@ jobs:
             --head ${{ steps.set-branch.outputs.release_branch }} \
             --title "chore: hotfix release ${{ steps.extract-version.outputs.version }}" \
             --body $'## 🔥 Hotfix Release ${{ steps.extract-version.outputs.version }}\n\n**Description:** ${{ steps.extract-description.outputs.description }}\n\nThis PR contains a hotfix release that addresses critical issues in production.\n\n### Changes\n\n- Updated version to ${{ steps.extract-version.outputs.version }}\n- Updated CHANGELOG.md with release notes\n- Updated README badges\n\n### Release Process\n\nOnce this PR is merged to main:\n1. A GitHub Release will be created automatically (workflow: release-3-pr-to-main-closed.yml)\n2. The project will be built (workflow: release-4-build.yml)\n3. Artifacts will be uploaded to Yak (workflow: release-5-upload-yak.yml)\n\n⚠️ **Note:** After merging to main, you may want to cherry-pick or merge these changes back to dev to keep it in sync.'
+          
+          # Capture PR number
+          PR_NUMBER=$(gh pr list --base main --head ${{ steps.set-branch.outputs.release_branch }} --json number --jq '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assign Hotfix PR to Milestone
+        if: steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update PR description with collision info
         if: steps.check-milestones.outputs.result != '' || steps.check-dev.outputs.DEV_COLLISION == 'true'

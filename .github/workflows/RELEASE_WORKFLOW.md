@@ -4,13 +4,32 @@ This guide explains the standard release process for SmartHopper, which is trigg
 
 ## Overview
 
-The regular release workflow allows you to:
+The release workflow supports two paths:
 
-- Release planned features and improvements from the `dev` branch
-- Automatically prepare release documentation and version updates
-- Create a structured PR flow: `release/*` → `dev` → `main`
-- Build and publish to GitHub Releases and Yak package manager
-- Maintain clean version history with milestone-based releases
+1. **Regular Releases**: Planned releases from milestones (dev → main)
+2. **Promotion Releases**: Automatic stage progression (alpha → beta → rc → stable)
+
+## Regular Release Flow
+
+Triggered manually via `release-1-milestone.yml` when a milestone is ready to release:
+
+1. **Manual trigger** with milestone title (e.g., `1.4.3-alpha`)
+2. Creates `release/X.Y.Z-stage` branch from `dev`
+3. Updates version, changelog, badges
+4. Creates PR to `dev` → merge → PR to `main` → merge
+5. Publishes release and builds artifacts
+
+## Promotion Release Flow
+
+Automatic stage progression when ALL conditions are met:
+
+1. Daily cron job checks all prerelease versions (alpha/beta/rc)
+2. **Promotion requires ALL three conditions**:
+   - ✅ **No open issues with version label** (any stage of base version, e.g., `version: 1.4.3-alpha`)
+   - ✅ **Original release published at least 30 days ago**
+   - ✅ **Last closed issue with original version label at least 30 days ago**
+3. If all conditions met → creates promotion PR (e.g., `1.4.3-alpha` → `1.4.3-beta`)
+4. On merge, release-1-milestone can be triggered for the new version
 
 ## When to Use Regular Releases
 
@@ -19,7 +38,7 @@ Use the regular release workflow for:
 - **Planned feature releases** with multiple changes
 - **Minor/major version bumps** (X.Y.0 or X.0.0)
 - **Milestone completions** with grouped issues/PRs
-- **Scheduled releases** following your development cycle
+- **Manual release of any version** from an existing milestone
 
 **Do NOT use for:**
 
@@ -36,13 +55,14 @@ Use the regular release workflow for:
 3. Associate PRs and issues with a milestone (e.g., `1.2.0`)
 4. Ensure all changes update `CHANGELOG.md` under `[Unreleased]`
 
-### Step 2: Close the Milestone
+### Step 2: Trigger Release Preparation
 
-1. Go to **Issues** → **Milestones**
-2. Ensure all issues/PRs are completed
-3. Click **Close milestone** for the target version (e.g., `1.2.0`)
+1. Go to **Actions** → **🏁 1 Prepare Release Branch**
+2. Click **Run workflow**
+3. Enter the **milestone title** (e.g., `1.2.0` or `1.4.3-alpha`)
+4. Click **Run workflow**
 
-**This automatically triggers:** 🏁 1 Prepare Release on Milestone Close
+**This automatically triggers:** 🏁 1 Prepare Release Branch
 
 ### Step 3: Automatic Release Preparation (Workflow 1)
 
@@ -119,14 +139,21 @@ The workflow automatically:
 3. Review the release notes
 4. Click **Publish release**
 
-### Step 10: Upload to Yak (Manual)
+### Step 10: Upload to Yak (Automatic for Stable Releases)
 
-1. Go to **Actions** → **🚀 5 Upload to Yak Rhino Server**
+**For stable releases (X.Y.Z without prerelease suffix):**
+- Automatically triggered when release is published
+- Uploads both Windows and Mac packages to production Yak server
+- No manual action required
+
+**For prerelease versions (alpha/beta/rc) or manual override:**
+1. Go to **Actions** → **🚀 6 Upload to Yak Rhino Server**
 2. Click **Run workflow**
 3. Configure:
    - **Version**: Leave empty (uses main branch version) or specify
+   - **Platform**: Select `both` (default)
    - **Confirm upload to Yak**: Check this box
-   - **Just testing**: Uncheck for production, check for test server
+   - **Just testing**: Check for test server, uncheck for production
 4. Click **Run workflow**
 
 The workflow will:
@@ -148,11 +175,13 @@ Version is determined by the milestone title (e.g., milestone `1.2.0` → releas
 
 ## Workflow Files
 
-- **release-1-milestone.yml** - Prepares release branch when milestone closes
+- **release-1-milestone.yml** - Manually prepares release branch for a milestone
+- **release-promotion.yml** - Automatically promotes versions (alpha→beta→rc→stable)
 - **release-2-pr-to-dev-closed.yml** - Creates PR from dev to main
 - **release-3-pr-to-main-closed.yml** - Creates GitHub Release (draft)
 - **release-4-build.yml** - Builds and uploads artifacts
-- **release-5-upload-yak.yml** - Uploads to Yak package manager
+- **release-6-upload-yak.yml** - Uploads to Yak package manager (manual)
+- **release-auto-upload-yak.yml** - Auto-uploads to Yak for stable releases
 
 ## Validations
 
@@ -169,7 +198,39 @@ All PRs (release → dev, dev → main) run:
 - **main**: Protected branch, requires PR reviews
 - **release/\***: Temporary branches, deleted after merge
 
-## Example Scenario
+### Promotion Release Example
+
+**Scenario**: Version `1.4.3-alpha` meets all promotion criteria.
+
+**Validation Checks (checking `1.4.3-alpha` for promotion to `1.4.3-beta`):**
+
+1. ✅ **Version label issues**: No open issues labeled `version: 1.4.3` or `version: 1.4.3-alpha`
+2. ✅ **Release age**: `1.4.3-alpha` published 35 days ago (≥30 days required)
+3. ✅ **Last closed issue**: Last issue labeled `version: 1.4.3-alpha` closed 32 days ago (≥30 days required)
+
+**Process:**
+
+1. **Daily cron** validates `1.4.3-alpha` against all three conditions
+2. **release-promotion.yml** creates PR: `release/1.4.3-beta` → `dev`
+3. Review and merge PR to `dev`
+4. **Workflow 2** creates PR from `dev` to `main`
+5. Review and merge PR to `main`
+6. **Workflow 3** creates draft release `1.4.3-beta`
+7. **Workflow 4** builds and uploads artifacts
+8. Publish release
+9. **manage-milestones** action:
+   - Creates `1.4.3-rc` milestone (next stage)
+   - Creates `1.5.0-alpha` milestone (next minor)
+   - Closes older `1.x.x-beta` milestones
+10. Run **Workflow 5** to upload to Yak
+
+**Blocking Scenarios** (promotion will NOT happen):
+
+- ❌ Any open issue labeled `version: 1.4.3` or `version: 1.4.3-alpha` (bugs still unresolved)
+- ❌ `1.4.3-alpha` release published < 30 days ago
+- ❌ Last issue with `version: 1.4.3-alpha` label closed < 30 days ago
+
+### Regular Release Example
 
 **Goal:** Release version `1.2.0` with new AI features.
 
