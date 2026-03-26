@@ -57,6 +57,11 @@ Many thanks to the following contributors to this release:
   - **`JsonObject2TextComponent`**: Serializes a JSON value to a GH string. Supports pretty-print via `Pretty` boolean input.
   - **`JsonGetValueComponent`**: Extracts a nested value from a JSON object using dot-notation path (e.g. `address.city`). Array index access via numeric segment (e.g. `items.0`).
   - **`JsonMergeComponent`**: Merges multiple JSON objects via shallow merge (last-wins on conflict).
+- **JSON Schema Visual Builder Components** (`SmartHopper.Components/JSON/`): Visual components to build JSON Schema property definitions without typing format strings, designed to wire together in Grasshopper:
+  - **`JsonSchemaPropComponent`** (`JsonSchemaProp`): Builds a scalar property definition string (`name:type` or `name:type:description`) from individual Name, Type, and Description inputs. Valid types: `string`, `number`, `integer`, `boolean`.
+  - **`JsonSchemaPropObjectComponent`** (`JsonSchemaPropObj`): Builds an object property definition by accepting sub-property strings from other `JsonSchemaProp*` components and prefixing them with dot-notation. Outputs: Properties list (dot-prefixed, ready for `JsonSchemaComponent`) + Required Names list.
+  - **`JsonSchemaPropArrayComponent`** (`JsonSchemaPropArr`): Builds an array property definition with configurable Items Type (`string`, `number`, `integer`, `boolean`, `object`). Uses `array[itemsType]` encoding parsed by `JsonSchemaComponent`.
+  - **`JsonSchemaComponent` updated**: Now parses `array[itemsType]` encoding from `JsonSchemaPropArrayComponent` to set the correct `items.type` in the generated schema.
 - **Batch API Support**: Implemented `IAIBatchProvider` in OpenAI, Anthropic, and MistralAI providers
   - **OpenAI**: Uploads a multi-request JSONL file to `/v1/files`, creates a batch via `/v1/batches`, polls status, downloads output from `/v1/files/{output_file_id}/content`, and cancels via `/v1/batches/{id}/cancel`
   - **Anthropic**: Submits multiple items inline via `POST /v1/messages/batches`, polls `processing_status` on `GET /v1/messages/batches/{id}`, polls status, downloads JSONL results from `results_url`, and cancels via `POST /v1/messages/batches/{id}/cancel`

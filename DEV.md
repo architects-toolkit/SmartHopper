@@ -46,10 +46,17 @@ This document aggregates development-facing information.
 | AI McNeel Forum Post Summarize (AIMcNeelForumPostSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI McNeel Forum Topic Summarize (AIMcNeelForumTopicSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | Misc | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI JSON Generate (AIJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | JSON | ⚪ | - | - | - |
-| JSON Schema (JsonSchema)<br><sub>Set a JSON schema for the AI component</sub> | JSON | ⚪ | - | - | - |
-| JSON Object (JsonObject)<br><sub>Set a JSON object for the definition of the JSON Schema</sub> | JSON | ⚪ | - | - | - |
-| JSON Array (JsonArray)<br><sub>Set a JSON array for the definition of the JSON Schema</sub> | JSON | ⚪ | - | - | - |
+| AI Text To JSON (AIText2Json)<br><sub>Generate structured JSON from a prompt using AI with JSON Schema validation</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Schema (JsonSchema)<br><sub>Build a JSON Schema from property definitions with nested object/array support via dot-notation</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Schema Property (JsonSchemaProp)<br><sub>Build scalar property definitions for JSON Schema using individual inputs</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Schema Property Object (JsonSchemaPropObj)<br><sub>Build object property definitions with sub-properties for JSON Schema</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Schema Property Array (JsonSchemaPropArr)<br><sub>Build array property definitions with configurable item type for JSON Schema</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Object (JsonObject)<br><sub>Create a JSON object from key-value pairs with auto-coerced values</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Array (JsonArray)<br><sub>Create a JSON array from a list of items with auto-coerced values</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Array To Text List (JsonArray2Text)<br><sub>Parse a JSON array string into a Grasshopper text list</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON To Text (Json2Text)<br><sub>Serialize a JSON value to a string with optional pretty-print</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Get Value (JsonGetValue)<br><sub>Extract a nested value from JSON using dot-notation path</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Merge (JsonMerge)<br><sub>Merge multiple JSON objects via shallow merge (last-wins)</sub> | JSON | ⚪ | 🟡 | - | - |
 
 ### AI Tools
 
@@ -64,7 +71,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `list_filter` | DataProcessing | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2textlist` | DataProcessing | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | `img2text` | ImageProcessing | Describes or analyzes an image using a vision model | ⚪ | 🟡 | 🟠 | 🟢 |
-| `json_generate` | DataProcessing | Generate an AI response in strict JSON output | ⚪ | - | - | - |
+| `text2json` | DataProcessing | Generates structured JSON from a prompt conforming to a provided JSON Schema | ⚪ | 🟡 | - | - |
 | `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
 | `script_review` | Script | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |

@@ -40,7 +40,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.textgenerate;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSchemaComponent"/> class.
@@ -198,8 +198,21 @@ namespace SmartHopper.Components.JSON
             }
 
             string fullPath = parts[0].Trim();
-            string propType = parts.Length > 1 ? parts[1].Trim().ToLowerInvariant() : "string";
+            string rawType = parts.Length > 1 ? parts[1].Trim().ToLowerInvariant() : "string";
             string propDescription = parts.Length > 2 ? parts[2].Trim() : string.Empty;
+
+            // Parse optional array item type encoded as "array[itemsType]" by JsonSchemaPropArrayComponent
+            string propType = rawType;
+            string arrayItemsType = "string";
+            if (rawType.StartsWith("array[") && rawType.EndsWith("]"))
+            {
+                propType = "array";
+                arrayItemsType = rawType.Substring(6, rawType.Length - 7);
+                if (string.IsNullOrWhiteSpace(arrayItemsType))
+                {
+                    arrayItemsType = "string";
+                }
+            }
 
             var pathSegments = fullPath.Split('.');
 
@@ -248,10 +261,10 @@ namespace SmartHopper.Components.JSON
                 propSchema["properties"] = new JObject();
             }
 
-            // If type is array, add default string items schema
+            // If type is array, set items type (uses arrayItemsType parsed above, defaults to string)
             if (propType == "array")
             {
-                propSchema["items"] = new JObject { ["type"] = "string" };
+                propSchema["items"] = new JObject { ["type"] = NormalizeType(arrayItemsType) };
             }
 
             currentProperties[leafName] = propSchema;
@@ -268,10 +281,23 @@ namespace SmartHopper.Components.JSON
 
         /// <summary>
         /// Normalizes a type string to valid JSON Schema types.
+        /// Strips any array[itemsType] encoding before comparing.
         /// </summary>
         private static string NormalizeType(string type)
         {
-            switch (type)
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                return "string";
+            }
+
+            // Strip array[...] encoding if present
+            string baseType = type;
+            if (type.StartsWith("array[") && type.EndsWith("]"))
+            {
+                baseType = "array";
+            }
+
+            switch (baseType)
             {
                 case "string":
                 case "number":
@@ -280,7 +306,7 @@ namespace SmartHopper.Components.JSON
                 case "object":
                 case "array":
                 case "null":
-                    return type;
+                    return baseType;
                 default:
                     return "string";
             }

@@ -26,6 +26,38 @@ Pure-utility and AI-powered components for working with JSON in Grasshopper, und
 
 The `AIText2JsonComponent` uses the `text2json` AI tool internally. See [Tools index](../../Tools/index.md) for details.
 
+### Visual Schema Builder Components
+
+Build schemas visually by wiring components together instead of typing format strings:
+
+| Component | Nickname | Description |
+|-----------|----------|-------------|
+| `JsonSchemaPropComponent` | JsonSchemaProp | Scalar property: Name + Type + Description → `"name:type:description"` string |
+| `JsonSchemaPropObjectComponent` | JsonSchemaPropObj | Object property: Name + Sub-Properties list → dot-prefixed property strings |
+| `JsonSchemaPropArrayComponent` | JsonSchemaPropArr | Array property: Name + Items Type + Description → `"name:array[itemsType]:description"` string |
+
+**Wiring pattern (visual pipeline):**
+
+```
+JsonSchemaProp("street", "string")  ──┐
+JsonSchemaProp("city",   "string")  ──┼──► JsonSchemaPropObj("address") ──► (Properties list)
+JsonSchemaProp("zip",    "string")  ──┘                                         │
+                                                                                 ▼
+JsonSchemaProp("name",   "string") ─────────────────────────────►  Merge lists (Entwine/Insert)
+JsonSchemaProp("age",    "integer") ────────────────────────────►         │
+JsonSchemaPropArr("tags", "string") ────────────────────────────►         │
+                                                                           ▼
+                                                                  JsonSchemaComponent
+                                                                           │
+                                                                           ▼
+                                                                  AIText2JsonComponent.Schema
+```
+
+- `JsonSchemaPropObj` outputs a **list** of dot-prefixed strings — merge with other properties using a GH `Entwine` or panel list
+- The `Required Names` output of `JsonSchemaPropObj` gives `"address.street"` style names — connect to `JsonSchemaComponent.Required`
+
+---
+
 ## JsonSchemaComponent — Property Format
 
 Properties are defined as strings with the format:
