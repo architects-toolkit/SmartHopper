@@ -37,7 +37,7 @@ using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Text
 {
-    public class AITextGenerate : AIStatefulAsyncComponentBase
+    public class AIText2TextComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
 
@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Text
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "text_generate" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
         /// <summary>Stores the sentinel result tree during batch submission, for later reconstruction.</summary>
         private GH_Structure<GH_String> _sentinelResultTree;
@@ -54,8 +54,8 @@ namespace SmartHopper.Components.Text
         /// <summary>Stores the reconstructed result tree after batch completion.</summary>
         private GH_Structure<GH_String> _reconstructedResultTree;
 
-        public AITextGenerate()
-            : base("AI Text Generate", "AITextGenerate",
+        public AIText2TextComponent()
+            : base("AI Text To Text", "AIText2Text",
                   "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
                   "SmartHopper", "Text")
         {
@@ -106,18 +106,18 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AITextGenerateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2TextWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
-        private sealed class AITextGenerateWorker : AsyncWorkerBase
+        private sealed class AIText2TextWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;
-            private readonly AITextGenerate parent;
+            private readonly AIText2TextComponent parent;
             private readonly ProcessingOptions processingOptions;
 
-            public AITextGenerateWorker(
-                AITextGenerate parent,
+            public AIText2TextWorker(
+                AIText2TextComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -188,7 +188,7 @@ namespace SmartHopper.Components.Text
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AITextGenerate parent)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIText2TextComponent parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -235,7 +235,7 @@ namespace SmartHopper.Components.Text
                     };
 
                     var toolResult = await parent.CallAiToolAsync(
-                        "text_generate", parameters)
+                        "text2text", parameters)
                         .ConfigureAwait(false);
 
                     string result = toolResult?["result"]?.ToString() ?? string.Empty;

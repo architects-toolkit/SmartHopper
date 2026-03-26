@@ -38,12 +38,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// Contains tools for list generation using AI.
     /// </summary>
-    public class list_generate : IAIToolProvider
+    public class text2textlist : IAIToolProvider
     {
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
-        private readonly string toolName = "list_generate";
+        private readonly string toolName = "text2textlist";
 
         /// <summary>
         /// Minimum batch size for chunked requests.

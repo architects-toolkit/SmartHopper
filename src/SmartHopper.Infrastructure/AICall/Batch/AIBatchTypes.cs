@@ -102,7 +102,7 @@ namespace SmartHopper.Infrastructure.AICall.Batch
         /// Generates a SmartHopper custom ID for a batch item.
         /// Format: <c>sh-{yyyyMMddHHmmss}-{endpoint}-{NN:00}-{random8}</c>.
         /// </summary>
-        /// <param name="endpoint">Tool endpoint name (e.g. "text_generate"). Defaults to "req" if null.</param>
+        /// <param name="endpoint">Tool endpoint name (e.g. "text2text"). Defaults to "req" if null.</param>
         /// <param name="index">Zero-based index of this item within the batch.</param>
         /// <returns>A unique custom ID for batch request tracking.</returns>
         public static string GenerateCustomId(string endpoint = null, int index = 0)

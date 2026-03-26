@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
     /// Grasshopper component that converts local files to Markdown and extracts embedded images.
-    /// Non-AI: no provider or model required. Use <c>AIFileToMdComponent</c> for AI-powered image description.
+    /// Non-AI: no provider or model required. Use <c>AIFile2MdComponent</c> for AI-powered image description.
     /// </summary>
     public class FileToMdComponent : StatefulComponentBase
     {
@@ -76,7 +76,7 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Markdown", "Md", "Markdown content of the file.", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Images", "Img", "Images extracted from the document (PDF/DOCX/PPTX). Each item is a GH_ExtractedImage carrying base64 data, MIME type, and source context. Branched per input file. Connect to Image Viewer or AIImgToText.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Images", "Img", "Images extracted from the document (PDF/DOCX/PPTX). Each item is a GH_ExtractedImage carrying base64 data, MIME type, and source context. Branched per input file. Connect to Image Viewer or AIImg2Text.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Format", "Fmt", "Detected original format (e.g., pdf, docx, html).", GH_ParamAccess.tree);
         }
 
@@ -232,14 +232,14 @@ namespace SmartHopper.Components.Knowledge
 
                 var toolCallInteraction = new AIInteractionToolCall
                 {
-                    Name = "file_to_md",
+                    Name = "file2md",
                     Arguments = parameters,
                     Agent = AIAgent.Assistant,
                 };
 
                 var toolCall = new AIToolCall
                 {
-                    Endpoint = "file_to_md",
+                    Endpoint = "file2md",
                 };
 
                 toolCall.FromToolCallInteraction(toolCallInteraction);
@@ -251,7 +251,7 @@ namespace SmartHopper.Components.Knowledge
 
                 if (toolResult == null)
                 {
-                    return (string.Empty, string.Empty, new List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage>(), new List<string> { $"Tool 'file_to_md' returned no result for '{filePath}'." });
+                    return (string.Empty, string.Empty, new List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage>(), new List<string> { $"Tool 'file2md' returned no result for '{filePath}'." });
                 }
 
                 string content = toolResult["content"]?.ToString() ?? string.Empty;

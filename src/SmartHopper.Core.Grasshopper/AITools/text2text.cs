@@ -34,12 +34,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// Contains tools for text analysis and manipulation using AI.
     /// </summary>
-    public class text_generate : IAIToolProvider
+    public class text2text : IAIToolProvider
     {
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
-        private readonly string toolName = "text_generate";
+        private readonly string toolName = "text2text";
 
         /// <summary>
         /// Defines the required capabilities for the AI tool provided by this class.

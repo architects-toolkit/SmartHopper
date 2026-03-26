@@ -38,7 +38,7 @@ namespace SmartHopper.Components.Knowledge
     /// Requires a vision-capable AI provider when image description is enabled.
     /// Use <c>FileToMdComponent</c> for plain conversion without AI.
     /// </summary>
-    public class AIFileToMdComponent : AIStatefulAsyncComponentBase
+    public class AIFile2MdComponent : AIStatefulAsyncComponentBase
     {
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("574FA3D1-3BA2-4B69-8D9B-5A208CD7FC7D");
@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Knowledge
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "img_to_text" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "file2md" };
 
         /// <inheritdoc/>
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
@@ -61,12 +61,12 @@ namespace SmartHopper.Components.Knowledge
         };
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AIFileToMdComponent"/> class.
+        /// Initializes a new instance of the <see cref="AIFile2MdComponent"/> class.
         /// </summary>
-        public AIFileToMdComponent()
+        public AIFile2MdComponent()
             : base(
                   "AI File To Markdown",
-                  "AIFileToMd",
+                  "AIFile2Md",
                   "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown with AI-powered image description. Image Mode: 'embed' — embed as base64 with short caption; 'describe' — long AI description; 'caption' — short AI title only.",
                   "SmartHopper",
                   "Knowledge")
@@ -95,12 +95,12 @@ namespace SmartHopper.Components.Knowledge
         /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIFileToMdWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
+            return new AIFile2MdWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
-        private sealed class AIFileToMdWorker : AsyncWorkerBase
+        private sealed class AIFile2MdWorker : AsyncWorkerBase
         {
-            private readonly AIFileToMdComponent parent;
+            private readonly AIFile2MdComponent parent;
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
             private bool hasWork;
@@ -112,8 +112,8 @@ namespace SmartHopper.Components.Knowledge
             private GH_Structure<GH_String> resultFormat;
             private GH_Structure<GH_ExtractedImage> resultImages;
 
-            public AIFileToMdWorker(
-                AIFileToMdComponent parent,
+            public AIFile2MdWorker(
+                AIFile2MdComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -206,11 +206,11 @@ namespace SmartHopper.Components.Knowledge
                                     parameters["imageDescriptionPrompt"] = this.imagePrompt;
                                 }
 
-                                var toolResult = await this.parent.CallAiToolAsync("file_to_md", parameters).ConfigureAwait(false);
+                                var toolResult = await this.parent.CallAiToolAsync("file2md", parameters).ConfigureAwait(false);
 
                                 if (toolResult == null)
                                 {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'file_to_md' returned no result for '{filePath}'.");
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'file2md' returned no result for '{filePath}'.");
                                     outputs["Markdown"].Add(new GH_String(string.Empty));
                                     outputs["Format"].Add(new GH_String(string.Empty));
                                     continue;

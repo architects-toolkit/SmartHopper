@@ -19,7 +19,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,39 +29,32 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Utils.Parsing;
+using CommonDrawing = System.Drawing;
 
-namespace SmartHopper.Components.List
+namespace SmartHopper.Components.Text
 {
-    public class AIListEvaluate : AIStatefulAsyncComponentBase
+    public class AIText2BooleanComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new("A8BAD48D-8723-42AD-B13C-A875F940B69C");
+        public override Guid ComponentGuid => new("D3EB06A8-C219-46E3-854E-15EC798AD63A");
 
-        protected override Bitmap Icon => Resources.listevaluate;
+        protected override CommonDrawing::Bitmap Icon => Resources.textevaluate;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "list_evaluate" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "text2boolean" };
 
-        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
-        {
-            Topology = ProcessingTopology.BranchToBranch,
-            OnlyMatchingPaths = false,
-            GroupIdenticalBranches = true,
-        };
-
-        public AIListEvaluate()
-            : base("AI List Evaluate", "AIListEvaluate",
-                  "Use natural language to evaluate a list and output a TRUE/FALSE answer.\nThis components takes the list as a whole. This means that every question will return True or False for each provided list (not for each individual items).\nIf a tree structure is provided, questions and lists will only match within the same branch paths.",
-                  "SmartHopper", "List")
+        public AIText2BooleanComponent()
+            : base("AI Text To Boolean", "AIText2Boolean",
+                  "Use natural language to ask a TRUE or FALSE question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
+                  "SmartHopper", "Text")
         {
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("List", "L", " REQUIRED List of items to evaluate", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Question", "Q", "REQUIRED True or false question. The AI will answer it based on the input list.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Text", "T", "REQUIRED text to evaluate", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Question", "Q", "REQUIRED true or false question.\nAI will answer this question based on the input text", GH_ParamAccess.tree);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -72,21 +64,21 @@ namespace SmartHopper.Components.List
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListEvaluateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2BooleanWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
-        private sealed class AIListEvaluateWorker : AsyncWorkerBase
+        private sealed class AIText2BooleanWorker : AsyncWorkerBase
         {
+            private readonly AIText2BooleanComponent parent;
+            private readonly ProcessingOptions processingOptions;
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_Boolean>> result;
-            private readonly AIListEvaluate parent;
-            private readonly ProcessingOptions processingOptions;
 
-            public AIListEvaluateWorker(
-            AIListEvaluate parent,
-            Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
-            ProcessingOptions processingOptions)
-            : base(parent, addRuntimeMessage)
+            public AIText2BooleanWorker(
+                AIText2BooleanComponent parent,
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
+                : base(parent, addRuntimeMessage)
             {
                 this.parent = parent;
                 this.processingOptions = processingOptions;
@@ -101,17 +93,14 @@ namespace SmartHopper.Components.List
                 this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
 
                 // Get the input trees
-                var listTree = new GH_Structure<IGH_Goo>();
+                var textTree = new GH_Structure<GH_String>();
                 var questionTree = new GH_Structure<GH_String>();
 
-                DA.GetDataTree("List", out listTree);
+                DA.GetDataTree("Text", out textTree);
                 DA.GetDataTree("Question", out questionTree);
 
-                // Convert generic data to string structure
-                var stringListTree = ConvertToGHString(listTree);
-
-                // Store the converted trees
-                this.inputTree["List"] = stringListTree;
+                // The first defined tree is the one that overrides paths in case they don't match between trees
+                this.inputTree["Text"] = textTree;
                 this.inputTree["Question"] = questionTree;
 
                 dataCount = 0;
@@ -143,7 +132,7 @@ namespace SmartHopper.Components.List
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListEvaluate parent)
+            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIText2BooleanComponent parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -158,22 +147,17 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
                 // Get the trees
-                var listAsJson = AIResponseParser.ConcatenateItemsToJson(branches["List"], "array");
+                var textTree = branches["Text"];
                 var questionTree = branches["Question"];
 
                 // Normalize tree lengths
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
-                    new List<List<GH_String>>
-                    {
-                        new (new GH_String[] { new (listAsJson.ToString()) }),
-                        questionTree,
-                    });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { textTree, questionTree });
 
                 // Reassign normalized branches
-                var normalizedListTree = normalizedLists[0];
+                textTree = normalizedLists[0];
                 questionTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {normalizedListTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Text count: {textTree.Count}, Question count: {questionTree.Count}");
 
                 // Initialize the output
                 var outputs = new Dictionary<string, List<GH_Boolean>>();
@@ -181,30 +165,64 @@ namespace SmartHopper.Components.List
 
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
-                int i = 0;
-                foreach (var question in questionTree)
+                for (int i = 0; i < textTree.Count; i++)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
+                    Debug.WriteLine($"[ProcessData] Processing text {i + 1}/{textTree.Count}");
+
+                    string textValue = textTree[i]?.Value ?? string.Empty;
+                    string questionValue = questionTree[i]?.Value ?? string.Empty;
+
+                    Debug.WriteLine($"[ProcessData] Text: '{textValue}', Question: '{questionValue}'");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject
                     {
-                        ["list"] = JArray.Parse(normalizedListTree[i].Value),
-                        ["question"] = question.Value,
+                        ["text"] = textValue,
+                        ["question"] = questionValue,
                         ["contextFilter"] = "-*",
                     };
 
-                    var toolResult = await parent.CallAiToolAsync(
-                        "list_evaluate", parameters)
+                    var toolResult = await parent.CallAiToolAsync("text2boolean", parameters)
                         .ConfigureAwait(false);
 
-                    bool result = toolResult?["result"]?.ToObject<bool>() ?? false;
-                    outputs["Result"].Add(new GH_Boolean(result));
+                    Debug.WriteLine($"[ProcessData] Tool result: {toolResult?.ToString() ?? "null"}");
 
-                    i++;
+                    var resultToken = toolResult?["result"];
+                    bool? parsedResult = ParseBooleanResult(resultToken);
+
+                    if (!parsedResult.HasValue)
+                    {
+                        outputs["Result"].Add(null);
+                        continue;
+                    }
+
+                    outputs["Result"].Add(new GH_Boolean(parsedResult.Value));
                 }
 
                 return outputs;
+            }
+
+            private static bool? ParseBooleanResult(JToken token)
+            {
+                if (token == null || token.Type == JTokenType.Null)
+                {
+                    return null;
+                }
+
+                if (token.Type == JTokenType.Boolean)
+                {
+                    return token.Value<bool>();
+                }
+
+                if (token.Type == JTokenType.String)
+                {
+                    if (bool.TryParse(token.Value<string>(), out bool result))
+                    {
+                        return result;
+                    }
+                }
+
+                return null;
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)

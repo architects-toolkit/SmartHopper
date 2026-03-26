@@ -36,7 +36,7 @@ using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Components.Knowledge
 {
-    public class WebToMdComponent : StatefulComponentBase
+    public class Web2MdComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("4053AD8D-10DF-47D3-AC0C-CA24E8BB638D");
 
@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Knowledge
 
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
-        public WebToMdComponent()
+        public Web2MdComponent()
             : base(
                   "Web To Markdown",
                   "WebToMd",
@@ -68,12 +68,12 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new WebToMdWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new Web2MdWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
-        private sealed class WebToMdWorker : AsyncWorkerBase
+        private sealed class Web2MdWorker : AsyncWorkerBase
         {
-            private readonly WebToMdComponent parent;
+            private readonly Web2MdComponent parent;
             private readonly ProcessingOptions processingOptions;
             private Dictionary<string, GH_Structure<GH_String>> inputTrees;
             private bool hasWork;
@@ -81,8 +81,8 @@ namespace SmartHopper.Components.Knowledge
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
 
-            public WebToMdWorker(
-                WebToMdComponent parent,
+            public Web2MdWorker(
+                Web2MdComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -150,14 +150,14 @@ namespace SmartHopper.Components.Knowledge
 
                                     var toolCallInteraction = new AIInteractionToolCall
                                     {
-                                        Name = "web_to_md",
+                                        Name = "web2md",
                                         Arguments = parameters,
                                         Agent = AIAgent.Assistant,
                                     };
 
                                     var toolCall = new AIToolCall
                                     {
-                                        Endpoint = "web_to_md",
+                                        Endpoint = "web2md",
                                     };
 
                                     toolCall.FromToolCallInteraction(toolCallInteraction);
@@ -169,7 +169,7 @@ namespace SmartHopper.Components.Knowledge
 
                                     if (toolResult == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'web_to_md' returned no result for '{url}'.");
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'web2md' returned no result for '{url}'.");
                                         outputs["Markdown"].Add(new GH_String(string.Empty));
                                         outputs["Format"].Add(new GH_String(string.Empty));
                                         continue;
@@ -214,7 +214,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[WebToMd] Error: {ex.Message}");
+                    Debug.WriteLine($"[Web2Md] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

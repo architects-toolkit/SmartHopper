@@ -19,9 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
-using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -35,14 +33,14 @@ using SmartHopper.Infrastructure.AITools;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Contains tools for list analysis and manipulation using AI.
+    /// Contains tools for text analysis and manipulation using AI.
     /// </summary>
-    public class list_evaluate : IAIToolProvider
+    public class text2boolean : IAIToolProvider
     {
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
-        private readonly string toolName = "list_evaluate";
+        private readonly string toolName = "text2boolean";
 
         /// <summary>
         /// Defines the required capabilities for the AI tool provided by this class.
@@ -53,17 +51,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// System prompt for the AI tool provided by this class.
         /// </summary>
         private readonly string systemPrompt =
-            "You are a list analyzer. Your task is to analyze a list of items and return a boolean value indicating whether the list matches the given criteria.\n\n" +
-            "The list will be provided as a JSON dictionary where the key is the index and the value is the item.\n\n" +
-            "Mainly you will base your answers on the item itself, unless the user asks for something regarding the position of items in the list.\n\n" +
-            "Respond with TRUE or FALSE, nothing else.";
+            "You are a text evaluator. Your task is to analyze a text and return a boolean value indicating whether the text matches the given criteria.\n\n" +
+            "Respond with TRUE or FALSE, nothing else.\n\n" +
+            "In case the text does not match the criteria, respond with FALSE.";
 
         /// <summary>
-        /// User prompt for the AI tool provided by this class. Use <question> and <list> placeholders.
+        /// User prompt for the AI tool provided by this class. Use <question> and <text> placeholders.
         /// </summary>
         private readonly string userPrompt =
-            $"This is my question: \"<question>\"\n\n" +
-            $"Answer to the previous question with the following list:\n<list>\n\n";
+            "This is my question: \"<question>\"\n\n" +
+            "Answer the previous question based on the following input:\n<text>\n\n";
 
         /// <summary>
         /// Get all tools provided by this class.
@@ -73,26 +70,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Evaluates a list based on a natural language question",
+                description: "Evaluates a text against a true/false question",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to evaluate (e.g., ['apple', 'banana', 'orange'])"" },
-                        ""question"": { ""type"": ""string"", ""description"": ""The natural language question to answer about the list"" }
+                        ""text"": { ""type"": ""string"", ""description"": ""The text to evaluate"" },
+                        ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" }
                     },
-                    ""required"": [""list"", ""question""]
+                    ""required"": [""text"", ""question"" ]
                 }",
-                execute: this.EvaluateList,
+                execute: this.EvaluateText,
                 requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>
-        /// Tool wrapper for the EvaluateList function.
+        /// Tool wrapper for the EvaluateText function.
         /// </summary>
-        /// <param name="toolCall">The tool call containing provider/model context and arguments.</param>
-        /// <returns>The tool execution result envelope.</returns>
-        private async Task<AIReturn> EvaluateList(AIToolCall toolCall)
+        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <returns>Result object.</returns>
+        private async Task<AIReturn> EvaluateText(AIToolCall toolCall)
         {
             // Prepare the output
             var output = new AIReturn()
@@ -102,7 +99,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[ListTools] Running EvaluateList tool");
+                Debug.WriteLine("[TextTools] Running EvaluateText tool");
 
                 // Extract parameters
                 string providerName = toolCall.Provider;
@@ -110,27 +107,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
+                string? text = args["text"]?.ToString();
                 string? question = args["question"]?.ToString();
                 string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
-                if (args["list"] == null || string.IsNullOrEmpty(question))
+                if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
+                    Debug.WriteLine($"[TextTools.EvaluateText] Missing required parameters - text: '{text ?? "null"}', question: '{question ?? "null"}'");
                     output.CreateError("Missing required parameters");
                     return output;
                 }
 
-                // Normalize list input
-                var items = NormalizeListInput(toolInfo);
-
-                // Convert to GH_String list
-                var ghStringList = items.Select(s => new GH_String(s)).ToList();
-
-                string itemsJsonDict = AIResponseParser.ConcatenateItemsToJson(ghStringList);
-
                 // Prepare the AI request
                 var userPrompt = this.userPrompt;
                 userPrompt = userPrompt.Replace("<question>", question);
-                userPrompt = userPrompt.Replace("<list>", itemsJsonDict);
+                userPrompt = userPrompt.Replace("<text>", text);
+
+                Debug.WriteLine($"[TextTools.EvaluateText] System prompt: {this.systemPrompt}");
+                Debug.WriteLine($"[TextTools.EvaluateText] User prompt: {userPrompt}");
 
                 // Initiate immutable AIBody
                 var requestBody = AIBodyBuilder.Create()
@@ -153,12 +147,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!result.Success)
                 {
+                    Debug.WriteLine($"[TextTools.EvaluateText] AI call failed. Messages: {result.Messages?.Count ?? 0}");
+
                     // Propagate structured messages from AI call
                     output.Messages = result.Messages;
                     return output;
                 }
 
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                Debug.WriteLine($"[TextTools.EvaluateText] AI response: '{response}'");
 
                 // Parse the boolean from the response
                 var parsedResult = AIResponseParser.ParseBooleanFromResponse(response);
@@ -182,29 +179,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Error in EvaluateListToolWrapper: {ex.Message}");
+                Debug.WriteLine($"[TextTools] Error in EvaluateText: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
-        }
-
-        /// <summary>
-        /// Normalizes the 'list' parameter into a list of strings, parsing malformed input.
-        /// </summary>
-        /// <param name="toolCall">The tool interaction containing the raw 'list' argument.</param>
-        /// <returns>A list of string items parsed from the input argument.</returns>
-        private static List<string> NormalizeListInput(AIInteractionToolCall toolCall)
-        {
-            var args = toolCall.Arguments ?? new JObject();
-            var token = args["list"];
-            if (token is JArray array)
-            {
-                return array.Select(t => t.ToString()).ToList();
-            }
-
-            var raw = token?.ToString();
-            return AIResponseParser.ParseStringArrayFromResponse(raw);
         }
     }
 }

@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Img
     /// Grasshopper component for describing or analyzing images using a vision AI model.
     /// Accepts image file paths or URLs and returns AI-generated text descriptions.
     /// </summary>
-    public class AIImgToTextComponent : AIStatefulAsyncComponentBase
+    public class AIImg2TextComponent : AIStatefulAsyncComponentBase
     {
         /// <summary>
         /// Gets the unique ID for this component. Do not change this ID after release.
@@ -55,7 +55,7 @@ namespace SmartHopper.Components.Img
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "img_to_text" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "img2text" };
 
         /// <inheritdoc/>
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
@@ -66,12 +66,12 @@ namespace SmartHopper.Components.Img
         };
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AIImgToTextComponent"/> class.
+        /// Initializes a new instance of the <see cref="AIImg2TextComponent"/> class.
         /// </summary>
-        public AIImgToTextComponent()
+        public AIImg2TextComponent()
             : base(
                   "AI Image To Text",
-                  "AIImg2Txt",
+                  "AIImg2Text",
                   "Describe or analyze images using a vision AI model. Accepts image file paths or URLs and returns AI-generated text descriptions.",
                   "SmartHopper",
                   "Img")
@@ -105,7 +105,7 @@ namespace SmartHopper.Components.Img
         /// <returns>The async worker instance.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIImgToTextWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
+            return new AIImg2TextWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         /// <summary>
@@ -131,9 +131,9 @@ namespace SmartHopper.Components.Img
         /// <summary>
         /// Async worker for the AI Image To Text component.
         /// </summary>
-        private sealed class AIImgToTextWorker : AsyncWorkerBase
+        private sealed class AIImg2TextWorker : AsyncWorkerBase
         {
-            private readonly AIImgToTextComponent parent;
+            private readonly AIImg2TextComponent parent;
             private readonly ProcessingOptions processingOptions;
             private bool hasWork;
 
@@ -142,8 +142,8 @@ namespace SmartHopper.Components.Img
             private Dictionary<string, GH_Structure<IGH_Goo>> inputTrees;
             private GH_Structure<GH_String> resultDescriptions;
 
-            public AIImgToTextWorker(
-                AIImgToTextComponent parent,
+            public AIImg2TextWorker(
+                AIImg2TextComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -280,7 +280,7 @@ namespace SmartHopper.Components.Img
 
                                 try
                                 {
-                                    var toolResult = await this.parent.CallAiToolAsync("img_to_text", imgParams).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAiToolAsync("img2text", imgParams).ConfigureAwait(false);
 
                                     if (toolResult != null)
                                     {
@@ -289,7 +289,7 @@ namespace SmartHopper.Components.Img
                                     }
                                     else
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"img_to_text returned no result.");
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"img2text returned no result.");
                                         outputs["Description"].Add(new GH_String(string.Empty));
                                     }
                                 }

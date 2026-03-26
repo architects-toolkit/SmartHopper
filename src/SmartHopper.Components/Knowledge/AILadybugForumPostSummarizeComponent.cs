@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -34,25 +34,24 @@ using SmartHopper.Core.DataTree;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
-    /// Component that generates a concise AI summary of a McNeel Discourse forum post by ID.
-    /// Uses the mcneel_forum_post_summarize tool, which in turn calls the configured AI provider/model.
+    /// Component that generates a concise AI summary of a Ladybug Tools Discourse forum post by ID.
     /// </summary>
-    public class AIMcNeelForumPostSummarizeComponent : AIStatefulAsyncComponentBase
+    public class AILadybugForumPostSummarizeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("A6B8D7E2-2345-4F8A-9C10-3D4E5F6A7004");
+        public override Guid ComponentGuid => new Guid("6AA04A82-DD11-49B8-BF02-45CF5B9E98AE");
 
         protected override Bitmap Icon => Resources.mcneelpostsummarize;
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "mcneel_forum_post_summarize" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "ladybug_forum_post_summarize" };
 
-        public AIMcNeelForumPostSummarizeComponent()
+        public AILadybugForumPostSummarizeComponent()
             : base(
-                  "AI McNeelForum Post Summarize",
-                  "AIMcNeelPostSumm",
-                  "Generate a concise summary of a McNeel Discourse forum post by ID using the configured AI provider.",
+                  "AI LadybugForum Post Summarize",
+                  "AILadybugPostSumm",
+                  "Generate a concise summary of a Ladybug Tools Discourse forum post by ID using the configured AI provider.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -73,12 +72,12 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIMcNeelForumPostSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AILadybugForumPostSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
-        private sealed class AIMcNeelForumPostSummarizeWorker : AsyncWorkerBase
+        private sealed class AILadybugForumPostSummarizeWorker : AsyncWorkerBase
         {
-            private readonly AIMcNeelForumPostSummarizeComponent parent;
+            private readonly AILadybugForumPostSummarizeComponent parent;
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_Integer> idsTree;
             private string instructions;
@@ -87,8 +86,8 @@ namespace SmartHopper.Components.Knowledge
             private GH_Structure<GH_String> resultSummaries;
             private GH_Structure<GH_String> resultUrls;
 
-            public AIMcNeelForumPostSummarizeWorker(
-                AIMcNeelForumPostSummarizeComponent parent,
+            public AILadybugForumPostSummarizeWorker(
+                AILadybugForumPostSummarizeComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -163,11 +162,11 @@ namespace SmartHopper.Components.Knowledge
                                     parameters["instructions"] = this.instructions;
                                 }
 
-                                var toolResult = await this.parent.CallAiToolAsync("mcneel_forum_post_summarize", parameters).ConfigureAwait(false);
+                                var toolResult = await this.parent.CallAiToolAsync("ladybug_forum_post_summarize", parameters).ConfigureAwait(false);
 
                                 if (toolResult == null)
                                 {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_post_summarize' returned no result.");
+                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'ladybug_forum_post_summarize' returned no result.");
                                     continue;
                                 }
 
@@ -185,7 +184,6 @@ namespace SmartHopper.Components.Knowledge
                                             }
                                         }
                                     }
-
                                     continue;
                                 }
 
@@ -193,7 +191,6 @@ namespace SmartHopper.Components.Knowledge
 
                                 if (summariesArray == null || summariesArray.Count == 0)
                                 {
-                                    // Backward compatibility: single summary at root
                                     var singleSummary = toolResult["summary"]?.ToString() ?? string.Empty;
                                     var singleUrl = toolResult["url"]?.ToString() ?? string.Empty;
                                     if (!string.IsNullOrWhiteSpace(singleSummary))
@@ -201,7 +198,6 @@ namespace SmartHopper.Components.Knowledge
                                         outputs["Summary"].Add(new GH_String(singleSummary));
                                         outputs["Url"].Add(new GH_String(singleUrl));
                                     }
-
                                     continue;
                                 }
 
@@ -222,7 +218,6 @@ namespace SmartHopper.Components.Knowledge
                         this.processingOptions,
                         token).ConfigureAwait(false);
 
-                    // Map result trees back to strongly-typed structures
                     this.resultSummaries = new GH_Structure<GH_String>();
                     this.resultUrls = new GH_Structure<GH_String>();
 
@@ -237,7 +232,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIMcNeelForumPostSummarizeWorker] Error: {ex.Message}");
+                    Debug.WriteLine($"[AILadybugForumPostSummarizeWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

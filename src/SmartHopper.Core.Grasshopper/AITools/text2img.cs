@@ -34,12 +34,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// Contains tools for image generation using AI.
     /// </summary>
-    public class img_generate : IAIToolProvider
+    public class text2img : IAIToolProvider
     {
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
-        private readonly string toolName = "img_generate";
+        private readonly string toolName = "text2img";
 
         /// <summary>
         /// Defines the required capabilities for the AI tool provided by this class.

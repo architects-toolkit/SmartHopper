@@ -34,9 +34,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// Provides AI tool for converting web pages (URLs) to Markdown.
     /// Supports Wikipedia, GitHub, GitLab, Discourse, Stack Exchange, and generic HTML pages.
     /// </summary>
-    public sealed class web_to_md : IAIToolProvider
+    public sealed class web2md : IAIToolProvider
     {
-        private readonly string toolName = "web_to_md";
+        private readonly string toolName = "web2md";
         private static UrlConverter? urlConverter;
 
         /// <summary>

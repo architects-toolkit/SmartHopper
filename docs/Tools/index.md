@@ -24,11 +24,76 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 - Tools should return consistent keys (e.g., `list` for list_generate) and clear error messages.
 - Use provider/model capability checks via the model registry when needed.
 
-## Available tools (documented)
+## Available tools
 
-- [instruction_get](./instruction_get.md) — operational guidance tool for AI agents
-- [img_to_text](./img_to_text.md) — describes or analyzes an image using a vision model
-- [ToolResultEnvelope](./ToolResultEnvelope.md) — metadata envelope convention for tool results
+### Instruction & Knowledge
+
+| Tool | Description |
+|------|-------------|
+| [instruction_get](./instruction_get.md) | Returns detailed operational guidance for specific topics (canvas, scripting, knowledge, etc.) |
+| file2md | Converts documents (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, etc.) to Markdown |
+| web2md | Converts web pages (URLs) to Markdown with metadata |
+| mcneel_forum_search | Searches the McNeel forum for Rhino/Grasshopper content |
+| mcneel_forum_topic | Retrieves specific forum topic content |
+| mcneel_forum_post | Creates a new forum post |
+
+### Text Generation & Processing
+
+| Tool | Description |
+|------|-------------|
+| text2text | Generates text based on a prompt with optional instructions |
+| text2boolean | Evaluates text against criteria and returns boolean assessments |
+| text2textlist | Generates a list of items based on a prompt, count, and type (text/number/integer/boolean) |
+| list_filter | Filters list items based on criteria |
+| textlist2boolean | Evaluates list items against criteria and returns boolean results |
+
+### Image Processing
+
+| Tool | Description |
+|------|-------------|
+| [img2text](./img2text.md) | Describes or analyzes an image using a vision model |
+| text2img | Generates images from text prompts (e.g., DALL-E) |
+
+### Grasshopper Canvas Operations
+
+| Tool | Description |
+|------|-------------|
+| gh_get | Reads the Grasshopper file and returns GhJSON structure with optional filters |
+| gh_put | Places components from GhJSON onto the canvas |
+| gh_move | Moves components to new positions |
+| gh_merge | Merges multiple GhJSON definitions |
+| gh_group | Creates component groups |
+| gh_tidy_up | Auto-organizes canvas layout |
+| gh_list_categories | Lists available Grasshopper component categories |
+| gh_list_components | Lists available components by category |
+| gh_component_preview | Toggles component preview state on/off |
+| gh_component_lock | Locks or unlocks components |
+| _gh_generate | WIP: AI-powered canvas generation with GhJSON |
+| _gh_connect | WIP: Connects components based on AI suggestions |
+| _gh_parameter_modifier | WIP: Modifies parameter properties |
+
+### Scripting Tools
+
+| Tool | Description |
+|------|-------------|
+| script_generate | Generates new C# scripts for Grasshopper |
+| script_edit | Edits existing C# scripts |
+| script_review | Reviews and provides feedback on script code |
+| _script_parameter_modifier | WIP: Modifies script parameter properties |
+| ScriptCodeValidator | Validates script code for errors |
+
+### Rhino 3DM Tools
+
+| Tool | Description |
+|------|-------------|
+| _rhino_read_3dm | WIP: Reads 3DM file metadata |
+| _rhino_get_geometry_3dm | WIP: Extracts geometry from 3DM files |
+
+### Metadata & Envelope
+
+| Tool/Convention | Description |
+|-----------------|-------------|
+| [ToolResultEnvelope](./ToolResultEnvelope.md) | Standard metadata envelope convention for all tool results (attached under `__envelope` key) |
 
 ## Tool-as-Documentation
 
