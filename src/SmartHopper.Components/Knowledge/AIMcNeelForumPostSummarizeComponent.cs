@@ -85,6 +85,7 @@ namespace SmartHopper.Components.Knowledge
             private bool hasWork;
 
             private GH_Structure<GH_String> resultSummaries;
+            private GH_Structure<GH_String> resultUrls;
 
             public AIMcNeelForumPostSummarizeWorker(
                 AIMcNeelForumPostSummarizeComponent parent,
