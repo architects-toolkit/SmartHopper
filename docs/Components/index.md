@@ -18,6 +18,7 @@ Expose AI capabilities (chat, list/text generation, image generation, canvas uti
   - [SelectingComponentBase](./ComponentBase/SelectingComponentBase.md) — adds a "Select Components" button and selection management
   - [Data-tree processing schema](./ComponentBase/DataTreeProcessingSchema.md) — centralized data-tree processing model and topologies
   - AI catalog: [AI Components](./AI/index.md)
+  - JSON components: [JSON](./JSON/index.md)
   - Test components: [Test](./Test/index.md)
   - [IO](./IO/index.md) — safe, versioned persistence for component outputs
 

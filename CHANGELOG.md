@@ -41,6 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`text2json` AI Tool** (`SmartHopper.Core.Grasshopper/AITools/text2json.cs`): Generates structured JSON from a prompt, conforming strictly to a provided JSON Schema. Parameters: `prompt` (required), `instructions` (optional system prompt override), `jsonSchema` (required). Output key: `json`. Capabilities: `TextInput | JsonOutput`.
+- **`AIText2JsonComponent`** (`SmartHopper.Components/JSON/AIText2JsonComponent.cs`): Grasshopper component in category `SmartHopper > JSON`. Inputs: Prompt (tree), Instructions (tree, optional), Schema (tree). Output: JSON (text tree). Uses `text2json` tool via `CallAiToolAsync`. Processing topology: `ItemGraft + GroupIdenticalBranches`.
+- **JSON Helper Components** (`SmartHopper.Components/JSON/`): Pure-utility components requiring no AI, under `SmartHopper > JSON` GH category:
+  - **`JsonSchemaComponent`**: Builds a JSON Schema from property definitions (`name:type` or `name:type:description`). Supports nested properties via dot-notation paths (e.g. `address.city:string`). Inputs: Properties, Required, Type (object/array), Title, Description. Output: Schema string.
+  - **`JsonObjectComponent`**: Creates a JSON object from Key + Value lists. Values are auto-coerced (number, boolean, nested JSON, or string).
+  - **`JsonArrayComponent`**: Creates a JSON array from a list of items. Values are auto-coerced similarly.
+  - **`JsonArray2TextListComponent`**: Parses a JSON array string into a GH text list. JSON strings have outer quotes stripped; other types are serialized compactly.
+  - **`JsonObject2TextComponent`**: Serializes a JSON value to a GH string. Supports pretty-print via `Pretty` boolean input.
+  - **`JsonGetValueComponent`**: Extracts a nested value from a JSON object using dot-notation path (e.g. `address.city`). Array index access via numeric segment (e.g. `items.0`).
+  - **`JsonMergeComponent`**: Merges multiple JSON objects via shallow merge (last-wins on conflict).
 - **Batch API Support**: Implemented `IAIBatchProvider` in OpenAI, Anthropic, and MistralAI providers
   - **OpenAI**: Uploads a multi-request JSONL file to `/v1/files`, creates a batch via `/v1/batches`, polls status, downloads output from `/v1/files/{output_file_id}/content`, and cancels via `/v1/batches/{id}/cancel`
   - **Anthropic**: Submits multiple items inline via `POST /v1/messages/batches`, polls `processing_status` on `GET /v1/messages/batches/{id}`, polls status, downloads JSONL results from `results_url`, and cancels via `POST /v1/messages/batches/{id}/cancel`
