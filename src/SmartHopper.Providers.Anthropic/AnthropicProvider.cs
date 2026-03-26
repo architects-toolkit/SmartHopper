@@ -1326,6 +1326,7 @@ namespace SmartHopper.Providers.Anthropic
                 new AIExtraDescriptor("top_k", "Top K",
                     "Only sample from the top K options for each token. Lower values make output more focused.",
                     typeof(int), null),
+
                 // Anthropic-specific parameters
                 new AIExtraDescriptor("effort", "Effort",
                     "The amount of effort to use in the output. 'low' is fastest, 'high' is most thorough.",
@@ -1338,6 +1339,7 @@ namespace SmartHopper.Providers.Anthropic
                     "Service tier for request processing. 'auto' or 'default'.",
                     typeof(string), "auto",
                     new[] { "auto", "default" }),
+
                 // Anthropic prompt caching parameters
                 new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
                     "Automatically caches the longest stable prompt prefix (>1024 tokens for Sonnet, >4096 tokens for Opus and Haiku). Reduces latency and cost on repeated calls sharing the same context. Highly recommended for batch processing.",

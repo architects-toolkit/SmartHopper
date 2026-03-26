@@ -21,7 +21,7 @@
  * https://github.com/deanmalmgren/textract
  * MIT License
  * Copyright (c) Dean Malmgren
- * 
+ *
  * Key concepts adapted:
  * - FileConversionResult container pattern for file conversion results
  * - Success/failure factory method pattern

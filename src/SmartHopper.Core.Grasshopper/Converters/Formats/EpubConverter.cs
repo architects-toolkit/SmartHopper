@@ -91,6 +91,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                             markdown.Append("# ").AppendLine(title);
                             markdown.AppendLine();
                         }
+
                         if (!string.IsNullOrWhiteSpace(creator))
                         {
                             result.Metadata["author"] = creator;
@@ -155,6 +156,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                                 markdown.Append("## Chapter ").AppendLine(chapterNumber.ToString());
                                 markdown.AppendLine();
                             }
+
                             markdown.AppendLine(chapterText.Trim());
                             markdown.AppendLine();
                             markdown.AppendLine("---");

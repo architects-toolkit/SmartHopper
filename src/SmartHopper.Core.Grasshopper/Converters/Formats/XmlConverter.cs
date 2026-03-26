@@ -39,7 +39,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             try
             {
                 var xmlText = await File.ReadAllTextAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
-                
+
                 // Try to parse and pretty-print the XML
                 string formattedXml;
                 try

@@ -61,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             if (registry == null)
             {
                 registry = new FileConverterRegistry();
-                
+
                 // Register all converters
                 registry.RegisterAll(new IFileConverter[]
                 {
@@ -146,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
-                
+
                 string filePath = args["filePath"]?.ToString();
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
@@ -174,8 +174,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!result.IsSuccess)
                 {
-                    var errorMessage = result.Warnings.Count > 0 
-                        ? string.Join("; ", result.Warnings) 
+                    var errorMessage = result.Warnings.Count > 0
+                        ? string.Join("; ", result.Warnings)
                         : "Conversion failed.";
                     output.CreateError(errorMessage);
                     return output;
@@ -197,6 +197,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         metadata[kvp.Key] = kvp.Value;
                     }
+
                     toolResult["metadata"] = metadata;
                 }
 
@@ -215,6 +216,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ["base64Data"] = image.Base64Data,
                         });
                     }
+
                     toolResult["images"] = imagesArray;
                     toolResult["imageCount"] = result.Images.Count;
                 }
@@ -279,6 +281,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         warnings.Add(warning);
                     }
+
                     toolResult["warnings"] = warnings;
                 }
 
@@ -333,7 +336,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
                 var toolResultInteraction = imgResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                return toolResultInteraction?.Result?["description"]?.ToString() ?? "[Image could not be described]"; 
+                return toolResultInteraction?.Result?["description"]?.ToString() ?? "[Image could not be described]";
             }
             catch (Exception ex)
             {

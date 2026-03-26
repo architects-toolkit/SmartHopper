@@ -21,7 +21,7 @@
  * https://github.com/deanmalmgren/textract
  * MIT License
  * Copyright (c) Dean Malmgren
- * 
+ *
  * Key concepts adapted:
  * - FileConverterRegistry dispatcher pattern for file format routing
  * - Extension-based converter lookup
@@ -191,6 +191,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public static FileConverterRegistry CreateDefault()
         {
             var registry = new FileConverterRegistry();
+
             // Converters will be registered here as they are implemented
             return registry;
         }

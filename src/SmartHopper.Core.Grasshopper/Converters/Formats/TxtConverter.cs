@@ -36,7 +36,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             try
             {
                 var content = await File.ReadAllTextAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
-                
+
                 // Normalize line endings
                 content = content.Replace("\r\n", "\n").Replace("\r", "\n");
 

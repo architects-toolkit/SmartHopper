@@ -21,13 +21,13 @@
  * https://github.com/opendatalab/magic-html
  * Apache License 2.0
  * Copyright (c) OpenDataLab
- * 
+ *
  * Key concepts adapted:
  * - Content scoring by text density and link density
  * - Boilerplate removal via tag/class/ID pattern matching
  * - Readability scoring algorithm for main content extraction
  * - Semantic container prioritization (article, main tags)
- * 
+ *
  * Uses HtmlAgilityPack for HTML parsing:
  * https://github.com/zzzprojects/html-agility-pack
  * MIT License
@@ -60,7 +60,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             try
             {
                 var html = await File.ReadAllTextAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
-                
+
                 var doc = new HtmlDocument();
                 doc.LoadHtml(html);
 
@@ -75,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 var markdown = ConvertNodeToMarkdown(mainContent);
 
                 var result = FileConversionResult.Success(markdown, "html");
-                
+
                 // Try to extract title from <title> tag
                 var titleNode = doc.DocumentNode.SelectSingleNode("//title");
                 if (titleNode != null && !string.IsNullOrWhiteSpace(titleNode.InnerText))

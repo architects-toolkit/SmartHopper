@@ -87,7 +87,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
-                
+
                 string url = args["url"]?.ToString();
                 if (string.IsNullOrWhiteSpace(url))
                 {
@@ -110,8 +110,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!result.IsSuccess)
                 {
-                    var errorMessage = result.Warnings.Count > 0 
-                        ? string.Join("; ", result.Warnings) 
+                    var errorMessage = result.Warnings.Count > 0
+                        ? string.Join("; ", result.Warnings)
                         : "Conversion failed.";
                     output.CreateError(errorMessage);
                     return output;
@@ -132,6 +132,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         metadata[kvp.Key] = kvp.Value;
                     }
+
                     toolResult["metadata"] = metadata;
                 }
 
@@ -143,6 +144,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         warnings.Add(warning);
                     }
+
                     toolResult["warnings"] = warnings;
                 }
 

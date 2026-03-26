@@ -57,6 +57,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     {
                         result.Metadata["title"] = coreProps.Title;
                     }
+
                     if (!string.IsNullOrWhiteSpace(coreProps.Creator))
                     {
                         result.Metadata["author"] = coreProps.Creator;
@@ -73,7 +74,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     {
                         var sheetName = sheet.Name?.Value ?? "Unnamed Sheet";
                         var worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!);
-                        
+
                         if (sheets.Count > 1)
                         {
                             markdown.Append("## ").AppendLine(sheetName);
@@ -116,6 +117,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     var cells = row.Elements<Cell>().Select(c => GetCellValue(c, workbookPart)).ToList();
                     markdown.AppendLine(string.Join("\t", cells));
                 }
+
                 return;
             }
 
@@ -129,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             // Header row (first row or frozen row)
             var headerRow = rows[0];
             var headerCells = GetRowCells(headerRow, workbookPart, maxCols);
-            
+
             markdown.Append("| ").AppendJoin(" | ", headerCells.Select(EscapeMarkdown)).AppendLine(" |");
             markdown.Append("|").AppendJoin("|", headerCells.Select(_ => "---")).AppendLine("|");
 

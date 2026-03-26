@@ -1562,6 +1562,7 @@ namespace SmartHopper.Providers.OpenAI
                 new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
                     typeof(double), null),
+
                 // OpenAI-specific parameters
                 new AIExtraDescriptor("n", "N (Completions)",
                     "Number of completions to generate for each prompt. Useful for getting multiple variations.",
@@ -1576,6 +1577,7 @@ namespace SmartHopper.Providers.OpenAI
                     "Reasoning token budget for o-series and gpt-5 models. 'low' is fastest, 'high' is most thorough.",
                     typeof(string), "medium",
                     new[] { "low", "medium", "high" }),
+
                 // OpenAI prompt caching parameters
                 new AIExtraDescriptor("prompt_cache_retention", "Cache Retention",
                     "Cache retention policy for repeated prompt prefixes. 'in_memory' (5-10 min, default) or '24h' (extended, for gpt-4.1+). Recommended for batch jobs.",

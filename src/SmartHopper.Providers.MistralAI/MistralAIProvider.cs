@@ -1221,6 +1221,7 @@ namespace SmartHopper.Providers.MistralAI
                             var resultLine = JObject.Parse(trimmed);
                             var lineCustomId = resultLine["custom_id"]?.ToString();
                             if (string.IsNullOrEmpty(lineCustomId)) continue;
+
                             // Mistral output may wrap response inside "response"."body" or directly
                             var resultBody = resultLine["response"]?["body"] as JObject
                                 ?? resultLine["body"] as JObject
@@ -1298,6 +1299,7 @@ namespace SmartHopper.Providers.MistralAI
                 new AIExtraDescriptor("presence_penalty", "Presence Penalty",
                     "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
                     typeof(double), null),
+
                 // Mistral-specific parameters
                 new AIExtraDescriptor("n", "N (Completions)",
                     "Number of completions to generate for each prompt. Useful for getting multiple variations.",

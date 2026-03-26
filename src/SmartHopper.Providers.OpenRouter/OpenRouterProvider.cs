@@ -969,6 +969,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIExtraDescriptor("presence_penalty", "Presence Penalty",
                     "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
                     typeof(double), null),
+
                 // OpenRouter-specific parameters
                 new AIExtraDescriptor("repetition_penalty", "Repetition Penalty",
                     "Alternative penalty for repeated tokens (0.0–2.0). Higher values reduce repetition more strongly.",
@@ -985,6 +986,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIExtraDescriptor("top_logprobs", "Top Logprobs",
                     "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
                     typeof(int), null),
+
                 // Provider selection settings
                 new AIExtraDescriptor("allow_fallback", "Allow Fallback",
                     "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
@@ -997,6 +999,7 @@ namespace SmartHopper.Providers.OpenRouter
                     "Whether to allow provider to collect data from requests: 'allow' or 'deny'.",
                     typeof(string), "deny",
                     new[] { "allow", "deny" }),
+
                 // OpenRouter prompt caching parameters
                 new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
                     "Adds cache_control to the request body, enabling prompt caching for supported providers routed through OpenRouter.",

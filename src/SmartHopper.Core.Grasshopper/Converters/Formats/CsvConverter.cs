@@ -38,7 +38,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             try
             {
                 var lines = await File.ReadAllLinesAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
-                
+
                 if (lines.Length == 0)
                 {
                     return FileConversionResult.Success(string.Empty, "csv");
@@ -67,11 +67,13 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 for (int i = 1; i < rows.Count; i++)
                 {
                     var row = rows[i];
+
                     // Pad row to match header column count
                     while (row.Count < headerRow.Count)
                     {
                         row.Add(string.Empty);
                     }
+
                     markdown.AppendLine("| " + string.Join(" | ", row.Select(EscapeMarkdown)) + " |");
                 }
 

@@ -186,8 +186,10 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                             // ---- Boilerplate filters ----
                             // PDF section-number artifacts (e.g. "# 7")
                             if (SectionArtifactPattern.IsMatch(text)) continue;
+
                             // Continuation markers
                             if (text.IndexOf("continued on next page", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+
                             // Large-font standalone page numbers (e.g. "8", "9") at page margins:
                             // suppressed only when the block's font would trigger heading detection
                             // AND the block sits in the top or bottom 12 % of the page.

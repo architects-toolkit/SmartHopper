@@ -57,10 +57,12 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     {
                         result.Metadata["title"] = coreProps.Title;
                     }
+
                     if (!string.IsNullOrWhiteSpace(coreProps.Creator))
                     {
                         result.Metadata["author"] = coreProps.Creator;
                     }
+
                     if (coreProps.Created.HasValue)
                     {
                         result.Metadata["created"] = coreProps.Created.Value.ToString("yyyy-MM-dd");
@@ -122,7 +124,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 var ilvl = numPr.NumberingLevelReference?.Val?.Value ?? 0;
                 var indent = new string(' ', (int)ilvl * 2);
-                
+
                 // Check if it's ordered or unordered (simplified - just use bullet for all)
                 markdown.Append(indent).Append("- ").AppendLine(text);
                 return;
@@ -181,22 +183,27 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 return 1;
             }
+
             if (styleId.Contains("heading2") || styleId.Contains("heading 2"))
             {
                 return 2;
             }
+
             if (styleId.Contains("heading3") || styleId.Contains("heading 3"))
             {
                 return 3;
             }
+
             if (styleId.Contains("heading4") || styleId.Contains("heading 4"))
             {
                 return 4;
             }
+
             if (styleId.Contains("heading5") || styleId.Contains("heading 5"))
             {
                 return 5;
             }
+
             if (styleId.Contains("heading6") || styleId.Contains("heading 6"))
             {
                 return 6;

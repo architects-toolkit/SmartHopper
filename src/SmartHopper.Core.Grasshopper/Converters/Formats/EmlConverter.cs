@@ -58,19 +58,23 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         markdown.Append("**From:** ").AppendLine(message.From.ToString());
                         result.Metadata["from"] = message.From.ToString();
                     }
+
                     if (message.To.Count > 0)
                     {
                         markdown.Append("**To:** ").AppendLine(message.To.ToString());
                     }
+
                     if (message.Cc.Count > 0)
                     {
                         markdown.Append("**Cc:** ").AppendLine(message.Cc.ToString());
                     }
+
                     if (message.Date != DateTimeOffset.MinValue)
                     {
                         markdown.Append("**Date:** ").AppendLine(message.Date.ToString("yyyy-MM-dd HH:mm"));
                         result.Metadata["date"] = message.Date.ToString("yyyy-MM-dd");
                     }
+
                     markdown.AppendLine("---");
                     markdown.AppendLine();
 

@@ -21,7 +21,7 @@
  * https://github.com/deanmalmgren/textract
  * MIT License
  * Copyright (c) Dean Malmgren
- * 
+ *
  * Key concepts adapted:
  * - IFileConverter interface pattern (dispatch-based file conversion)
  * - Extension-based converter routing

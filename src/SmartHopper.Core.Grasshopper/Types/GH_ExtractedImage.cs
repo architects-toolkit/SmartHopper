@@ -90,6 +90,7 @@ namespace SmartHopper.Core.Grasshopper.Types
                     target = (Q)(object)bmp;
                     return true;
                 }
+
                 return false;
             }
 

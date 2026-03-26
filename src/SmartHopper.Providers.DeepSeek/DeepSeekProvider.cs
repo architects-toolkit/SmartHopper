@@ -1262,6 +1262,7 @@ namespace SmartHopper.Providers.DeepSeek
                 new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
                     typeof(double), null),
+
                 // DeepSeek-specific parameters
                 new AIExtraDescriptor("logprobs", "Log Probabilities",
                     "Return log probabilities of output tokens. Useful for analyzing model confidence.",

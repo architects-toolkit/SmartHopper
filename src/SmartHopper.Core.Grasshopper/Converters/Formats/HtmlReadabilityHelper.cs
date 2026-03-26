@@ -21,7 +21,7 @@
  * https://github.com/opendatalab/magic-html
  * Apache License 2.0
  * Copyright (c) OpenDataLab
- * 
+ *
  * Key concepts adapted:
  * - Readability scoring for HTML content extraction
  * - Text density scoring for content identification
@@ -280,8 +280,10 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 {
                     return true;
                 }
+
                 current = current.ParentNode;
             }
+
             return false;
         }
     }

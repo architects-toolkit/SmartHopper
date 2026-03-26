@@ -280,6 +280,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Could not verify provider '{Path.GetFileName(assemblyPath)}' - hash check skipped. Enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash unavailable for {Path.GetFileName(assemblyPath)}, skipping verification");
                             }
+
                             break;
 
                         case ProviderVerificationStatus.NotFound:
@@ -313,6 +314,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' is not known - enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
                             }
+
                             break;
                     }
                 }

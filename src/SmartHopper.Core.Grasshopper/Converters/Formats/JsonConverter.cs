@@ -38,15 +38,15 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             try
             {
                 var jsonText = await File.ReadAllTextAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
-                
+
                 // Try to parse and pretty-print the JSON
                 string formattedJson;
                 try
                 {
                     using var jsonDoc = JsonDocument.Parse(jsonText);
-                    formattedJson = JsonSerializer.Serialize(jsonDoc, new JsonSerializerOptions 
-                    { 
-                        WriteIndented = true 
+                    formattedJson = JsonSerializer.Serialize(jsonDoc, new JsonSerializerOptions
+                    {
+                        WriteIndented = true
                     });
                 }
                 catch

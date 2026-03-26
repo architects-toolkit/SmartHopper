@@ -523,13 +523,13 @@ namespace SmartHopper.Core.ComponentBase
             {
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics and batch queue for new Processing run");
                 this.AIReturnSnapshot = null;
-                
+
                 // Clear batch queue and progress to prevent accumulation across multiple solve instances
                 this._batchQueue = null;
                 this._batchSentinelIds = null;
                 this._batchProgressCompleted = 0;
                 this.ResetProgress();
-                
+
                 this.metricsInitializedForRun = true;
             }
         }
@@ -813,7 +813,7 @@ namespace SmartHopper.Core.ComponentBase
                 Debug.WriteLine($"[AIStatefulAsync] Batch submission already active ({this._batchSubmission.BatchId}), skipping duplicate submission");
                 return false;
             }
-            
+
             var queue = this._batchQueue;
             if (queue == null || queue.Count == 0) return false;
             this._batchQueue = null;
@@ -953,6 +953,7 @@ namespace SmartHopper.Core.ComponentBase
                         _batchSubmission = null;
                         this.SetPersistentRuntimeMessage("batch_done", GH_RuntimeMessageLevel.Warning,
                             $"Batch {status.State.ToString().ToLowerInvariant()}: {status.ErrorMessage ?? "no details"}", false);
+
                         // Transition to Error state for terminal failures
                         this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
                         Rhino.RhinoApp.InvokeOnUiThread(() => this.ExpireSolution(true));
@@ -1071,11 +1072,11 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         aggregatedMetrics.Combine(metrics);
                     }
-                    
+
                     Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items, " +
                                   $"InputTokens={aggregatedMetrics.InputTokens}, OutputTokens={aggregatedMetrics.OutputTokens}");
                 }
-                
+
                 batchReturn.CreateSuccess(allInteractions, metrics: aggregatedMetrics);
                 this.SetAIReturnSnapshot(batchReturn);
             }
@@ -1214,6 +1215,7 @@ namespace SmartHopper.Core.ComponentBase
                             if (_batchSubmission != null)
                             {
                                 StartBatchPollTimer();
+
                                 // Expire solution to trigger recompute with Processing state
                                 this.ExpireSolution(true);
                             }
@@ -1261,10 +1263,12 @@ namespace SmartHopper.Core.ComponentBase
             if (this._batchSubmission != null)
             {
                 Debug.WriteLine($"[AIStatefulAsync] OnWorkerCompleted: Batch submission active ({this._batchSubmission.BatchId}), staying in Processing state");
+
                 // Stay in Processing state - batch polling will transition to Completed
                 // Still commit hashes so we don't re-trigger processing
                 this.StateManager.CommitHashes();
                 this.StateManager.CancelDebounce();
+
                 // Don't call base.OnWorkerCompleted() which would transition to Completed
                 // Don't expire solution - the batch poll will do it when complete
                 return;

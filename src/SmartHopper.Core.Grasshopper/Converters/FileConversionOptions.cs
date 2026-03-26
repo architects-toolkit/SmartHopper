@@ -21,7 +21,7 @@
  * https://github.com/deanmalmgren/textract
  * MIT License
  * Copyright (c) Dean Malmgren
- * 
+ *
  * Key concepts adapted:
  * - FileConversionOptions for configurable conversion behavior
  * - Options-based configuration pattern

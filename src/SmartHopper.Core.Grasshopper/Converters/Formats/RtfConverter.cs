@@ -75,6 +75,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 return ConvertRtfToTextFallback(rtfContent);
             }
+
 #else
             return ConvertRtfToTextFallback(rtfContent);
 #endif
@@ -87,19 +88,19 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
             // Remove RTF control words and groups
             text = Regex.Replace(text, @"\\[a-z]+(-?\d+)?[ ]?", string.Empty);
-            
+
             // Remove RTF groups
             text = Regex.Replace(text, @"[{}]", string.Empty);
-            
+
             // Remove special characters
             text = text.Replace(@"\'", "'");
             text = text.Replace(@"\~", " ");
             text = text.Replace(@"\-", "-");
             text = text.Replace(@"\_", "_");
-            
+
             // Clean up whitespace
             text = Regex.Replace(text, @"\s+", " ");
-            
+
             return text.Trim();
         }
     }

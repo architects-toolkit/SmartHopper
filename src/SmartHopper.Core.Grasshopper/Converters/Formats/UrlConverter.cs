@@ -21,7 +21,7 @@
  * https://github.com/deanmalmgren/textract
  * MIT License
  * Copyright (c) Dean Malmgren
- * 
+ *
  * Key concepts adapted:
  * - URL-based converter using IFileConverter pattern
  * - Dispatcher architecture for content-type routing
@@ -144,7 +144,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 {
                     var html = await httpClient.GetStringAsync(uri).ConfigureAwait(false);
                     Debug.WriteLine($"[UrlConverter] Fetched HTML from {url}. Length: {html.Length}");
-                    
+
                     // Save HTML to temp file for HtmlConverter
                     var tempFile = Path.GetTempFileName();
                     try

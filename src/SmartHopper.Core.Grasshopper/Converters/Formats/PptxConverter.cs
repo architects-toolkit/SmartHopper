@@ -60,6 +60,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         markdown.Append("# ").AppendLine(coreProps.Title);
                         markdown.AppendLine();
                     }
+
                     if (!string.IsNullOrWhiteSpace(coreProps.Creator))
                     {
                         result.Metadata["author"] = coreProps.Creator;
@@ -115,7 +116,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 foreach (var shape in shapes)
                 {
                     var placeholder = shape.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?.PlaceholderShape;
-                    if (placeholder?.Type?.Value == PlaceholderValues.Title || 
+                    if (placeholder?.Type?.Value == PlaceholderValues.Title ||
                         placeholder?.Type?.Value == PlaceholderValues.CenteredTitle)
                     {
                         title = GetShapeText(shape);
@@ -133,6 +134,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 markdown.Append("## Slide ").AppendLine(slideNumber.ToString());
             }
+
             markdown.AppendLine();
 
             // Extract body text
@@ -141,9 +143,9 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 foreach (var shape in shapes)
                 {
                     var placeholder = shape.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?.PlaceholderShape;
-                    
+
                     // Skip title placeholder (already processed)
-                    if (placeholder?.Type?.Value == PlaceholderValues.Title || 
+                    if (placeholder?.Type?.Value == PlaceholderValues.Title ||
                         placeholder?.Type?.Value == PlaceholderValues.CenteredTitle)
                     {
                         continue;
@@ -166,6 +168,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         {
                             markdown.AppendLine(text);
                         }
+
                         markdown.AppendLine();
                     }
                 }
@@ -203,6 +206,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         sb.Append(text);
                     }
                 }
+
                 sb.AppendLine();
             }
 
@@ -219,6 +223,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     return true;
                 }
             }
+
             return false;
         }
 
