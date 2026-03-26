@@ -292,6 +292,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     string username = filteredPost.Value<string>("username") ?? "Unknown";
                     string date = filteredPost.Value<string>("date") ?? string.Empty;
                     string raw = filteredPost.Value<string>("raw") ?? string.Empty;
+                    string topicId = filteredPost.Value<string>("topic_id") ?? string.Empty;
+                    string postNumber = filteredPost.Value<string>("post_number") ?? string.Empty;
+                    string postUrl = $"{this.BaseUrl}/t/{topicId}/{postNumber}";
 
                     string userContent =
                         $"Summarize this forum post:\n\nAuthor: {username}\nDate: {date}\nContent:\n{raw}";
@@ -342,6 +345,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["summary"] = summary,
                         ["username"] = username,
                         ["date"] = date,
+                        ["url"] = postUrl,
                     };
 
                     summariesArray.Add(summaryObject);
@@ -358,6 +362,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult["summary"] = firstSummary["summary"];
                     toolResult["username"] = firstSummary["username"];
                     toolResult["date"] = firstSummary["date"];
+                    toolResult["url"] = firstSummary["url"];
                 }
 
                 toolResult.WithEnvelope(

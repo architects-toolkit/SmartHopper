@@ -20,23 +20,23 @@ This document aggregates development-facing information.
 | Merge GhJSON (GhMerge)<br><sub>Merge two GhJSON documents into one, with the target document taking priority on conflicts.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Retrieve Components (GhRetrieveComponents)<br><sub>Retrieve all available Grasshopper components in your environment as JSON with optional category filter.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Tidy Up (GhTidyUp)<br><sub>Organize selected components into a tidy grid layout based on dependencies.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI GroupTitle (AiGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | Grasshopper | ⚪ | - | - | - |
+| AI GroupTitle (AIGroupTitle)<br><sub>Group components and set a meaningful title to the group</sub> | Grasshopper | ⚪ | - | - | - |
 | AI Grasshopper Generate (AIGhGenerate)<br><sub>Automatically generate Grasshopper definitions using AI</sub> | Grasshopper | ⚪ | - | - | - |
 | Save GhJSON file (SaveGhJSON)<br><sub>Save the current Grasshopper file as a GhJSON format</sub> | Grasshopper | ⚪ | - | - | - |
 | Load GhJSON file (LoadGhJSON)<br><sub>Load a GhJSON file and convert it to a Grasshopper document</sub> | Grasshopper | ⚪ | - | - | - |
-| AI Chat (AiChat)<br><sub>Interactive AI-powered conversational interface with tool calling</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI File Context (AiFileContext)<br><sub>Set a context for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Models (AiModels)<br><sub>Retrieve the list of available models from the selected AI provider</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Chat (AIChat)<br><sub>Interactive AI-powered conversational interface with tool calling</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI File Context (AIFileContext)<br><sub>Set a context for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Models (AIModels)<br><sub>Retrieve the list of available models from the selected AI provider</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
 | Context Parameters (ContextParameters)<br><sub>Set context parameters for the AI component</sub> | AI | ⚪ | - | - | - |
-| AI Text To Boolean (AiText2Boolean)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Text To Text (AiText2Text)<br><sub>Generate text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Text To Text List (AiText2TextList)<br><sub>Generate lists of text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Text To Image (AiText2Image)<br><sub>Generate images using AI</sub> | Img | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text To Boolean (AIText2Boolean)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text To Text (AIText2Text)<br><sub>Generate text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text To Text List (AIText2TextList)<br><sub>Generate lists of text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text To Image (AIText2Img)<br><sub>Generate images using AI</sub> | Img | ⚪ | 🟡 | 🟠 | 🟢 |
 | Image Viewer (ImageViewer)<br><sub>Display bitmap images on the canvas and save them to disk</sub> | Img | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Script Review (AiScriptReview)<br><sub>Review script components using AI-based static analysis</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Script Generate (AiScriptGenerate)<br><sub>Create or edit Grasshopper script components using AI. Supports create mode (from prompts) and edit mode (from selected components).</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI List To Boolean (AiList2Boolean)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Script Review (AIScriptReview)<br><sub>Review script components using AI-based static analysis</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Script Generate (AIScriptGenerate)<br><sub>Create or edit Grasshopper script components using AI. Supports create mode (from prompts) and edit mode (from selected components).</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI List To Boolean (AIList2Boolean)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI List Filter (AIListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
 | Web To Markdown (WebToMd)<br><sub>Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | File To Markdown (FileToMd)<br><sub>Convert local files (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) to Markdown</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Search (McNeelForumSearch)<br><sub>Search McNeel Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -46,7 +46,7 @@ This document aggregates development-facing information.
 | AI McNeel Forum Post Summarize (AIMcNeelForumPostSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI McNeel Forum Topic Summarize (AIMcNeelForumTopicSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | Misc | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI JSON Generate (AiJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | JSON | ⚪ | - | - | - |
+| AI JSON Generate (AIJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | JSON | ⚪ | - | - | - |
 | JSON Schema (JsonSchema)<br><sub>Set a JSON schema for the AI component</sub> | JSON | ⚪ | - | - | - |
 | JSON Object (JsonObject)<br><sub>Set a JSON object for the definition of the JSON Schema</sub> | JSON | ⚪ | - | - | - |
 | JSON Array (JsonArray)<br><sub>Set a JSON array for the definition of the JSON Schema</sub> | JSON | ⚪ | - | - | - |

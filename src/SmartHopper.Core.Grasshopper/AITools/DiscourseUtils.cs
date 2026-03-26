@@ -45,6 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["name"] = post["name"],
                     ["created_at"] = post["created_at"],
                     ["updated_at"] = post["updated_at"],
+                    ["date"] = post["created_at"],
                     ["raw"] = post["raw"],
                     ["cooked"] = post["cooked"],
                     ["title"] = post["title"],
