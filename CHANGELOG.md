@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Renamed AI Tools** (old → new):
   - `text_generate` → `text2text`
-  - `text_evaluate` → `text2boolean`  
+  - `text_evaluate` → `text2boolean`
   - `list_generate` → `text2textlist`
   - `list_evaluate` → `textlist2boolean`
   - `img_generate` → `text2img`
