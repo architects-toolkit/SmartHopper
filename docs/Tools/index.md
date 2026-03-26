@@ -33,6 +33,7 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 | [instruction_get](./instruction_get.md) | Returns detailed operational guidance for specific topics (canvas, scripting, knowledge, etc.) |
 | file_to_md | Converts documents (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, etc.) to Markdown |
 | web_generic_page_read | Reads and extracts content from web pages |
+| web_to_md | Converts web pages (URLs) to Markdown with metadata |
 | mcneel_forum_search | Searches the McNeel forum for Rhino/Grasshopper content |
 | mcneel_forum_topic | Retrieves specific forum topic content |
 | mcneel_forum_post | Creates a new forum post |
