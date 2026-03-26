@@ -28,16 +28,15 @@ This document aggregates development-facing information.
 | AI File Context (AiFileContext)<br><sub>Set a context for the current document</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Models (AiModels)<br><sub>Retrieve the list of available models from the selected AI provider</sub> | AI | ⚪ | 🟡 | 🟠 | 🟢 |
 | Context Parameters (ContextParameters)<br><sub>Set context parameters for the AI component</sub> | AI | ⚪ | - | - | - |
-| AI Text Evaluate (AiTextEvaluate)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Text Generate (AiTextGenerate)<br><sub>Generate text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Text List Generate (AiTextListGenerate)<br><sub>Generate lists of text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI Image Generate (AiImageGenerate)<br><sub>Generate images using AI</sub> | Img | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text To Boolean (AiText2Boolean)<br><sub>Return a boolean from a text content using AI-powered checks</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text To Text (AiText2Text)<br><sub>Generate text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text To Text List (AiText2TextList)<br><sub>Generate lists of text content using AI</sub> | Text | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Text To Image (AiText2Image)<br><sub>Generate images using AI</sub> | Img | ⚪ | 🟡 | 🟠 | 🟢 |
 | Image Viewer (ImageViewer)<br><sub>Display bitmap images on the canvas and save them to disk</sub> | Img | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Script Review (AiScriptReview)<br><sub>Review script components using AI-based static analysis</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Script Generate (AiScriptGenerate)<br><sub>Create or edit Grasshopper script components using AI. Supports create mode (from prompts) and edit mode (from selected components).</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI List Evaluate (AiListEvaluate)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI List To Boolean (AiList2Boolean)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AiListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
-| Web Page Read (WebPageRead)<br><sub>Retrieve plain text content of a webpage (Wikipedia, Discourse, GitHub, Stack Exchange, etc.)</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | Web To Markdown (WebToMd)<br><sub>Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | File To Markdown (FileToMd)<br><sub>Convert local files (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) to Markdown</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Search (McNeelForumSearch)<br><sub>Search McNeel Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -58,13 +57,13 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released 🎉 |
 |-----------|----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
-| `text_evaluate` | DataProcessing | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
-| `text_generate` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| `img_generate` | DataProcessing | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| `list_evaluate` | DataProcessing | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
+| `text2boolean` | DataProcessing | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
+| `text2text` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
+| `text2img` | DataProcessing | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
+| `textlist2boolean` | DataProcessing | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
 | `list_filter` | DataProcessing | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
-| `list_generate` | DataProcessing | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
-| `img_to_text` | ImageProcessing | Describes or analyzes an image using a vision model | ⚪ | 🟡 | 🟠 | 🟢 |
+| `text2textlist` | DataProcessing | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
+| `img2text` | ImageProcessing | Describes or analyzes an image using a vision model | ⚪ | 🟡 | 🟠 | 🟢 |
 | `json_generate` | DataProcessing | Generate an AI response in strict JSON output | ⚪ | - | - | - |
 | `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
@@ -74,9 +73,8 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `script_edit` | Script | Edit Grasshopper script components based on instructions (hidden from chat) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_edit_and_replace_on_canvas` | Script | Edit a script component by GUID and replace it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
 | `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic (canvas, ghjson, scripting, etc.) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `web_generic_page_read` | Knowledge | Fetch webpage text content from Wikipedia, Discourse, GitHub, Stack Exchange, etc. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `web_to_md` | Knowledge | Convert web pages (URLs) to Markdown with metadata and warnings | ⚪ | 🟡 | 🟠 | 🟢 |
-| `file_to_md` | Knowledge | Convert local files to Markdown (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `web2md` | Knowledge | Convert web pages (URLs) to Markdown with metadata and warnings | ⚪ | 🟡 | 🟠 | 🟢 |
+| `file2md` | Knowledge | Convert local files to Markdown (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_search` | Knowledge | Search McNeel Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_post_get` | Knowledge | Retrieve filtered McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_post_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -131,7 +129,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 
 Notes:
 
-- **`web_generic_page_read`** supports dedicated flows for Wikipedia/Wikimedia APIs, Discourse raw markdown (`/posts/{id}.json`), GitHub/GitLab raw files, and Stack Exchange questions via the public API. Use it for AI-friendly text without extra HTML cleanup.
+- **`web2md`** supports dedicated flows for Wikipedia/Wikimedia APIs, Discourse raw markdown (`/posts/{id}.json`), GitHub/GitLab raw files, and Stack Exchange questions via the public API. Use it for AI-friendly text without extra HTML cleanup.
 - **`instruction_get`** is an internal tool that provides operational instructions to the AI agent by topic. It is always available.
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.

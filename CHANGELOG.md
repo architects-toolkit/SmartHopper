@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚠️ BREAKING CHANGES
+
+- **Renamed AI Tools** (old → new):
+  - `text_generate` → `text2text`
+  - `text_evaluate` → `text2boolean`  
+  - `list_generate` → `text2textlist`
+  - `list_evaluate` → `textlist2boolean`
+  - `img_generate` → `text2img`
+  - `img_to_text` → `img2text`
+  - `file_to_md` → `file2md`
+  - `web_to_md` → `web2md`
+  - `web_generic_page_read` → **REMOVED** (use `web2md` instead)
+
+- **Renamed Components** (class and file names changed):
+  - `AITextGenerate` → `AIText2TextComponent`
+  - `AITextEvaluate` → `AIText2BooleanComponent`
+  - `AITextListGenerate` → `AIText2TextListComponent`
+  - `AIListEvaluate` → `AIList2BooleanComponent`
+  - `AIImgGenerateComponent` → `AIText2ImgComponent`
+  - `AIImgToTextComponent` → `AIImg2TextComponent`
+  - `AIFileToMdComponent` → `AIFile2MdComponent`
+  - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
+
 ### Changed
 
 - **`DataTreeProcessor.RunAsync` heterogeneous output support**: Added `RunAsync<T>` overload (delegates to `RunAsync<T, IGH_Goo>`) and `ExtractTypedTree<U>` helper so a single processing call can populate output channels of different concrete `IGH_Goo` types. Matching `RunProcessingAsync<T>` overload added to `StatefulComponentBase`.

@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Img
     /// <summary>
     /// Grasshopper component for generating images using AI.
     /// </summary>
-    public class AIImgGenerateComponent : AIStatefulAsyncComponentBase
+    public class AIText2ImgComponent : AIStatefulAsyncComponentBase
     {
         /// <summary>
         /// Gets the unique ID for this component. Do not change this ID after release.
@@ -56,7 +56,7 @@ namespace SmartHopper.Components.Img
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "img_generate" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "text2img" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -68,12 +68,12 @@ namespace SmartHopper.Components.Img
         // This component uses ItemGraft topology to create separate branches for each prompt's generated images
 
         /// <summary>
-        /// Initializes a new instance of the AIImgGenerateComponent class.
+        /// Initializes a new instance of the AIText2ImgComponent class.
         /// </summary>
-        public AIImgGenerateComponent()
+        public AIText2ImgComponent()
             : base(
-                  "AI Image Generate",
-                  "AIImgGen",
+                  "AI Text To Image",
+                  "AIText2Img",
                   "Generate images using AI based on text prompts.",
                   "SmartHopper", "Img")
         {
@@ -108,15 +108,15 @@ namespace SmartHopper.Components.Img
         /// <returns>The async worker instance.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIImgGenerateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2ImgWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
         /// <summary>
-        /// Async worker for the AI Image Generate component.
+        /// Async worker for the AI Text To Image component.
         /// </summary>
-        private sealed class AIImgGenerateWorker : AsyncWorkerBase
+        private sealed class AIText2ImgWorker : AsyncWorkerBase
         {
-            private readonly AIImgGenerateComponent parent;
+            private readonly AIText2ImgComponent parent;
             private readonly ProcessingOptions processingOptions;
             private Dictionary<string, GH_Structure<GH_String>> inputTrees;
             private bool hasWork;
@@ -126,8 +126,8 @@ namespace SmartHopper.Components.Img
             private bool success;
             private string errorMessage;
 
-            public AIImgGenerateWorker(
-                AIImgGenerateComponent parent,
+            public AIText2ImgWorker(
+                AIText2ImgComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -294,7 +294,7 @@ namespace SmartHopper.Components.Img
                                     };
 
                                     var toolResult = await this.parent.CallAiToolAsync(
-                                        "img_generate", parameters)
+                                        "text2img", parameters)
                                         .ConfigureAwait(false);
 
                                     // Treat missing 'success' as true (CallAiToolAsync returns direct result without 'success' on success)

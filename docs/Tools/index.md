@@ -31,9 +31,8 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 | Tool | Description |
 |------|-------------|
 | [instruction_get](./instruction_get.md) | Returns detailed operational guidance for specific topics (canvas, scripting, knowledge, etc.) |
-| file_to_md | Converts documents (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, etc.) to Markdown |
-| web_generic_page_read | Reads and extracts content from web pages |
-| web_to_md | Converts web pages (URLs) to Markdown with metadata |
+| file2md | Converts documents (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, etc.) to Markdown |
+| web2md | Converts web pages (URLs) to Markdown with metadata |
 | mcneel_forum_search | Searches the McNeel forum for Rhino/Grasshopper content |
 | mcneel_forum_topic | Retrieves specific forum topic content |
 | mcneel_forum_post | Creates a new forum post |
@@ -42,18 +41,18 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 
 | Tool | Description |
 |------|-------------|
-| text_generate | Generates text based on a prompt with optional instructions |
-| text_evaluate | Evaluates text against criteria and returns assessments |
-| list_generate | Generates a list of items based on a prompt, count, and type (text/number/integer/boolean) |
+| text2text | Generates text based on a prompt with optional instructions |
+| text2boolean | Evaluates text against criteria and returns boolean assessments |
+| text2textlist | Generates a list of items based on a prompt, count, and type (text/number/integer/boolean) |
 | list_filter | Filters list items based on criteria |
-| list_evaluate | Evaluates list items against criteria |
+| textlist2boolean | Evaluates list items against criteria and returns boolean results |
 
 ### Image Processing
 
 | Tool | Description |
 |------|-------------|
-| [img_to_text](./img_to_text.md) | Describes or analyzes an image using a vision model |
-| img_generate | Generates images from text prompts (e.g., DALL-E) |
+| [img2text](./img2text.md) | Describes or analyzes an image using a vision model |
+| text2img | Generates images from text prompts (e.g., DALL-E) |
 
 ### Grasshopper Canvas Operations
 

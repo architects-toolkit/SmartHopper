@@ -32,14 +32,14 @@ using SmartHopper.Core.DataTree;
 
 namespace SmartHopper.Components.Text
 {
-    public class AITextListGenerate : AIStatefulAsyncComponentBase
+    public class AIText2TextListComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("D4723EA1-3BB9-4C9F-9AB2-EF1234567890");
         protected override Bitmap Icon => Resources.textlistgenerate;
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "list_generate" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "text2textlist" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -48,10 +48,10 @@ namespace SmartHopper.Components.Text
             GroupIdenticalBranches = true,
         };
 
-        public AITextListGenerate()
+        public AIText2TextListComponent()
             : base(
-                  "AI Text List Generate",
-                  "AITextListGenerate",
+                  "AI Text To Text List",
+                  "AIText2TextList",
                   "Generate a list of text items from a prompt and count using AI.\nIf a tree is provided, prompts and counts will match by branch path.",
                   "SmartHopper", "Text")
         {
@@ -70,18 +70,18 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AITextListGenerateWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2TextListWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
-        private sealed class AITextListGenerateWorker : AsyncWorkerBase
+        private sealed class AIText2TextListWorker : AsyncWorkerBase
         {
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
             private Dictionary<string, GH_Structure<GH_String>> result;
-            private readonly AITextListGenerate parent;
+            private readonly AIText2TextListComponent parent;
             private readonly ProcessingOptions processingOptions;
 
-            public AITextListGenerateWorker(
-                AITextListGenerate parent,
+            public AIText2TextListWorker(
+                AIText2TextListComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -114,28 +114,28 @@ namespace SmartHopper.Components.Text
             {
                 try
                 {
-                    Debug.WriteLine($"[AITextListGenerate] Starting DoWorkAsync");
+                    Debug.WriteLine($"[AIText2TextList] Starting DoWorkAsync");
 
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
-                            Debug.WriteLine($"[AITextListGenerate] ProcessData called with {branches.Count} branches");
+                            Debug.WriteLine($"[AIText2TextList] ProcessData called with {branches.Count} branches");
                             return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
-                    Debug.WriteLine($"[AITextListGenerate] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
+                    Debug.WriteLine($"[AIText2TextList] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AITextListGenerate] Error: {ex.Message}");
+                    Debug.WriteLine($"[AIText2TextList] Error: {ex.Message}");
                 }
             }
 
             private static async Task<Dictionary<string, List<GH_String>>> ProcessData(
                 Dictionary<string, List<GH_String>> branches,
-                AITextListGenerate parent)
+                AIText2TextListComponent parent)
             {
                 var promptList = branches["Prompt"];
                 var countList = branches["Count"];
@@ -156,7 +156,7 @@ namespace SmartHopper.Components.Text
                     string prompt = normalizedPrompts[i]?.Value ?? string.Empty;
                     if (!int.TryParse(normalizedCounts[i]?.Value, out int count) || count <= 0)
                     {
-                        Debug.WriteLine($"[AITextListGenerate] Invalid count at branch {i}: '{normalizedCounts[i]?.Value}'");
+                        Debug.WriteLine($"[AIText2TextList] Invalid count at branch {i}: '{normalizedCounts[i]?.Value}'");
                         continue;
                     }
 
@@ -169,7 +169,7 @@ namespace SmartHopper.Components.Text
                     };
 
                     var toolResult = await parent.CallAiToolAsync(
-                        "list_generate", parameters).ConfigureAwait(false);
+                        "text2textlist", parameters).ConfigureAwait(false);
 
                     var items = toolResult?["list"]?.ToObject<List<string>>() ?? new List<string>();
                     foreach (var item in items)

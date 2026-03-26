@@ -36,9 +36,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// Provides AI tool for converting local files to Markdown.
     /// Supports PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, and more.
     /// </summary>
-    public sealed class file_to_md : IAIToolProvider
+    public sealed class file2md : IAIToolProvider
     {
-        private readonly string toolName = "file_to_md";
+        private readonly string toolName = "file2md";
         private static FileConverterRegistry? registry;
 
         /// <summary>
@@ -300,7 +300,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Calls the <c>img_to_text</c> tool to obtain a text description of an extracted image.
+        /// Calls the <c>img2text</c> tool to obtain a text description of an extracted image.
         /// </summary>
         /// <param name="image">The extracted image to describe.</param>
         /// <param name="prompt">The description prompt to send to the AI.</param>
@@ -319,14 +319,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var imgInteraction = new AIInteractionToolCall
                 {
-                    Name = "img_to_text",
+                    Name = "img2text",
                     Arguments = imgArgs,
                     Agent = AIAgent.Assistant,
                 };
 
                 var imgToolCall = new AIToolCall
                 {
-                    Endpoint = "img_to_text",
+                    Endpoint = "img2text",
                     Provider = sourceToolCall.Provider,
                     Model = sourceToolCall.Model,
                     Parameters = sourceToolCall.Parameters,
@@ -340,7 +340,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[file_to_md] DescribeImageAsync failed: {ex.Message}");
+                Debug.WriteLine($"[file2md] DescribeImageAsync failed: {ex.Message}");
                 return "[Image description failed]";
             }
         }

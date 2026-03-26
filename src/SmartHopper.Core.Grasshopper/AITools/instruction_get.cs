@@ -145,7 +145,7 @@ Knowledge base workflow:
 1) mcneel_forum_search: find candidate posts/topics.
 2) mcneel_forum_topic_get / mcneel_forum_post_get: retrieve the minimum useful content.
 3) mcneel_forum_topic_summarize / mcneel_forum_post_summarize: summarize and extract actionable steps.
-4) web_generic_page_read: read docs/pages by URL before citing or relying on them.
+4) web2md: read docs/pages by URL before citing or relying on them.
 """;
 
                 case "scripting":

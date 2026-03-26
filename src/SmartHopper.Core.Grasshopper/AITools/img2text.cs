@@ -34,12 +34,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// Provides an AI tool for describing images using vision models (image → text).
     /// </summary>
-    public class img_to_text : IAIToolProvider
+    public class img2text : IAIToolProvider
     {
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
-        private readonly string toolName = "img_to_text";
+        private readonly string toolName = "img2text";
 
         /// <summary>
         /// Defines the required capabilities for the AI tool provided by this class.
