@@ -51,7 +51,7 @@ namespace SmartHopper.Infrastructure.AICall.Batch
         /// <summary>
         /// Polls the provider for the current status of a previously submitted batch.
         /// Returns a <see cref="AIBatchStatus"/> with <see cref="AIBatchState.Completed"/>
-        /// and populated <see cref="AIBatchStatus.ResultBody"/> when results are available.
+        /// and populated <see cref="AIBatchStatus.Results"/> when results are available.
         /// </summary>
         /// <param name="submission">The submission handle returned by <see cref="SubmitBatchAsync"/>.</param>
         /// <param name="cancellationToken">Cancellation token.</param>

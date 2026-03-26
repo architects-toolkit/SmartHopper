@@ -238,7 +238,7 @@ namespace SmartHopper.Components.Img
                                     else if (item != null)
                                     {
                                         var castStr = new GH_String();
-                                        if (item.CastTo(ref castStr))
+                                        if (item.CastTo(out castStr))
                                         {
                                             imageValue = castStr?.Value;
                                         }

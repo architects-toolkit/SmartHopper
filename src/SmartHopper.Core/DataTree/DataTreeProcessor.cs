@@ -996,7 +996,12 @@ namespace SmartHopper.Core.DataTree
 
                 foreach (var item in branch)
                 {
-                    typed.Append(item as U, path);
+                    // Only append if cast succeeds - silently skip invalid items
+                    var castItem = item as U;
+                    if (castItem != null)
+                    {
+                        typed.Append(castItem, path);
+                    }
                 }
             }
 

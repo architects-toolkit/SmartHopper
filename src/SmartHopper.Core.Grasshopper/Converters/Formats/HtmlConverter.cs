@@ -51,7 +51,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
     /// </summary>
     public sealed class HtmlConverter : IFileConverter
     {
-        private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
+        private static readonly Regex HorizontalWhitespaceRegex = new Regex(@"[ \t]+", RegexOptions.Compiled);
 
         public IEnumerable<string> SupportedExtensions => new[] { ".html", ".htm" };
 
@@ -229,10 +229,14 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 }
             }
 
-            // Get final text and normalize whitespace
+            // Get final text and normalize whitespace while preserving Markdown structure
             string text = node.InnerText;
-            text = WhitespaceRegex.Replace(text, " ").Trim();
-            return text;
+            // Collapse horizontal whitespace (spaces/tabs) to single space
+            text = HorizontalWhitespaceRegex.Replace(text, " ");
+            // Normalize line breaks: remove trailing spaces before newlines, collapse multiple newlines to double newline
+            text = text.Replace(" \r\n", "\r\n").Replace(" \n", "\n");
+            text = Regex.Replace(text, @"\r?\n(\s*\r?\n)+", Environment.NewLine + Environment.NewLine);
+            return text.Trim();
         }
     }
 }

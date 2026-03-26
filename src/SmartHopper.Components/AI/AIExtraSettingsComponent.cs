@@ -80,17 +80,24 @@ namespace SmartHopper.Components.AI
             var descriptors = ProviderManager.Instance.GetExtraDescriptors(effectiveProvider).ToList();
             var extras = new JObject();
 
-            for (int i = 0; i < descriptors.Count; i++)
-            {
-                var d = descriptors[i];
+            // Build name-to-index map from actual params to handle provider switching
+            // where param order may not match descriptor order
+            var paramIndexByName = this.Params.Input
+                .Select((p, idx) => new { p.Name, Index = idx })
+                .ToDictionary(x => x.Name, x => x.Index);
 
-                // Skip if the param index is out of range
-                if (i >= this.Params.Input.Count) break;
+            foreach (var d in descriptors)
+            {
+                // Skip if no param exists with this descriptor's key name
+                if (!paramIndexByName.TryGetValue(d.Key, out int paramIndex))
+                {
+                    continue;
+                }
 
                 if (d.Type == typeof(bool))
                 {
                     bool val = false;
-                    if (DA.GetData(i, ref val))
+                    if (DA.GetData(paramIndex, ref val))
                     {
                         extras[d.Key] = val;
                     }
@@ -98,7 +105,7 @@ namespace SmartHopper.Components.AI
                 else if (d.Type == typeof(int))
                 {
                     int val = 0;
-                    if (DA.GetData(i, ref val))
+                    if (DA.GetData(paramIndex, ref val))
                     {
                         extras[d.Key] = val;
                     }
@@ -106,7 +113,7 @@ namespace SmartHopper.Components.AI
                 else if (d.Type == typeof(double))
                 {
                     double val = double.NaN;
-                    if (DA.GetData(i, ref val) && !double.IsNaN(val))
+                    if (DA.GetData(paramIndex, ref val) && !double.IsNaN(val))
                     {
                         extras[d.Key] = val;
                     }
@@ -114,7 +121,7 @@ namespace SmartHopper.Components.AI
                 else
                 {
                     string val = null;
-                    if (DA.GetData(i, ref val) && !string.IsNullOrEmpty(val))
+                    if (DA.GetData(paramIndex, ref val) && !string.IsNullOrEmpty(val))
                     {
                         extras[d.Key] = val;
                     }

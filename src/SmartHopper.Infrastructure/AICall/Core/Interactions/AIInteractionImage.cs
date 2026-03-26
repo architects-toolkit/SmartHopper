@@ -82,7 +82,15 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>A formatted string containing image metadata.</returns>
         public override string ToString()
         {
-            return $"AIInteractionImage ({this.ImageSize}) generated from '{this.OriginalPrompt.Substring(0, Math.Min(50, this.OriginalPrompt.Length))}...'";
+            if (string.IsNullOrEmpty(this.OriginalPrompt))
+            {
+                return $"AIInteractionImage ({this.ImageSize}) [vision input]";
+            }
+
+            var preview = this.OriginalPrompt.Length <= 50
+                ? this.OriginalPrompt
+                : this.OriginalPrompt.Substring(0, 50) + "...";
+            return $"AIInteractionImage ({this.ImageSize}) generated from '{preview}'";
         }
 
         /// <summary>

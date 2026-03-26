@@ -205,7 +205,7 @@ public class MyConverter : IFileConverter
     public IEnumerable<string> SupportedExtensions => new[] { ".myext" };
     
     public async Task<FileConversionResult> ConvertAsync(
-        string filePath, 
+        string filePath,
         FileConversionOptions options)
     {
         // Your conversion logic
