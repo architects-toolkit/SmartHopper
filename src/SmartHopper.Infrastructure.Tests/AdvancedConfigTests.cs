@@ -97,6 +97,8 @@ namespace SmartHopper.Infrastructure.Tests
 
             public IEnumerable<SettingDescriptor> GetSettingDescriptors() => Enumerable.Empty<SettingDescriptor>();
 
+            public IEnumerable<AIExtraDescriptor> GetExtraDescriptors() => Enumerable.Empty<AIExtraDescriptor>();
+
             public IStreamingAdapter GetStreamingAdapter()
             {
                 return null;

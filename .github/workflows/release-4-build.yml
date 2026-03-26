@@ -399,7 +399,7 @@ jobs:
         git fetch origin main
         
         # Create a temporary branch from main
-        $tempBranch = "hash-update-$version-${{ github.run_number }}"
+        $tempBranch = "hash-update/$version-${{ github.run_number }}"
         git checkout -b $tempBranch origin/main
         
         # Copy the hash file

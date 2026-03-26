@@ -29,6 +29,7 @@ using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Converters.Formats;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -680,27 +681,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
-            string[] xpaths =
+            // Apply magic-html-inspired readability pre-pass to extract main content
+            var mainContent = HtmlReadabilityHelper.ExtractMainContent(doc);
+            if (mainContent == null)
             {
-                "//script", "//style", "//img", "//noscript", "//header",
-                "//footer", "//nav", "//aside", "//form", "//svg", "//canvas",
-            };
-
-            foreach (string xp in xpaths)
-            {
-                var nodes = doc.DocumentNode.SelectNodes(xp);
-                if (nodes == null)
-                {
-                    continue;
-                }
-
-                foreach (var node in nodes)
-                {
-                    node.Remove();
-                }
+                mainContent = doc.DocumentNode;
             }
 
-            var links = doc.DocumentNode.SelectNodes("//a[@href]");
+            // Convert links to Markdown format
+            var links = mainContent.SelectNodes(".//a[@href]");
             if (links != null)
             {
                 foreach (var link in links.ToList())
@@ -719,7 +708,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            var headingNodes = doc.DocumentNode.SelectNodes("//h1|//h2|//h3|//h4|//h5|//h6");
+            // Convert headings to Markdown format
+            var headingNodes = mainContent.SelectNodes(".//h1 | .//h2 | .//h3 | .//h4 | .//h5 | .//h6");
             if (headingNodes != null)
             {
                 foreach (var heading in headingNodes.ToList())
@@ -732,7 +722,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            var paragraphNodes = doc.DocumentNode.SelectNodes("//p");
+            // Convert paragraphs to Markdown format
+            var paragraphNodes = mainContent.SelectNodes(".//p");
             if (paragraphNodes != null)
             {
                 foreach (var paragraph in paragraphNodes.ToList())
@@ -749,7 +740,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
             }
 
-            string text = doc.DocumentNode.InnerText;
+            string text = mainContent.InnerText;
             text = WhitespaceRegex().Replace(text, " ").Trim();
             return text;
         }

@@ -280,6 +280,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Could not verify provider '{Path.GetFileName(assemblyPath)}' - hash check skipped. Enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash unavailable for {Path.GetFileName(assemblyPath)}, skipping verification");
                             }
+
                             break;
 
                         case ProviderVerificationStatus.NotFound:
@@ -313,6 +314,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' is not known - enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
                             }
+
                             break;
                     }
                 }
@@ -537,6 +539,17 @@ namespace SmartHopper.Infrastructure.AIProviders
         public IAIProviderSettings GetProviderSettings(string providerName)
         {
             return this._providerSettings.TryGetValue(providerName, out var settings) ? settings : null;
+        }
+
+        /// <summary>
+        /// Gets the extra parameter descriptors for a provider.
+        /// </summary>
+        /// <param name="providerName">The name of the provider.</param>
+        /// <returns>An enumerable of <see cref="AIExtraDescriptor"/> instances, or empty if provider not found.</returns>
+        public IEnumerable<AIExtraDescriptor> GetExtraDescriptors(string providerName)
+        {
+            var provider = this.GetProvider(providerName);
+            return provider?.GetExtraDescriptors() ?? Enumerable.Empty<AIExtraDescriptor>();
         }
 
         /// <summary>

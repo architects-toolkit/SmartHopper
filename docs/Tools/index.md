@@ -24,6 +24,12 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 - Tools should return consistent keys (e.g., `list` for list_generate) and clear error messages.
 - Use provider/model capability checks via the model registry when needed.
 
+## Available tools (documented)
+
+- [instruction_get](./instruction_get.md) — operational guidance tool for AI agents
+- [img_to_text](./img_to_text.md) — describes or analyzes an image using a vision model
+- [ToolResultEnvelope](./ToolResultEnvelope.md) — metadata envelope convention for tool results
+
 ## Tool-as-Documentation
 
 - Some tools exist primarily to provide detailed operational guidance to the agent without bloating the system prompt.

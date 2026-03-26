@@ -82,7 +82,42 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateText,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                buildRequest: this.BuildGenerateRequest);
+        }
+
+        /// <summary>
+        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
+        /// Used during batch collection to aggregate multiple requests into a single batch submission.
+        /// </summary>
+        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
+        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
+        private AIRequestCall BuildGenerateRequest(AIToolCall toolCall)
+        {
+            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.Arguments ?? new JObject();
+            string prompt = args["prompt"]?.ToString();
+            string instructions = args["instructions"]?.ToString();
+            string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
+
+            string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
+            var userPrompt = this.userPromptTemplate.Replace("<prompt>", prompt);
+
+            var requestBody = AIBodyBuilder.Create()
+                .AddSystem(systemPrompt)
+                .AddUser(userPrompt)
+                .WithContextFilter(contextFilter)
+                .Build();
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: toolCall.Provider,
+                model: toolCall.Model,
+                body: requestBody,
+                endpoint: this.toolName,
+                capability: this.toolCapabilityRequirements);
+            request.Parameters = toolCall.Parameters;
+            return request;
         }
 
         /// <summary>
@@ -103,14 +138,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[TextTools] Running GenerateText tool");
 
                 // Extract parameters
-                string providerName = toolCall.Provider;
-                string modelName = toolCall.Model;
-                string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 string? prompt = args["prompt"]?.ToString();
-                string? instructions = args["instructions"]?.ToString();
-                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(prompt))
                 {
@@ -118,27 +148,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Use custom instructions if provided, otherwise use default system prompt
-                string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
-
-                // Prepare the user prompt with token replacement
-                var userPrompt = this.userPromptTemplate.Replace("<prompt>", prompt);
-
-                // Initiate immutable AIBody
-                var requestBody = AIBodyBuilder.Create()
-                    .AddSystem(systemPrompt)
-                    .AddUser(userPrompt)
-                    .WithContextFilter(contextFilter)
-                    .Build();
-
-                // Initiate AIRequestCall
-                var request = new AIRequestCall();
-                request.Initialize(
-                    provider: providerName,
-                    model: modelName,
-                    capability: this.toolCapabilityRequirements,
-                    endpoint: endpoint,
-                    body: requestBody);
+                // Build and execute the AIRequestCall
+                var request = BuildGenerateRequest(toolCall);
 
                 // Execute the AIRequestCall
                 var result = await request.Exec().ConfigureAwait(false);
@@ -162,8 +173,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         tool: this.toolName,
                         type: ToolResultContentType.Text,
                         payloadPath: "result",
-                        provider: providerName,
-                        model: modelName,
+                        provider: toolCall.Provider?.ToString() ?? "Unknown",
+                        model: toolCall.Model.ToString(),
                         toolCallId: toolInfo?.Id));
 
                 var toolBody = AIBodyBuilder.Create()

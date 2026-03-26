@@ -1,0 +1,230 @@
+﻿/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024-2026 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Threading;
+using System.Threading.Tasks;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Components.Properties;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+
+namespace SmartHopper.Components.Knowledge
+{
+    public class WebToMdComponent : StatefulComponentBase
+    {
+        public override Guid ComponentGuid => new Guid("4053AD8D-10DF-47D3-AC0C-CA24E8BB638D");
+
+        protected override Bitmap Icon => Resources.webtomd;
+
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        public WebToMdComponent()
+            : base(
+                  "Web To Markdown",
+                  "WebToMd",
+                  "Convert a web page (URL) to Markdown text. Supports Wikipedia, GitHub, GitLab, Discourse, Stack Exchange, and generic HTML pages.",
+                  "SmartHopper",
+                  "Knowledge")
+        {
+            this.RunOnlyOnInputChanges = false;
+        }
+
+        protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddTextParameter("URL", "U", "REQUIRED URL(s) of the webpage(s) to convert.", GH_ParamAccess.tree);
+        }
+
+        protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("Markdown", "Md", "Markdown content of the webpage.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Format", "Fmt", "Detected content format (e.g., markdown, plain_text, url).", GH_ParamAccess.tree);
+        }
+
+        protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
+        {
+            return new WebToMdWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+        }
+
+        private sealed class WebToMdWorker : AsyncWorkerBase
+        {
+            private readonly WebToMdComponent parent;
+            private readonly ProcessingOptions processingOptions;
+            private Dictionary<string, GH_Structure<GH_String>> inputTrees;
+            private bool hasWork;
+
+            private GH_Structure<GH_String> resultMarkdown;
+            private GH_Structure<GH_String> resultFormat;
+
+            public WebToMdWorker(
+                WebToMdComponent parent,
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                ProcessingOptions processingOptions)
+                : base(parent, addRuntimeMessage)
+            {
+                this.parent = parent;
+                this.processingOptions = processingOptions;
+            }
+
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
+            {
+                var urlTree = new GH_Structure<GH_String>();
+                DA.GetDataTree("URL", out urlTree);
+
+                this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
+                {
+                    { "URL", urlTree ?? new GH_Structure<GH_String>() },
+                };
+
+                this.hasWork = urlTree != null && urlTree.PathCount > 0 && urlTree.DataCount > 0;
+                dataCount = this.hasWork ? urlTree.DataCount : 0;
+
+                this.resultMarkdown = new GH_Structure<GH_String>();
+                this.resultFormat = new GH_Structure<GH_String>();
+            }
+
+            public override async Task DoWorkAsync(CancellationToken token)
+            {
+                if (!this.hasWork)
+                {
+                    return;
+                }
+
+                try
+                {
+                    var resultTrees = await this.parent.RunProcessingAsync<GH_String, GH_String>(
+                        this.inputTrees,
+                        async branchInputs =>
+                        {
+                            var outputs = new Dictionary<string, List<GH_String>>
+                            {
+                                { "URL", new List<GH_String>() },
+                                { "Markdown", new List<GH_String>() },
+                                { "Format", new List<GH_String>() },
+                            };
+
+                            foreach (var kvp in branchInputs)
+                            {
+                                var urls = kvp.Value;
+
+                                foreach (var ghUrl in urls)
+                                {
+                                    if (ghUrl == null || string.IsNullOrWhiteSpace(ghUrl.Value))
+                                    {
+                                        outputs["Markdown"].Add(new GH_String(string.Empty));
+                                        outputs["Format"].Add(new GH_String(string.Empty));
+                                        continue;
+                                    }
+
+                                    string url = ghUrl.Value;
+
+                                    var parameters = new JObject
+                                    {
+                                        ["url"] = url,
+                                    };
+
+                                    var toolCallInteraction = new AIInteractionToolCall
+                                    {
+                                        Name = "web_to_md",
+                                        Arguments = parameters,
+                                        Agent = AIAgent.Assistant,
+                                    };
+
+                                    var toolCall = new AIToolCall
+                                    {
+                                        Endpoint = "web_to_md",
+                                    };
+
+                                    toolCall.FromToolCallInteraction(toolCallInteraction);
+                                    toolCall.SkipMetricsValidation = true;
+
+                                    AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
+                                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                                    var toolResult = toolResultInteraction?.Result;
+
+                                    if (toolResult == null)
+                                    {
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'web_to_md' returned no result for '{url}'.");
+                                        outputs["Markdown"].Add(new GH_String(string.Empty));
+                                        outputs["Format"].Add(new GH_String(string.Empty));
+                                        continue;
+                                    }
+
+                                    string content = toolResult["content"]?.ToString() ?? string.Empty;
+                                    var metadata = toolResult["metadata"] as JObject;
+                                    string format = metadata?["format"]?.ToString() ?? "url";
+
+                                    outputs["Markdown"].Add(new GH_String(content));
+                                    outputs["Format"].Add(new GH_String(format));
+
+                                    // Add warnings if present
+                                    var warnings = toolResult["warnings"] as JArray;
+                                    if (warnings != null && warnings.Count > 0)
+                                    {
+                                        foreach (var warning in warnings)
+                                        {
+                                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, warning.ToString());
+                                        }
+                                    }
+                                }
+                            }
+
+                            return outputs;
+                        },
+                        this.processingOptions,
+                        token).ConfigureAwait(false);
+
+                    this.resultMarkdown = new GH_Structure<GH_String>();
+                    this.resultFormat = new GH_Structure<GH_String>();
+
+                    if (resultTrees.TryGetValue("Markdown", out var markdownTree))
+                    {
+                        this.resultMarkdown = markdownTree;
+                    }
+
+                    if (resultTrees.TryGetValue("Format", out var formatTree))
+                    {
+                        this.resultFormat = formatTree;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[WebToMd] Error: {ex.Message}");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                }
+            }
+
+            public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
+            {
+                this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
+                errorMessage = null;
+            }
+        }
+    }
+}

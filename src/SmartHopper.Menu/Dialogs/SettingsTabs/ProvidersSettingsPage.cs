@@ -132,6 +132,18 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Width = 500,
             });
 
+#if DEBUG
+            layout.Add(new Panel { Height = 5 });
+            layout.Add(new Label
+            {
+                Text = "⚠ DEBUG BUILD: Integrity check is enforced to Soft mode regardless of the setting below.",
+                TextColor = Colors.Orange,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500,
+            });
+#endif
+
             layout.Add(new Panel { Height = 10 });
 
             // Integrity check mode dropdown

@@ -29,6 +29,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -46,7 +47,7 @@ namespace SmartHopper.Providers.Anthropic
     /// Provider implementation for Anthropic's Messages API, including schema wrapping,
     /// tool call encoding, and streaming support via SSE.
     /// </summary>
-    public sealed class AnthropicProvider : AIProvider<AnthropicProvider>
+    public sealed class AnthropicProvider : AIProvider<AnthropicProvider>, IAIBatchProvider
     {
         private AnthropicProvider()
         {
@@ -144,8 +145,6 @@ namespace SmartHopper.Providers.Anthropic
                 // Default version if not provided by caller
                 request.Headers["anthropic-version"] = "2023-06-01";
             }
-
-            this.ApplyStructuredOutputsBetaHeader(request);
 
             return request;
         }
@@ -318,18 +317,50 @@ namespace SmartHopper.Providers.Anthropic
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
-                // Anthropic does not support image generation; fallback to prompt as text
-                var prompt = imageInteraction.OriginalPrompt ?? string.Empty;
-                if (string.IsNullOrEmpty(prompt))
+                // Vision input: send image for understanding/description
+                if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
                 {
-                    return null;
+                    // Base64-encoded image data
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    return new JObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JObject
+                        {
+                            ["type"] = "base64",
+                            ["media_type"] = mimeType,
+                            ["data"] = imageInteraction.ImageData,
+                        },
+                    };
                 }
-
-                return new JObject
+                else if (imageInteraction.ImageUrl != null)
                 {
-                    ["type"] = "text",
-                    ["text"] = prompt,
-                };
+                    // URL-based image
+                    return new JObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JObject
+                        {
+                            ["type"] = "url",
+                            ["url"] = imageInteraction.ImageUrl.ToString(),
+                        },
+                    };
+                }
+                else
+                {
+                    // No image data; fall back to prompt text if available
+                    var prompt = imageInteraction.OriginalPrompt ?? string.Empty;
+                    if (string.IsNullOrEmpty(prompt))
+                    {
+                        return null;
+                    }
+
+                    return new JObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = prompt,
+                    };
+                }
             }
 
             // Unknown interaction type - skip
@@ -383,8 +414,10 @@ namespace SmartHopper.Providers.Anthropic
                 return "GET and DELETE requests do not use a request body";
             }
 
-            int maxTokens = this.GetSetting<int>("MaxTokens");
-            double temperature = this.GetSetting<double>("Temperature");
+            var p = request.Parameters;
+
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
             if (double.IsNaN(temperature) || temperature <= 0) temperature = 0.5;
 
             string jsonSchema = request.Body.JsonOutputSchema;
@@ -516,6 +549,23 @@ namespace SmartHopper.Providers.Anthropic
                 ["temperature"] = temperature,
             };
 
+            // Apply optional parameters from extras only
+            if (p?.Extras != null)
+            {
+                if (p.Extras.TryGetValue("seed", out var seedToken) && seedToken != null)
+                    requestBody["seed"] = seedToken.Value<int?>();
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                    requestBody["top_p"] = topPToken.Value<double?>();
+                if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
+                    requestBody["top_k"] = topKToken.Value<int?>();
+                if (p.Extras.TryGetValue("effort", out var effortToken) && effortToken != null)
+                    requestBody["effort"] = effortToken;
+                if (p.Extras.TryGetValue("container", out var containerToken) && containerToken != null)
+                    requestBody["container"] = containerToken;
+                if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
+                    requestBody["service_tier"] = stToken;
+            }
+
             // Add JSON schema if provided (centralized wrapping)
             if (requiresJsonOutput)
             {
@@ -559,6 +609,16 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     requestBody["system"] = combinedSystem;
                 }
+            }
+
+            // Apply automatic prompt caching when enable_caching=true:
+            // Adds top-level cache_control so Anthropic automatically caches the longest stable prefix.
+            bool enableCaching = p?.Extras != null
+                && p.Extras.TryGetValue("enable_caching", out var ecToken)
+                && ecToken?.Value<bool>() == true;
+            if (enableCaching)
+            {
+                requestBody["cache_control"] = new JObject { ["type"] = "ephemeral" };
             }
 
             // Add tools if requested: map OpenAI-style tools to Anthropic 'tools'
@@ -739,6 +799,8 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     m.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? m.InputTokensPrompt;
                     m.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? m.OutputTokensGeneration;
+                    m.InputTokensCached = usage["cache_read_input_tokens"]?.Value<int>() ?? m.InputTokensCached;
+                    m.InputTokensCacheWrite = usage["cache_creation_input_tokens"]?.Value<int>() ?? m.InputTokensCacheWrite;
                 }
 
                 m.FinishReason = response["stop_reason"]?.ToString() ?? m.FinishReason;
@@ -995,6 +1057,8 @@ namespace SmartHopper.Providers.Anthropic
                         {
                             streamMetrics.InputTokensPrompt = usage["input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensPrompt;
                             streamMetrics.OutputTokensGeneration = usage["output_tokens"]?.Value<int>() ?? streamMetrics.OutputTokensGeneration;
+                            streamMetrics.InputTokensCached = usage["cache_read_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCached;
+                            streamMetrics.InputTokensCacheWrite = usage["cache_creation_input_tokens"]?.Value<int>() ?? streamMetrics.InputTokensCacheWrite;
                         }
 
                         // The stop_reason is nested under "delta" in message_delta events
@@ -1055,35 +1119,6 @@ namespace SmartHopper.Providers.Anthropic
             }
         }
 
-        private void ApplyStructuredOutputsBetaHeader(AIRequestCall request)
-        {
-            if (request?.Body?.RequiresJsonOutput != true)
-            {
-                return;
-            }
-
-            if (!SupportsStructuredOutputs(request.Model))
-            {
-                return;
-            }
-
-            const string betaHeaderName = "anthropic-beta";
-            const string betaValue = "structured-outputs-2025-11-13";
-
-            if (!request.Headers.TryGetValue(betaHeaderName, out var existing) || string.IsNullOrWhiteSpace(existing))
-            {
-                request.Headers[betaHeaderName] = betaValue;
-                return;
-            }
-
-            if (!existing.Contains(betaValue, StringComparison.OrdinalIgnoreCase))
-            {
-                request.Headers[betaHeaderName] = existing.EndsWith(",", StringComparison.Ordinal)
-                    ? existing + betaValue
-                    : string.Concat(existing, ",", betaValue);
-            }
-        }
-
         private static bool SupportsStructuredOutputs(string model)
         {
             if (string.IsNullOrWhiteSpace(model))
@@ -1093,6 +1128,223 @@ namespace SmartHopper.Providers.Anthropic
 
             var caps = ModelManager.Instance.GetCapabilities("Anthropic", model);
             return caps?.HasCapability(AICapability.Text2Json) == true;
+        }
+
+        #region IAIBatchProvider
+
+        /// <inheritdoc/>
+        public async Task<AIBatchSubmission> SubmitBatchAsync(IReadOnlyList<(string CustomId, AIRequestCall Request)> items, CancellationToken cancellationToken = default)
+        {
+            if (items == null || items.Count == 0) throw new ArgumentException("At least one item is required", nameof(items));
+
+            // Anthropic Batch API: POST /v1/messages/batches
+            // Each request: { "custom_id": "...", "params": { ...Messages API params... } }
+            var requestsArray = new JArray();
+            string firstEncodedBody = null;
+            var customIds = new List<string>();
+
+            foreach (var (customId, request) in items)
+            {
+                var preparedRequest = this.PreCall(request);
+                var encodedBody = this.Encode(preparedRequest);
+                if (firstEncodedBody == null) firstEncodedBody = encodedBody;
+                var paramsObj = JObject.Parse(encodedBody);
+                requestsArray.Add(new JObject
+                {
+                    ["custom_id"] = customId,
+                    ["params"] = paramsObj,
+                });
+                customIds.Add(customId);
+            }
+
+            var batchRequest = new JObject { ["requests"] = requestsArray };
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+
+            var batchUrl = this.BuildFullUrl("/messages/batches");
+            var response = await client.PostAsync(
+                batchUrl,
+                new StringContent(batchRequest.ToString(), Encoding.UTF8, "application/json"),
+                cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"[Anthropic] Batch creation failed ({(int)response.StatusCode}): {content}");
+            }
+
+            var result = JObject.Parse(content);
+            var batchId = result["id"]?.ToString()
+                ?? throw new InvalidOperationException("[Anthropic] Batch creation response missing 'id'");
+
+            Debug.WriteLine($"[Anthropic] Batch submitted: id={batchId}, count={items.Count}");
+            return new AIBatchSubmission(batchId, this.Name, firstEncodedBody, (IReadOnlyList<string>)customIds.AsReadOnly());
+        }
+
+        /// <inheritdoc/>
+        public async Task<AIBatchStatus> GetBatchStatusAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+
+            var statusUrl = this.BuildFullUrl($"/messages/batches/{submission.BatchId}");
+            var response = await client.GetAsync(statusUrl, cancellationToken).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                    $"HTTP {(int)response.StatusCode}: {content}");
+            }
+
+            var json = JObject.Parse(content);
+            var processingStatus = json["processing_status"]?.ToString() ?? string.Empty;
+            Debug.WriteLine($"[Anthropic] Batch status check: id={submission.BatchId}, processing_status={processingStatus}");
+
+            switch (processingStatus.ToLowerInvariant())
+            {
+                case "in_progress":
+                case "canceling":
+                {
+                    var requestCounts = json["request_counts"] as JObject;
+                    int? completedCount = requestCounts?["succeeded"]?.Value<int>();
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress, completedCount: completedCount);
+                }
+
+                case "ended":
+                {
+                    // Determine if it ended due to cancellation
+                    var cancelInitiatedAt = json["cancel_initiated_at"]?.ToString();
+                    var requestCounts = json["request_counts"] as JObject;
+                    var succeeded = requestCounts?["succeeded"]?.Value<int>() ?? 0;
+                    var errored = requestCounts?["errored"]?.Value<int>() ?? 0;
+
+                    if (!string.IsNullOrEmpty(cancelInitiatedAt) && succeeded == 0 && errored == 0)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Cancelled);
+                    }
+
+                    var resultsUrl = json["results_url"]?.ToString();
+                    if (string.IsNullOrEmpty(resultsUrl))
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            "Batch ended but results_url is missing");
+                    }
+
+                    // Download results JSONL from results_url
+                    var resultsResponse = await client.GetAsync(resultsUrl, cancellationToken).ConfigureAwait(false);
+                    var resultsContent = await resultsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (!resultsResponse.IsSuccessStatusCode)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            $"Failed to download results ({(int)resultsResponse.StatusCode}): {resultsContent}");
+                    }
+
+                    // Each result line: {"custom_id": "sh-...", "result": {"type": "succeeded", "message": {...}}}
+                    var resultsDict = new Dictionary<string, JObject>();
+
+                    foreach (var line in resultsContent.Split('\n'))
+                    {
+                        var trimmed = line.Trim();
+                        if (string.IsNullOrEmpty(trimmed)) continue;
+                        try
+                        {
+                            var resultLine = JObject.Parse(trimmed);
+                            var lineCustomId = resultLine["custom_id"]?.ToString();
+                            if (string.IsNullOrEmpty(lineCustomId)) continue;
+                            var resultObj = resultLine["result"] as JObject;
+                            var resultType = resultObj?["type"]?.ToString();
+                            if (string.Equals(resultType, "succeeded", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var messageResult = resultObj["message"] as JObject;
+                                if (messageResult != null) resultsDict[lineCustomId] = messageResult;
+                            }
+                        }
+                        catch { /* skip malformed lines */ }
+                    }
+
+                    if (resultsDict.Count == 0)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
+                            "No successful results found in batch output");
+                    }
+
+                    return new AIBatchStatus(submission.BatchId, (IReadOnlyDictionary<string, JObject>)new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict));
+                }
+
+                default:
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Submitted);
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task CancelBatchAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+
+            var cancelUrl = this.BuildFullUrl($"/messages/batches/{submission.BatchId}/cancel");
+            var response = await client.PostAsync(cancelUrl, null, cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                Debug.WriteLine($"[Anthropic] Batch cancel failed ({(int)response.StatusCode}): {content}");
+            }
+            else
+            {
+                Debug.WriteLine($"[Anthropic] Batch {submission.BatchId} cancelled successfully");
+            }
+        }
+
+        #endregion
+
+        /// <inheritdoc/>
+        public override IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return new[]
+            {
+                // General parameters (shared across providers)
+                new AIExtraDescriptor("seed", "Seed",
+                    "Reproducibility seed for deterministic sampling. Use the same seed to get similar outputs. Leave empty for random.",
+                    typeof(int), null),
+                new AIExtraDescriptor("top_p", "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double), null),
+                new AIExtraDescriptor("top_k", "Top K",
+                    "Only sample from the top K options for each token. Lower values make output more focused.",
+                    typeof(int), null),
+
+                // Anthropic-specific parameters
+                new AIExtraDescriptor("effort", "Effort",
+                    "The amount of effort to use in the output. 'low' is fastest, 'high' is most thorough.",
+                    typeof(string), "medium",
+                    new[] { "low", "medium", "high" }),
+                new AIExtraDescriptor("container", "Container",
+                    "Container type for the response format. Anthropic-specific.",
+                    typeof(string), null),
+                new AIExtraDescriptor("service_tier", "Service Tier",
+                    "Service tier for request processing. 'auto' or 'default'.",
+                    typeof(string), "auto",
+                    new[] { "auto", "default" }),
+
+                // Anthropic prompt caching parameters
+                new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
+                    "Automatically caches the longest stable prompt prefix (>1024 tokens for Sonnet, >4096 tokens for Opus and Haiku). Reduces latency and cost on repeated calls sharing the same context. Highly recommended for batch processing.",
+                    typeof(bool), null),
+            };
         }
     }
 }
