@@ -65,6 +65,18 @@ namespace SmartHopper.Core.ComponentBase
         private AIBatchSubmission _batchSubmission;
 
         /// <summary>
+        /// Stores sentinel <see cref="GH_Structure{GH_String}"/> trees keyed by output parameter name.
+        /// Populated during batch submission so <see cref="OnBatchCompleted"/> can reconstruct output trees.
+        /// </summary>
+        private Dictionary<string, object> _sentinelTrees;
+
+        /// <summary>
+        /// Stores reconstructed output trees keyed by output parameter name after batch completion.
+        /// Consumed (and removed) by <see cref="PopReconstructedTree{T}"/> inside the worker's SetOutput.
+        /// </summary>
+        private Dictionary<string, object> _reconstructedTrees;
+
+        /// <summary>
         /// Queue of (CustomId, Request) pairs collected during a batch-mode component run.
         /// Populated by <see cref="CallAiToolAsync"/> when <see cref="IsBatchRequest"/> is true.
         /// Consumed and cleared by <see cref="SubmitBatchQueueAsync"/>.
@@ -530,6 +542,10 @@ namespace SmartHopper.Core.ComponentBase
                 this._batchProgressCompleted = 0;
                 this.ResetProgress();
 
+                // Clear sentinel and reconstructed trees for the new run
+                this._sentinelTrees = null;
+                this._reconstructedTrees = null;
+
                 this.metricsInitializedForRun = true;
             }
         }
@@ -792,6 +808,95 @@ namespace SmartHopper.Core.ComponentBase
         /// by checking the <see cref="AIRequestParameters.BatchTier"/> flag.
         /// </summary>
         protected bool IsBatchRequest() => this._requestParameters?.BatchTier == true;
+
+        /// <summary>
+        /// Stores the sentinel tree for a named output parameter so that
+        /// <see cref="OnBatchCompleted"/> can reconstruct the output tree later.
+        /// </summary>
+        /// <typeparam name="T">The output goo type (typically <see cref="GH_String"/> for sentinel trees).</typeparam>
+        /// <param name="paramName">Output parameter name (e.g., "Result").</param>
+        /// <param name="tree">The sentinel tree produced during batch collection.</param>
+        protected void StoreSentinelTree<T>(string paramName, GH_Structure<T> tree)
+            where T : IGH_Goo
+        {
+            this._sentinelTrees ??= new Dictionary<string, object>();
+            this._sentinelTrees[paramName] = tree;
+        }
+
+        /// <summary>
+        /// Retrieves a previously stored sentinel tree for the given output parameter name.
+        /// Returns <c>null</c> if no sentinel tree has been stored.
+        /// </summary>
+        /// <param name="paramName">Output parameter name (e.g., "Result").</param>
+        /// <returns>The sentinel <see cref="GH_Structure{GH_String}"/>, or <c>null</c>.</returns>
+        protected GH_Structure<GH_String> GetSentinelTree(string paramName)
+        {
+            if (this._sentinelTrees == null) return null;
+            this._sentinelTrees.TryGetValue(paramName, out var tree);
+            return tree as GH_Structure<GH_String>;
+        }
+
+        /// <summary>
+        /// Stores the reconstructed output tree (after batch completion) for a named output parameter.
+        /// Consumed by <see cref="PopReconstructedTree{T}"/>.
+        /// </summary>
+        /// <typeparam name="T">The output goo type.</typeparam>
+        /// <param name="paramName">Output parameter name (e.g., "Result").</param>
+        /// <param name="tree">The decoded, reconstructed output tree.</param>
+        protected void StoreReconstructedTree<T>(string paramName, GH_Structure<T> tree)
+            where T : IGH_Goo
+        {
+            this._reconstructedTrees ??= new Dictionary<string, object>();
+            this._reconstructedTrees[paramName] = tree;
+        }
+
+        /// <summary>
+        /// Retrieves and removes the reconstructed output tree for the given output parameter name.
+        /// Returns <c>null</c> if no reconstructed tree is available.
+        /// Intended to be called once from the worker's <c>SetOutput</c>.
+        /// </summary>
+        /// <typeparam name="T">The output goo type.</typeparam>
+        /// <param name="paramName">Output parameter name (e.g., "Result").</param>
+        /// <returns>The reconstructed <see cref="GH_Structure{T}"/>, or <c>null</c>.</returns>
+        protected GH_Structure<T> PopReconstructedTree<T>(string paramName)
+            where T : IGH_Goo
+        {
+            if (this._reconstructedTrees == null) return null;
+            if (!this._reconstructedTrees.TryGetValue(paramName, out var raw)) return null;
+            this._reconstructedTrees.Remove(paramName);
+            return raw as GH_Structure<T>;
+        }
+
+        /// <summary>
+        /// Convenience helper for workers: after <c>RunProcessingAsync</c> finishes in batch mode,
+        /// stores the sentinel tree for the given output parameter name and submits the batch queue.
+        /// </summary>
+        /// <typeparam name="T">The output goo type of the result dictionary.</typeparam>
+        /// <param name="outputParamName">Output parameter name (e.g., "Result").</param>
+        /// <param name="result">The result dictionary produced by <c>RunProcessingAsync</c>.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>
+        /// <c>true</c> if batch was successfully submitted; <c>false</c> if not in batch mode
+        /// or the provider does not support batch processing.
+        /// </returns>
+        protected async Task<bool> TrySubmitBatchAsync<T>(
+            string outputParamName,
+            Dictionary<string, GH_Structure<T>> result,
+            CancellationToken ct)
+            where T : IGH_Goo
+        {
+            if (!this.IsCurrentlyBatchMode()) return false;
+            var submitted = await this.SubmitBatchQueueAsync(ct).ConfigureAwait(false);
+            if (submitted && result != null && result.TryGetValue(outputParamName, out var sentinelTree))
+            {
+                this.StoreSentinelTree(outputParamName, sentinelTree);
+            }
+
+            return submitted;
+        }
+
+        /// <summary>Returns true when batch mode is active and items have been collected.</summary>
+        private bool IsCurrentlyBatchMode() => this.IsBatchRequest() && this.HasBatchQueue;
 
         /// <summary>
         /// Gets a value indicating whether there are queued batch requests waiting to be submitted.

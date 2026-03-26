@@ -31,6 +31,10 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.List
 {
@@ -68,6 +72,35 @@ namespace SmartHopper.Components.List
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddBooleanParameter("Result", "R", "Result of the evaluation", GH_ParamAccess.tree);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        {
+            var sentinel = this.GetSentinelTree("Result");
+            if (results == null || sentinel == null) return;
+
+            var reconstructed = this.ProcessBatchResults<GH_Boolean>(
+                "Result",
+                sentinel,
+                results,
+                (customId, resultBody) =>
+                {
+                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    if (provider == null) return null;
+
+                    var interactions = provider.Decode(resultBody);
+                    var lastText = interactions
+                        ?.OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                    if (lastText == null) return null;
+                    if (bool.TryParse(lastText.Content?.Trim(), out bool value))
+                        return new GH_Boolean(value);
+                    return null;
+                });
+
+            this.StoreReconstructedTree("Result", reconstructed);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -134,6 +167,12 @@ namespace SmartHopper.Components.List
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
+
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
+                    if (batchSubmitted)
+                    {
+                        Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
+                    }
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
@@ -210,6 +249,14 @@ namespace SmartHopper.Components.List
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
+
+                var reconstructed = this.parent.PopReconstructedTree<GH_Boolean>("Result");
+                if (reconstructed != null)
+                {
+                    this.parent.SetPersistentOutput("Result", reconstructed, DA);
+                    message = string.Empty;
+                    return;
+                }
 
                 if (!this.result.TryGetValue("Result", out GH_Structure<GH_Boolean>? value))
                 {

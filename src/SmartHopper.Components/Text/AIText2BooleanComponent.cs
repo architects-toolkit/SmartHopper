@@ -29,6 +29,10 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 using CommonDrawing = System.Drawing;
 
 namespace SmartHopper.Components.Text
@@ -60,6 +64,62 @@ namespace SmartHopper.Components.Text
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddBooleanParameter("Result", "R", "Result of the evaluation", GH_ParamAccess.tree);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        {
+            var sentinel = this.GetSentinelTree("Result");
+            if (results == null || sentinel == null) return;
+
+            var reconstructed = this.ProcessBatchResults<GH_Boolean>(
+                "Result",
+                sentinel,
+                results,
+                (customId, resultBody) =>
+                {
+                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    if (provider == null) return null;
+
+                    var interactions = provider.Decode(resultBody);
+                    var lastText = interactions
+                        ?.OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                    if (lastText == null) return null;
+                    bool? parsed = ParseBooleanResult(new Newtonsoft.Json.Linq.JValue(lastText.Content));
+                    return parsed.HasValue ? new GH_Boolean(parsed.Value) : null;
+                });
+
+            this.StoreReconstructedTree("Result", reconstructed);
+        }
+
+        /// <summary>
+        /// Parses a JToken into a nullable boolean value.
+        /// </summary>
+        /// <param name="token">The token to parse.</param>
+        /// <returns>The parsed boolean value, or null if parsing fails.</returns>
+        private static bool? ParseBooleanResult(JToken token)
+        {
+            if (token == null || token.Type == JTokenType.Null)
+            {
+                return null;
+            }
+
+            if (token.Type == JTokenType.Boolean)
+            {
+                return token.Value<bool>();
+            }
+
+            if (token.Type == JTokenType.String)
+            {
+                if (bool.TryParse(token.Value<string>(), out bool result))
+                {
+                    return result;
+                }
+            }
+
+            return null;
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -123,6 +183,12 @@ namespace SmartHopper.Components.Text
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
+
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
+                    if (batchSubmitted)
+                    {
+                        Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
+                    }
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
@@ -202,32 +268,17 @@ namespace SmartHopper.Components.Text
                 return outputs;
             }
 
-            private static bool? ParseBooleanResult(JToken token)
-            {
-                if (token == null || token.Type == JTokenType.Null)
-                {
-                    return null;
-                }
-
-                if (token.Type == JTokenType.Boolean)
-                {
-                    return token.Value<bool>();
-                }
-
-                if (token.Type == JTokenType.String)
-                {
-                    if (bool.TryParse(token.Value<string>(), out bool result))
-                    {
-                        return result;
-                    }
-                }
-
-                return null;
-            }
-
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
+
+                var reconstructed = this.parent.PopReconstructedTree<GH_Boolean>("Result");
+                if (reconstructed != null)
+                {
+                    this.parent.SetPersistentOutput("Result", reconstructed, DA);
+                    message = string.Empty;
+                    return;
+                }
 
                 if (!this.result.TryGetValue("Result", out GH_Structure<GH_Boolean>? value))
                 {

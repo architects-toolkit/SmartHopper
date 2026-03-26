@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -30,6 +31,10 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Types;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -90,6 +95,32 @@ namespace SmartHopper.Components.Knowledge
             pManager.AddTextParameter("Markdown", "Md", "Markdown content of the file with AI-generated image descriptions or captions embedded.", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Images", "Img", "Raw images extracted from the document (PDF/DOCX/PPTX). Each item is a GH_ExtractedImage carrying base64 data, MIME type, and source context. Branched per input file.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Format", "Fmt", "Detected original format (e.g., pdf, docx, html).", GH_ParamAccess.tree);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        {
+            var sentinel = this.GetSentinelTree("Markdown");
+            if (results == null || sentinel == null) return;
+
+            var reconstructed = this.ProcessBatchResults<GH_String>(
+                "Markdown",
+                sentinel,
+                results,
+                (customId, resultBody) =>
+                {
+                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    if (provider == null) return new GH_String(string.Empty);
+
+                    var interactions = provider.Decode(resultBody);
+                    var lastText = interactions
+                        ?.OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                    return new GH_String(lastText?.Content ?? string.Empty);
+                });
+
+            this.StoreReconstructedTree("Markdown", reconstructed);
         }
 
         /// <inheritdoc/>
@@ -254,6 +285,17 @@ namespace SmartHopper.Components.Knowledge
                     this.resultMarkdown = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Markdown");
                     this.resultFormat = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Format");
                     this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_ExtractedImage>(resultTrees, "Images");
+
+                    var markdownDict = new Dictionary<string, GH_Structure<GH_String>>
+                    {
+                        { "Markdown", this.resultMarkdown },
+                    };
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Markdown", markdownDict, token).ConfigureAwait(false);
+                    if (batchSubmitted)
+                    {
+                        this.resultMarkdown = null;
+                        Debug.WriteLine("[AIFile2Md] Sentinel tree stored, batch submitted");
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -269,6 +311,16 @@ namespace SmartHopper.Components.Knowledge
             /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
+                var reconstructed = this.parent.PopReconstructedTree<GH_String>("Markdown");
+                if (reconstructed != null)
+                {
+                    this.parent.SetPersistentOutput("Markdown", reconstructed, DA);
+                    this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_ExtractedImage>(), DA);
+                    this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
+                    errorMessage = null;
+                    return;
+                }
+
                 this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_ExtractedImage>(), DA);
                 this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);

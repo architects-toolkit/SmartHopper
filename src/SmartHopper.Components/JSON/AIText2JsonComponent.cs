@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -29,6 +30,10 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.JSON
 {
@@ -81,6 +86,32 @@ namespace SmartHopper.Components.JSON
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("JSON", "J", "Generated JSON string conforming to the provided schema", GH_ParamAccess.tree);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        {
+            var sentinel = this.GetSentinelTree("JSON");
+            if (results == null || sentinel == null) return;
+
+            var reconstructed = this.ProcessBatchResults<GH_String>(
+                "JSON",
+                sentinel,
+                results,
+                (customId, resultBody) =>
+                {
+                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    if (provider == null) return new GH_String(string.Empty);
+
+                    var interactions = provider.Decode(resultBody);
+                    var lastText = interactions
+                        ?.OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                    return new GH_String(lastText?.Content ?? string.Empty);
+                });
+
+            this.StoreReconstructedTree("JSON", reconstructed);
         }
 
         /// <inheritdoc/>
@@ -146,6 +177,13 @@ namespace SmartHopper.Components.JSON
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
+
+                    // After all items processed: if batch mode, submit the collected queue
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("JSON", this.result, token).ConfigureAwait(false);
+                    if (batchSubmitted)
+                    {
+                        Debug.WriteLine("[AIText2Json] Sentinel tree stored, batch submitted");
+                    }
 
                     Debug.WriteLine($"[AIText2Json] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
@@ -220,6 +258,15 @@ namespace SmartHopper.Components.JSON
             /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
+                // If batch completed and tree was reconstructed, use that
+                var reconstructed = this.parent.PopReconstructedTree<GH_String>("JSON");
+                if (reconstructed != null)
+                {
+                    this.parent.SetPersistentOutput("JSON", reconstructed, DA);
+                    message = string.Empty;
+                    return;
+                }
+
                 if (!this.result.TryGetValue("JSON", out GH_Structure<GH_String>? tree))
                 {
                     message = "Error: No result available";

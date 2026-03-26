@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -30,6 +31,10 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Types;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Img
 {
@@ -96,6 +101,32 @@ namespace SmartHopper.Components.Img
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Description", "D", "AI-generated text description of the image.", GH_ParamAccess.tree);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        {
+            var sentinel = this.GetSentinelTree("Description");
+            if (results == null || sentinel == null) return;
+
+            var reconstructed = this.ProcessBatchResults<GH_String>(
+                "Description",
+                sentinel,
+                results,
+                (customId, resultBody) =>
+                {
+                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    if (provider == null) return new GH_String(string.Empty);
+
+                    var interactions = provider.Decode(resultBody);
+                    var lastText = interactions
+                        ?.OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                    return new GH_String(lastText?.Content ?? string.Empty);
+                });
+
+            this.StoreReconstructedTree("Description", reconstructed);
         }
 
         /// <summary>
@@ -309,6 +340,12 @@ namespace SmartHopper.Components.Img
                     {
                         this.resultDescriptions = descTree;
                     }
+
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Description", resultTrees, token).ConfigureAwait(false);
+                    if (batchSubmitted)
+                    {
+                        this.resultDescriptions = null;
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -327,6 +364,14 @@ namespace SmartHopper.Components.Img
             /// <param name="errorMessage">Output error message, or null on success.</param>
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
+                var reconstructed = this.parent.PopReconstructedTree<GH_String>("Description");
+                if (reconstructed != null)
+                {
+                    this.parent.SetPersistentOutput("Description", reconstructed, DA);
+                    errorMessage = null;
+                    return;
+                }
+
                 this.parent.SetPersistentOutput("Description", this.resultDescriptions ?? new GH_Structure<GH_String>(), DA);
                 errorMessage = null;
             }

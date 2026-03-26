@@ -88,7 +88,43 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt"", ""jsonSchema""]
                 }",
                 execute: this.GenerateJson,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                buildRequest: this.BuildGenerateRequest);
+        }
+
+        /// <summary>
+        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
+        /// Used during batch collection to aggregate multiple requests into a single batch submission.
+        /// </summary>
+        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
+        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
+        private AIRequestCall BuildGenerateRequest(AIToolCall toolCall)
+        {
+            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.Arguments ?? new JObject();
+            string prompt = args["prompt"]?.ToString();
+            string instructions = args["instructions"]?.ToString();
+            string jsonSchema = args["jsonSchema"]?.ToString();
+            string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
+
+            string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
+
+            var requestBody = AIBodyBuilder.Create()
+                .WithJsonOutputSchema(jsonSchema)
+                .AddSystem(systemPrompt)
+                .AddUser(prompt)
+                .WithContextFilter(contextFilter)
+                .Build();
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: toolCall.Provider,
+                model: toolCall.Model,
+                body: requestBody,
+                endpoint: this.toolName,
+                capability: this.toolCapabilityRequirements);
+            request.Parameters = toolCall.Parameters;
+            return request;
         }
 
         /// <summary>
@@ -126,23 +162,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                string systemPrompt = !string.IsNullOrWhiteSpace(instructions) ? instructions : this.defaultSystemPrompt;
-
-                var requestBody = AIBodyBuilder.Create()
-                    .WithJsonOutputSchema(jsonSchema)
-                    .AddSystem(systemPrompt)
-                    .AddUser(prompt)
-                    .WithContextFilter(contextFilter)
-                    .Build();
-
-                var request = new AIRequestCall();
-                request.Initialize(
-                    provider: toolCall.Provider,
-                    model: toolCall.Model,
-                    body: requestBody,
-                    endpoint: this.toolName,
-                    capability: this.toolCapabilityRequirements);
-                request.Parameters = toolCall.Parameters;
+                var request = this.BuildGenerateRequest(toolCall);
 
                 var result = await request.Exec().ConfigureAwait(false);
 

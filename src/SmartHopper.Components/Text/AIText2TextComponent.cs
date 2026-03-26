@@ -48,12 +48,6 @@ namespace SmartHopper.Components.Text
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
-        /// <summary>Stores the sentinel result tree during batch submission, for later reconstruction.</summary>
-        private GH_Structure<GH_String> _sentinelResultTree;
-
-        /// <summary>Stores the reconstructed result tree after batch completion.</summary>
-        private GH_Structure<GH_String> _reconstructedResultTree;
-
         public AIText2TextComponent()
             : base("AI Text To Text", "AIText2Text",
                   "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
@@ -61,23 +55,15 @@ namespace SmartHopper.Components.Text
         {
         }
 
-        /// <summary>Returns true when batch mode is active and items have been collected.</summary>
-        private bool IsCurrentlyBatchMode() => this.IsBatchRequest() && this.HasBatchQueue;
-
-        /// <summary>Submits the collected batch queue; accessible to nested worker class.</summary>
-        private Task<bool> SubmitCurrentBatchAsync(CancellationToken ct) => this.SubmitBatchQueueAsync(ct);
-
-        /// <summary>Stores the sentinel tree for later reconstruction by <see cref="OnBatchCompleted"/>.</summary>
-        private void StoreSentinelTree(GH_Structure<GH_String> tree) => this._sentinelResultTree = tree;
-
         /// <inheritdoc/>
         protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
         {
-            if (results == null || this._sentinelResultTree == null) return;
+            var sentinel = this.GetSentinelTree("Result");
+            if (results == null || sentinel == null) return;
 
-            this._reconstructedResultTree = this.ProcessBatchResults<GH_String>(
+            var reconstructed = this.ProcessBatchResults<GH_String>(
                 "Result",
-                this._sentinelResultTree,
+                sentinel,
                 results,
                 (customId, resultBody) =>
                 {
@@ -91,6 +77,8 @@ namespace SmartHopper.Components.Text
 
                     return new GH_String(lastText?.Content ?? string.Empty);
                 });
+
+            this.StoreReconstructedTree("Result", reconstructed);
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -156,8 +144,6 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.parent._reconstructedResultTree = null;
-
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
@@ -169,15 +155,10 @@ namespace SmartHopper.Components.Text
                         token).ConfigureAwait(false);
 
                     // After all items processed: if batch mode, submit the collected queue
-                    if (this.parent.IsCurrentlyBatchMode())
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
+                    if (batchSubmitted)
                     {
-                        Debug.WriteLine($"[Worker] Batch mode active, submitting queue");
-                        var submitted = await this.parent.SubmitCurrentBatchAsync(token).ConfigureAwait(false);
-                        if (submitted && this.result.TryGetValue("Result", out var sentinelTree))
-                        {
-                            this.parent.StoreSentinelTree(sentinelTree);
-                            Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
-                        }
+                        Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
                     }
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
@@ -251,10 +232,10 @@ namespace SmartHopper.Components.Text
                 Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
 
                 // If batch completed and tree was reconstructed, use that
-                if (this.parent._reconstructedResultTree != null)
+                var reconstructed = this.parent.PopReconstructedTree<GH_String>("Result");
+                if (reconstructed != null)
                 {
-                    this.parent.SetPersistentOutput("Result", this.parent._reconstructedResultTree, DA);
-                    this.parent._reconstructedResultTree = null;
+                    this.parent.SetPersistentOutput("Result", reconstructed, DA);
                     message = string.Empty;
                     return;
                 }
