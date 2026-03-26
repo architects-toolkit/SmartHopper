@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -34,25 +34,24 @@ using SmartHopper.Core.DataTree;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
-    /// Component that generates a concise AI summary of a McNeel Discourse forum post by ID.
-    /// Uses the mcneel_forum_post_summarize tool, which in turn calls the configured AI provider/model.
+    /// Component that generates a concise AI summary of a Ladybug Tools Discourse forum topic by ID.
     /// </summary>
-    public class AIMcNeelForumPostSummarizeComponent : AIStatefulAsyncComponentBase
+    public class AILadybugForumTopicSummarizeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("A6B8D7E2-2345-4F8A-9C10-3D4E5F6A7004");
+        public override Guid ComponentGuid => new Guid("626E8B3E-6E36-45E7-89D3-58C149828C27");
 
-        protected override Bitmap Icon => Resources.mcneelpostsummarize;
+        protected override Bitmap Icon => Resources.mcneeltopicsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "mcneel_forum_post_summarize" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "ladybug_forum_topic_summarize" };
 
-        public AIMcNeelForumPostSummarizeComponent()
+        public AILadybugForumTopicSummarizeComponent()
             : base(
-                  "AI McNeelForum Post Summarize",
-                  "AIMcNeelPostSumm",
-                  "Generate a concise summary of a McNeel Discourse forum post by ID using the configured AI provider.",
+                  "AI LadybugForum Topic Summarize",
+                  "AILadybugTopicSumm",
+                  "Generate a concise summary of a Ladybug Tools Discourse forum topic by ID using the configured AI provider.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -61,33 +60,38 @@ namespace SmartHopper.Components.Knowledge
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddIntegerParameter("Post Id", "P", "REQUIRED ID or list of IDs of the forum post(s) to summarize.", GH_ParamAccess.tree);
+            pManager.AddIntegerParameter("Topic Id", "T", "REQUIRED ID or list of IDs of the forum topic(s) to summarize.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Instructions", "I", "Optional targeted summary instructions to focus on a specific question, target, or concern.", GH_ParamAccess.item, string.Empty);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum post.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("URL", "U", "URL of the post.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum topic.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Title", "T", "Title of the forum topic.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("URL", "U", "URL of the forum topic.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Post Count", "P", "Number of posts included in the summary.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIMcNeelForumPostSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AILadybugForumTopicSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
-        private sealed class AIMcNeelForumPostSummarizeWorker : AsyncWorkerBase
+        private sealed class AILadybugForumTopicSummarizeWorker : AsyncWorkerBase
         {
-            private readonly AIMcNeelForumPostSummarizeComponent parent;
+            private readonly AILadybugForumTopicSummarizeComponent parent;
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_Integer> idsTree;
             private string instructions;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultSummaries;
+            private GH_Structure<GH_String> resultTitles;
+            private GH_Structure<GH_String> resultUrls;
+            private GH_Structure<GH_String> resultPostCounts;
 
-            public AIMcNeelForumPostSummarizeWorker(
-                AIMcNeelForumPostSummarizeComponent parent,
+            public AILadybugForumTopicSummarizeWorker(
+                AILadybugForumTopicSummarizeComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -110,7 +114,7 @@ namespace SmartHopper.Components.Knowledge
                 this.hasWork = this.idsTree != null && this.idsTree.PathCount > 0 && this.idsTree.DataCount > 0;
                 if (!this.hasWork)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one valid Id is required.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one valid Topic Id is required.");
                 }
 
                 dataCount = 0;
@@ -127,7 +131,7 @@ namespace SmartHopper.Components.Knowledge
                 {
                     var trees = new Dictionary<string, GH_Structure<GH_Integer>>
                     {
-                        { "Id", this.idsTree },
+                        { "TopicId", this.idsTree },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_Integer, GH_String>(
@@ -136,8 +140,11 @@ namespace SmartHopper.Components.Knowledge
                         {
                             var outputs = new Dictionary<string, List<GH_String>>
                             {
+                                { "TopicId", new List<GH_String>() },
                                 { "Summary", new List<GH_String>() },
+                                { "Title", new List<GH_String>() },
                                 { "Url", new List<GH_String>() },
+                                { "PostCount", new List<GH_String>() },
                             };
 
                             foreach (var kvp in branchInputs)
@@ -152,67 +159,54 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                var parameters = new JObject
+                                foreach (int id in ids)
                                 {
-                                    ["ids"] = new JArray(ids),
-                                };
-
-                                if (!string.IsNullOrWhiteSpace(this.instructions))
-                                {
-                                    parameters["instructions"] = this.instructions;
-                                }
-
-                                var toolResult = await this.parent.CallAiToolAsync("mcneel_forum_post_summarize", parameters).ConfigureAwait(false);
-
-                                if (toolResult == null)
-                                {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_post_summarize' returned no result.");
-                                    continue;
-                                }
-
-                                var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
-                                if (hasErrors)
-                                {
-                                    foreach (var msg in (JArray)toolResult["messages"])
+                                    var parameters = new JObject
                                     {
-                                        if (msg["severity"]?.ToString() == "Error")
+                                        ["topic_id"] = id,
+                                    };
+
+                                    if (!string.IsNullOrWhiteSpace(this.instructions))
+                                    {
+                                        parameters["instructions"] = this.instructions;
+                                    }
+
+                                    var toolResult = await this.parent.CallAiToolAsync("ladybug_forum_topic_summarize", parameters).ConfigureAwait(false);
+
+                                    if (toolResult == null)
+                                    {
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'ladybug_forum_topic_summarize' returned no result.");
+                                        continue;
+                                    }
+
+                                    var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
+                                    if (hasErrors)
+                                    {
+                                        foreach (var msg in (JArray)toolResult["messages"])
                                         {
-                                            var text = msg["message"]?.ToString();
-                                            if (!string.IsNullOrWhiteSpace(text))
+                                            if (msg["severity"]?.ToString() == "Error")
                                             {
-                                                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
+                                                var text = msg["message"]?.ToString();
+                                                if (!string.IsNullOrWhiteSpace(text))
+                                                {
+                                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
+                                                }
                                             }
                                         }
+                                        continue;
                                     }
 
-                                    continue;
-                                }
+                                    var topicIdValue = toolResult["topic_id"]?.ToObject<int?>() ?? id;
+                                    var summaryValue = toolResult["summary"]?.ToString() ?? string.Empty;
+                                    var titleValue = toolResult["title"]?.ToString() ?? string.Empty;
+                                    var urlValue = toolResult["url"]?.ToString() ?? string.Empty;
+                                    var postCountValue = toolResult["post_count"]?.ToObject<int?>() ?? 0;
 
-                                var summariesArray = toolResult["summaries"] as JArray;
-
-                                if (summariesArray == null || summariesArray.Count == 0)
-                                {
-                                    // Backward compatibility: single summary at root
-                                    var singleSummary = toolResult["summary"]?.ToString() ?? string.Empty;
-                                    var singleUrl = toolResult["url"]?.ToString() ?? string.Empty;
-                                    if (!string.IsNullOrWhiteSpace(singleSummary))
-                                    {
-                                        outputs["Summary"].Add(new GH_String(singleSummary));
-                                        outputs["Url"].Add(new GH_String(singleUrl));
-                                    }
-
-                                    continue;
-                                }
-
-                                foreach (var item in summariesArray.OfType<JObject>())
-                                {
-                                    var summaryValue = item["summary"]?.ToString() ?? string.Empty;
-                                    var urlValue = item["url"]?.ToString() ?? string.Empty;
-                                    if (!string.IsNullOrWhiteSpace(summaryValue))
-                                    {
-                                        outputs["Summary"].Add(new GH_String(summaryValue));
-                                        outputs["Url"].Add(new GH_String(urlValue));
-                                    }
+                                    outputs["TopicId"].Add(new GH_String(topicIdValue.ToString()));
+                                    outputs["Summary"].Add(new GH_String(summaryValue));
+                                    outputs["Title"].Add(new GH_String(titleValue));
+                                    outputs["Url"].Add(new GH_String(urlValue));
+                                    outputs["PostCount"].Add(new GH_String(postCountValue.ToString()));
                                 }
                             }
 
@@ -221,22 +215,31 @@ namespace SmartHopper.Components.Knowledge
                         this.processingOptions,
                         token).ConfigureAwait(false);
 
-                    // Map result trees back to strongly-typed structures
                     this.resultSummaries = new GH_Structure<GH_String>();
+                    this.resultTitles = new GH_Structure<GH_String>();
                     this.resultUrls = new GH_Structure<GH_String>();
+                    this.resultPostCounts = new GH_Structure<GH_String>();
 
                     if (resultTrees.TryGetValue("Summary", out var summaryTree))
                     {
                         this.resultSummaries = summaryTree;
                     }
+                    if (resultTrees.TryGetValue("Title", out var titleTree))
+                    {
+                        this.resultTitles = titleTree;
+                    }
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;
                     }
+                    if (resultTrees.TryGetValue("PostCount", out var postCountTree))
+                    {
+                        this.resultPostCounts = postCountTree;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIMcNeelForumPostSummarizeWorker] Error: {ex.Message}");
+                    Debug.WriteLine($"[AILadybugForumTopicSummarizeWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
@@ -244,10 +247,12 @@ namespace SmartHopper.Components.Knowledge
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 this.parent.SetPersistentOutput("Summary", this.resultSummaries ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Title", this.resultTitles ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("URL", this.resultUrls ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Post Count", this.resultPostCounts ?? new GH_Structure<GH_String>(), DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
-                message = hasAnySummary ? "Post(s) summarized" : "No summary available";
+                message = hasAnySummary ? "Topic(s) summarized" : "No summary available";
             }
         }
     }

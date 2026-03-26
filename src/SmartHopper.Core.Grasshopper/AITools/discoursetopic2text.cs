@@ -36,63 +36,57 @@ using SmartHopper.Infrastructure.AITools;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Provides AI tools for fetching and summarizing McNeel Discourse forum topics.
+    /// Provides generic AI tools for fetching and summarizing Discourse forum topics from any Discourse instance.
+    /// Requires the base URL to be specified as a parameter.
     /// </summary>
     public class discoursetopic2text : IAIToolProvider
     {
-        /// <summary>
-        /// Name of the get topic tool.
-        /// </summary>
-        private readonly string getTopicToolName = "discoursetopic_get";
+        private readonly string getTopicToolName = "discourse_topic_get";
+        private readonly string summarizeTopicToolName = "discourse_topic_summarize";
 
-        /// <summary>
-        /// Name of the summarize topic tool.
-        /// </summary>
-        private readonly string summarizeTopicToolName = "discoursetopic2text";
-
-        /// <summary>
-        /// Capability requirements for topic summarization.
-        /// </summary>
         private readonly AICapability summarizeCapabilityRequirements = AICapability.TextInput | AICapability.TextOutput;
 
-        /// <summary>
-        /// System prompt template for summarizing forum topics.
-        /// </summary>
         private readonly string summarizeTopicSystemPromptTemplate =
             "You are a helpful assistant that summarizes entire forum topics for users. Provide a concise summary of the main question or issue, key ideas discussed, and any conclusions or solutions. Keep the summary focused and clear.";
 
-        /// <summary>
-        /// Returns the list of tools provided by this class.
-        /// </summary>
+        /// <inheritdoc/>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
                 name: this.getTopicToolName,
-                description: "Retrieve all posts in a McNeel Discourse forum topic by topic ID (title, URL, posts array). Typically use after mcneel_forum_search when you want full thread context.",
+                description: "Retrieve all posts in a Discourse forum topic by ID from any Discourse instance (title, URL, posts array). Provide the base URL of the forum.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
+                        ""base_url"": {
+                            ""type"": ""string"",
+                            ""description"": ""Base URL of the Discourse forum (e.g., https://discourse.example.com).""
+                        },
                         ""topic_id"": {
                             ""type"": ""integer"",
                             ""description"": ""ID of the forum topic to fetch.""
                         },
                         ""max_posts"": {
                             ""type"": ""integer"",
-                            ""description"": ""Optional maximum number of posts to return. If omitted, all available posts are returned up to the server limit.""
+                            ""description"": ""Optional maximum number of posts to return.""
                         }
                     },
-                    ""required"": [""topic_id""]
+                    ""required"": [""base_url"", ""topic_id""]
                 }",
                 execute: this.GetTopicAsync);
 
             yield return new AITool(
                 name: this.summarizeTopicToolName,
-                description: "Generate a concise summary of a McNeel Discourse forum topic by ID, based on its posts. Best used after mcneel_forum_search or mcneel_forum_topic_get when the thread is long and you need a quick overview. Recommended to provide a 'instructions' parameter to focus on a specific question, target, or concern.",
+                description: "Generate a concise summary of a Discourse forum topic by ID from any Discourse instance.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
+                        ""base_url"": {
+                            ""type"": ""string"",
+                            ""description"": ""Base URL of the Discourse forum (e.g., https://discourse.example.com).""
+                        },
                         ""topic_id"": {
                             ""type"": ""integer"",
                             ""description"": ""ID of the forum topic to summarize.""
@@ -103,33 +97,32 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""instructions"": {
                             ""type"": ""string"",
-                            ""description"": ""Optional targeted summary instructions to focus on a specific question, target, or concern.""
+                            ""description"": ""Optional targeted summary instructions.""
                         }
                     },
-                    ""required"": [""topic_id""]
+                    ""required"": [""base_url"", ""topic_id""]
                 }",
                 execute: this.SummarizeTopicAsync,
                 requiredCapabilities: this.summarizeCapabilityRequirements);
-
         }
 
-        /// <summary>
-        /// Retrieves all posts in a McNeel Discourse forum topic by ID.
-        /// </summary>
         private async Task<AIReturn> GetTopicAsync(AIToolCall toolCall)
         {
-            var output = new AIReturn
-            {
-                Request = toolCall,
-            };
+            var output = new AIReturn { Request = toolCall };
 
             try
             {
-                // Local tool: skip metrics validation (provider/model/finish_reason not required)
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
+
+                string baseUrl = args["base_url"]?.ToString();
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    output.CreateError("Missing 'base_url' parameter.");
+                    return output;
+                }
 
                 int? topicIdNullable = args["topic_id"]?.Value<int>();
                 if (!topicIdNullable.HasValue)
@@ -142,7 +135,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 int maxPosts = maxPostsNullable.GetValueOrDefault(-1);
 
                 int topicId = topicIdNullable.Value;
-                var topicJson = await this.FetchTopicAsync(topicId).ConfigureAwait(false);
+                var topicJson = await this.FetchTopicAsync(baseUrl, topicId).ConfigureAwait(false);
 
                 var postStream = topicJson["post_stream"] as JObject;
                 var posts = postStream?["posts"] as JArray ?? new JArray();
@@ -153,7 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 string title = topicJson.Value<string>("title") ?? string.Empty;
-                string url = this.BuildTopicUrl(topicId, topicJson);
+                string url = this.BuildTopicUrl(baseUrl, topicId, topicJson);
 
                 var toolResult = new JObject
                 {
@@ -167,44 +160,43 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var builder = AIBodyBuilder.Create();
                 builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
-                var immutable = builder.Build();
-                output.CreateSuccess(immutable, toolCall);
+                output.CreateSuccess(builder.Build(), toolCall);
                 return output;
             }
             catch (HttpRequestException httpEx)
             {
-                Debug.WriteLine($"[mcneel_forum_topic_get] HTTP error while fetching topic: {httpEx}.");
+                Debug.WriteLine($"[discoursetopic_get] HTTP error: {httpEx}.");
                 output.CreateNetworkError(httpEx.Message, toolCall);
                 return output;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[mcneel_forum_topic_get] Error while fetching topic: {ex}.");
+                Debug.WriteLine($"[discoursetopic_get] Error: {ex}.");
                 output.CreateError($"Error: {ex.Message}", toolCall);
                 return output;
             }
         }
 
-        /// <summary>
-        /// Generates a summary of a McNeel Discourse forum topic by ID.
-        /// </summary>
         private async Task<AIReturn> SummarizeTopicAsync(AIToolCall toolCall)
         {
-            var output = new AIReturn
-            {
-                Request = toolCall,
-            };
+            var output = new AIReturn { Request = toolCall };
 
             try
             {
-                Debug.WriteLine("[McNeelForumTools] Running SummarizeTopic tool");
+                Debug.WriteLine("[DiscourseTools] Running SummarizeTopic tool");
 
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
-                string endpoint = this.summarizeTopicToolName;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
+
+                string baseUrl = args["base_url"]?.ToString();
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    output.CreateError("Missing 'base_url' parameter.");
+                    return output;
+                }
 
                 int? topicIdNullable = args["topic_id"]?.Value<int>();
                 if (!topicIdNullable.HasValue)
@@ -214,16 +206,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 int topicId = topicIdNullable.Value;
-
                 int maxPosts = args["max_posts"]?.Value<int>() ?? 50;
-                if (maxPosts <= 0)
-                {
-                    maxPosts = 50;
-                }
+                if (maxPosts <= 0) maxPosts = 50;
 
                 string instructions = args["instructions"]?.ToString();
 
-                var topicJson = await this.FetchTopicAsync(topicId).ConfigureAwait(false);
+                var topicJson = await this.FetchTopicAsync(baseUrl, topicId).ConfigureAwait(false);
                 var postStream = topicJson["post_stream"] as JObject;
                 var postsArray = postStream?["posts"] as JArray ?? new JArray();
 
@@ -233,13 +221,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 string title = topicJson.Value<string>("title") ?? string.Empty;
-                string url = this.BuildTopicUrl(topicId, topicJson);
+                string url = this.BuildTopicUrl(baseUrl, topicId, topicJson);
 
                 var contentBuilder = new StringBuilder();
                 contentBuilder.AppendLine($"# Topic summary request");
                 contentBuilder.AppendLine($"**Topic title:** {title}");
                 contentBuilder.AppendLine($"**Topic URL:** {url}");
-                contentBuilder.AppendLine($"**Number of posts included in this summary:** {postsArray.Count}");
+                contentBuilder.AppendLine($"**Number of posts included:** {postsArray.Count}");
                 contentBuilder.AppendLine();
                 contentBuilder.AppendLine("## Posts (markdown/raw content)");
                 contentBuilder.AppendLine();
@@ -249,11 +237,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     string username = postToken.Value<string>("username") ?? "Unknown";
                     string createdAt = postToken.Value<string>("created_at") ?? string.Empty;
-
-                    string content = postToken.Value<string>("raw")
-                        ?? postToken.Value<string>("excerpt")
-                        ?? string.Empty;
-
+                    string content = postToken.Value<string>("raw") ?? postToken.Value<string>("excerpt") ?? string.Empty;
                     if (string.IsNullOrWhiteSpace(content))
                     {
                         content = postToken.Value<string>("cooked") ?? string.Empty;
@@ -263,34 +247,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     contentBuilder.AppendLine();
                     contentBuilder.AppendLine(content);
                     contentBuilder.AppendLine();
-
                     index++;
                 }
 
                 string userContent = contentBuilder.ToString();
                 if (!string.IsNullOrWhiteSpace(instructions))
                 {
-                    userContent += "\n\nAdditional instructions for the summary:\n" + instructions;
+                    userContent += "\n\nAdditional instructions:\n" + instructions;
                 }
 
                 var bodyBuilder = AIBodyBuilder.Create()
-                    .AddText(
-                        AIAgent.Context,
-                        this.summarizeTopicSystemPromptTemplate)
-                    .AddText(
-                        AIAgent.User,
-                        userContent)
+                    .AddText(AIAgent.Context, this.summarizeTopicSystemPromptTemplate)
+                    .AddText(AIAgent.User, userContent)
                     .WithContextFilter("-*");
-
-                var requestBody = bodyBuilder.Build();
 
                 var summaryRequest = new AIRequestCall();
                 summaryRequest.Initialize(
                     provider: providerName,
                     model: modelName,
                     capability: this.summarizeCapabilityRequirements,
-                    endpoint: endpoint,
-                    body: requestBody);
+                    endpoint: this.summarizeTopicToolName,
+                    body: bodyBuilder.Build());
 
                 var summaryResult = await summaryRequest.Exec().ConfigureAwait(false);
 
@@ -301,7 +278,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var metrics = summaryResult.Metrics ?? new AIMetrics();
-
                 string summaryText = summaryResult.Body?.GetLastText() ?? "Failed to generate summary.";
 
                 var toolResult = new JObject
@@ -331,37 +307,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[McNeelForumTools] Error in SummarizeTopic: {ex.Message}");
-
+                Debug.WriteLine($"[DiscourseTools] Error in SummarizeTopic: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
         }
 
-        /// <summary>
-        /// Helper method to fetch a topic from the McNeel Discourse forum.
-        /// </summary>
-        private async Task<JObject> FetchTopicAsync(int topicId)
+        private async Task<JObject> FetchTopicAsync(string baseUrl, int topicId)
         {
-            return await this.FetchTopicWithQueryAsync(topicId, includeRaw: true, print: false).ConfigureAwait(false);
+            return await this.FetchTopicWithQueryAsync(baseUrl, topicId, includeRaw: true, print: false).ConfigureAwait(false);
         }
 
-        private async Task<JObject> FetchTopicWithQueryAsync(int topicId, bool includeRaw, bool print)
+        private async Task<JObject> FetchTopicWithQueryAsync(string baseUrl, int topicId, bool includeRaw, bool print)
         {
             using var httpClient = new HttpClient();
 
             var queryParts = new List<string>();
-            if (includeRaw)
-            {
-                queryParts.Add("include_raw=1");
-            }
+            if (includeRaw) queryParts.Add("include_raw=1");
+            if (print) queryParts.Add("print=true");
 
-            if (print)
-            {
-                queryParts.Add("print=true");
-            }
-
-            var builder = new StringBuilder($"https://discourse.mcneel.com/t/{topicId}.json");
+            var builder = new StringBuilder($"{baseUrl}/t/{topicId}.json");
             if (queryParts.Count > 0)
             {
                 builder.Append('?');
@@ -374,53 +339,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             if (!response.IsSuccessStatusCode)
             {
-                string serverMessage = ExtractDiscourseErrorMessage(content);
+                string serverMessage = DiscourseUtils.ExtractDiscourseErrorMessage(content);
                 string errorMessage = string.IsNullOrWhiteSpace(serverMessage)
                     ? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}"
                     : $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {serverMessage}";
-
                 throw new HttpRequestException(errorMessage);
             }
 
             return JObject.Parse(content);
         }
 
-        private static string ExtractDiscourseErrorMessage(string content)
-        {
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                return string.Empty;
-            }
-
-            try
-            {
-                var json = JObject.Parse(content);
-                var errors = json["errors"] as JArray;
-                if (errors != null && errors.Count > 0)
-                {
-                    var messages = errors.Values<string>().Where(e => !string.IsNullOrWhiteSpace(e));
-                    return string.Join("; ", messages);
-                }
-            }
-            catch
-            {
-            }
-
-            return content;
-        }
-
-        /// <summary>
-        /// Helper method to build a human-readable topic URL.
-        /// </summary>
-        private string BuildTopicUrl(int topicId, JObject topicJson)
+        private string BuildTopicUrl(string baseUrl, int topicId, JObject topicJson)
         {
             string slug = topicJson.Value<string>("slug") ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(slug))
             {
-                return $"https://discourse.mcneel.com/t/{slug}/{topicId}";
+                return $"{baseUrl}/t/{slug}/{topicId}";
             }
-
-            return $"https://discourse.mcneel.com/t/{topicId}";
+            return $"{baseUrl}/t/{topicId}";
         }
     }
 }

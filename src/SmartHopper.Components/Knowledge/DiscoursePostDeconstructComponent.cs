@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -27,22 +27,22 @@ using SmartHopper.Components.Properties;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
-    /// Deconstructs McNeelForum post JSON objects (as returned by McNeelForumSearchComponent)
-    /// into individual Grasshopper-friendly fields.
+    /// Deconstructs Discourse forum post JSON objects into individual Grasshopper-friendly fields.
+    /// Works with any Discourse instance (McNeel, Ladybug Tools, etc.).
     /// </summary>
-    public class McNeelForumDeconstructPostComponent : GH_Component
+    public class DiscoursePostDeconstructComponent : GH_Component
     {
-        public McNeelForumDeconstructPostComponent()
+        public DiscoursePostDeconstructComponent()
             : base(
-                  "Deconstruct McNeelForum Post",
-                  "DeconstructMcNeelPost",
-                  "Deconstruct McNeelForum post JSON into id, username, topic id, title, date, and cooked content.",
+                  "Deconstruct Discourse Post",
+                  "DeconstructDiscoursePost",
+                  "Deconstruct Discourse forum post JSON into id, username, topic id, title, date, and cooked content. Works with any Discourse instance.",
                   "SmartHopper",
                   "Knowledge")
         {
         }
 
-        public override Guid ComponentGuid => new Guid("A3B0C1D2-E3F4-4A5B-9C6D-7E8F90123456");
+        public override Guid ComponentGuid => new Guid("E56CBDDA-F00D-48AE-9713-3935117B94DC");
 
         /// <summary>
         /// Gets the component's icon.
@@ -54,9 +54,15 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter(
-                "McNeelForum Post",
-                "McP",
-                "JSON representation of McNeelForum posts as returned by McNeelForum Search Component.",
+                "Base URL",
+                "U",
+                "Base URL of the Discourse forum (e.g., https://discourse.mcneel.com or https://discourse.ladybug.tools).",
+                GH_ParamAccess.item,
+                "https://discourse.mcneel.com");
+            pManager.AddTextParameter(
+                "Discourse Post",
+                "P",
+                "JSON representation of Discourse forum posts as returned by Discourse Search Component.",
                 GH_ParamAccess.list);
         }
 
@@ -66,17 +72,28 @@ namespace SmartHopper.Components.Knowledge
             pManager.AddTextParameter("Username", "U", "Author username of the forum post.", GH_ParamAccess.list);
             pManager.AddIntegerParameter("Topic Id", "T", "Topic ID that the post belongs to.", GH_ParamAccess.list);
             pManager.AddTextParameter("Title", "Ti", "Title of the topic.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Post URL", "Url", "Full URL to the forum post on discourse.mcneel.com.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Post URL", "Url", "Full URL to the forum post.", GH_ParamAccess.list);
             pManager.AddTextParameter("Date", "D", "Post creation date as a string.", GH_ParamAccess.list);
             pManager.AddTextParameter("Content", "C", "Raw content of the post, in Markdown.", GH_ParamAccess.list);
             pManager.AddIntegerParameter("Reads", "R", "Number of reads for this post, if available.", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("Likes", "L", "Number of likes for this post (actions_summary id=2), if available.", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Likes", "L", "Number of likes for this post, if available.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            string baseUrl = "https://discourse.mcneel.com";
+            DA.GetData(0, ref baseUrl);
+
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                baseUrl = "https://discourse.mcneel.com";
+            }
+
+            // Remove trailing slash if present
+            baseUrl = baseUrl.TrimEnd('/');
+
             var jsonPosts = new List<string>();
-            if (!DA.GetDataList(0, jsonPosts) || jsonPosts.Count == 0)
+            if (!DA.GetDataList(1, jsonPosts) || jsonPosts.Count == 0)
             {
                 // Clear outputs when no input is provided
                 DA.SetDataList(0, new List<int>());
@@ -128,18 +145,18 @@ namespace SmartHopper.Components.Knowledge
                     int topicId = obj["topic_id"]?.Value<int?>() ?? 0;
                     string title = obj["title"]?.Value<string>() ?? string.Empty;
 
-                    // Always rewrite the URL from topic_id/post_number when possible
+                    // Build URL from base_url + topic_id/post_number when possible
                     string postUrl = string.Empty;
                     if (topicId > 0)
                     {
                         int? postNumber = obj["post_number"]?.Value<int?>();
                         if (postNumber.HasValue && postNumber.Value > 0)
                         {
-                            postUrl = $"https://discourse.mcneel.com/t/{topicId}/{postNumber.Value}";
+                            postUrl = $"{baseUrl}/t/{topicId}/{postNumber.Value}";
                         }
                         else
                         {
-                            postUrl = $"https://discourse.mcneel.com/t/{topicId}";
+                            postUrl = $"{baseUrl}/t/{topicId}";
                         }
                     }
 
@@ -161,7 +178,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[McNeelForumDeconstructPost] Failed to parse JSON at index {index}: {ex.Message}");
+                    Debug.WriteLine($"[DiscoursePostDeconstruct] Failed to parse JSON at index {index}: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Failed to parse JSON at index {index}: {ex.Message}");
 
                     ids.Add(0);

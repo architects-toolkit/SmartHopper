@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -34,38 +34,38 @@ using SmartHopper.Core.DataTree;
 namespace SmartHopper.Components.Knowledge
 {
     /// <summary>
-    /// Component that generates a concise AI summary of a McNeel Discourse forum topic by ID.
-    /// Uses the mcneel_forum_topic_summarize tool, which in turn calls the configured AI provider/model.
+    /// Component that generates a concise AI summary of a Discourse forum topic by ID from any Discourse instance.
     /// </summary>
-    public class AIMcNeelForumTopicSummarizeComponent : AIStatefulAsyncComponentBase
+    public class AIDiscourseTopicSummarizeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("B3C4D5E6-7890-4ABC-8123-4567DEF89012");
+        public override Guid ComponentGuid => new Guid("C204112B-AACD-4E4E-B4F1-5131719A57E2");
 
         protected override Bitmap Icon => Resources.mcneeltopicsummarize;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "mcneel_forum_topic_summarize" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_topic_summarize" };
 
-        public AIMcNeelForumTopicSummarizeComponent()
+        public AIDiscourseTopicSummarizeComponent()
             : base(
-                  "AI McNeelForum Topic Summarize",
-                  "AIMcNeelTopicSumm",
-                  "Generate a concise summary of a McNeel Discourse forum topic by ID using the configured AI provider.",
+                  "AI Discourse Topic Summarize",
+                  "AIDiscourseTopicSumm",
+                  "Generate a concise summary of a Discourse forum topic by ID from any Discourse instance using the configured AI provider.",
                   "SmartHopper",
                   "Knowledge")
         {
             this.RunOnlyOnInputChanges = false;
         }
 
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            pManager.AddTextParameter("Base URL", "U", "REQUIRED Base URL of the Discourse forum (e.g., https://discourse.example.com).", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Topic Id", "T", "REQUIRED ID or list of IDs of the forum topic(s) to summarize.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Instructions", "I", "Optional targeted summary instructions to focus on a specific question, target, or concern.", GH_ParamAccess.item, string.Empty);
         }
 
-        protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
+        protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum topic.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Title", "T", "Title of the forum topic.", GH_ParamAccess.tree);
@@ -75,13 +75,14 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIMcNeelForumTopicSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIDiscourseTopicSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
         }
 
-        private sealed class AIMcNeelForumTopicSummarizeWorker : AsyncWorkerBase
+        private sealed class AIDiscourseTopicSummarizeWorker : AsyncWorkerBase
         {
-            private readonly AIMcNeelForumTopicSummarizeComponent parent;
+            private readonly AIDiscourseTopicSummarizeComponent parent;
             private readonly ProcessingOptions processingOptions;
+            private string baseUrl;
             private GH_Structure<GH_Integer> idsTree;
             private string instructions;
             private bool hasWork;
@@ -91,8 +92,8 @@ namespace SmartHopper.Components.Knowledge
             private GH_Structure<GH_String> resultUrls;
             private GH_Structure<GH_String> resultPostCounts;
 
-            public AIMcNeelForumTopicSummarizeWorker(
-                AIMcNeelForumTopicSummarizeComponent parent,
+            public AIDiscourseTopicSummarizeWorker(
+                AIDiscourseTopicSummarizeComponent parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
                 ProcessingOptions processingOptions)
                 : base(parent, addRuntimeMessage)
@@ -103,19 +104,26 @@ namespace SmartHopper.Components.Knowledge
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
+                string localBaseUrl = string.Empty;
+                DA.GetData(0, ref localBaseUrl);
+
                 var localIdsTree = new GH_Structure<GH_Integer>();
-                DA.GetDataTree(0, out localIdsTree);
+                DA.GetDataTree(1, out localIdsTree);
 
                 string localInstructions = string.Empty;
-                DA.GetData(1, ref localInstructions);
+                DA.GetData(2, ref localInstructions);
 
+                this.baseUrl = localBaseUrl ?? string.Empty;
                 this.idsTree = localIdsTree ?? new GH_Structure<GH_Integer>();
                 this.instructions = localInstructions ?? string.Empty;
 
-                this.hasWork = this.idsTree != null && this.idsTree.PathCount > 0 && this.idsTree.DataCount > 0;
+                this.hasWork = !string.IsNullOrWhiteSpace(this.baseUrl) &&
+                               this.idsTree != null &&
+                               this.idsTree.PathCount > 0 &&
+                               this.idsTree.DataCount > 0;
                 if (!this.hasWork)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one valid Topic Id is required.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base URL and at least one valid Topic Id are required.");
                 }
 
                 dataCount = 0;
@@ -164,6 +172,7 @@ namespace SmartHopper.Components.Knowledge
                                 {
                                     var parameters = new JObject
                                     {
+                                        ["base_url"] = this.baseUrl,
                                         ["topic_id"] = id,
                                     };
 
@@ -172,11 +181,11 @@ namespace SmartHopper.Components.Knowledge
                                         parameters["instructions"] = this.instructions;
                                     }
 
-                                    var toolResult = await this.parent.CallAiToolAsync("mcneel_forum_topic_summarize", parameters).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAiToolAsync("discourse_topic_summarize", parameters).ConfigureAwait(false);
 
                                     if (toolResult == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_topic_summarize' returned no result.");
+                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_topic_summarize' returned no result.");
                                         continue;
                                     }
 
@@ -194,7 +203,6 @@ namespace SmartHopper.Components.Knowledge
                                                 }
                                             }
                                         }
-
                                         continue;
                                     }
 
@@ -241,7 +249,7 @@ namespace SmartHopper.Components.Knowledge
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[AIMcNeelForumTopicSummarizeWorker] Error: {ex.Message}");
+                    Debug.WriteLine($"[AIDiscourseTopicSummarizeWorker] Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }

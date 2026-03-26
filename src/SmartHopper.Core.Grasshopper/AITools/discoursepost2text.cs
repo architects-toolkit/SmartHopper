@@ -19,10 +19,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -35,59 +35,53 @@ using SmartHopper.Infrastructure.AITools;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Provides AI tools for fetching and summarizing McNeel Discourse forum posts.
+    /// Provides generic AI tools for fetching and summarizing Discourse forum posts from any Discourse instance.
+    /// Requires the base URL to be specified as a parameter.
     /// </summary>
     public class discoursepost2text : IAIToolProvider
     {
-        /// <summary>
-        /// Name of the get post tool.
-        /// </summary>
-        private readonly string getPostToolName = "discoursepost_get";
+        private readonly string getPostToolName = "discourse_post_get";
+        private readonly string summarizeToolName = "discourse_post_summarize";
 
-        /// <summary>
-        /// Name of the summarize post tool.
-        /// </summary>
-        private readonly string summarizeToolName = "discoursepost2text";
-
-        /// <summary>
-        /// System prompt template for summarizing forum posts.
-        /// </summary>
         private readonly string summarizeSystemPromptTemplate =
             "You are a helpful assistant that summarizes forum posts concisely. Provide a brief 1-2 sentence summary of the main point or question.";
 
-        /// <summary>
-        /// Capability requirements for topic summarization.
-        /// </summary>
         private readonly AICapability summarizeCapabilityRequirements = AICapability.TextInput | AICapability.TextOutput;
 
-        /// <summary>
-        /// Returns the list of tools provided by this class.
-        /// </summary>
+        /// <inheritdoc/>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
                 name: this.getPostToolName,
-                description: "Retrieve a filtered McNeel Discourse forum post by ID (username, date, title, raw markdown). Typically use after mcneel_forum_search or when the user provides a specific post URL/ID.",
+                description: "Retrieve a filtered Discourse forum post by ID from any Discourse instance (username, date, title, raw markdown). Provide the base URL of the forum.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
+                        ""base_url"": {
+                            ""type"": ""string"",
+                            ""description"": ""Base URL of the Discourse forum (e.g., https://discourse.example.com).""
+                        },
                         ""id"": {
                             ""type"": ""integer"",
                             ""description"": ""ID of the forum post to fetch.""
                         }
                     },
-                    ""required"": [""id""]
+                    ""required"": [""base_url"", ""id""]
                 }",
                 execute: this.GetPostAsync);
 
             yield return new AITool(
                 name: this.summarizeToolName,
-                description: "Generate a concise summary of one or more McNeel Discourse forum posts by ID. Usually use on post IDs from mcneel_forum_search. Prefer mcneel_forum_topic_summarize to better understand the topic context.",
+                description: "Generate a concise summary of one or more Discourse forum posts by ID from any Discourse instance.",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
+                        ""base_url"": {
+                            ""type"": ""string"",
+                            ""description"": ""Base URL of the Discourse forum (e.g., https://discourse.example.com).""
+                        },
                         ""ids"": {
                             ""type"": ""array"",
                             ""items"": {
@@ -100,29 +94,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""description"": ""Optional targeted summary instructions to focus on a specific question, target, or concern.""
                         }
                     },
-                    ""required"": [""ids""]
+                    ""required"": [""base_url"", ""ids""]
                 }",
                 execute: this.SummarizePostAsync,
                 requiredCapabilities: this.summarizeCapabilityRequirements);
         }
 
-        /// <summary>
-        /// Retrieves a full McNeel Discourse forum post by ID.
-        /// </summary>
         private async Task<AIReturn> GetPostAsync(AIToolCall toolCall)
         {
-            var output = new AIReturn()
-            {
-                Request = toolCall,
-            };
+            var output = new AIReturn() { Request = toolCall };
 
             try
             {
-                // Local tool: skip metrics validation (provider/model/finish_reason not required)
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
+
+                string baseUrl = args["base_url"]?.ToString();
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    output.CreateError("Missing 'base_url' parameter.");
+                    return output;
+                }
+
                 int? idNullable = args["id"]?.Value<int>();
                 if (!idNullable.HasValue)
                 {
@@ -131,7 +126,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 int id = idNullable.Value;
-                var filteredPost = await this.FetchFilteredPostAsync(id).ConfigureAwait(false);
+                var filteredPost = await this.FetchFilteredPostAsync(baseUrl, id).ConfigureAwait(false);
 
                 var toolResult = new JObject
                 {
@@ -141,8 +136,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var builder = AIBodyBuilder.Create();
                 builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
-                var immutable = builder.Build();
-                output.CreateSuccess(immutable, toolCall);
+                output.CreateSuccess(builder.Build(), toolCall);
                 return output;
             }
             catch (Exception ex)
@@ -152,31 +146,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        /// <summary>
-        /// Generates a summary of one or more McNeel Discourse forum posts by ID.
-        /// </summary>
         private async Task<AIReturn> SummarizePostAsync(AIToolCall toolCall)
         {
-            var output = new AIReturn()
-            {
-                Request = toolCall,
-            };
+            var output = new AIReturn() { Request = toolCall };
 
             try
             {
-                Debug.WriteLine("[McNeelForumTools] Running SummarizePost tool");
+                Debug.WriteLine("[DiscourseTools] Running SummarizePost tool");
 
-                // Extract provider and model from toolCall
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
-                string endpoint = this.summarizeToolName;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
 
-                // Collect IDs from optional "ids" array
-                var ids = new List<int>();
+                string baseUrl = args["base_url"]?.ToString();
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    output.CreateError("Missing 'base_url' parameter.");
+                    return output;
+                }
 
+                var ids = new List<int>();
                 var idsToken = args["ids"];
                 if (idsToken is JArray idsArray)
                 {
@@ -188,8 +179,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }
-
-                // When only one id is provided, add it to the list
                 else if (idsToken != null && idsToken.Type == JTokenType.Integer)
                 {
                     ids.Add(idsToken.Value<int>());
@@ -209,49 +198,36 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 foreach (int id in ids)
                 {
-                    var filteredPost = await this.FetchFilteredPostAsync(id).ConfigureAwait(false);
+                    var filteredPost = await this.FetchFilteredPostAsync(baseUrl, id).ConfigureAwait(false);
 
-                    // Extract key information for summarization
                     string username = filteredPost.Value<string>("username") ?? "Unknown";
                     string date = filteredPost.Value<string>("date") ?? string.Empty;
                     string raw = filteredPost.Value<string>("raw") ?? string.Empty;
 
-                    // Build user content with optional targeted instructions
-                    string userContent =
-                        $"Summarize this forum post:\n\nAuthor: {username}\nDate: {date}\nContent:\n{raw}";
+                    string userContent = $"Summarize this forum post:\n\nAuthor: {username}\nDate: {date}\nContent:\n{raw}";
 
                     if (!string.IsNullOrWhiteSpace(instructions))
                     {
                         userContent += $"\n\nFocus the summary on the following question/target/concern:\n{instructions}";
                     }
 
-                    // Create the summary request body
                     var bodyBuilder = AIBodyBuilder.Create()
-                        .AddText(
-                            AIAgent.Context,
-                            this.summarizeSystemPromptTemplate)
-                        .AddText(
-                            AIAgent.User,
-                            userContent)
+                        .AddText(AIAgent.Context, this.summarizeSystemPromptTemplate)
+                        .AddText(AIAgent.User, userContent)
                         .WithContextFilter("-*");
 
-                    var requestBody = bodyBuilder.Build();
-
-                    // Initiate AIRequestCall with explicit provider and model
                     var summaryRequest = new AIRequestCall();
                     summaryRequest.Initialize(
                         provider: providerName,
                         model: modelName,
                         capability: AICapability.TextInput | AICapability.TextOutput,
-                        endpoint: endpoint,
-                        body: requestBody);
+                        endpoint: this.summarizeToolName,
+                        body: bodyBuilder.Build());
 
-                    // Execute the AIRequestCall
                     var summaryResult = await summaryRequest.Exec().ConfigureAwait(false);
 
                     if (!summaryResult.Success)
                     {
-                        // Propagate structured messages from AI call
                         output.Messages = summaryResult.Messages;
                         return output;
                     }
@@ -268,23 +244,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     string summary = summaryResult.Body?.GetLastText() ?? "Failed to generate summary.";
 
-                    var summaryObject = new JObject
+                    summariesArray.Add(new JObject
                     {
                         ["id"] = id,
                         ["summary"] = summary,
                         ["username"] = username,
                         ["date"] = date,
-                    };
-
-                    summariesArray.Add(summaryObject);
+                    });
                 }
 
-                var toolResult = new JObject
-                {
-                    ["summaries"] = summariesArray,
-                };
+                var toolResult = new JObject { ["summaries"] = summariesArray };
 
-                // Backward compatibility: expose first summary at root level when only one ID is provided
                 if (summariesArray.Count == 1 && summariesArray[0] is JObject firstSummary)
                 {
                     toolResult["id"] = firstSummary["id"];
@@ -293,7 +263,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult["date"] = firstSummary["date"];
                 }
 
-                // Attach non-breaking result envelope
                 toolResult.WithEnvelope(
                     ToolResultEnvelope.Create(
                         tool: this.summarizeToolName,
@@ -312,30 +281,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[McNeelForumTools] Error in SummarizePost: {ex.Message}");
-
+                Debug.WriteLine($"[DiscourseTools] Error in SummarizePost: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
         }
 
-        /// <summary>
-        /// Helper method to fetch a post from the McNeel Discourse forum.
-        /// </summary>
-        private async Task<JObject> FetchPostAsync(int id)
+        private async Task<JObject> FetchPostAsync(string baseUrl, int id)
         {
             using var httpClient = new HttpClient();
-            var postUri = new Uri($"https://discourse.mcneel.com/posts/{id}.json");
+            var postUri = new Uri($"{baseUrl}/posts/{id}.json");
             var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             return JObject.Parse(content);
         }
 
-        private async Task<JObject> FetchFilteredPostAsync(int id)
+        private async Task<JObject> FetchFilteredPostAsync(string baseUrl, int id)
         {
-            var postJson = await this.FetchPostAsync(id).ConfigureAwait(false);
-            string filteredJson = McNeelForumUtils.FilterPostJson(postJson.ToString(Newtonsoft.Json.Formatting.None));
+            var postJson = await this.FetchPostAsync(baseUrl, id).ConfigureAwait(false);
+            string filteredJson = DiscourseUtils.FilterPostJson(postJson.ToString(Newtonsoft.Json.Formatting.None));
             return JObject.Parse(filteredJson);
         }
     }
