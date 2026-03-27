@@ -103,9 +103,6 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private AIReturn AIReturnSnapshot;
 
-        // Flag to ensure we only clear metrics once per new Processing run
-        private bool metricsInitializedForRun;
-
         /// <summary>
         /// Backing storage for the component's declared required capability before merging
         /// with tool capabilities.
@@ -360,17 +357,24 @@ namespace SmartHopper.Core.ComponentBase
                         var (isValid, validationMessages) = batchRequest.IsValid();
                         if (validationMessages?.Count > 0)
                         {
-                            var warnOrErr = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Warning || m.Severity == AIRuntimeMessageSeverity.Error);
-                            if (warnOrErr.Any())
+                            var warnings = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Warning);
+                            if (warnings.Any())
                             {
                                 var warningReturn = new AIReturn();
-                                foreach (var msg in warnOrErr)
+                                foreach (var msg in warnings)
                                 {
                                     warningReturn.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
                                 }
 
                                 this.SurfaceMessagesFromReturn(warningReturn, "batch_val");
-                                Debug.WriteLine($"[AIStatefulAsync] Surfaced {warnOrErr.Count()} validation warnings for batch request");
+                                Debug.WriteLine($"[AIStatefulAsync] Surfaced {warnings.Count()} validation warnings for batch request");
+                            }
+
+                            // Only log errors, do not surface. Call will fail if errors are relevant
+                            var errors = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Error);
+                            if (errors.Any())
+                            {
+                                Debug.WriteLine($"[AIStatefulAsync] Batch request has {errors.Count()} validation errors - proceeding with queuing anyway");
                             }
                         }
 
@@ -538,39 +542,44 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.BeforeSolveInstance();
 
-            // Reset the one-time init flag when not processing
-            if (this.CurrentState != ComponentState.Processing)
-            {
-                this.metricsInitializedForRun = false;
-            }
+            // NOTE: AIReturnSnapshot clearing moved to OnEnteringProcessingState
+            // to ensure it only happens when transitioning TO Processing, not on every solve.
+            // This prevents metrics loss when batch completes and component re-enters Processing.
+        }
 
-            // Clear previous response metrics only once when truly starting a new Processing run
-            // Conditions:
-            //  - In Processing state
-            //  - Run is true
-            //  - No active workers yet (fresh run)
-            //  - Not already initialized for this run (prevents repeated clears on multiple presolves)
-            if (this.CurrentState == ComponentState.Processing && this.Run && this.Workers.Count == 0 && !this.metricsInitializedForRun)
-            {
-                Debug.WriteLine("[AIStatefulAsyncComponentBase] Cleaning previous response metrics and batch queue for new Processing run");
-                this.AIReturnSnapshot = null;
+        /// <summary>
+        /// Called when transitioning into Processing state from a different state.
+        /// Clears previous response metrics and batch queue for a fresh run.
+        /// </summary>
+        protected override void OnEnteringProcessingState()
+        {
+            base.OnEnteringProcessingState();
 
-                // Clear batch queue and progress to prevent accumulation across multiple solve instances
-                this._batchQueue = null;
-                this._batchSentinelIds = null;
-                this._batchProgressCompleted = 0;
-                this.ResetProgress();
+            Debug.WriteLine("[AIStatefulAsyncComponentBase] Entering Processing state - clearing previous metrics and batch state");
 
-                // Clear sentinel and reconstructed trees for the new run
-                this._sentinelTrees = null;
-                this._reconstructedTrees = null;
+            // Clear previous response metrics
+            this.AIReturnSnapshot = null;
 
-                this.metricsInitializedForRun = true;
-            }
+            // Clear batch queue and progress to prevent accumulation across runs
+            this._batchQueue = null;
+            this._batchSentinelIds = null;
+            this._batchProgressCompleted = 0;
+            this.ResetProgress();
+
+            // Clear sentinel and reconstructed trees for the new run
+            this._sentinelTrees = null;
+            this._reconstructedTrees = null;
         }
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
+            // Skip output if batch is still active - outputs will be set after batch completes
+            if (this._batchSubmission != null)
+            {
+                Debug.WriteLine("[AIStatefulAsync] OnSolveInstancePostSolve: Batch still active, skipping output");
+                return;
+            }
+
             if (this.ShouldEmitMetricsInPostSolve())
             {
                 this.SetMetricsOutput(DA);
