@@ -69,10 +69,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""url""]
                 }",
-                execute: this.WebToMdAsync);
+                execute: this.Web2MdAsync);
         }
 
-        private async Task<AIReturn> WebToMdAsync(AIToolCall toolCall)
+        private async Task<AIReturn> Web2MdAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -156,7 +156,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebToMd] Error in WebToMdAsync: {ex.Message}");
+                Debug.WriteLine($"[Web2Md] Error in Web2MdAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }

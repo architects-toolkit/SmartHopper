@@ -37,7 +37,7 @@ This document aggregates development-facing information.
 | AI Script Generate (AIScriptGenerate)<br><sub>Create or edit Grasshopper script components using AI. Supports create mode (from prompts) and edit mode (from selected components).</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List To Boolean (AIList2Boolean)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AIListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
-| Web To Markdown (WebToMd)<br><sub>Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Web To Markdown (Web2Md)<br><sub>Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | File To Markdown (File2Md)<br><sub>Convert local files (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) to Markdown</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Search (McNeelForumSearch)<br><sub>Search McNeel Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Post Get (McNeelForumPostGet)<br><sub>Retrieve a McNeel Discourse forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |

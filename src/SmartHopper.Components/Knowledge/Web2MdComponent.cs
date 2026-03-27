@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Knowledge
         public Web2MdComponent()
             : base(
                   "Web To Markdown",
-                  "WebToMd",
+                  "Web2Md",
                   "Convert a web page (URL) to Markdown text. Supports Wikipedia, GitHub, GitLab, Discourse, Stack Exchange, and generic HTML pages.",
                   "SmartHopper",
                   "Knowledge")

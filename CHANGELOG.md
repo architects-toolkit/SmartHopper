@@ -116,11 +116,11 @@ Many thanks to the following contributors to this release:
     - Improved header/footer detection with expanded zones (12%/88%) and short-text repetition tracking across pages
     - Added Markdown pipe-table rendering with GFM-compatible syntax, empty-cell quality gates, and code-block fallback for irregular structures
     - Added boilerplate filters and targeted page-number suppression for cleaner output
-- **Web-to-Markdown Conversion**: New `web_to_md` tool and `WebToMdComponent` for converting web pages to Markdown
+- **Web-to-Markdown Conversion**: New `web_to_md` tool and `Web2MdComponent` for converting web pages to Markdown
   - New `UrlConverter` leverages same `IFileConverter` framework as `file2md`
   - Specialized handlers for Wikipedia, GitHub, GitLab, Discourse, Stack Exchange
   - Falls back to `HtmlConverter` for generic pages with readability scoring
-  - New `WebToMdComponent` exposes URL-to-Markdown conversion directly on the Grasshopper canvas
+  - New `Web2MdComponent` exposes URL-to-Markdown conversion directly on the Grasshopper canvas
   - **Improved HTML Extraction**: Enhanced `web_generic_page_read` generic HTML fallback with magic-html-inspired readability scoring
     - Content scoring by text density and link density
     - Boilerplate removal (nav, header, footer, ads, etc.)
