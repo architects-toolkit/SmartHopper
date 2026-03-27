@@ -16,37 +16,22 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System.Collections.Generic;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Provides AI tools for fetching and summarizing McNeel Discourse forum topics.
+    /// Provides AI tools for the McNeel Discourse forum (discourse.mcneel.com).
     /// </summary>
-    public class mcneeltopic2text : DiscourseToolsBase
+    public class discourse_mcneel_tools : DiscourseToolsBase
     {
         /// <inheritdoc/>
-        protected override string BaseUrl => "https://discourse.mcneel.com";
+        protected override string? PresetBaseUrl => "https://discourse.mcneel.com";
 
         /// <inheritdoc/>
         protected override string ForumName => "McNeel";
 
         /// <inheritdoc/>
         protected override string ToolPrefix => "mcneel";
-
-        /// <inheritdoc/>
-        public override IEnumerable<AITool> GetTools()
-        {
-            // Return only topic-related tools from base implementation
-            foreach (var tool in base.GetTools())
-            {
-                string name = tool.Name;
-                if (name.Contains("_topic_") || name == $"{this.ToolPrefix}_forum_search")
-                {
-                    yield return tool;
-                }
-            }
-        }
     }
 }

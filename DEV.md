@@ -92,27 +92,21 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic (canvas, ghjson, scripting, etc.) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `web2md` | Knowledge | Convert web pages (URLs) to Markdown with metadata and warnings | ⚪ | 🟡 | 🟠 | 🟢 |
 | `file2md` | Knowledge | Convert local files to Markdown (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_search` | Knowledge | Search any Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_post_get` | Knowledge | Retrieve a Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_topic_get` | Knowledge | Retrieve all posts in a Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discoursepost2text` | Knowledge | Retrieve a Discourse forum post by ID and convert to text, e.g. summarize it | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discoursetopic2text` | Knowledge | Retrieve all posts in a Discourse forum topic and convert to text, e.g. summarize them | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_search` | Knowledge | Search any Discourse forum with configurable limit (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_post_get` | Knowledge | Retrieve a Discourse forum post by ID (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_topic_get` | Knowledge | Retrieve all posts in a Discourse forum topic by ID (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum post (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum topic (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_search` | Knowledge | Search McNeel Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_post_get` | Knowledge | Retrieve filtered McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_post_get` | Knowledge | Retrieve a McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_topic_get` | Knowledge | Retrieve all posts in a McNeel Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_post_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneelpost2text` | Knowledge | Retrieve a McNeel forum post by ID and convert to text, e.g. summarize it | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneeltopic2text` | Knowledge | Retrieve all posts in a McNeel forum topic and convert to text, e.g. summarize them | ⚪ | 🟡 | 🟠 | 🟢 |
 | `ladybug_forum_search` | Knowledge | Search Ladybug Tools Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
 | `ladybug_forum_post_get` | Knowledge | Retrieve a Ladybug forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | `ladybug_forum_topic_get` | Knowledge | Retrieve all posts in a Ladybug forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | `ladybug_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Ladybug forum post | ⚪ | 🟡 | 🟠 | 🟢 |
 | `ladybug_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Ladybug forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
-| `ladybugpost2text` | Knowledge | Retrieve a Ladybug forum post by ID and convert to text, e.g. summarize it | ⚪ | 🟡 | 🟠 | 🟢 |
-| `ladybugtopic2text` | Knowledge | Retrieve all posts in a Ladybug forum topic and convert to text, e.g. summarize them | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_categories` | Components | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_components` | Components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_get` | Components | Retrieve Grasshopper components as GhJSON with optional filters (attr, category, type, guid, connectionDepth, metadata, runtimeData) | ⚪ | 🟡 | 🟠 | 🟢 |

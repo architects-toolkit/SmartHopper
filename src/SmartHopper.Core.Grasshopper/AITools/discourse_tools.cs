@@ -16,37 +16,23 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System.Collections.Generic;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Provides AI tools for fetching and summarizing Ladybug Tools Discourse forum posts.
+    /// Provides generic AI tools for any Discourse forum.
+    /// Requires the base URL to be specified as a parameter.
     /// </summary>
-    public class ladybugpost2text : DiscourseToolsBase
+    public class discourse_tools : DiscourseToolsBase
     {
         /// <inheritdoc/>
-        protected override string BaseUrl => "https://discourse.ladybug.tools";
+        protected override string? PresetBaseUrl => null;
 
         /// <inheritdoc/>
-        protected override string ForumName => "Ladybug Tools";
+        protected override string ForumName => "Discourse";
 
         /// <inheritdoc/>
-        protected override string ToolPrefix => "ladybug";
-
-        /// <inheritdoc/>
-        public override IEnumerable<AITool> GetTools()
-        {
-            // Return only post-related tools from base implementation
-            foreach (var tool in base.GetTools())
-            {
-                string name = tool.Name;
-                if (name.Contains("_post_") || name == $"{this.ToolPrefix}_forum_search")
-                {
-                    yield return tool;
-                }
-            }
-        }
+        protected override string ToolPrefix => "discourse";
     }
 }

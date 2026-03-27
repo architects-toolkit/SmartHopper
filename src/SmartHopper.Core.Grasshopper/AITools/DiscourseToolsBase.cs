@@ -42,9 +42,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
     public abstract class DiscourseToolsBase : IAIToolProvider
     {
         /// <summary>
-        /// Gets the base URL for the Discourse forum (e.g., "https://discourse.mcneel.com").
+        /// Gets the preset base URL for the Discourse forum (e.g., "https://discourse.mcneel.com").
+        /// If null, the tools will require base_url as a parameter.
         /// </summary>
-        protected abstract string BaseUrl { get; }
+        protected virtual string? PresetBaseUrl => null;
 
         /// <summary>
         /// Gets the display name of the forum for tool descriptions.
@@ -52,9 +53,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
         protected abstract string ForumName { get; }
 
         /// <summary>
-        /// Gets the name prefix for tools (e.g., "mcneel", "ladybug").
+        /// Gets the name prefix for tools (e.g., "mcneel", "ladybug", "discourse").
         /// </summary>
         protected abstract string ToolPrefix { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether base_url is required as a parameter.
+        /// </summary>
+        protected bool RequiresBaseUrlParameter => this.PresetBaseUrl == null;
 
         /// <summary>
         /// Capability requirements for summarization tools.
@@ -84,43 +90,54 @@ namespace SmartHopper.Core.Grasshopper.AITools
             string summarizeTopicToolName = $"{this.ToolPrefix}_forum_topic_summarize";
             string searchToolName = $"{this.ToolPrefix}_forum_search";
 
+            string baseUrlSchemaProperty = this.RequiresBaseUrlParameter
+                ? $@"""base_url"": {{
+                            ""type"": ""string"",
+                            ""description"": ""Base URL of the Discourse forum (e.g., https://discourse.example.com).""
+                        }},""
+                : "";
+
+            string baseUrlRequired = this.RequiresBaseUrlParameter ? """"base_url"","" : "";
+
             yield return new AITool(
                 name: getPostToolName,
                 description: $"Retrieve a filtered {this.ForumName} forum post by ID (username, date, title, raw markdown).",
                 category: "Knowledge",
-                parametersSchema: @"{
+                parametersSchema: $"""{{
                     ""type"": ""object"",
-                    ""properties"": {
-                        ""id"": {
+                    ""properties": {{
+                        {baseUrlSchemaProperty}
+                        ""id"": {{
                             ""type"": ""integer"",
                             ""description"": ""ID of the forum post to fetch.""
-                        }
-                    },
-                    ""required"": [""id""]
-                }",
+                        }}
+                    }},
+                    ""required"": [{baseUrlRequired}""id""]
+                }}""",
                 execute: this.GetPostAsync);
 
             yield return new AITool(
                 name: summarizePostToolName,
                 description: $"Generate a concise summary of one or more {this.ForumName} forum posts by ID.",
                 category: "Knowledge",
-                parametersSchema: @"{
+                parametersSchema: $"""{{
                     ""type"": ""object"",
-                    ""properties"": {
-                        ""ids"": {
+                    ""properties": {{
+                        {baseUrlSchemaProperty}
+                        ""ids"": {{
                             ""type"": ""array"",
-                            ""items"": {
+                            ""items"": {{
                                 ""type"": ""integer""
-                            },
+                            }},
                             ""description"": ""ID or list of forum post IDs to summarize.""
-                        },
-                        ""instructions"": {
+                        }},
+                        ""instructions"": {{
                             ""type"": ""string"",
                             ""description"": ""Optional targeted summary instructions to focus on a specific question, target, or concern.""
-                        }
-                    },
-                    ""required"": [""ids""]
-                }",
+                        }}
+                    }},
+                    ""required"": [{baseUrlRequired}""ids""]
+                }}""",
                 execute: this.SummarizePostAsync,
                 requiredCapabilities: this.SummarizeCapabilityRequirements);
 
@@ -128,44 +145,46 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 name: getTopicToolName,
                 description: $"Retrieve all posts in a {this.ForumName} forum topic by topic ID (title, URL, posts array).",
                 category: "Knowledge",
-                parametersSchema: @"{
+                parametersSchema: $"""{{
                     ""type"": ""object"",
-                    ""properties"": {
-                        ""topic_id"": {
+                    ""properties": {{
+                        {baseUrlSchemaProperty}
+                        ""topic_id"": {{
                             ""type"": ""integer"",
                             ""description"": ""ID of the forum topic to fetch.""
-                        },
-                        ""max_posts"": {
+                        }},
+                        ""max_posts"": {{
                             ""type"": ""integer"",
                             ""description"": ""Optional maximum number of posts to return. If omitted, all available posts are returned up to the server limit.""
-                        }
-                    },
-                    ""required"": [""topic_id""]
-                }",
+                        }}
+                    }},
+                    ""required"": [{baseUrlRequired}""topic_id""]
+                }}""",
                 execute: this.GetTopicAsync);
 
             yield return new AITool(
                 name: summarizeTopicToolName,
                 description: $"Generate a concise summary of a {this.ForumName} forum topic by ID, based on its posts.",
                 category: "Knowledge",
-                parametersSchema: @"{
+                parametersSchema: $"""{{
                     ""type"": ""object"",
-                    ""properties"": {
-                        ""topic_id"": {
+                    ""properties": {{
+                        {baseUrlSchemaProperty}
+                        ""topic_id"": {{
                             ""type"": ""integer"",
                             ""description"": ""ID of the forum topic to summarize.""
-                        },
-                        ""max_posts"": {
+                        }},
+                        ""max_posts"": {{
                             ""type"": ""integer"",
                             ""description"": ""Optional maximum number of posts to include in the summary input (default: 50).""
-                        },
-                        ""instructions"": {
+                        }},
+                        ""instructions"": {{
                             ""type"": ""string"",
                             ""description"": ""Optional targeted summary instructions to focus on a specific question, target, or concern.""
-                        }
-                    },
-                    ""required"": [""topic_id""]
-                }",
+                        }}
+                    }},
+                    ""required"": [{baseUrlRequired}""topic_id""]
+                }}""",
                 execute: this.SummarizeTopicAsync,
                 requiredCapabilities: this.SummarizeCapabilityRequirements);
 
@@ -173,21 +192,52 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 name: searchToolName,
                 description: $"Search {this.ForumName} forum posts by query and return matching results.",
                 category: "Knowledge",
-                parametersSchema: @"{
+                parametersSchema: $"""{{
                     ""type"": ""object"",
-                    ""properties"": {
-                        ""query"": {
+                    ""properties": {{
+                        {baseUrlSchemaProperty}
+                        ""query"": {{
                             ""type"": ""string"",
                             ""description"": ""Search query for the forum.""
-                        },
-                        ""limit"": {
+                        }},
+                        ""limit"": {{
                             ""type"": ""integer"",
                             ""description"": ""Maximum number of posts to return (default: 10, max: 50).""
-                        }
-                    },
-                    ""required"": [""query""]
-                }",
+                        }}
+                    }},
+                    ""required"": [{baseUrlRequired}""query""]
+                }}""",
                 execute: this.SearchAsync);
+        }
+
+        /// <summary>
+        /// Gets the base URL from arguments or falls back to preset.
+        /// </summary>
+        protected string? GetBaseUrl(JObject args)
+        {
+            // When PresetBaseUrl is set, always use it and ignore any base_url in args
+            if (!this.RequiresBaseUrlParameter)
+            {
+                return this.PresetBaseUrl;
+            }
+
+            // For generic mode, get URL from args
+            string? url = args["base_url"]?.ToString();
+            return string.IsNullOrWhiteSpace(url) ? null : url;
+        }
+
+        /// <summary>
+        /// Validates that base URL is provided.
+        /// </summary>
+        protected bool ValidateBaseUrl(string? baseUrl, AIReturn output)
+        {
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                output.CreateError("Missing 'base_url' parameter.");
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -206,6 +256,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
+
+                string? baseUrl = this.GetBaseUrl(args);
+                if (!this.ValidateBaseUrl(baseUrl, output))
+                {
+                    return output;
+                }
+
                 int? idNullable = args["id"]?.Value<int>();
                 if (!idNullable.HasValue)
                 {
@@ -214,7 +271,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 int id = idNullable.Value;
-                var filteredPost = await this.FetchFilteredPostAsync(id).ConfigureAwait(false);
+                var filteredPost = await this.FetchFilteredPostAsync(baseUrl!, id).ConfigureAwait(false);
 
                 var toolResult = new JObject
                 {
@@ -256,6 +313,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
 
+                string? baseUrl = this.GetBaseUrl(args);
+                if (!this.ValidateBaseUrl(baseUrl, output))
+                {
+                    return output;
+                }
+
                 var ids = new List<int>();
                 var idsToken = args["ids"];
                 if (idsToken is JArray idsArray)
@@ -287,14 +350,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 foreach (int id in ids)
                 {
-                    var filteredPost = await this.FetchFilteredPostAsync(id).ConfigureAwait(false);
+                    var filteredPost = await this.FetchFilteredPostAsync(baseUrl!, id).ConfigureAwait(false);
 
                     string username = filteredPost.Value<string>("username") ?? "Unknown";
                     string date = filteredPost.Value<string>("date") ?? string.Empty;
                     string raw = filteredPost.Value<string>("raw") ?? string.Empty;
                     string topicId = filteredPost.Value<string>("topic_id") ?? string.Empty;
                     string postNumber = filteredPost.Value<string>("post_number") ?? string.Empty;
-                    string postUrl = $"{this.BaseUrl}/t/{topicId}/{postNumber}";
+                    string postUrl = $"{baseUrl}/t/{topicId}/{postNumber}";
 
                     string userContent =
                         $"Summarize this forum post:\n\nAuthor: {username}\nDate: {date}\nContent:\n{raw}";
@@ -406,6 +469,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
 
+                string? baseUrl = this.GetBaseUrl(args);
+                if (!this.ValidateBaseUrl(baseUrl, output))
+                {
+                    return output;
+                }
+
                 int? topicIdNullable = args["topic_id"]?.Value<int>();
                 if (!topicIdNullable.HasValue)
                 {
@@ -417,7 +486,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 int maxPosts = maxPostsNullable.GetValueOrDefault(-1);
 
                 int topicId = topicIdNullable.Value;
-                var topicJson = await this.FetchTopicAsync(topicId).ConfigureAwait(false);
+                var topicJson = await this.FetchTopicAsync(baseUrl!, topicId).ConfigureAwait(false);
 
                 var postStream = topicJson["post_stream"] as JObject;
                 var posts = postStream?["posts"] as JArray ?? new JArray();
@@ -428,7 +497,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 string title = topicJson.Value<string>("title") ?? string.Empty;
-                string url = this.BuildTopicUrl(topicId, topicJson);
+                string url = this.BuildTopicUrl(baseUrl!, topicId, topicJson);
 
                 var toolResult = new JObject
                 {
@@ -481,6 +550,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
 
+                string? baseUrl = this.GetBaseUrl(args);
+                if (!this.ValidateBaseUrl(baseUrl, output))
+                {
+                    return output;
+                }
+
                 int? topicIdNullable = args["topic_id"]?.Value<int>();
                 if (!topicIdNullable.HasValue)
                 {
@@ -496,9 +571,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     maxPosts = 50;
                 }
 
-                string instructions = args["instructions"]?.ToString();
+                string instructions = args["instructions"]?.ToString() ?? string.Empty;
 
-                var topicJson = await this.FetchTopicAsync(topicId).ConfigureAwait(false);
+                var topicJson = await this.FetchTopicAsync(baseUrl!, topicId).ConfigureAwait(false);
                 var postStream = topicJson["post_stream"] as JObject;
                 var postsArray = postStream?["posts"] as JArray ?? new JArray();
 
@@ -508,7 +583,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 string title = topicJson.Value<string>("title") ?? string.Empty;
-                string url = this.BuildTopicUrl(topicId, topicJson);
+                string url = this.BuildTopicUrl(baseUrl!, topicId, topicJson);
 
                 var contentBuilder = new StringBuilder();
                 contentBuilder.AppendLine($"# Topic summary request");
@@ -625,7 +700,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
 
-                string query = args["query"]?.ToString();
+                string? baseUrl = this.GetBaseUrl(args);
+                if (!this.ValidateBaseUrl(baseUrl, output))
+                {
+                    return output;
+                }
+
+                string query = args["query"]?.ToString() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(query))
                 {
                     output.CreateError("Missing 'query' parameter.");
@@ -638,7 +719,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     limit = 10;
                 }
 
-                var results = await this.SearchForumAsync(query, limit).ConfigureAwait(false);
+                var results = await this.SearchForumAsync(baseUrl!, query, limit).ConfigureAwait(false);
 
                 var toolResult = new JObject
                 {
@@ -663,10 +744,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Helper method to fetch a post from the forum.
         /// </summary>
-        private async Task<JObject> FetchPostAsync(int id)
+        private async Task<JObject> FetchPostAsync(string baseUrl, int id)
         {
             using var httpClient = new HttpClient();
-            var postUri = new Uri($"{this.BaseUrl}/posts/{id}.json");
+            var postUri = new Uri($"{baseUrl}/posts/{id}.json");
             var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -676,9 +757,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Helper method to fetch a filtered post.
         /// </summary>
-        private async Task<JObject> FetchFilteredPostAsync(int id)
+        private async Task<JObject> FetchFilteredPostAsync(string baseUrl, int id)
         {
-            var postJson = await this.FetchPostAsync(id).ConfigureAwait(false);
+            var postJson = await this.FetchPostAsync(baseUrl, id).ConfigureAwait(false);
             string filteredJson = DiscourseUtils.FilterPostJson(postJson.ToString(Newtonsoft.Json.Formatting.None));
             return JObject.Parse(filteredJson);
         }
@@ -686,15 +767,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Helper method to fetch a topic from the forum.
         /// </summary>
-        private async Task<JObject> FetchTopicAsync(int topicId)
+        private async Task<JObject> FetchTopicAsync(string baseUrl, int topicId)
         {
-            return await this.FetchTopicWithQueryAsync(topicId, includeRaw: true, print: false).ConfigureAwait(false);
+            return await this.FetchTopicWithQueryAsync(baseUrl, topicId, includeRaw: true, print: false).ConfigureAwait(false);
         }
 
         /// <summary>
         /// Helper method to fetch a topic with query parameters.
         /// </summary>
-        private async Task<JObject> FetchTopicWithQueryAsync(int topicId, bool includeRaw, bool print)
+        private async Task<JObject> FetchTopicWithQueryAsync(string baseUrl, int topicId, bool includeRaw, bool print)
         {
             using var httpClient = new HttpClient();
 
@@ -709,7 +790,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 queryParts.Add("print=true");
             }
 
-            var builder = new StringBuilder($"{this.BaseUrl}/t/{topicId}.json");
+            var builder = new StringBuilder($"{baseUrl}/t/{topicId}.json");
             if (queryParts.Count > 0)
             {
                 builder.Append('?');
@@ -736,11 +817,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Helper method to search the forum.
         /// </summary>
-        private async Task<JArray> SearchForumAsync(string query, int limit)
+        private async Task<JArray> SearchForumAsync(string baseUrl, string query, int limit)
         {
             using var httpClient = new HttpClient();
 
-            var searchUri = new Uri($"{this.BaseUrl}/search.json?q={Uri.EscapeDataString(query)}&limit={limit}");
+            var searchUri = new Uri($"{baseUrl}/search.json?q={Uri.EscapeDataString(query)}&limit={limit}");
             var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -764,15 +845,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Helper method to build a human-readable topic URL.
         /// </summary>
-        private string BuildTopicUrl(int topicId, JObject topicJson)
+        private string BuildTopicUrl(string baseUrl, int topicId, JObject topicJson)
         {
             string slug = topicJson.Value<string>("slug") ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(slug))
             {
-                return $"{this.BaseUrl}/t/{slug}/{topicId}";
+                return $"{baseUrl}/t/{slug}/{topicId}";
             }
 
-            return $"{this.BaseUrl}/t/{topicId}";
+            return $"{baseUrl}/t/{topicId}";
         }
     }
 }

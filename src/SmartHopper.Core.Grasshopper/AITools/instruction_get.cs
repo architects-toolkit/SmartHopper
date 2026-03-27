@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""topic"": {
                             ""type"": ""string"",
                             ""description"": ""Which instruction bundle to return."",
-                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility""]
+                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility"", ""mcneel-forum"", ""ladybug-forum"", ""discourse-forum"", ""research"", ""web"", ""python"", ""csharp"", ""vb""]
                         }
                     },
                     ""required"": [""topic""]
@@ -138,14 +138,31 @@ Discovering available components:
 
                 case "knowledge":
                 case "mcneel-forum":
+                case "ladybug-forum":
+                case "discourse-forum":
                 case "research":
                 case "web":
                     return """
 Knowledge base workflow:
+
+For McNeel Discourse forum (discourse.mcneel.com):
 1) mcneel_forum_search: find candidate posts/topics.
 2) mcneel_forum_topic_get / mcneel_forum_post_get: retrieve the minimum useful content.
 3) mcneel_forum_topic_summarize / mcneel_forum_post_summarize: summarize and extract actionable steps.
-4) web2md: read docs/pages by URL before citing or relying on them.
+
+For Ladybug Tools Discourse forum (discourse.ladybug.tools):
+1) ladybug_forum_search: find candidate posts/topics.
+2) ladybug_forum_topic_get / ladybug_forum_post_get: retrieve the minimum useful content.
+3) ladybug_forum_topic_summarize / ladybug_forum_post_summarize: summarize and extract actionable steps.
+
+For any other Discourse forum (requires base_url parameter):
+1) discourse_forum_search: find candidate posts/topics (requires base_url).
+2) discourse_forum_topic_get / discourse_forum_post_get: retrieve content (requires base_url).
+3) discourse_forum_topic_summarize / discourse_forum_post_summarize: summarize (requires base_url).
+
+For general content:
+- web2md: read docs/pages by URL before citing or relying on them.
+- file2md: convert local files to Markdown given a file path.
 """;
 
                 case "scripting":
@@ -182,7 +199,7 @@ Required workflows:
 """;
 
                 default:
-                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web.";
+                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, ladybug-forum, discourse-forum, research, web.";
             }
         }
     }
