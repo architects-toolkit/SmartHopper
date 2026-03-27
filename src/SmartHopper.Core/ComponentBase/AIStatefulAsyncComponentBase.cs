@@ -355,6 +355,39 @@ namespace SmartHopper.Core.ComponentBase
                     try
                     {
                         var batchRequest = batchTool.BuildRequest(toolCall);
+
+                        // Validate the request and surface warnings before queuing
+                        var (isValid, validationMessages) = batchRequest.IsValid();
+                        if (validationMessages?.Count > 0)
+                        {
+                            var warnings = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Warning);
+                            if (warnings.Any())
+                            {
+                                var warningReturn = new AIReturn();
+                                foreach (var msg in warnings)
+                                {
+                                    warningReturn.AddRuntimeMessage(msg);
+                                }
+
+                                this.SurfaceMessagesFromReturn(warningReturn, "batch_val");
+                                Debug.WriteLine($"[AIStatefulAsync] Surfaced {warnings.Count()} validation warnings for batch request");
+                            }
+
+                            var errors = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Error);
+                            if (errors.Any())
+                            {
+                                var errorReturn = new AIReturn();
+                                foreach (var msg in errors)
+                                {
+                                    errorReturn.AddRuntimeMessage(msg);
+                                }
+
+                                this.SurfaceMessagesFromReturn(errorReturn, "batch_val");
+                                
+                                Debug.WriteLine($"[AIStatefulAsync] Batch request has {errors.Count()} validation errors - proceeding with queuing anyway");
+                            }
+                        }
+
                         var index = this._batchQueue?.Count ?? 0;
                         var customId = AIBatchSubmission.GenerateCustomId(toolName, index);
 
