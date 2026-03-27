@@ -184,6 +184,7 @@ namespace SmartHopper.Components.Knowledge
                                             }
                                         }
                                     }
+
                                     continue;
                                 }
 
@@ -198,6 +199,7 @@ namespace SmartHopper.Components.Knowledge
                                         outputs["Summary"].Add(new GH_String(singleSummary));
                                         outputs["Url"].Add(new GH_String(singleUrl));
                                     }
+
                                     continue;
                                 }
 
@@ -225,6 +227,7 @@ namespace SmartHopper.Components.Knowledge
                     {
                         this.resultSummaries = summaryTree;
                     }
+
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;

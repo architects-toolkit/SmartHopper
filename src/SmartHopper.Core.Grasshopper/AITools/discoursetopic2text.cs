@@ -356,6 +356,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 return $"{baseUrl}/t/{slug}/{topicId}";
             }
+
             return $"{baseUrl}/t/{topicId}";
         }
     }

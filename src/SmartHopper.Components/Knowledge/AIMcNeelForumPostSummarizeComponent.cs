@@ -230,6 +230,7 @@ namespace SmartHopper.Components.Knowledge
                     {
                         this.resultSummaries = summaryTree;
                     }
+
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;

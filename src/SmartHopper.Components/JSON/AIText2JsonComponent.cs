@@ -52,6 +52,16 @@ namespace SmartHopper.Components.JSON
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIText2Json",
+            "AI Text to JSON",
+            "Text to JSON",
+            "text2json",
+            "JSON Generate",
+            "JSON Creator",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2json" };
 
         /// <inheritdoc/>

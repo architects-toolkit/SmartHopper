@@ -231,8 +231,10 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
             // Get final text and normalize whitespace while preserving Markdown structure
             string text = node.InnerText;
+
             // Collapse horizontal whitespace (spaces/tabs) to single space
             text = HorizontalWhitespaceRegex.Replace(text, " ");
+
             // Normalize line breaks: remove trailing spaces before newlines, collapse multiple newlines to double newline
             text = text.Replace(" \r\n", "\r\n").Replace(" \n", "\n");
             text = Regex.Replace(text, @"\r?\n(\s*\r?\n)+", Environment.NewLine + Environment.NewLine);

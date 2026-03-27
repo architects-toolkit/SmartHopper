@@ -193,6 +193,7 @@ namespace SmartHopper.Components.Knowledge
                                                 }
                                             }
                                         }
+
                                         continue;
                                     }
 
@@ -224,14 +225,17 @@ namespace SmartHopper.Components.Knowledge
                     {
                         this.resultSummaries = summaryTree;
                     }
+
                     if (resultTrees.TryGetValue("Title", out var titleTree))
                     {
                         this.resultTitles = titleTree;
                     }
+
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;
                     }
+
                     if (resultTrees.TryGetValue("PostCount", out var postCountTree))
                     {
                         this.resultPostCounts = postCountTree;
