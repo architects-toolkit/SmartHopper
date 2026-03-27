@@ -360,31 +360,17 @@ namespace SmartHopper.Core.ComponentBase
                         var (isValid, validationMessages) = batchRequest.IsValid();
                         if (validationMessages?.Count > 0)
                         {
-                            var warnings = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Warning);
-                            if (warnings.Any())
+                            var warnOrErr = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Warning || m.Severity == AIRuntimeMessageSeverity.Error);
+                            if (warnOrErr.Any())
                             {
                                 var warningReturn = new AIReturn();
-                                foreach (var msg in warnings)
+                                foreach (var msg in warnOrErr)
                                 {
-                                    warningReturn.AddRuntimeMessage(msg);
+                                    warningReturn.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
                                 }
 
                                 this.SurfaceMessagesFromReturn(warningReturn, "batch_val");
-                                Debug.WriteLine($"[AIStatefulAsync] Surfaced {warnings.Count()} validation warnings for batch request");
-                            }
-
-                            var errors = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Error);
-                            if (errors.Any())
-                            {
-                                var errorReturn = new AIReturn();
-                                foreach (var msg in errors)
-                                {
-                                    errorReturn.AddRuntimeMessage(msg);
-                                }
-
-                                this.SurfaceMessagesFromReturn(errorReturn, "batch_val");
-                                
-                                Debug.WriteLine($"[AIStatefulAsync] Batch request has {errors.Count()} validation errors - proceeding with queuing anyway");
+                                Debug.WriteLine($"[AIStatefulAsync] Surfaced {warnOrErr.Count()} validation warnings for batch request");
                             }
                         }
 

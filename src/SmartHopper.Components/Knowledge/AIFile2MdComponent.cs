@@ -540,6 +540,7 @@ namespace SmartHopper.Components.Knowledge
 
                                     outputs["Markdown"].Add(new GH_String(sb.ToString()));
                                 }
+                            }
 
                             return outputs;
                         },
