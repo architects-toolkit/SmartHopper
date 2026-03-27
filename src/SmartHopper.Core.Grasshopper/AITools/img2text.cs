@@ -85,7 +85,53 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }",
                 execute: this.DescribeImageAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                buildRequest: this.BuildDescribeRequest);
+        }
+
+        /// <summary>
+        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
+        /// Used during batch collection to aggregate multiple requests into a single batch submission.
+        /// </summary>
+        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
+        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
+        private AIRequestCall BuildDescribeRequest(AIToolCall toolCall)
+        {
+            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.Arguments ?? new JObject();
+
+            string imageUrl = args["imageUrl"]?.ToString();
+            string imageBase64 = args["imageBase64"]?.ToString();
+            string mimeType = args["mimeType"]?.ToString() ?? "image/png";
+            string prompt = args["prompt"]?.ToString();
+
+            string systemPrompt = string.IsNullOrWhiteSpace(prompt)
+                ? this.defaultPrompt
+                : prompt;
+
+            var builder = AIBodyBuilder.Create()
+                .AddSystem(systemPrompt);
+
+            if (!string.IsNullOrWhiteSpace(imageBase64))
+            {
+                builder.AddImageInputFromBase64(imageBase64, mimeType);
+            }
+            else
+            {
+                builder.AddImageInput(imageUrl);
+            }
+
+            var requestBody = builder.Build();
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: toolCall.Provider,
+                model: toolCall.Model,
+                body: requestBody,
+                endpoint: this.toolName,
+                capability: this.toolCapabilityRequirements);
+            request.Parameters = toolCall.Parameters;
+            return request;
         }
 
         /// <summary>
