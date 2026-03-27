@@ -44,6 +44,17 @@ namespace SmartHopper.Components.Text
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] { 
+            "AI Text List Generate", 
+            "AITextListGenerate",
+            "text2textlist",
+            "Text List Generate",
+            "Text List Generator",
+            "Text List Create",
+            "Text List Creator",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2textlist" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions

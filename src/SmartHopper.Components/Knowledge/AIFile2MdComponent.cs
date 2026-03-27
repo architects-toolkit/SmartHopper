@@ -55,6 +55,13 @@ namespace SmartHopper.Components.Knowledge
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] { 
+            "AIFileToMd",
+            "AIFile2Md",
+            "file2md",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "file2md" };
 
         /// <inheritdoc/>

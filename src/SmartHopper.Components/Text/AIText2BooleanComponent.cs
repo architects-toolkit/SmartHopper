@@ -46,6 +46,15 @@ namespace SmartHopper.Components.Text
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AI Text Evaluate",
+            "AITextEvaluate",
+            "text2boolean",
+            "Text Question",
+            "Text True/False",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2boolean" };
 
         public AIText2BooleanComponent()

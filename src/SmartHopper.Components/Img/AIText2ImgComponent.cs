@@ -56,6 +56,16 @@ namespace SmartHopper.Components.Img
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AI Image Generate",
+            "AIImgGen",
+            "AIImageGen",
+            "AIImgGenerate",
+            "AIImageGenerate",
+            "text2img"
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2img" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions

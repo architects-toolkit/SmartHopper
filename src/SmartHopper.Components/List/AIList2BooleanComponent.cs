@@ -46,6 +46,14 @@ namespace SmartHopper.Components.List
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
+        public override IEnumerable<string> Keywords => new[] {
+            "AI List Evaluate",
+            "AIListEvaluate",
+            "textlist2boolean",
+            "List Question",
+            "List True/False",
+        };
+
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "textlist2boolean" };
 
