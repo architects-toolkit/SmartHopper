@@ -90,54 +90,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
             string summarizeTopicToolName = $"{this.ToolPrefix}_forum_topic_summarize";
             string searchToolName = $"{this.ToolPrefix}_forum_search";
 
-            string baseUrlSchemaProperty = this.RequiresBaseUrlParameter
-                ? $@"""base_url"": {{
-                            ""type"": ""string"",
-                            ""description"": ""Base URL of the Discourse forum (e.g., https://discourse.example.com).""
-                        }},""
+            string baseUrlProperty = this.RequiresBaseUrlParameter
+                ? "\"base_url\": { \"type\": \"string\", \"description\": \"Base URL of the Discourse forum (e.g., https://discourse.example.com).\" },"
                 : "";
 
-            string baseUrlRequired = this.RequiresBaseUrlParameter ? """"base_url"","" : "";
+            string baseUrlRequired = this.RequiresBaseUrlParameter ? "\"base_url\", " : "";
 
             yield return new AITool(
                 name: getPostToolName,
                 description: $"Retrieve a filtered {this.ForumName} forum post by ID (username, date, title, raw markdown).",
                 category: "Knowledge",
-                parametersSchema: $"""{{
-                    ""type"": ""object"",
-                    ""properties": {{
-                        {baseUrlSchemaProperty}
-                        ""id"": {{
-                            ""type"": ""integer"",
-                            ""description"": ""ID of the forum post to fetch.""
-                        }}
-                    }},
-                    ""required"": [{baseUrlRequired}""id""]
-                }}""",
+                parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum post to fetch.\" }} }}, \"required\": [{baseUrlRequired}\"id\"] }}",
                 execute: this.GetPostAsync);
 
             yield return new AITool(
                 name: summarizePostToolName,
                 description: $"Generate a concise summary of one or more {this.ForumName} forum posts by ID.",
                 category: "Knowledge",
-                parametersSchema: $"""{{
-                    ""type"": ""object"",
-                    ""properties": {{
-                        {baseUrlSchemaProperty}
-                        ""ids"": {{
-                            ""type"": ""array"",
-                            ""items"": {{
-                                ""type"": ""integer""
-                            }},
-                            ""description"": ""ID or list of forum post IDs to summarize.""
-                        }},
-                        ""instructions"": {{
-                            ""type"": ""string"",
-                            ""description"": ""Optional targeted summary instructions to focus on a specific question, target, or concern.""
-                        }}
-                    }},
-                    ""required"": [{baseUrlRequired}""ids""]
-                }}""",
+                parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"ids\": {{ \"type\": \"array\", \"items\": {{ \"type\": \"integer\" }}, \"description\": \"ID or list of forum post IDs to summarize.\" }}, \"instructions\": {{ \"type\": \"string\", \"description\": \"Optional targeted summary instructions to focus on a specific question, target, or concern.\" }} }}, \"required\": [{baseUrlRequired}\"ids\"] }}",
                 execute: this.SummarizePostAsync,
                 requiredCapabilities: this.SummarizeCapabilityRequirements);
 
@@ -145,46 +115,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 name: getTopicToolName,
                 description: $"Retrieve all posts in a {this.ForumName} forum topic by topic ID (title, URL, posts array).",
                 category: "Knowledge",
-                parametersSchema: $"""{{
-                    ""type"": ""object"",
-                    ""properties": {{
-                        {baseUrlSchemaProperty}
-                        ""topic_id"": {{
-                            ""type"": ""integer"",
-                            ""description"": ""ID of the forum topic to fetch.""
-                        }},
-                        ""max_posts"": {{
-                            ""type"": ""integer"",
-                            ""description"": ""Optional maximum number of posts to return. If omitted, all available posts are returned up to the server limit.""
-                        }}
-                    }},
-                    ""required"": [{baseUrlRequired}""topic_id""]
-                }}""",
+                parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"topic_id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum topic to fetch.\" }}, \"max_posts\": {{ \"type\": \"integer\", \"description\": \"Optional maximum number of posts to return. If omitted, all available posts are returned up to the server limit.\" }} }}, \"required\": [{baseUrlRequired}\"topic_id\"] }}",
                 execute: this.GetTopicAsync);
 
             yield return new AITool(
                 name: summarizeTopicToolName,
                 description: $"Generate a concise summary of a {this.ForumName} forum topic by ID, based on its posts.",
                 category: "Knowledge",
-                parametersSchema: $"""{{
-                    ""type"": ""object"",
-                    ""properties": {{
-                        {baseUrlSchemaProperty}
-                        ""topic_id"": {{
-                            ""type"": ""integer"",
-                            ""description"": ""ID of the forum topic to summarize.""
-                        }},
-                        ""max_posts"": {{
-                            ""type"": ""integer"",
-                            ""description"": ""Optional maximum number of posts to include in the summary input (default: 50).""
-                        }},
-                        ""instructions"": {{
-                            ""type"": ""string"",
-                            ""description"": ""Optional targeted summary instructions to focus on a specific question, target, or concern.""
-                        }}
-                    }},
-                    ""required"": [{baseUrlRequired}""topic_id""]
-                }}""",
+                parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"topic_id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum topic to summarize.\" }}, \"max_posts\": {{ \"type\": \"integer\", \"description\": \"Optional maximum number of posts to include in the summary input (default: 50).\" }}, \"instructions\": {{ \"type\": \"string\", \"description\": \"Optional targeted summary instructions to focus on a specific question, target, or concern.\" }} }}, \"required\": [{baseUrlRequired}\"topic_id\"] }}",
                 execute: this.SummarizeTopicAsync,
                 requiredCapabilities: this.SummarizeCapabilityRequirements);
 
@@ -192,21 +130,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 name: searchToolName,
                 description: $"Search {this.ForumName} forum posts by query and return matching results.",
                 category: "Knowledge",
-                parametersSchema: $"""{{
-                    ""type"": ""object"",
-                    ""properties": {{
-                        {baseUrlSchemaProperty}
-                        ""query"": {{
-                            ""type"": ""string"",
-                            ""description"": ""Search query for the forum.""
-                        }},
-                        ""limit"": {{
-                            ""type"": ""integer"",
-                            ""description"": ""Maximum number of posts to return (default: 10, max: 50).""
-                        }}
-                    }},
-                    ""required"": [{baseUrlRequired}""query""]
-                }}""",
+                parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"query\": {{ \"type\": \"string\", \"description\": \"Search query for the forum.\" }}, \"limit\": {{ \"type\": \"integer\", \"description\": \"Maximum number of posts to return (default: 10, max: 50).\" }} }}, \"required\": [{baseUrlRequired}\"query\"] }}",
                 execute: this.SearchAsync);
         }
 
