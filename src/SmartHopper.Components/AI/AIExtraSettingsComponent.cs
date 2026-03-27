@@ -75,6 +75,11 @@ namespace SmartHopper.Components.AI
             if (effectiveProvider != _builtForProvider)
             {
                 RebuildInputParams(effectiveProvider);
+
+                // Expire solution to trigger recompute with new parameter structure.
+                // DA was created for the old structure, so we must not continue using it.
+                this.ExpireSolution(true);
+                return;
             }
 
             var descriptors = ProviderManager.Instance.GetExtraDescriptors(effectiveProvider).ToList();
