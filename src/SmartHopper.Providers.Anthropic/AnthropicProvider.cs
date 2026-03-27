@@ -1172,7 +1172,7 @@ namespace SmartHopper.Providers.Anthropic
             var batchRequest = new JObject { ["requests"] = requestsArray };
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
             client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
 
