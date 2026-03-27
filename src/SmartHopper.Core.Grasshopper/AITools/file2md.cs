@@ -45,7 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Default prompt used for <c>describe</c> mode: long, thorough description.
         /// </summary>
         private const string DefaultImageDescriptionPrompt =
-            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured.";
+            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured. Do not make assumptions. Do not suggest future actions. Stack to describing the image in a way that is useful for someone who cannot see it.";
 
         /// <summary>
         /// Default prompt used for <c>caption</c> and <c>embed</c> modes: short, one-sentence caption.

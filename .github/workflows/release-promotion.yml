@@ -1,11 +1,11 @@
 name: 🔄 Release Promotion (Alpha→Beta→RC→Stable)
 
 # Description: Automatically promotes versions through release stages when no issues
-# are reported within 30 days of release.
+# are reported within 15 days of release.
 #
 # Flow:
 # 1. Checks for issues labeled with the released version
-# 2. If no issues found after 30 days, promotes to next stage (alpha→beta→rc→stable)
+# 2. If no issues found after 15 days, promotes to next stage (alpha→beta→rc→stable)
 # 3. Creates release branch and PR for the promotion
 #
 # Triggers:
@@ -145,7 +145,7 @@ jobs:
         uses: ./.github/actions/versioning/check-issues-for-version
         with:
           version: ${{ matrix.version }}
-          days-lookback: '30'
+          days-lookback: '15'
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Determine if promotion needed
@@ -210,7 +210,7 @@ jobs:
           echo "| Check | Status | Details |"
           echo "|-------|--------|---------|"
           echo "| **Version Label Issues** | ${{ steps.check-issues.outputs.has-issues == 'false' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.issue-count }} open issue(s) with label |"
-          echo "| **Release Age** | ${{ steps.check-issues.outputs.release-old-enough == 'true' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.release-age-days }} days (min: 30) |"
+          echo "| **Release Age** | ${{ steps.check-issues.outputs.release-old-enough == 'true' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.release-age-days }} days (min: 15) |"
           echo "| **Last Closed Issue** | ${{ steps.check-issues.outputs.last-closed-old-enough == 'true' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.last-closed-age-days }} days since last close |"
           echo ""
           echo "### Decision"

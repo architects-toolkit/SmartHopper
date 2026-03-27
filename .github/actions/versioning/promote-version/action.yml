@@ -137,7 +137,7 @@ runs:
         $prBody = @"
         ## Version Promotion: ``$previousStage`` → ``$newStage``
         
-        This PR automatically promotes the version from ``$previousStage`` to ``$newStage`` after no issues were reported for ``${{ inputs.current-version }}`` in the last 30 days.
+        This PR automatically promotes the version from ``$previousStage`` to ``$newStage`` after no issues were reported for ``${{ inputs.current-version }}`` in the last 15 days.
         
         ### Changes
         - Updated version in `Solution.props` from `${{ inputs.current-version }}` to ``$newVersion``

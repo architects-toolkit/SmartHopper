@@ -26,8 +26,8 @@ Automatic stage progression when ALL conditions are met:
 1. Daily cron job checks all prerelease versions (alpha/beta/rc)
 2. **Promotion requires ALL three conditions**:
    - ✅ **No open issues with version label** (any stage of base version, e.g., `version: 1.4.3-alpha`)
-   - ✅ **Original release published at least 30 days ago**
-   - ✅ **Last closed issue with original version label at least 30 days ago**
+   - ✅ **Original release published at least 15 days ago**
+   - ✅ **Last closed issue with original version label at least 15 days ago**
 3. If all conditions met → creates promotion PR (e.g., `1.4.3-alpha` → `1.4.3-beta`)
 4. On merge, release-1-milestone can be triggered for the new version
 
@@ -205,8 +205,8 @@ All PRs (release → dev, dev → main) run:
 **Validation Checks (checking `1.4.3-alpha` for promotion to `1.4.3-beta`):**
 
 1. ✅ **Version label issues**: No open issues labeled `version: 1.4.3` or `version: 1.4.3-alpha`
-2. ✅ **Release age**: `1.4.3-alpha` published 35 days ago (≥30 days required)
-3. ✅ **Last closed issue**: Last issue labeled `version: 1.4.3-alpha` closed 32 days ago (≥30 days required)
+2. ✅ **Release age**: `1.4.3-alpha` published 35 days ago (≥15 days required)
+3. ✅ **Last closed issue**: Last issue labeled `version: 1.4.3-alpha` closed 32 days ago (≥15 days required)
 
 **Process:**
 
@@ -227,8 +227,8 @@ All PRs (release → dev, dev → main) run:
 **Blocking Scenarios** (promotion will NOT happen):
 
 - ❌ Any open issue labeled `version: 1.4.3` or `version: 1.4.3-alpha` (bugs still unresolved)
-- ❌ `1.4.3-alpha` release published < 30 days ago
-- ❌ Last issue with `version: 1.4.3-alpha` label closed < 30 days ago
+- ❌ `1.4.3-alpha` release published < 15 days ago
+- ❌ Last issue with `version: 1.4.3-alpha` label closed < 15 days ago
 
 ### Regular Release Example
 
