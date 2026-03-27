@@ -47,16 +47,17 @@ namespace SmartHopper.Components.Knowledge
     public class AIFile2MdComponent : AIStatefulAsyncComponentBase
     {
         /// <summary>
-        /// Per-sentinel context stored during DoWorkAsync so OnBatchCompleted can reconstruct
-        /// the final markdown. Each entry maps an img2text sentinel customId to an <see cref="ImageSentinelContext"/>.
+        /// Per-file context stored during DoWorkAsync so OnBatchCompleted can reconstruct
+        /// the final markdown. Each entry maps the representative sentinel ID (first image of the file)
+        /// to a <see cref="FileBatchContext"/> containing the base markdown and all image slots.
         /// </summary>
-        private Dictionary<string, ImageSentinelContext> _sentinelContexts;
+        private Dictionary<string, FileBatchContext> _fileContexts;
 
         /// <summary>
-        /// Flag to prevent clearing _sentinelContexts during polling re-runs.
+        /// Flag to prevent clearing _fileContexts during polling re-runs.
         /// Set to true when contexts are initialized for a fresh run.
         /// </summary>
-        private bool _sentinelContextsInitialized;
+        private bool _fileContextsInitialized;
 
         /// <summary>
         /// Local Format tree produced during DoWorkAsync; does not need AI so it is always available.
@@ -69,34 +70,45 @@ namespace SmartHopper.Components.Knowledge
         private GH_Structure<GH_ExtractedImage> _localImages;
 
         /// <summary>
-        /// Holds per-file assembly state so OnBatchCompleted can rebuild the markdown strings
-        /// once all img2text batch results are available.
+        /// Holds everything needed to assemble the final markdown for one file once all
+        /// batch image descriptions are available. Keyed by the representative sentinel ID
+        /// (first image's sentinel) in <see cref="_fileContexts"/>.
         /// </summary>
-        private sealed class ImageSentinelContext
+        private sealed class FileBatchContext
         {
-            /// <summary>Gets or sets the base markdown content (with placeholders).</summary>
+            /// <summary>Gets or sets the base markdown with <c>[image N]</c> placeholders.</summary>
             public string BaseMarkdown { get; set; }
+
+            /// <summary>Gets or sets the ordered list of image slots for this file.</summary>
+            public List<ImageSlot> Images { get; set; }
+        }
+
+        /// <summary>
+        /// Holds the metadata for one image within a file, including the sentinel ID that
+        /// maps to its AI-generated description in the batch results.
+        /// </summary>
+        private sealed class ImageSlot
+        {
+            /// <summary>Gets or sets the 1-based image index matching the <c>[image N]</c> placeholder.</summary>
+            public int Index { get; set; }
+
+            /// <summary>Gets or sets the batch sentinel ID for this image's img2text request.</summary>
+            public string SentinelId { get; set; }
+
+            /// <summary>Gets or sets the image identifier.</summary>
+            public string ImageId { get; set; }
 
             /// <summary>Gets or sets the image mode ('embed', 'describe', 'caption').</summary>
             public string ImageMode { get; set; }
 
-            /// <summary>Gets or sets the image context label (used in embed/describe output).</summary>
+            /// <summary>Gets or sets the image context label.</summary>
             public string ImageContext { get; set; }
 
-            /// <summary>Gets or sets the image id (used in describe/caption output).</summary>
-            public string ImageId { get; set; }
-
-            /// <summary>Gets or sets the image MIME type (used in embed output).</summary>
+            /// <summary>Gets or sets the image MIME type (used in embed mode).</summary>
             public string MimeType { get; set; }
 
-            /// <summary>Gets or sets the image base64 data (used in embed output).</summary>
+            /// <summary>Gets or sets the image base64 data (used in embed mode).</summary>
             public string Base64Data { get; set; }
-
-            /// <summary>Gets or sets the ordered list of all sentinel ids for the same file, used to assemble the images section once all results are available.</summary>
-            public List<string> FileSentinelIds { get; set; }
-
-            /// <summary>Gets or sets the 1-based image index (for placeholder replacement).</summary>
-            public int ImageIndex { get; set; }
         }
 
         /// <inheritdoc/>
@@ -165,85 +177,47 @@ namespace SmartHopper.Components.Knowledge
             var sentinel = this.GetSentinelTree("Markdown");
             if (results == null || sentinel == null) return;
 
-            var contexts = this._sentinelContexts;
+            var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
 
             var reconstructed = this.ProcessBatchResults<GH_String>(
                 "Markdown",
                 sentinel,
                 results,
-                (customId, resultBody) =>
+                (representativeSentinelId, _) =>
                 {
-                    // Decode the img2text description from the batch result body
-                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
-                    string description = "[Image could not be described]";
-                    if (provider != null)
+                    // Look up the file context stored during batch collection.
+                    // Each entry is keyed by the representative sentinel (first image of the file)
+                    // and contains the base markdown + ordered list of all image slots.
+                    if (this._fileContexts == null ||
+                        !this._fileContexts.TryGetValue(representativeSentinelId, out var fileCtx))
                     {
-                        var interactions = provider.Decode(resultBody);
-                        var lastText = interactions
-                            ?.OfType<AIInteractionText>()
-                            .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-                        if (lastText != null)
-                        {
-                            description = lastText.Content ?? description;
-                        }
+                        return new GH_String("[File context missing]");
                     }
 
-                    // Rebuild the images section for this file using all sentinels in order
-                    if (contexts == null || !contexts.TryGetValue(customId, out var ctx))
+                    var sb = new StringBuilder(fileCtx.BaseMarkdown);
+
+                    // Replace each [image N] placeholder with the AI-generated description
+                    foreach (var slot in fileCtx.Images)
                     {
-                        return new GH_String(description);
-                    }
-
-                    // Start with the base markdown containing placeholders
-                    var sb = new StringBuilder(ctx.BaseMarkdown);
-
-                    // Replace each placeholder with the corresponding image description
-                    foreach (var siblingId in ctx.FileSentinelIds)
-                    {
-                        if (!contexts.TryGetValue(siblingId, out var sibCtx)) continue;
-
-                        string sibDescription;
-                        if (siblingId == customId)
+                        string description = "[Image could not be described]";
+                        if (provider != null && results.TryGetValue(slot.SentinelId, out var slotBody))
                         {
-                            sibDescription = description;
-                        }
-                        else if (results.TryGetValue(siblingId, out var sibBody) && provider != null)
-                        {
-                            var sibInteractions = provider.Decode(sibBody);
-                            var sibText = sibInteractions
+                            var interactions = provider.Decode(slotBody);
+                            var lastText = interactions
                                 ?.OfType<AIInteractionText>()
                                 .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-                            sibDescription = sibText?.Content ?? "[Image could not be described]";
-                        }
-                        else
-                        {
-                            sibDescription = "[Image could not be described]";
+                            description = lastText?.Content ?? description;
                         }
 
-                        string placeholder = $"[image {sibCtx.ImageIndex}]";
-                        string replacement;
-
-                        if (sibCtx.ImageMode == "embed")
-                        {
-                            replacement = $"![{sibDescription}](data:{sibCtx.MimeType};base64,{sibCtx.Base64Data})";
-                        }
-                        else
-                        {
-                            // describe or caption: text-only block
-                            replacement = $"**[{sibCtx.ImageId} \u2014 {sibCtx.ImageContext}]**\n\n{sibDescription}";
-                        }
+                        string placeholder = $"[image {slot.Index}]";
+                        string replacement = slot.ImageMode == "embed"
+                            ? $"![{description}](data:{slot.MimeType};base64,{slot.Base64Data})"
+                            : $"**[{slot.ImageId} \u2014 {slot.ImageContext}]**\n\n{description}";
 
                         sb.Replace(placeholder, replacement);
                     }
 
-                    // Only return the assembled markdown for the first sentinel of this file;
-                    // return empty for the others so the tree structure is preserved correctly.
-                    if (ctx.FileSentinelIds.Count > 0 && ctx.FileSentinelIds[0] == customId)
-                    {
-                        return new GH_String(sb.ToString());
-                    }
-
-                    return new GH_String(string.Empty);
+                    return new GH_String(sb.ToString());
                 });
 
             this.StoreReconstructedTree("Markdown", reconstructed);
@@ -299,8 +273,8 @@ namespace SmartHopper.Components.Knowledge
             /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                // Clear sentinel context flag for fresh run (resets on new input)
-                this.parent._sentinelContextsInitialized = false;
+                // Clear file context flag for fresh run (resets on new input)
+                this.parent._fileContextsInitialized = false;
 
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);
@@ -330,10 +304,10 @@ namespace SmartHopper.Components.Knowledge
 
                 // Reset per-run component-level context used by OnBatchCompleted
                 // Only reset if not already initialized (prevents clearing during batch polling)
-                if (!this.parent._sentinelContextsInitialized)
+                if (!this.parent._fileContextsInitialized)
                 {
-                    this.parent._sentinelContexts = new Dictionary<string, ImageSentinelContext>();
-                    this.parent._sentinelContextsInitialized = true;
+                    this.parent._fileContexts = new Dictionary<string, FileBatchContext>();
+                    this.parent._fileContextsInitialized = true;
                 }
 
                 this.parent._localFormat = null;
@@ -479,7 +453,16 @@ namespace SmartHopper.Components.Knowledge
 
                                 if (isBatch && fileSentinelIds.Count > 0)
                                 {
-                                    // Register context for each sentinel so OnBatchCompleted can reassemble markdown
+                                    // Build one FileBatchContext per file containing the base markdown
+                                    // and an ordered list of ImageSlots (one per image).
+                                    // Each ImageSlot knows its own sentinel ID so OnBatchCompleted
+                                    // can fetch its AI description from the batch results directly.
+                                    var fileCtx = new FileBatchContext
+                                    {
+                                        BaseMarkdown = baseMarkdown,
+                                        Images = new List<ImageSlot>(),
+                                    };
+
                                     int imgIndex = 0;
                                     foreach (var imgToken2 in imagesArray)
                                     {
@@ -487,23 +470,24 @@ namespace SmartHopper.Components.Knowledge
                                         if (imgObj2 == null) continue;
                                         if (imgIndex >= fileSentinelIds.Count) break;
 
-                                        var sentinelId = fileSentinelIds[imgIndex];
-                                        this.parent._sentinelContexts[sentinelId] = new ImageSentinelContext
+                                        fileCtx.Images.Add(new ImageSlot
                                         {
-                                            BaseMarkdown = baseMarkdown,
+                                            Index = imgIndex + 1, // 1-based, matches [image N] placeholder
+                                            SentinelId = fileSentinelIds[imgIndex],
+                                            ImageId = imgObj2["id"]?.ToString() ?? "img",
                                             ImageMode = this.imageMode,
                                             ImageContext = imgObj2["context"]?.ToString() ?? string.Empty,
-                                            ImageId = imgObj2["id"]?.ToString() ?? "img",
                                             MimeType = imgObj2["mimeType"]?.ToString() ?? "image/png",
                                             Base64Data = imgObj2["base64Data"]?.ToString() ?? string.Empty,
-                                            FileSentinelIds = fileSentinelIds,
-                                            ImageIndex = imgIndex + 1, // 1-based index for placeholder replacement
-                                        };
+                                        });
                                         imgIndex++;
                                     }
 
-                                    // Only the first sentinel enters the output tree (one markdown per file).
-                                    // OnBatchCompleted assembles the full markdown by reading all FileSentinelIds.
+                                    // Store the file context under the representative sentinel (first image).
+                                    this.parent._fileContexts[fileSentinelIds[0]] = fileCtx;
+
+                                    // Only ONE sentinel enters the output tree — one per file.
+                                    // OnBatchCompleted reads the FileBatchContext and assembles all images.
                                     outputs["Markdown"].Add(new GH_String($"##SH_BATCH:{fileSentinelIds[0]}##"));
                                 }
                                 else

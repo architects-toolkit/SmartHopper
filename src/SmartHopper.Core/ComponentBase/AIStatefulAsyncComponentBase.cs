@@ -553,10 +553,8 @@ namespace SmartHopper.Core.ComponentBase
         /// Called when transitioning into Processing state from a different state.
         /// Clears previous response metrics and batch queue for a fresh run.
         /// </summary>
-        protected override void OnEnteringProcessingState()
+        private void OnStateProcessing()
         {
-            base.OnEnteringProcessingState();
-
             Debug.WriteLine("[AIStatefulAsyncComponentBase] Entering Processing state - clearing previous metrics and batch state");
 
             // Clear previous response metrics
@@ -568,9 +566,13 @@ namespace SmartHopper.Core.ComponentBase
             this._batchProgressCompleted = 0;
             this.ResetProgress();
 
-            // Clear sentinel and reconstructed trees for the new run
-            this._sentinelTrees = null;
-            this._reconstructedTrees = null;
+            // Only clear sentinel and reconstructed trees if NOT in active batch polling.
+            // During batch polling, these trees are needed by OnBatchCompleted to reconstruct outputs.
+            if (this._batchSubmission == null)
+            {
+                this._sentinelTrees = null;
+                this._reconstructedTrees = null;
+            }
         }
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
@@ -1086,6 +1088,7 @@ namespace SmartHopper.Core.ComponentBase
                     case AIBatchState.Expired:
                         StopBatchPollTimer();
                         _batchSubmission = null;
+
                         this.SetPersistentRuntimeMessage("batch_done", GH_RuntimeMessageLevel.Warning,
                             $"Batch {status.State.ToString().ToLowerInvariant()}: {status.ErrorMessage ?? "no details"}", false);
 
