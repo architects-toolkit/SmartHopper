@@ -39,12 +39,22 @@ This document aggregates development-facing information.
 | AI List Filter (AIListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
 | Web To Markdown (Web2Md)<br><sub>Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | File To Markdown (File2Md)<br><sub>Convert local files (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) to Markdown</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Discourse Search (DiscourseSearch)<br><sub>Search any Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Discourse Post Get (DiscoursePostGet)<br><sub>Retrieve a Discourse forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Discourse Post Open (DiscoursePostOpen)<br><sub>Open a Discourse forum post URL in the default browser</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Discourse Post Deconstruct (DiscoursePostDeconstruct)<br><sub>Deconstruct Discourse forum post JSON into individual fields</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Discourse Post Summarize (AIDiscoursePostSummarize)<br><sub>Generate AI summary of a Discourse forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Discourse Topic Summarize (AIDiscourseTopicSummarize)<br><sub>Generate AI summary of a Discourse forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Search (McNeelForumSearch)<br><sub>Search McNeel Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Post Get (McNeelForumPostGet)<br><sub>Retrieve a McNeel Discourse forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Post Open (McNeelForumPostOpen)<br><sub>Open a McNeel forum post URL in the default browser</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
-| McNeel Forum Deconstruct Post (McNeelForumDeconstructPost)<br><sub>Deconstruct forum post JSON into individual fields</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI McNeel Forum Post Summarize (AIMcNeelForumPostSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI McNeel Forum Topic Summarize (AIMcNeelForumTopicSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Ladybug Forum Search (LadybugForumSearch)<br><sub>Search Ladybug Tools Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Ladybug Forum Post Get (LadybugForumPostGet)<br><sub>Retrieve a Ladybug forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Ladybug Forum Post Open (LadybugForumPostOpen)<br><sub>Open a Ladybug forum post URL in the default browser</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Ladybug Forum Post Summarize (AILadybugForumPostSummarize)<br><sub>Generate AI summary of a Ladybug forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Ladybug Forum Topic Summarize (AILadybugForumTopicSummarize)<br><sub>Generate AI summary of a Ladybug forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | Misc | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI Text To JSON (AIText2Json)<br><sub>Generate structured JSON from a prompt using AI with JSON Schema validation</sub> | JSON | ⚪ | 🟡 | - | - |
 | JSON Schema (JsonSchema)<br><sub>Build a JSON Schema from property definitions with nested object/array support via dot-notation</sub> | JSON | ⚪ | 🟡 | - | - |
@@ -82,11 +92,27 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic (canvas, ghjson, scripting, etc.) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `web2md` | Knowledge | Convert web pages (URLs) to Markdown with metadata and warnings | ⚪ | 🟡 | 🟠 | 🟢 |
 | `file2md` | Knowledge | Convert local files to Markdown (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_search` | Knowledge | Search any Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_post_get` | Knowledge | Retrieve a Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_topic_get` | Knowledge | Retrieve all posts in a Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discoursepost2text` | Knowledge | Retrieve a Discourse forum post by ID and convert to text, e.g. summarize it | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discoursetopic2text` | Knowledge | Retrieve all posts in a Discourse forum topic and convert to text, e.g. summarize them | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_search` | Knowledge | Search McNeel Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_post_get` | Knowledge | Retrieve filtered McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_post_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_topic_get` | Knowledge | Retrieve all posts in a McNeel Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_post_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneelpost2text` | Knowledge | Retrieve a McNeel forum post by ID and convert to text, e.g. summarize it | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneeltopic2text` | Knowledge | Retrieve all posts in a McNeel forum topic and convert to text, e.g. summarize them | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_search` | Knowledge | Search Ladybug Tools Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_post_get` | Knowledge | Retrieve a Ladybug forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_topic_get` | Knowledge | Retrieve all posts in a Ladybug forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Ladybug forum post | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Ladybug forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybugpost2text` | Knowledge | Retrieve a Ladybug forum post by ID and convert to text, e.g. summarize it | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybugtopic2text` | Knowledge | Retrieve all posts in a Ladybug forum topic and convert to text, e.g. summarize them | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_categories` | Components | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_components` | Components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_get` | Components | Retrieve Grasshopper components as GhJSON with optional filters (attr, category, type, guid, connectionDepth, metadata, runtimeData) | ⚪ | 🟡 | 🟠 | 🟢 |
