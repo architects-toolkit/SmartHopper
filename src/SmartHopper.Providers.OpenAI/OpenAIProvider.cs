@@ -423,6 +423,18 @@ namespace SmartHopper.Providers.OpenAI
 
             try
             {
+                // Handle provider error responses (e.g. batch items with status_code 4xx/5xx)
+                // Format: {"error": {"message": "...", "type": "...", "code": "..."}}
+                if (response["error"] is JObject errorObj)
+                {
+                    var msg = errorObj["message"]?.ToString()
+                              ?? errorObj["type"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[OpenAI] Decode: provider error in response body: {msg}");
+                    interactions.Add(new AIInteractionError { Content = msg });
+                    return interactions;
+                }
+
                 // Handle different response types based on the response structure
                 if (response["data"] != null)
                 {

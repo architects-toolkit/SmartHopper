@@ -1158,6 +1158,23 @@ namespace SmartHopper.Core.ComponentBase
                 this.SetPersistentOutput(outputParamName, reconstructedTree, null);
             }
 
+            // Surface any provider errors from individual batch items as Grasshopper runtime messages.
+            // This mirrors how AIRequestCall.Exec() surfaces errors via SurfaceMessagesFromReturn.
+            var errorInteractions = allInteractions.OfType<AIInteractionError>().ToList();
+            if (errorInteractions.Count > 0)
+            {
+                var errorReturn = new AIReturn();
+                foreach (var err in errorInteractions)
+                {
+                    errorReturn.AddRuntimeMessage(
+                        AIRuntimeMessageSeverity.Error,
+                        AIRuntimeMessageOrigin.Provider,
+                        err.Content ?? "Provider returned an error");
+                }
+
+                this.SurfaceMessagesFromReturn(errorReturn, "batch_item");
+            }
+
             // Build aggregated AIReturn so metrics are available after batch completion
             if (allInteractions.Count > 0)
             {

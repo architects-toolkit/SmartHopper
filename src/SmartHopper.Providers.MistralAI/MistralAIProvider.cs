@@ -406,6 +406,26 @@ namespace SmartHopper.Providers.MistralAI
 
             try
             {
+                // Handle provider error responses (e.g. batch items with status_code 4xx/5xx)
+                // Format: {"message": "...", "object": "error"} or {"error": {"message": "..."}}
+                if (response["error"] is JObject errorObj)
+                {
+                    var msg = errorObj["message"]?.ToString()
+                              ?? errorObj["type"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[MistralAI] Decode: provider error in response body: {msg}");
+                    interactions.Add(new AIInteractionError { Content = msg });
+                    return interactions;
+                }
+
+                if (string.Equals(response["object"]?.ToString(), "error", StringComparison.OrdinalIgnoreCase))
+                {
+                    var msg = response["message"]?.ToString() ?? "Provider returned an error";
+                    Debug.WriteLine($"[MistralAI] Decode: provider error in response body: {msg}");
+                    interactions.Add(new AIInteractionError { Content = msg });
+                    return interactions;
+                }
+
                 var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;

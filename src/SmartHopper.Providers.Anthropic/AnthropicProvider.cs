@@ -681,6 +681,18 @@ namespace SmartHopper.Providers.Anthropic
 
             try
             {
+                // Handle provider error responses (e.g. batch items with status_code 4xx/5xx)
+                // Format: {"type": "error", "error": {"type": "...", "message": "..."}}
+                if (response["error"] is JObject errorObj)
+                {
+                    var msg = errorObj["message"]?.ToString()
+                              ?? errorObj["type"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[Anthropic] Decode: provider error in response body: {msg}");
+                    interactions.Add(new AIInteractionError { Content = msg });
+                    return interactions;
+                }
+
                 // Anthropic message response has top-level 'content' array and 'role': 'assistant'
                 var content = response["content"] as JArray;
                 string contentText = string.Empty;
