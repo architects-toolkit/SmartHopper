@@ -360,13 +360,15 @@ namespace SmartHopper.Core.ComponentBase
                             var warnings = validationMessages.Where(m => m.Severity == AIRuntimeMessageSeverity.Warning);
                             if (warnings.Any())
                             {
-                                var warningReturn = new AIReturn();
                                 foreach (var msg in warnings)
                                 {
-                                    warningReturn.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
+                                    this.SetPersistentRuntimeMessage(
+                                        "batch_val_warning",
+                                        GH_RuntimeMessageLevel.Warning,
+                                        msg.Message,
+                                        false);
                                 }
 
-                                this.SurfaceMessagesFromReturn(warningReturn, "batch_val");
                                 Debug.WriteLine($"[AIStatefulAsync] Surfaced {warnings.Count()} validation warnings for batch request");
                             }
 
