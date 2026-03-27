@@ -231,14 +231,14 @@ namespace SmartHopper.Components.JSON
 
                     if (string.IsNullOrWhiteSpace(prompt))
                     {
-                        Debug.WriteLine($"[AIText2Json] Skipping empty prompt at index {i}");
+                        Debug.WriteLine($"[AIText2Json] Skipping empty prompt at batch item {i}");
                         outputs["JSON"].Add(new GH_String(string.Empty));
                         continue;
                     }
 
                     if (string.IsNullOrWhiteSpace(schema))
                     {
-                        Debug.WriteLine($"[AIText2Json] Skipping empty schema at index {i}");
+                        Debug.WriteLine($"[AIText2Json] Skipping empty schema at batch item {i}");
                         outputs["JSON"].Add(new GH_String(string.Empty));
                         continue;
                     }
@@ -255,11 +255,26 @@ namespace SmartHopper.Components.JSON
                         parameters["instructions"] = instructions;
                     }
 
-                    var toolResult = await parent.CallAiToolAsync(
-                        "text2json", parameters).ConfigureAwait(false);
+                    try
+                    {
+                        var toolResult = await parent.CallAiToolAsync(
+                            "text2json", parameters).ConfigureAwait(false);
 
-                    string json = toolResult?["json"]?.ToString() ?? string.Empty;
-                    outputs["JSON"].Add(new GH_String(json));
+                        if (toolResult == null)
+                        {
+                            parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"[Batch Item {i}] Tool returned null result");
+                            outputs["JSON"].Add(new GH_String(string.Empty));
+                            continue;
+                        }
+
+                        string json = toolResult["json"]?.ToString() ?? string.Empty;
+                        outputs["JSON"].Add(new GH_String(json));
+                    }
+                    catch (Exception ex)
+                    {
+                        parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"[Batch Item {i}] {ex.Message}");
+                        outputs["JSON"].Add(new GH_String(string.Empty));
+                    }
                 }
 
                 return outputs;
