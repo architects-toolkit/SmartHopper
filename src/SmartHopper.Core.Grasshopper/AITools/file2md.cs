@@ -219,6 +219,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     toolResult["images"] = imagesArray;
                     toolResult["imageCount"] = result.Images.Count;
+
+                    // Insert image placeholders into markdown content for later substitution
+                    string annotatedContent = InsertImagePlaceholders(result.MarkdownContent, result.Images);
+                    toolResult["content"] = annotatedContent;
                 }
 
                 // Describe images via AI and append to markdown
@@ -343,6 +347,40 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[file2md] DescribeImageAsync failed: {ex.Message}");
                 return "[Image description failed]";
             }
+        }
+
+        /// <summary>
+        /// Inserts image placeholders into the markdown content.
+        /// Adds an "## Images" section at the bottom with [image N] placeholders
+        /// for each extracted image to enable later substitution.
+        /// </summary>
+        /// <param name="markdown">The base markdown content.</param>
+        /// <param name="images">The list of extracted images.</param>
+        /// <returns>Annotated markdown with image placeholders.</returns>
+        private static string InsertImagePlaceholders(string markdown, IList<ExtractedImage> images)
+        {
+            if (images == null || images.Count == 0)
+            {
+                return markdown;
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine(markdown);
+            sb.AppendLine();
+            sb.AppendLine("---");
+            sb.AppendLine();
+            sb.AppendLine("## Images");
+            sb.AppendLine();
+
+            for (int i = 0; i < images.Count; i++)
+            {
+                var image = images[i];
+                int imageNumber = i + 1;
+                sb.AppendLine($"*[image {imageNumber}] {image.Context}*");
+                sb.AppendLine();
+            }
+
+            return sb.ToString().Trim();
         }
     }
 }

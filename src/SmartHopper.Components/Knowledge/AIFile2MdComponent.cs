@@ -53,6 +53,12 @@ namespace SmartHopper.Components.Knowledge
         private Dictionary<string, ImageSentinelContext> _sentinelContexts;
 
         /// <summary>
+        /// Flag to prevent clearing _sentinelContexts during polling re-runs.
+        /// Set to true when contexts are initialized for a fresh run.
+        /// </summary>
+        private bool _sentinelContextsInitialized;
+
+        /// <summary>
         /// Local Format tree produced during DoWorkAsync; does not need AI so it is always available.
         /// </summary>
         private GH_Structure<GH_String> _localFormat;
@@ -68,7 +74,7 @@ namespace SmartHopper.Components.Knowledge
         /// </summary>
         private sealed class ImageSentinelContext
         {
-            /// <summary>Gets or sets the base markdown content (without image descriptions).</summary>
+            /// <summary>Gets or sets the base markdown content (with placeholders).</summary>
             public string BaseMarkdown { get; set; }
 
             /// <summary>Gets or sets the image mode ('embed', 'describe', 'caption').</summary>
@@ -88,6 +94,9 @@ namespace SmartHopper.Components.Knowledge
 
             /// <summary>Gets or sets the ordered list of all sentinel ids for the same file, used to assemble the images section once all results are available.</summary>
             public List<string> FileSentinelIds { get; set; }
+
+            /// <summary>Gets or sets the 1-based image index (for placeholder replacement).</summary>
+            public int ImageIndex { get; set; }
         }
 
         /// <inheritdoc/>
@@ -185,19 +194,10 @@ namespace SmartHopper.Components.Knowledge
                         return new GH_String(description);
                     }
 
-                    // Build the full images section only when processing the first sentinel for this file;
-                    // subsequent sentinels for the same file still need their description resolved but the
-                    // markdown assembly is done once all results are available.
-                    // Since ProcessBatchResults calls decode per-sentinel, we assemble the complete markdown
-                    // for this sentinel's file by resolving all sibling sentinels from results.
-                    var sb = new StringBuilder();
-                    sb.AppendLine(ctx.BaseMarkdown);
-                    sb.AppendLine();
-                    sb.AppendLine("---");
-                    sb.AppendLine();
-                    sb.AppendLine("## Document Images");
-                    sb.AppendLine();
+                    // Start with the base markdown containing placeholders
+                    var sb = new StringBuilder(ctx.BaseMarkdown);
 
+                    // Replace each placeholder with the corresponding image description
                     foreach (var siblingId in ctx.FileSentinelIds)
                     {
                         if (!contexts.TryGetValue(siblingId, out var sibCtx)) continue;
@@ -220,20 +220,20 @@ namespace SmartHopper.Components.Knowledge
                             sibDescription = "[Image could not be described]";
                         }
 
+                        string placeholder = $"[image {sibCtx.ImageIndex}]";
+                        string replacement;
+
                         if (sibCtx.ImageMode == "embed")
                         {
-                            sb.AppendLine($"*{sibCtx.ImageContext}*");
-                            sb.AppendLine();
-                            sb.AppendLine($"![{sibDescription}](data:{sibCtx.MimeType};base64,{sibCtx.Base64Data})");
-                            sb.AppendLine();
+                            replacement = $"![{sibDescription}](data:{sibCtx.MimeType};base64,{sibCtx.Base64Data})";
                         }
                         else
                         {
-                            sb.AppendLine($"**[{sibCtx.ImageId} — {sibCtx.ImageContext}]**");
-                            sb.AppendLine();
-                            sb.AppendLine(sibDescription);
-                            sb.AppendLine();
+                            // describe or caption: text-only block
+                            replacement = $"**[{sibCtx.ImageId} \u2014 {sibCtx.ImageContext}]**\n\n{sibDescription}";
                         }
+
+                        sb.Replace(placeholder, replacement);
                     }
 
                     // Only return the assembled markdown for the first sentinel of this file;
@@ -299,6 +299,9 @@ namespace SmartHopper.Components.Knowledge
             /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
+                // Clear sentinel context flag for fresh run (resets on new input)
+                this.parent._sentinelContextsInitialized = false;
+
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);
 
@@ -326,7 +329,13 @@ namespace SmartHopper.Components.Knowledge
                 this.resultImages = new GH_Structure<GH_ExtractedImage>();
 
                 // Reset per-run component-level context used by OnBatchCompleted
-                this.parent._sentinelContexts = new Dictionary<string, ImageSentinelContext>();
+                // Only reset if not already initialized (prevents clearing during batch polling)
+                if (!this.parent._sentinelContextsInitialized)
+                {
+                    this.parent._sentinelContexts = new Dictionary<string, ImageSentinelContext>();
+                    this.parent._sentinelContextsInitialized = true;
+                }
+
                 this.parent._localFormat = null;
                 this.parent._localImages = null;
 
@@ -488,6 +497,7 @@ namespace SmartHopper.Components.Knowledge
                                             MimeType = imgObj2["mimeType"]?.ToString() ?? "image/png",
                                             Base64Data = imgObj2["base64Data"]?.ToString() ?? string.Empty,
                                             FileSentinelIds = fileSentinelIds,
+                                            ImageIndex = imgIndex + 1, // 1-based index for placeholder replacement
                                         };
                                         imgIndex++;
                                     }
@@ -498,16 +508,11 @@ namespace SmartHopper.Components.Knowledge
                                 }
                                 else
                                 {
-                                    // Normal (non-batch) mode: assemble markdown with descriptions inline
-                                    var sb = new StringBuilder();
-                                    sb.AppendLine(baseMarkdown);
-                                    sb.AppendLine();
-                                    sb.AppendLine("---");
-                                    sb.AppendLine();
-                                    sb.AppendLine("## Document Images");
-                                    sb.AppendLine();
+                                    // Normal (non-batch) mode: replace placeholders with descriptions inline
+                                    var sb = new StringBuilder(baseMarkdown);
 
                                     int descIdx = 0;
+                                    int imageIdx = 1;
                                     foreach (var imgToken2 in imagesArray)
                                     {
                                         var imgObj2 = imgToken2 as JObject;
@@ -516,25 +521,25 @@ namespace SmartHopper.Components.Knowledge
                                         string aiText = descIdx < imgDescriptions.Count ? imgDescriptions[descIdx] : "[Image could not be described]";
                                         descIdx++;
 
+                                        string placeholder = $"[image {imageIdx}]";
+                                        string replacement;
+
                                         if (this.imageMode == "embed")
                                         {
-                                            sb.AppendLine($"*{imgObj2["context"]}*");
-                                            sb.AppendLine();
-                                            sb.AppendLine($"![{aiText}](data:{imgObj2["mimeType"]};base64,{imgObj2["base64Data"]})");
-                                            sb.AppendLine();
+                                            replacement = $"![{aiText}](data:{imgObj2["mimeType"]};base64,{imgObj2["base64Data"]})";
                                         }
                                         else
                                         {
-                                            sb.AppendLine($"**[{imgObj2["id"]} — {imgObj2["context"]}]**");
-                                            sb.AppendLine();
-                                            sb.AppendLine(aiText);
-                                            sb.AppendLine();
+                                            // describe or caption: text-only block
+                                            replacement = $"**[{imgObj2["id"]} \u2014 {imgObj2["context"]}]**\n\n{aiText}";
                                         }
+
+                                        sb.Replace(placeholder, replacement);
+                                        imageIdx++;
                                     }
 
                                     outputs["Markdown"].Add(new GH_String(sb.ToString()));
                                 }
-                            }
 
                             return outputs;
                         },
