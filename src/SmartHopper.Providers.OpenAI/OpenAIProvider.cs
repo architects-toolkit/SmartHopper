@@ -1382,7 +1382,7 @@ namespace SmartHopper.Providers.OpenAI
             var jsonlBytes = Encoding.UTF8.GetBytes(jsonlBuilder.ToString());
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
@@ -1441,7 +1441,7 @@ namespace SmartHopper.Providers.OpenAI
             if (submission == null) throw new ArgumentNullException(nameof(submission));
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
@@ -1539,7 +1539,7 @@ namespace SmartHopper.Providers.OpenAI
             if (submission == null) throw new ArgumentNullException(nameof(submission));
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 

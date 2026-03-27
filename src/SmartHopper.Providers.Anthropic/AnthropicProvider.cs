@@ -1202,7 +1202,7 @@ namespace SmartHopper.Providers.Anthropic
             if (submission == null) throw new ArgumentNullException(nameof(submission));
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
             client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
 
@@ -1303,7 +1303,7 @@ namespace SmartHopper.Providers.Anthropic
             if (submission == null) throw new ArgumentNullException(nameof(submission));
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
             client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
 

@@ -599,6 +599,36 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Creates an HttpClient configured for batch operations with extended timeout.
+        /// Batch operations typically involve file uploads/downloads and require longer timeouts
+        /// than standard API calls. Uses a default of 5 minutes (300 seconds) but respects
+        /// the per-request timeout if explicitly set and larger.
+        /// </summary>
+        /// <param name="requestTimeoutSeconds">Optional per-request timeout in seconds. If provided and larger than default, uses this value.</param>
+        /// <returns>A new HttpClient with appropriate batch timeout configured.</returns>
+        protected HttpClient CreateBatchHttpClient(int? requestTimeoutSeconds = null)
+        {
+            var client = new HttpClient();
+            
+            // Batch operations need extended timeout: use request timeout if provided and larger,
+            // otherwise default to 5 minutes (300 seconds). Clamp to reasonable bounds (1 second - 10 minutes).
+            int timeoutSeconds = requestTimeoutSeconds ?? 300;
+            timeoutSeconds = Math.Max(1, Math.Min(timeoutSeconds, 600));
+            
+            try
+            {
+                client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                Debug.WriteLine($"[{this.Name}] Batch HttpClient timeout set to {timeoutSeconds}s");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Warning: could not set batch HttpClient timeout: {ex.Message}");
+            }
+            
+            return client;
+        }
+
+        /// <summary>
         /// Common tool formatting for function definitions.
         /// </summary>
         /// <param name="toolFilter">The filter to apply to tool categories.</param>
