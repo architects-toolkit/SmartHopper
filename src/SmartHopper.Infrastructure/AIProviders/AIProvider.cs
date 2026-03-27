@@ -609,7 +609,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         protected HttpClient CreateBatchHttpClient(int? requestTimeoutSeconds = null)
         {
             var client = new HttpClient();
-            
+
             // Determine timeout: use provided value, then setting, then default.
             // Clamp to reasonable bounds (1 second - 10 minutes).
             int timeoutSeconds;
@@ -619,13 +619,13 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
             else
             {
-                // Get timeout from provider settings (if available)
-                var settings = this.GetProviderSettings();
-                timeoutSeconds = settings?.BatchHttpTimeoutSeconds ?? 300;
+                // Get timeout from global settings, default to 300 seconds
+                var globalBatchTimeout = SmartHopperSettings.Instance.GetSetting("Global", "BatchHttpTimeoutSeconds");
+                timeoutSeconds = globalBatchTimeout is int batchTimeout ? batchTimeout : 300;
             }
-            
+
             timeoutSeconds = Math.Max(1, Math.Min(timeoutSeconds, 600));
-            
+
             try
             {
                 client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
@@ -635,7 +635,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 Debug.WriteLine($"[{this.Name}] Warning: could not set batch HttpClient timeout: {ex.Message}");
             }
-            
+
             return client;
         }
 
@@ -727,11 +727,11 @@ namespace SmartHopper.Infrastructure.AIProviders
                     }
                     else
                     {
-                        // Fall back to provider setting or default (120 seconds)
-                        var settings = this.GetProviderSettings();
-                        seconds = settings?.HttpTimeoutSeconds ?? 120;
+                        // Fall back to global setting or default (120 seconds)
+                        var globalHttpTimeout = SmartHopperSettings.Instance.GetSetting("Global", "HttpTimeoutSeconds");
+                        seconds = globalHttpTimeout is int httpTimeout ? httpTimeout : 120;
                     }
-                    
+
                     httpClient.Timeout = TimeSpan.FromSeconds(seconds);
                 }
                 catch (Exception ex)
