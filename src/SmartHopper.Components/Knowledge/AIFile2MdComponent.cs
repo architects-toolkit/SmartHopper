@@ -59,6 +59,7 @@ namespace SmartHopper.Components.Knowledge
             "AIFileToMd",
             "AIFile2Md",
             "file2md",
+            "filetomd",
         };
 
         /// <inheritdoc/>
