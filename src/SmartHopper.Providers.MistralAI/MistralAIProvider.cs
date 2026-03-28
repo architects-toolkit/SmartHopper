@@ -390,7 +390,7 @@ namespace SmartHopper.Providers.MistralAI
                 }
             }
 
-            Debug.WriteLine($"[MistralAI] Request: {requestBody}");
+            // Debug.WriteLine($"[MistralAI] Request: {requestBody}");
             return requestBody.ToString();
         }
 

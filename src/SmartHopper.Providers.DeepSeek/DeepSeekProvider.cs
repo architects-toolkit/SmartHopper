@@ -415,16 +415,16 @@ namespace SmartHopper.Providers.DeepSeek
                 }
             }
 
-#if DEBUG
-            try
-            {
-                Debug.WriteLine($"[DeepSeek] Request body:");
-                Debug.WriteLine(requestBody.ToString(Formatting.Indented));
-            }
-            catch { }
-#else
-            Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
-#endif
+// #if DEBUG
+//             try
+//             {
+//                 Debug.WriteLine($"[DeepSeek] Request body:");
+//                 Debug.WriteLine(requestBody.ToString(Formatting.Indented));
+//             }
+//             catch { }
+// #else
+//             Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
+// #endif
 
             return requestBody.ToString();
         }

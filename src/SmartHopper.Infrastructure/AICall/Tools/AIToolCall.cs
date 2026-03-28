@@ -132,7 +132,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 if (completed != execTask)
                 {
                     var timed = new AIReturn();
-                    timed.CreateToolError("Tool execution cancelled or timed out", this);
+                    timed.CreateToolError($"Tool execution exceeded {timeoutSec} seconds", this);
                     return timed;
                 }
 

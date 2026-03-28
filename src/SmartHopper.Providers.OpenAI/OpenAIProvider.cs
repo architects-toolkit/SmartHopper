@@ -569,7 +569,7 @@ namespace SmartHopper.Providers.OpenAI
                 }
             }
 
-            Debug.WriteLine($"[OpenAI] ChatCompletions Request: {requestBody}");
+            // Debug.WriteLine($"[OpenAI] ChatCompletions Request: {requestBody}");
             return requestBody.ToString();
         }
 
