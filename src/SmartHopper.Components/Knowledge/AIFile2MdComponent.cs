@@ -331,6 +331,17 @@ namespace SmartHopper.Components.Knowledge
                             // already decoded and aggregated its metrics via its own decode pass.
                             if (assistantText?.Metrics != null && slot.SentinelId != representativeSentinelId)
                             {
+                                // Ensure slot metrics have provider/model set before combining
+                                if (string.IsNullOrEmpty(assistantText.Metrics.Provider))
+                                {
+                                    assistantText.Metrics.Provider = this.GetActualAIProviderName();
+                                }
+
+                                if (string.IsNullOrEmpty(assistantText.Metrics.Model))
+                                {
+                                    assistantText.Metrics.Model = this.GetModel();
+                                }
+
                                 allSlotMetrics.Add(assistantText.Metrics);
                             }
                         }
@@ -361,6 +372,9 @@ namespace SmartHopper.Components.Knowledge
             }
 
             this.StoreReconstructedTree("Markdown", reconstructed);
+
+            // Output the final combined metrics after all slot metrics have been merged
+            this.SetMetricsOutput(null);
 
             // Also persist Format and Images (computed locally, not via batch)
             if (this._localFormat != null)

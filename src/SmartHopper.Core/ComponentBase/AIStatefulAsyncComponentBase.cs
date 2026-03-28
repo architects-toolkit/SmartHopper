@@ -98,6 +98,9 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>Number of items completed so far in the active batch, for live progress display.</summary>
         private int _batchProgressCompleted;
 
+        /// <summary>Timestamp when the batch was submitted to the provider.</summary>
+        private DateTime? _batchStartTime;
+
         /// <summary>
         /// Last AI return snapshot stored by this component.
         /// </summary>
@@ -564,6 +567,7 @@ namespace SmartHopper.Core.ComponentBase
             this._batchQueue = null;
             this._batchSentinelIds = null;
             this._batchProgressCompleted = 0;
+            this._batchStartTime = null;
             this.ResetProgress();
 
             // Only clear sentinel and reconstructed trees if NOT in active batch polling.
@@ -995,8 +999,10 @@ namespace SmartHopper.Core.ComponentBase
                 var submission = await batchProvider.SubmitBatchAsync(queue, cancellationToken).ConfigureAwait(false);
                 this._batchSubmission = submission;
                 this._batchProgressCompleted = 0;
+                this._batchStartTime = DateTime.UtcNow;
                 this.Message = $"Processing batch (0/{submission.CustomIds?.Count ?? 0})...";
                 this.StartBatchPollTimer();
+                Debug.WriteLine($"[AIStatefulAsync] Batch submitted: batchId={submission.BatchId}, itemCount={submission.CustomIds?.Count ?? 0}, startTime={this._batchStartTime:O}");
                 return true;
             }
             catch (Exception ex)
@@ -1090,6 +1096,22 @@ namespace SmartHopper.Core.ComponentBase
                     case AIBatchState.Completed:
                         StopBatchPollTimer();
                         _batchSubmission = null;
+
+                        // Calculate batch completion time
+                        if (this._batchStartTime.HasValue)
+                        {
+                            var batchCompletionTime = (DateTime.UtcNow - this._batchStartTime.Value).TotalSeconds;
+                            Debug.WriteLine($"[AIStatefulAsync] Batch completed: batchId={submission.BatchId}, completionTime={batchCompletionTime:F2}s");
+
+                            // Merge batch completion time into the snapshot metrics before OnBatchCompleted
+                            if (this.CurrentAIReturnSnapshot?.Metrics != null)
+                            {
+                                this.CurrentAIReturnSnapshot.Metrics.CompletionTime = batchCompletionTime;
+                                Debug.WriteLine($"[AIStatefulAsync] Merged batch completion time into metrics: {batchCompletionTime:F2}s");
+                            }
+
+                            this._batchStartTime = null;
+                        }
 
                         if (status.Results != null)
                         {
@@ -1260,12 +1282,9 @@ namespace SmartHopper.Core.ComponentBase
                 batchReturn.CreateSuccess(allInteractions, metrics: aggregatedMetrics);
                 this.SetAIReturnSnapshot(batchReturn);
 
-                // Persist the metrics output now so RestorePersistentOutputs surfaces it
-                // after batch completion (OnSolveInstancePostSolve is skipped during batch).
-                if (aggregatedMetrics != null)
-                {
-                    this.SetMetricsOutput(null);
-                }
+                // NOTE: Do NOT call SetMetricsOutput here. OnBatchCompleted may combine additional
+                // metrics from individual batch items (e.g., per-slot metrics in AIFile2MdComponent).
+                // OnBatchCompleted should call SetMetricsOutput after all metrics are combined.
             }
 
             return reconstructedTree;
