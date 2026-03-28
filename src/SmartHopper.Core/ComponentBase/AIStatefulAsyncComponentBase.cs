@@ -593,6 +593,24 @@ namespace SmartHopper.Core.ComponentBase
             // No need to update again here - the configured model hasn't changed
         }
 
+        /// <summary>
+        /// Overrides persistent output restoration to prevent sentinel trees from being output
+        /// while a batch is actively being processed. Sentinel trees are internal implementation
+        /// details used during batch submission and should not be visible on the canvas.
+        /// </summary>
+        protected override void RestorePersistentOutputs(IGH_DataAccess DA)
+        {
+            // If a batch is actively being processed, skip restoration of sentinel trees
+            if (this._batchSubmission != null)
+            {
+                Debug.WriteLine("[AIStatefulAsync] RestorePersistentOutputs: Batch submission active, skipping sentinel tree output");
+                return;
+            }
+
+            // Otherwise, restore outputs normally
+            base.RestorePersistentOutputs(DA);
+        }
+
         #endregion
 
         #region UI

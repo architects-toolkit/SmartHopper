@@ -338,9 +338,35 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 imgToolCall.FromToolCallInteraction(imgInteraction);
 
+                Debug.WriteLine($"[file2md] DescribeImageAsync: calling img2text tool");
                 var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
-                var toolResultInteraction = imgResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                return toolResultInteraction?.Result?["description"]?.ToString() ?? "[Image could not be described]";
+                
+                Debug.WriteLine($"[file2md] DescribeImageAsync: imgResult.Success={imgResult?.Success}, Body interactions={imgResult?.Body?.Interactions.Count ?? 0}");
+                
+                if (imgResult?.Body != null)
+                {
+                    foreach (var interaction in imgResult.Body.Interactions)
+                    {
+                        Debug.WriteLine($"[file2md]   - Interaction: Agent={interaction.Agent}, Type={interaction.GetType().Name}");
+                    }
+                }
+
+                // Try to get tool result first (normal non-batch mode)
+                var toolResultInteraction = imgResult?.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                if (toolResultInteraction?.Result?["description"] != null)
+                {
+                    Debug.WriteLine($"[file2md] DescribeImageAsync: Found tool result interaction");
+                    return toolResultInteraction.Result["description"].ToString();
+                }
+
+                var assistantText = imgResult?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
+                if (assistantText?.Content != null)
+                {
+                    Debug.WriteLine($"[file2md] DescribeImageAsync: AIInteractionText found, but not AIInteractionToolResult");
+                }
+
+                Debug.WriteLine($"[file2md] DescribeImageAsync: No description found in response");
+                return "[Image could not be described]";
             }
             catch (Exception ex)
             {

@@ -191,6 +191,7 @@ namespace SmartHopper.Components.Knowledge
                     if (this._fileContexts == null ||
                         !this._fileContexts.TryGetValue(representativeSentinelId, out var fileCtx))
                     {
+                        Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: File context missing for sentinel {representativeSentinelId}");
                         return new GH_String("[File context missing]");
                     }
 
@@ -203,10 +204,13 @@ namespace SmartHopper.Components.Knowledge
                         if (provider != null && results.TryGetValue(slot.SentinelId, out var slotBody))
                         {
                             var interactions = provider.Decode(slotBody);
-                            var lastText = interactions
-                                ?.OfType<AIInteractionText>()
-                                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-                            description = lastText?.Content ?? description;
+                            
+                            // Extract description from interactions
+                            var toolResult = interactions?.OfType<AIInteractionToolResult>().FirstOrDefault();
+                            if (toolResult?.Result?["description"] != null)
+                            {
+                                description = toolResult.Result["description"].ToString();
+                            }
                         }
 
                         string placeholder = $"[image {slot.Index}]";

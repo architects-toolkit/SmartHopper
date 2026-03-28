@@ -245,22 +245,49 @@ namespace SmartHopper.Components.Knowledge
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 
+                Debug.WriteLine($"[File2Md] Calling file2md tool for: {filePath}");
                 AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                
+                Debug.WriteLine($"[File2Md] AIReturn status: {aiResult?.Status}");
+                Debug.WriteLine($"[File2Md] AIReturn has Body: {aiResult?.Body != null}");
+                Debug.WriteLine($"[File2Md] AIReturn Metrics: {(aiResult?.Metrics != null ? $"InputTokens={aiResult.Metrics.InputTokens}, OutputTokens={aiResult.Metrics.OutputTokens}" : "NULL")}");
+                
+                if (aiResult?.Body != null)
+                {
+                    Debug.WriteLine($"[File2Md] Body interaction count: {aiResult.Body.Interactions.Count}");
+                    foreach (var interaction in aiResult.Body.Interactions)
+                    {
+                        Debug.WriteLine($"[File2Md]   - Interaction: Agent={interaction.Agent}, Type={interaction.GetType().Name}");
+                    }
+                }
+
+                var toolResultInteraction = aiResult?.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
                 var toolResult = toolResultInteraction?.Result;
+
+                Debug.WriteLine($"[File2Md] Found ToolResult interaction: {toolResultInteraction != null}");
+                Debug.WriteLine($"[File2Md] ToolResult JObject: {toolResult != null}");
 
                 if (toolResult == null)
                 {
+                    Debug.WriteLine($"[File2Md] ERROR: No tool result found. Checking for assistant text response...");
+                    var assistantText = aiResult?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
+                    if (assistantText != null)
+                    {
+                        Debug.WriteLine($"[File2Md] Found assistant text instead: {assistantText.Content?.Substring(0, Math.Min(100, assistantText.Content?.Length ?? 0))}...");
+                    }
                     return (string.Empty, string.Empty, new List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage>(), new List<string> { $"Tool 'file2md' returned no result for '{filePath}'." });
                 }
 
                 string content = toolResult["content"]?.ToString() ?? string.Empty;
                 string format = toolResult["originalFormat"]?.ToString() ?? string.Empty;
 
+                Debug.WriteLine($"[File2Md] Extracted content length: {content.Length}, format: {format}");
+
                 var images = new List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage>();
                 var imagesArray = toolResult["images"] as JArray;
                 if (imagesArray != null)
                 {
+                    Debug.WriteLine($"[File2Md] Found {imagesArray.Count} images");
                     foreach (var imgToken in imagesArray)
                     {
                         var imgObj = imgToken as JObject;
@@ -278,12 +305,14 @@ namespace SmartHopper.Components.Knowledge
                 var warningsArray = toolResult["warnings"] as JArray;
                 if (warningsArray != null)
                 {
+                    Debug.WriteLine($"[File2Md] Found {warningsArray.Count} warnings");
                     foreach (var w in warningsArray)
                     {
                         warnings.Add(w.ToString());
                     }
                 }
 
+                Debug.WriteLine($"[File2Md] ConvertFileAsync complete: content={content.Length} chars, {images.Count} images, {warnings.Count} warnings");
                 return (content, format, images, warnings);
             }
         }

@@ -138,7 +138,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                         AIRuntimeMessageOrigin.Validation,
                         AIMessageCode.UnknownProvider,
                         $"Provider '{this.Provider}' could not be verified - hash check unavailable due to network issues. " +
-                        "Enable this provider only if you trust its source."));
+                        "Use this provider only if you trust its source."));
                     Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' hash verification unavailable - adding warning");
                 }
 

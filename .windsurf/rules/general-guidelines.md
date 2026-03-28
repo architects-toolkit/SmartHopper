@@ -6,11 +6,13 @@ trigger: always_on
 
 1. Follow established best practices (e.g. SOLID, naming conventions, error handling, tests), unless explicitly asked not to.
 2. Decision matrix (in priority order):
-   1. Implement high-quality, high-level architectural solutions that are maintainable and scalable
-   2. Avoid patching symptoms, identify root causes and fix them instead
-   3. Maximize security (see OWASP Top 10)
-   4. Improve performance
-   5. Ease future maintenance
+   1. Suggest clean, high-quality, base-level architectural solutions that are maintainable and scalable
+   2. Avoid patching symptoms, identify causes at origin and fix them
+   3. Ensure graceful degradation and error handling
+   4. Maximize security (see OWASP Top 10)
+   5. Improve performance
+   6. Ease future maintenance
+   7. Do not rely on fallbacks. Ensure received data is correct
 3. When you get stuck in a maze of reasoning, you should stop, give the user a full summary of what you've found, and ask for help.
 4. Conduct a brief threat review on all external inputs and secrets; reference OWASP/T12 checklist.
 5. In your post-edit summary, include:
