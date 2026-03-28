@@ -34,6 +34,7 @@ using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Knowledge
@@ -58,6 +59,13 @@ namespace SmartHopper.Components.Knowledge
         /// Set to true when contexts are initialized for a fresh run.
         /// </summary>
         private bool _fileContextsInitialized;
+
+        /// <summary>
+        /// Set to true when the batch is active but <see cref="_fileContexts"/> could not be
+        /// restored (e.g. after a crash without save). Forces <see cref="GatherInput"/> to allow
+        /// a fresh context rebuild on the next poll cycle.
+        /// </summary>
+        private bool _batchContextLost;
 
         /// <summary>
         /// Local Format tree produced during DoWorkAsync; does not need AI so it is always available.
@@ -172,12 +180,117 @@ namespace SmartHopper.Components.Knowledge
         }
 
         /// <inheritdoc/>
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer)
+        {
+            if (!base.Write(writer)) return false;
+
+            try
+            {
+                if (this._fileContexts != null && this._fileContexts.Count > 0)
+                {
+                    writer.SetInt32("FileContextCount", this._fileContexts.Count);
+                    int idx = 0;
+                    foreach (var kvp in this._fileContexts)
+                    {
+                        writer.SetString($"FileContext_{idx}_Key", kvp.Key);
+                        writer.SetString($"FileContext_{idx}_BaseMarkdown", kvp.Value.BaseMarkdown ?? string.Empty);
+                        writer.SetInt32($"FileContext_{idx}_ImageCount", kvp.Value.Images?.Count ?? 0);
+
+                        for (int i = 0; i < (kvp.Value.Images?.Count ?? 0); i++)
+                        {
+                            var img = kvp.Value.Images[i];
+                            writer.SetInt32($"FileContext_{idx}_Img_{i}_Index", img.Index);
+                            writer.SetString($"FileContext_{idx}_Img_{i}_SentinelId", img.SentinelId ?? string.Empty);
+                            writer.SetString($"FileContext_{idx}_Img_{i}_ImageId", img.ImageId ?? string.Empty);
+                            writer.SetString($"FileContext_{idx}_Img_{i}_ImageMode", img.ImageMode ?? string.Empty);
+                            writer.SetString($"FileContext_{idx}_Img_{i}_ImageContext", img.ImageContext ?? string.Empty);
+                            writer.SetString($"FileContext_{idx}_Img_{i}_MimeType", img.MimeType ?? string.Empty);
+                            writer.SetString($"FileContext_{idx}_Img_{i}_Base64Data", img.Base64Data ?? string.Empty);
+                        }
+
+                        idx++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AIFile2Md] Write file contexts error: {ex.Message}");
+            }
+
+            return true;
+        }
+
+        /// <inheritdoc/>
+        public override bool Read(GH_IO.Serialization.GH_IReader reader)
+        {
+            if (!base.Read(reader)) return false;
+
+            try
+            {
+                if (reader.ItemExists("FileContextCount"))
+                {
+                    int count = reader.GetInt32("FileContextCount");
+                    this._fileContexts = new Dictionary<string, FileBatchContext>();
+
+                    for (int idx = 0; idx < count; idx++)
+                    {
+                        string key = reader.GetString($"FileContext_{idx}_Key");
+                        string baseMarkdown = reader.GetString($"FileContext_{idx}_BaseMarkdown");
+                        int imageCount = reader.GetInt32($"FileContext_{idx}_ImageCount");
+
+                        var images = new List<ImageSlot>(imageCount);
+                        for (int i = 0; i < imageCount; i++)
+                        {
+                            images.Add(new ImageSlot
+                            {
+                                Index = reader.GetInt32($"FileContext_{idx}_Img_{i}_Index"),
+                                SentinelId = reader.GetString($"FileContext_{idx}_Img_{i}_SentinelId"),
+                                ImageId = reader.GetString($"FileContext_{idx}_Img_{i}_ImageId"),
+                                ImageMode = reader.GetString($"FileContext_{idx}_Img_{i}_ImageMode"),
+                                ImageContext = reader.GetString($"FileContext_{idx}_Img_{i}_ImageContext"),
+                                MimeType = reader.GetString($"FileContext_{idx}_Img_{i}_MimeType"),
+                                Base64Data = reader.GetString($"FileContext_{idx}_Img_{i}_Base64Data"),
+                            });
+                        }
+
+                        this._fileContexts[key] = new FileBatchContext
+                        {
+                            BaseMarkdown = baseMarkdown,
+                            Images = images,
+                        };
+                    }
+
+                    this._fileContextsInitialized = true;
+                    System.Diagnostics.Debug.WriteLine($"[AIFile2Md] Read: restored {count} file contexts");
+                }
+                else
+                {
+                    // No persisted contexts — if a batch is active this is a context-lost situation
+                    this._batchContextLost = true;
+                    System.Diagnostics.Debug.WriteLine("[AIFile2Md] Read: no file contexts found — batch context lost");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AIFile2Md] Read file contexts error: {ex.Message}");
+                this._batchContextLost = true;
+            }
+
+            return true;
+        }
+
+        /// <inheritdoc/>
         protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
         {
             var sentinel = this.GetSentinelTree("Markdown");
             if (results == null || sentinel == null) return;
 
             var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+
+            // Accumulate metrics from every per-slot decode (one AI call per image).
+            // ProcessBatchResults only sees the representative sentinel per file, so per-slot
+            // metrics must be collected manually here and merged afterwards.
+            var allSlotMetrics = new List<AIMetrics>();
 
             var reconstructed = this.ProcessBatchResults<GH_String>(
                 "Markdown",
@@ -197,19 +310,28 @@ namespace SmartHopper.Components.Knowledge
 
                     var sb = new StringBuilder(fileCtx.BaseMarkdown);
 
-                    // Replace each [image N] placeholder with the AI-generated description
+                    // Replace each [image N] placeholder with the AI-generated description.
+                    // Batch responses are plain AIInteractionText — the tool wrapper (which would
+                    // produce AIInteractionToolResult) never runs in batch mode; only BuildDescribeRequest
+                    // is used, and OpenAI returns a plain chat completion.
                     foreach (var slot in fileCtx.Images)
                     {
                         string description = "[Image could not be described]";
                         if (provider != null && results.TryGetValue(slot.SentinelId, out var slotBody))
                         {
                             var interactions = provider.Decode(slotBody);
-                            
-                            // Extract description from interactions
-                            var toolResult = interactions?.OfType<AIInteractionToolResult>().FirstOrDefault();
-                            if (toolResult?.Result?["description"] != null)
+                            var assistantText = interactions?.OfType<AIInteractionText>()
+                                .FirstOrDefault(i => i.Agent == AIAgent.Assistant);
+                            if (!string.IsNullOrWhiteSpace(assistantText?.Content))
                             {
-                                description = toolResult.Result["description"].ToString();
+                                description = assistantText.Content;
+                            }
+
+                            // Skip the representative sentinel (first image): ProcessBatchResults
+                            // already decoded and aggregated its metrics via its own decode pass.
+                            if (assistantText?.Metrics != null && slot.SentinelId != representativeSentinelId)
+                            {
+                                allSlotMetrics.Add(assistantText.Metrics);
                             }
                         }
 
@@ -223,6 +345,20 @@ namespace SmartHopper.Components.Knowledge
 
                     return new GH_String(sb.ToString());
                 });
+
+            // Merge per-slot metrics into the snapshot created by ProcessBatchResults.
+            // ProcessBatchResults already built a snapshot from the representative sentinels;
+            // extend it with the remaining image slots' metrics.
+            if (allSlotMetrics.Count > 0 && this.CurrentAIReturnSnapshot != null)
+            {
+                var existingMetrics = this.CurrentAIReturnSnapshot.Metrics;
+                foreach (var m in allSlotMetrics)
+                {
+                    existingMetrics?.Combine(m);
+                }
+
+                Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics into snapshot");
+            }
 
             this.StoreReconstructedTree("Markdown", reconstructed);
 
@@ -277,8 +413,14 @@ namespace SmartHopper.Components.Knowledge
             /// <inheritdoc/>
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                // Clear file context flag for fresh run (resets on new input)
-                this.parent._fileContextsInitialized = false;
+                // Clear file context flag for a genuinely fresh run only.
+                // A poll cycle has an active _batchSubmission; a fresh run (even in batch mode)
+                // does not. Resetting on _batchSubmission == null ensures old file contexts from
+                // a previous batch run are discarded when the user re-runs the component.
+                if (!this.parent.HasActiveBatchSubmission || this.parent._batchContextLost)
+                {
+                    this.parent._fileContextsInitialized = false;
+                }
 
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);

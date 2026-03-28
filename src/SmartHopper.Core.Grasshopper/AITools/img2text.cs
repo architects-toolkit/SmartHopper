@@ -90,16 +90,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
-        /// Used during batch collection to aggregate multiple requests into a single batch submission.
+        /// Builds the provider request body from tool arguments.
+        /// Shared between the execute path and the batch build path so both send identical requests.
         /// </summary>
-        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
-        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
-        private AIRequestCall BuildDescribeRequest(AIToolCall toolCall)
+        private AIBody BuildRequestBody(JObject args)
         {
-            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
-
             string imageUrl = args["imageUrl"]?.ToString();
             string imageBase64 = args["imageBase64"]?.ToString();
             string mimeType = args["mimeType"]?.ToString() ?? "image/png";
@@ -121,13 +116,36 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 builder.AddImageInput(imageUrl);
             }
 
-            var requestBody = builder.Build();
+            return builder.Build();
+        }
+
+        /// <summary>
+        /// Extracts the description text from an AI response body.
+        /// Both the execute path and batch decode path receive a plain <see cref="AIInteractionText"/>;
+        /// this helper centralises the extraction so output is identical in both modes.
+        /// </summary>
+        private static string ExtractDescription(AIBody body)
+        {
+            var interaction = body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
+            return interaction?.Content ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
+        /// Used during batch collection to aggregate multiple requests into a single batch submission.
+        /// </summary>
+        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
+        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
+        private AIRequestCall BuildDescribeRequest(AIToolCall toolCall)
+        {
+            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.Arguments ?? new JObject();
 
             var request = new AIRequestCall();
             request.Initialize(
                 provider: toolCall.Provider,
                 model: toolCall.Model,
-                body: requestBody,
+                body: this.BuildRequestBody(args),
                 endpoint: this.toolName,
                 capability: this.toolCapabilityRequirements);
             request.Parameters = toolCall.Parameters;
@@ -136,6 +154,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         /// <summary>
         /// Executes the image description using the configured vision model.
+        /// Uses <see cref="BuildRequestBody"/> and <see cref="ExtractDescription"/> so the
+        /// non-batch path is identical to what the batch path sends and decodes.
         /// </summary>
         /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
         /// <returns>An <see cref="AIReturn"/> containing the text description.</returns>
@@ -155,8 +175,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 string imageUrl = args["imageUrl"]?.ToString();
                 string imageBase64 = args["imageBase64"]?.ToString();
-                string mimeType = args["mimeType"]?.ToString() ?? "image/png";
-                string prompt = args["prompt"]?.ToString();
 
                 if (string.IsNullOrWhiteSpace(imageUrl) && string.IsNullOrWhiteSpace(imageBase64))
                 {
@@ -164,29 +182,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                string systemPrompt = string.IsNullOrWhiteSpace(prompt)
-                    ? this.defaultPrompt
-                    : prompt;
-
-                var builder = AIBodyBuilder.Create()
-                    .AddSystem(systemPrompt);
-
-                if (!string.IsNullOrWhiteSpace(imageBase64))
-                {
-                    builder.AddImageInputFromBase64(imageBase64, mimeType);
-                }
-                else
-                {
-                    builder.AddImageInput(imageUrl);
-                }
-
-                var requestBody = builder.Build();
-
                 var request = new AIRequestCall();
                 request.Initialize(
                     provider: toolCall.Provider,
                     model: toolCall.Model,
-                    body: requestBody,
+                    body: this.BuildRequestBody(args),
                     endpoint: this.toolName,
                     capability: this.toolCapabilityRequirements);
                 request.Parameters = toolCall.Parameters;
@@ -199,10 +199,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var description = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                // Extract description the same way batch decode does: from AIInteractionText.Content.
+                var description = ExtractDescription(result.Body);
 
-                var toolResult = new JObject();
-                toolResult.Add("description", description);
+                var toolResult = new JObject { ["description"] = description };
 
                 toolResult.WithEnvelope(
                     ToolResultEnvelope.Create(
