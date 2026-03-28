@@ -76,8 +76,7 @@ namespace SmartHopper.Components.JSON
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Properties", "P", "List of property definition strings with dot-notation prefixes. Connect to JsonSchemaComponent Properties input.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Required", "R", "Required property names prefixed with dot-notation (e.g. \"address.city\"). Auto-extracted from Properties marked with Required? = true. Connect to JsonSchemaComponent Required input.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Properties", "P", "List of property definition strings with dot-notation prefixes. Connect to JsonSchemaComponent Properties input. Properties marked with :required suffix are preserved and will be auto-extracted by JsonSchemaComponent.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>
@@ -105,7 +104,6 @@ namespace SmartHopper.Components.JSON
             }
 
             var output = new List<string>();
-            var requiredOutput = new List<string>();
 
             // Emit the object property declaration itself
             string objectDeclaration = string.IsNullOrWhiteSpace(description)
@@ -113,8 +111,7 @@ namespace SmartHopper.Components.JSON
                 : $"{name}:object:{description.Trim()}";
             output.Add(objectDeclaration);
 
-            // Prefix each property with this object's name
-            // Parse :required suffix to auto-extract required properties
+            // Prefix each property with this object's name, preserving :required suffix
             if (properties != null)
             {
                 foreach (var sub in properties)
@@ -125,30 +122,13 @@ namespace SmartHopper.Components.JSON
                     }
 
                     string trimmedSub = sub.Trim();
-                    bool isRequired = false;
 
-                    // Check for :required suffix and strip it
-                    if (trimmedSub.EndsWith(":required", StringComparison.OrdinalIgnoreCase))
-                    {
-                        isRequired = true;
-                        trimmedSub = trimmedSub.Substring(0, trimmedSub.Length - 9); // Remove ":required"
-                    }
-
-                    // Add to properties output (without :required suffix)
+                    // Add to properties output (preserve :required suffix if present)
                     output.Add($"{name}.{trimmedSub}");
-
-                    // If required, add to required output (just the property name, not the full path yet)
-                    if (isRequired)
-                    {
-                        // Extract just the property name from "name:type:description" format
-                        var parts = trimmedSub.Split(':');
-                        requiredOutput.Add($"{name}.{parts[0]}");
-                    }
                 }
             }
 
             DA.SetDataList("Properties", output);
-            DA.SetDataList("Required", requiredOutput);
         }
     }
 }

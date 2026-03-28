@@ -61,12 +61,10 @@ namespace SmartHopper.Components.JSON
             pManager.AddTextParameter("Description", "D", "Optional schema description", GH_ParamAccess.item, string.Empty);
             pManager.AddTextParameter("Properties", "P", "Property definitions. Format: \"name:type\" or \"name:type:description\". Use dot-notation for nested properties: \"address.city:string\". Append :required to mark property as required: \"name:type:description:required\"\nValid types: string, number, integer, boolean, object, array", GH_ParamAccess.list);
             pManager.AddTextParameter("Type", "T", "Root schema type: \"object\" or \"array\" (default: object)", GH_ParamAccess.item, "object");
-            pManager.AddTextParameter("Required", "R", "List of required property names (top-level only). Properties marked with :required suffix are auto-extracted. This input allows manual override/additional required properties.", GH_ParamAccess.list, new List<string>());
 
             pManager[0].Optional = true;
             pManager[1].Optional = true;
             pManager[3].Optional = true;
-            pManager[4].Optional = true;
         }
 
         /// <inheritdoc/>
@@ -82,13 +80,11 @@ namespace SmartHopper.Components.JSON
             string description = string.Empty;
             var propertyDefs = new List<string>();
             string rootType = "object";
-            var manualRequiredProps = new List<string>();
 
             DA.GetData("Title", ref title);
             DA.GetData("Description", ref description);
             DA.GetDataList("Properties", propertyDefs);
             DA.GetData("Type", ref rootType);
-            DA.GetDataList("Required", manualRequiredProps);
 
             if (propertyDefs == null || propertyDefs.Count == 0)
             {
@@ -123,7 +119,7 @@ namespace SmartHopper.Components.JSON
                     }
 
                     string trimmedDef = def.Trim();
-                    
+
                     // Check for :required suffix
                     if (trimmedDef.EndsWith(":required", StringComparison.OrdinalIgnoreCase))
                     {
@@ -133,28 +129,15 @@ namespace SmartHopper.Components.JSON
                         {
                             autoExtractedRequired.Add(parts[0].Trim());
                         }
-                        
+
                         // Strip :required suffix for processing
                         trimmedDef = trimmedDef.Substring(0, trimmedDef.Length - 9);
                     }
-                    
+
                     processedPropertyDefs.Add(trimmedDef);
                 }
 
-                // Merge auto-extracted required with manually specified
-                var allRequiredProps = new List<string>(autoExtractedRequired);
-                if (manualRequiredProps != null)
-                {
-                    foreach (var r in manualRequiredProps)
-                    {
-                        if (!string.IsNullOrWhiteSpace(r) && !allRequiredProps.Contains(r.Trim()))
-                        {
-                            allRequiredProps.Add(r.Trim());
-                        }
-                    }
-                }
-
-                var schema = BuildSchema(processedPropertyDefs, allRequiredProps, rootType, title, description);
+                var schema = BuildSchema(processedPropertyDefs, autoExtractedRequired, rootType, title, description);
                 DA.SetData("Schema", schema.ToString(Newtonsoft.Json.Formatting.Indented));
             }
             catch (Exception ex)
