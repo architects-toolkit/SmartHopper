@@ -56,7 +56,6 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)

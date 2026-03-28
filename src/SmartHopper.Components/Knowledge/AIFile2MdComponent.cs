@@ -158,7 +158,6 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
