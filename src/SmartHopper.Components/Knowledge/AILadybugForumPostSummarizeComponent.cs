@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelpostsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.quaternary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "ladybug_forum_post_summarize" };

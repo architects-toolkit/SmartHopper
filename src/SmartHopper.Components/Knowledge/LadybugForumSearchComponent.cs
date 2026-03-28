@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelforumsearch;
 
-        public override GH_Exposure Exposure => GH_Exposure.quaternary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {

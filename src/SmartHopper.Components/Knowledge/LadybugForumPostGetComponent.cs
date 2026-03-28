@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelpostget;
 
-        public override GH_Exposure Exposure => GH_Exposure.quaternary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public LadybugForumPostGetComponent()
             : base(
