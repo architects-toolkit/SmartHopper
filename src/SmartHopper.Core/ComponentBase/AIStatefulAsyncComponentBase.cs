@@ -949,6 +949,13 @@ namespace SmartHopper.Core.ComponentBase
         private bool IsCurrentlyBatchMode() => this.IsBatchRequest() && this.HasBatchQueue;
 
         /// <summary>
+        /// Gets a value indicating whether a batch job has been submitted and is currently being polled.
+        /// Returns <c>false</c> during a fresh run (before submission) and after batch completion.
+        /// Derived classes can use this to distinguish poll cycles from genuinely new runs.
+        /// </summary>
+        protected bool HasActiveBatchSubmission => this._batchSubmission != null;
+
+        /// <summary>
         /// Gets a value indicating whether there are queued batch requests waiting to be submitted.
         /// </summary>
         protected bool HasBatchQueue => this._batchQueue?.Count > 0;
@@ -1252,6 +1259,13 @@ namespace SmartHopper.Core.ComponentBase
 
                 batchReturn.CreateSuccess(allInteractions, metrics: aggregatedMetrics);
                 this.SetAIReturnSnapshot(batchReturn);
+
+                // Persist the metrics output now so RestorePersistentOutputs surfaces it
+                // after batch completion (OnSolveInstancePostSolve is skipped during batch).
+                if (aggregatedMetrics != null)
+                {
+                    this.SetMetricsOutput(null);
+                }
             }
 
             return reconstructedTree;
