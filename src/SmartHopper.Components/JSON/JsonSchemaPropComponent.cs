@@ -45,7 +45,7 @@ namespace SmartHopper.Components.JSON
             : base(
                   "JSON Schema Property",
                   "JsonSchemaProp",
-                  "Build a scalar JSON Schema property definition for use with JsonSchemaComponent.\n\nOutputs a string in the format \"name:type\" or \"name:type:description\".\nFor nested properties, prefix the name: e.g. Name = \"address\" and connect as a sub-property to JsonSchemaPropObject.\n\nValid types: string, number, integer, boolean",
+                  "Build a JSON Schema property definition for use with JsonSchemaComponent.\n\nOutputs a string in the format \"name:type:description\" or \"name:type:description:required\" when Required? is true.\nSet Array? to true to create an array property with items of the specified Type.\nFor nested properties, prefix the name: e.g. Name = \"address\" and connect as a sub-property to JsonSchemaObject.\n\nValid types: string, number, integer, boolean, object",
                   "SmartHopper", "JSON")
         {
         }
@@ -54,29 +54,37 @@ namespace SmartHopper.Components.JSON
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Name", "N", "Property name", GH_ParamAccess.item);
-            pManager.AddTextParameter("Type", "T", "Property type: string, number, integer, boolean (default: string)", GH_ParamAccess.item, "string");
             pManager.AddTextParameter("Description", "D", "Optional description", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Type", "T", "Property type: string, number, integer, boolean, object (default: string). When Array? is true, this defines the items type.", GH_ParamAccess.item, "string");
+            pManager.AddBooleanParameter("Array?", "A", "If true, creates an array property with items of the specified Type", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Required?", "R", "If true, marks this property as required in the parent schema", GH_ParamAccess.item, false);
 
             pManager[1].Optional = true;
             pManager[2].Optional = true;
+            pManager[3].Optional = true;
+            pManager[4].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Property", "P", "Property definition string. Connect to JsonSchemaComponent Properties input.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Property", "P", "Property definition string. Connect to JsonSchemaComponent Properties input or JsonSchemaObject Sub-Properties input.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             string name = string.Empty;
-            string type = "string";
             string description = string.Empty;
+            string type = "string";
+            bool isArray = false;
+            bool isRequired = false;
 
             DA.GetData("Name", ref name);
-            DA.GetData("Type", ref type);
             DA.GetData("Description", ref description);
+            DA.GetData("Type", ref type);
+            DA.GetData("Array?", ref isArray);
+            DA.GetData("Required?", ref isRequired);
 
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -84,19 +92,36 @@ namespace SmartHopper.Components.JSON
                 return;
             }
 
-            type = NormalizeScalarType(type);
+            type = NormalizeType(type);
+            name = name.Trim();
 
-            string result = string.IsNullOrWhiteSpace(description)
-                ? $"{name.Trim()}:{type}"
-                : $"{name.Trim()}:{type}:{description.Trim()}";
+            // Build the result string: name:type:description or name:type:description:required
+            // For arrays, encode as array[itemsType]
+            string effectiveType = isArray ? $"array[{type}]" : type;
+
+            string result;
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                result = $"{name}:{effectiveType}";
+            }
+            else
+            {
+                result = $"{name}:{effectiveType}:{description.Trim()}";
+            }
+
+            // Append :required suffix if marked as required
+            if (isRequired)
+            {
+                result += ":required";
+            }
 
             DA.SetData("Property", result);
         }
 
         /// <summary>
-        /// Normalizes the type to a valid scalar JSON Schema type.
+        /// Normalizes the type to a valid JSON Schema type.
         /// </summary>
-        private static string NormalizeScalarType(string type)
+        private static string NormalizeType(string type)
         {
             if (string.IsNullOrWhiteSpace(type))
             {
@@ -109,6 +134,7 @@ namespace SmartHopper.Components.JSON
                 case "number":
                 case "integer":
                 case "boolean":
+                case "object":
                     return type.Trim().ToLowerInvariant();
                 default:
                     return "string";
