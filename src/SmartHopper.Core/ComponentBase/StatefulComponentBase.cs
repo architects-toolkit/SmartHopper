@@ -206,6 +206,7 @@ namespace SmartHopper.Core.ComponentBase
                     break;
 
                 case ComponentState.NeedsRun:
+                    this.OnEnteringNeedsRunState();
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.OnDisplayExpired(true);
@@ -584,6 +585,14 @@ namespace SmartHopper.Core.ComponentBase
         /// not when the component is already in Processing state.
         /// </summary>
         protected virtual void OnEnteringProcessingState()
+        {
+        }
+
+        /// <summary>
+        /// Called when the component transitions into NeedsRun state.
+        /// Use this to clear stale data from a previous run so it does not persist into the next run.
+        /// </summary>
+        protected virtual void OnEnteringNeedsRunState()
         {
         }
 

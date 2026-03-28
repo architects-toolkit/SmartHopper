@@ -547,36 +547,42 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.BeforeSolveInstance();
 
-            // NOTE: AIReturnSnapshot clearing moved to OnEnteringProcessingState
-            // to ensure it only happens when transitioning TO Processing, not on every solve.
+            // NOTE: AIReturnSnapshot clearing is done in OnEnteringNeedsRunState (on input change)
+            // and defensively in OnStateProcessing, not on every solve.
             // This prevents metrics loss when batch completes and component re-enters Processing.
         }
 
-        /// <summary>
-        /// Called when transitioning into Processing state from a different state.
-        /// Clears previous response metrics and batch queue for a fresh run.
-        /// </summary>
-        private void OnStateProcessing()
+        /// <inheritdoc/>
+        protected override void OnEnteringNeedsRunState()
         {
-            Debug.WriteLine("[AIStatefulAsyncComponentBase] Entering Processing state - clearing previous metrics and batch state");
+            Debug.WriteLine("[AIStatefulAsyncComponentBase] Entering NeedsRun state - clearing previous run batch state");
 
-            // Clear previous response metrics
+            // Clear previous response metrics and all previous-run batch state.
+            // _batchSubmission and _batchPollTimer are intentionally NOT cleared here:
+            // an in-flight remote batch must keep polling until it completes or fails.
             this.AIReturnSnapshot = null;
-
-            // Clear batch queue and progress to prevent accumulation across runs
             this._batchQueue = null;
             this._batchSentinelIds = null;
             this._batchProgressCompleted = 0;
             this._batchStartTime = null;
+            this._sentinelTrees = null;
+            this._reconstructedTrees = null;
             this.ResetProgress();
+        }
 
-            // Only clear sentinel and reconstructed trees if NOT in active batch polling.
-            // During batch polling, these trees are needed by OnBatchCompleted to reconstruct outputs.
-            if (this._batchSubmission == null)
-            {
-                this._sentinelTrees = null;
-                this._reconstructedTrees = null;
-            }
+        /// <inheritdoc/>
+        protected override void OnEnteringProcessingState()
+        {
+            Debug.WriteLine("[AIStatefulAsyncComponentBase] Entering Processing state");
+
+            // Defensively clear any queue/sentinel state that may have been accumulated
+            // during the current Processing entry before a batch submission is made.
+            // These are already null when arriving from NeedsRun; this guard covers
+            // direct Processing transitions (e.g. RunOnlyOnInputChanges=false).
+            this._batchQueue = null;
+            this._batchSentinelIds = null;
+            this._sentinelTrees = null;
+            this._reconstructedTrees = null;
         }
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)

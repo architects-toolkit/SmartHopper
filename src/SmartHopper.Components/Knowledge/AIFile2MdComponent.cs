@@ -389,6 +389,17 @@ namespace SmartHopper.Components.Knowledge
         }
 
         /// <inheritdoc/>
+        protected override void OnEnteringNeedsRunState()
+        {
+            base.OnEnteringNeedsRunState();
+            this._fileContexts = null;
+            this._fileContextsInitialized = false;
+            this._batchContextLost = false;
+            this._localFormat = null;
+            this._localImages = null;
+        }
+
+        /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIFile2MdWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
