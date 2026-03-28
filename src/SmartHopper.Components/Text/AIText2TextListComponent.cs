@@ -90,7 +90,8 @@ namespace SmartHopper.Components.Text
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
 
-            var reconstructed = this.ProcessBatchResults<GH_String>(
+            // ProcessBatchResults automatically persists outputs and sets metrics
+            this.ProcessBatchResults<GH_String>(
                 "Result",
                 sentinel,
                 results,
@@ -106,8 +107,6 @@ namespace SmartHopper.Components.Text
 
                     return new GH_String(lastText?.Content ?? string.Empty);
                 });
-
-            this.StoreReconstructedTree("Result", reconstructed);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -173,6 +172,11 @@ namespace SmartHopper.Components.Text
                     {
                         Debug.WriteLine($"[AIText2TextList] Sentinel tree stored, batch submitted");
                     }
+                    else if (this.result.TryGetValue("Result", out var resultTree))
+                    {
+                        // Non-batch: persist output and emit metrics via FinishResults
+                        this.parent.FinishResults("Result", resultTree);
+                    }
 
                     Debug.WriteLine($"[AIText2TextList] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
                 }
@@ -232,21 +236,9 @@ namespace SmartHopper.Components.Text
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                var reconstructed = this.parent.PopReconstructedTree<GH_String>("Result");
-                if (reconstructed != null)
-                {
-                    this.parent.SetPersistentOutput("Result", reconstructed, DA);
-                    message = string.Empty;
-                    return;
-                }
-
-                if (!this.result.TryGetValue("Result", out GH_Structure<GH_String>? tree))
-                {
-                    message = "Error: No result available";
-                    return;
-                }
-
-                this.parent.SetPersistentOutput("Result", tree, DA);
+                // Outputs and metrics are handled by FinishResults (non-batch) or
+                // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
+                // replays them to the canvas on the next solve.
                 message = string.Empty;
             }
         }

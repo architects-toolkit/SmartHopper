@@ -218,14 +218,6 @@ namespace SmartHopper.Components.AI
         }
 
         /// <summary>
-        /// Disable base post-solve metrics emission; metrics are emitted synchronously in SolveInstance.
-        /// </summary>
-        protected override bool ShouldEmitMetricsInPostSolve()
-        {
-            return false;
-        }
-
-        /// <summary>
         /// Worker class for the AI Chat component.
         /// </summary>
         private sealed class AIChatWorker : AsyncWorkerBase

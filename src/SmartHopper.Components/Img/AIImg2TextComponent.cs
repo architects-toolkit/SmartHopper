@@ -120,7 +120,8 @@ namespace SmartHopper.Components.Img
             var sentinel = this.GetSentinelTree("Description");
             if (results == null || sentinel == null) return;
 
-            var reconstructed = this.ProcessBatchResults<GH_String>(
+            // ProcessBatchResults automatically persists outputs and sets metrics
+            this.ProcessBatchResults<GH_String>(
                 "Description",
                 sentinel,
                 results,
@@ -136,8 +137,6 @@ namespace SmartHopper.Components.Img
 
                     return new GH_String(lastText?.Content ?? string.Empty);
                 });
-
-            this.StoreReconstructedTree("Description", reconstructed);
         }
 
         /// <summary>
@@ -357,6 +356,11 @@ namespace SmartHopper.Components.Img
                     {
                         this.resultDescriptions = null;
                     }
+                    else
+                    {
+                        // Non-batch: persist output and emit metrics via FinishResults
+                        this.parent.FinishResults("Description", this.resultDescriptions ?? new GH_Structure<GH_String>());
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -375,15 +379,9 @@ namespace SmartHopper.Components.Img
             /// <param name="errorMessage">Output error message, or null on success.</param>
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
-                var reconstructed = this.parent.PopReconstructedTree<GH_String>("Description");
-                if (reconstructed != null)
-                {
-                    this.parent.SetPersistentOutput("Description", reconstructed, DA);
-                    errorMessage = null;
-                    return;
-                }
-
-                this.parent.SetPersistentOutput("Description", this.resultDescriptions ?? new GH_Structure<GH_String>(), DA);
+                // Outputs and metrics are handled by FinishResults (non-batch) or
+                // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
+                // replays them to the canvas on the next solve.
                 errorMessage = null;
             }
         }

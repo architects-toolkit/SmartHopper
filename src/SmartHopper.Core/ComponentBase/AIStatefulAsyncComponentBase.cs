@@ -54,6 +54,102 @@ namespace SmartHopper.Core.ComponentBase
     /// Provides integrated state management, parallel processing, messaging, and persistence capabilities
     /// with AI provider selection functionality.
     /// </summary>
+    /// <remarks>
+    /// <para><b>UNIFIED EXECUTION FLOW</b></para>
+    /// <para>
+    /// Both the non-batch and batch paths converge at <see cref="FinishResults{T}"/>, which
+    /// persists all outputs atomically and emits metrics. The two virtual hooks
+    /// <see cref="PrepareInputs"/> and <see cref="TransformOutputs"/> fire at identical logical
+    /// positions in both paths.
+    /// </para>
+    ///
+    /// <para><b>NON-BATCH PATH:</b></para>
+    /// <code>
+    /// DoWorkAsync()
+    ///   └── RunProcessingAsync()
+    ///         └── DataTreeProcessor.RunAsync()
+    ///               └── function(inputs)          [called once per branch/item]
+    ///                     1. PrepareInputs(inputs, context)    ← virtual hook
+    ///                     2. CallAiToolAsync(...)
+    ///                        → real result returned immediately
+    ///                     3. (return outputs dict)
+    ///         └── FinishResults(primary, ...extras)
+    ///               → SetPersistentOutput for each output
+    ///               → stamp CompletionTime from _batchCompletionTime (if any)
+    ///               → SetMetricsOutput(null)
+    ///   └── Worker.SetOutput() → no-op
+    ///         |
+    /// [Completed State] → RestorePersistentOutputs() → canvas updated
+    /// </code>
+    ///
+    /// <para><b>BATCH PATH:</b></para>
+    /// <code>
+    /// DoWorkAsync()
+    ///   └── RunProcessingAsync()
+    ///         └── DataTreeProcessor.RunAsync()
+    ///               └── function(inputs)          [called once per branch/item]
+    ///                     1. PrepareInputs(inputs, context)    ← virtual hook
+    ///                     2. CallAiToolAsync(...)
+    ///                        → returns ##SH_BATCH:{customId}## sentinel
+    ///         └── TrySubmitBatchAsync()           → submits queue to provider
+    ///   └── Worker.SetOutput() → no-op
+    ///         |
+    /// [Stay in Processing State]
+    ///         |
+    /// PollBatchStatusAsync() [background timer]
+    ///         |
+    /// OnBatchCompleted(results)
+    ///   └── ProcessBatchResults&lt;T&gt;(decode)
+    ///         └── for each sentinel in tree:
+    ///               item = decode(customId, resultBody)
+    ///               TransformOutputs({primary→item}, context)  ← virtual hook
+    ///               extras accumulated per sentinel
+    ///         └── SetAIReturnSnapshot(aggregatedMetrics)
+    ///         └── FinishResults(primary, ...extras)
+    ///               → SetPersistentOutput for each output
+    ///               → stamp CompletionTime from _batchCompletionTime
+    ///               → SetMetricsOutput(null)
+    ///         |
+    /// Transition to [Completed State]
+    /// ExpireSolution() → RestorePersistentOutputs() → canvas updated
+    /// </code>
+    ///
+    /// <para><b>METRICS VARIANTS</b></para>
+    /// <list type="bullet">
+    /// <item>
+    ///   <b>Standard AI components (Group A):</b> metrics emitted exclusively by
+    ///   <see cref="FinishResults{T}"/> (non-batch) or <see cref="ProcessBatchResults{T}"/>→<see cref="FinishResults{T}"/>
+    ///   (batch). <c>OnSolveInstancePostSolve</c> does NOT call <c>SetMetricsOutput</c>.
+    /// </item>
+    /// <item>
+    ///   <b>Synchronous-output components (e.g. <c>AIChatComponent</c>):</b> call
+    ///   <see cref="SetMetricsOutput"/> directly inside their <c>SolveInstance</c> override with
+    ///   the live <c>DA</c> reference. They do not use <see cref="FinishResults{T}"/> and are
+    ///   unaffected by the hook pattern.
+    /// </item>
+    /// </list>
+    ///
+    /// <para><b>COMPONENT IMPLEMENTATION REQUIREMENTS (standard AI component):</b></para>
+    /// <code>
+    /// // Worker.DoWorkAsync — non-batch branch must call FinishResults:
+    /// var batchSubmitted = await parent.TrySubmitBatchAsync("Result", result, token);
+    /// if (!batchSubmitted)
+    ///     parent.FinishResults("Result", result["Result"]);
+    ///
+    /// // Worker.SetOutput — must be a no-op:
+    /// public override void SetOutput(IGH_DataAccess DA, out string message)
+    ///     => message = string.Empty;
+    ///
+    /// // OnBatchCompleted — delegate entirely to ProcessBatchResults:
+    /// protected override void OnBatchCompleted(IReadOnlyDictionary&lt;string, JObject&gt; results)
+    /// {
+    ///     var sentinel = this.GetSentinelTree("Result");
+    ///     if (results == null || sentinel == null) return;
+    ///     this.ProcessBatchResults&lt;GH_String&gt;("Result", sentinel, results,
+    ///         (customId, body) =&gt; new GH_String(Decode(body)));
+    /// }
+    /// </code>
+    /// </remarks>
     public abstract class AIStatefulAsyncComponentBase : AIProviderComponentBase
     {
         /// <summary>
@@ -69,12 +165,6 @@ namespace SmartHopper.Core.ComponentBase
         /// Populated during batch submission so <see cref="OnBatchCompleted"/> can reconstruct output trees.
         /// </summary>
         private Dictionary<string, object> _sentinelTrees;
-
-        /// <summary>
-        /// Stores reconstructed output trees keyed by output parameter name after batch completion.
-        /// Consumed (and removed) by <see cref="PopReconstructedTree{T}"/> inside the worker's SetOutput.
-        /// </summary>
-        private Dictionary<string, object> _reconstructedTrees;
 
         /// <summary>
         /// Queue of (CustomId, Request) pairs collected during a batch-mode component run.
@@ -100,6 +190,14 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>Timestamp when the batch was submitted to the provider.</summary>
         private DateTime? _batchStartTime;
+
+        /// <summary>
+        /// Wall-clock seconds elapsed from batch submission to completion.
+        /// Set by <see cref="PollBatchStatusAsync"/> when the batch finishes and consumed by
+        /// <see cref="FinishResults{T}"/> to stamp <see cref="AIMetrics.CompletionTime"/>.
+        /// Cleared in <see cref="OnEnteringNeedsRunState"/>.
+        /// </summary>
+        private double? _batchCompletionTime;
 
         /// <summary>
         /// Last AI return snapshot stored by this component.
@@ -534,13 +632,82 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Controls whether the base class should emit metrics during the post-solve phase.
-        /// Derived classes can override to return false when they set metrics synchronously
-        /// within their own SolveInstance implementation.
+        /// Lightweight read-only context passed to <see cref="PrepareInputs"/> and
+        /// <see cref="TransformOutputs"/> for the current processing unit.
         /// </summary>
-        protected virtual bool ShouldEmitMetricsInPostSolve()
+        protected readonly struct ProcessingUnitContext
         {
-            return true;
+            /// <summary>Gets the data-tree path of the current processing unit.</summary>
+            public GH_Path Path { get; init; }
+
+            /// <summary>Gets the item index within the current branch, or null for branch-level processing.</summary>
+            public int? ItemIndex { get; init; }
+
+            /// <summary>Gets the sentinel custom ID for batch-mode units, or null in non-batch mode.</summary>
+            public string SentinelId { get; init; }
+        }
+
+        /// <summary>
+        /// Called before the AI tool is invoked for each processing unit.
+        /// Override to transform, enrich, or validate inputs before they reach the AI pipeline.
+        /// </summary>
+        /// <param name="inputs">Mutable input dictionary for the current processing unit.</param>
+        /// <param name="context">Read-only context (path, item index, topology) for the current unit.</param>
+        protected virtual void PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext context)
+        {
+        }
+
+        /// <summary>
+        /// Called after each AI result is decoded, before it is persisted.
+        /// Override to split, reshape, or post-process outputs before they reach the canvas.
+        /// </summary>
+        /// <param name="decodedOutputs">Mutable output dictionary for the current processing unit.</param>
+        /// <param name="context">Read-only context (path, item index, sentinel ID) for the current unit.</param>
+        /// <returns>The (potentially modified) output dictionary.</returns>
+        protected virtual Dictionary<string, IGH_Goo> TransformOutputs(Dictionary<string, IGH_Goo> decodedOutputs, ProcessingUnitContext context)
+            => decodedOutputs;
+
+        /// <summary>
+        /// Persists the primary output tree and any additional named outputs, then emits metrics.
+        /// Call this from both the non-batch branch of <c>DoWorkAsync</c> and from
+        /// <see cref="ProcessBatchResults{T}"/> to ensure a single finalization point.
+        /// </summary>
+        /// <typeparam name="T">The primary output Grasshopper goo type.</typeparam>
+        /// <param name="primaryOutputParamName">Name of the primary output parameter.</param>
+        /// <param name="primaryTree">The fully decoded primary output tree.</param>
+        /// <param name="additionalOutputs">
+        /// Zero or more (name, value) tuples for secondary outputs.
+        /// Value routing: <see cref="IGH_Structure"/> → SetDataTree; <see cref="System.Collections.IEnumerable"/> (non-string) → SetDataList;
+        /// anything else → SetData via <see cref="GH_Convert.ToGoo"/>.
+        /// </param>
+        protected void FinishResults<T>(
+            string primaryOutputParamName,
+            GH_Structure<T> primaryTree,
+            params (string name, object value)[] additionalOutputs)
+            where T : IGH_Goo
+        {
+            // Persist the primary output
+            this.SetPersistentOutput(primaryOutputParamName, primaryTree, null);
+
+            // Persist any additional outputs
+            if (additionalOutputs != null)
+            {
+                foreach (var (name, value) in additionalOutputs)
+                {
+                    this.SetPersistentOutput(name, value, null);
+                }
+            }
+
+            // Apply batch completion time fix: stamp aggregated metrics before emitting
+            if (this._batchCompletionTime.HasValue && this.AIReturnSnapshot?.Metrics != null)
+            {
+                this.AIReturnSnapshot.Metrics.CompletionTime = this._batchCompletionTime.Value;
+                Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchCompletionTime.Value:F2}s into metrics");
+                this._batchCompletionTime = null;
+            }
+
+            // Always emit metrics (replaces the ShouldEmitMetricsInPostSolve pattern)
+            this.SetMetricsOutput(null);
         }
 
         protected override void BeforeSolveInstance()
@@ -565,8 +732,8 @@ namespace SmartHopper.Core.ComponentBase
             this._batchSentinelIds = null;
             this._batchProgressCompleted = 0;
             this._batchStartTime = null;
+            this._batchCompletionTime = null;
             this._sentinelTrees = null;
-            this._reconstructedTrees = null;
             this.ResetProgress();
         }
 
@@ -582,7 +749,6 @@ namespace SmartHopper.Core.ComponentBase
             this._batchQueue = null;
             this._batchSentinelIds = null;
             this._sentinelTrees = null;
-            this._reconstructedTrees = null;
         }
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
@@ -594,10 +760,9 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            if (this.ShouldEmitMetricsInPostSolve())
-            {
-                this.SetMetricsOutput(DA);
-            }
+            // Metrics are emitted by FinishResults.
+            // Components that set metrics synchronously in their own SolveInstance (e.g. AIChatComponent)
+            // call SetMetricsOutput(DA) directly and do not go through FinishResults.
 
             // Badge cache was already updated in SolveInstance (before base.SolveInstance)
             // No need to update again here - the configured model hasn't changed
@@ -897,37 +1062,6 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Stores the reconstructed output tree (after batch completion) for a named output parameter.
-        /// Consumed by <see cref="PopReconstructedTree{T}"/>.
-        /// </summary>
-        /// <typeparam name="T">The output goo type.</typeparam>
-        /// <param name="paramName">Output parameter name (e.g., "Result").</param>
-        /// <param name="tree">The decoded, reconstructed output tree.</param>
-        protected void StoreReconstructedTree<T>(string paramName, GH_Structure<T> tree)
-            where T : IGH_Goo
-        {
-            this._reconstructedTrees ??= new Dictionary<string, object>();
-            this._reconstructedTrees[paramName] = tree;
-        }
-
-        /// <summary>
-        /// Retrieves and removes the reconstructed output tree for the given output parameter name.
-        /// Returns <c>null</c> if no reconstructed tree is available.
-        /// Intended to be called once from the worker's <c>SetOutput</c>.
-        /// </summary>
-        /// <typeparam name="T">The output goo type.</typeparam>
-        /// <param name="paramName">Output parameter name (e.g., "Result").</param>
-        /// <returns>The reconstructed <see cref="GH_Structure{T}"/>, or <c>null</c>.</returns>
-        protected GH_Structure<T> PopReconstructedTree<T>(string paramName)
-            where T : IGH_Goo
-        {
-            if (this._reconstructedTrees == null) return null;
-            if (!this._reconstructedTrees.TryGetValue(paramName, out var raw)) return null;
-            this._reconstructedTrees.Remove(paramName);
-            return raw as GH_Structure<T>;
-        }
-
-        /// <summary>
         /// Convenience helper for workers: after <c>RunProcessingAsync</c> finishes in batch mode,
         /// stores the sentinel tree for the given output parameter name and submits the batch queue.
         /// </summary>
@@ -1103,19 +1237,11 @@ namespace SmartHopper.Core.ComponentBase
                         StopBatchPollTimer();
                         _batchSubmission = null;
 
-                        // Calculate batch completion time
+                        // Calculate batch completion time and store for FinishResults to consume
                         if (this._batchStartTime.HasValue)
                         {
-                            var batchCompletionTime = (DateTime.UtcNow - this._batchStartTime.Value).TotalSeconds;
-                            Debug.WriteLine($"[AIStatefulAsync] Batch completed: batchId={submission.BatchId}, completionTime={batchCompletionTime:F2}s");
-
-                            // Merge batch completion time into the snapshot metrics before OnBatchCompleted
-                            if (this.CurrentAIReturnSnapshot?.Metrics != null)
-                            {
-                                this.CurrentAIReturnSnapshot.Metrics.CompletionTime = batchCompletionTime;
-                                Debug.WriteLine($"[AIStatefulAsync] Merged batch completion time into metrics: {batchCompletionTime:F2}s");
-                            }
-
+                            this._batchCompletionTime = (DateTime.UtcNow - this._batchStartTime.Value).TotalSeconds;
+                            Debug.WriteLine($"[AIStatefulAsync] Batch completed: batchId={submission.BatchId}, completionTime={this._batchCompletionTime:F2}s");
                             this._batchStartTime = null;
                         }
 
@@ -1176,11 +1302,13 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Helper method to process batch results: reconstructs output tree by replacing sentinels,
-        /// persists the reconstructed tree, and aggregates metrics from all batch items.
+        /// calls <see cref="TransformOutputs"/> on each decoded item to allow post-processing,
+        /// aggregates metrics from all batch items, and delegates to <see cref="FinishResults{T}"/>
+        /// to persist all outputs atomically and emit metrics.
         /// Call this from <see cref="OnBatchCompleted"/> to handle common batch completion logic.
         /// </summary>
         /// <typeparam name="T">The output Grasshopper goo type.</typeparam>
-        /// <param name="outputParamName">Name of the output parameter to persist (e.g., "Result").</param>
+        /// <param name="outputParamName">Name of the primary output parameter to persist (e.g., "Result").</param>
         /// <param name="sentinelTree">Tree containing sentinel strings from batch submission.</param>
         /// <param name="results">Dictionary from customId to provider response body.</param>
         /// <param name="decode">Function that converts (customId, resultBody) into a goo item.</param>
@@ -1194,18 +1322,27 @@ namespace SmartHopper.Core.ComponentBase
         {
             if (results == null || sentinelTree == null)
             {
-                return new GH_Structure<T>();
+                // Still finalize with an empty tree to clear any previous sentinels and emit metrics
+                var emptyTree = new GH_Structure<T>();
+                this.FinishResults(outputParamName, emptyTree);
+                return emptyTree;
             }
 
             var providerName = this.GetActualAIProviderName();
             var provider = ProviderManager.Instance.GetProvider(providerName);
             if (provider == null)
             {
-                return new GH_Structure<T>();
+                var emptyTree = new GH_Structure<T>();
+                this.FinishResults(outputParamName, emptyTree);
+                return emptyTree;
             }
 
             var allInteractions = new List<IAIInteraction>();
             var allMetrics = new List<AIMetrics>();
+
+            // Accumulate extra outputs returned by TransformOutputs across all sentinels.
+            // Key: output param name → merged GH_Structure<IGH_Goo> (one slot per sentinel path).
+            var extraOutputAccumulator = new Dictionary<string, GH_Structure<IGH_Goo>>();
 
             var reconstructedTree = ReconstructOutputTree<T>(
                 sentinelTree,
@@ -1229,7 +1366,30 @@ namespace SmartHopper.Core.ComponentBase
                             }
                         }
 
-                        return decode(customId, resultBody);
+                        var primaryItem = decode(customId, resultBody);
+
+                        // Call TransformOutputs so derived components can reshape/split results
+                        var context = new ProcessingUnitContext { SentinelId = customId };
+                        var decodedMap = new Dictionary<string, IGH_Goo> { [outputParamName] = primaryItem };
+                        var transformed = this.TransformOutputs(decodedMap, context);
+
+                        // Accumulate any extra keys returned by TransformOutputs
+                        if (transformed != null)
+                        {
+                            foreach (var kvp in transformed)
+                            {
+                                if (kvp.Key == outputParamName) continue;
+                                if (!extraOutputAccumulator.TryGetValue(kvp.Key, out var extraTree))
+                                {
+                                    extraTree = new GH_Structure<IGH_Goo>();
+                                    extraOutputAccumulator[kvp.Key] = extraTree;
+                                }
+
+                                extraTree.Append(kvp.Value);
+                            }
+                        }
+
+                        return primaryItem;
                     }
                     catch (Exception ex)
                     {
@@ -1237,12 +1397,6 @@ namespace SmartHopper.Core.ComponentBase
                         return decode(customId, resultBody);
                     }
                 });
-
-            // Persist the reconstructed tree so RestorePersistentOutputs picks it up on the next solve
-            if (reconstructedTree != null)
-            {
-                this.SetPersistentOutput(outputParamName, reconstructedTree, null);
-            }
 
             // Surface any provider errors from individual batch items as Grasshopper runtime messages.
             // This mirrors how AIRequestCall.Exec() surfaces errors via SurfaceMessagesFromReturn.
@@ -1287,11 +1441,15 @@ namespace SmartHopper.Core.ComponentBase
 
                 batchReturn.CreateSuccess(allInteractions, metrics: aggregatedMetrics);
                 this.SetAIReturnSnapshot(batchReturn);
-
-                // NOTE: Do NOT call SetMetricsOutput here. OnBatchCompleted may combine additional
-                // metrics from individual batch items (e.g., per-slot metrics in AIFile2MdComponent).
-                // OnBatchCompleted should call SetMetricsOutput after all metrics are combined.
             }
+
+            // Build additionalOutputs array for FinishResults
+            var additionalOutputs = extraOutputAccumulator
+                .Select(kvp => (kvp.Key, (object)kvp.Value))
+                .ToArray();
+
+            // Delegate to FinishResults: persists primary + extras + emits metrics atomically
+            this.FinishResults(outputParamName, reconstructedTree, additionalOutputs);
 
             return reconstructedTree;
         }

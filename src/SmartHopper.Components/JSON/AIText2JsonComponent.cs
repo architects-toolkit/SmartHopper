@@ -104,7 +104,8 @@ namespace SmartHopper.Components.JSON
             var sentinel = this.GetSentinelTree("JSON");
             if (results == null || sentinel == null) return;
 
-            var reconstructed = this.ProcessBatchResults<GH_String>(
+            // ProcessBatchResults automatically persists outputs and sets metrics
+            this.ProcessBatchResults<GH_String>(
                 "JSON",
                 sentinel,
                 results,
@@ -120,8 +121,6 @@ namespace SmartHopper.Components.JSON
 
                     return new GH_String(lastText?.Content ?? string.Empty);
                 });
-
-            this.StoreReconstructedTree("JSON", reconstructed);
         }
 
         /// <inheritdoc/>
@@ -193,6 +192,11 @@ namespace SmartHopper.Components.JSON
                     if (batchSubmitted)
                     {
                         Debug.WriteLine("[AIText2Json] Sentinel tree stored, batch submitted");
+                    }
+                    else if (this.result.TryGetValue("JSON", out var resultTree))
+                    {
+                        // Non-batch: persist output and emit metrics via FinishResults
+                        this.parent.FinishResults("JSON", resultTree);
                     }
 
                     Debug.WriteLine($"[AIText2Json] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
@@ -283,22 +287,9 @@ namespace SmartHopper.Components.JSON
             /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                // If batch completed and tree was reconstructed, use that
-                var reconstructed = this.parent.PopReconstructedTree<GH_String>("JSON");
-                if (reconstructed != null)
-                {
-                    this.parent.SetPersistentOutput("JSON", reconstructed, DA);
-                    message = string.Empty;
-                    return;
-                }
-
-                if (!this.result.TryGetValue("JSON", out GH_Structure<GH_String>? tree))
-                {
-                    message = "Error: No result available";
-                    return;
-                }
-
-                this.parent.SetPersistentOutput("JSON", tree, DA);
+                // Outputs and metrics are handled by FinishResults (non-batch) or
+                // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
+                // replays them to the canvas on the next solve.
                 message = string.Empty;
             }
         }

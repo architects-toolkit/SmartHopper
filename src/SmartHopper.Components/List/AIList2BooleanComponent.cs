@@ -88,7 +88,8 @@ namespace SmartHopper.Components.List
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
 
-            var reconstructed = this.ProcessBatchResults<GH_Boolean>(
+            // ProcessBatchResults automatically persists outputs and sets metrics
+            this.ProcessBatchResults<GH_Boolean>(
                 "Result",
                 sentinel,
                 results,
@@ -107,8 +108,6 @@ namespace SmartHopper.Components.List
                         return new GH_Boolean(value);
                     return null;
                 });
-
-            this.StoreReconstructedTree("Result", reconstructed);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -180,6 +179,11 @@ namespace SmartHopper.Components.List
                     if (batchSubmitted)
                     {
                         Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
+                    }
+                    else if (this.result.TryGetValue("Result", out var resultTree))
+                    {
+                        // Non-batch: persist output and emit metrics via FinishResults
+                        this.parent.FinishResults("Result", resultTree);
                     }
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
@@ -256,24 +260,9 @@ namespace SmartHopper.Components.List
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
-
-                var reconstructed = this.parent.PopReconstructedTree<GH_Boolean>("Result");
-                if (reconstructed != null)
-                {
-                    this.parent.SetPersistentOutput("Result", reconstructed, DA);
-                    message = string.Empty;
-                    return;
-                }
-
-                if (!this.result.TryGetValue("Result", out GH_Structure<GH_Boolean>? value))
-                {
-                    Debug.WriteLine("[Worker] Warning: Result key not found in output dictionary");
-                    message = "Error: No result available";
-                    return;
-                }
-
-                this.parent.SetPersistentOutput("Result", value, DA);
+                // Outputs and metrics are handled by FinishResults (non-batch) or
+                // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
+                // replays them to the canvas on the next solve.
                 message = string.Empty;
             }
         }

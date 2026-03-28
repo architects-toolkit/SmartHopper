@@ -288,18 +288,20 @@ namespace SmartHopper.Components.Knowledge
 
             // Accumulate metrics from every per-slot decode (one AI call per image).
             // ProcessBatchResults only sees the representative sentinel per file, so per-slot
-            // metrics must be collected manually here and merged afterwards.
+            // metrics (slots 2..N per file) must be collected manually and merged before FinishResults.
             var allSlotMetrics = new List<AIMetrics>();
 
-            var reconstructed = this.ProcessBatchResults<GH_String>(
+            // ProcessBatchResults handles primary Markdown persistence and calls FinishResults.
+            // Per-slot metrics are merged into the snapshot immediately after, before FinishResults
+            // reads the snapshot to emit metrics — this works because FinishResults is called from
+            // inside ProcessBatchResults after SetAIReturnSnapshot.
+            this.ProcessBatchResults<GH_String>(
                 "Markdown",
                 sentinel,
                 results,
                 (representativeSentinelId, _) =>
                 {
                     // Look up the file context stored during batch collection.
-                    // Each entry is keyed by the representative sentinel (first image of the file)
-                    // and contains the base markdown + ordered list of all image slots.
                     if (this._fileContexts == null ||
                         !this._fileContexts.TryGetValue(representativeSentinelId, out var fileCtx))
                     {
@@ -310,9 +312,6 @@ namespace SmartHopper.Components.Knowledge
                     var sb = new StringBuilder(fileCtx.BaseMarkdown);
 
                     // Replace each [image N] placeholder with the AI-generated description.
-                    // Batch responses are plain AIInteractionText — the tool wrapper (which would
-                    // produce AIInteractionToolResult) never runs in batch mode; only BuildDescribeRequest
-                    // is used, and OpenAI returns a plain chat completion.
                     foreach (var slot in fileCtx.Images)
                     {
                         string description = "[Image could not be described]";
@@ -326,8 +325,7 @@ namespace SmartHopper.Components.Knowledge
                                 description = assistantText.Content;
                             }
 
-                            // Skip the representative sentinel (first image): ProcessBatchResults
-                            // already decoded and aggregated its metrics via its own decode pass.
+                            // Collect metrics from non-representative slots for manual merging.
                             if (assistantText?.Metrics != null && slot.SentinelId != representativeSentinelId)
                             {
                                 // Ensure slot metrics have provider/model set before combining
@@ -348,7 +346,7 @@ namespace SmartHopper.Components.Knowledge
                         string placeholder = $"[image {slot.Index}]";
                         string replacement = slot.ImageMode == "embed"
                             ? $"![{description}](data:{slot.MimeType};base64,{slot.Base64Data})"
-                            : $"**[{slot.ImageId} \u2014 {slot.ImageContext}]**\n\n{description}";
+                            : $"**[{slot.ImageId} — {slot.ImageContext}]**\n\n{description}";
 
                         sb.Replace(placeholder, replacement);
                     }
@@ -356,9 +354,9 @@ namespace SmartHopper.Components.Knowledge
                     return new GH_String(sb.ToString());
                 });
 
-            // Merge per-slot metrics into the snapshot created by ProcessBatchResults.
-            // ProcessBatchResults already built a snapshot from the representative sentinels;
-            // extend it with the remaining image slots' metrics.
+            // Merge per-slot metrics into the snapshot that ProcessBatchResults just created.
+            // FinishResults has already been called inside ProcessBatchResults, but metrics
+            // were emitted from the snapshot — so we patch the snapshot and re-emit.
             if (allSlotMetrics.Count > 0 && this.CurrentAIReturnSnapshot != null)
             {
                 var existingMetrics = this.CurrentAIReturnSnapshot.Metrics;
@@ -368,14 +366,12 @@ namespace SmartHopper.Components.Knowledge
                 }
 
                 Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics into snapshot");
+
+                // Re-emit metrics now that per-slot tokens are included
+                this.SetMetricsOutput(null);
             }
 
-            this.StoreReconstructedTree("Markdown", reconstructed);
-
-            // Output the final combined metrics after all slot metrics have been merged
-            this.SetMetricsOutput(null);
-
-            // Also persist Format and Images (computed locally, not via batch)
+            // Persist Format and Images (computed locally, not via batch) — after FinishResults
             if (this._localFormat != null)
             {
                 this.SetPersistentOutput("Format", this._localFormat, null);
@@ -719,6 +715,15 @@ namespace SmartHopper.Components.Knowledge
                         this.resultMarkdown = null;
                         Debug.WriteLine("[AIFile2Md] Sentinel tree stored, batch submitted");
                     }
+                    else
+                    {
+                        // Non-batch: persist all outputs and emit metrics via FinishResults
+                        this.parent.FinishResults(
+                            "Markdown",
+                            this.resultMarkdown ?? new GH_Structure<GH_String>(),
+                            ("Images", (object)(this.resultImages ?? new GH_Structure<GH_ExtractedImage>())),
+                            ("Format", (object)(this.resultFormat ?? new GH_Structure<GH_String>())));
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -734,19 +739,9 @@ namespace SmartHopper.Components.Knowledge
             /// <inheritdoc/>
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
-                var reconstructed = this.parent.PopReconstructedTree<GH_String>("Markdown");
-                if (reconstructed != null)
-                {
-                    this.parent.SetPersistentOutput("Markdown", reconstructed, DA);
-                    this.parent.SetPersistentOutput("Images", this.parent._localImages ?? new GH_Structure<GH_ExtractedImage>(), DA);
-                    this.parent.SetPersistentOutput("Format", this.parent._localFormat ?? new GH_Structure<GH_String>(), DA);
-                    errorMessage = null;
-                    return;
-                }
-
-                this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
-                this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_ExtractedImage>(), DA);
-                this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
+                // Outputs and metrics are handled by FinishResults (non-batch) or
+                // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
+                // replays them to the canvas on the next solve.
                 errorMessage = null;
             }
         }

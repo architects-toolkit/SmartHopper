@@ -204,7 +204,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
                 try
                 {
-                    Debug.WriteLine($"[AIBodyBuilder.Add] idx={this.interactions.Count - 1}, type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={(interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty)}, new={(markAsNew ? 1 : 0)}");
+                    var contentPreview = interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty;
+                    if (contentPreview.Length > 50)
+                    {
+                        contentPreview = contentPreview.Substring(0, 50) + "...";
+                    }
+                    Debug.WriteLine($"[AIBodyBuilder.Add] idx={this.interactions.Count - 1}, type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}, new={(markAsNew ? 1 : 0)}");
                 }
                 catch
                 {
