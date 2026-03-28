@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneeltopicsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.quaternary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "ladybug_forum_topic_summarize" };
@@ -51,7 +51,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "AI LadybugForum Topic Summarize",
                   "AILadybugTopicSumm",
-                  "Generate a concise summary of a Ladybug Tools Discourse forum topic by ID using the configured AI provider.",
+                  "Generate a concise summary of a Ladybug Tools Discourse forum topic (all posts) by topic ID using the configured AI provider.",
                   "SmartHopper",
                   "Knowledge")
         {

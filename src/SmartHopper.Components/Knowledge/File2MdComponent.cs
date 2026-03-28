@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Knowledge
         protected override Bitmap Icon => Resources.filetomd;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="File2MdComponent"/> class.

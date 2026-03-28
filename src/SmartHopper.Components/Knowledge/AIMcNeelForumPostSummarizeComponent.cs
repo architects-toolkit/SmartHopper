@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelpostsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "mcneel_forum_post_summarize" };

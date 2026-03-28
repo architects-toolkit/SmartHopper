@@ -37,13 +37,13 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelpostopen;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.quaternary;
 
         public LadybugForumPostOpenComponent()
             : base(
                   "LadybugForum Post Open",
                   "LadybugPostOpen",
-                  "Open the Ladybug Tools Discourse webpage for a forum post JSON in the default browser.",
+                  "Open a Ladybug Tools Discourse forum post in the default web browser by its numeric ID.",
                   "SmartHopper",
                   "Knowledge")
         {

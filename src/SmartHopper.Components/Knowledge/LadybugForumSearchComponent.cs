@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelforumsearch;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.quaternary;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -58,7 +58,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "LadybugForum Search",
                   "LadybugSearch",
-                  "Search Ladybug Tools Discourse forum posts by query and return raw JSON results.",
+                  "Search for Ladybug Tools Discourse forum posts by query string.",
                   "SmartHopper",
                   "Knowledge")
         {

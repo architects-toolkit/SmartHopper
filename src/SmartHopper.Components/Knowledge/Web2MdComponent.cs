@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.webtomd;
 
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         public Web2MdComponent()
             : base(

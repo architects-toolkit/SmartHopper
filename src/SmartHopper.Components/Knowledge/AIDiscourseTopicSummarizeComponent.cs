@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneeltopicsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_topic_summarize" };
@@ -51,7 +51,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "AI Discourse Topic Summarize",
                   "AIDiscourseTopicSumm",
-                  "Generate a concise summary of a Discourse forum topic by ID from any Discourse instance using the configured AI provider.",
+                  "Generate a concise summary of a Discourse forum topic (all posts) by topic ID from any Discourse instance using the configured AI provider.",
                   "SmartHopper",
                   "Knowledge")
         {

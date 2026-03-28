@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelforumsearch;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -58,7 +58,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "Discourse Search",
                   "DiscourseSearch",
-                  "Search any Discourse forum posts by query and return raw JSON results.",
+                  "Search for Discourse forum posts by query string in any Discourse instance.",
                   "SmartHopper",
                   "Knowledge")
         {

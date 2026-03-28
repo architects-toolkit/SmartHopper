@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "Discourse Post Open",
                   "DiscoursePostOpen",
-                  "Open the Discourse forum webpage for a post JSON in the default browser. Works with any Discourse instance.",
+                  "Open a Discourse forum post in the default web browser by its numeric ID from any Discourse instance.",
                   "SmartHopper",
                   "Knowledge")
         {

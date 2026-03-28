@@ -126,7 +126,7 @@ namespace SmartHopper.Components.Knowledge
         protected override Bitmap Icon => Resources.filetomd;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {

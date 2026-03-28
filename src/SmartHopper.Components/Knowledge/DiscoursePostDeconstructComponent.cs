@@ -36,7 +36,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "Deconstruct Discourse Post",
                   "DeconstructDiscoursePost",
-                  "Deconstruct Discourse forum post JSON into id, username, topic id, title, date, and cooked content. Works with any Discourse instance.",
+                  "Deconstruct a Discourse forum post into its individual properties (id, username, topic id, title, date, etc.). Works with any Discourse instance, including McNeel and Ladybug forum posts.",
                   "SmartHopper",
                   "Knowledge")
         {
