@@ -461,6 +461,39 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
+        /// Recursively adds additionalProperties=false to all object-type schemas in a JSON schema.
+        /// OpenAI requires this for strict mode response_format.
+        /// </summary>
+        private static void InjectAdditionalPropertiesFalse(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                var type = obj["type"]?.ToString();
+                if (type == "object")
+                {
+                    // Only add if not already present
+                    if (!obj.ContainsKey("additionalProperties"))
+                    {
+                        obj["additionalProperties"] = false;
+                    }
+                }
+
+                // Recurse into all properties
+                foreach (var property in obj.Properties().ToList())
+                {
+                    InjectAdditionalPropertiesFalse(property.Value);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    InjectAdditionalPropertiesFalse(item);
+                }
+            }
+        }
+
+        /// <summary>
         /// Formats request body for chat completions endpoint.
         /// </summary>
         private string FormatChatCompletionsRequestBody(AIRequestCall request, JArray messages)
@@ -526,6 +559,10 @@ namespace SmartHopper.Providers.OpenAI
                 try
                 {
                     var schemaObj = JObject.Parse(jsonSchema);
+
+                    // OpenAI requires additionalProperties=false on all object schemas in strict mode
+                    InjectAdditionalPropertiesFalse(schemaObj);
+
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
 
