@@ -87,6 +87,36 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "gpt-5.4",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 95,
+                    ContextLimit = 400000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.4-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 100,
+                    ContextLimit = 400000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.4-nano",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
+                    ContextLimit = 400000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "codex-mini-latest",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
@@ -340,6 +370,15 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 60,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-1.5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 75,
                 },
 
                 // Audio

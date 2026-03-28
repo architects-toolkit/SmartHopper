@@ -149,6 +149,88 @@ namespace SmartHopper.Providers.MistralAI
                     Rank = 60,
                     ContextLimit = 32000,
                 },
+
+                // Versioned model aliases (from MistralAI docs)
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-small-4-0-26-03",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 88,
+                    ContextLimit = 131072,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-large-3-25-12",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 65,
+                    ContextLimit = 131072,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ministral-3-14b-25-12",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 55,
+                    ContextLimit = 131072,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ministral-3-8b-25-12",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 45,
+                    ContextLimit = 131072,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ministral-3-3b-25-12",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 35,
+                    ContextLimit = 131072,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "codestral-25-08",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 68,
+                    ContextLimit = 131072,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-tts-26-03",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 72,
+                    ContextLimit = 32000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-transcribe-25-07",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 62,
+                    ContextLimit = 32000,
+                },
             };
 
             return Task.FromResult(models);

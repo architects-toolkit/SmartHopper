@@ -78,6 +78,12 @@ Many thanks to the following contributors to this release:
   - **OpenAI**: Uploads a multi-request JSONL file to `/v1/files`, creates a batch via `/v1/batches`, polls status, downloads output from `/v1/files/{output_file_id}/content`, and cancels via `/v1/batches/{id}/cancel`
   - **Anthropic**: Submits multiple items inline via `POST /v1/messages/batches`, polls `processing_status` on `GET /v1/messages/batches/{id}`, polls status, downloads JSONL results from `results_url`, and cancels via `POST /v1/messages/batches/{id}/cancel`
   - **MistralAI**: Uses inline batching via `POST /v1/batch/jobs`, polls job status on `GET /v1/batch/jobs/{id}`, downloads output from `/v1/files/{output_file}/content`, and cancels via `POST /v1/batch/jobs/{id}/cancel`
+
+### AI Models
+
+- **OpenAI**: Added new GPT-5.4 series models (`gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`) with 400K context and full capabilities including reasoning. Added `gpt-image-1.5` for image generation.
+- **MistralAI**: Added versioned model aliases: `mistral-small-4-0-26-03`, `mistral-large-3-25-12`, `ministral-3-14b-25-12`, `ministral-3-8b-25-12`, `ministral-3-3b-25-12`, `codestral-25-08`, `voxtral-tts-26-03`, `voxtral-mini-transcribe-25-07`.
+- **OpenRouter**: Updated curated models to include GPT-5.4 series and latest Anthropic Claude 4.6 series (`claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-6`).
   - **Custom ID**: All providers generate per-item SmartHopper custom IDs (`sh-{yyyyMMddHHmmss}-{endpoint}-{NN}-{random8}`) used as `custom_id` in batch requests for traceability
   - **Persistence**: `AIStatefulAsyncComponentBase` persists batch state (including `CustomIds` list and sentinel IDs) across file save/close/reopen cycles
   - **Polling Loop**: `IsBatchRequest()`, `SubmitBatchAsync()`, timer-driven `PollBatchStatusAsync()`, and `OnBatchCompleted()` virtual hook. Poll interval driven by `SmartHopperSettings.BatchPollIntervalMinutes`
