@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
@@ -81,16 +82,55 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""text"", ""question"" ]
                 }",
                 execute: this.EvaluateText,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                buildRequest: this.BuildEvaluateRequest);
+        }
+
+        /// <summary>
+        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
+        /// Used during batch collection to aggregate multiple requests into a single batch submission.
+        /// </summary>
+        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
+        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
+        private AIRequestCall BuildEvaluateRequest(AIToolCall toolCall)
+        {
+            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.Arguments ?? new JObject();
+            string text = args["text"]?.ToString();
+            string question = args["question"]?.ToString();
+            string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
+
+            var userPrompt = this.userPrompt;
+            userPrompt = userPrompt.Replace("<question>", question);
+            userPrompt = userPrompt.Replace("<text>", text);
+
+            var requestBody = AIBodyBuilder.Create()
+                .AddSystem(this.systemPrompt)
+                .AddUser(userPrompt)
+                .WithContextFilter(contextFilter)
+                .Build();
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: toolCall.Provider,
+                model: toolCall.Model,
+                body: requestBody,
+                endpoint: this.toolName,
+                capability: this.toolCapabilityRequirements);
+            request.Parameters = toolCall.Parameters;
+            return request;
         }
 
         /// <summary>
         /// Tool wrapper for the EvaluateText function.
         /// </summary>
-        /// <param name="parameters">Parameters passed from the AI.</param>
+        /// <param name="toolCall">The tool call containing parameters.</param>
         /// <returns>Result object.</returns>
         private async Task<AIReturn> EvaluateText(AIToolCall toolCall)
         {
+            // Build the request first (shared logic between batch and non-batch paths)
+            var request = this.BuildEvaluateRequest(toolCall);
+
             // Prepare the output
             var output = new AIReturn()
             {
@@ -101,15 +141,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Debug.WriteLine("[TextTools] Running EvaluateText tool");
 
-                // Extract parameters
-                string providerName = toolCall.Provider;
-                string modelName = toolCall.Model;
-                string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 string? text = args["text"]?.ToString();
                 string? question = args["question"]?.ToString();
-                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
@@ -118,31 +153,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Prepare the AI request
-                var userPrompt = this.userPrompt;
-                userPrompt = userPrompt.Replace("<question>", question);
-                userPrompt = userPrompt.Replace("<text>", text);
-
                 Debug.WriteLine($"[TextTools.EvaluateText] System prompt: {this.systemPrompt}");
-                Debug.WriteLine($"[TextTools.EvaluateText] User prompt: {userPrompt}");
+                Debug.WriteLine($"[TextTools.EvaluateText] User prompt: {request.Body?.Interactions?.LastOrDefault()}");
 
-                // Initiate immutable AIBody
-                var requestBody = AIBodyBuilder.Create()
-                    .AddSystem(this.systemPrompt)
-                    .AddUser(userPrompt)
-                    .WithContextFilter(contextFilter)
-                    .Build();
-
-                // Initiate AIRequestCall
-                var request = new AIRequestCall();
-                request.Initialize(
-                    provider: providerName,
-                    model: modelName,
-                    capability: this.toolCapabilityRequirements,
-                    endpoint: endpoint,
-                    body: requestBody);
-
-                // Execute the AIRequestCall
+                // Execute the pre-built request
                 var result = await request.Exec().ConfigureAwait(false);
 
                 if (!result.Success)

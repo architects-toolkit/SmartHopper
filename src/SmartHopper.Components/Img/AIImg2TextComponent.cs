@@ -323,16 +323,24 @@ namespace SmartHopper.Components.Img
                                 {
                                     var toolResult = await this.parent.CallAiToolAsync("img2text", imgParams).ConfigureAwait(false);
 
-                                    if (toolResult != null)
-                                    {
-                                        string description = toolResult["description"]?.ToString() ?? string.Empty;
-                                        outputs["Description"].Add(new GH_String(description));
-                                    }
-                                    else
+                                    if (toolResult == null)
                                     {
                                         this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"img2text returned no result.");
                                         outputs["Description"].Add(new GH_String(string.Empty));
+                                        continue;
                                     }
+
+                                    // In batch mode, CallAiToolAsync returns a sentinel placeholder under "result".
+                                    // Forward it so ReconstructOutputTree can replace it after the batch completes.
+                                    var sentinel = toolResult["result"]?.ToString();
+                                    if (sentinel != null && sentinel.StartsWith("##SH_BATCH:", StringComparison.Ordinal))
+                                    {
+                                        outputs["Description"].Add(new GH_String(sentinel));
+                                        continue;
+                                    }
+
+                                    string description = toolResult["description"]?.ToString() ?? string.Empty;
+                                    outputs["Description"].Add(new GH_String(description));
                                 }
                                 catch (Exception ex)
                                 {

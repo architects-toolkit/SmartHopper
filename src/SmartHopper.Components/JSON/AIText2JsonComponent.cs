@@ -271,6 +271,15 @@ namespace SmartHopper.Components.JSON
                             continue;
                         }
 
+                        // In batch mode, CallAiToolAsync returns a sentinel placeholder under "result".
+                        // Forward it so ReconstructOutputTree can replace it after the batch completes.
+                        var sentinel = toolResult["result"]?.ToString();
+                        if (sentinel != null && sentinel.StartsWith("##SH_BATCH:", StringComparison.Ordinal))
+                        {
+                            outputs["JSON"].Add(new GH_String(sentinel));
+                            continue;
+                        }
+
                         string json = toolResult["json"]?.ToString() ?? string.Empty;
                         outputs["JSON"].Add(new GH_String(json));
                     }

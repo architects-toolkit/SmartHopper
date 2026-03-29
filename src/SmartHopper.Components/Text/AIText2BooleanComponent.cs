@@ -140,7 +140,7 @@ namespace SmartHopper.Components.Text
             private readonly AIText2BooleanComponent parent;
             private readonly ProcessingOptions processingOptions;
             private Dictionary<string, GH_Structure<GH_String>> inputTree;
-            private Dictionary<string, GH_Structure<GH_Boolean>> result;
+            private Dictionary<string, GH_Structure<GH_String>> stringResult;
 
             public AIText2BooleanWorker(
                 AIText2BooleanComponent parent,
@@ -150,9 +150,9 @@ namespace SmartHopper.Components.Text
             {
                 this.parent = parent;
                 this.processingOptions = processingOptions;
-                this.result = new Dictionary<string, GH_Structure<GH_Boolean>>
+                this.stringResult = new Dictionary<string, GH_Structure<GH_String>>
                 {
-                    { "Result", new GH_Structure<GH_Boolean>() },
+                    { "Result", new GH_Structure<GH_String>() },
                 };
             }
 
@@ -182,7 +182,7 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.result = await this.parent.RunProcessingAsync(
+                    this.stringResult = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
@@ -192,18 +192,19 @@ namespace SmartHopper.Components.Text
                         this.processingOptions,
                         token).ConfigureAwait(false);
 
-                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.stringResult, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
                         Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
                     }
-                    else if (this.result.TryGetValue("Result", out var resultTree))
+                    else if (this.stringResult.TryGetValue("Result", out var resultTree))
                     {
-                        // Non-batch: persist output and emit metrics via FinishResults
-                        this.parent.FinishResults("Result", resultTree);
+                        // Non-batch: convert strings to booleans and persist via FinishResults
+                        var boolTree = ConvertStringTreeToBoolean(resultTree);
+                        this.parent.FinishResults("Result", boolTree);
                     }
 
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
+                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.stringResult.Keys)}");
                 }
                 catch (Exception ex)
                 {
@@ -211,7 +212,36 @@ namespace SmartHopper.Components.Text
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_Boolean>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIText2BooleanComponent parent)
+            /// <summary>
+            /// Converts a string tree to a boolean tree, parsing "true"/"false" strings.
+            /// </summary>
+            private static GH_Structure<GH_Boolean> ConvertStringTreeToBoolean(GH_Structure<GH_String> stringTree)
+            {
+                var boolTree = new GH_Structure<GH_Boolean>();
+                if (stringTree == null) return boolTree;
+
+                foreach (var path in stringTree.Paths)
+                {
+                    var branch = stringTree.get_Branch(path);
+                    var boolBranch = new List<GH_Boolean>();
+                    foreach (GH_String item in branch)
+                    {
+                        var str = item?.Value;
+                        if (bool.TryParse(str, out bool val))
+                        {
+                            boolBranch.Add(new GH_Boolean(val));
+                        }
+                        else
+                        {
+                            boolBranch.Add(null);
+                        }
+                    }
+                    boolTree.AppendRange(boolBranch, path);
+                }
+                return boolTree;
+            }
+
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIText2BooleanComponent parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -219,7 +249,7 @@ namespace SmartHopper.Components.Text
                  *
                  * Outputs should be a dictionary where keys
                  * are each output parameter, and values are
-                 * the output values.
+                 * the output values (as strings for batch support).
                  */
 
                 Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
@@ -238,9 +268,9 @@ namespace SmartHopper.Components.Text
 
                 Debug.WriteLine($"[ProcessData] After normalization - Text count: {textTree.Count}, Question count: {questionTree.Count}");
 
-                // Initialize the output
-                var outputs = new Dictionary<string, List<GH_Boolean>>();
-                outputs["Result"] = new List<GH_Boolean>();
+                // Initialize the output (as strings for batch support - sentinels are strings)
+                var outputs = new Dictionary<string, List<GH_String>>();
+                outputs["Result"] = new List<GH_String>();
 
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
@@ -266,16 +296,31 @@ namespace SmartHopper.Components.Text
 
                     Debug.WriteLine($"[ProcessData] Tool result: {toolResult?.ToString() ?? "null"}");
 
-                    var resultToken = toolResult?["result"];
-                    bool? parsedResult = ParseBooleanResult(resultToken);
-
-                    if (!parsedResult.HasValue)
+                    if (toolResult == null)
                     {
-                        outputs["Result"].Add(null);
+                        outputs["Result"].Add(new GH_String(string.Empty));
                         continue;
                     }
 
-                    outputs["Result"].Add(new GH_Boolean(parsedResult.Value));
+                    // In batch mode, CallAiToolAsync returns a sentinel placeholder under "result".
+                    // Forward it so ReconstructOutputTree can replace it after the batch completes.
+                    var resultValue = toolResult["result"]?.ToString();
+                    if (resultValue != null && resultValue.StartsWith("##SH_BATCH:", StringComparison.Ordinal))
+                    {
+                        outputs["Result"].Add(new GH_String(resultValue));
+                        continue;
+                    }
+
+                    // Non-batch: parse the boolean result
+                    bool? parsedResult = ParseBooleanResult(toolResult["result"]);
+
+                    if (!parsedResult.HasValue)
+                    {
+                        outputs["Result"].Add(new GH_String(string.Empty));
+                        continue;
+                    }
+
+                    outputs["Result"].Add(new GH_String(parsedResult.Value.ToString()));
                 }
 
                 return outputs;
