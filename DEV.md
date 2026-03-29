@@ -165,13 +165,13 @@ Is there something missing? Do you have a suggestion? Please open a discussion i
 
 SmartHopper currently supports the following AI providers and features:
 
-| Provider | Status | API Registration | Streaming | Reasoning exposed by API | Live reasoning streaming in UI | Temperature config | Tool calling | JSON output | Image generation |
+| Provider | Status | API Registration | Streaming | Reasoning exposed by API | Live reasoning streaming in UI | Temperature config | Tool calling | JSON output | Image generation | Batch processing |
 |----------|:------:|------------------|:--------:|:------------------------:|:-------------------------------:|:------------------:|:-----------:|:-----------:|:----------------:|
-| OpenAI | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) | Yes | Yes (o‑series & gpt‑5 structured content) | Yes | Yes (non o‑series & non gpt‑5) | Yes | Yes | Yes (DALL‑E) |
-| MistralAI | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) | Yes | Yes (thinking blocks) | Yes | Yes | Yes | Yes | No |
-| DeepSeek | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) | Yes | Yes (reasoning_content) | Yes | Yes | Yes | Yes | No |
-| Anthropic | ✅ Supported | [Claude Console](https://platform.claude.com/) | Yes | No | No | Yes | Yes | Yes | No |
-| OpenRouter | ✅ Supported | [OpenRouter](https://openrouter.ai/) | No | No (varies by routed model) | No | Varies | Varies | Varies | Varies |
+| OpenAI | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) | Yes | Yes (o‑series & gpt‑5 structured content) | Yes | Yes (non o‑series & non gpt‑5) | Yes | Yes | Yes (DALL‑E) | ✅ Yes |
+| MistralAI | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) | Yes | Yes (thinking blocks) | Yes | Yes | Yes | Yes | No | ✅ Yes |
+| DeepSeek | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) | Yes | Yes (reasoning_content) | Yes | Yes | Yes | Yes | No | ❌ No |
+| Anthropic | ✅ Supported | [Claude Console](https://platform.claude.com/) | Yes | No | No | Yes | Yes | Yes | No | ✅ Yes |
+| OpenRouter | ✅ Supported | [OpenRouter](https://openrouter.ai/) | No | No (varies by routed model) | No | Varies | Varies | Varies | Varies | ❌ No |
 
 Notes:
 - “Temperature config” indicates whether the provider/model family supports a temperature parameter in SmartHopper. For OpenAI o‑series and gpt‑5, temperature is omitted by design; other OpenAI models support it.
