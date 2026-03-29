@@ -205,6 +205,15 @@ namespace SmartHopper.Core.ComponentBase
         private AIReturn AIReturnSnapshot;
 
         /// <summary>
+        /// Single authoritative metrics instance for this component run.
+        /// Set by <see cref="ProcessBatchResults{T}"/> (batch) or <see cref="FinishResults{T}"/> (non-batch)
+        /// and read by <see cref="SetMetricsOutput"/>.
+        /// Avoids the computed-property trap of <see cref="AIReturn.Metrics"/> which re-aggregates
+        /// from interactions on every access, making any mutation a no-op.
+        /// </summary>
+        private AIMetrics _persistedMetrics;
+
+        /// <summary>
         /// Backing storage for the component's declared required capability before merging
         /// with tool capabilities.
         /// </summary>
@@ -597,7 +606,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
-            var metrics = this.AIReturnSnapshot?.Metrics;
+            var metrics = this._persistedMetrics ?? this.AIReturnSnapshot?.Metrics;
             if (metrics == null)
             {
                 Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
@@ -668,6 +677,28 @@ namespace SmartHopper.Core.ComponentBase
             => decodedOutputs;
 
         /// <summary>
+        /// Combines additional metrics into <see cref="_persistedMetrics"/>.
+        /// Use this from derived components that need to merge per-slot or per-item metrics
+        /// that were not captured by <see cref="ProcessBatchResults{T}"/> (e.g. N→1 grouping).
+        /// After calling this, invoke <see cref="SetMetricsOutput"/> to re-emit.
+        /// </summary>
+        /// <param name="metrics">The metrics to merge in.</param>
+        protected void CombineIntoPersistedMetrics(AIMetrics metrics)
+        {
+            if (metrics == null) return;
+            if (this._persistedMetrics == null)
+            {
+                this._persistedMetrics = new AIMetrics
+                {
+                    Provider = this.GetActualAIProviderName(),
+                    Model = this.GetModel(),
+                };
+            }
+
+            this._persistedMetrics.Combine(metrics);
+        }
+
+        /// <summary>
         /// Persists the primary output tree and any additional named outputs, then emits metrics.
         /// Call this from both the non-batch branch of <c>DoWorkAsync</c> and from
         /// <see cref="ProcessBatchResults{T}"/> to ensure a single finalization point.
@@ -698,11 +729,16 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
 
-            // Apply batch completion time fix: stamp aggregated metrics before emitting
-            if (this._batchCompletionTime.HasValue && this.AIReturnSnapshot?.Metrics != null)
+            // Stamp CompletionTime into _persistedMetrics (the single authoritative metrics instance).
+            // AIReturn.Metrics is computed fresh on every access — writing to it is a no-op.
+            if (this._batchCompletionTime.HasValue)
             {
-                this.AIReturnSnapshot.Metrics.CompletionTime = this._batchCompletionTime.Value;
-                Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchCompletionTime.Value:F2}s into metrics");
+                if (this._persistedMetrics != null)
+                {
+                    this._persistedMetrics.CompletionTime = this._batchCompletionTime.Value;
+                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchCompletionTime.Value:F2}s into _persistedMetrics");
+                }
+
                 this._batchCompletionTime = null;
             }
 
@@ -728,6 +764,7 @@ namespace SmartHopper.Core.ComponentBase
             // _batchSubmission and _batchPollTimer are intentionally NOT cleared here:
             // an in-flight remote batch must keep polling until it completes or fails.
             this.AIReturnSnapshot = null;
+            this._persistedMetrics = null;
             this._batchQueue = null;
             this._batchSentinelIds = null;
             this._batchProgressCompleted = 0;
@@ -1415,31 +1452,39 @@ namespace SmartHopper.Core.ComponentBase
                 this.SurfaceMessagesFromReturn(errorReturn, "batch_item");
             }
 
-            // Build aggregated AIReturn so metrics are available after batch completion
+            // Build aggregated AIReturn so body/interactions are available after batch completion.
+            // Also build _persistedMetrics as the single authoritative metrics instance:
+            // AIReturn.Metrics is computed fresh on every access, so any mutation to it is a no-op.
             if (allInteractions.Count > 0)
             {
-                var batchReturn = new AIReturn();
-
-                // Aggregate metrics from all batch items
-                AIMetrics aggregatedMetrics = null;
-                if (allMetrics.Count > 0)
+                // Aggregate all per-interaction metrics into one named instance
+                var aggregatedMetrics = new AIMetrics
                 {
-                    aggregatedMetrics = new AIMetrics
-                    {
-                        Provider = this.GetActualAIProviderName(),
-                        Model = this.GetModel(),
-                    };
-
-                    foreach (var metrics in allMetrics)
-                    {
-                        aggregatedMetrics.Combine(metrics);
-                    }
-
-                    Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items, " +
-                                  $"InputTokens={aggregatedMetrics.InputTokens}, OutputTokens={aggregatedMetrics.OutputTokens}");
+                    Provider = this.GetActualAIProviderName(),
+                    Model = this.GetModel(),
+                };
+                foreach (var m in allMetrics)
+                {
+                    aggregatedMetrics.Combine(m);
                 }
 
-                batchReturn.CreateSuccess(allInteractions, metrics: aggregatedMetrics);
+                Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items, " +
+                              $"InputTokens={aggregatedMetrics.InputTokens}, OutputTokens={aggregatedMetrics.OutputTokens}");
+
+                // Store as the single authoritative source for SetMetricsOutput
+                this._persistedMetrics = aggregatedMetrics;
+
+                // Build AIReturn for body/interactions (used by CurrentAIReturnSnapshot consumers)
+                var batchReturn = new AIReturn();
+                var batchRequest = new AIRequestCall();
+                batchRequest.Initialize(
+                    aggregatedMetrics.Provider,
+                    aggregatedMetrics.Model,
+                    new List<IAIInteraction>(),
+                    endpoint: "batch_complete",
+                    capability: AICapability.None,
+                    toolFilter: null);
+                batchReturn.CreateSuccess(allInteractions, request: batchRequest);
                 this.SetAIReturnSnapshot(batchReturn);
             }
 

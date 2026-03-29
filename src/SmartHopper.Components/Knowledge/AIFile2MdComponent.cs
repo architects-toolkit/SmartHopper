@@ -354,18 +354,17 @@ namespace SmartHopper.Components.Knowledge
                     return new GH_String(sb.ToString());
                 });
 
-            // Merge per-slot metrics into the snapshot that ProcessBatchResults just created.
-            // FinishResults has already been called inside ProcessBatchResults, but metrics
-            // were emitted from the snapshot — so we patch the snapshot and re-emit.
-            if (allSlotMetrics.Count > 0 && this.CurrentAIReturnSnapshot != null)
+            // Merge per-slot metrics (slots 2..N per file) into the single authoritative
+            // _persistedMetrics set by ProcessBatchResults. CombineIntoPersistedMetrics
+            // writes into the persistent field — not into the computed AIReturn.Metrics property.
+            if (allSlotMetrics.Count > 0)
             {
-                var existingMetrics = this.CurrentAIReturnSnapshot.Metrics;
                 foreach (var m in allSlotMetrics)
                 {
-                    existingMetrics?.Combine(m);
+                    this.CombineIntoPersistedMetrics(m);
                 }
 
-                Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics into snapshot");
+                Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics via CombineIntoPersistedMetrics");
 
                 // Re-emit metrics now that per-slot tokens are included
                 this.SetMetricsOutput(null);
