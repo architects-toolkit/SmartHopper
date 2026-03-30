@@ -303,26 +303,41 @@ namespace SmartHopper.Components.JSON
         }
 
         /// <summary>
-        /// Splits a definition string by ':' supporting format:
+        /// Splits a definition string supporting format:
         /// - "name:type"
         /// - "name:type:description"
-        /// - "name:type:description:required"
+        /// - "name:type:description:required" (or any description ending with :required)
+        /// Detects :required by checking the last 9 characters, allowing descriptions to contain colons.
         /// </summary>
         private static string[] SplitDefinition(string def)
         {
-            var parts = def.Split(':');
-            if (parts.Length >= 4)
+            string trimmed = def.Trim();
+            if (string.IsNullOrEmpty(trimmed))
             {
-                // Combine all parts after the first 3 back into description
-                var result = new string[4];
-                result[0] = parts[0];
-                result[1] = parts[1];
-                result[2] = string.Join(":", parts.Skip(2).Take(parts.Length - 3));
-                result[3] = parts[parts.Length - 1];
-                return result;
+                return new string[0];
             }
 
-            return parts;
+            const string requiredSuffix = ":required";
+            bool isRequired = false;
+            string remaining = trimmed;
+
+            // Check if string ends with :required (case insensitive, last 9 chars)
+            if (trimmed.EndsWith(requiredSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                isRequired = true;
+                remaining = trimmed.Substring(0, trimmed.Length - requiredSuffix.Length);
+            }
+
+            // Split remaining by first two colons only
+            var parts = remaining.Split(new[] { ':' }, 3);
+
+            var result = new string[4];
+            result[0] = parts[0].Trim(); // name
+            result[1] = parts.Length > 1 ? parts[1].Trim() : "string"; // type (default string)
+            result[2] = parts.Length > 2 ? parts[2].Trim() : string.Empty; // description
+            result[3] = isRequired ? "required" : string.Empty;
+
+            return result;
         }
 
         /// <summary>
