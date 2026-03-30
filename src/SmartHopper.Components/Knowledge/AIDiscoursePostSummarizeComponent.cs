@@ -45,6 +45,15 @@ namespace SmartHopper.Components.Knowledge
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIDiscoursePostSumm",
+            "discourse_post_summarize",
+            "Discourse Post",
+            "Discourse Post Summary",
+            "Forum Post Summary",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_post_summarize" };
 
         public AIDiscoursePostSummarizeComponent()

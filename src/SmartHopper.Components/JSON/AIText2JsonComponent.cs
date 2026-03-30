@@ -59,6 +59,17 @@ namespace SmartHopper.Components.JSON
             "text2json",
             "JSON Generate",
             "JSON Creator",
+            "Generate JSON",
+            "Create JSON",
+            "JSON from Text",
+            "Text to Schema",
+            "Schema Generate",
+            "Structured Data",
+            "JSON Output",
+            "AI JSON",
+            "LLM JSON",
+            "Parse to JSON",
+            "Convert to JSON",
         };
 
         /// <inheritdoc/>

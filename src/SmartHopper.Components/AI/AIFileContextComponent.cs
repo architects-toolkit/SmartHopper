@@ -41,6 +41,18 @@ namespace SmartHopper.Components.AI
         /// </summary>
         protected override Bitmap Icon => Properties.Resources.context;
 
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "File Context",
+            "Context",
+            "File Description",
+            "Project Context",
+            "AI Context",
+        };
+
         /// <summary>
         /// Initializes a new instance of the <see cref="AIFileContextComponent"/> class.
         /// Constructor for the AI File Context component.

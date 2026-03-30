@@ -42,7 +42,16 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("8872AB8F-A76E-4FBB-96B8-1C3838D2C51B");
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "Extra Settings",
+            "AI Extra Settings",
+            "Advanced Settings",
+            "Provider Settings",
+            "Custom Settings",
+        };
 
         /// <summary>Initializes a new instance of <see cref="AIExtraSettingsComponent"/>.</summary>
         public AIExtraSettingsComponent()

@@ -52,6 +52,17 @@ namespace SmartHopper.Components.Text
             "text2boolean",
             "Text Question",
             "Text True/False",
+            "AI Question",
+            "Ask AI",
+            "AI Answer",
+            "True False",
+            "Yes No",
+            "Boolean Question",
+            "Evaluate Text",
+            "Analyze Text",
+            "Check Text",
+            "Verify Text",
+            "Text Analysis",
         };
 
         /// <inheritdoc/>

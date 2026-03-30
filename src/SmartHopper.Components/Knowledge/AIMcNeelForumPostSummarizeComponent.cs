@@ -46,6 +46,16 @@ namespace SmartHopper.Components.Knowledge
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIMcNeelPostSumm",
+            "mcneel_forum_post_summarize",
+            "McNeel Forum Post",
+            "Post Summarize",
+            "Forum Post Summary",
+            "McNeel Post Summary",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "mcneel_forum_post_summarize" };
 
         public AIMcNeelForumPostSummarizeComponent()

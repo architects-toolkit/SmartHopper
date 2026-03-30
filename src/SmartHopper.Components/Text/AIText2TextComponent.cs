@@ -57,6 +57,17 @@ namespace SmartHopper.Components.Text
             "Text Modify",
             "Text Alter",
             "Text Edit",
+            "AI Write",
+            "AI Writer",
+            "AI Compose",
+            "Generate Text",
+            "Write Text",
+            "Create Text",
+            "Modify Text",
+            "Rephrase",
+            "Paraphrase",
+            "AI Response",
+            "LLM Text",
         };
 
         /// <inheritdoc/>

@@ -52,6 +52,15 @@ namespace SmartHopper.Components.List
             "textlist2boolean",
             "List Question",
             "List True/False",
+            "AI List Question",
+            "Ask List",
+            "List Analysis",
+            "Evaluate List",
+            "Check List",
+            "List Verify",
+            "List Boolean",
+            "List Yes No",
+            "List Query",
         };
 
         /// <inheritdoc/>

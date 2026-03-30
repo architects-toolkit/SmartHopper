@@ -68,6 +68,17 @@ namespace SmartHopper.Components.Img
             "Vision AI",
             "Image Analysis",
             "Image Description",
+            "Describe Image",
+            "Analyze Image",
+            "Image Caption",
+            "Caption Image",
+            "Image Reader",
+            "AI Vision",
+            "Computer Vision",
+            "Image Understanding",
+            "OCR AI",
+            "Image to Words",
+            "Picture Description",
         };
 
         /// <inheritdoc/>

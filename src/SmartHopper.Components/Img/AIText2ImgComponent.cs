@@ -62,7 +62,19 @@ namespace SmartHopper.Components.Img
             "AIImageGen",
             "AIImgGenerate",
             "AIImageGenerate",
-            "text2img"
+            "text2img",
+            "Image Generate",
+            "Generate Image",
+            "Create Image",
+            "AI Picture",
+            "Picture Generate",
+            "Image AI",
+            "AI Art",
+            "AI Drawing",
+            "DALL-E",
+            "Image Synthesis",
+            "Text to Image",
+            "Prompt to Image",
         };
 
         /// <inheritdoc/>

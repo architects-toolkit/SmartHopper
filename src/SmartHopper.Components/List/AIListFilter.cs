@@ -43,6 +43,18 @@ namespace SmartHopper.Components.List
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "list_filter",
+            "List Filter",
+            "Filter List",
+            "Alter List",
+            "List Reorder",
+            "List Shuffle",
+            "List Process",
+            "List Alter",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "list_filter" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions

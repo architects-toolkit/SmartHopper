@@ -50,6 +50,17 @@ namespace SmartHopper.Components.Script
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AI Script Review",
+            "AIScriptReview",
+            "script_review",
+            "Script Review",
+            "Review Script",
+            "Code Review",
+            "Analyze Script",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "script_review" };
 
         /// <summary>

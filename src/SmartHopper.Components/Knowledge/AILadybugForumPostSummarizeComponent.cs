@@ -45,6 +45,14 @@ namespace SmartHopper.Components.Knowledge
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AILadybugPostSumm",
+            "ladybug_forum_post_summarize",
+            "Ladybug Forum Post",
+            "Ladybug Post Summary",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "ladybug_forum_post_summarize" };
 
         public AILadybugForumPostSummarizeComponent()

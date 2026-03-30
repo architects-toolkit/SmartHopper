@@ -52,6 +52,25 @@ namespace SmartHopper.Components.Script
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AI Script Generate",
+            "AI Script Generator",
+            "AI Script Create",
+            "AI Script Creator",
+            "AI Script Edit",
+            "AI Script Editor",
+            "AIScriptGen",
+            "script_generate",
+            "script_edit",
+            "Script Generate",
+            "Generate Script",
+            "Create Script",
+            "Script Create",
+            "Edit Script",
+            "Script Edit",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "script_generate", "script_edit", "gh_get" };
 
         /// <summary>

@@ -67,6 +67,17 @@ namespace SmartHopper.Components.AI
             this.RunOnlyOnInputChanges = false;
         }
 
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "Chat",
+            "AI Chat",
+            "Chat AI",
+            "Conversation",
+            "AI Conversation",
+            "Talk",
+            "Ask AI",
+        };
+
         /// <summary>
         /// Called when the component is removed from the canvas.
         /// </summary>

@@ -52,6 +52,17 @@ namespace SmartHopper.Components.Text
             "Text List Generator",
             "Text List Create",
             "Text List Creator",
+            "Generate List",
+            "Create List",
+            "List Items",
+            "AI List",
+            "List Generator",
+            "List Creator",
+            "AI Enumeration",
+            "Enumerate",
+            "List Production",
+            "Generate Items",
+            "Multiple Items",
         };
 
         /// <inheritdoc/>

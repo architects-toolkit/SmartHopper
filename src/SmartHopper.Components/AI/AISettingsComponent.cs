@@ -42,7 +42,17 @@ namespace SmartHopper.Components.AI
         protected override Bitmap Icon => null;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "Settings",
+            "AI Settings",
+            "Parameters",
+            "AI Parameters",
+            "Request Settings",
+            "Model Settings",
+        };
 
         /// <summary>Initializes a new instance of <see cref="AISettingsComponent"/>.</summary>
         public AISettingsComponent()
