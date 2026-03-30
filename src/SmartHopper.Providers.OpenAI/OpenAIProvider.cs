@@ -494,6 +494,64 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
+        /// Recursively ensures every object-type schema node lists all its property keys in <c>required</c>.
+        /// OpenAI strict mode requires <c>required</c> to include every key present in <c>properties</c>.
+        /// Returns true if any injection was performed (to allow callers to emit a warning).
+        /// </summary>
+        private static bool InjectRequiredForAllProperties(JToken token)
+        {
+            var injected = false;
+
+            if (token is JObject obj)
+            {
+                var type = obj["type"]?.ToString();
+                if (type == "object" && obj["properties"] is JObject props)
+                {
+                    var existingRequired = obj["required"] as JArray ?? new JArray();
+                    var existingKeys = new System.Collections.Generic.HashSet<string>(
+                        existingRequired.Select(k => k.ToString()),
+                        StringComparer.Ordinal);
+
+                    var allKeys = props.Properties().Select(p => p.Name).ToList();
+                    var missingKeys = allKeys.Where(k => !existingKeys.Contains(k)).ToList();
+
+                    if (missingKeys.Count > 0)
+                    {
+                        var newRequired = new JArray(existingRequired);
+                        foreach (var key in missingKeys)
+                        {
+                            newRequired.Add(key);
+                        }
+
+                        obj["required"] = newRequired;
+                        injected = true;
+                    }
+                }
+
+                // Recurse into all child tokens
+                foreach (var property in obj.Properties().ToList())
+                {
+                    if (InjectRequiredForAllProperties(property.Value))
+                    {
+                        injected = true;
+                    }
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    if (InjectRequiredForAllProperties(item))
+                    {
+                        injected = true;
+                    }
+                }
+            }
+
+            return injected;
+        }
+
+        /// <summary>
         /// Formats request body for chat completions endpoint.
         /// </summary>
         private string FormatChatCompletionsRequestBody(AIRequestCall request, JArray messages)
@@ -562,6 +620,18 @@ namespace SmartHopper.Providers.OpenAI
 
                     // OpenAI requires additionalProperties=false on all object schemas in strict mode
                     InjectAdditionalPropertiesFalse(schemaObj);
+
+                    // OpenAI strict mode requires every property key to appear in required.
+                    // Auto-inject missing keys and record a warning so it surfaces in the component.
+                    if (InjectRequiredForAllProperties(schemaObj))
+                    {
+                        request.Messages.Add(new AIRuntimeMessage(
+                            AIRuntimeMessageSeverity.Warning,
+                            AIRuntimeMessageOrigin.Provider,
+                            AIMessageCode.SchemaRequiredAutoAdded,
+                            "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
+                        Debug.WriteLine("[OpenAI] InjectRequiredForAllProperties: auto-added missing keys to required arrays");
+                    }
 
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);

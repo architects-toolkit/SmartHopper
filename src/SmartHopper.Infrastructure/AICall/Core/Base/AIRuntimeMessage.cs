@@ -76,6 +76,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         BatchItemError = 20,
         BatchItemCanceled = 21,
         BatchItemExpired = 22,
+
+        // JSON structured output
+        SchemaRequiredAutoAdded = 30,
     }
 
     /// <summary>

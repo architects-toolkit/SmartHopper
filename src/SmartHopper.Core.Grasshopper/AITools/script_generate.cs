@@ -234,6 +234,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Validate script code for non-Rhino geometry patterns and retry if needed
                 var validationResult = ScriptCodeValidator.Validate(scriptCode, language);
                 var retryCount = 0;
+                var accumulatedMessages = new List<AIRuntimeMessage>();
 
                 while (!validationResult.IsValid && retryCount < MaxValidationRetries)
                 {
@@ -258,6 +259,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         body: correctionBuilder.Build());
 
                     var correctionResult = await correctionRequest.Exec().ConfigureAwait(false);
+
+                    // Accumulate messages from correction attempt even if it fails
+                    if (correctionResult.Messages != null)
+                    {
+                        accumulatedMessages.AddRange(correctionResult.Messages);
+                    }
 
                     if (!correctionResult.Success)
                     {
@@ -318,8 +325,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["message"] = "Script component GhJSON generated successfully. Use gh_put to place it on the canvas.",
                 };
 
+                // Combine original result messages with accumulated correction messages
+                var combinedMessages = new List<AIRuntimeMessage>(result.Messages ?? new List<AIRuntimeMessage>());
+                combinedMessages.AddRange(accumulatedMessages);
+
                 var outBuilder = AIBodyBuilder.Create();
-                outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name, result.Metrics, result.Messages);
+                outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name, result.Metrics, combinedMessages);
                 output.CreateSuccess(outBuilder.Build(), toolCall);
                 return output;
             }

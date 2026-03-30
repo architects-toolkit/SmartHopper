@@ -1289,17 +1289,8 @@ namespace SmartHopper.Core.ComponentBase
                             this._batchStartTime = null;
                         }
 
-                        if (status.Results != null || (status.Messages != null && status.Messages.Count > 0))
-                        {
-                            try
-                            {
-                                this.OnBatchCompleted(status.Results, status.Messages);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"[AIStatefulAsync] OnBatchCompleted error: {ex.Message}");
-                            }
-                        }
+                        // Centralized batch finalization for success case
+                        this.OnBatchFinalized(AIBatchState.Completed, status.Results, status.Messages, null);
 
                         // Transition to Completed state now that batch is done
                         this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
@@ -1312,8 +1303,8 @@ namespace SmartHopper.Core.ComponentBase
                         StopBatchPollTimer();
                         _batchSubmission = null;
 
-                        this.SetPersistentRuntimeMessage("batch_done", GH_RuntimeMessageLevel.Warning,
-                            $"Batch {status.State.ToString().ToLowerInvariant()}: {status.ErrorMessage ?? "no details"}", false);
+                        // Centralized batch finalization for terminal failure cases
+                        this.OnBatchFinalized(status.State, null, status.Messages, status.ErrorMessage);
 
                         // Transition to Error state for terminal failures
                         this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
@@ -1346,6 +1337,63 @@ namespace SmartHopper.Core.ComponentBase
         /// </param>
         protected virtual void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
+        }
+
+        /// <summary>
+        /// Centralized batch finalization handler called for both successful completion
+        /// and terminal failure states (Failed, Cancelled, Expired). Surfaces all messages
+        /// via <see cref="SurfaceMessagesFromReturn"/> and delegates to <see cref="OnBatchCompleted"/>
+        /// for success cases.
+        /// </summary>
+        /// <param name="state">The final batch state.</param>
+        /// <param name="results">Result dictionary for success cases; null for failures.</param>
+        /// <param name="messages">Item-level diagnostic messages from the provider.</param>
+        /// <param name="errorMessage">Error description for failure states.</param>
+        private void OnBatchFinalized(AIBatchState state, IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages, string errorMessage)
+        {
+            // Build a unified AIReturn to collect all messages for surfacing
+            var unifiedReturn = new AIReturn();
+            var hasMessages = false;
+
+            // Add terminal state message for failures
+            if (state != AIBatchState.Completed)
+            {
+                unifiedReturn.AddRuntimeMessage(
+                    AIRuntimeMessageSeverity.Error,
+                    AIRuntimeMessageOrigin.Provider,
+                    $"Batch {state.ToString().ToLowerInvariant()}: {errorMessage ?? "no details"}");
+                hasMessages = true;
+            }
+
+            // Add all item-level messages (works for both success and failure)
+            if (messages != null && messages.Count > 0)
+            {
+                foreach (var msg in messages)
+                {
+                    unifiedReturn.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
+                }
+
+                hasMessages = true;
+            }
+
+            // Surface all collected messages in one call
+            if (hasMessages)
+            {
+                this.SurfaceMessagesFromReturn(unifiedReturn, "batch_item");
+            }
+
+            // For success states, delegate to the virtual OnBatchCompleted hook
+            if (state == AIBatchState.Completed && (results != null || hasMessages))
+            {
+                try
+                {
+                    this.OnBatchCompleted(results, messages);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[AIStatefulAsync] OnBatchCompleted error: {ex.Message}");
+                }
+            }
         }
 
         /// <summary>
