@@ -1299,7 +1299,15 @@ namespace SmartHopper.Core.ComponentBase
                         var actualCount = status.Results?.Count ?? 0;
                         var hasUnresolvedSentinels = actualCount < expectedCount;
 
-                        if (hasUnresolvedSentinels)
+                        // Check for errors in messages to determine correct state
+                        var hasErrors = status.Messages?.Any(m => m.Severity == AIRuntimeMessageSeverity.Error) ?? false;
+
+                        if (hasErrors)
+                        {
+                            Debug.WriteLine($"[AIStatefulAsync] Batch completed but with errors, transitioning to Error");
+                            this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
+                        }
+                        else if (hasUnresolvedSentinels)
                         {
                             Debug.WriteLine($"[AIStatefulAsync] Batch completed but {expectedCount - actualCount}/{expectedCount} sentinels unresolved, transitioning to NeedsRun");
                             this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
