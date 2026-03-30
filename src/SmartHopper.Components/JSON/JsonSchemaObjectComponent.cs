@@ -48,7 +48,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.textgenerate;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSchemaObjectComponent"/> class.
@@ -57,7 +57,7 @@ namespace SmartHopper.Components.JSON
             : base(
                   "JSON Schema Object",
                   "JsonSchemaObj",
-                  "Build a JSON Schema object property definition composed of Properties.\n\nEach property is prefixed with the object name using dot-notation.\nConnect property outputs from JsonSchemaProp to Properties.\nThe output list can be merged with other properties and fed directly into JsonSchemaComponent.",
+                  "Build a JSON Schema object property definition composed of Properties.\n\nEach property is prefixed with the object name using dot-notation.\nConnect property outputs from JsonSchemaProp to Properties.\nThe output list can be merged with other properties and fed directly into Json Schema component.",
                   "SmartHopper", "JSON")
         {
         }
@@ -68,15 +68,17 @@ namespace SmartHopper.Components.JSON
             pManager.AddTextParameter("Name", "N", "Object property name (e.g. \"address\")", GH_ParamAccess.item);
             pManager.AddTextParameter("Description", "D", "Optional description for this object property", GH_ParamAccess.item, string.Empty);
             pManager.AddTextParameter("Properties", "P", "List of property definition strings from JsonSchemaProp components", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Array?", "A", "If true, creates an array of objects property (e.g., 'addresses:array[object]')", GH_ParamAccess.item, false);
 
             pManager[1].Optional = true;
             pManager[2].Optional = true;
+            pManager[3].Optional = true;
         }
 
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Properties", "P", "List of property definition strings with dot-notation prefixes. Connect to JsonSchemaComponent Properties input. Properties marked with :required suffix are preserved and will be auto-extracted by JsonSchemaComponent.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Properties", "P", "List of property definition strings with dot-notation prefixes. Connect to Json Schema component Properties input. Properties marked with :required suffix are preserved and will be auto-extracted by Json Schema component.", GH_ParamAccess.list);
         }
 
         /// <inheritdoc/>
@@ -85,10 +87,12 @@ namespace SmartHopper.Components.JSON
             string name = string.Empty;
             var properties = new List<string>();
             string description = string.Empty;
+            bool isArray = false;
 
             DA.GetData("Name", ref name);
             DA.GetData("Description", ref description);
             DA.GetDataList("Properties", properties);
+            DA.GetData("Array?", ref isArray);
 
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -106,9 +110,10 @@ namespace SmartHopper.Components.JSON
             var output = new List<string>();
 
             // Emit the object property declaration itself
+            string effectiveType = isArray ? "array[object]" : "object";
             string objectDeclaration = string.IsNullOrWhiteSpace(description)
-                ? $"{name}:object"
-                : $"{name}:object:{description.Trim()}";
+                ? $"{name}:{effectiveType}"
+                : $"{name}:{effectiveType}:{description.Trim()}";
             output.Add(objectDeclaration);
 
             // Prefix each property with this object's name, preserving :required suffix

@@ -40,7 +40,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.textgenerate;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSchemaComponent"/> class.
@@ -60,7 +60,7 @@ namespace SmartHopper.Components.JSON
             pManager.AddTextParameter("Title", "Ti", "Optional schema title", GH_ParamAccess.item, string.Empty);
             pManager.AddTextParameter("Description", "D", "Optional schema description", GH_ParamAccess.item, string.Empty);
             pManager.AddTextParameter("Properties", "P", "Property definitions. Format: \"name:type\" or \"name:type:description\". Use dot-notation for nested properties: \"address.city:string\". Append :required to mark property as required: \"name:type:description:required\"\nValid types: string, number, integer, boolean, object, array", GH_ParamAccess.list);
-            pManager.AddTextParameter("Type", "T", "Root schema type: \"object\" or \"array\" (default: object)", GH_ParamAccess.item, "object");
+            pManager.AddBooleanParameter("Array?", "A", "If true, creates an array schema where items are objects with the defined properties", GH_ParamAccess.item, false);
 
             pManager[0].Optional = true;
             pManager[1].Optional = true;
@@ -79,30 +79,18 @@ namespace SmartHopper.Components.JSON
             string title = string.Empty;
             string description = string.Empty;
             var propertyDefs = new List<string>();
-            string rootType = "object";
+            bool isArray = false;
 
             DA.GetData("Title", ref title);
             DA.GetData("Description", ref description);
             DA.GetDataList("Properties", propertyDefs);
-            DA.GetData("Type", ref rootType);
+            DA.GetData("Array?", ref isArray);
 
             if (propertyDefs == null || propertyDefs.Count == 0)
             {
                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No properties provided.");
                 DA.SetData("Schema", string.Empty);
                 return;
-            }
-
-            if (string.IsNullOrWhiteSpace(rootType))
-            {
-                rootType = "object";
-            }
-
-            rootType = rootType.Trim().ToLowerInvariant();
-            if (rootType != "object" && rootType != "array")
-            {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Invalid root type '{rootType}'. Using 'object'.");
-                rootType = "object";
             }
 
             try
@@ -137,7 +125,7 @@ namespace SmartHopper.Components.JSON
                     processedPropertyDefs.Add(trimmedDef);
                 }
 
-                var schema = BuildSchema(processedPropertyDefs, autoExtractedRequired, rootType, title, description);
+                var schema = BuildSchema(processedPropertyDefs, autoExtractedRequired, isArray, title, description);
                 DA.SetData("Schema", schema.ToString(Newtonsoft.Json.Formatting.Indented));
             }
             catch (Exception ex)
@@ -153,13 +141,12 @@ namespace SmartHopper.Components.JSON
         private static JObject BuildSchema(
             List<string> propertyDefs,
             List<string> requiredProps,
-            string rootType,
+            bool isArray,
             string title,
             string description)
         {
             var schema = new JObject();
             schema["$schema"] = "http://json-schema.org/draft-07/schema#";
-            schema["type"] = rootType;
 
             if (!string.IsNullOrWhiteSpace(title))
             {
@@ -171,40 +158,50 @@ namespace SmartHopper.Components.JSON
                 schema["description"] = description;
             }
 
-            if (rootType == "object")
+            // Build the properties object (used for both object root and array items)
+            var propertiesRoot = new JObject();
+
+            foreach (var def in propertyDefs)
             {
-                var propertiesRoot = new JObject();
-                schema["properties"] = propertiesRoot;
-
-                foreach (var def in propertyDefs)
+                if (string.IsNullOrWhiteSpace(def))
                 {
-                    if (string.IsNullOrWhiteSpace(def))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    ParseAndInsertProperty(def.Trim(), propertiesRoot);
+                ParseAndInsertProperty(def.Trim(), propertiesRoot);
+            }
+
+            if (isArray)
+            {
+                // Array schema: items are objects with the defined properties
+                schema["type"] = "array";
+                var items = new JObject { ["type"] = "object" };
+
+                if (propertiesRoot.Count > 0)
+                {
+                    items["properties"] = propertiesRoot;
+                }
+
+                if (requiredProps != null && requiredProps.Count > 0)
+                {
+                    items["required"] = new JArray(requiredProps.Where(r => !string.IsNullOrWhiteSpace(r)).ToArray<object>());
+                }
+
+                schema["items"] = items;
+            }
+            else
+            {
+                // Object schema
+                schema["type"] = "object";
+
+                if (propertiesRoot.Count > 0)
+                {
+                    schema["properties"] = propertiesRoot;
                 }
 
                 if (requiredProps != null && requiredProps.Count > 0)
                 {
                     schema["required"] = new JArray(requiredProps.Where(r => !string.IsNullOrWhiteSpace(r)).ToArray<object>());
-                }
-            }
-            else
-            {
-                // array root: use first property def (if any) as items schema
-                if (propertyDefs.Count > 0)
-                {
-                    var parts = SplitDefinition(propertyDefs[0]);
-                    var itemType = parts.Length > 1 ? parts[1].Trim().ToLowerInvariant() : "string";
-                    var items = new JObject { ["type"] = NormalizeType(itemType) };
-                    if (parts.Length > 2 && !string.IsNullOrWhiteSpace(parts[2]))
-                    {
-                        items["description"] = parts[2].Trim();
-                    }
-
-                    schema["items"] = items;
                 }
             }
 

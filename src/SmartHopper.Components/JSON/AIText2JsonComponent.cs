@@ -89,7 +89,7 @@ namespace SmartHopper.Components.JSON
         {
             pManager.AddTextParameter("Prompt", "P", "REQUIRED The user's prompt describing the JSON data to generate", GH_ParamAccess.tree);
             pManager.AddTextParameter("Instructions", "I", "Optional custom system prompt override", GH_ParamAccess.tree, string.Empty);
-            pManager.AddTextParameter("Schema", "S", "REQUIRED JSON Schema string the output must conform to. Use JsonSchemaComponent to build one.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Schema", "S", "REQUIRED JSON Schema string the output must conform to. Use Json Schema component to build one.", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>

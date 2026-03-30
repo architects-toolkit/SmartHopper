@@ -36,7 +36,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.textgenerate;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSchemaPropComponent"/> class.
@@ -45,7 +45,7 @@ namespace SmartHopper.Components.JSON
             : base(
                   "JSON Schema Property",
                   "JsonSchemaProp",
-                  "Build a JSON Schema property definition for use with JsonSchemaComponent.\n\nOutputs a string in the format \"name:type:description\" or \"name:type:description:required\" when Required? is true.\nSet Array? to true to create an array property with items of the specified Type.\nFor nested properties, prefix the name: e.g. Name = \"address\" and connect as a sub-property to JsonSchemaObject.\n\nValid types: string, number, integer, boolean, object",
+                  "Build a JSON Schema property definition for use with Json Schema component.\n\nOutputs a string in the format \"name:type:description\" or \"name:type:description:required\" when Required? is true.\nSet Array? to true to create an array property with items of the specified Type.\nFor nested properties, prefix the name: e.g. Name = \"address\" and connect as a sub-property to JsonSchemaObject.\n\nValid types: string, number, integer, boolean, object",
                   "SmartHopper", "JSON")
         {
         }
@@ -68,7 +68,7 @@ namespace SmartHopper.Components.JSON
         /// <inheritdoc/>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Property", "P", "Property definition string. Connect to JsonSchemaComponent Properties input or JsonSchemaObject Sub-Properties input.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Property", "P", "Property definition string. Connect to Json Schema component Properties input or Json Schema Object Properties input.", GH_ParamAccess.item);
         }
 
         /// <inheritdoc/>
