@@ -1292,8 +1292,24 @@ namespace SmartHopper.Core.ComponentBase
                         // Centralized batch finalization for success case
                         this.OnBatchFinalized(AIBatchState.Completed, status.Results, status.Messages, null);
 
-                        // Transition to Completed state now that batch is done
-                        this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
+                        // Transition to NeedsRun if sentinels remain unresolved (failed/missing results),
+                        // otherwise transition to Completed. Detect unresolved sentinels by comparing
+                        // sent sentinels (submission.CustomIds) with returned results keys.
+                        var expectedCount = submission.CustomIds?.Count ?? 0;
+                        var actualCount = status.Results?.Count ?? 0;
+                        var hasUnresolvedSentinels = actualCount < expectedCount;
+
+                        if (hasUnresolvedSentinels)
+                        {
+                            Debug.WriteLine($"[AIStatefulAsync] Batch completed but {expectedCount - actualCount}/{expectedCount} sentinels unresolved, transitioning to NeedsRun");
+                            this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
+                        }
+                        else
+                        {
+                            // Transition to Completed state now that batch is done
+                            this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
+                        }
+
                         Rhino.RhinoApp.InvokeOnUiThread(() => this.ExpireSolution(true));
                         break;
 
