@@ -69,10 +69,12 @@ namespace SmartHopper.Components.JSON
             pManager.AddTextParameter("Description", "D", "Optional description for this object property", GH_ParamAccess.item, string.Empty);
             pManager.AddTextParameter("Properties", "P", "List of property definition strings from JsonSchemaProp components", GH_ParamAccess.list);
             pManager.AddBooleanParameter("Array?", "A", "If true, creates an array of objects property (e.g., 'addresses:array[object]')", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Required?", "R", "If true, marks this object property as required in the parent schema", GH_ParamAccess.item, false);
 
             pManager[1].Optional = true;
             pManager[2].Optional = true;
             pManager[3].Optional = true;
+            pManager[4].Optional = true;
         }
 
         /// <inheritdoc/>
@@ -88,11 +90,13 @@ namespace SmartHopper.Components.JSON
             var properties = new List<string>();
             string description = string.Empty;
             bool isArray = false;
+            bool isRequired = false;
 
             DA.GetData("Name", ref name);
             DA.GetData("Description", ref description);
             DA.GetDataList("Properties", properties);
             DA.GetData("Array?", ref isArray);
+            DA.GetData("Required?", ref isRequired);
 
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -111,9 +115,22 @@ namespace SmartHopper.Components.JSON
 
             // Emit the object property declaration itself
             string effectiveType = isArray ? "array[object]" : "object";
-            string objectDeclaration = string.IsNullOrWhiteSpace(description)
-                ? $"{name}:{effectiveType}"
-                : $"{name}:{effectiveType}:{description.Trim()}";
+            string objectDeclaration;
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                objectDeclaration = $"{name}:{effectiveType}";
+            }
+            else
+            {
+                objectDeclaration = $"{name}:{effectiveType}:{description.Trim()}";
+            }
+
+            // Append :required suffix if marked as required
+            if (isRequired)
+            {
+                objectDeclaration += ":required";
+            }
+
             output.Add(objectDeclaration);
 
             // Prefix each property with this object's name, preserving :required suffix
