@@ -83,6 +83,7 @@ namespace SmartHopper.Components.Text
             pManager.AddTextParameter("Text", "T", "REQUIRED text to evaluate", GH_ParamAccess.tree);
             pManager.AddTextParameter("Question", "Q", "REQUIRED true or false question.\nAI will answer this question based on the input text", GH_ParamAccess.tree);
             pManager.AddTextParameter("Fallback", "F", "OPTIONAL fallback value to use when AI response cannot be parsed as true/false.\nIf not provided, the output will be null for unparsable responses", GH_ParamAccess.item);
+            pManager[2].Optional = true;
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -209,13 +210,16 @@ namespace SmartHopper.Components.Text
 
                 // Get the fallback as a single item (not a tree)
                 var fallbackItem = new GH_String();
-                DA.GetData("Fallback", ref fallbackItem);
+                bool hasFallback = DA.GetData("Fallback", ref fallbackItem);
 
                 // The first defined tree is the one that overrides paths in case they don't match between trees
                 this.inputTree["Text"] = textTree;
                 this.inputTree["Question"] = questionTree;
                 var fallbackStructure = new GH_Structure<GH_String>();
-                fallbackStructure.Append(fallbackItem, new GH_Path(0));
+                if (hasFallback && fallbackItem != null)
+                {
+                    fallbackStructure.Append(fallbackItem, new GH_Path(0));
+                }
                 this.inputTree["Fallback"] = fallbackStructure;
 
                 dataCount = 0;
