@@ -101,7 +101,6 @@ namespace SmartHopper.Components.List
         protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
-            var sentinelUsedFallback = this.GetSentinelTree("Used Fallback");
             if (results == null || sentinel == null) return;
 
             var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
@@ -125,9 +124,10 @@ namespace SmartHopper.Components.List
                 messages);
 
             // Process Used Fallback output using cached values (no re-parse!)
+            // Use the same sentinel as Result since both trees have identical structure
             this.ProcessBatchResults<GH_Boolean>(
                 "Used Fallback",
-                sentinelUsedFallback,
+                sentinel,
                 results,
                 (customId, resultBody) =>
                 {
@@ -198,7 +198,6 @@ namespace SmartHopper.Components.List
                 this.stringResult = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Result", new GH_Structure<GH_String>() },
-                    { "Used Fallback", new GH_Structure<GH_String>() },
                 };
             }
 
