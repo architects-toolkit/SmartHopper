@@ -214,7 +214,9 @@ namespace SmartHopper.Components.Text
                 // The first defined tree is the one that overrides paths in case they don't match between trees
                 this.inputTree["Text"] = textTree;
                 this.inputTree["Question"] = questionTree;
-                this.inputTree["Fallback"] = new GH_Structure<GH_String>(fallbackItem);
+                var fallbackStructure = new GH_Structure<GH_String>();
+                fallbackStructure.Append(fallbackItem, new GH_Path(0));
+                this.inputTree["Fallback"] = fallbackStructure;
 
                 dataCount = 0;
             }
@@ -262,7 +264,7 @@ namespace SmartHopper.Components.Text
             /// Converts a string tree to boolean trees, parsing "true"/"false" strings.
             /// Returns both the result tree and the used fallback tree.
             /// </summary>
-            private static (GH_Structure<GH_Boolean> result, GH_Structure<GH_Boolean> usedFallback) ConvertStringTreeToBoolean(GH_Structure<GH_String> stringTree)
+            private (GH_Structure<GH_Boolean> result, GH_Structure<GH_Boolean> usedFallback) ConvertStringTreeToBoolean(GH_Structure<GH_String> stringTree)
             {
                 var resultTree = new GH_Structure<GH_Boolean>();
                 var usedFallbackTree = new GH_Structure<GH_Boolean>();
@@ -284,7 +286,13 @@ namespace SmartHopper.Components.Text
                         else if (!string.IsNullOrEmpty(str))
                         {
                             // Check if this is a fallback value (not empty but not parseable as bool)
-                            bool? parsedFallback = ParseBooleanResult(new Newtonsoft.Json.Linq.JValue(str));
+                            // The result will be the parsed fallback or null if not parseable
+                            bool? parsedFallback = null;
+                            if (bool.TryParse(str, out bool fallbackVal))
+                            {
+                                parsedFallback = fallbackVal;
+                            }
+
                             resultBranch.Add(parsedFallback.HasValue ? new GH_Boolean(parsedFallback.Value) : null);
                             usedFallbackBranch.Add(new GH_Boolean(!parsedFallback.HasValue));
                         }

@@ -222,7 +222,9 @@ namespace SmartHopper.Components.List
                 // Store the converted trees
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Question"] = questionTree;
-                this.inputTree["Fallback"] = new GH_Structure<GH_String>(fallbackItem);
+                var fallbackStructure = new GH_Structure<GH_String>();
+                fallbackStructure.Append(fallbackItem, new GH_Path(0));
+                this.inputTree["Fallback"] = fallbackStructure;
 
                 dataCount = 0;
             }
