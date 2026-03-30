@@ -79,9 +79,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// User prompt for the AI tool provided by this class. Use <criteria> and <list> placeholders.
         /// </summary>
         private readonly string userPrompt =
-            $"Apply this operation to the list: \"<criteria>\"\n\n" +
-            $"List (key=position, value=item):\n<list>\n\n" +
-            $"Return the positions (keys) as a JSON array of integers based on the operation.";
+            "LIST TO PROCESS:\n\n---\n\n<list>\n\n---\n\n" +
+            "OPERATION TO APPLY:\n\n---\n\n\"<criteria>\"\n\n---\n\n" +
+            "Return the positions (keys) as a JSON array of integers based on the operation.";
 
         /// <summary>
         /// Get all tools provided by this class.

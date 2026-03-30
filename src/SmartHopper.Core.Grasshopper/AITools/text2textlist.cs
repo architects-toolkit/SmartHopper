@@ -102,8 +102,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// User prompt for the AI tool provided by this class. Use <prompt> and <count> placeholders.
         /// </summary>
         private readonly string userPrompt =
-            "Generate exactly <count> items based on this prompt: \"<prompt>\"\n\n" +
-            "Return only the JSON array of strings.";
+            "PROMPT:\n\n---\n\n<prompt>\n\n---\n\n" +
+            "NUMBER OF ITEMS:\n\n---\n\n<count>\n\n---\n\n" +
+            "Generate exactly the specified number of items based on the prompt above. Return only the JSON array of strings.";
 
         /// <summary>
         /// Get all tools provided by this class.

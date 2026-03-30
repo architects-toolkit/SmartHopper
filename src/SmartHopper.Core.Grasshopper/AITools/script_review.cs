@@ -99,7 +99,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// User prompt template for question-based review. Use <question> and <code> placeholders.
         /// </summary>
         private readonly string questionReviewPromptTemplate =
-            "Review the following script code with respect to this question: \"<question>\"\n```\n<code>\n```";
+            "SCRIPT CODE TO REVIEW:\n\n---\n\n<code>\n\n---\n\n" +
+            "REVIEW QUESTION:\n\n---\n\n\"<question>\"\n\n---\n\n";
+
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>

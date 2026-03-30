@@ -62,8 +62,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// User prompt for the AI tool provided by this class. Use <question> and <list> placeholders.
         /// </summary>
         private readonly string userPrompt =
-            $"This is my question: \"<question>\"\n\n" +
-            $"Answer to the previous question with the following list:\n<list>\n\n";
+            "LIST TO EVALUATE:\n\n---\n\n<list>\n\n---\n\n" +
+            "QUESTION TO ANSWER:\n\n---\n\n\"<question>\"\n\n---\n\n" +
+            "Answer TRUE or FALSE based on the list above, nothing else.";
 
         /// <summary>
         /// Get all tools provided by this class.
