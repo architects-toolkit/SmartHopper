@@ -64,7 +64,10 @@ namespace SmartHopper.Components.List
         };
 
         /// <inheritdoc/>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "textlist2boolean" };
+        protected virtual IReadOnlyList<string> UsingAiTools => Array.Empty<string>();
+
+        // Cache to store (value, usedFallback) per customId during batch processing
+        private Dictionary<string, (GH_Boolean value, bool usedFallback)> _batchParseCache;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -84,40 +87,91 @@ namespace SmartHopper.Components.List
         {
             pManager.AddGenericParameter("List", "L", " REQUIRED List of items to evaluate", GH_ParamAccess.tree);
             pManager.AddTextParameter("Question", "Q", "REQUIRED True or false question. The AI will answer it based on the input list.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Fallback", "F", "OPTIONAL fallback value to use when AI response cannot be parsed as true/false.\nIf not provided, the output will be null for unparsable responses", GH_ParamAccess.item);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Result", "R", "Result of the evaluation", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Result", "R", "Result of the evaluation (true/false or fallback value)", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Used Fallback", "UF", "True if fallback was used because the AI response could not be parsed as true/false", GH_ParamAccess.tree);
         }
 
         /// <inheritdoc/>
         protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
+            var sentinelUsedFallback = this.GetSentinelTree("Used Fallback");
             if (results == null || sentinel == null) return;
 
-            // ProcessBatchResults automatically persists outputs and sets metrics
+            var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+            if (provider == null) return;
+
+            // Initialize cache for this batch
+            this._batchParseCache = new Dictionary<string, (GH_Boolean, bool)>();
+
+            // Single ProcessBatchResults call - parse once, cache both values
             this.ProcessBatchResults<GH_Boolean>(
                 "Result",
                 sentinel,
                 results,
                 (customId, resultBody) =>
                 {
-                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
-                    if (provider == null) return null;
+                    // Decode and parse ONCE, cache both values
+                    var (value, usedFallback) = ParseBooleanWithFallback(resultBody, provider.Decode);
+                    this._batchParseCache[customId] = (value, usedFallback);
+                    return value;
+                },
+                messages);
 
-                    var interactions = provider.Decode(resultBody);
-                    var lastText = interactions
-                        ?.OfType<AIInteractionText>()
-                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-
-                    if (lastText == null) return null;
-                    if (bool.TryParse(lastText.Content?.Trim(), out bool value))
-                        return new GH_Boolean(value);
+            // Process Used Fallback output using cached values (no re-parse!)
+            this.ProcessBatchResults<GH_Boolean>(
+                "Used Fallback",
+                sentinelUsedFallback,
+                results,
+                (customId, resultBody) =>
+                {
+                    // Retrieve from cache - no parsing needed
+                    if (this._batchParseCache.TryGetValue(customId, out var cached))
+                    {
+                        return new GH_Boolean(cached.usedFallback);
+                    }
                     return null;
                 },
                 messages);
+
+            // Clear cache
+            this._batchParseCache = null;
+        }
+
+        /// <summary>
+        /// Helper to parse boolean from provider response with fallback detection.
+        /// Returns both the parsed value (or null) and whether fallback was used.
+        /// </summary>
+        private static (GH_Boolean value, bool usedFallback) ParseBooleanWithFallback(
+            JObject resultBody,
+            System.Func<JObject, System.Collections.Generic.List<IAIInteraction>> decode)
+        {
+            if (resultBody == null)
+            {
+                return (null, true);
+            }
+
+            var interactions = decode(resultBody);
+            var lastText = interactions
+                ?.OfType<AIInteractionText>()
+                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+            if (lastText == null)
+            {
+                return (null, true);
+            }
+
+            if (bool.TryParse(lastText.Content?.Trim(), out bool value))
+            {
+                return (new GH_Boolean(value), false);
+            }
+
+            return (null, true);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -143,6 +197,7 @@ namespace SmartHopper.Components.List
                 this.stringResult = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Result", new GH_Structure<GH_String>() },
+                    { "Used Fallback", new GH_Structure<GH_String>() },
                 };
             }
 
@@ -157,12 +212,17 @@ namespace SmartHopper.Components.List
                 DA.GetDataTree("List", out listTree);
                 DA.GetDataTree("Question", out questionTree);
 
+                // Get the fallback as a single item (not a tree)
+                var fallbackItem = new GH_String();
+                DA.GetData("Fallback", ref fallbackItem);
+
                 // Convert generic data to string structure
                 var stringListTree = ConvertToGHString(listTree);
 
                 // Store the converted trees
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Question"] = questionTree;
+                this.inputTree["Fallback"] = new GH_Structure<GH_String>(fallbackItem);
 
                 dataCount = 0;
             }
@@ -193,8 +253,9 @@ namespace SmartHopper.Components.List
                     else if (this.stringResult.TryGetValue("Result", out var resultTree))
                     {
                         // Non-batch: convert strings to booleans and persist via FinishResults
-                        var boolTree = ConvertStringTreeToBoolean(resultTree);
+                        var (boolTree, usedFallbackTree) = ConvertStringTreeToBoolean(resultTree);
                         this.parent.FinishResults("Result", boolTree);
+                        this.parent.FinishResults("Used Fallback", usedFallbackTree);
                     }
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.stringResult.Keys)}");
@@ -206,28 +267,51 @@ namespace SmartHopper.Components.List
             }
 
             /// <summary>
-            /// Converts a string tree to a boolean tree, parsing "true"/"false" strings.
+            /// Converts a string tree to boolean trees, parsing "true"/"false" strings.
+            /// Returns both the result tree and the used fallback tree.
             /// </summary>
-            private static GH_Structure<GH_Boolean> ConvertStringTreeToBoolean(GH_Structure<GH_String> stringTree)
+            private static (GH_Structure<GH_Boolean> result, GH_Structure<GH_Boolean> usedFallback) ConvertStringTreeToBoolean(GH_Structure<GH_String> stringTree)
             {
-                var boolTree = new GH_Structure<GH_Boolean>();
-                if (stringTree == null) return boolTree;
+                var resultTree = new GH_Structure<GH_Boolean>();
+                var usedFallbackTree = new GH_Structure<GH_Boolean>();
+                if (stringTree == null) return (resultTree, usedFallbackTree);
 
                 foreach (var path in stringTree.Paths)
                 {
                     var branch = stringTree.get_Branch(path);
-                    var boolBranch = new List<GH_Boolean>();
+                    var resultBranch = new List<GH_Boolean>();
+                    var usedFallbackBranch = new List<GH_Boolean>();
                     foreach (GH_String item in branch)
                     {
                         var str = item?.Value;
                         if (bool.TryParse(str, out bool val))
-                            boolBranch.Add(new GH_Boolean(val));
+                        {
+                            resultBranch.Add(new GH_Boolean(val));
+                            usedFallbackBranch.Add(new GH_Boolean(false));
+                        }
+                        else if (!string.IsNullOrEmpty(str))
+                        {
+                            // Check if this is a fallback value (not empty but not parseable as bool)
+                            // The result will be the parsed fallback or null if not parseable
+                            bool? parsedFallback = null;
+                            if (bool.TryParse(str, out bool fallbackVal))
+                            {
+                                parsedFallback = fallbackVal;
+                            }
+                            resultBranch.Add(parsedFallback.HasValue ? new GH_Boolean(parsedFallback.Value) : null);
+                            usedFallbackBranch.Add(new GH_Boolean(!parsedFallback.HasValue));
+                        }
                         else
-                            boolBranch.Add(null);
+                        {
+                            // Empty string - null result, fallback was used
+                            resultBranch.Add(null);
+                            usedFallbackBranch.Add(new GH_Boolean(true));
+                        }
                     }
-                    boolTree.AppendRange(boolBranch, path);
+                    resultTree.AppendRange(resultBranch, path);
+                    usedFallbackTree.AppendRange(usedFallbackBranch, path);
                 }
-                return boolTree;
+                return (resultTree, usedFallbackTree);
             }
 
             private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIList2BooleanComponent parent)
@@ -248,6 +332,13 @@ namespace SmartHopper.Components.List
                 var listAsJson = AIResponseParser.ConcatenateItemsToJson(branches["List"], "array");
                 var questionTree = branches["Question"];
 
+                // Get the fallback value (single item, same for all)
+                string fallbackValue = null;
+                if (branches.TryGetValue("Fallback", out var fallbackBranch) && fallbackBranch.Count > 0)
+                {
+                    fallbackValue = fallbackBranch[0]?.Value;
+                }
+
                 // Normalize tree lengths
                 var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
                     new List<List<GH_String>>
@@ -260,7 +351,7 @@ namespace SmartHopper.Components.List
                 var normalizedListTree = normalizedLists[0];
                 questionTree = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {normalizedListTree.Count}");
+                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {normalizedListTree.Count}, Fallback: '{fallbackValue}'");
 
                 // Initialize the output (as strings for batch support - sentinels are strings)
                 var outputs = new Dictionary<string, List<GH_String>>();
@@ -278,6 +369,7 @@ namespace SmartHopper.Components.List
                     {
                         ["list"] = JArray.Parse(normalizedListTree[i].Value),
                         ["question"] = question.Value,
+                        ["fallback"] = fallbackValue,
                         ["contextFilter"] = "-*",
                     };
 
@@ -302,8 +394,9 @@ namespace SmartHopper.Components.List
                         continue;
                     }
 
-                    bool result = toolResult["result"]?.ToObject<bool>() ?? false;
-                    outputs["Result"].Add(new GH_String(result.ToString()));
+                    // Non-batch: get the result (could be boolean string or fallback value)
+                    // The result from the tool is already processed
+                    outputs["Result"].Add(new GH_String(resultValue ?? string.Empty));
 
                     i++;
                 }

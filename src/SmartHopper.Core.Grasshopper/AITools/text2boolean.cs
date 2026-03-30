@@ -71,17 +71,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Evaluates a text against a true/false question",
+                description: "Evaluates a text against a true/false question with optional fallback value",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""text"": { ""type"": ""string"", ""description"": ""The text to evaluate"" },
-                        ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" }
+                        ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" },
+                        ""fallback"": { ""type"": ""string"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
                     },
                     ""required"": [""text"", ""question"" ]
                 }",
-                execute: this.EvaluateText,
+                execute: this.Text2Boolean,
                 requiredCapabilities: this.toolCapabilityRequirements,
                 buildRequest: this.BuildEvaluateRequest);
         }
@@ -122,11 +123,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Tool wrapper for the EvaluateText function.
+        /// Tool wrapper for the Text2Boolean function.
         /// </summary>
         /// <param name="toolCall">The tool call containing parameters.</param>
         /// <returns>Result object.</returns>
-        private async Task<AIReturn> EvaluateText(AIToolCall toolCall)
+        private async Task<AIReturn> Text2Boolean(AIToolCall toolCall)
         {
             // Build the request first (shared logic between batch and non-batch paths)
             var request = this.BuildEvaluateRequest(toolCall);
@@ -139,29 +140,31 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[TextTools] Running EvaluateText tool");
+                Debug.WriteLine("[TextTools] Running Text2Boolean tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 string? text = args["text"]?.ToString();
                 string? question = args["question"]?.ToString();
+                string? fallback = args["fallback"]?.ToString();
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
-                    Debug.WriteLine($"[TextTools.EvaluateText] Missing required parameters - text: '{text ?? "null"}', question: '{question ?? "null"}'");
+                    Debug.WriteLine($"[TextTools.Text2Boolean] Missing required parameters - text: '{text ?? "null"}', question: '{question ?? "null"}'");
                     output.CreateError("Missing required parameters");
                     return output;
                 }
 
-                Debug.WriteLine($"[TextTools.EvaluateText] System prompt: {this.systemPrompt}");
-                Debug.WriteLine($"[TextTools.EvaluateText] User prompt: {request.Body?.Interactions?.LastOrDefault()}");
+                Debug.WriteLine($"[TextTools.Text2Boolean] System prompt: {this.systemPrompt}");
+                Debug.WriteLine($"[TextTools.Text2Boolean] User prompt: {request.Body?.Interactions?.LastOrDefault()}");
+                Debug.WriteLine($"[TextTools.Text2Boolean] Fallback value: '{fallback ?? "null"}'");
 
                 // Execute the pre-built request
                 var result = await request.Exec().ConfigureAwait(false);
 
                 if (!result.Success)
                 {
-                    Debug.WriteLine($"[TextTools.EvaluateText] AI call failed. Messages: {result.Messages?.Count ?? 0}");
+                    Debug.WriteLine($"[TextTools.Text2Boolean] AI call failed. Messages: {result.Messages?.Count ?? 0}");
 
                     // Propagate structured messages from AI call
                     output.Messages = result.Messages;
@@ -169,20 +172,41 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                Debug.WriteLine($"[TextTools.EvaluateText] AI response: '{response}'");
+                Debug.WriteLine($"[TextTools.Text2Boolean] AI response: '{response}'");
 
                 // Parse the boolean from the response
                 var parsedResult = AIResponseParser.ParseBooleanFromResponse(response);
 
+                // Build the result
+                var toolResult = new JObject();
+                bool usedFallback = false;
+
                 if (parsedResult == null)
                 {
-                    output.CreateError($"The AI returned an invalid response:\n{result}");
-                    return output;
+                    // AI response could not be parsed as boolean
+                    if (!string.IsNullOrEmpty(fallback))
+                    {
+                        // Use fallback value if provided
+                        Debug.WriteLine($"[TextTools.Text2Boolean] Using fallback value: '{fallback}'");
+                        toolResult.Add("result", fallback);
+                        toolResult.Add("usedFallback", true);
+                        usedFallback = true;
+                    }
+                    else
+                    {
+                        // No fallback - return null
+                        Debug.WriteLine("[TextTools.Text2Boolean] No fallback provided, returning null");
+                        toolResult.Add("result", null);
+                        toolResult.Add("usedFallback", true);
+                        usedFallback = true;
+                    }
                 }
-
-                // Success case
-                var toolResult = new JObject();
-                toolResult.Add("result", parsedResult.Value);
+                else
+                {
+                    // Successfully parsed boolean
+                    toolResult.Add("result", parsedResult.Value);
+                    toolResult.Add("usedFallback", false);
+                }
 
                 var toolBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
@@ -193,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[TextTools] Error in EvaluateText: {ex.Message}");
+                Debug.WriteLine($"[TextTools] Error in Text2Boolean: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;
