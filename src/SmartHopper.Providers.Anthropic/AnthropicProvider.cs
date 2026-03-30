@@ -550,6 +550,8 @@ namespace SmartHopper.Providers.Anthropic
             };
 
             // Apply optional parameters from extras only
+            // Note: effort goes inside output_config, container goes at top level
+            JObject outputConfig = null;
             if (p?.Extras != null)
             {
                 if (p.Extras.TryGetValue("seed", out var seedToken) && seedToken != null)
@@ -558,12 +560,21 @@ namespace SmartHopper.Providers.Anthropic
                     requestBody["top_p"] = topPToken.Value<double?>();
                 if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
                     requestBody["top_k"] = topKToken.Value<int?>();
-                if (p.Extras.TryGetValue("effort", out var effortToken) && effortToken != null)
-                    requestBody["effort"] = effortToken;
-                if (p.Extras.TryGetValue("container", out var containerToken) && containerToken != null)
-                    requestBody["container"] = containerToken;
                 if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
                     requestBody["service_tier"] = stToken;
+
+                // container is a top-level parameter (not inside output_config)
+                if (p.Extras.TryGetValue("container", out var containerToken) && containerToken != null)
+                {
+                    requestBody["container"] = containerToken;
+                }
+
+                // effort goes inside output_config
+                if (p.Extras.TryGetValue("effort", out var effortToken) && effortToken != null)
+                {
+                    outputConfig ??= new JObject();
+                    outputConfig["effort"] = effortToken;
+                }
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -586,14 +597,23 @@ namespace SmartHopper.Providers.Anthropic
 
                     if (supportsStructuredOutputs)
                     {
-                        requestBody["output_config"] = new JObject
+                        // Merge with existing outputConfig if it has effort
+                        if (outputConfig == null)
                         {
-                            ["format"] = new JObject
-                            {
-                                ["type"] = "json_schema",
-                                ["schema"] = wrappedSchema,
-                            },
+                            outputConfig = new JObject();
+                        }
+
+                        outputConfig["format"] = new JObject
+                        {
+                            ["type"] = "json_schema",
+                            ["schema"] = wrappedSchema,
                         };
+                        requestBody["output_config"] = outputConfig;
+                    }
+                    else if (outputConfig != null)
+                    {
+                        // No structured output, but we still have effort to add
+                        requestBody["output_config"] = outputConfig;
                     }
                 }
                 catch (Exception ex)
@@ -605,6 +625,12 @@ namespace SmartHopper.Providers.Anthropic
             else
             {
                 JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+
+                // If we have effort but no JSON schema, still need to add output_config
+                if (outputConfig != null)
+                {
+                    requestBody["output_config"] = outputConfig;
+                }
             }
 
             // After collecting both conversation system texts and optional schema instruction,
@@ -1428,9 +1454,9 @@ namespace SmartHopper.Providers.Anthropic
                     "Container type for the response format. Anthropic-specific.",
                     typeof(string), null),
                 new AIExtraDescriptor("service_tier", "Service Tier",
-                    "Service tier for request processing. 'auto' or 'default'.",
+                    "Service tier for request processing. 'auto' uses Priority Tier when available, 'standard_only' uses only standard tier.",
                     typeof(string), "auto",
-                    new[] { "auto", "default" }),
+                    new[] { "auto", "standard_only" }),
 
                 // Anthropic prompt caching parameters
                 new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
