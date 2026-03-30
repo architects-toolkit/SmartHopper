@@ -88,6 +88,7 @@ namespace SmartHopper.Components.List
             pManager.AddGenericParameter("List", "L", " REQUIRED List of items to evaluate", GH_ParamAccess.tree);
             pManager.AddTextParameter("Question", "Q", "REQUIRED True or false question. The AI will answer it based on the input list.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Fallback", "F", "OPTIONAL fallback value to use when AI response cannot be parsed as true/false.\nIf not provided, the output will be null for unparsable responses", GH_ParamAccess.item);
+            pManager[2].Optional = true;
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -214,7 +215,7 @@ namespace SmartHopper.Components.List
 
                 // Get the fallback as a single item (not a tree)
                 var fallbackItem = new GH_String();
-                DA.GetData("Fallback", ref fallbackItem);
+                bool hasFallback = DA.GetData("Fallback", ref fallbackItem);
 
                 // Convert generic data to string structure
                 var stringListTree = ConvertToGHString(listTree);
@@ -223,7 +224,10 @@ namespace SmartHopper.Components.List
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Question"] = questionTree;
                 var fallbackStructure = new GH_Structure<GH_String>();
-                fallbackStructure.Append(fallbackItem, new GH_Path(0));
+                if (hasFallback && fallbackItem != null)
+                {
+                    fallbackStructure.Append(fallbackItem, new GH_Path(0));
+                }
                 this.inputTree["Fallback"] = fallbackStructure;
 
                 dataCount = 0;
