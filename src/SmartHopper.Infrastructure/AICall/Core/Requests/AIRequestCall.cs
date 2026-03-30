@@ -518,14 +518,14 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             if (this.Body?.RequiresJsonOutput == true && !effective.HasFlag(AICapability.JsonOutput))
             {
                 effective |= AICapability.JsonOutput;
-                notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, "Body requires JSON output but Capability lacks JsonOutput - treating request as JsonOutput"));
+                notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, AIMessageCode.BodyInvalid, "Body requires JSON output but Capability lacks JsonOutput - treating request as JsonOutput"));
             }
 
             // If tools are requested but capability lacks FunctionCalling, add it (informational)
             if (!string.IsNullOrEmpty(this.Body?.ToolFilter) && this.Body?.ToolFilter != "-*" && !effective.HasFlag(AICapability.FunctionCalling))
             {
                 effective |= AICapability.FunctionCalling;
-                notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, "Tool filter provided but Capability lacks FunctionCalling - treating request as requiring FunctionCalling"));
+                notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, AIMessageCode.BodyInvalid, "Tool filter provided but Capability lacks FunctionCalling - treating request as requiring FunctionCalling"));
             }
 
             return effective;

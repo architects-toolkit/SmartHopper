@@ -60,6 +60,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                     context?.Diagnostics?.Add(new AIRuntimeMessage(
                         AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.BodyInvalid,
                         $"Invalid JSON output schema: {parseError}"));
                     return Task.CompletedTask;
                 }
@@ -74,6 +75,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 context?.Diagnostics?.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Warning,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
                     $"Schema validation setup failed: {ex.Message}"));
             }
 

@@ -115,7 +115,7 @@ namespace SmartHopper.Components.Img
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Description");
             if (results == null || sentinel == null) return;
@@ -136,7 +136,8 @@ namespace SmartHopper.Components.Img
                         .LastOrDefault(i => i.Agent == AIAgent.Assistant);
 
                     return new GH_String(lastText?.Content ?? string.Empty);
-                });
+                },
+                messages);
         }
 
         /// <summary>

@@ -47,6 +47,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 messages.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.ToolValidationError,
                     "Tool call instance is null"));
                 var early = new ValidationResult
                 {
@@ -99,6 +100,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     messages.Add(new AIRuntimeMessage(
                         AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.ToolValidationError,
                         $"Arguments for tool '{instance.Name}' do not match schema: {error}"));
                 }
 
@@ -130,6 +132,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                         messages.Add(new AIRuntimeMessage(
                             AIRuntimeMessageSeverity.Error,
                             AIRuntimeMessageOrigin.Validation,
+                            AIMessageCode.ToolValidationError,
                             $"Arguments for tool '{instance.Name}' are missing required properties: {string.Join(", ", missing)}. Retry the tool call and include these properties."));
                     }
                 }
@@ -147,6 +150,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     messages.Add(new AIRuntimeMessage(
                         AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.ToolValidationError,
                         $"Arguments for tool '{instance.Name}' are missing required properties: {string.Join(", ", required)}. Retry the tool call and include these properties."));
                 }
                 else
@@ -154,6 +158,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     messages.Add(new AIRuntimeMessage(
                         AIRuntimeMessageSeverity.Info,
                         AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.ToolValidationError,
                         $"No arguments provided for tool '{instance.Name}'. Created default empty arguments {{}} to satisfy the schema."));
                 }
             }

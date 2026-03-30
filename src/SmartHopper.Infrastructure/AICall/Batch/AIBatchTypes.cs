@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 
 namespace SmartHopper.Infrastructure.AICall.Batch
@@ -145,6 +146,15 @@ namespace SmartHopper.Infrastructure.AICall.Batch
         /// </summary>
         public IReadOnlyDictionary<string, JObject> Results { get; }
 
+        /// <summary>
+        /// Gets item-level diagnostic messages emitted by the provider during batch result parsing.
+        /// Each message carries a <see cref="AIRuntimeMessageSeverity"/> (Error / Warning / Info),
+        /// origin <see cref="AIRuntimeMessageOrigin.Provider"/>, and a human-readable text.
+        /// Populated when <see cref="State"/> is <see cref="AIBatchState.Completed"/> and some items
+        /// errored, were canceled, or expired.
+        /// </summary>
+        public IReadOnlyList<AIRuntimeMessage> Messages { get; }
+
         /// <summary>Initializes a non-completed status.</summary>
         /// <param name="batchId">Provider batch identifier.</param>
         /// <param name="state">Current batch state.</param>
@@ -158,12 +168,16 @@ namespace SmartHopper.Infrastructure.AICall.Batch
             this.CompletedCount = completedCount;
         }
 
-        /// <summary>Initializes a completed status with a multi-item results dictionary.</summary>
-        public AIBatchStatus(string batchId, IReadOnlyDictionary<string, JObject> results)
+        /// <summary>Initializes a completed status with results and optional item-level messages.</summary>
+        /// <param name="batchId">Provider batch identifier.</param>
+        /// <param name="results">Successful result bodies keyed by <c>customId</c>.</param>
+        /// <param name="messages">Optional item-level diagnostic messages (errors, warnings, info).</param>
+        public AIBatchStatus(string batchId, IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
             this.BatchId = batchId;
             this.State = AIBatchState.Completed;
             this.Results = results;
+            this.Messages = messages;
         }
     }
 }

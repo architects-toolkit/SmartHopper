@@ -162,6 +162,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                 errors.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
                     "Provider and model fields are required",
                     false));
             }
@@ -171,6 +172,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                 errors.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
                     "Input and output tokens must be greater than or equal to 0",
                     false));
             }
@@ -180,6 +182,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                 errors.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
                     "Finish reason must be set",
                     false));
             }
@@ -189,6 +192,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                 errors.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.BodyInvalid,
                     "Completion time must be greater than or equal to 0",
                     false));
             }

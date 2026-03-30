@@ -76,7 +76,7 @@ namespace SmartHopper.Components.Text
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
@@ -99,7 +99,8 @@ namespace SmartHopper.Components.Text
                     if (lastText == null) return null;
                     bool? parsed = ParseBooleanResult(new Newtonsoft.Json.Linq.JValue(lastText.Content));
                     return parsed.HasValue ? new GH_Boolean(parsed.Value) : null;
-                });
+                },
+                messages);
         }
 
         /// <summary>

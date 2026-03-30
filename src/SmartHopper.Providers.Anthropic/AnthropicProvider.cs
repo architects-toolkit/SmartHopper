@@ -572,6 +572,10 @@ namespace SmartHopper.Providers.Anthropic
                 try
                 {
                     var schemaObj = JObject.Parse(jsonSchema);
+
+                    // Anthropic requires additionalProperties=false on all object schemas in structured output mode
+                    InjectAdditionalPropertiesFalse(schemaObj);
+
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
                     svc.SetCurrentWrapperInfo(wrapperInfo);
@@ -582,10 +586,13 @@ namespace SmartHopper.Providers.Anthropic
 
                     if (supportsStructuredOutputs)
                     {
-                        requestBody["output_format"] = new JObject
+                        requestBody["output_config"] = new JObject
                         {
-                            ["type"] = "json_schema",
-                            ["schema"] = wrappedSchema,
+                            ["format"] = new JObject
+                            {
+                                ["type"] = "json_schema",
+                                ["schema"] = wrappedSchema,
+                            },
                         };
                     }
                 }
@@ -1142,6 +1149,39 @@ namespace SmartHopper.Providers.Anthropic
             return caps?.HasCapability(AICapability.Text2Json) == true;
         }
 
+        /// <summary>
+        /// Recursively adds additionalProperties=false to all object-type schemas in a JSON schema.
+        /// Anthropic requires this for structured output mode with output_config.format.schema.
+        /// </summary>
+        private static void InjectAdditionalPropertiesFalse(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                var type = obj["type"]?.ToString();
+                if (type == "object")
+                {
+                    // Only add if not already present
+                    if (!obj.ContainsKey("additionalProperties"))
+                    {
+                        obj["additionalProperties"] = false;
+                    }
+                }
+
+                // Recurse into all properties
+                foreach (var property in obj.Properties().ToList())
+                {
+                    InjectAdditionalPropertiesFalse(property.Value);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    InjectAdditionalPropertiesFalse(item);
+                }
+            }
+        }
+
         #region IAIBatchProvider
 
         /// <inheritdoc/>
@@ -1261,7 +1301,11 @@ namespace SmartHopper.Providers.Anthropic
                     }
 
                     // Each result line: {"custom_id": "sh-...", "result": {"type": "succeeded", "message": {...}}}
+                    // or: {"custom_id": "sh-...", "result": {"type": "errored", "error": {...}}}
+                    // or: {"custom_id": "sh-...", "result": {"type": "canceled"}}
+                    // or: {"custom_id": "sh-...", "result": {"type": "expired"}}
                     var resultsDict = new Dictionary<string, JObject>();
+                    var batchMessages = new List<AIRuntimeMessage>();
 
                     foreach (var line in resultsContent.Split('\n'))
                     {
@@ -1279,17 +1323,53 @@ namespace SmartHopper.Providers.Anthropic
                                 var messageResult = resultObj["message"] as JObject;
                                 if (messageResult != null) resultsDict[lineCustomId] = messageResult;
                             }
+                            else if (string.Equals(resultType, "errored", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Extract error message from nested error structure
+                                var errorMsg = resultObj["error"]?.ToString();
+                                if (resultObj["error"] is JObject errorObj)
+                                {
+                                    // Try to get nested error message: error.error.message
+                                    errorMsg = errorObj["error"] is JObject innerError
+                                        ? innerError["message"]?.ToString()
+                                        : errorObj["message"]?.ToString() ?? errorObj.ToString();
+                                }
+                                batchMessages.Add(new AIRuntimeMessage(
+                                    AIRuntimeMessageSeverity.Error,
+                                    AIRuntimeMessageOrigin.Provider,
+                                    AIMessageCode.BatchItemError,
+                                    $"Batch item {lineCustomId}: {errorMsg ?? "Unknown error"}"));
+                            }
+                            else if (string.Equals(resultType, "canceled", StringComparison.OrdinalIgnoreCase))
+                            {
+                                batchMessages.Add(new AIRuntimeMessage(
+                                    AIRuntimeMessageSeverity.Error,
+                                    AIRuntimeMessageOrigin.Provider,
+                                    AIMessageCode.BatchItemCanceled,
+                                    $"Batch item {lineCustomId}: Request was canceled before it could be processed"));
+                            }
+                            else if (string.Equals(resultType, "expired", StringComparison.OrdinalIgnoreCase))
+                            {
+                                batchMessages.Add(new AIRuntimeMessage(
+                                    AIRuntimeMessageSeverity.Warning,
+                                    AIRuntimeMessageOrigin.Provider,
+                                    AIMessageCode.BatchItemExpired,
+                                    $"Batch item {lineCustomId}: Request expired before it could be sent to the model (batch exceeded 24-hour limit)"));
+                            }
                         }
                         catch { /* skip malformed lines */ }
                     }
 
-                    if (resultsDict.Count == 0)
+                    if (resultsDict.Count == 0 && batchMessages.Count == 0)
                     {
                         return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            "No successful results found in batch output");
+                            "No results found in batch output");
                     }
 
-                    return new AIBatchStatus(submission.BatchId, (IReadOnlyDictionary<string, JObject>)new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict));
+                    return new AIBatchStatus(
+                        submission.BatchId,
+                        new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict),
+                        batchMessages.Count > 0 ? batchMessages.AsReadOnly() : null);
                 }
 
                 default:

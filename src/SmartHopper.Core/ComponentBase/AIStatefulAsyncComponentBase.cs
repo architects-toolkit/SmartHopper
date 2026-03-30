@@ -98,8 +98,8 @@ namespace SmartHopper.Core.ComponentBase
     ///         |
     /// PollBatchStatusAsync() [background timer]
     ///         |
-    /// OnBatchCompleted(results)
-    ///   └── ProcessBatchResults&lt;T&gt;(decode)
+    /// OnBatchCompleted(results, messages)
+    ///   └── ProcessBatchResults&lt;T&gt;(decode, messages)
     ///         └── for each sentinel in tree:
     ///               item = decode(customId, resultBody)
     ///               TransformOutputs({primary→item}, context)  ← virtual hook
@@ -1093,9 +1093,16 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The sentinel <see cref="GH_Structure{GH_String}"/>, or <c>null</c>.</returns>
         protected GH_Structure<GH_String> GetSentinelTree(string paramName)
         {
-            if (this._sentinelTrees == null) return null;
+            if (this._sentinelTrees == null)
+            {
+                Debug.WriteLine($"[AIStatefulAsync] GetSentinelTree('{paramName}'): _sentinelTrees is null - tree was not persisted or restored");
+                return null;
+            }
+
             this._sentinelTrees.TryGetValue(paramName, out var tree);
-            return tree as GH_Structure<GH_String>;
+            var result = tree as GH_Structure<GH_String>;
+            Debug.WriteLine($"[AIStatefulAsync] GetSentinelTree('{paramName}'): {(result == null ? "NOT FOUND" : $"found, {result.PathCount} path(s), {result.DataCount} item(s)")}");
+            return result;
         }
 
         /// <summary>
@@ -1282,11 +1289,11 @@ namespace SmartHopper.Core.ComponentBase
                             this._batchStartTime = null;
                         }
 
-                        if (status.Results != null)
+                        if (status.Results != null || (status.Messages != null && status.Messages.Count > 0))
                         {
                             try
                             {
-                                this.OnBatchCompleted(status.Results);
+                                this.OnBatchCompleted(status.Results, status.Messages);
                             }
                             catch (Exception ex)
                             {
@@ -1333,15 +1340,19 @@ namespace SmartHopper.Core.ComponentBase
         /// raw response body. Use the provider's <c>Decode</c> method on each value to extract
         /// the AI response.
         /// </param>
-        protected virtual void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        /// <param name="messages">
+        /// Item-level diagnostic messages from the provider (errors, warnings, info).
+        /// May be null or empty if all items succeeded.
+        /// </param>
+        protected virtual void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
         }
 
         /// <summary>
         /// Helper method to process batch results: reconstructs output tree by replacing sentinels,
         /// calls <see cref="TransformOutputs"/> on each decoded item to allow post-processing,
-        /// aggregates metrics from all batch items, and delegates to <see cref="FinishResults{T}"/>
-        /// to persist all outputs atomically and emit metrics.
+        /// aggregates metrics from all batch items, surfaces any batch errors via <see cref="AIReturn"/>,
+        /// and delegates to <see cref="FinishResults{T}"/> to persist all outputs atomically and emit metrics.
         /// Call this from <see cref="OnBatchCompleted"/> to handle common batch completion logic.
         /// </summary>
         /// <typeparam name="T">The output Grasshopper goo type.</typeparam>
@@ -1349,12 +1360,14 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="sentinelTree">Tree containing sentinel strings from batch submission.</param>
         /// <param name="results">Dictionary from customId to provider response body.</param>
         /// <param name="decode">Function that converts (customId, resultBody) into a goo item.</param>
+        /// <param name="messages">Optional item-level diagnostic messages (errors/warnings) from the provider.</param>
         /// <returns>The reconstructed output tree with sentinels replaced by decoded values.</returns>
         protected GH_Structure<T> ProcessBatchResults<T>(
             string outputParamName,
             GH_Structure<GH_String> sentinelTree,
             IReadOnlyDictionary<string, JObject> results,
-            Func<string, JObject, T> decode)
+            Func<string, JObject, T> decode,
+            IReadOnlyList<AIRuntimeMessage> messages = null)
             where T : IGH_Goo
         {
             if (results == null || sentinelTree == null)
@@ -1435,10 +1448,10 @@ namespace SmartHopper.Core.ComponentBase
                     }
                 });
 
-            // Surface any provider errors from individual batch items as Grasshopper runtime messages.
+            // Surface any provider messages (errors/warnings) from individual batch items.
             // This mirrors how AIRequestCall.Exec() surfaces errors via SurfaceMessagesFromReturn.
             var errorInteractions = allInteractions.OfType<AIInteractionError>().ToList();
-            if (errorInteractions.Count > 0)
+            if (errorInteractions.Count > 0 || (messages != null && messages.Count > 0))
             {
                 var errorReturn = new AIReturn();
                 foreach (var err in errorInteractions)
@@ -1447,6 +1460,15 @@ namespace SmartHopper.Core.ComponentBase
                         AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Provider,
                         err.Content ?? "Provider returned an error");
+                }
+
+                // Surface item-level provider messages (errors, warnings, info)
+                if (messages != null)
+                {
+                    foreach (var msg in messages)
+                    {
+                        errorReturn.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
+                    }
                 }
 
                 this.SurfaceMessagesFromReturn(errorReturn, "batch_item");
@@ -1575,6 +1597,42 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     writer.SetString("BatchSentinelIds", new JArray(_batchSentinelIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
                 }
+
+                // Persist sentinel trees (path layout + sentinel strings) so OnBatchCompleted
+                // can reconstruct output trees correctly after file close/reopen.
+                // Without this, GetSentinelTree() returns null on reload and no output is produced.
+                if (_sentinelTrees != null && _sentinelTrees.Count > 0)
+                {
+                    var sentinelTreesJson = new JObject();
+                    foreach (var kvp in _sentinelTrees)
+                    {
+                        if (kvp.Value is GH_Structure<GH_String> tree)
+                        {
+                            var treeJson = new JArray();
+                            foreach (var path in tree.Paths)
+                            {
+                                var pathIndices = new JArray(path.Indices.Cast<object>().ToArray());
+                                var items = tree.get_Branch(path);
+                                var itemsJson = new JArray();
+                                foreach (GH_String item in items)
+                                {
+                                    itemsJson.Add(item?.Value ?? string.Empty);
+                                }
+
+                                treeJson.Add(new JObject
+                                {
+                                    ["path"] = pathIndices,
+                                    ["items"] = itemsJson,
+                                });
+                            }
+
+                            sentinelTreesJson[kvp.Key] = treeJson;
+                        }
+                    }
+
+                    writer.SetString("BatchSentinelTrees", sentinelTreesJson.ToString(Newtonsoft.Json.Formatting.None));
+                    Debug.WriteLine($"[AIStatefulAsync] Write: persisted {_sentinelTrees.Count} sentinel tree(s)");
+                }
             }
             catch (Exception ex)
             {
@@ -1645,6 +1703,34 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         _batchSentinelIds = new HashSet<string>(JArray.Parse(sentinelJson).Values<string>());
                         Debug.WriteLine($"[AIStatefulAsync] Read: restored {_batchSentinelIds.Count} sentinel IDs");
+                    }
+                }
+
+                if (reader.ItemExists("BatchSentinelTrees"))
+                {
+                    var treesJson = reader.GetString("BatchSentinelTrees");
+                    if (!string.IsNullOrEmpty(treesJson))
+                    {
+                        var treesObj = JObject.Parse(treesJson);
+                        _sentinelTrees = new Dictionary<string, object>();
+                        foreach (var prop in treesObj.Properties())
+                        {
+                            var tree = new GH_Structure<GH_String>();
+                            foreach (var branchToken in prop.Value as JArray ?? new JArray())
+                            {
+                                var pathIndices = (branchToken["path"] as JArray)?.Values<int>().ToArray() ?? Array.Empty<int>();
+                                var ghPath = new Grasshopper.Kernel.Data.GH_Path(pathIndices);
+                                var items = (branchToken["items"] as JArray) ?? new JArray();
+                                foreach (var itemToken in items)
+                                {
+                                    tree.Append(new GH_String(itemToken.ToString()), ghPath);
+                                }
+                            }
+
+                            _sentinelTrees[prop.Name] = tree;
+                        }
+
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored {_sentinelTrees.Count} sentinel tree(s)");
                     }
                 }
             }

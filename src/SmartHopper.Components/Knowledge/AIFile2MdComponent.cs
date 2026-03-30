@@ -279,7 +279,7 @@ namespace SmartHopper.Components.Knowledge
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Markdown");
             if (results == null || sentinel == null) return;
@@ -352,7 +352,8 @@ namespace SmartHopper.Components.Knowledge
                     }
 
                     return new GH_String(sb.ToString());
-                });
+                },
+                messages);
 
             // Merge per-slot metrics (slots 2..N per file) into the single authoritative
             // _persistedMetrics set by ProcessBatchResults. CombineIntoPersistedMetrics

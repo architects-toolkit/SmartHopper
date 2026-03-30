@@ -83,7 +83,7 @@ namespace SmartHopper.Components.List
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
@@ -107,7 +107,8 @@ namespace SmartHopper.Components.List
                     if (bool.TryParse(lastText.Content?.Trim(), out bool value))
                         return new GH_Boolean(value);
                     return null;
-                });
+                },
+                messages);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)

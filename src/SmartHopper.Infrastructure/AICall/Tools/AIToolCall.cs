@@ -62,6 +62,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 messages.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.ToolValidationError,
                     "Body must have exactly one pending tool call"));
             }
             else

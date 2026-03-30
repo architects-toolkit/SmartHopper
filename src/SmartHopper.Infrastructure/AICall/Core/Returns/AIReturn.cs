@@ -161,6 +161,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 errors.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Return,
+                    AIMessageCode.ReturnInvalid,
                     "Request must not be null"));
             }
 
@@ -172,6 +173,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 errors.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Return,
+                    AIMessageCode.ReturnInvalid,
                     "Metrics must not be null"));
             }
             else if (!skipMetricsValidation)
@@ -185,7 +187,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
 
             if (this.Body == null && !this.Messages.Any())
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, "Either body or messages must be set"));
+                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, AIMessageCode.ReturnInvalid, "Either body or messages must be set"));
             }
 
             return (errors.Count == 0, errors);
@@ -390,7 +392,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="text">The message content to add.</param>
         public void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text)
         {
-            this.PrivateStructuredMessages.Add(new AIRuntimeMessage(severity, origin, text ?? string.Empty));
+            this.PrivateStructuredMessages.Add(new AIRuntimeMessage(severity, origin, AIMessageCode.Unknown, text ?? string.Empty));
         }
 
         /// <inheritdoc/>

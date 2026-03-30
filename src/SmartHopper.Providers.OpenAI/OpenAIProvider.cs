@@ -1528,7 +1528,9 @@ namespace SmartHopper.Providers.OpenAI
                     }
 
                     // Each output line: {"custom_id": "sh-...", "response": {"status_code": 200, "body": {...}}}
+                    // or error: {"custom_id": "sh-...", "response": {"status_code": 4xx, "body": {...}}, "error": {...}}
                     var resultsDict = new Dictionary<string, JObject>();
+                    var batchMessages = new List<AIRuntimeMessage>();
                     foreach (var line in fileContent.Split('\n'))
                     {
                         var trimmed = line.Trim();
@@ -1539,19 +1541,38 @@ namespace SmartHopper.Providers.OpenAI
                             var lineCustomId = resultLine["custom_id"]?.ToString();
                             if (string.IsNullOrEmpty(lineCustomId)) continue;
                             var responseObj = resultLine["response"] as JObject;
+                            var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
                             var resultBody = responseObj?["body"] as JObject;
-                            if (resultBody != null) resultsDict[lineCustomId] = resultBody;
+                            if (statusCode >= 200 && statusCode < 300 && resultBody != null)
+                            {
+                                resultsDict[lineCustomId] = resultBody;
+                            }
+                            else
+                            {
+                                // Extract error message from response body or top-level error field
+                                var errorMsg = resultBody?["error"]?["message"]?.ToString()
+                                    ?? resultLine["error"]?["message"]?.ToString()
+                                    ?? $"HTTP {statusCode}";
+                                batchMessages.Add(new AIRuntimeMessage(
+                                    AIRuntimeMessageSeverity.Error,
+                                    AIRuntimeMessageOrigin.Provider,
+                                    AIMessageCode.BatchItemError,
+                                    $"Batch item {lineCustomId}: {errorMsg}"));
+                            }
                         }
                         catch { /* skip malformed lines */ }
                     }
 
-                    if (resultsDict.Count == 0)
+                    if (resultsDict.Count == 0 && batchMessages.Count == 0)
                     {
                         return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            "No successful results found in batch output file");
+                            "No results found in batch output file");
                     }
 
-                    return new AIBatchStatus(submission.BatchId, (IReadOnlyDictionary<string, JObject>)new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict));
+                    return new AIBatchStatus(
+                        submission.BatchId,
+                        new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict),
+                        batchMessages.Count > 0 ? batchMessages.AsReadOnly() : null);
                 }
 
                 case "failed":

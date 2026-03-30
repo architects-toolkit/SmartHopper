@@ -74,6 +74,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 messages.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.ReturnInvalid,
                     "Expected JSON structured output from assistant, but content is missing"));
             }
             else
@@ -88,6 +89,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     messages.Add(new AIRuntimeMessage(
                         AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.ReturnInvalid,
                         $"Response JSON does not match schema: {error}"));
                 }
             }

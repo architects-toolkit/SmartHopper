@@ -99,7 +99,7 @@ namespace SmartHopper.Components.JSON
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("JSON");
             if (results == null || sentinel == null) return;
@@ -120,7 +120,8 @@ namespace SmartHopper.Components.JSON
                         .LastOrDefault(i => i.Agent == AIAgent.Assistant);
 
                     return new GH_String(lastText?.Content ?? string.Empty);
-                });
+                },
+                messages);
         }
 
         /// <inheritdoc/>

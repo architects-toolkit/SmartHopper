@@ -59,8 +59,8 @@ DoWorkAsync()
         |
 PollBatchStatusAsync() [background timer]
         |
-OnBatchCompleted(results)
-  └── ProcessBatchResults<T>(decode)
+OnBatchCompleted(results, messages)
+  └── ProcessBatchResults<T>(decode, messages)
         └── for each sentinel in tree:
               item = decode(customId, resultBody)
               TransformOutputs({primary→item}, context)  ← virtual hook
@@ -165,12 +165,18 @@ public override void SetOutput(IGH_DataAccess DA, out string message)
     => message = string.Empty;
 
 // OnBatchCompleted — delegate entirely to ProcessBatchResults:
-protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+protected override void OnBatchCompleted(
+    IReadOnlyDictionary<string, JObject> results,
+    IReadOnlyList<AIRuntimeMessage> messages = null)
 {
     var sentinel = this.GetSentinelTree("Result");
     if (results == null || sentinel == null) return;
-    this.ProcessBatchResults<GH_String>("Result", sentinel, results,
-        (customId, body) => new GH_String(Decode(body)));
+    this.ProcessBatchResults<GH_String>(
+        "Result",
+        sentinel,
+        results,
+        (customId, body) => new GH_String(Decode(body)),
+        messages);
 }
 ```
 

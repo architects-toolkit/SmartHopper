@@ -54,6 +54,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 messages.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.ToolValidationError,
                     "Tool call instance is null"));
                 var early = new ValidationResult { Messages = messages };
                 early.IsValid = false;
@@ -92,6 +93,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 messages.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.CapabilityMismatch,
                     $"Selected model '{this.model}' on provider '{this.provider}' does not support required capabilities ({required}) for tool '{instance.Name}'"));
             }
 

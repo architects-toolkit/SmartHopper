@@ -75,7 +75,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                             if (m == null) continue;
                             var prefix = string.IsNullOrWhiteSpace(call?.Name) ? "<unknown>" : call.Name;
                             var id = string.IsNullOrWhiteSpace(call?.Id) ? string.Empty : $" (id: {call.Id})";
-                            diagnostics.Add(new AIRuntimeMessage(m.Severity, m.Origin, $"[tool:{prefix}{id}] {m.Message}"));
+                            diagnostics.Add(new AIRuntimeMessage(m.Severity, m.Origin, AIMessageCode.ToolValidationError, $"[tool:{prefix}{id}] {m.Message}"));
                         }
                     }
                 }

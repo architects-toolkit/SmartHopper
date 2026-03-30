@@ -71,6 +71,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         AuthenticationMissing = 12,
         AuthorizationFailed = 13,
         RateLimited = 14,
+
+        // Batch processing
+        BatchItemError = 20,
+        BatchItemCanceled = 21,
+        BatchItemExpired = 22,
     }
 
     /// <summary>
@@ -93,15 +98,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
             this.Code = code;
             this.Message = message ?? string.Empty;
             this.Surfaceable = surfaceable;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="AIRuntimeMessage"/> class with default code Unknown (0).
-        /// Backward-compatible with existing call sites.
-        /// </summary>
-        public AIRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string message, bool surfaceable = true)
-            : this(severity, origin, AIMessageCode.Unknown, message, surfaceable)
-        {
         }
 
         /// <summary>

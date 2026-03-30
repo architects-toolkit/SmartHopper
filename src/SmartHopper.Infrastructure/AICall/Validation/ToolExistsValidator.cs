@@ -44,6 +44,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 messages.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.ToolValidationError,
                     "Tool call instance is null"));
             }
             else if (string.IsNullOrWhiteSpace(instance.Name))
@@ -51,6 +52,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 messages.Add(new AIRuntimeMessage(
                     AIRuntimeMessageSeverity.Error,
                     AIRuntimeMessageOrigin.Validation,
+                    AIMessageCode.ToolValidationError,
                     "Tool name is required"));
             }
             else
@@ -61,6 +63,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                     messages.Add(new AIRuntimeMessage(
                         AIRuntimeMessageSeverity.Error,
                         AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.ToolValidationError,
                         $"Unknown tool '{instance.Name}'"));
                 }
             }
