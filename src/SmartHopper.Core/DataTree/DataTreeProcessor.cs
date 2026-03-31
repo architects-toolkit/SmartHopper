@@ -50,6 +50,26 @@ namespace SmartHopper.Core.DataTree
     /// </summary>
     public static class DataTreeProcessor
     {
+        #region HELPERS
+
+        /// <summary>
+        /// Formats a list of items into a readable string with commas and ', and' before the last item (Oxford comma).
+        /// Examples: ["A"] -> "A"; ["A", "B"] -> "A and B"; ["A", "B", "C"] -> "A, B, and C"
+        /// </summary>
+        private static string FormatEnumeration<T>(IEnumerable<T> items)
+        {
+            var list = items?.Select(x => x?.ToString()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+            if (list == null || list.Count == 0)
+                return string.Empty;
+            if (list.Count == 1)
+                return list[0];
+            if (list.Count == 2)
+                return $"{list[0]} and {list[1]}";
+            return $"{string.Join(", ", list.Take(list.Count - 1))}, and {list[list.Count - 1]}";
+        }
+
+        #endregion
+
         #region BRANCH
 
         /// <summary>
@@ -489,9 +509,9 @@ namespace SmartHopper.Core.DataTree
                 var omittedPaths = allPaths.Where(p => !matchingPaths.Any(mp => mp.ToString() == p.ToString())).ToList();
                 if (omittedPaths.Count > 0)
                 {
-                    var pathList = string.Join(", ", omittedPaths.Select(p => p.ToString()));
+                    var pathList = FormatEnumeration(omittedPaths.Select(p => p.ToString()));
                     messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Warning,
+                        AIRuntimeMessageSeverity.Remark,
                         AIRuntimeMessageOrigin.Validation,
                         AIMessageCode.TreeBranchOmitted,
                         $"OnlyMatchingPaths is enabled. Branches {pathList} will be omitted because they don't exist in all inputs."));
@@ -533,10 +553,10 @@ namespace SmartHopper.Core.DataTree
 
                         if (!isBroadcastOnly)
                         {
-                            var pathList = string.Join(", ", unmatchedPaths.Select(p => p.ToString()));
-                            var otherTrees = string.Join(", ", trees.Where(t => t.Key != treeName).Select(t => t.Key));
+                            var pathList = FormatEnumeration(unmatchedPaths.Select(p => p.ToString()));
+                            var otherTrees = FormatEnumeration(trees.Where(t => t.Key != treeName).Select(t => t.Key));
                             messages.Add(new AIRuntimeMessage(
-                                AIRuntimeMessageSeverity.Warning,
+                                AIRuntimeMessageSeverity.Remark,
                                 AIRuntimeMessageOrigin.Validation,
                                 AIMessageCode.TreePathMismatch,
                                 $"Input '{treeName}' has branches {pathList} that don't match with {otherTrees}. These branches will receive broadcast values from other inputs."));
