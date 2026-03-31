@@ -79,6 +79,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
 
         // JSON structured output
         SchemaRequiredAutoAdded = 30,
+
+        // Data tree processing
+        TreePathMismatch = 40,
+        TreeBranchOmitted = 41,
+        TreeNoMatchingPaths = 42,
     }
 
     /// <summary>

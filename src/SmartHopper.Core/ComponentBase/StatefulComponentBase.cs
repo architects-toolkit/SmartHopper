@@ -45,6 +45,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.IO;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -802,7 +803,22 @@ namespace SmartHopper.Core.ComponentBase
                 },
                 token).ConfigureAwait(false);
 
-            return result;
+            // Surface any tree matching messages as persistent runtime messages
+            foreach (var message in result.Messages)
+            {
+                if (!message.Surfaceable)
+                {
+                    continue;
+                }
+
+                this.SetPersistentRuntimeMessage(
+                    $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
+                    message.ToGrasshopperLevel(),
+                    message.Message,
+                    transitionToError: message.Severity == AIRuntimeMessageSeverity.Error);
+            }
+
+            return result.Outputs;
         }
 
         /// <summary>
@@ -833,7 +849,22 @@ namespace SmartHopper.Core.ComponentBase
                 },
                 token).ConfigureAwait(false);
 
-            return result;
+            // Surface any tree matching messages as persistent runtime messages
+            foreach (var message in result.Messages)
+            {
+                if (!message.Surfaceable)
+                {
+                    continue;
+                }
+
+                this.SetPersistentRuntimeMessage(
+                    $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
+                    message.ToGrasshopperLevel(),
+                    message.Message,
+                    transitionToError: message.Severity == AIRuntimeMessageSeverity.Error);
+            }
+
+            return result.Outputs;
         }
 
         #endregion

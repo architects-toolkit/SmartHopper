@@ -24,6 +24,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 
 namespace SmartHopper.Core.DataTree
 {
@@ -313,6 +314,60 @@ namespace SmartHopper.Core.DataTree
         }
 
         /// <summary>
+        /// Result from tree processing that includes both the output trees and any messages (warnings/errors).
+        /// This is the strongly-typed version with specific input and output types.
+        /// </summary>
+        public sealed class ProcessingResult<T, U>
+            where T : IGH_Goo
+            where U : IGH_Goo
+        {
+            public ProcessingResult(
+                Dictionary<string, GH_Structure<U>> outputs,
+                List<AIRuntimeMessage> messages)
+            {
+                this.Outputs = outputs ?? new Dictionary<string, GH_Structure<U>>();
+                this.Messages = messages ?? new List<AIRuntimeMessage>();
+            }
+
+            /// <summary>
+            /// The processed output trees.
+            /// </summary>
+            public Dictionary<string, GH_Structure<U>> Outputs { get; }
+
+            /// <summary>
+            /// Messages collected during processing about path mismatches, omitted branches, or errors.
+            /// </summary>
+            public List<AIRuntimeMessage> Messages { get; }
+        }
+
+        /// <summary>
+        /// Heterogeneous-output version of ProcessingResult.
+        /// This wraps the strongly-typed version with IGH_Goo as the output type to avoid code duplication.
+        /// </summary>
+        public sealed class ProcessingResult<T>
+            where T : IGH_Goo
+        {
+            private readonly ProcessingResult<T, IGH_Goo> _inner;
+
+            public ProcessingResult(
+                Dictionary<string, GH_Structure<IGH_Goo>> outputs,
+                List<AIRuntimeMessage> messages)
+            {
+                this._inner = new ProcessingResult<T, IGH_Goo>(outputs, messages);
+            }
+
+            /// <summary>
+            /// The processed output trees.
+            /// </summary>
+            public Dictionary<string, GH_Structure<IGH_Goo>> Outputs => this._inner.Outputs;
+
+            /// <summary>
+            /// Messages collected during processing about path mismatches, omitted branches, or errors.
+            /// </summary>
+            public List<AIRuntimeMessage> Messages => this._inner.Messages;
+        }
+
+        /// <summary>
         /// Gets the amount of items in each tree, indexed by position.
         /// </summary>
         private static Dictionary<int, int> TreesLength<T>(IEnumerable<GH_Structure<T>> trees) where T : IGH_Goo
@@ -330,15 +385,18 @@ namespace SmartHopper.Core.DataTree
 
         /// <summary>
         /// Gets paths from trees based on the onlyMatchingPaths parameter and groups identical branches if requested.
+        /// Collects messages about path mismatches during the natural processing flow.
         /// </summary>
         /// <returns>A tuple containing the list of unique processing paths and a dictionary mapping paths to their identical branches.</returns>
         private static (List<GH_Path> uniquePaths, Dictionary<GH_Path, List<GH_Path>> pathsToApplyMap) GetProcessingPaths<T>(
             Dictionary<string, GH_Structure<T>> trees,
             bool onlyMatchingPaths = false,
-            bool groupIdenticalBranches = false) where T : IGH_Goo
+            bool groupIdenticalBranches = false,
+            List<AIRuntimeMessage> messages = null) where T : IGH_Goo
         {
             var allPaths = new List<GH_Path>();
             var pathsToApplyMap = new Dictionary<GH_Path, List<GH_Path>>();
+            messages ??= new List<AIRuntimeMessage>();
 
             if (!onlyMatchingPaths)
             {
@@ -422,7 +480,70 @@ namespace SmartHopper.Core.DataTree
                 }
             }
 
-            var processingPaths = onlyMatchingPaths ? GetMatchingPaths(trees.Values) : allPaths;
+            var matchingPaths = GetMatchingPaths(trees.Values);
+            var processingPaths = onlyMatchingPaths ? matchingPaths : allPaths;
+
+            // Check for paths that will be completely omitted due to no match (OnlyMatchingPaths mode)
+            if (onlyMatchingPaths && matchingPaths.Count < allPaths.Count && allPaths.Count > 0)
+            {
+                var omittedPaths = allPaths.Where(p => !matchingPaths.Any(mp => mp.ToString() == p.ToString())).ToList();
+                if (omittedPaths.Count > 0)
+                {
+                    var pathList = string.Join(", ", omittedPaths.Select(p => p.ToString()));
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Warning,
+                        AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.TreeBranchOmitted,
+                        $"OnlyMatchingPaths is enabled. Branches {pathList} will be omitted because they don't exist in all inputs."));
+                }
+            }
+
+            // Check for unmatched paths when not using OnlyMatchingPaths
+            if (!onlyMatchingPaths && trees.Count >= 2 && allPaths.Count > matchingPaths.Count)
+            {
+                foreach (var kvp in trees)
+                {
+                    var treeName = kvp.Key;
+                    var tree = kvp.Value;
+                    var unmatchedPaths = new List<GH_Path>();
+
+                    foreach (var path in tree.Paths)
+                    {
+                        // Check if this path exists in ALL other trees
+                        bool existsInAllOthers = trees
+                            .Where(t => t.Key != treeName)
+                            .All(t => t.Value.PathExists(path));
+
+                        if (!existsInAllOthers)
+                        {
+                            unmatchedPaths.Add(path);
+                        }
+                    }
+
+                    if (unmatchedPaths.Count > 0)
+                    {
+                        // Check if this is a broadcast-only tree (single path that broadcasts to all others)
+                        bool isBroadcastOnly = tree.PathCount == 1 && allPaths.Count > 1;
+                        if (isBroadcastOnly)
+                        {
+                            var treePath = tree.Paths[0];
+                            var otherPaths = allPaths.Where(p => p.ToString() != treePath.ToString()).ToList();
+                            isBroadcastOnly = otherPaths.Count > 0 && otherPaths.All(op => ShouldBroadcastFlatTree(tree, op, otherPaths));
+                        }
+
+                        if (!isBroadcastOnly)
+                        {
+                            var pathList = string.Join(", ", unmatchedPaths.Select(p => p.ToString()));
+                            var otherTrees = string.Join(", ", trees.Where(t => t.Key != treeName).Select(t => t.Key));
+                            messages.Add(new AIRuntimeMessage(
+                                AIRuntimeMessageSeverity.Warning,
+                                AIRuntimeMessageOrigin.Validation,
+                                AIMessageCode.TreePathMismatch,
+                                $"Input '{treeName}' has branches {pathList} that don't match with {otherTrees}. These branches will receive broadcast values from other inputs."));
+                        }
+                    }
+                }
+            }
 
             // If groupIdenticalBranches is true, find and group identical branches
             if (groupIdenticalBranches &&
@@ -581,11 +702,13 @@ namespace SmartHopper.Core.DataTree
         /// <param name="trees">Dictionary of input data trees keyed by a logical name.</param>
         /// <param name="onlyMatchingPaths">If true, only consider paths that exist in all trees (intersection); otherwise use union.</param>
         /// <param name="groupIdenticalBranches">If true, group identical branches to reduce redundant processing.</param>
+        /// <param name="messages">Optional list to collect messages about path mismatches.</param>
         /// <returns>A <see cref="ProcessingPlan{T}"/> describing how branches should be processed.</returns>
         internal static ProcessingPlan<T> BuildProcessingPlan<T>(
             Dictionary<string, GH_Structure<T>> trees,
             bool onlyMatchingPaths = false,
-            bool groupIdenticalBranches = false)
+            bool groupIdenticalBranches = false,
+            List<AIRuntimeMessage> messages = null)
             where T : IGH_Goo
         {
             if (trees == null)
@@ -596,7 +719,8 @@ namespace SmartHopper.Core.DataTree
             var (processingPaths, pathsToApplyMap) = GetProcessingPaths(
                 trees,
                 onlyMatchingPaths,
-                groupIdenticalBranches);
+                groupIdenticalBranches,
+                messages);
 
             var entries = new List<PlanEntry<T>>(processingPaths.Count);
 
@@ -745,6 +869,7 @@ namespace SmartHopper.Core.DataTree
         /// <summary>
         /// Unified runner that processes data trees based on a specified topology.
         /// Handles item-to-item, item-graft, branch-flatten, and branch-to-branch processing modes.
+        /// Returns both outputs and any warnings about path mismatches or omitted branches.
         /// </summary>
         /// <typeparam name="T">Type of input tree items.</typeparam>
         /// <typeparam name="U">Type of output tree items.</typeparam>
@@ -753,8 +878,8 @@ namespace SmartHopper.Core.DataTree
         /// <param name="options">Processing options specifying topology and path/grouping behavior.</param>
         /// <param name="progressCallback">Optional callback to report progress (current, total).</param>
         /// <param name="token">Cancellation token.</param>
-        /// <returns>Dictionary of output data trees keyed by the same keys as the input dictionary.</returns>
-        public static async Task<Dictionary<string, GH_Structure<U>>> RunAsync<T, U>(
+        /// <returns>ProcessingResult containing output trees and any warnings collected during processing.</returns>
+        public static async Task<ProcessingResult<T, U>> RunAsync<T, U>(
             Dictionary<string, GH_Structure<T>> inputTrees,
             Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
             ProcessingOptions options,
@@ -778,10 +903,29 @@ namespace SmartHopper.Core.DataTree
                 throw new ArgumentNullException(nameof(options));
             }
 
+            var messages = new List<AIRuntimeMessage>();
             var result = new Dictionary<string, GH_Structure<U>>();
-            var plan = BuildProcessingPlan(inputTrees, options.OnlyMatchingPaths, options.GroupIdenticalBranches);
 
-            Debug.WriteLine($"[DataTreeProcessor.RunAsync] Topology: {options.Topology}, Plan entries: {plan.Entries.Count}");
+            // Build processing plan and collect path matching messages during the natural flow
+            var plan = BuildProcessingPlan(inputTrees, options.OnlyMatchingPaths, options.GroupIdenticalBranches, messages);
+
+            // Check for critical case: no matching paths at all
+            if (plan.Entries.Count == 0 && inputTrees.Count >= 2)
+            {
+                var allPaths = GetAllUniquePaths(inputTrees.Values);
+                if (allPaths.Count > 0)
+                {
+                    var treePathInfo = string.Join(", ",
+                        inputTrees.Select(kvp => $"{kvp.Key}: [{string.Join(", ", kvp.Value.Paths.Select(p => p.ToString()))}]"));
+                    messages.Add(new AIRuntimeMessage(
+                        AIRuntimeMessageSeverity.Error,
+                        AIRuntimeMessageOrigin.Validation,
+                        AIMessageCode.TreeNoMatchingPaths,
+                        $"No matching paths found between inputs. Trees have different branch structures: {treePathInfo}"));
+                }
+            }
+
+            Debug.WriteLine($"[DataTreeProcessor.RunAsync] Topology: {options.Topology}, Plan entries: {plan.Entries.Count}, Messages: {messages.Count}");
 
             // Build unified schedule based on topology
             var schedule = new List<ProcessingUnit<T>>();
@@ -947,7 +1091,7 @@ namespace SmartHopper.Core.DataTree
             }
 
             Debug.WriteLine($"[DataTreeProcessor.RunAsync] Finished. Output keys: {string.Join(", ", result.Keys)}");
-            return result;
+            return new ProcessingResult<T, U>(result, messages);
         }
 
         /// <summary>
@@ -957,14 +1101,17 @@ namespace SmartHopper.Core.DataTree
         /// <c>GH_String</c> and <c>GH_ExtractedImage</c>).
         /// Use <see cref="ExtractTypedTree{U}"/> to pull a strongly-typed tree from the result.
         /// </summary>
-        public static Task<Dictionary<string, GH_Structure<IGH_Goo>>> RunAsync<T>(
+        public static async Task<ProcessingResult<T>> RunAsync<T>(
             Dictionary<string, GH_Structure<T>> inputTrees,
             Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<IGH_Goo>>>> function,
             ProcessingOptions options,
             Action<int, int> progressCallback = null,
             CancellationToken token = default)
             where T : IGH_Goo
-            => RunAsync<T, IGH_Goo>(inputTrees, function, options, progressCallback, token);
+        {
+            var result = await RunAsync<T, IGH_Goo>(inputTrees, function, options, progressCallback, token).ConfigureAwait(false);
+            return new ProcessingResult<T>(result.Outputs, result.Messages);
+        }
 
         /// <summary>
         /// Extracts a strongly-typed <see cref="GH_Structure{U}"/> from a heterogeneous result
