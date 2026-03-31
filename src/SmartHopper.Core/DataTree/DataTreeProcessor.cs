@@ -511,7 +511,7 @@ namespace SmartHopper.Core.DataTree
                 {
                     var pathList = FormatEnumeration(omittedPaths.Select(p => p.ToString()));
                     messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Remark,
+                        AIRuntimeMessageSeverity.Info,
                         AIRuntimeMessageOrigin.Validation,
                         AIMessageCode.TreeBranchOmitted,
                         $"OnlyMatchingPaths is enabled. Branches {pathList} will be omitted because they don't exist in all inputs."));
@@ -556,7 +556,7 @@ namespace SmartHopper.Core.DataTree
                             var pathList = FormatEnumeration(unmatchedPaths.Select(p => p.ToString()));
                             var otherTrees = FormatEnumeration(trees.Where(t => t.Key != treeName).Select(t => t.Key));
                             messages.Add(new AIRuntimeMessage(
-                                AIRuntimeMessageSeverity.Remark,
+                                AIRuntimeMessageSeverity.Info,
                                 AIRuntimeMessageOrigin.Validation,
                                 AIMessageCode.TreePathMismatch,
                                 $"Input '{treeName}' has branches {pathList} that don't match with {otherTrees}. These branches will receive broadcast values from other inputs."));

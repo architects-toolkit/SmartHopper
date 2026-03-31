@@ -25,11 +25,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
@@ -180,7 +180,7 @@ namespace SmartHopper.Core.ComponentBase
         private HashSet<string> _batchSentinelIds;
 
         /// <summary>Timer that fires batch status polls.</summary>
-        private Timer _batchPollTimer;
+        private System.Threading.Timer _batchPollTimer;
 
         /// <summary>Guards against concurrent poll calls.</summary>
         private int _batchPollRunning;
@@ -1206,7 +1206,7 @@ namespace SmartHopper.Core.ComponentBase
             StopBatchPollTimer();
 
             int intervalMs = Math.Max(1, SmartHopperSettings.Instance.BatchPollIntervalSeconds) * 1000;
-            _batchPollTimer = new Timer(OnBatchPollTimerTick, null, intervalMs, intervalMs);
+            _batchPollTimer = new System.Threading.Timer(OnBatchPollTimerTick, null, intervalMs, intervalMs);
             Debug.WriteLine($"[AIStatefulAsync] Batch poll timer started, interval={intervalMs}ms, batchId={_batchSubmission?.BatchId}");
         }
 

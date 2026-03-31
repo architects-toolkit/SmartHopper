@@ -1672,7 +1672,6 @@ namespace SmartHopper.Core.ComponentBase
                 this.ExpireSolution(true);
             });
         }
-
 #endif
 
         #endregion
