@@ -203,7 +203,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                             AIRuntimeMessageSeverity.Info,
                             AIRuntimeMessageOrigin.Validation,
                             AIMessageCode.UnknownModel,
-                            $"Requested model '{requestedModel}' is not registered for provider '{this.Provider}'."));
+                            $"Requested model '{requestedModel}' is not registered for '{this.Provider}'. Proceeding with the model, but capability validation cannot be performed."));
                     }
                     else if (!requestedCaps.HasCapability(effectiveCapability))
                     {
