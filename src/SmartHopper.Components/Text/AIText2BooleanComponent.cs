@@ -26,12 +26,12 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Converters;
+using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using CommonDrawing = System.Drawing;
 
@@ -244,7 +244,9 @@ namespace SmartHopper.Components.Text
                     // Extract typed tree from the heterogeneous result.Outputs dictionary
                     var resultTree = DataTreeProcessor.ExtractTypedTree<GH_String>(this.result.Outputs, "Result");
 
-                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", resultTree, token).ConfigureAwait(false);
+                    // Wrap in dictionary for batch submission
+                    var resultDict = new Dictionary<string, GH_Structure<GH_String>> { { "Result", resultTree } };
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", resultDict, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
                         Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
