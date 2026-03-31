@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -139,7 +139,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Sum", out var sumTree) && sumTree != null)
+                    if (result != null && result.Outputs.TryGetValue("Sum", out var sumTree) && sumTree != null)
                         this._resultTree = sumTree;
                     else
                         this._resultTree = new GH_Structure<GH_Integer>();

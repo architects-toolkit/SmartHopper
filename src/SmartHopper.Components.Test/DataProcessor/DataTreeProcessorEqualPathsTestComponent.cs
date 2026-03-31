@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -144,7 +144,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                         token: token).ConfigureAwait(false);
 
                     // Extract result tree
-                    if (result != null && result.TryGetValue("Sum", out var sumTree) && sumTree != null)
+                    if (result != null && result.Outputs.TryGetValue("Sum", out var sumTree) && sumTree != null)
                     {
                         _resultTree = sumTree;
                     }
