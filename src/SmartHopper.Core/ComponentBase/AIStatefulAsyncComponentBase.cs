@@ -1256,15 +1256,18 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Starts (or restarts) the poll timer using the configured interval from <see cref="SmartHopperSettings.BatchPollIntervalMinutes"/>.
+        /// Starts the batch status poll timer with specified initial delay.
         /// </summary>
-        private void StartBatchPollTimer()
+        /// <param name="immediateFirstPoll">If true, the first poll happens immediately (dueTime=0). 
+        /// Use true when restoring batch state to check if already complete.</param>
+        private void StartBatchPollTimer(bool immediateFirstPoll = false)
         {
             StopBatchPollTimer();
 
             int intervalMs = Math.Max(1, SmartHopperSettings.Instance.BatchPollIntervalSeconds) * 1000;
-            _batchPollTimer = new System.Threading.Timer(OnBatchPollTimerTick, null, intervalMs, intervalMs);
-            Debug.WriteLine($"[AIStatefulAsync] Batch poll timer started, interval={intervalMs}ms, batchId={_batchSubmission?.BatchId}");
+            int dueTimeMs = immediateFirstPoll ? 0 : intervalMs;
+            _batchPollTimer = new System.Threading.Timer(OnBatchPollTimerTick, null, dueTimeMs, intervalMs);
+            Debug.WriteLine($"[AIStatefulAsync] Batch poll timer started, dueTime={dueTimeMs}ms, interval={intervalMs}ms, batchId={_batchSubmission?.BatchId}");
         }
 
         /// <summary>Stops and disposes the poll timer without cancelling the batch.</summary>
@@ -1816,7 +1819,8 @@ namespace SmartHopper.Core.ComponentBase
                         {
                             if (_batchSubmission != null)
                             {
-                                StartBatchPollTimer();
+                                // Start timer with immediate first poll to check if batch already complete
+                                StartBatchPollTimer(immediateFirstPoll: true);
 
                                 // Expire solution to trigger recompute with Processing state
                                 this.ExpireSolution(true);
