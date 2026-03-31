@@ -465,6 +465,16 @@ namespace SmartHopper.Core.ComponentBase
             // If other inputs changed
             if (changedInputs.Count > 0)
             {
+                // Special case: AI provider changed - always force to NeedsRun
+                // regardless of Run parameter value, so user explicitly triggers recalculation
+                if (changedInputs.Contains("AIProvider"))
+                {
+                    Debug.WriteLine($"[{this.GetType().Name}] AI Provider changed, forcing transition to NeedsRun");
+                    this.StateManager.CancelDebounce(); // Cancel any pending timer
+                    this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
+                    return;
+                }
+
                 if (!this.run)
                 {
                     Debug.WriteLine($"[{this.GetType().Name}] Inputs changed, starting debounce to NeedsRun");

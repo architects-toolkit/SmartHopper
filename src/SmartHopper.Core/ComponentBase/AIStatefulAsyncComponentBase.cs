@@ -1892,6 +1892,150 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        /// <inheritdoc/>
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+
+            // Add batch-related menu items
+            Menu_AppendSeparator(menu);
+
+            // Always available: Load results from file
+            Menu_AppendItem(menu, "Load results from file", (s, e) =>
+            {
+                this.LoadResultsFromFile();
+            });
+
+            // Only available when in processing batch state
+            var checkBatchItem = Menu_AppendItem(menu, "Check batch status", (s, e) =>
+            {
+                this.CheckBatchStatus();
+            });
+            checkBatchItem.Enabled = this._batchSubmission != null;
+        }
+
+        /// <summary>
+        /// Loads batch results from a file and transitions to final state.
+        /// Allows users to manually load results when batch communication fails or component state is lost.
+        /// </summary>
+        private void LoadResultsFromFile()
+        {
+            try
+            {
+                using (var dialog = new System.Windows.Forms.OpenFileDialog())
+                {
+                    dialog.Filter = "JSON files (*.json;*.jsonl)|*.json;*.jsonl|All files (*.*)|*.*";
+                    dialog.Title = "Load Batch Results";
+                    dialog.CheckFileExists = true;
+
+                    if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                    {
+                        System.Collections.Generic.Dictionary<string, Newtonsoft.Json.Linq.JObject> results;
+                        var filePath = dialog.FileName;
+                        var extension = System.IO.Path.GetExtension(filePath).ToLowerInvariant();
+
+                        if (extension == ".jsonl")
+                        {
+                            // JSONL format: each line is a separate JSON object with custom_id and response
+                            results = new System.Collections.Generic.Dictionary<string, Newtonsoft.Json.Linq.JObject>();
+                            var lines = System.IO.File.ReadAllLines(filePath);
+                            int lineNumber = 0;
+                            foreach (var line in lines)
+                            {
+                                lineNumber++;
+                                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                                try
+                                {
+                                    var jsonObj = Newtonsoft.Json.Linq.JObject.Parse(line);
+
+                                    // Try to extract custom_id from the JSONL structure
+                                    var customId = jsonObj["custom_id"]?.ToString();
+                                    if (string.IsNullOrEmpty(customId))
+                                    {
+                                        // Fallback: use line number as key if no custom_id
+                                        customId = $"line_{lineNumber}";
+                                    }
+                                    results[customId] = jsonObj;
+                                }
+                                catch (Newtonsoft.Json.JsonException ex)
+                                {
+                                    Debug.WriteLine($"[AIStatefulAsync] Error parsing JSONL line {lineNumber}: {ex.Message}");
+                                    // Skip invalid lines
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Standard JSON format: single dictionary
+                            var jsonContent = System.IO.File.ReadAllText(filePath);
+                            results = Newtonsoft.Json.JsonConvert.DeserializeObject<System.Collections.Generic.Dictionary<string, Newtonsoft.Json.Linq.JObject>>(jsonContent);
+                        }
+
+                        if (results != null)
+                        {
+                            // Store results and trigger OnBatchCompleted
+                            Rhino.RhinoApp.InvokeOnUiThread(() =>
+                            {
+                                try
+                                {
+                                    this.OnBatchCompleted(results, null);
+                                    this.StateManager.ForceState(ComponentState.Completed);
+                                    this.ExpireSolution(true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    this.SetPersistentRuntimeMessage(
+                                        "load_results_error",
+                                        GH_RuntimeMessageLevel.Error,
+                                        $"Error processing loaded results: {ex.Message}",
+                                        false);
+                                    this.StateManager.ForceState(ComponentState.Error);
+                                    this.ExpireSolution(true);
+                                }
+                            });
+                        }
+                        else
+                        {
+                            this.SetPersistentRuntimeMessage(
+                                "load_results_error",
+                                GH_RuntimeMessageLevel.Error,
+                                "Invalid or empty results file.",
+                                false);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                this.SetPersistentRuntimeMessage(
+                    "load_results_error",
+                    GH_RuntimeMessageLevel.Error,
+                    $"Error loading results file: {ex.Message}",
+                    false);
+            }
+        }
+
+        /// <summary>
+        /// Manually checks the current batch status and updates the component state.
+        /// Available only when a batch is in processing state.
+        /// </summary>
+        private void CheckBatchStatus()
+        {
+            if (this._batchSubmission == null)
+            {
+                this.SetPersistentRuntimeMessage(
+                    "check_batch_status",
+                    GH_RuntimeMessageLevel.Warning,
+                    "No active batch submission found.",
+                    false);
+                return;
+            }
+
+            // Trigger an immediate poll
+            _ = this.PollBatchStatusAsync();
+        }
+
         #endregion
     }
 }
