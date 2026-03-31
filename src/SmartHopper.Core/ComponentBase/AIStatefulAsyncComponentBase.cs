@@ -188,6 +188,12 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>Number of items completed so far in the active batch, for live progress display.</summary>
         private int _batchProgressCompleted;
 
+        /// <summary>
+        /// Tracks whether the batch unsupported check has been performed for the current run.
+        /// Resets when batch tier is disabled to ensure the check runs again on re-enable.
+        /// </summary>
+        private bool _batchUnsupportedChecked;
+
         /// <summary>Timestamp when the batch was submitted to the provider.</summary>
         private DateTime? _batchStartTime;
 
@@ -367,6 +373,20 @@ namespace SmartHopper.Core.ComponentBase
             this.UpdateBadgeCache();
 
             base.SolveInstance(DA);
+        }
+
+        /// <inheritdoc/>
+        protected override List<string> InputsChanged()
+        {
+            var changed = base.InputsChanged();
+
+            // Clear batch capability check when provider changes to ensure re-validation
+            if (changed.Contains("AIProvider"))
+            {
+                this._batchUnsupportedChecked = false;
+            }
+
+            return changed;
         }
 
         #endregion
@@ -768,6 +788,7 @@ namespace SmartHopper.Core.ComponentBase
             this._batchQueue = null;
             this._batchSentinelIds = null;
             this._batchProgressCompleted = 0;
+            this._batchUnsupportedChecked = false;
             this._batchStartTime = null;
             this._batchCompletionTime = null;
             this._sentinelTrees = null;
@@ -1067,9 +1088,45 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Determines whether the current request parameters specify batch mode
-        /// by checking the <see cref="AIRequestParameters.BatchTier"/> flag.
+        /// by checking the <see cref="AIRequestParameters.BatchTier"/> flag and
+        /// verifying the selected provider supports batch processing.
         /// </summary>
-        protected bool IsBatchRequest() => this._requestParameters?.BatchTier == true;
+        /// <remarks>
+        /// This method centralizes batch capability checking to prevent components
+        /// from entering batch mode when the provider does not support it. If batch
+        /// mode is requested but unsupported, a remark is surfaced once per run.
+        /// </remarks>
+        protected bool IsBatchRequest()
+        {
+            // Fast path: batch tier not enabled
+            if (this._requestParameters?.BatchTier != true)
+            {
+                this._batchUnsupportedChecked = false;
+                return false;
+            }
+
+            // Check if provider supports batch (cached per run)
+            if (!this._batchUnsupportedChecked)
+            {
+                this._batchUnsupportedChecked = true;
+
+                var providerName = this.GetActualAIProviderName();
+                var provider = ProviderManager.Instance.GetProvider(providerName);
+
+                if (provider is not IAIBatchProvider)
+                {
+                    this.SetPersistentRuntimeMessage(
+                        "batch_unsupported",
+                        GH_RuntimeMessageLevel.Remark,
+                        $"The selected provider '{providerName}' does not support batch processing. Processing in regular mode.",
+                        false);
+
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Stores the sentinel tree for a named output parameter so that
