@@ -38,6 +38,17 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- **Google Gemini Provider**: Full integration of Google's Gemini AI models
+  - Support for Gemini 3.1, 2.5, 2.0, and 1.5 models
+  - Text generation with streaming support
+  - Image generation using dedicated image models
+  - Structured outputs with JSON Schema support (Gemini subset)
+  - Tool calling with function declarations
+  - Extended thinking/reasoning with configurable thinking levels
+  - Batch processing with priority support
+  - Context caching ready (infrastructure in place)
+  - `x-goog-api-key` authentication support in centralized `CallApi` method
+
 - **Mixed-Type Data Tree Support**: Infrastructure for handling heterogeneous Grasshopper data types (GH_Boolean, GH_String, etc.) in component input/output trees
   - New `GHStructureConverter` utility class (`SmartHopper.Core.Grasshopper.Converters`) with `ConvertToGooTree<T>()` method for converting typed `GH_Structure<T>` to `GH_Structure<IGH_Goo>`
   - Added `IGH_Goo` to `groupIdenticalBranches` type gate in `DataTreeProcessor` to enable identical branch grouping for mixed-type trees

@@ -47,3 +47,12 @@ Providers implement API-specific logic while conforming to a common contract so 
 - [AIModelCapabilities](./AIModelCapabilities.md)
 - [Model Selection Policy](./ModelSelection.md)
 - [Streaming Adapters](./AICall/Streaming.md)
+
+## Provider implementations (in order of implementation)
+
+- MistralAI
+- OpenAI
+- DeepSeek
+- Anthropic
+- OpenRouter
+- [Google Gemini](./Google.md)
