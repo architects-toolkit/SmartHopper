@@ -27,7 +27,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Components.Properties;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
@@ -182,8 +182,8 @@ namespace SmartHopper.Components.List
 
         private sealed class AIList2BooleanWorker : AsyncWorkerBase
         {
-            private Dictionary<string, GH_Structure<GH_String>> inputTree;
-            private Dictionary<string, GH_Structure<GH_String>> stringResult;
+            private Dictionary<string, GH_Structure<IGH_Goo>> inputTree;
+            private SmartHopper.Core.DataTree.DataTreeProcessor.ProcessingResult<IGH_Goo> result;
             private readonly AIList2BooleanComponent parent;
             private readonly ProcessingOptions processingOptions;
 
@@ -195,15 +195,11 @@ namespace SmartHopper.Components.List
             {
                 this.parent = parent;
                 this.processingOptions = processingOptions;
-                this.stringResult = new Dictionary<string, GH_Structure<GH_String>>
-                {
-                    { "Result", new GH_Structure<GH_String>() },
-                };
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                this.inputTree = new Dictionary<string, GH_Structure<GH_String>>();
+                this.inputTree = new Dictionary<string, GH_Structure<IGH_Goo>>();
 
                 // Get the input trees
                 var listTree = new GH_Structure<IGH_Goo>();
@@ -219,10 +215,12 @@ namespace SmartHopper.Components.List
                 // Convert generic data to string structure
                 var stringListTree = ConvertToGHString(listTree);
 
-                // Store the converted trees
-                this.inputTree["List"] = stringListTree;
-                this.inputTree["Question"] = questionTree;
-                var fallbackStructure = new GH_Structure<GH_Boolean>();
+                // Store the converted trees using GHStructureConverter
+                this.inputTree["List"] = GHStructureConverter.ConvertToGooTree(stringListTree);
+                this.inputTree["Question"] = GHStructureConverter.ConvertToGooTree(questionTree);
+
+                // Store fallback as GH_Boolean directly (no conversion needed)
+                var fallbackStructure = new GH_Structure<IGH_Goo>();
                 if (hasFallback && fallbackItem != null)
                 {
                     fallbackStructure.Append(fallbackItem, new GH_Path(0));
@@ -240,7 +238,7 @@ namespace SmartHopper.Components.List
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.stringResult = await this.parent.RunProcessingAsync(
+                    this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
@@ -250,12 +248,15 @@ namespace SmartHopper.Components.List
                         this.processingOptions,
                         token).ConfigureAwait(false);
 
-                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.stringResult, token).ConfigureAwait(false);
+                    // Extract typed tree from the heterogeneous result.Outputs dictionary
+                    var resultTree = DataTreeProcessor.ExtractTypedTree<GH_String>(this.result.Outputs, "Result");
+
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", resultTree, token).ConfigureAwait(false);
                     if (batchSubmitted)
                     {
                         Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
                     }
-                    else if (this.stringResult.TryGetValue("Result", out var resultTree))
+                    else
                     {
                         // Non-batch: convert strings to booleans and persist via FinishResults
                         var (boolTree, usedFallbackTree) = ConvertStringTreeToBoolean(resultTree);
@@ -263,7 +264,7 @@ namespace SmartHopper.Components.List
                         this.parent.FinishResults("Used Fallback", usedFallbackTree);
                     }
 
-                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.stringResult.Keys)}");
+                    Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Outputs.Keys)}");
                 }
                 catch (Exception ex)
                 {
@@ -319,7 +320,7 @@ namespace SmartHopper.Components.List
                 return (resultTree, usedFallbackTree);
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIList2BooleanComponent parent)
+            private static async Task<Dictionary<string, List<IGH_Goo>>> ProcessData(Dictionary<string, List<IGH_Goo>> branches, AIList2BooleanComponent parent)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -333,18 +334,18 @@ namespace SmartHopper.Components.List
                 Debug.WriteLine($"[Worker] Processing {branches.Count} trees");
                 Debug.WriteLine($"[Worker] Items per tree: {branches.Values.Max(branch => branch.Count)}");
 
-                // Get the trees
-                var listAsJson = AIResponseParser.ConcatenateItemsToJson(branches["List"], "array");
-                var questionTree = branches["Question"];
+                // Get the trees - cast from IGH_Goo to concrete types
+                var listBranch = branches["List"].Cast<GH_String>().ToList();
+                var questionBranch = branches["Question"].Cast<GH_String>().ToList();
 
-                // Get the fallback value (single item, same for all)
+                // Get the fallback value (single item, same for all) - read as GH_Boolean
                 string fallbackValue = null;
                 if (branches.TryGetValue("Fallback", out var fallbackBranch) && fallbackBranch.Count > 0)
                 {
-                    // Convert GH_Boolean to string for the tool parameter
-                    if (fallbackBranch[0] is GH_Boolean boolFallback)
+                    // Get the fallback value from GH_Boolean
+                    if (fallbackBranch[0] is GH_Boolean ghBool)
                     {
-                        fallbackValue = boolFallback.Value.ToString();
+                        fallbackValue = ghBool.Value.ToString();
                     }
                 }
 
@@ -352,26 +353,26 @@ namespace SmartHopper.Components.List
                 var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(
                     new List<List<GH_String>>
                     {
-                        new (new GH_String[] { new (listAsJson.ToString()) }),
-                        questionTree,
+                        new (new GH_String[] { new (AIResponseParser.ConcatenateItemsToJson(listBranch, "array").ToString()) }),
+                        questionBranch,
                     });
 
                 // Reassign normalized branches
                 var normalizedListTree = normalizedLists[0];
-                questionTree = normalizedLists[1];
+                questionBranch = normalizedLists[1];
 
-                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionTree.Count}, List count: {normalizedListTree.Count}, Fallback: '{fallbackValue}'");
+                Debug.WriteLine($"[ProcessData] After normalization - Questions count: {questionBranch.Count}, List count: {normalizedListTree.Count}, Fallback: '{fallbackValue}'");
 
                 // Initialize the output (as strings for batch support - sentinels are strings)
-                var outputs = new Dictionary<string, List<GH_String>>();
-                outputs["Result"] = new List<GH_String>();
+                var outputs = new Dictionary<string, List<IGH_Goo>>();
+                outputs["Result"] = new List<IGH_Goo>();
 
                 // Iterate over the branches
                 // For each item in the prompt tree, get the response from AI
                 int i = 0;
-                foreach (var question in questionTree)
+                foreach (var question in questionBranch)
                 {
-                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionTree.Count}");
+                    Debug.WriteLine($"[ProcessData] Processing prompt {i + 1}/{questionBranch.Count}");
 
                     // Call the AI tool through the tool manager
                     var parameters = new JObject

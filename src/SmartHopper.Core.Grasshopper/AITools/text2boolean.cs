@@ -160,7 +160,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 Debug.WriteLine($"[TextTools.Text2Boolean] System prompt: {this.systemPrompt}");
                 Debug.WriteLine($"[TextTools.Text2Boolean] User prompt: {request.Body?.Interactions?.LastOrDefault()}");
-                Debug.WriteLine($"[TextTools.Text2Boolean] Fallback value: '{fallback ?? "null"}'");
+                Debug.WriteLine($"[TextTools.Text2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
 
                 // Execute the pre-built request
                 var result = await request.Exec().ConfigureAwait(false);

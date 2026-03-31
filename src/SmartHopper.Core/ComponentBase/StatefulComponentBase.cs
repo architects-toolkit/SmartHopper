@@ -867,6 +867,49 @@ namespace SmartHopper.Core.ComponentBase
             return result.Outputs;
         }
 
+        /// <summary>
+        /// Heterogeneous overload for IGH_Goo input and output.
+        /// Returns the full ProcessingResult so workers can access both Outputs and Messages.
+        /// </summary>
+        protected async Task<DataTreeProcessor.ProcessingResult<IGH_Goo>> RunProcessingAsync(
+            Dictionary<string, GH_Structure<IGH_Goo>> trees,
+            Func<Dictionary<string, List<IGH_Goo>>, Task<Dictionary<string, List<IGH_Goo>>>> function,
+            DataTree.ProcessingOptions options,
+            CancellationToken token = default)
+        {
+            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, options);
+
+            this.SetDataCount(dataCount);
+            this.InitializeProgress(iterationCount);
+
+            var result = await DataTree.DataTreeProcessor.RunAsync(
+                trees,
+                function,
+                options,
+                progressCallback: (current, total) =>
+                {
+                    this.UpdateProgress(current);
+                },
+                token).ConfigureAwait(false);
+
+            // Surface any tree matching messages as persistent runtime messages
+            foreach (var message in result.Messages)
+            {
+                if (!message.Surfaceable)
+                {
+                    continue;
+                }
+
+                this.SetPersistentRuntimeMessage(
+                    $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
+                    message.ToGrasshopperLevel(),
+                    message.Message,
+                    transitionToError: message.Severity == AIRuntimeMessageSeverity.Error);
+            }
+
+            return result;
+        }
+
         #endregion
 
         #region Persistence

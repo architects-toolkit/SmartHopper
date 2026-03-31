@@ -125,7 +125,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                Debug.WriteLine($"[ListTools.TextList2Boolean] Fallback value: '{fallback ?? "null"}'");
+                Debug.WriteLine($"[ListTools.TextList2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
 
                 // Normalize list input
                 var items = NormalizeListInput(toolInfo);

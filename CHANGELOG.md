@@ -36,8 +36,29 @@ Many thanks to the following contributors to this release:
   - `AIFile2MdComponent` → `AIFile2MdComponent`
   - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
 
+### Added
+
+- **Mixed-Type Data Tree Support**: Infrastructure for handling heterogeneous Grasshopper data types (GH_Boolean, GH_String, etc.) in component input/output trees
+  - New `GHStructureConverter` utility class (`SmartHopper.Core.Grasshopper.Converters`) with `ConvertToGooTree<T>()` method for converting typed `GH_Structure<T>` to `GH_Structure<IGH_Goo>`
+  - Added `IGH_Goo` to `groupIdenticalBranches` type gate in `DataTreeProcessor` to enable identical branch grouping for mixed-type trees
+  - New `RunProcessingAsync()` overload in `StatefulComponentBase` returning `ProcessingResult<IGH_Goo>` for heterogeneous IGH_Goo input/output processing
+  - `ProcessingResult<T>` and `ProcessingResult<T, U>` classes in `DataTreeProcessor` for returning both output trees and processing messages
+  - `ExtractTypedTree<U>()` helper method for extracting strongly-typed trees from heterogeneous results
+
 ### Changed
 
+- Components can now mix different `IGH_Goo` types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values)
+- Foundation laid for future extensibility to support `GH_Integer`, `GH_Number`, `GH_Path`, and other Grasshopper data types
+- Existing `GH_String`-only workers remain compatible and can be migrated individually when needed
+- **`AIText2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
+  - `inputTree` field changed from `Dictionary<string, GH_Structure<GH_String>>` to `Dictionary<string, GH_Structure<IGH_Goo>>`
+  - Fallback input now stored natively as `GH_Boolean` without string conversion round-trip
+  - Uses `GHStructureConverter.ConvertToGooTree()` for type conversions
+  - Accesses results via `ProcessingResult<IGH_Goo>.Outputs` and `ExtractTypedTree<GH_String>()`
+
+- **`AIList2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
+  - Same structural changes as `AIText2BooleanComponent`
+  - Fallback input stored natively as `GH_Boolean`
 - **`AIFile2MdComponent` batch context persistence**: `_fileContexts` (base markdown + image slot metadata per file) is now serialized via `Write`/`Read` so batch results can be reconstructed after a Grasshopper file save/reload. A `_batchContextLost` flag prevents `GatherInput` from resetting `_fileContextsInitialized` while a batch is active, fixing a same-session overwrite bug where each poll tick re-initialized the context to empty before `OnBatchCompleted` could use it.
 - **`AIFile2MdComponent` batch image descriptions**: `OnBatchCompleted` now extracts image descriptions from `AIInteractionText.Content` (the actual batch response type) instead of `AIInteractionToolResult`, which was never produced in batch mode since `BuildDescribeRequest` bypasses the tool execute wrapper.
 - **`AIFile2MdComponent` batch metrics**: Per-slot image decode metrics are now accumulated manually and merged into `AIReturnSnapshot` after `ProcessBatchResults`, since `ProcessBatchResults` only sees the representative sentinel (one per file) and misses all non-first image slots.

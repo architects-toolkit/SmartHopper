@@ -547,7 +547,8 @@ namespace SmartHopper.Core.DataTree
 
             // If groupIdenticalBranches is true, find and group identical branches
             if (groupIdenticalBranches &&
-                (typeof(T) == typeof(GH_String) ||
+                (typeof(T) == typeof(IGH_Goo) ||
+                 typeof(T) == typeof(GH_String) ||
                  typeof(T) == typeof(GH_Number) ||
                  typeof(T) == typeof(GH_Integer) ||
                  typeof(T) == typeof(GH_Boolean)))
