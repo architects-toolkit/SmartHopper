@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -81,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {
                         ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to evaluate (e.g., ['apple', 'banana', 'orange'])"" },
                         ""question"": { ""type"": ""string"", ""description"": ""The natural language question to answer about the list"" },
-                        ""fallback"": { ""type"": ""string"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
+                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
                     },
                     ""required"": [""list"", ""question""]
                 }",
@@ -113,7 +114,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 string? question = args["question"]?.ToString();
-                string? fallback = args["fallback"]?.ToString();
+                // Parse fallback as boolean using centralized helper
+                string? fallbackStr = args["fallback"]?.ToString();
+                bool? fallback = StringConverter.StringToBoolean(fallbackStr);
                 string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (args["list"] == null || string.IsNullOrEmpty(question))
@@ -175,11 +178,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (parsedResult == null)
                 {
                     // AI response could not be parsed as boolean
-                    if (!string.IsNullOrEmpty(fallback))
+                    if (fallback.HasValue)
                     {
                         // Use fallback value if provided
-                        Debug.WriteLine($"[ListTools.TextList2Boolean] Using fallback value: '{fallback}'");
-                        toolResult.Add("result", fallback);
+                        Debug.WriteLine($"[ListTools.TextList2Boolean] Using fallback value: '{fallback.Value}'");
+                        toolResult.Add("result", fallback.Value);
                         toolResult.Add("usedFallback", true);
                     }
                     else

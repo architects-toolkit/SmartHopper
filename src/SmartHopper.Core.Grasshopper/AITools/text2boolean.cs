@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -78,7 +79,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""properties"": {
                         ""text"": { ""type"": ""string"", ""description"": ""The text to evaluate"" },
                         ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" },
-                        ""fallback"": { ""type"": ""string"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
+                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
                     },
                     ""required"": [""text"", ""question"" ]
                 }",
@@ -146,7 +147,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.Arguments ?? new JObject();
                 string? text = args["text"]?.ToString();
                 string? question = args["question"]?.ToString();
-                string? fallback = args["fallback"]?.ToString();
+                // Parse fallback as boolean using centralized helper
+                string? fallbackStr = args["fallback"]?.ToString();
+                bool? fallback = StringConverter.StringToBoolean(fallbackStr);
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
@@ -184,11 +187,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (parsedResult == null)
                 {
                     // AI response could not be parsed as boolean
-                    if (!string.IsNullOrEmpty(fallback))
+                    if (fallback.HasValue)
                     {
                         // Use fallback value if provided
-                        Debug.WriteLine($"[TextTools.Text2Boolean] Using fallback value: '{fallback}'");
-                        toolResult.Add("result", fallback);
+                        Debug.WriteLine($"[TextTools.Text2Boolean] Using fallback value: '{fallback.Value}'");
+                        toolResult.Add("result", fallback.Value);
                         toolResult.Add("usedFallback", true);
                         usedFallback = true;
                     }

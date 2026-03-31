@@ -101,6 +101,45 @@ namespace SmartHopper.Core.Grasshopper.Converters
             return Guid.Parse(guidString);
         }
 
+        /// <summary>
+        /// Converts a string to a nullable boolean value.
+        /// Supports standard boolean strings ("true", "false", case-insensitive) and numeric values ("1", "0").
+        /// </summary>
+        /// <param name="value">The string to convert.</param>
+        /// <returns>A boolean value if conversion succeeds, null otherwise.</returns>
+        public static bool? StringToBoolean(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            // Try standard boolean parsing (case-insensitive)
+            if (bool.TryParse(value.Trim(), out bool result))
+            {
+                return result;
+            }
+
+            // Try numeric parsing (1 = true, 0 = false)
+            if (int.TryParse(value.Trim(), out int intResult))
+            {
+                return intResult != 0;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Converts a string to a boolean value with a default fallback.
+        /// </summary>
+        /// <param name="value">The string to convert.</param>
+        /// <param name="defaultValue">The default value to return if conversion fails.</param>
+        /// <returns>The parsed boolean value, or the default value if parsing fails.</returns>
+        public static bool StringToBoolean(string value, bool defaultValue)
+        {
+            return StringToBoolean(value) ?? defaultValue;
+        }
+
         public static GH_DataMapping StringToGHDataMapping(object value)
         {
             if (value is string s)

@@ -87,7 +87,7 @@ namespace SmartHopper.Components.List
         {
             pManager.AddGenericParameter("List", "L", " REQUIRED List of items to evaluate", GH_ParamAccess.tree);
             pManager.AddTextParameter("Question", "Q", "REQUIRED True or false question. The AI will answer it based on the input list.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Fallback", "F", "OPTIONAL fallback value to use when AI response cannot be parsed as true/false.\nIf not provided, the output will be null for unparsable responses", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Fallback", "F", "OPTIONAL fallback value to use when AI response cannot be parsed as true/false.\nIf not provided, the output will be null for unparsable responses", GH_ParamAccess.item);
             pManager[2].Optional = true;
         }
 
@@ -213,7 +213,7 @@ namespace SmartHopper.Components.List
                 DA.GetDataTree("Question", out questionTree);
 
                 // Get the fallback as a single item (not a tree)
-                var fallbackItem = new GH_String();
+                var fallbackItem = new GH_Boolean();
                 bool hasFallback = DA.GetData("Fallback", ref fallbackItem);
 
                 // Convert generic data to string structure
@@ -222,7 +222,7 @@ namespace SmartHopper.Components.List
                 // Store the converted trees
                 this.inputTree["List"] = stringListTree;
                 this.inputTree["Question"] = questionTree;
-                var fallbackStructure = new GH_Structure<GH_String>();
+                var fallbackStructure = new GH_Structure<GH_Boolean>();
                 if (hasFallback && fallbackItem != null)
                 {
                     fallbackStructure.Append(fallbackItem, new GH_Path(0));
@@ -341,7 +341,11 @@ namespace SmartHopper.Components.List
                 string fallbackValue = null;
                 if (branches.TryGetValue("Fallback", out var fallbackBranch) && fallbackBranch.Count > 0)
                 {
-                    fallbackValue = fallbackBranch[0]?.Value;
+                    // Convert GH_Boolean to string for the tool parameter
+                    if (fallbackBranch[0] is GH_Boolean boolFallback)
+                    {
+                        fallbackValue = boolFallback.Value.ToString();
+                    }
                 }
 
                 // Normalize tree lengths
