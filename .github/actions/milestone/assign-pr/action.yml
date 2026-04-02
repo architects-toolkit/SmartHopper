@@ -93,9 +93,31 @@ runs:
               console.log(`Successfully created milestone: ${targetMilestone.title}`);
               
             } catch (error) {
-              console.error('Error creating milestone:', error);
-              core.setFailed(`Failed to create milestone: ${error.message}`);
-              return;
+              // Handle race condition: milestone may have been created by another workflow
+              if (error.status === 422 && error.message && error.message.includes('already_exists')) {
+                console.log(`Milestone ${processedVersion} already exists (race condition), fetching it...`);
+                
+                // Re-fetch milestones to find the existing one
+                const { data: refreshedMilestones } = await github.rest.issues.listMilestones({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'all'
+                });
+                
+                targetMilestone = refreshedMilestones.find(m => m.title === processedVersion);
+                
+                if (targetMilestone) {
+                  console.log(`Found existing milestone: ${targetMilestone.title} (${targetMilestone.state})`);
+                } else {
+                  console.error('Could not find milestone after already_exists error');
+                  core.setFailed(`Failed to find existing milestone after creation conflict`);
+                  return;
+                }
+              } else {
+                console.error('Error creating milestone:', error);
+                core.setFailed(`Failed to create milestone: ${error.message}`);
+                return;
+              }
             }
           } else {
             console.log(`Found existing milestone: ${targetMilestone.title} (${targetMilestone.state})`);
