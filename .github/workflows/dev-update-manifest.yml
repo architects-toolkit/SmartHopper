@@ -106,8 +106,8 @@ jobs:
       - name: Commit and push changes
         if: steps.check_changes.outputs.changed == 'true'
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config --local user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+          git config --local user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
           git add yak-package/manifest.yml
           git commit -m "chore: update manifest text to ${{ steps.manifest_text.outputs.type }} version [skip ci]"
           git push
