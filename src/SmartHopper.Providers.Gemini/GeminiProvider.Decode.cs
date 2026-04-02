@@ -25,9 +25,9 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 
-namespace SmartHopper.Providers.Google
+namespace SmartHopper.Providers.Gemini
 {
-    public partial class GoogleProvider
+    public partial class GeminiProvider
     {
         /// <inheritdoc/>
         protected override AIReturn Decode(JObject responseObject)
@@ -177,7 +177,7 @@ namespace SmartHopper.Providers.Google
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error decoding Google response: {ex.Message}");
+                Debug.WriteLine($"Error decoding Gemini response: {ex.Message}");
                 var result = new AIReturn();
                 result.AddError($"Decode error: {ex.Message}");
                 return result;

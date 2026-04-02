@@ -30,22 +30,22 @@ using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 
-namespace SmartHopper.Providers.Google
+namespace SmartHopper.Providers.Gemini
 {
     /// <summary>
     /// Google Gemini AI provider implementation.
     /// </summary>
-    public partial class GoogleProvider : AIProvider<GoogleProviderSettings>
+    public partial class GeminiProvider : AIProvider<GeminiProviderSettings>
     {
-        private static readonly Lazy<GoogleProvider> LazyInstance = new Lazy<GoogleProvider>(() => new GoogleProvider());
+        private static readonly Lazy<GeminiProvider> LazyInstance = new Lazy<GeminiProvider>(() => new GeminiProvider());
 
-        public static GoogleProvider Instance => LazyInstance.Value;
+        public static GeminiProvider Instance => LazyInstance.Value;
 
-        public GoogleProvider()
-            : base("Google", "https://generativelanguage.googleapis.com/v1beta")
+        public GeminiProvider()
+            : base("Gemini", "https://generativelanguage.googleapis.com/v1beta")
         {
-            this.Models = new GoogleProviderModels(this);
-            this.Settings = new GoogleProviderSettings(this);
+            this.Models = new GeminiProviderModels(this);
+            this.Settings = new GeminiProviderSettings(this);
         }
 
         /// <inheritdoc/>

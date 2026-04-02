@@ -23,21 +23,21 @@ using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
 
-namespace SmartHopper.Providers.Google
+namespace SmartHopper.Providers.Gemini
 {
     /// <summary>
     /// Settings implementation for the Google Gemini provider.
     /// </summary>
-    public class GoogleProviderSettings : AIProviderSettings
+    public class GeminiProviderSettings : AIProviderSettings
     {
-        private new readonly GoogleProvider provider;
+        private new readonly GeminiProvider provider;
 
-        public GoogleProviderSettings()
+        public GeminiProviderSettings()
             : base(null)
         {
         }
 
-        public GoogleProviderSettings(GoogleProvider provider)
+        public GeminiProviderSettings(GeminiProvider provider)
             : base(provider)
         {
             this.provider = provider ?? throw new ArgumentNullException(nameof(provider));
@@ -148,7 +148,7 @@ namespace SmartHopper.Providers.Google
                 }
             }
 
-            Debug.WriteLine($"Validating Google settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}, Max Tokens: {maxTokens}");
+            Debug.WriteLine($"Validating Gemini settings: API Key: {(apiKey == null ? "<null>" : "<set>")}, Model: {model}, Max Tokens: {maxTokens}");
             return true;
         }
     }

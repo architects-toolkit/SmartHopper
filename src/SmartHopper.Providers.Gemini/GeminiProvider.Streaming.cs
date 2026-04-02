@@ -29,22 +29,22 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Providers.Google
+namespace SmartHopper.Providers.Gemini
 {
-    public partial class GoogleProvider
+    public partial class GeminiProvider
     {
         /// <inheritdoc/>
         protected override IStreamingAdapter CreateStreamingAdapter(AIRequestCall request)
         {
-            return new GoogleStreamingAdapter(this, request);
+            return new GeminiStreamingAdapter(this, request);
         }
 
-        private sealed class GoogleStreamingAdapter : IStreamingAdapter
+        private sealed class GeminiStreamingAdapter : IStreamingAdapter
         {
-            private readonly GoogleProvider provider;
+            private readonly GeminiProvider provider;
             private readonly AIRequestCall request;
 
-            public GoogleStreamingAdapter(GoogleProvider provider, AIRequestCall request)
+            public GeminiStreamingAdapter(GeminiProvider provider, AIRequestCall request)
             {
                 this.provider = provider;
                 this.request = request;

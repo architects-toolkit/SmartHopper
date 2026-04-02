@@ -19,29 +19,29 @@
 using System;
 using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Providers.Google
+namespace SmartHopper.Providers.Gemini
 {
     /// <summary>
     /// Factory for creating Google Gemini provider instances.
     /// </summary>
-    public class GoogleProviderFactory : IAIProviderFactory
+    public class GeminiProviderFactory : IAIProviderFactory
     {
         /// <summary>
-        /// Creates a new instance of the Google Gemini provider.
+        /// Creates a new instance of the Gemini provider.
         /// </summary>
-        /// <returns>The Google provider singleton instance.</returns>
+        /// <returns>The Gemini provider singleton instance.</returns>
         public IAIProvider CreateProvider()
         {
-            return GoogleProvider.Instance;
+            return GeminiProvider.Instance;
         }
 
         /// <summary>
-        /// Creates a new instance of the Google provider settings.
+        /// Creates a new instance of the Gemini provider settings.
         /// </summary>
-        /// <returns>A new GoogleProviderSettings instance.</returns>
+        /// <returns>A new GeminiProviderSettings instance.</returns>
         public IAIProviderSettings CreateSettings()
         {
-            return new GoogleProviderSettings();
+            return new GeminiProviderSettings();
         }
     }
 }

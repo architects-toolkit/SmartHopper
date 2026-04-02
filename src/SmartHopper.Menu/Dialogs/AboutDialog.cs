@@ -155,7 +155,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var descriptionLabel = new Label
             {
-                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI, DeepSeek, Anthropic and OpenRouter (in order of implementation).",
+                Text = "SmartHopper is an open-source project that implements third-party AI APIs to provide advanced features for Grasshopper.\n\nIt currently supports MistralAI, OpenAI, DeepSeek, Anthropic, Gemini and OpenRouter.",
                 Font = new Font(SystemFont.Default, 10),
                 Wrap = WrapMode.Word,
             };

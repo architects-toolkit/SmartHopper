@@ -26,7 +26,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Title>SmartHopper Google Gemini Provider</Title>
+    <Title>SmartHopper Gemini Provider</Title>
     <Description>Google Gemini provider for SmartHopper</Description>
   </PropertyGroup>
 

@@ -26,9 +26,9 @@ using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 
-namespace SmartHopper.Providers.Google
+namespace SmartHopper.Providers.Gemini
 {
-    public partial class GoogleProvider : IAIBatchProvider
+    public partial class GeminiProvider : IAIBatchProvider
     {
         /// <inheritdoc/>
         public async Task<AIBatchSubmission> SubmitBatchAsync(List<AIRequestCall> requests)

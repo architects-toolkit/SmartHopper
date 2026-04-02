@@ -17,7 +17,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Components.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.MistralAI", "src\SmartHopper.Providers.MistralAI\SmartHopper.Providers.MistralAI.csproj", "{F2063A0F-FDF2-4AD2-8C92-1E374B991752}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.OpenAI", "src\SmartHopper.Providers.OpenAI\SmartHopper.Providers.OpenAI.csproj", "{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Providers.Gemini", "src\SmartHopper.Providers.Gemini\SmartHopper.Providers.Gemini.csproj", "{087FFA5E-1049-459D-9C68-1C0B8E7F9EBC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartHopper.Infrastructure.Tests", "src\SmartHopper.Infrastructure.Tests\SmartHopper.Infrastructure.Tests.csproj", "{469B4BA9-C2CB-4270-8896-0F04DAF67887}"
 EndProject

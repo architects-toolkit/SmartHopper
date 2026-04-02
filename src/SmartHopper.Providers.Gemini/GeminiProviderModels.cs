@@ -26,16 +26,16 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Providers.Google
+namespace SmartHopper.Providers.Gemini
 {
     /// <summary>
     /// Google provider-specific model management implementation.
     /// </summary>
-    public class GoogleProviderModels : AIProviderModels
+    public class GeminiProviderModels : AIProviderModels
     {
-        private readonly GoogleProvider provider;
+        private readonly GeminiProvider provider;
 
-        public GoogleProviderModels(GoogleProvider provider)
+        public GeminiProviderModels(GeminiProvider provider)
             : base(provider)
         {
             this.provider = provider;
