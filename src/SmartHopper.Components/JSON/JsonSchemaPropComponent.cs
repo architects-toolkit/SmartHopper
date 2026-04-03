@@ -92,6 +92,18 @@ namespace SmartHopper.Components.JSON
                 return;
             }
 
+            if (name.Contains(":"))
+            {
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Name cannot contain colons (:).");
+                return;
+            }
+
+            if (description.Contains(":"))
+            {
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Description cannot contain colons (:).");
+                return;
+            }
+
             type = NormalizeType(type);
             name = name.Trim();
 
