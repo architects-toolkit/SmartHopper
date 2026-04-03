@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -32,7 +32,7 @@ namespace SmartHopper.Components.Test.DataProcessor
     /// </summary>
     public class GH_Path_EqualityTestComponent : StatefulComponentBase
     {
-        public override Guid ComponentGuid => new Guid("D4E5F6A7-B8C9-4D0E-1F2A-3B4C5D6E7F80");
+        public override Guid ComponentGuid => new Guid("E19C7C94-E670-4F97-8061-CE81078C29B7");
         protected override Bitmap Icon => null;
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -34,7 +34,7 @@ namespace SmartHopper.Components.Test.Misc
     /// </summary>
     public class GH_ExtractedImage_ConstructorWithValidDataTestComponent : StatefulComponentBase
     {
-        public override Guid ComponentGuid => new Guid("B2C3D4E5-F6A7-4B8C-9D0E-1F2A3B4C5D6E");
+        public override Guid ComponentGuid => new Guid("241459A1-5588-4F33-9A76-BCA7BE0BDB0B");
         protected override Bitmap Icon => null;
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 

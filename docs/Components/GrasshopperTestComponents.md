@@ -191,155 +191,297 @@ The `GH_StructureTestComponent` demonstrates testing Grasshopper data structures
 
 ## Suitable Tests for Grasshopper Test Components
 
-Based on analysis of existing test components, the following tests from the test matrix are suitable for implementation as Grasshopper test components:
+Based on analysis of existing test components, the following tests from the test matrix are suitable for implementation as Grasshopper test components. **All test data is hardcoded internally** - users only need to toggle Run=true.
 
-### 🔴 P0 - Breaking Changes (3 tests)
-- **TC-BREAK-02**: Verify `AITextGenerate` → `AIText2TextComponent` migration works
-  - Create old component, verify it loads and has expected inputs/outputs
-  - Create new component, verify inputs/outputs match structure
-  - Test wire connections work with both
+### 🔴 P0 - Breaking Changes (2 tests)
 
 - **TC-BREAK-09**: Test AI tools are accessible by new names in chat/tool calls
-  - Create test component that calls tools by new names via AIToolCall
-  - Verify tool execution succeeds with new names
+  - Hardcoded: Use AIToolCall with new tool names (e.g., "text_generate")
+  - Verify: Tool call object is created successfully (no API execution)
+  - Success: Tool name is recognized and call structure is valid
 
-- **TC-BREAK-10**: Verify old tool names return appropriate errors (not silent failures)
-  - Create test component that calls tools by old names
-  - Verify error is returned (not silent failure or crash)
+- **TC-BREAK-10**: Verify old tool names return appropriate errors
+  - Hardcoded: Use AIToolCall with old tool names (e.g., "text_generate_legacy")
+  - Verify: Error is returned (no silent failure, no crash)
+  - Success: ToolManager returns expected "tool not found" error
 
 ### 🔴 P0 - Mixed-Type Data Trees (5 tests)
-- **TC-DATATREE-05**: Handle mixed-type trees with multiple IGH_Goo types
-  - Create heterogeneous GH_Structure<IGH_Goo> with different types
-  - Verify structure maintains type information
-  - Verify data count and path count correct
 
-- **TC-DATATREE-06**: Test `groupIdenticalBranches` with `IGH_Goo` type gate
-  - Create mixed-type tree with identical branches
-  - Verify grouping works correctly with heterogeneous types
-  - Verify function call count matches expected optimization
+- **TC-DATATREE-05**: Handle mixed-type trees with multiple IGH_Goo types
+  - Hardcoded: Create GH_Structure<IGH_Goo> with GH_String, GH_Integer, GH_Number, GH_Boolean
+  - Verify: Structure maintains type information, correct PathCount and DataCount
+  - Success: All types coexist in same structure without data loss
+
+- **TC-DATATREE-06**: Test `groupIdenticalBranches` with IGH_Goo type gate
+  - Hardcoded: Create tree with 3 paths where 2 have identical GH_Integer content [1,2]
+  - Verify: Function is called only twice (identical branches grouped)
+  - Success: Results appear at all 3 paths, optimization counter shows 2 calls
 
 - **TC-DATATREE-07**: Verify branch grouping works with heterogeneous data
-  - Similar to TC-DATATREE-06 but with more complex type combinations
+  - Hardcoded: Create tree with mixed types (GH_String "1", GH_Integer 1) - not identical despite same value
+  - Verify: Different types are NOT grouped even if string representations match
+  - Success: Function called for each unique type combination
 
 - **TC-DATATREE-12**: Verify fallback values stored natively without string conversion
-  - Create AIText2BooleanComponent with mixed-type input tree
-  - Verify fallback GH_Boolean values are stored natively (not as strings)
+  - Hardcoded: Create DataTreeProcessor with mixed GH_String/GH_Boolean tree
+  - Verify: When converting GH_String "true" to fallback GH_Boolean, it's stored as native boolean
+  - Success: Result type is GH_Boolean, not GH_String containing "true"
 
 - **TC-DATATREE-13**: Test `ProcessingResult<IGH_Goo>.Outputs` access
-  - Execute DataTreeProcessor with mixed-type output
-  - Verify Outputs dictionary is accessible and contains correct data
+  - Hardcoded: Execute DataTreeProcessor with multiple outputs (Sum, Difference)
+  - Verify: Outputs dictionary accessible and contains both results
+  - Success: Dictionary has expected keys with correct GH_Structure values
 
-### 🟡 P1 - Vision Input (4 tests)
-- **TC-VISION-15**: `AIImgToTextComponent` - file path input
-  - Create test image file
-  - Pass file path to component
-  - Verify component accepts path and processes correctly
+### 🟡 P1 - Vision Input (2 tests)
 
-- **TC-VISION-17**: `AIImgToTextComponent` - base64 input
-  - Create base64-encoded image
-  - Pass to component
-  - Verify component processes correctly
+- **TC-VISION-17**: `AIImgToTextComponent` - base64 input validation
+  - Hardcoded: Create base64-encoded 1x1 PNG image (stored as constant string)
+  - Verify: Component accepts base64 string, validates format, converts to internal representation
+  - Success: No API call needed - just validate input parsing and type conversion
 
-- **TC-VISION-18**: `AIImgToTextComponent` - `GH_ExtractedImage` input (regression test)
-  - Create GH_ExtractedImage instance
-  - Pass to component
-  - Verify component handles it correctly (MistralAI regression fix)
+- **TC-VISION-25**: Verify full GH_IO serialization round-trip
+  - Hardcoded: Create GH_ExtractedImage with test data (id, base64, mimeType, pageNumber)
+  - Verify: Write to GH_IWriter, read from GH_IReader, compare properties
+  - Success: All properties match after round-trip (no file save/load needed)
 
-- **TC-VISION-25**: Verify full serialization in GH files
-  - Create GH_ExtractedImage
-  - Serialize to GH file format
-  - Deserialize and verify data integrity
+### 🟡 P1 - File-to-Markdown (1 test)
 
-### 🟡 P1 - File-to-Markdown (2 tests)
-- **TC-F2MD-25**: `File2MdComponent` - basic conversion
-  - Create test file (PDF, CSV, JSON, TXT, etc.)
-  - Pass to component
-  - Verify markdown output is generated
-
-- **TC-F2MD-26**: `File2MdComponent` - `Images` output with `GH_ExtractedImage`
-  - Create test file with images
-  - Verify Images output contains GH_ExtractedImage objects
-  - Verify image data is correctly extracted
+- **TC-F2MD-26**: `File2MdComponent` - Images output extraction
+  - Hardcoded: Store sample PDF bytes internally (minimal test PDF or mock)
+  - Verify: File2Md extracts images and returns GH_ExtractedImage objects
+  - Success: Images list is non-empty, each item has valid base64 data
 
 ### 🟡 P1 - AI Settings Components (4 tests)
-- **TC-SETTINGS-01**: Assemble `AIRequestParameters` from inputs
-  - Create AISettingsComponent
-  - Set Model, Temperature, MaxTokens, TopP, Seed inputs
-  - Verify AIRequestParameters output is correctly assembled
+
+- **TC-SETTINGS-01**: Assemble AIRequestParameters from inputs
+  - Hardcoded: Create AISettingsComponent with test values
+  - Verify: Component assembles AIRequestParameters correctly (Model, Temp, MaxTokens, TopP, Seed)
+  - Success: Output parameters match inputs exactly
 
 - **TC-SETTINGS-09**: Test Batch (B) boolean input
-  - Create AISettingsComponent with Batch=true
-  - Verify batch flag is set in AIRequestParameters
-  - Verify service_tier=batch is applied
+  - Hardcoded: Create AISettingsComponent with Batch=true
+  - Verify: Batch flag is set in AIRequestParameters, service_tier="batch" present
+  - Success: Parameters object reflects batch mode correctly
 
-- **TC-SETTINGS-20**: Test serialization in `GH_AIRequestParameters`
-  - Create GH_AIRequestParameters with various settings
-  - Serialize to string
-  - Deserialize and verify all values preserved
+- **TC-SETTINGS-20**: Test serialization in GH_AIRequestParameters
+  - Hardcoded: Create GH_AIRequestParameters with various settings
+  - Verify: Write to GH_IWriter, read from GH_IReader
+  - Success: All values preserved after round-trip
 
 - **TC-SETTINGS-21**: Backward compatibility - plain string model name
-  - Create GH_AIRequestParameters with plain string model name
-  - Verify it casts correctly to AIRequestParameters
-  - Verify backward compatibility works
+  - Hardcoded: Create GH_String with model name, cast to GH_AIRequestParameters
+  - Verify: CastFrom string works, creates valid parameters with model set
+  - Success: Backward compatibility maintained
 
 ### 🟡 P1 - JSON Tools (6 tests)
+
 - **TC-JSON-17**: `JsonArray2TextListComponent` - parse JSON array to GH text list
-  - Create JSON array string
-  - Pass to component
-  - Verify output is GH_String list
+  - Hardcoded: JSON string `["item1","item2","item3"]`
+  - Verify: Component parses to GH_Structure<GH_String>
+  - Success: Output has 3 items with correct values
 
 - **TC-JSON-18**: `JsonObject2TextComponent` - serialize JSON to string
-  - Create JSON object
-  - Pass to component
-  - Verify output is serialized string
+  - Hardcoded: JObject with nested structure
+  - Verify: Component serializes to valid JSON string
+  - Success: Output string is valid JSON matching input structure
 
 - **TC-JSON-19**: `JsonGetValueComponent` - extract nested value by dot-notation
-  - Create JSON object with nested structure
-  - Extract value using dot-notation path
-  - Verify correct value returned
+  - Hardcoded: JSON with `{ "user": { "profile": { "name": "Test" } } }`
+  - Verify: Extract using "user.profile.name" returns "Test"
+  - Success: Dot-notation navigation works correctly
 
 - **TC-JSON-20**: `JsonMergeComponent` - merge multiple JSON objects
-  - Create multiple JSON objects
-  - Merge them
-  - Verify result contains all properties
+  - Hardcoded: Two JObjects `{ "a": 1 }` and `{ "b": 2 }`
+  - Verify: Merged result contains both properties
+  - Success: Output has `a=1, b=2`
 
 - **TC-JSON-21**: `JsonSchemaPropComponent` - scalar property definition
-  - Create scalar property via component
-  - Verify schema is correctly generated
+  - Hardcoded: Property name "age", type "integer", required true
+  - Verify: Generated schema fragment is correct
+  - Success: Output matches expected JSON schema structure
 
 - **TC-JSON-22**: `JsonSchemaPropObjectComponent` - object property with sub-properties
-  - Create nested object property
-  - Verify schema structure is correct
+  - Hardcoded: Property "address" with sub-properties "street", "city"
+  - Verify: Generated schema has type="object" with properties map
+  - Success: Nested schema structure is correct
 
 ### 🟢 P2 - UI/UX (1 test)
+
 - **TC-UI-07**: Tool results inherit TurnId from ToolCall
-  - Create test component that executes tool call
-  - Verify tool result has same TurnId as tool call
-  - Verify metrics aggregation works correctly
+  - Hardcoded: Create simulated tool call with TurnId=123
+  - Verify: Tool result message has same TurnId
+  - Success: TurnId propagation works correctly (no actual tool execution needed)
 
 ---
 
-## Tests NOT Suitable for Grasshopper Components
+## Provider-Specific Test Components
 
-These require external APIs, mocking, or manual verification:
+These test components validate provider functionality using actual API credentials and runtime settings available in Grasshopper. Each provider has multiple components testing individual features.
 
-### 🔴 P0 - Google Gemini Provider (19 tests)
-- Requires actual API credentials and provider DLL
-- Better suited for: xUnit integration tests with mocked HTTP
+### 🔴 P0 - OpenAI Provider Tests (5 components)
 
-### 🔴 P0 - Batch API (most tests)
-- Require API mocking or live endpoints
-- Better suited for: `SmartHopper.Infrastructure.Tests` with mocked HTTP
+- **TC-PROVIDER-OPENAI-01**: Encode AIRequestCall to OpenAI message format
+  - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
+  - Verify: Encoded JSON has correct role mapping (system, assistant, tool)
+  - Success: Message structure matches OpenAI API requirements
 
-### 🟡 P1 - Web-to-Markdown (12 tests)
-- Require live HTTP requests
-- Better suited for: xUnit integration tests with mocked HTTP
+- **TC-PROVIDER-OPENAI-02**: Decode OpenAI response to AIReturn
+  - Hardcoded: Create mock OpenAI response JSON with choices, usage tokens
+  - Verify: Decoded AIReturn has correct structure and content
+  - Success: Response parsing works correctly
 
-### 🟢 P2 - Provider Model Updates (11 tests)
-- Require live API calls to verify model availability
-- Better suited for: xUnit tests with provider mocking
+- **TC-PROVIDER-OPENAI-03**: Standard API call with metrics validation
+  - Runtime: Uses stored OpenAI API key from settings
+  - Verify: (1) Call succeeds and returns valid response, (2) Metrics have correct structure
+  - Success: Both success flags true - call works AND metrics valid (input_tokens > 0, output_tokens > 0)
+
+- **TC-PROVIDER-OPENAI-04**: Batch API call with metrics validation
+  - Runtime: Uses stored OpenAI API key, batch-enabled model
+  - Verify: (1) Batch call succeeds with service_tier=batch, (2) Metrics correctly parsed
+  - Success: Both success flags true - batch call works AND metrics valid
+
+- **TC-PROVIDER-OPENAI-05**: Tool calls encoding and response parsing
+  - Hardcoded: Create AIRequestCall with tool definitions and tool calls
+  - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
+  - Success: Both success flags true - tool encoding works AND tool result parsing works
+
+### 🔴 P0 - MistralAI Provider Tests (5 components)
+
+- **TC-PROVIDER-MISTRAL-01**: Encode AIRequestCall to MistralAI message format
+  - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
+  - Verify: Encoded JSON has correct role mapping (user, assistant, tool)
+  - Success: Message structure matches MistralAI API requirements
+
+- **TC-PROVIDER-MISTRAL-02**: Decode MistralAI response to AIReturn
+  - Hardcoded: Create mock MistralAI response JSON with choices, usage tokens
+  - Verify: Decoded AIReturn has correct structure and content
+  - Success: Response parsing works correctly
+
+- **TC-PROVIDER-MISTRAL-03**: Standard API call with metrics validation
+  - Runtime: Uses stored MistralAI API key from settings
+  - Verify: (1) Call succeeds and returns valid response, (2) Metrics have correct structure
+  - Success: Both success flags true - call works AND metrics valid (input_tokens > 0, output_tokens > 0)
+
+- **TC-PROVIDER-MISTRAL-04**: Batch API call with metrics validation
+  - Runtime: Uses stored MistralAI API key, batch-enabled model
+  - Verify: (1) Batch call succeeds with service_tier=batch, (2) Metrics correctly parsed
+  - Success: Both success flags true - batch call works AND metrics valid
+
+- **TC-PROVIDER-MISTRAL-05**: Tool calls encoding and response parsing
+  - Hardcoded: Create AIRequestCall with tool definitions and tool calls
+  - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
+  - Success: Both success flags true - tool encoding works AND tool result parsing works
+
+### 🔴 P0 - DeepSeek Provider Tests (5 components)
+
+- **TC-PROVIDER-DEEPSEEK-01**: Encode AIRequestCall to DeepSeek message format
+  - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
+  - Verify: Encoded JSON has correct role mapping (user, assistant, tool)
+  - Success: Message structure matches DeepSeek API requirements
+
+- **TC-PROVIDER-DEEPSEEK-02**: Decode DeepSeek response to AIReturn
+  - Hardcoded: Create mock DeepSeek response JSON with choices, usage tokens
+  - Verify: Decoded AIReturn has correct structure and content
+  - Success: Response parsing works correctly
+
+- **TC-PROVIDER-DEEPSEEK-03**: Standard API call with metrics validation
+  - Runtime: Uses stored DeepSeek API key from settings
+  - Verify: (1) Call succeeds and returns valid response, (2) Metrics have correct structure
+  - Success: Both success flags true - call works AND metrics valid (input_tokens > 0, output_tokens > 0)
+
+- **TC-PROVIDER-DEEPSEEK-04**: Batch API call with metrics validation
+  - Runtime: Uses stored DeepSeek API key, batch-enabled model
+  - Verify: (1) Batch call succeeds with service_tier=batch, (2) Metrics correctly parsed
+  - Success: Both success flags true - batch call works AND metrics valid
+
+- **TC-PROVIDER-DEEPSEEK-05**: Tool calls encoding and response parsing
+  - Hardcoded: Create AIRequestCall with tool definitions and tool calls
+  - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
+  - Success: Both success flags true - tool encoding works AND tool result parsing works
+
+### 🟡 P1 - Google Gemini Provider Tests (5 components)
+
+- **TC-PROVIDER-GEMINI-01**: Encode AIRequestCall to Gemini message format
+  - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
+  - Verify: Encoded JSON has correct role mapping (user, model, function)
+  - Success: Message structure matches Gemini API requirements
+
+- **TC-PROVIDER-GEMINI-02**: Decode Gemini response to AIReturn
+  - Hardcoded: Create mock Gemini response JSON with candidates, usage tokens
+  - Verify: Decoded AIReturn has correct structure and content
+  - Success: Response parsing works correctly
+
+- **TC-PROVIDER-GEMINI-03**: Standard API call with metrics validation
+  - Runtime: Uses stored Gemini API key from settings
+  - Verify: (1) Call succeeds and returns valid response, (2) Metrics have correct structure
+  - Success: Both success flags true - call works AND metrics valid (input_tokens > 0, output_tokens > 0)
+
+- **TC-PROVIDER-GEMINI-04**: Function calling encoding and response parsing
+  - Hardcoded: Create AIRequestCall with function definitions and function calls
+  - Verify: (1) Functions encoded correctly in request, (2) Function results decoded from response
+  - Success: Both success flags true - function encoding works AND function result parsing works
+
+- **TC-PROVIDER-GEMINI-05**: Vision input handling (image base64)
+  - Hardcoded: Create AIRequestCall with image content (base64 PNG)
+  - Verify: Image encoded correctly in Gemini format
+  - Success: Vision content structure is valid
+
+### 🟡 P1 - Anthropic Provider Tests (5 components)
+
+- **TC-PROVIDER-ANTHROPIC-01**: Encode AIRequestCall to Anthropic message format
+  - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
+  - Verify: Encoded JSON has correct role mapping (user, assistant)
+  - Success: Message structure matches Anthropic API requirements
+
+- **TC-PROVIDER-ANTHROPIC-02**: Decode Anthropic response to AIReturn
+  - Hardcoded: Create mock Anthropic response JSON with content blocks, usage tokens
+  - Verify: Decoded AIReturn has correct structure and content
+  - Success: Response parsing works correctly
+
+- **TC-PROVIDER-ANTHROPIC-03**: Standard API call with metrics validation
+  - Runtime: Uses stored Anthropic API key from settings
+  - Verify: (1) Call succeeds and returns valid response, (2) Metrics have correct structure
+  - Success: Both success flags true - call works AND metrics valid (input_tokens > 0, output_tokens > 0)
+
+- **TC-PROVIDER-ANTHROPIC-04**: Batch API call with metrics validation
+  - Runtime: Uses stored Anthropic API key, batch-enabled model
+  - Verify: (1) Batch call succeeds with service_tier=batch, (2) Metrics correctly parsed
+  - Success: Both success flags true - batch call works AND metrics valid
+
+- **TC-PROVIDER-ANTHROPIC-05**: Tool calls encoding and response parsing
+  - Hardcoded: Create AIRequestCall with tool definitions and tool calls
+  - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
+  - Success: Both success flags true - tool encoding works AND tool result parsing works
+
+### 🟢 P2 - OpenRouter Provider Tests (5 components)
+
+- **TC-PROVIDER-OPENROUTER-01**: Encode AIRequestCall to OpenRouter message format
+  - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
+  - Verify: Encoded JSON has correct role mapping (user, assistant, tool)
+  - Success: Message structure matches OpenRouter API requirements
+
+- **TC-PROVIDER-OPENROUTER-02**: Decode OpenRouter response to AIReturn
+  - Hardcoded: Create mock OpenRouter response JSON with choices, usage tokens
+  - Verify: Decoded AIReturn has correct structure and content
+  - Success: Response parsing works correctly
+
+- **TC-PROVIDER-OPENROUTER-03**: Standard API call with metrics validation
+  - Runtime: Uses stored OpenRouter API key from settings
+  - Verify: (1) Call succeeds and returns valid response, (2) Metrics have correct structure
+  - Success: Both success flags true - call works AND metrics valid (input_tokens > 0, output_tokens > 0)
+
+- **TC-PROVIDER-OPENROUTER-04**: Batch API call with metrics validation
+  - Runtime: Uses stored OpenRouter API key, batch-enabled model
+  - Verify: (1) Batch call succeeds with service_tier=batch, (2) Metrics correctly parsed
+  - Success: Both success flags true - batch call works AND metrics valid
+
+- **TC-PROVIDER-OPENROUTER-05**: Tool calls encoding and response parsing
+  - Hardcoded: Create AIRequestCall with tool definitions and tool calls
+  - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
+  - Success: Both success flags true - tool encoding works AND tool result parsing works
 
 ### Manual Verification Tests (not suitable)
+
 - TC-BREAK-11: Component outputs maintain same structure (visual inspection)
 - TC-BREAK-12: Grasshopper wire connections preserved (visual inspection)
 - TC-BREAK-13: `service_tier=batch` silently ignored (visual inspection)
@@ -348,30 +490,58 @@ These require external APIs, mocking, or manual verification:
 - TC-VISION-16: URL input (requires live image URL)
 - TC-W2MD-01 to TC-W2MD-12: Web-to-Markdown (requires live HTTP)
 - TC-UI-01 to TC-UI-06: Progress counter display (visual inspection)
-- TC-UI-08: Metrics aggregation (visual inspection)
+- TC-UI-08: Metrics aggregation (covered by provider tests above)
 
 ---
 
 ## Summary
 
-**Total Suitable Grasshopper Test Components: 25 tests**
+### Total Suitable Grasshopper Test Components: 50 tests
 
-- P0 Breaking Changes: 3 tests
+**Core Functionality Tests (20 tests):**
+
+- P0 Breaking Changes: 2 tests
 - P0 Mixed-Type Data Trees: 5 tests
-- P1 Vision Input: 4 tests
-- P1 File-to-Markdown: 2 tests
+- P1 Vision Input: 2 tests
+- P1 File-to-Markdown: 1 test
 - P1 AI Settings Components: 4 tests
 - P1 JSON Tools: 6 tests
 - P2 UI/UX: 1 test
 
-These tests focus on:
-- ✅ Grasshopper type behavior (GH_Structure, GH_ExtractedImage, etc.)
-- ✅ Serialization/deserialization with GH_IO
-- ✅ Component integration and data flow
-- ✅ Programmatic true/false success verification
-- ❌ No manual visual inspection required
-- ❌ No external API calls needed
-- ❌ No live HTTP requests
+**Provider-Specific Tests (30 tests):**
+
+- OpenAI Provider: 5 tests (Encode, Decode, Standard Call, Batch Call, Tools)
+- MistralAI Provider: 5 tests (Encode, Decode, Standard Call, Batch Call, Tools)
+- DeepSeek Provider: 5 tests (Encode, Decode, Standard Call, Batch Call, Tools)
+- Google Gemini Provider: 5 tests (Encode, Decode, Standard Call, Function Calling, Vision)
+- Anthropic Provider: 5 tests (Encode, Decode, Standard Call, Batch Call, Tools)
+- OpenRouter Provider: 5 tests (Encode, Decode, Standard Call, Batch Call, Tools)
+
+**Test Characteristics:**
+
+Core tests focus on:
+
+- Grasshopper type behavior (GH_Structure, GH_ExtractedImage, etc.)
+- Serialization/deserialization with GH_IO
+- Component integration and data flow
+- Programmatic true/false success verification
+
+Provider tests focus on:
+
+- Message encoding (AIRequestCall → provider format)
+- Response decoding (provider format → AIReturn)
+- Standard API calls with metrics validation (input_tokens > 0, output_tokens > 0)
+- Batch API calls with service_tier=batch
+- Tool/Function call encoding and response parsing
+- Vision input handling (base64 images)
+
+**All tests:**
+
+- Use hardcoded internal test data (no user setup required)
+- Return dual success outputs: one for functionality, one for metrics validation
+- Use actual API credentials from runtime Grasshopper settings
+- Make real API calls (not mocked)
+- Validate metrics structure and token counts
 
 ## Future Improvements
 
