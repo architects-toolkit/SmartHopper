@@ -42,10 +42,6 @@ namespace SmartHopper.Providers.Gemini
     /// </summary>
     public partial class GeminiProvider : AIProvider<GeminiProvider>
     {
-        private static readonly Lazy<GeminiProvider> LazyInstance = new Lazy<GeminiProvider>(() => new GeminiProvider());
-
-        public static GeminiProvider Instance => LazyInstance.Value;
-
         /// <inheritdoc/>
         public override string Name => "Gemini";
 
@@ -58,7 +54,10 @@ namespace SmartHopper.Providers.Gemini
         /// <inheritdoc/>
         public override Uri DefaultServerUrl => new Uri("https://generativelanguage.googleapis.com/v1beta");
 
-        public GeminiProvider()
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GeminiProvider"/> class.
+        /// </summary>
+        private GeminiProvider()
         {
             this.Models = new GeminiProviderModels(this);
         }

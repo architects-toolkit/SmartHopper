@@ -23,6 +23,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper.Types;
 using SmartHopper.Infrastructure.AICall.Core;
 
@@ -39,7 +40,7 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("133A3D6E-1DF0-4FD3-92B5-F686C2FD587D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.settings;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.tertiary;

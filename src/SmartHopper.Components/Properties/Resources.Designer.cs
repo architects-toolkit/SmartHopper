@@ -374,5 +374,19 @@ namespace SmartHopper.Components.Properties {
                 return ((Bitmap)(obj));
             }
         }
+
+        internal static Bitmap settings {
+            get {
+                object obj = ResourceManager.GetObject("settings", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap settingsextra {
+            get {
+                object obj = ResourceManager.GetObject("settingsextra", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
     }
 }

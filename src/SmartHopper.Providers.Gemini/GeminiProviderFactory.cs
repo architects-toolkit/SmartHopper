@@ -32,7 +32,7 @@ namespace SmartHopper.Providers.Gemini
         /// <returns>The Gemini provider singleton instance.</returns>
         public IAIProvider CreateProvider()
         {
-            return GeminiProvider.Instance;
+            return AIProvider<GeminiProvider>.Instance;
         }
 
         /// <summary>

@@ -27,6 +27,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Providers.Gemini;
 
 namespace SmartHopper.Components.Test.Providers
@@ -83,7 +84,7 @@ namespace SmartHopper.Components.Test.Providers
                 {
                     // Create test AIRequestCall with image content
                     var call = new AIRequestCall();
-                    
+
                     // Hardcoded minimal base64 PNG (1x1 transparent pixel)
                     const string base64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwAhgGAWjR9awAAAABJRU5ErkJggg==";
 
@@ -100,7 +101,7 @@ namespace SmartHopper.Components.Test.Providers
                     call.Body = builder.Build();
 
                     // Encode using Gemini provider
-                    var provider = new GeminiProvider();
+                    var provider = AIProvider<GeminiProvider>.Instance;
                     var encoded = provider.Encode(call);
 
                     // Verify encoding
