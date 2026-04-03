@@ -24,8 +24,11 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.MistralAI;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -35,23 +38,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestMistralAIEncodeComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("495A06B5-DE3F-4860-AC3B-E97A34921C29");
-        protected override string ComponentName => "Test MistralAI Encode";
-        protected override string ComponentDescription => "Tests MistralAI message encoding from AIRequestCall";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "MistralAI";
 
         public TestMistralAIEncodeComponent()
             : base("Test MistralAI Encode", "TEST-MISTRAL-ENC", "Tests MistralAI message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("MistralAI");
         }
 
-        /// <summary>
-        /// Forces the MistralAI provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new MistralAIProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -86,42 +82,36 @@ namespace SmartHopper.Components.Test.Providers
             {
                 try
                 {
-                    // Create test AIRequestCall with different message types
-                    var call = new AIRequestCall();
+                    // Create test AIRequestCall with different message types using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
                     
                     // Add Context message (maps to user in MistralAI)
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.Context,
                         Content = "You are a helpful assistant."
                     });
 
                     // Add ToolCall message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling tool",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_123",
-                                Name = "test_tool",
-                                Arguments = "{\"param\": \"value\"}"
-                            }
-                        }
+                        Id = "call_123",
+                        Name = "test_tool",
+                        Arguments = JObject.Parse("{\"param\": \"value\"}")
                     });
 
                     // Add ToolResult message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Tool result",
-                        ToolCallId = "call_123"
+                        Result = new JObject { ["content"] = "Tool result" },
+                        Id = "call_123"
                     });
 
-                    // Encode using MistralAI provider
-                    var provider = new MistralAIProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent component
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify encoding

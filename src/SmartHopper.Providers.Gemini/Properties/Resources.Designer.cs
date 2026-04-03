@@ -68,5 +68,16 @@ namespace SmartHopper.Providers.Gemini.Properties
                 resourceCulture = value;
             }
         }
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap gemini_icon
+        {
+            get
+            {
+                object obj = ResourceManager.GetObject("gemini_icon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
     }
 }

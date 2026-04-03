@@ -18,13 +18,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Providers.DeepSeek;
 
 namespace SmartHopper.Components.Test.Providers
@@ -35,23 +37,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestDeepSeekDecodeComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("F4B36D4B-7037-440F-A9E6-B7791C622AC5");
-        protected override string ComponentName => "Test DeepSeek Decode";
-        protected override string ComponentDescription => "Tests DeepSeek response decoding to AIReturn";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "DeepSeek";
 
         public TestDeepSeekDecodeComponent()
             : base("Test DeepSeek Decode", "TEST-DEEPSEEK-DEC", "Tests DeepSeek response decoding to AIReturn", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("DeepSeek");
         }
 
-        /// <summary>
-        /// Forces the DeepSeek provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new DeepSeekProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -112,27 +107,28 @@ namespace SmartHopper.Components.Test.Providers
                     };
 
                     // Decode using DeepSeek provider
-                    var provider = new DeepSeekProvider();
-                    var result = provider.Decode<string>(mockResponse.ToString());
+                    var provider = DeepSeekProvider.Instance;
+                    var interactions = provider.Decode(mockResponse);
 
                     // Verify decoding
-                    if (result == null)
+                    if (interactions == null || interactions.Count == 0)
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded result is null"));
+                        _messages.Add(new GH_String("Decoded interactions is null or empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (string.IsNullOrEmpty(result.Body))
+                    var textInteraction = interactions.OfType<AIInteractionText>().FirstOrDefault();
+                    if (textInteraction == null || string.IsNullOrEmpty(textInteraction.Content))
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded body is empty"));
+                        _messages.Add(new GH_String("Decoded text interaction is empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!result.Body.Contains("DeepSeek test response"))
+                    if (!textInteraction.Content.Contains("DeepSeek test response"))
                     {
                         _success = new GH_Boolean(false);
                         _messages.Add(new GH_String("Decoded content doesn't match expected response"));
@@ -142,7 +138,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     _success = new GH_Boolean(true);
                     _messages.Add(new GH_String("DeepSeek decoding successful"));
-                    _messages.Add(new GH_String($"Decoded content: {result.Body.Substring(0, Math.Min(50, result.Body.Length))}..."));
+                    _messages.Add(new GH_String($"Decoded content: {textInteraction.Content.Substring(0, Math.Min(50, textInteraction.Content.Length))}..."));
                 }
                 catch (Exception ex)
                 {

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,8 +24,11 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.MistralAI;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -35,23 +38,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestMistralAIToolsComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("5160C10D-CB11-48EA-9CAB-099F56D560AC");
-        protected override string ComponentName => "Test MistralAI Tools";
-        protected override string ComponentDescription => "Tests MistralAI tool encoding and response parsing";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "MistralAI";
 
         public TestMistralAIToolsComponent()
             : base("Test MistralAI Tools", "TEST-MISTRAL-TOOLS", "Tests MistralAI tool encoding and response parsing", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("MistralAI");
         }
 
-        /// <summary>
-        /// Forces the MistralAI provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new MistralAIProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -91,40 +87,35 @@ namespace SmartHopper.Components.Test.Providers
                     bool encodingSuccess = false;
                     bool parsingSuccess = false;
 
-                    // Create test AIRequestCall with tool definitions
-                    var call = new AIRequestCall();
-                    call.Body.Add(new AIInteraction
+                    // Create test AIRequestCall with tool definitions using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
+                    
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You have access to tools."
                     });
 
                     // Add tool call
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling get_weather tool",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_weather_123",
-                                Name = "get_weather",
-                                Arguments = "{\"location\": \"Paris\"}"
-                            }
-                        }
+                        Id = "call_weather_123",
+                        Name = "get_weather",
+                        Arguments = JObject.Parse("{\"location\": \"Paris\"}")
                     });
 
                     // Add tool result
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Weather in Paris: 68°F, Cloudy",
-                        ToolCallId = "call_weather_123"
+                        Result = new JObject { ["content"] = "Weather in Paris: 68°F, Cloudy" },
+                        Id = "call_weather_123"
                     });
 
-                    // Encode using MistralAI provider
-                    var provider = new MistralAIProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent component
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify tool encoding
@@ -171,7 +162,7 @@ namespace SmartHopper.Components.Test.Providers
                     _messages.Add(new GH_String("- Tool call ID present in result"));
 
                     // Verify parsing would work (basic structure check)
-                    if (encoded.Contains("\"role\":\"assistant\"") && 
+                    if (encoded.Contains("\"role\":\"assistant\"") &&
                         encoded.Contains("\"role\":\"tool\""))
                     {
                         parsingSuccess = true;

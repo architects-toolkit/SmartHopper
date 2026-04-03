@@ -24,8 +24,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.DeepSeek;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -35,23 +36,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestDeepSeekEncodeComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("BC0FB82E-85A6-4706-AFFA-69A740D173E4");
-        protected override string ComponentName => "Test DeepSeek Encode";
-        protected override string ComponentDescription => "Tests DeepSeek message encoding from AIRequestCall";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "DeepSeek";
 
         public TestDeepSeekEncodeComponent()
             : base("Test DeepSeek Encode", "TEST-DEEPSEEK-ENC", "Tests DeepSeek message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("DeepSeek");
         }
 
-        /// <summary>
-        /// Forces the DeepSeek provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new DeepSeekProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -86,42 +80,36 @@ namespace SmartHopper.Components.Test.Providers
             {
                 try
                 {
-                    // Create test AIRequestCall with different message types
-                    var call = new AIRequestCall();
+                    // Create test AIRequestCall with different message types using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
                     
                     // Add Context message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You are a helpful assistant."
                     });
 
                     // Add ToolCall message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling tool",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_123",
-                                Name = "test_tool",
-                                Arguments = "{\"param\": \"value\"}"
-                            }
-                        }
+                        Id = "call_123",
+                        Name = "test_tool",
+                        Arguments = JObject.Parse("{\"param\": \"value\"}")
                     });
 
                     // Add ToolResult message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Tool result",
-                        ToolCallId = "call_123"
+                        Result = new JObject { ["content"] = "Tool result" },
+                        Id = "call_123"
                     });
 
-                    // Encode using DeepSeek provider
-                    var provider = new DeepSeekProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent component
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify encoding

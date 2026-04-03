@@ -24,8 +24,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.OpenRouter;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -34,24 +35,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestOpenRouterEncodeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("27F92654-3C53-4259-A415-02967394BE89");
-        protected override string ComponentName => "Test OpenRouter Encode";
-        protected override string ComponentDescription => "Tests OpenRouter message encoding from AIRequestCall";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "OpenRouter";
+        public override Guid ComponentGuid => new Guid("E1F2A3B4-C5D6-7890-EFAB-123456789012");
 
         public TestOpenRouterEncodeComponent()
             : base("Test OpenRouter Encode", "TEST-OPENROUTER-ENC", "Tests OpenRouter message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("OpenRouter");
         }
 
-        /// <summary>
-        /// Forces the OpenRouter provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new OpenRouterProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -86,42 +80,36 @@ namespace SmartHopper.Components.Test.Providers
             {
                 try
                 {
-                    // Create test AIRequestCall with different message types
-                    var call = new AIRequestCall();
+                    // Create test AIRequestCall with different message types using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
                     
                     // Add Context message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You are a helpful assistant."
                     });
 
                     // Add ToolCall message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling tool",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_123",
-                                Name = "test_tool",
-                                Arguments = "{\"param\": \"value\"}"
-                            }
-                        }
+                        Id = "call_123",
+                        Name = "test_tool",
+                        Arguments = JObject.Parse("{\"param\": \"value\"}")
                     });
 
                     // Add ToolResult message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Tool result",
-                        ToolCallId = "call_123"
+                        Result = new JObject { ["content"] = "Tool result" },
+                        Id = "call_123"
                     });
 
-                    // Encode using OpenRouter provider
-                    var provider = new OpenRouterProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent component
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify encoding

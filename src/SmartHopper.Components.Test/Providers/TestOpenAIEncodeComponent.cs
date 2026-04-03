@@ -24,8 +24,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.OpenAI;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -35,23 +36,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestOpenAIEncodeComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("AD538781-65B9-4123-B4EE-874D03BD6FC3");
-        protected override string ComponentName => "Test OpenAI Encode";
-        protected override string ComponentDescription => "Tests OpenAI message encoding from AIRequestCall";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "OpenAI";
 
         public TestOpenAIEncodeComponent()
             : base("Test OpenAI Encode", "TEST-OPENAI-ENC", "Tests OpenAI message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("OpenAI");
         }
 
-        /// <summary>
-        /// Forces the OpenAI provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new OpenAIProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -86,42 +80,36 @@ namespace SmartHopper.Components.Test.Providers
             {
                 try
                 {
-                    // Create test AIRequestCall with different message types
-                    var call = new AIRequestCall();
+                    // Create test AIRequestCall with different message types using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
                     
-                    // Add Context message
-                    call.Body.Add(new AIInteraction
+                    // Add Context message (as System)
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You are a helpful assistant."
                     });
 
                     // Add ToolCall message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling tool",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_123",
-                                Name = "test_tool",
-                                Arguments = "{\"param\": \"value\"}"
-                            }
-                        }
+                        Id = "call_123",
+                        Name = "test_tool",
+                        Arguments = JObject.Parse("{\"param\": \"value\"}")
                     });
 
                     // Add ToolResult message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Tool result",
-                        ToolCallId = "call_123"
+                        Result = new JObject { ["content"] = "Tool result" },
+                        Id = "call_123"
                     });
 
-                    // Encode using OpenAI provider
-                    var provider = new OpenAIProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify encoding

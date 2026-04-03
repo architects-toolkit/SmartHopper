@@ -18,13 +18,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Providers.Anthropic;
 
 namespace SmartHopper.Components.Test.Providers
@@ -34,24 +35,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestAnthropicDecodeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("D518BBDE-F634-49E2-84AD-C4697D2D246E");
-        protected override string ComponentName => "Test Anthropic Decode";
-        protected override string ComponentDescription => "Tests Anthropic response decoding to AIReturn";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "Anthropic";
+        public override Guid ComponentGuid => new Guid("B2C3D4E5-F6A7-8901-BCDE-F23456789012");
 
         public TestAnthropicDecodeComponent()
             : base("Test Anthropic Decode", "TEST-ANTHROPIC-DEC", "Tests Anthropic response decoding to AIReturn", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("Anthropic");
         }
 
-        /// <summary>
-        /// Forces the Anthropic provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new AnthropicProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -107,27 +101,28 @@ namespace SmartHopper.Components.Test.Providers
                     };
 
                     // Decode using Anthropic provider
-                    var provider = new AnthropicProvider();
-                    var result = provider.Decode<string>(mockResponse.ToString());
+                    var provider = AnthropicProvider.Instance;
+                    var interactions = provider.Decode(mockResponse);
 
                     // Verify decoding
-                    if (result == null)
+                    if (interactions == null || interactions.Count == 0)
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded result is null"));
+                        _messages.Add(new GH_String("Decoded interactions is null or empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (string.IsNullOrEmpty(result.Body))
+                    var textInteraction = interactions.OfType<AIInteractionText>().FirstOrDefault();
+                    if (textInteraction == null || string.IsNullOrEmpty(textInteraction.Content))
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded body is empty"));
+                        _messages.Add(new GH_String("Decoded text interaction is empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!result.Body.Contains("Anthropic test response"))
+                    if (!textInteraction.Content.Contains("Anthropic test response"))
                     {
                         _success = new GH_Boolean(false);
                         _messages.Add(new GH_String("Decoded content doesn't match expected response"));
@@ -137,7 +132,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     _success = new GH_Boolean(true);
                     _messages.Add(new GH_String("Anthropic decoding successful"));
-                    _messages.Add(new GH_String($"Decoded content: {result.Body.Substring(0, Math.Min(50, result.Body.Length))}..."));
+                    _messages.Add(new GH_String($"Decoded content: {textInteraction.Content.Substring(0, Math.Min(50, textInteraction.Content.Length))}..."));
                 }
                 catch (Exception ex)
                 {

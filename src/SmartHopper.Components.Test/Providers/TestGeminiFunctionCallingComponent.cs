@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,8 +24,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.GoogleGemini;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -34,24 +35,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiFunctionCallingComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("8A175DAD-66A4-4153-9D28-87B46DAA6DDC");
-        protected override string ComponentName => "Test Gemini Function Calling";
-        protected override string ComponentDescription => "Tests Google Gemini function calling encoding and response parsing";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "Gemini";
+        public override Guid ComponentGuid => new Guid("F6G7H8I9-J0K1-2345-LMNO-678901234567");
 
         public TestGeminiFunctionCallingComponent()
-            : base("Test Gemini Function Calling", "TEST-GEMINI-FUNC", "Tests Google Gemini function calling encoding and response parsing", "SmartHopper", "Test/Providers")
+            : base("Test Gemini Function Calling", "TEST-GEMINI-FUNC", "Tests Gemini function calling and response parsing", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("Gemini");
         }
 
-        /// <summary>
-        /// Forces the Google Gemini provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new GoogleGeminiProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -91,40 +85,35 @@ namespace SmartHopper.Components.Test.Providers
                     bool encodingSuccess = false;
                     bool parsingSuccess = false;
 
-                    // Create test AIRequestCall with function definitions
-                    var call = new AIRequestCall();
-                    call.Body.Add(new AIInteraction
+                    // Create test AIRequestCall with function definitions using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
+                    
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You have access to functions."
                     });
 
                     // Add function call
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling calculate_sum function",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_sum_123",
-                                Name = "calculate_sum",
-                                Arguments = "{\"numbers\": [1, 2, 3]}"
-                            }
-                        }
+                        Id = "call_sum_123",
+                        Name = "calculate_sum",
+                        Arguments = JObject.Parse("{\"numbers\": [1, 2, 3]}")
                     });
 
                     // Add function result
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Sum result: 6",
-                        ToolCallId = "call_sum_123"
+                        Result = new JObject { ["content"] = "Sum result: 6" },
+                        Id = "call_sum_123"
                     });
 
-                    // Encode using Gemini provider
-                    var provider = new GoogleGeminiProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent component
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify function encoding
@@ -161,7 +150,7 @@ namespace SmartHopper.Components.Test.Providers
                     _messages.Add(new GH_String("- Function name 'calculate_sum' encoded"));
 
                     // Verify parsing would work (basic structure check)
-                    if (encoded.Contains("\"role\":\"model\"") && 
+                    if (encoded.Contains("\"role\":\"model\"") &&
                         encoded.Contains("\"role\":\"function\""))
                     {
                         parsingSuccess = true;

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,8 +24,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.DeepSeek;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -35,23 +36,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestDeepSeekToolsComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("9CD3C815-439A-4F4B-B9E4-998833232858");
-        protected override string ComponentName => "Test DeepSeek Tools";
-        protected override string ComponentDescription => "Tests DeepSeek tool encoding and response parsing";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "DeepSeek";
 
         public TestDeepSeekToolsComponent()
             : base("Test DeepSeek Tools", "TEST-DEEPSEEK-TOOLS", "Tests DeepSeek tool encoding and response parsing", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("DeepSeek");
         }
 
-        /// <summary>
-        /// Forces the DeepSeek provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new DeepSeekProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -91,40 +85,35 @@ namespace SmartHopper.Components.Test.Providers
                     bool encodingSuccess = false;
                     bool parsingSuccess = false;
 
-                    // Create test AIRequestCall with tool definitions
-                    var call = new AIRequestCall();
-                    call.Body.Add(new AIInteraction
+                    // Create test AIRequestCall with tool definitions using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
+                    
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You have access to tools."
                     });
 
                     // Add tool call
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling get_weather tool",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_weather_123",
-                                Name = "get_weather",
-                                Arguments = "{\"location\": \"Beijing\"}"
-                            }
-                        }
+                        Id = "call_weather_123",
+                        Name = "get_weather",
+                        Arguments = JObject.Parse("{\"location\": \"Beijing\"}")
                     });
 
                     // Add tool result
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Weather in Beijing: 65°F, Clear",
-                        ToolCallId = "call_weather_123"
+                        Result = new JObject { ["content"] = "Weather in Beijing: 65°F, Clear" },
+                        Id = "call_weather_123"
                     });
 
-                    // Encode using DeepSeek provider
-                    var provider = new DeepSeekProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent component
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify tool encoding
@@ -171,7 +160,7 @@ namespace SmartHopper.Components.Test.Providers
                     _messages.Add(new GH_String("- Tool call ID present in result"));
 
                     // Verify parsing would work (basic structure check)
-                    if (encoded.Contains("\"role\":\"assistant\"") && 
+                    if (encoded.Contains("\"role\":\"assistant\"") &&
                         encoded.Contains("\"role\":\"tool\""))
                     {
                         parsingSuccess = true;

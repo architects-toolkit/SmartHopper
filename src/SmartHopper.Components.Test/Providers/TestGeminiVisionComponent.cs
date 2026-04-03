@@ -18,14 +18,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.GoogleGemini;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Providers.Gemini;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -34,24 +36,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiVisionComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("6F640798-7D61-48D2-9133-8DFB537651ED");
-        protected override string ComponentName => "Test Gemini Vision";
-        protected override string ComponentDescription => "Tests Google Gemini vision input handling with base64 images";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "Gemini";
+        public override Guid ComponentGuid => new Guid("A1B2C3D4-E5F6-7890-ABCD-123456789012");
 
         public TestGeminiVisionComponent()
-            : base("Test Gemini Vision", "TEST-GEMINI-VISION", "Tests Google Gemini vision input handling with base64 images", "SmartHopper", "Test/Providers")
+            : base("Test Gemini Vision", "TEST-GEMINI-VISION", "Tests Gemini vision API call with image input", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("Gemini");
         }
 
-        /// <summary>
-        /// Forces the Google Gemini provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new GoogleGeminiProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -92,22 +87,20 @@ namespace SmartHopper.Components.Test.Providers
                     // Hardcoded minimal base64 PNG (1x1 transparent pixel)
                     const string base64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwAhgGAWjR9awAAAABJRU5ErkJggg==";
 
-                    call.Body.Add(new AIInteraction
+                    var builder = AIBodyBuilder.FromImmutable(call.Body);
+                    builder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
-                        Content = "Analyze this image",
-                        ImageContent = new List<AIImageContent>
-                        {
-                            new AIImageContent
-                            {
-                                Data = base64Image,
-                                MediaType = "image/png"
-                            }
-                        }
+                        Agent = AIAgent.Context,
+                        Content = "Analyze this image"
                     });
+                    builder.Add(new AIInteractionImage
+                    {
+                        ImageData = base64Image
+                    });
+                    call.Body = builder.Build();
 
                     // Encode using Gemini provider
-                    var provider = new GoogleGeminiProvider();
+                    var provider = new GeminiProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify encoding

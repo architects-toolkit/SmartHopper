@@ -18,14 +18,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.Anthropic;
+using SmartHopper.Infrastructure.AICall.Core;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -34,24 +37,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestAnthropicBatchCallComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("45283AEC-C5CA-4040-87E7-7A28679E9E84");
-        protected override string ComponentName => "Test Anthropic Batch Call";
-        protected override string ComponentDescription => "Tests Anthropic batch API call with service_tier=batch and metrics validation";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "Anthropic";
+        public override Guid ComponentGuid => new Guid("B2C3D4E5-F6A7-8901-BCDE-F23456789012");
 
         public TestAnthropicBatchCallComponent()
             : base("Test Anthropic Batch Call", "TEST-ANTHROPIC-BATCH", "Tests Anthropic batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("Anthropic");
         }
 
-        /// <summary>
-        /// Forces the Anthropic provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new AnthropicProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -93,21 +89,23 @@ namespace SmartHopper.Components.Test.Providers
 
                     // Create test AIRequestCall with batch parameters
                     var call = new AIRequestCall();
-                    call.Body.Add(new AIInteraction
+                    var builder = AIBodyBuilder.FromImmutable(call.Body);
+                    builder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.Context,
                         Content = "Say 'batch test' in two words."
                     });
+                    call.Body = builder.Build();
 
                     // Set batch parameters
                     call.Parameters = new AIRequestParameters
                     {
                         Model = "claude-3-opus",
-                        Batch = true
+                        BatchTier = true
                     };
 
                     // Get provider from manager
-                    var providerManager = SmartHopper.Infrastructure.Managers.AIProviders.ProviderManager.Instance;
+                    var providerManager = SmartHopper.Infrastructure.AIProviders.ProviderManager.Instance;
                     var provider = providerManager.GetProvider("Anthropic");
 
                     if (provider == null)
@@ -120,14 +118,17 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Make batch API call
+                    IAIReturn result = null;
                     try
                     {
-                        var result = provider.Call<string>(call);
+                        result = await provider.Call(call);
                         
-                        if (result != null && !string.IsNullOrEmpty(result.Body))
+                        if (result != null && result.Body != null && result.Body.InteractionsCount > 0)
                         {
                             callSuccess = true;
-                            _messages.Add(new GH_String($"Batch API call successful: {result.Body.Substring(0, Math.Min(50, result.Body.Length))}..."));
+                            var lastInteraction = result.Body.Interactions.LastOrDefault() as AIInteractionText;
+                            var responseText = lastInteraction?.Content ?? "No text response";
+                            _messages.Add(new GH_String($"Batch API call successful: {responseText.Substring(0, Math.Min(50, responseText.Length))}..."));
                         }
                         else
                         {
@@ -140,17 +141,17 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Validate metrics
-                    if (call.Metrics != null)
+                    if (result?.Metrics != null)
                     {
                         metricsValid = true;
 
-                        if (call.Metrics.InputTokens <= 0)
+                        if (result.Metrics.InputTokens <= 0)
                         {
                             metricsValid = false;
                             _messages.Add(new GH_String("Input tokens not set or invalid"));
                         }
 
-                        if (call.Metrics.OutputTokens <= 0)
+                        if (result.Metrics.OutputTokens <= 0)
                         {
                             metricsValid = false;
                             _messages.Add(new GH_String("Output tokens not set or invalid"));
@@ -158,7 +159,7 @@ namespace SmartHopper.Components.Test.Providers
 
                         if (metricsValid)
                         {
-                            _messages.Add(new GH_String($"Metrics valid - Input: {call.Metrics.InputTokens}, Output: {call.Metrics.OutputTokens}"));
+                            _messages.Add(new GH_String($"Metrics valid - Input: {result.Metrics.InputTokens}, Output: {result.Metrics.OutputTokens}"));
                         }
                     }
                     else

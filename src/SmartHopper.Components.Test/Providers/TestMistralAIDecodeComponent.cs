@@ -18,13 +18,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Providers.MistralAI;
 
 namespace SmartHopper.Components.Test.Providers
@@ -35,23 +37,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestMistralAIDecodeComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("8D2545BA-C1BC-45DD-B94B-A07838C00B15");
-        protected override string ComponentName => "Test MistralAI Decode";
-        protected override string ComponentDescription => "Tests MistralAI response decoding to AIReturn";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "MistralAI";
 
         public TestMistralAIDecodeComponent()
             : base("Test MistralAI Decode", "TEST-MISTRAL-DEC", "Tests MistralAI response decoding to AIReturn", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("MistralAI");
         }
 
-        /// <summary>
-        /// Forces the MistralAI provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new MistralAIProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -112,27 +107,28 @@ namespace SmartHopper.Components.Test.Providers
                     };
 
                     // Decode using MistralAI provider
-                    var provider = new MistralAIProvider();
-                    var result = provider.Decode<string>(mockResponse.ToString());
+                    var provider = MistralAIProvider.Instance;
+                    var interactions = provider.Decode(mockResponse);
 
                     // Verify decoding
-                    if (result == null)
+                    if (interactions == null || interactions.Count == 0)
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded result is null"));
+                        _messages.Add(new GH_String("Decoded interactions is null or empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (string.IsNullOrEmpty(result.Body))
+                    var textInteraction = interactions.OfType<AIInteractionText>().FirstOrDefault();
+                    if (textInteraction == null || string.IsNullOrEmpty(textInteraction.Content))
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded body is empty"));
+                        _messages.Add(new GH_String("Decoded text interaction is empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!result.Body.Contains("MistralAI test response"))
+                    if (!textInteraction.Content.Contains("MistralAI test response"))
                     {
                         _success = new GH_Boolean(false);
                         _messages.Add(new GH_String("Decoded content doesn't match expected response"));
@@ -142,7 +138,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     _success = new GH_Boolean(true);
                     _messages.Add(new GH_String("MistralAI decoding successful"));
-                    _messages.Add(new GH_String($"Decoded content: {result.Body.Substring(0, Math.Min(50, result.Body.Length))}..."));
+                    _messages.Add(new GH_String($"Decoded content: {textInteraction.Content.Substring(0, Math.Min(50, textInteraction.Content.Length))}..."));
                 }
                 catch (Exception ex)
                 {

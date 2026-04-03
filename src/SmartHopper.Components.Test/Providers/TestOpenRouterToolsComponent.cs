@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,8 +24,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.OpenRouter;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -34,24 +35,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestOpenRouterToolsComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("1D7F0699-E95A-4E0E-8005-FED5BEC9C4BC");
-        protected override string ComponentName => "Test OpenRouter Tools";
-        protected override string ComponentDescription => "Tests OpenRouter tool encoding and response parsing";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "OpenRouter";
+        public override Guid ComponentGuid => new Guid("A4B5C6D7-E8F9-0123-ABCD-456789012345");
 
         public TestOpenRouterToolsComponent()
             : base("Test OpenRouter Tools", "TEST-OPENROUTER-TOOLS", "Tests OpenRouter tool encoding and response parsing", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("OpenRouter");
         }
 
-        /// <summary>
-        /// Forces the OpenRouter provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new OpenRouterProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -91,40 +85,35 @@ namespace SmartHopper.Components.Test.Providers
                     bool encodingSuccess = false;
                     bool parsingSuccess = false;
 
-                    // Create test AIRequestCall with tool definitions
-                    var call = new AIRequestCall();
-                    call.Body.Add(new AIInteraction
+                    // Create test AIRequestCall with tool definitions using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
+                    
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You have access to tools."
                     });
 
                     // Add tool call
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling get_weather tool",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_weather_123",
-                                Name = "get_weather",
-                                Arguments = "{\"location\": \"London\"}"
-                            }
-                        }
+                        Id = "call_weather_123",
+                        Name = "get_weather",
+                        Arguments = JObject.Parse("{\"location\": \"London\"}")
                     });
 
                     // Add tool result
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Weather in London: 62°F, Rainy",
-                        ToolCallId = "call_weather_123"
+                        Result = new JObject { ["content"] = "Weather in London: 62°F, Rainy" },
+                        Id = "call_weather_123"
                     });
 
-                    // Encode using OpenRouter provider
-                    var provider = new OpenRouterProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent component
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify tool encoding
@@ -171,7 +160,7 @@ namespace SmartHopper.Components.Test.Providers
                     _messages.Add(new GH_String("- Tool call ID present in result"));
 
                     // Verify parsing would work (basic structure check)
-                    if (encoded.Contains("\"role\":\"assistant\"") && 
+                    if (encoded.Contains("\"role\":\"assistant\"") &&
                         encoded.Contains("\"role\":\"tool\""))
                     {
                         parsingSuccess = true;

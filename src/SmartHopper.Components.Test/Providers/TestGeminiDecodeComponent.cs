@@ -18,14 +18,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.GoogleGemini;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Providers.Gemini;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -34,24 +36,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiDecodeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("8A175DAD-66A4-4153-9D28-87B46DAA6DDC");
-        protected override string ComponentName => "Test Gemini Decode";
-        protected override string ComponentDescription => "Tests Google Gemini response decoding to AIReturn";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "Gemini";
+        public override Guid ComponentGuid => new Guid("D4E5F6G7-H8I9-0123-JKLM-456789012345");
 
         public TestGeminiDecodeComponent()
-            : base("Test Gemini Decode", "TEST-GEMINI-DEC", "Tests Google Gemini response decoding to AIReturn", "SmartHopper", "Test/Providers")
+            : base("Test Gemini Decode", "TEST-GEMINI-DEC", "Tests Gemini response decoding to AIReturn", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("Gemini");
         }
 
-        /// <summary>
-        /// Forces the Google Gemini provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new GoogleGeminiProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -117,27 +112,28 @@ namespace SmartHopper.Components.Test.Providers
                     };
 
                     // Decode using Gemini provider
-                    var provider = new GoogleGeminiProvider();
-                    var result = provider.Decode<string>(mockResponse.ToString());
+                    var provider = GeminiProvider.Instance;
+                    var interactions = provider.Decode(mockResponse);
 
                     // Verify decoding
-                    if (result == null)
+                    if (interactions == null || interactions.Count == 0)
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded result is null"));
+                        _messages.Add(new GH_String("Decoded interactions is null or empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (string.IsNullOrEmpty(result.Body))
+                    var textInteraction = interactions.OfType<AIInteractionText>().FirstOrDefault();
+                    if (textInteraction == null || string.IsNullOrEmpty(textInteraction.Content))
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded body is empty"));
+                        _messages.Add(new GH_String("Decoded text interaction is empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!result.Body.Contains("Gemini test response"))
+                    if (!textInteraction.Content.Contains("Gemini test response"))
                     {
                         _success = new GH_Boolean(false);
                         _messages.Add(new GH_String("Decoded content doesn't match expected response"));
@@ -147,7 +143,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     _success = new GH_Boolean(true);
                     _messages.Add(new GH_String("Gemini decoding successful"));
-                    _messages.Add(new GH_String($"Decoded content: {result.Body.Substring(0, Math.Min(50, result.Body.Length))}..."));
+                    _messages.Add(new GH_String($"Decoded content: {textInteraction.Content.Substring(0, Math.Min(50, textInteraction.Content.Length))}..."));
                 }
                 catch (Exception ex)
                 {

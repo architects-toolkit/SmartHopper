@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,8 +24,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.OpenAI;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -35,23 +36,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestOpenAIToolsComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("63FEAE05-B951-4642-8BC4-8D5F1A1FAAD5");
-        protected override string ComponentName => "Test OpenAI Tools";
-        protected override string ComponentDescription => "Tests OpenAI tool encoding and response parsing";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "OpenAI";
 
         public TestOpenAIToolsComponent()
             : base("Test OpenAI Tools", "TEST-OPENAI-TOOLS", "Tests OpenAI tool encoding and response parsing", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("OpenAI");
         }
 
-        /// <summary>
-        /// Forces the OpenAI provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new OpenAIProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -91,40 +85,35 @@ namespace SmartHopper.Components.Test.Providers
                     bool encodingSuccess = false;
                     bool parsingSuccess = false;
 
-                    // Create test AIRequestCall with tool definitions
-                    var call = new AIRequestCall();
-                    call.Body.Add(new AIInteraction
+                    // Create test AIRequestCall with tool definitions using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
+                   
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You have access to tools."
                     });
 
                     // Add tool call
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling get_weather tool",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_weather_123",
-                                Name = "get_weather",
-                                Arguments = "{\"location\": \"New York\"}"
-                            }
-                        }
+                        Id = "call_weather_123",
+                        Name = "get_weather",
+                        Arguments = JObject.Parse("{\"location\": \"New York\"}")
                     });
 
                     // Add tool result
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Weather in New York: 72°F, Sunny",
-                        ToolCallId = "call_weather_123"
+                        Result = new JObject { ["content"] = "Weather in New York: 72°F, Sunny" },
+                        Id = "call_weather_123"
                     });
 
-                    // Encode using OpenAI provider
-                    var provider = new OpenAIProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify tool encoding
@@ -171,7 +160,7 @@ namespace SmartHopper.Components.Test.Providers
                     _messages.Add(new GH_String("- Tool call ID present in result"));
 
                     // Verify parsing would work (basic structure check)
-                    if (encoded.Contains("\"role\":\"assistant\"") && 
+                    if (encoded.Contains("\"role\":\"assistant\"") &&
                         encoded.Contains("\"role\":\"tool\""))
                     {
                         parsingSuccess = true;

@@ -18,13 +18,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Providers.OpenRouter;
 
 namespace SmartHopper.Components.Test.Providers
@@ -34,24 +36,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestOpenRouterDecodeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("F1DC3B62-BFB6-448F-9B18-9A854CB2A7D2");
-        protected override string ComponentName => "Test OpenRouter Decode";
-        protected override string ComponentDescription => "Tests OpenRouter response decoding to AIReturn";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "OpenRouter";
+        public override Guid ComponentGuid => new Guid("F2A3B4C5-D6E7-8901-FABC-234567890123");
 
         public TestOpenRouterDecodeComponent()
             : base("Test OpenRouter Decode", "TEST-OPENROUTER-DEC", "Tests OpenRouter response decoding to AIReturn", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("OpenRouter");
         }
 
-        /// <summary>
-        /// Forces the OpenRouter provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new OpenRouterProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -99,40 +94,41 @@ namespace SmartHopper.Components.Test.Providers
                                     ["content"] = "This is an OpenRouter test response"
                                 },
                                 ["finish_reason"] = "stop"
-                            }
+                            },
                         },
                         ["usage"] = new JObject
                         {
                             ["prompt_tokens"] = 18,
                             ["completion_tokens"] = 9,
-                            ["total_tokens"] = 27
+                            ["total_tokens"] = 27,
                         },
                         ["model"] = "openrouter/auto",
-                        ["id"] = "gen-123"
+                        ["id"] = "gen-123",
                     };
 
                     // Decode using OpenRouter provider
-                    var provider = new OpenRouterProvider();
-                    var result = provider.Decode<string>(mockResponse.ToString());
+                    var provider = OpenRouterProvider.Instance;
+                    var interactions = provider.Decode(mockResponse);
 
                     // Verify decoding
-                    if (result == null)
+                    if (interactions == null || interactions.Count == 0)
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded result is null"));
+                        _messages.Add(new GH_String("Decoded interactions is null or empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (string.IsNullOrEmpty(result.Body))
+                    var textInteraction = interactions.OfType<AIInteractionText>().FirstOrDefault();
+                    if (textInteraction == null || string.IsNullOrEmpty(textInteraction.Content))
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded body is empty"));
+                        _messages.Add(new GH_String("Decoded text interaction is empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!result.Body.Contains("OpenRouter test response"))
+                    if (!textInteraction.Content.Contains("OpenRouter test response"))
                     {
                         _success = new GH_Boolean(false);
                         _messages.Add(new GH_String("Decoded content doesn't match expected response"));
@@ -142,7 +138,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     _success = new GH_Boolean(true);
                     _messages.Add(new GH_String("OpenRouter decoding successful"));
-                    _messages.Add(new GH_String($"Decoded content: {result.Body.Substring(0, Math.Min(50, result.Body.Length))}..."));
+                    _messages.Add(new GH_String($"Decoded content: {textInteraction.Content.Substring(0, Math.Min(50, textInteraction.Content.Length))}..."));
                 }
                 catch (Exception ex)
                 {

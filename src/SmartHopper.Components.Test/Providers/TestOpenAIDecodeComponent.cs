@@ -18,14 +18,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.OpenAI;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -35,23 +37,16 @@ namespace SmartHopper.Components.Test.Providers
     public class TestOpenAIDecodeComponent : AIStatefulAsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("6FBC99E6-AF7B-4390-B1EA-5B7F65E2C7EA");
-        protected override string ComponentName => "Test OpenAI Decode";
-        protected override string ComponentDescription => "Tests OpenAI response decoding to AIReturn";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "OpenAI";
 
         public TestOpenAIDecodeComponent()
             : base("Test OpenAI Decode", "TEST-OPENAI-DEC", "Tests OpenAI response decoding to AIReturn", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("OpenAI");
         }
 
-        /// <summary>
-        /// Forces the OpenAI provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new OpenAIProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -111,28 +106,30 @@ namespace SmartHopper.Components.Test.Providers
                         ["id"] = "chatcmpl-123"
                     };
 
-                    // Decode using OpenAI provider
-                    var provider = new OpenAIProvider();
-                    var result = provider.Decode<string>(mockResponse.ToString());
+                    // Decode using provider - returns List<IAIInteraction>
+                    var provider = _parent.GetActualAIProvider();
+                    var interactions = provider.Decode(mockResponse);
 
-                    // Verify decoding
-                    if (result == null)
+                    // Verify decoding - check if we got an assistant message with text content
+                    if (interactions == null || interactions.Count == 0)
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded result is null"));
+                        _messages.Add(new GH_String("Decoded result is null or empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (string.IsNullOrEmpty(result.Body))
+                    // Find the assistant text interaction
+                    var assistantInteraction = interactions.Find(i => i is AIInteractionText text && text.Agent == AIAgent.Assistant) as AIInteractionText;
+                    if (assistantInteraction == null || string.IsNullOrEmpty(assistantInteraction.Content))
                     {
                         _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded body is empty"));
+                        _messages.Add(new GH_String("Decoded assistant message is empty"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!result.Body.Contains("test response"))
+                    if (!assistantInteraction.Content.Contains("test response"))
                     {
                         _success = new GH_Boolean(false);
                         _messages.Add(new GH_String("Decoded content doesn't match expected response"));
@@ -142,7 +139,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     _success = new GH_Boolean(true);
                     _messages.Add(new GH_String("OpenAI decoding successful"));
-                    _messages.Add(new GH_String($"Decoded content: {result.Body.Substring(0, Math.Min(50, result.Body.Length))}..."));
+                    _messages.Add(new GH_String($"Decoded content: {assistantInteraction.Content.Substring(0, Math.Min(50, assistantInteraction.Content.Length))}..."));
                 }
                 catch (Exception ex)
                 {

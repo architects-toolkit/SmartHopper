@@ -24,8 +24,11 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall;
-using SmartHopper.Providers.GoogleGemini;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -34,24 +37,17 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiEncodeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("04A35947-3C85-4EE6-9489-230E1AD5781D");
-        protected override string ComponentName => "Test Gemini Encode";
-        protected override string ComponentDescription => "Tests Google Gemini message encoding from AIRequestCall";
-        protected override string ComponentCategory => "SmartHopper/Test/Providers";
-        protected override string ComponentSubCategory => "Gemini";
+        public override Guid ComponentGuid => new Guid("E5F6G7H8-I9J0-1234-KLMN-567890123456");
 
         public TestGeminiEncodeComponent()
-            : base("Test Gemini Encode", "TEST-GEMINI-ENC", "Tests Google Gemini message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
+            : base("Test Gemini Encode", "TEST-GEMINI-ENC", "Tests Gemini message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("Gemini");
         }
 
-        /// <summary>
-        /// Forces the Google Gemini provider for this test component.
-        /// </summary>
-        protected override SmartHopper.Infrastructure.AIProviders.IAIProvider GetActualAIProvider()
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            return new GoogleGeminiProvider();
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -86,42 +82,36 @@ namespace SmartHopper.Components.Test.Providers
             {
                 try
                 {
-                    // Create test AIRequestCall with different message types
-                    var call = new AIRequestCall();
+                    // Create test AIRequestCall with different message types using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
                     
                     // Add Context message (maps to user in Gemini)
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionText
                     {
-                        Role = AIAgent.Context,
+                        Agent = AIAgent.Context,
                         Content = "You are a helpful assistant."
                     });
 
                     // Add ToolCall message (Gemini uses function calls)
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolCall
                     {
-                        Role = AIAgent.ToolCall,
-                        Content = "Calling function",
-                        ToolCalls = new List<AIToolCall>
-                        {
-                            new AIToolCall
-                            {
-                                Id = "call_123",
-                                Name = "test_function",
-                                Arguments = "{\"param\": \"value\"}"
-                            }
-                        }
+                        Id = "call_123",
+                        Name = "test_function",
+                        Arguments = JObject.Parse("{\"param\": \"value\"}")
                     });
 
                     // Add ToolResult message
-                    call.Body.Add(new AIInteraction
+                    bodyBuilder.Add(new AIInteractionToolResult
                     {
-                        Role = AIAgent.ToolResult,
-                        Content = "Function result",
-                        ToolCallId = "call_123"
+                        Result = new JObject { ["content"] = "Tool result" },
+                        Id = "call_123"
                     });
 
-                    // Encode using Gemini provider
-                    var provider = new GoogleGeminiProvider();
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+
+                    // Encode using provider from parent component
+                    var provider = _parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify encoding
