@@ -268,7 +268,7 @@ if ($Generate) {
         "SmartHopper.Providers.DeepSeek.dll",
         "SmartHopper.Providers.OpenRouter.dll",
         "SmartHopper.Providers.Anthropic.dll",
-        "SmartHopper.Providers.Google.dll"
+        "SmartHopper.Providers.Gemini.dll"
     )
 
     # Test hook: allow non-SmartHopper assemblies when SMARTHOPPER_ALLOW_TEST_ASSEMBLY_SIGNING is set

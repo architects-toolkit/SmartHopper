@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Knowledge
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.mcneelpostdeconstruct;
+        protected override Bitmap Icon => Resources.discoursepostdeconstruct;
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 

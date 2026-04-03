@@ -123,7 +123,7 @@ namespace SmartHopper.Components.Knowledge
         public override Guid ComponentGuid => new Guid("574FA3D1-3BA2-4B69-8D9B-5A208CD7FC7D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.filetomd;
+        protected override Bitmap Icon => Resources.fileai;
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;

@@ -269,6 +269,30 @@ namespace SmartHopper.Menu.Dialogs
                 Wrap = WrapMode.Word,
             };
 
+            var rhinoIconLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- Md Ahasan Habib from Noun Project for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("Rhinoceros Icon", "https://thenounproject.com/browse/icons/term/rhinoceros/"),
+                    new Label { Text = "(CC BY 3.0)", Font = new Font(SystemFont.Default, 10) }
+                },
+            };
+
+            var ladybugIconLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- Ladybug Tools for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("Ladybug Artwork", "https://github.com/ladybug-tools/artwork"),
+                    new Label { Text = "(CC BY 4.0)", Font = new Font(SystemFont.Default, 10) }
+                },
+            };
+
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
             var okButton = new Button
@@ -338,6 +362,8 @@ namespace SmartHopper.Menu.Dialogs
             contentLayout.Items.Add(dataFlowLink);
             contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(logoDesignThanksLabel);
+            contentLayout.Items.Add(rhinoIconLink);
+            contentLayout.Items.Add(ladybugIconLink);
             contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(new StackLayoutItem(null, true)); // Push everything up

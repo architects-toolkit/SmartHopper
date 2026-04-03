@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace SmartHopper.Providers.Google.Properties
+namespace SmartHopper.Providers.Gemini.Properties
 {
     using System;
 
@@ -43,7 +43,7 @@ namespace SmartHopper.Providers.Google.Properties
             {
                 if ((resourceMan == null))
                 {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("SmartHopper.Providers.Google.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("SmartHopper.Providers.Gemini.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
 

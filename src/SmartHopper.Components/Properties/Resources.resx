@@ -172,20 +172,50 @@
   <data name="mcneelforumsearch" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\mcneelforumsearch.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="mcneelpostdeconstruct" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\mcneelpostdeconstruct.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="ladybugforumsearch" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ladybugforumsearch.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="discourseforumsearch" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\discourseforumsearch.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="discoursepostdeconstruct" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\discoursepostdeconstruct.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="mcneelpostget" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\mcneelpostget.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="ladybugpostget" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ladybugpostget.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="discoursepostget" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\discoursepostget.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="mcneelpostopen" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\mcneelpostopen.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="ladybugpostopen" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ladybugpostopen.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="discoursepostopen" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\discoursepostopen.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="mcneelpostsummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\mcneelpostsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="ladybugpostsummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ladybugpostsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="discoursepostsummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\discoursepostsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="mcneeltopicsummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\mcneeltopicsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="ladybugtopicsummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ladybugtopicsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="discoursetopicsummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\discoursetopicsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="websummarize" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\websummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -199,7 +229,25 @@
   <data name="filetomd" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\filetomd.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="fileai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\fileai.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="webtomd" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\webtomd.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonschemaprop" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonschemaprop.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonai.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonmerge" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonmerge.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonschema" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonschema.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonschemaobj" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonschemaobj.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>

@@ -33,8 +33,7 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.AITools;
-using SmartHopper.Infrastructure.Settings;
+using SmartHopper.Providers.Gemini.Properties;
 
 namespace SmartHopper.Providers.Gemini
 {

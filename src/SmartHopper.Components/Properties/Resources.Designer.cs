@@ -193,9 +193,30 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
-        internal static Bitmap mcneelpostdeconstruct {
+        internal static Bitmap ladybugforumsearch {
             get {
-                object obj = ResourceManager.GetObject("mcneelpostdeconstruct", resourceCulture);
+                object obj = ResourceManager.GetObject("ladybugforumsearch", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap discourseforumsearch {
+            get {
+                object obj = ResourceManager.GetObject("discourseforumsearch", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap discoursepostdeconstruct {
+            get {
+                object obj = ResourceManager.GetObject("discoursepostdeconstruct", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap ladybugpostget {
+            get {
+                object obj = ResourceManager.GetObject("ladybugpostget", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
@@ -207,9 +228,30 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
+        internal static Bitmap discoursepostget {
+            get {
+                object obj = ResourceManager.GetObject("discoursepostget", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
         internal static Bitmap mcneelpostopen {
             get {
                 object obj = ResourceManager.GetObject("mcneelpostopen", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap ladybugpostopen {
+            get {
+                object obj = ResourceManager.GetObject("ladybugpostopen", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap discoursepostopen {
+            get {
+                object obj = ResourceManager.GetObject("discoursepostopen", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
@@ -221,9 +263,16 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
-        internal static Bitmap mcneeltopicrelated {
+        internal static Bitmap ladybugpostsummarize {
             get {
-                object obj = ResourceManager.GetObject("mcneeltopicrelated", resourceCulture);
+                object obj = ResourceManager.GetObject("ladybugpostsummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap discoursepostsummarize {
+            get {
+                object obj = ResourceManager.GetObject("discoursepostsummarize", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
@@ -231,6 +280,20 @@ namespace SmartHopper.Components.Properties {
         internal static Bitmap mcneeltopicsummarize {
             get {
                 object obj = ResourceManager.GetObject("mcneeltopicsummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap ladybugtopicsummarize {
+            get {
+                object obj = ResourceManager.GetObject("ladybugtopicsummarize", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap discoursetopicsummarize {
+            get {
+                object obj = ResourceManager.GetObject("discoursetopicsummarize", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
@@ -263,9 +326,51 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
+        internal static Bitmap fileai {
+            get {
+                object obj = ResourceManager.GetObject("fileai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
         internal static Bitmap webtomd {
             get {
                 object obj = ResourceManager.GetObject("webtomd", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap jsonschemaprop {
+            get {
+                object obj = ResourceManager.GetObject("jsonschemaprop", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap jsonai {
+            get {
+                object obj = ResourceManager.GetObject("jsonai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap jsonmerge {
+            get {
+                object obj = ResourceManager.GetObject("jsonmerge", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap jsonschema {
+            get {
+                object obj = ResourceManager.GetObject("jsonschema", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap jsonschemaobj {
+            get {
+                object obj = ResourceManager.GetObject("jsonschemaobj", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
