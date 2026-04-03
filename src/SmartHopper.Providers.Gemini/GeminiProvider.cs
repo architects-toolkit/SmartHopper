@@ -40,7 +40,7 @@ namespace SmartHopper.Providers.Gemini
     /// <summary>
     /// Google Gemini AI provider implementation.
     /// </summary>
-    public partial class GeminiProvider : AIProvider<GeminiProvider>
+    public sealed partial class GeminiProvider : AIProvider<GeminiProvider>
     {
         /// <inheritdoc/>
         public override string Name => "Gemini";

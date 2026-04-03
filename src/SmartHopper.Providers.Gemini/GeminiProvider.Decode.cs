@@ -29,7 +29,7 @@ using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Providers.Gemini
 {
-    public partial class GeminiProvider
+    public sealed partial class GeminiProvider
     {
         /// <inheritdoc/>
         public override List<IAIInteraction> Decode(JObject responseObject)

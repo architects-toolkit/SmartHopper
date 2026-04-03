@@ -32,11 +32,6 @@ namespace SmartHopper.Providers.Gemini
     {
         private new readonly GeminiProvider provider;
 
-        public GeminiProviderSettings()
-            : base(null)
-        {
-        }
-
         public GeminiProviderSettings(GeminiProvider provider)
             : base(provider)
         {

@@ -24,6 +24,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -46,7 +47,30 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// <typeparam name="T">The type of the derived provider class.</typeparam>
     public abstract class AIProvider<T> : AIProvider where T : AIProvider<T>
     {
-        private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
+        private static readonly Lazy<T> InstanceValue = new(() =>
+        {
+            try
+            {
+                var instance = Activator.CreateInstance(typeof(T), nonPublic: true) as T;
+                if (instance == null)
+                {
+                    throw new InvalidOperationException($"Failed to create instance of {typeof(T).FullName}. Activator.CreateInstance returned null.");
+                }
+                return instance;
+            }
+            catch (TargetInvocationException tie) when (tie.InnerException != null)
+            {
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Constructor threw exception: {tie.InnerException.GetType().Name}: {tie.InnerException.Message}");
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Stack trace: {tie.InnerException.StackTrace}");
+                throw tie.InnerException;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Failed to create instance: {ex.GetType().Name}: {ex.Message}");
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Stack trace: {ex.StackTrace}");
+                throw;
+            }
+        });
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.

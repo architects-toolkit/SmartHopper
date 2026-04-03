@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.Diagnostics;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Providers.Gemini
@@ -32,7 +33,26 @@ namespace SmartHopper.Providers.Gemini
         /// <returns>The Gemini provider singleton instance.</returns>
         public IAIProvider CreateProvider()
         {
-            return AIProvider<GeminiProvider>.Instance;
+            try
+            {
+                Debug.WriteLine("[GeminiProviderFactory] Attempting to get AIProvider<GeminiProvider>.Instance...");
+                var instance = AIProvider<GeminiProvider>.Instance;
+                if (instance == null)
+                {
+                    Debug.WriteLine("[GeminiProviderFactory] ERROR: AIProvider<GeminiProvider>.Instance returned null!");
+                }
+                else
+                {
+                    Debug.WriteLine($"[GeminiProviderFactory] Successfully got instance: {instance.GetType().FullName}");
+                }
+                return instance;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GeminiProviderFactory] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+                Debug.WriteLine($"[GeminiProviderFactory] Stack trace: {ex.StackTrace}");
+                throw;
+            }
         }
 
         /// <summary>
@@ -41,7 +61,7 @@ namespace SmartHopper.Providers.Gemini
         /// <returns>A new GeminiProviderSettings instance.</returns>
         public IAIProviderSettings CreateProviderSettings()
         {
-            return new GeminiProviderSettings();
+            return new GeminiProviderSettings(AIProvider<GeminiProvider>.Instance);
         }
     }
 }

@@ -33,7 +33,7 @@ using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.Gemini
 {
-    public partial class GeminiProvider
+    public sealed partial class GeminiProvider
     {
         /// <inheritdoc/>
         protected override IStreamingAdapter CreateStreamingAdapter()

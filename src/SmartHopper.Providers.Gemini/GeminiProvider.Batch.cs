@@ -32,7 +32,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 
 namespace SmartHopper.Providers.Gemini
 {
-    public partial class GeminiProvider : IAIBatchProvider
+    public sealed partial class GeminiProvider : IAIBatchProvider
     {
         /// <inheritdoc/>
         public async Task<AIBatchSubmission> SubmitBatchAsync(IReadOnlyList<(string CustomId, AIRequestCall Request)> items, CancellationToken cancellationToken = default)

@@ -347,6 +347,20 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
+        internal static Bitmap jsonarray {
+            get {
+                object obj = ResourceManager.GetObject("jsonarray", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap jsonobj {
+            get {
+                object obj = ResourceManager.GetObject("jsonobj", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
         internal static Bitmap jsonai {
             get {
                 object obj = ResourceManager.GetObject("jsonai", resourceCulture);

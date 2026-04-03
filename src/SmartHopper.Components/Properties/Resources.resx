@@ -235,6 +235,12 @@
   <data name="webtomd" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\webtomd.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="jsonarray" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonarray.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="jsonobj" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonobj.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="jsonschemaprop" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\jsonschemaprop.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
