@@ -485,7 +485,7 @@ public static class GHStructureConverter
     /// <summary>
     /// Converts a GH_Structure of a specific type to GH_Structure of IGH_Goo.
     /// </summary>
-    public static GH_Structure<IGH_Goo> ConvertToGooTree<T>(GH_Structure<T> tree) 
+    public static GH_Structure<IGH_Goo> ConvertToGooTree<T>(GH_Structure<T> tree)
         where T : IGH_Goo
 }
 ```

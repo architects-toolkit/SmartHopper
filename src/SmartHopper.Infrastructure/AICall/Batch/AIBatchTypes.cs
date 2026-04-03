@@ -177,7 +177,7 @@ namespace SmartHopper.Infrastructure.AICall.Batch
             this.BatchId = batchId;
             this.State = AIBatchState.Completed;
             this.Results = results;
-            this.Messages = messages;
+            this.Messages = messages ?? Array.Empty<AIRuntimeMessage>();
         }
     }
 }

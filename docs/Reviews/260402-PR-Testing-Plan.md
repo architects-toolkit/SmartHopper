@@ -1,9 +1,9 @@
 # Testing Plan: SmartHopper 2.0.0 Refactor
 
-**Branch:** `feature/2.0.0-text2json` → `dev`  
-**PR Date:** April 2, 2026  
-**Status:** 🚧 Pre-PR Testing Phase  
-**Estimated Testing Time:** 4-6 hours  
+**Branch:** `feature/2.0.0-text2json` → `dev`
+**PR Date:** April 2, 2026
+**Status:** 🚧 Pre-PR Testing Phase
+**Estimated Testing Time:** 4-6 hours
 **Testers Required:** 2 (1 Windows, 1 macOS if possible)
 
 ---
@@ -439,7 +439,7 @@ This is a **large-scale refactor** involving 208 files changed, 21,998 insertion
 ### Windows Testing
 
 - [ ] All 🔴 P0 tests executed
-- [ ] All 🟡 P1 tests executed  
+- [ ] All 🟡 P1 tests executed
 - [ ] Critical tests pass (95%+)
 - [ ] No crashes or data loss
 
@@ -484,9 +484,9 @@ This is a **large-scale refactor** involving 208 files changed, 21,998 insertion
 ```markdown
 ### Test Session [DATE]
 
-**Tester:** [Name]  
-**Platform:** [Windows/macOS] [Version]  
-**Rhino Version:** [e.g., 8.15]  
+**Tester:** [Name]
+**Platform:** [Windows/macOS] [Version]
+**Rhino Version:** [e.g., 8.15]
 **SmartHopper Version:** [Branch/Commit]
 
 #### Tests Executed:
@@ -502,5 +502,5 @@ This is a **large-scale refactor** involving 208 files changed, 21,998 insertion
 
 ---
 
-*Document generated: April 2, 2026*  
+*Document generated: April 2, 2026*
 *For PR: feature/2.0.0-text2json → dev*

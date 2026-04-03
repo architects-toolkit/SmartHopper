@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -1258,7 +1258,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Starts the batch status poll timer with specified initial delay.
         /// </summary>
-        /// <param name="immediateFirstPoll">If true, the first poll happens immediately (dueTime=0). 
+        /// <param name="immediateFirstPoll">If true, the first poll happens immediately (dueTime=0).
         /// Use true when restoring batch state to check if already complete.</param>
         private void StartBatchPollTimer(bool immediateFirstPoll = false)
         {
