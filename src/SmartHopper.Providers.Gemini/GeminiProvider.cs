@@ -51,7 +51,7 @@ namespace SmartHopper.Providers.Gemini
         public override string Name => "Gemini";
 
         /// <inheritdoc/>
-        public override Image Icon => null;
+        public override Image Icon => Properties.Resources.gemini_icon;
 
         /// <inheritdoc/>
         public override bool IsEnabled => true;
