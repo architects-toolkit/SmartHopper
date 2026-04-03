@@ -63,9 +63,9 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public List<ExtractedImage> Images { get; set; } = new List<ExtractedImage>();
 
         /// <summary>
-        /// Gets whether the conversion was successful (i.e., MarkdownContent is not empty).
+        /// Gets whether the conversion was successful.
         /// </summary>
-        public bool IsSuccess => !string.IsNullOrWhiteSpace(this.MarkdownContent);
+        public bool IsSuccess { get; set; }
 
         /// <summary>
         /// Creates a new instance with default values.
@@ -81,8 +81,9 @@ namespace SmartHopper.Core.Grasshopper.Converters
         {
             return new FileConversionResult
             {
-                MarkdownContent = markdownContent,
-                DetectedFormat = detectedFormat
+                MarkdownContent = markdownContent ?? string.Empty,
+                DetectedFormat = detectedFormat,
+                IsSuccess = true
             };
         }
 
@@ -95,7 +96,8 @@ namespace SmartHopper.Core.Grasshopper.Converters
             {
                 MarkdownContent = string.Empty,
                 DetectedFormat = detectedFormat,
-                Warnings = new List<string> { warningMessage }
+                Warnings = new List<string> { warningMessage },
+                IsSuccess = false
             };
         }
     }

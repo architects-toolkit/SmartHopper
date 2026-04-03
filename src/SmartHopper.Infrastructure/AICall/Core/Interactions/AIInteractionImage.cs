@@ -176,7 +176,19 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
                 {
                     this.SetResult(uri, imageData, revisedPrompt);
+                    return;
                 }
+            }
+
+            // Handle case where only imageData is provided (no URL)
+            if (imageData != null)
+            {
+                this.ImageData = imageData;
+            }
+
+            if (revisedPrompt != null)
+            {
+                this.RevisedPrompt = revisedPrompt;
             }
         }
 

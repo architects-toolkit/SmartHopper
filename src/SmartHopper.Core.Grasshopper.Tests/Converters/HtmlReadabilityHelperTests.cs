@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -36,7 +36,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public void ExtractMainContent_NullDoc_ReturnsNull()
         {
             var type = typeof(HtmlReadabilityHelper);
-            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
             var result = method?.Invoke(null, new object[] { null });
             Assert.Null(result);
         }
@@ -48,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
             var type = typeof(HtmlReadabilityHelper);
-            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
             var result = method?.Invoke(null, new object[] { doc }) as HtmlNode;
             Assert.NotNull(result);
             Assert.Equal("article", result.Name);
@@ -61,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
             var type = typeof(HtmlReadabilityHelper);
-            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
             var result = method?.Invoke(null, new object[] { doc }) as HtmlNode;
             Assert.NotNull(result);
             Assert.Equal("main", result.Name);
@@ -74,7 +74,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
             var type = typeof(HtmlReadabilityHelper);
-            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
             var result = method?.Invoke(null, new object[] { doc }) as HtmlNode;
             Assert.NotNull(result);
         }
@@ -86,7 +86,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
             var type = typeof(HtmlReadabilityHelper);
-            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
             var result = method?.Invoke(null, new object[] { doc }) as HtmlNode;
             Assert.NotNull(result);
         }
@@ -98,7 +98,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
             var type = typeof(HtmlReadabilityHelper);
-            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
             var result = method?.Invoke(null, new object[] { doc }) as HtmlNode;
             Assert.NotNull(result);
         }
@@ -158,7 +158,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
             var type = typeof(HtmlReadabilityHelper);
-            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var method = type.GetMethod("ExtractMainContent", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
             var result = method?.Invoke(null, new object[] { doc }) as HtmlNode;
             Assert.NotNull(result);
             Assert.Equal("div", result.Name);

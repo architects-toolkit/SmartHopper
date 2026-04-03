@@ -44,9 +44,9 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     return FileConversionResult.Success(string.Empty, "csv");
                 }
 
-                if (!options.PreserveTableStructure)
+                // Return as plain text if table structure is explicitly not preserved
+                if (options?.PreserveTableStructure == false)
                 {
-                    // Return as plain text if table structure is not preserved
                     return FileConversionResult.Success(string.Join("\n", lines), "csv");
                 }
 
