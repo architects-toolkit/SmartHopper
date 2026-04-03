@@ -65,18 +65,33 @@ runs:
           
           console.log('Processed version for milestone:', processedVersion);
           
-          // Find milestone with matching title
-          const { data: milestones } = await github.rest.issues.listMilestones({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            state: 'all' // Include both open and closed milestones
-          });
+          // Find milestone with matching title (with pagination)
+          let allMilestones = [];
+          let page = 1;
+          let hasMore = true;
           
-          let targetMilestone = milestones.find(milestone => milestone.title === processedVersion);
+          while (hasMore && page <= 10) {  // Safety limit: max 1000 milestones
+            const { data: pageMilestones } = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 100,
+              page: page
+            });
+            allMilestones = allMilestones.concat(pageMilestones);
+            hasMore = pageMilestones.length === 100;
+            page++;
+          }
+          
+          console.log(`Fetched ${allMilestones.length} total milestones`);
+          
+          let targetMilestone = allMilestones.find(milestone => milestone.title === processedVersion);
           
           if (!targetMilestone) {
             console.log(`No milestone found with title: ${processedVersion}`);
-            console.log('Available milestones:', milestones.map(m => m.title));
+            console.log('Available milestones:', allMilestones.map(m => m.title));
             
             // Create the milestone if it doesn't exist
             console.log(`Creating new milestone: ${processedVersion}`);
@@ -93,31 +108,9 @@ runs:
               console.log(`Successfully created milestone: ${targetMilestone.title}`);
               
             } catch (error) {
-              // Handle race condition: milestone may have been created by another workflow
-              if (error.status === 422 && error.message && error.message.includes('already_exists')) {
-                console.log(`Milestone ${processedVersion} already exists (race condition), fetching it...`);
-                
-                // Re-fetch milestones to find the existing one
-                const { data: refreshedMilestones } = await github.rest.issues.listMilestones({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  state: 'all'
-                });
-                
-                targetMilestone = refreshedMilestones.find(m => m.title === processedVersion);
-                
-                if (targetMilestone) {
-                  console.log(`Found existing milestone: ${targetMilestone.title} (${targetMilestone.state})`);
-                } else {
-                  console.error('Could not find milestone after already_exists error');
-                  core.setFailed(`Failed to find existing milestone after creation conflict`);
-                  return;
-                }
-              } else {
-                console.error('Error creating milestone:', error);
-                core.setFailed(`Failed to create milestone: ${error.message}`);
-                return;
-              }
+              console.error('Error creating milestone:', error);
+              core.setFailed(`Failed to create milestone: ${error.message}`);
+              return;
             }
           } else {
             console.log(`Found existing milestone: ${targetMilestone.title} (${targetMilestone.state})`);
