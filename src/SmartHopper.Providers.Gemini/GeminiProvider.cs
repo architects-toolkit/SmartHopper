@@ -19,15 +19,21 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Providers.Gemini
@@ -35,21 +41,33 @@ namespace SmartHopper.Providers.Gemini
     /// <summary>
     /// Google Gemini AI provider implementation.
     /// </summary>
-    public partial class GeminiProvider : AIProvider<GeminiProviderSettings>
+    public partial class GeminiProvider : AIProvider<GeminiProvider>
     {
         private static readonly Lazy<GeminiProvider> LazyInstance = new Lazy<GeminiProvider>(() => new GeminiProvider());
 
         public static GeminiProvider Instance => LazyInstance.Value;
 
-        public GeminiProvider()
-            : base("Gemini", "https://generativelanguage.googleapis.com/v1beta")
-        {
-            this.Models = new GeminiProviderModels(this);
-            this.Settings = new GeminiProviderSettings(this);
-        }
+        /// <inheritdoc/>
+        public override string Name => "Gemini";
 
         /// <inheritdoc/>
-        public override string GetDefaultModel()
+        public override Image Icon => null;
+
+        /// <inheritdoc/>
+        public override bool IsEnabled => true;
+
+        /// <inheritdoc/>
+        public override Uri DefaultServerUrl => new Uri("https://generativelanguage.googleapis.com/v1beta");
+
+        public GeminiProvider()
+        {
+            this.Models = new GeminiProviderModels(this);
+        }
+
+        /// <summary>
+        /// Gets the default model for the specified capability.
+        /// </summary>
+        public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true)
         {
             return "gemini-2.5-flash";
         }
@@ -59,83 +77,81 @@ namespace SmartHopper.Providers.Gemini
         {
             return new[]
             {
-                new AIExtraDescriptor
-                {
-                    Name = "thinking_level",
-                    Type = typeof(string),
-                    DefaultValue = string.Empty,
-                    DisplayName = "Thinking Level",
-                    Description = "Gemini 3: minimal/low/medium/high; Gemini 2.5: integer budget as string (0=off)",
-                },
-                new AIExtraDescriptor
-                {
-                    Name = "batch_priority",
-                    Type = typeof(int),
-                    DefaultValue = 0,
-                    DisplayName = "Batch Priority",
-                    Description = "Batch job priority (0=default, higher=higher priority)",
-                },
-                new AIExtraDescriptor
-                {
-                    Name = "image_aspect_ratio",
-                    Type = typeof(string),
-                    DefaultValue = string.Empty,
-                    DisplayName = "Image Aspect Ratio",
-                    Description = "Image generation aspect ratio (e.g., 16:9, 1:1)",
-                },
-                new AIExtraDescriptor
-                {
-                    Name = "image_size",
-                    Type = typeof(string),
-                    DefaultValue = string.Empty,
-                    DisplayName = "Image Size",
-                    Description = "Image generation size (e.g., 1K, 2K, 4K)",
-                },
-                new AIExtraDescriptor
-                {
-                    Name = "top_k",
-                    Type = typeof(int),
-                    DefaultValue = 0,
-                    DisplayName = "Top-K Sampling",
-                    Description = "Top-K sampling parameter",
-                },
-                new AIExtraDescriptor
-                {
-                    Name = "top_p",
-                    Type = typeof(double),
-                    DefaultValue = 0.0,
-                    DisplayName = "Top-P Sampling",
-                    Description = "Top-P (nucleus) sampling parameter",
-                },
-                new AIExtraDescriptor
-                {
-                    Name = "seed",
-                    Type = typeof(int),
-                    DefaultValue = 0,
-                    DisplayName = "Random Seed",
-                    Description = "Random seed for determinism",
-                },
-                new AIExtraDescriptor
-                {
-                    Name = "safety_level",
-                    Type = typeof(string),
-                    DefaultValue = "BLOCK_MEDIUM_AND_ABOVE",
-                    DisplayName = "Safety Level",
-                    Description = "Safety filter level",
-                },
+                new AIExtraDescriptor(
+                    key: "thinking_level",
+                    displayName: "Thinking Level",
+                    description: "Gemini 3: minimal/low/medium/high; Gemini 2.5: integer budget as string (0=off)",
+                    type: typeof(string),
+                    defaultValue: string.Empty),
+                new AIExtraDescriptor(
+                    key: "batch_priority",
+                    displayName: "Batch Priority",
+                    description: "Batch job priority (0=default, higher=higher priority)",
+                    type: typeof(int),
+                    defaultValue: 0),
+                new AIExtraDescriptor(
+                    key: "image_aspect_ratio",
+                    displayName: "Image Aspect Ratio",
+                    description: "Image generation aspect ratio (e.g., 16:9, 1:1)",
+                    type: typeof(string),
+                    defaultValue: string.Empty),
+                new AIExtraDescriptor(
+                    key: "image_size",
+                    displayName: "Image Size",
+                    description: "Image generation size (e.g., 1K, 2K, 4K)",
+                    type: typeof(string),
+                    defaultValue: string.Empty),
+                new AIExtraDescriptor(
+                    key: "top_k",
+                    displayName: "Top-K Sampling",
+                    description: "Top-K sampling parameter",
+                    type: typeof(int),
+                    defaultValue: 0),
+                new AIExtraDescriptor(
+                    key: "top_p",
+                    displayName: "Top-P Sampling",
+                    description: "Top-P (nucleus) sampling parameter",
+                    type: typeof(double),
+                    defaultValue: 0.0),
+                new AIExtraDescriptor(
+                    key: "seed",
+                    displayName: "Random Seed",
+                    description: "Random seed for determinism",
+                    type: typeof(int),
+                    defaultValue: 0),
+                new AIExtraDescriptor(
+                    key: "safety_level",
+                    displayName: "Safety Level",
+                    description: "Safety filter level",
+                    type: typeof(string),
+                    defaultValue: "BLOCK_MEDIUM_AND_ABOVE"),
             };
         }
 
         /// <inheritdoc/>
-        protected override void PreCall(AIRequestCall request)
+        public override AIRequestCall PreCall(AIRequestCall request)
         {
             request.Authentication = "x-goog-api-key";
+
+            if (string.Equals(request.Endpoint, "/models", StringComparison.Ordinal))
+            {
+                request.HttpMethod = "GET";
+                request.RequestKind = AIRequestKind.Backoffice;
+                return request;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Endpoint))
+            {
+                request.HttpMethod ??= "POST";
+                request.ContentType ??= "application/json";
+                return request;
+            }
 
             if (request.Capability.HasFlag(AICapability.ImageOutput))
             {
                 request.Endpoint = $"/models/{request.Model}:generateContent";
             }
-            else if (request.EnableStreaming)
+            else if (this.GetSetting<bool>("EnableStreaming"))
             {
                 request.Endpoint = $"/models/{request.Model}:streamGenerateContent";
             }
@@ -146,25 +162,38 @@ namespace SmartHopper.Providers.Gemini
 
             request.HttpMethod = "POST";
             request.ContentType = "application/json";
+            return request;
         }
 
         /// <inheritdoc/>
-        protected override string Encode(AIRequestCall request)
+        public override string Encode(IAIInteraction interaction)
+        {
+            // For single interaction, wrap in a request and encode
+            var body = AIBodyBuilder.Create().Add(interaction).Build();
+            var request = new AIRequestCall();
+            request.Body = body;
+            return this.Encode(request);
+        }
+
+        /// <inheritdoc/>
+        public override string Encode(AIRequestCall request)
         {
             var jObject = new JObject();
 
-            if (request.Interactions != null && request.Interactions.Count > 0)
+            var interactions = request.Body?.Interactions;
+            if (interactions != null && interactions.Count > 0)
             {
                 var systemParts = new List<JObject>();
                 var contents = new JArray();
 
-                foreach (var interaction in request.Interactions)
+                foreach (var interaction in interactions)
                 {
                     if (interaction.Agent == AIAgent.System || interaction.Agent == AIAgent.Context)
                     {
-                        if (!string.IsNullOrWhiteSpace(interaction.Text))
+                        var text = (interaction as AIInteractionText)?.Content;
+                        if (!string.IsNullOrWhiteSpace(text))
                         {
-                            systemParts.Add(new JObject { { "text", interaction.Text } });
+                            systemParts.Add(new JObject { { "text", text } });
                         }
                     }
                 }
@@ -177,7 +206,7 @@ namespace SmartHopper.Providers.Gemini
                     };
                 }
 
-                foreach (var interaction in request.Interactions)
+                foreach (var interaction in interactions)
                 {
                     if (interaction.Agent == AIAgent.System || interaction.Agent == AIAgent.Context)
                     {
@@ -188,75 +217,75 @@ namespace SmartHopper.Providers.Gemini
                     {
                         AIAgent.User => "user",
                         AIAgent.Assistant => "model",
+                        AIAgent.ToolCall => "model",
+                        AIAgent.ToolResult => "user",
                         _ => "user",
                     };
 
                     var parts = new JArray();
 
-                    if (!string.IsNullOrWhiteSpace(interaction.Text))
+                    if (interaction is AIInteractionText textInteraction)
                     {
-                        parts.Add(new JObject { { "text", interaction.Text } });
-                    }
-
-                    if (interaction.ToolCalls != null && interaction.ToolCalls.Count > 0)
-                    {
-                        foreach (var toolCall in interaction.ToolCalls)
+                        if (!string.IsNullOrWhiteSpace(textInteraction.Content))
                         {
-                            var argsObj = new JObject();
-                            if (!string.IsNullOrWhiteSpace(toolCall.Arguments))
-                            {
-                                try
-                                {
-                                    argsObj = JObject.Parse(toolCall.Arguments);
-                                }
-                                catch
-                                {
-                                    argsObj["raw"] = toolCall.Arguments;
-                                }
-                            }
+                            parts.Add(new JObject { { "text", textInteraction.Content } });
+                        }
 
+                        if (!string.IsNullOrWhiteSpace(textInteraction.Reasoning))
+                        {
+                            parts.Add(new JObject
+                            {
+                                { "text", textInteraction.Reasoning },
+                                { "thought", true },
+                            });
+                        }
+                    }
+                    else if (interaction is AIInteractionToolResult toolResultInteraction)
+                    {
+                        parts.Add(new JObject
+                        {
+                            {
+                                "functionResponse", new JObject
+                                {
+                                    { "id", toolResultInteraction.Id ?? string.Empty },
+                                    { "name", toolResultInteraction.Name ?? string.Empty },
+                                    { "response", toolResultInteraction.Result ?? new JObject() },
+                                }
+                            },
+                        });
+                    }
+                    else if (interaction is AIInteractionToolCall toolCallInteraction)
+                    {
+                        parts.Add(new JObject
+                        {
+                            {
+                                "functionCall", new JObject
+                                {
+                                    { "id", toolCallInteraction.Id ?? string.Empty },
+                                    { "name", toolCallInteraction.Name ?? string.Empty },
+                                    { "args", toolCallInteraction.Arguments ?? new JObject() },
+                                }
+                            },
+                        });
+                    }
+                    else if (interaction is AIInteractionImage imageInteraction)
+                    {
+                        if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                        {
                             parts.Add(new JObject
                             {
                                 {
-                                    "functionCall", new JObject
+                                    "inlineData", new JObject
                                     {
-                                        { "id", toolCall.Id },
-                                        { "name", toolCall.Name },
-                                        { "args", argsObj },
+                                        { "mimeType", imageInteraction.MimeType ?? "image/png" },
+                                        { "data", imageInteraction.ImageData },
                                     }
                                 },
                             });
                         }
-                    }
-
-                    if (interaction.ToolResults != null && interaction.ToolResults.Count > 0)
-                    {
-                        foreach (var toolResult in interaction.ToolResults)
+                        else if (imageInteraction.ImageUrl != null)
                         {
-                            var responseObj = new JObject();
-                            if (!string.IsNullOrWhiteSpace(toolResult.Result))
-                            {
-                                try
-                                {
-                                    responseObj = JObject.Parse(toolResult.Result);
-                                }
-                                catch
-                                {
-                                    responseObj["text"] = toolResult.Result;
-                                }
-                            }
-
-                            parts.Add(new JObject
-                            {
-                                {
-                                    "functionResponse", new JObject
-                                    {
-                                        { "id", toolResult.ToolCallId },
-                                        { "name", toolResult.ToolName },
-                                        { "response", responseObj },
-                                    }
-                                },
-                            });
+                            parts.Add(new JObject { { "text", imageInteraction.ImageUrl.ToString() } });
                         }
                     }
 
@@ -275,24 +304,33 @@ namespace SmartHopper.Providers.Gemini
 
             var generationConfig = new JObject();
 
-            if (request.MaxTokens > 0)
+            if (request.Parameters?.MaxTokens > 0)
             {
-                generationConfig["maxOutputTokens"] = request.MaxTokens;
+                generationConfig["maxOutputTokens"] = request.Parameters.MaxTokens;
             }
 
-            var temperature = this.GetSetting<string>("Temperature");
-            if (!string.IsNullOrWhiteSpace(temperature) && double.TryParse(temperature, NumberStyles.Any, CultureInfo.InvariantCulture, out var tempValue))
+            var temperature = request.Parameters?.Temperature;
+            if (temperature == null)
             {
-                generationConfig["temperature"] = tempValue;
+                var configuredTemperature = this.GetSetting<string>("Temperature");
+                if (!string.IsNullOrWhiteSpace(configuredTemperature) && double.TryParse(configuredTemperature, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedTemperature))
+                {
+                    temperature = parsedTemperature;
+                }
+            }
+
+            if (temperature != null)
+            {
+                generationConfig["temperature"] = temperature.Value;
             }
 
             if (request.Capability.HasFlag(AICapability.JsonOutput))
             {
                 generationConfig["responseMimeType"] = "application/json";
 
-                if (request.JsonSchema != null)
+                if (!string.IsNullOrWhiteSpace(request.Body?.JsonOutputSchema))
                 {
-                    var schema = request.JsonSchema.DeepClone() as JObject;
+                    var schema = JObject.Parse(request.Body.JsonOutputSchema).DeepClone() as JObject;
                     this.StripUnsupportedSchemaKeywords(schema);
 
                     if (this.IsGemini20Model(request.Model))
@@ -314,15 +352,15 @@ namespace SmartHopper.Providers.Gemini
 
                 generationConfig["responseModalities"] = modalities;
 
-                if (request.Extras != null)
+                if (request.Parameters?.Extras != null)
                 {
                     var imageConfig = new JObject();
-                    if (request.Extras.TryGetValue("image_aspect_ratio", out var aspectRatio) && aspectRatio != null)
+                    if (request.Parameters.Extras.TryGetValue("image_aspect_ratio", out var aspectRatio) && aspectRatio != null)
                     {
                         imageConfig["aspectRatio"] = aspectRatio.ToString();
                     }
 
-                    if (request.Extras.TryGetValue("image_size", out var imageSize) && imageSize != null)
+                    if (request.Parameters.Extras.TryGetValue("image_size", out var imageSize) && imageSize != null)
                     {
                         imageConfig["imageSize"] = imageSize.ToString();
                     }
@@ -342,9 +380,9 @@ namespace SmartHopper.Providers.Gemini
                 jObject["generationConfig"] = generationConfig;
             }
 
-            if (request.Tools != null && request.Tools.Count > 0)
+            if (!string.IsNullOrWhiteSpace(request.Body?.ToolFilter))
             {
-                var toolsArray = this.GetFormattedTools(request.Tools);
+                var toolsArray = this.GetFormattedTools(request.Body.ToolFilter);
                 if (toolsArray != null)
                 {
                     jObject["tools"] = new JArray
@@ -359,7 +397,7 @@ namespace SmartHopper.Providers.Gemini
 
         private void ApplyThinkingConfig(JObject generationConfig, AIRequestCall request)
         {
-            if (request.Extras == null || !request.Extras.TryGetValue("thinking_level", out var thinkingValue))
+            if (request.Parameters?.Extras == null || !request.Parameters.Extras.TryGetValue("thinking_level", out var thinkingValue))
             {
                 return;
             }
@@ -392,22 +430,22 @@ namespace SmartHopper.Providers.Gemini
 
         private void ApplySamplingParams(JObject generationConfig, AIRequestCall request)
         {
-            if (request.Extras == null)
+            if (request.Parameters?.Extras == null)
             {
                 return;
             }
 
-            if (request.Extras.TryGetValue("top_k", out var topK) && topK != null && int.TryParse(topK.ToString(), out var topKValue) && topKValue > 0)
+            if (request.Parameters.Extras.TryGetValue("top_k", out var topK) && topK != null && int.TryParse(topK.ToString(), out var topKValue) && topKValue > 0)
             {
                 generationConfig["topK"] = topKValue;
             }
 
-            if (request.Extras.TryGetValue("top_p", out var topP) && topP != null && double.TryParse(topP.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var topPValue) && topPValue > 0)
+            if (request.Parameters.Extras.TryGetValue("top_p", out var topP) && topP != null && double.TryParse(topP.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var topPValue) && topPValue > 0)
             {
                 generationConfig["topP"] = topPValue;
             }
 
-            if (request.Extras.TryGetValue("seed", out var seed) && seed != null && int.TryParse(seed.ToString(), out var seedValue) && seedValue > 0)
+            if (request.Parameters.Extras.TryGetValue("seed", out var seed) && seed != null && int.TryParse(seed.ToString(), out var seedValue) && seedValue > 0)
             {
                 generationConfig["seed"] = seedValue;
             }
@@ -474,64 +512,36 @@ namespace SmartHopper.Providers.Gemini
             return !string.IsNullOrWhiteSpace(model) && Regex.IsMatch(model, @"^gemini-2\.0", RegexOptions.IgnoreCase);
         }
 
-        private JArray GetFormattedTools(List<AITool> tools)
+        private JArray GetFormattedTools(string toolFilter)
         {
             try
             {
-                var toolsArray = new JArray();
-
-                foreach (var tool in tools)
+                var tools = base.GetFormattedTools(toolFilter);
+                if (tools == null || tools.Count == 0)
                 {
-                    var parameters = new JObject
-                    {
-                        { "type", "object" },
-                        { "properties", new JObject() },
-                    };
-
-                    var required = new JArray();
-
-                    if (tool.Parameters != null && tool.Parameters.Count > 0)
-                    {
-                        var props = parameters["properties"] as JObject;
-                        foreach (var param in tool.Parameters)
-                        {
-                            var paramObj = new JObject
-                            {
-                                { "type", param.Type ?? "string" },
-                            };
-
-                            if (!string.IsNullOrWhiteSpace(param.Description))
-                            {
-                                paramObj["description"] = param.Description;
-                            }
-
-                            props[param.Name] = paramObj;
-
-                            if (param.Required)
-                            {
-                                required.Add(param.Name);
-                            }
-                        }
-                    }
-
-                    if (required.Count > 0)
-                    {
-                        parameters["required"] = required;
-                    }
-
-                    var toolObj = new JObject
-                    {
-                        { "name", tool.Name },
-                        { "description", tool.Description ?? string.Empty },
-                        { "parameters", parameters },
-                    };
-
-                    toolsArray.Add(toolObj);
+                    return null;
                 }
 
-                Debug.WriteLine($"[GetFormattedTools] {toolsArray.Count} tools formatted");
+                var declarations = new JArray();
+                foreach (var tool in tools.OfType<JObject>())
+                {
+                    var function = tool["function"] as JObject;
+                    if (function == null)
+                    {
+                        continue;
+                    }
 
-                return toolsArray;
+                    declarations.Add(new JObject
+                    {
+                        { "name", function["name"]?.ToString() ?? string.Empty },
+                        { "description", function["description"]?.ToString() ?? string.Empty },
+                        { "parameters", function["parameters"] as JObject ?? new JObject { { "type", "object" } } },
+                    });
+                }
+
+                Debug.WriteLine($"[GetFormattedTools] {declarations.Count} Gemini tools formatted");
+
+                return declarations;
             }
             catch (Exception ex)
             {

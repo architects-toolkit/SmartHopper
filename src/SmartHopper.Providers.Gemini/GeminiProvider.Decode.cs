@@ -21,6 +21,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
@@ -30,29 +32,26 @@ namespace SmartHopper.Providers.Gemini
     public partial class GeminiProvider
     {
         /// <inheritdoc/>
-        protected override AIReturn Decode(JObject responseObject)
+        public override List<IAIInteraction> Decode(JObject responseObject)
         {
             try
             {
-                var result = new AIReturn();
+                var result = new List<IAIInteraction>();
 
                 if (responseObject == null)
                 {
-                    result.AddError("Response object is null");
                     return result;
                 }
 
                 var candidates = responseObject["candidates"] as JArray;
                 if (candidates == null || candidates.Count == 0)
                 {
-                    result.AddError("No candidates in response");
                     return result;
                 }
 
                 var candidate = candidates[0] as JObject;
                 if (candidate == null)
                 {
-                    result.AddError("First candidate is not a valid object");
                     return result;
                 }
 
@@ -63,29 +62,29 @@ namespace SmartHopper.Providers.Gemini
                     if (parts != null)
                     {
                         var textParts = new List<string>();
-                        var reasoningParts = new List<string>();
 
                         foreach (var part in parts.OfType<JObject>())
                         {
+                            var isThought = part["thought"]?.Value<bool>() == true;
+
                             if (part.ContainsKey("text"))
                             {
                                 var text = part["text"]?.ToString();
-                                if (!string.IsNullOrWhiteSpace(text) && part["thought"] != true)
+                                if (!string.IsNullOrWhiteSpace(text) && !isThought)
                                 {
                                     textParts.Add(text);
                                 }
                             }
 
-                            if (part["thought"] == true && part.ContainsKey("text"))
+                            if (isThought && part.ContainsKey("text"))
                             {
                                 var reasoning = part["text"]?.ToString();
                                 if (!string.IsNullOrWhiteSpace(reasoning))
                                 {
-                                    reasoningParts.Add(reasoning);
-                                    result.AddInteraction(new AIInteractionReasoning
+                                    result.Add(new AIInteractionText
                                     {
                                         Agent = AIAgent.Assistant,
-                                        Text = reasoning,
+                                        Reasoning = reasoning,
                                     });
                                 }
                             }
@@ -97,12 +96,12 @@ namespace SmartHopper.Providers.Gemini
                                 {
                                     var toolCall = new AIInteractionToolCall
                                     {
-                                        Agent = AIAgent.Assistant,
+                                        Agent = AIAgent.ToolCall,
                                         Id = funcCall["id"]?.ToString() ?? string.Empty,
                                         Name = funcCall["name"]?.ToString() ?? string.Empty,
-                                        Arguments = funcCall["args"]?.ToString() ?? "{}",
+                                        Arguments = funcCall["args"] as JObject ?? new JObject(),
                                     };
-                                    result.AddInteraction(toolCall);
+                                    result.Add(toolCall);
                                 }
                             }
 
@@ -116,7 +115,7 @@ namespace SmartHopper.Providers.Gemini
 
                                     if (!string.IsNullOrWhiteSpace(imageData))
                                     {
-                                        result.AddInteraction(new AIInteractionImage
+                                        result.Add(new AIInteractionImage
                                         {
                                             Agent = AIAgent.Assistant,
                                             ImageData = imageData,
@@ -129,48 +128,13 @@ namespace SmartHopper.Providers.Gemini
 
                         if (textParts.Count > 0)
                         {
-                            result.AddInteraction(new AIInteractionText
+                            result.Add(new AIInteractionText
                             {
                                 Agent = AIAgent.Assistant,
-                                Text = string.Join(string.Empty, textParts),
+                                Content = string.Join(string.Empty, textParts),
                             });
                         }
                     }
-                }
-
-                var finishReason = candidate["finishReason"]?.ToString();
-                var usageMetadata = responseObject["usageMetadata"] as JObject;
-
-                if (usageMetadata != null)
-                {
-                    var metrics = new AIMetrics();
-
-                    if (usageMetadata.TryGetValue("promptTokenCount", out var promptTokens) && int.TryParse(promptTokens.ToString(), out var promptCount))
-                    {
-                        metrics.InputTokensPrompt = promptCount;
-                    }
-
-                    if (usageMetadata.TryGetValue("candidatesTokenCount", out var outputTokens) && int.TryParse(outputTokens.ToString(), out var outputCount))
-                    {
-                        metrics.OutputTokensGeneration = outputCount;
-                    }
-
-                    if (usageMetadata.TryGetValue("thoughtsTokenCount", out var thoughtTokens) && int.TryParse(thoughtTokens.ToString(), out var thoughtCount))
-                    {
-                        metrics.OutputTokensReasoning = thoughtCount;
-                    }
-
-                    if (usageMetadata.TryGetValue("cachedContentTokenCount", out var cachedTokens) && int.TryParse(cachedTokens.ToString(), out var cachedCount))
-                    {
-                        metrics.InputTokensCached = cachedCount;
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(finishReason))
-                    {
-                        metrics.FinishReason = finishReason;
-                    }
-
-                    result.Metrics = metrics;
                 }
 
                 return result;
@@ -178,9 +142,7 @@ namespace SmartHopper.Providers.Gemini
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error decoding Gemini response: {ex.Message}");
-                var result = new AIReturn();
-                result.AddError($"Decode error: {ex.Message}");
-                return result;
+                return new List<IAIInteraction>();
             }
         }
     }

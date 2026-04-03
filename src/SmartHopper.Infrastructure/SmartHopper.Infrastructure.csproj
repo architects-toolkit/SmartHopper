@@ -98,7 +98,7 @@
     <InternalsVisibleTo Include="SmartHopper.Providers.MistralAI, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.OpenAI, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.OpenRouter, PublicKey=$(SmartHopperPublicKey)" />
-    <InternalsVisibleTo Include="SmartHopper.Providers.Google, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.Gemini, PublicKey=$(SmartHopperPublicKey)" />
     <!-- Test assemblies -->
     <InternalsVisibleTo Include="SmartHopper.Infrastructure.Tests, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Components.Test, PublicKey=$(SmartHopperPublicKey)" />

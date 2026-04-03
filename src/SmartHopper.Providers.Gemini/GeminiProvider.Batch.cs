@@ -20,9 +20,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Batch;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 
@@ -31,25 +35,19 @@ namespace SmartHopper.Providers.Gemini
     public partial class GeminiProvider : IAIBatchProvider
     {
         /// <inheritdoc/>
-        public async Task<AIBatchSubmission> SubmitBatchAsync(List<AIRequestCall> requests)
+        public async Task<AIBatchSubmission> SubmitBatchAsync(IReadOnlyList<(string CustomId, AIRequestCall Request)> items, CancellationToken cancellationToken = default)
         {
-            if (requests == null || requests.Count == 0)
+            if (items == null || items.Count == 0)
             {
-                throw new ArgumentException("Requests list cannot be null or empty", nameof(requests));
+                throw new ArgumentException("Items list cannot be null or empty", nameof(items));
             }
 
-            var submission = new AIBatchSubmission
-            {
-                ProviderName = this.Name,
-                SubmittedAt = DateTime.UtcNow,
-            };
-
+            var customIds = new List<string>();
             var requestsArray = new JArray();
 
-            foreach (var request in requests)
+            foreach (var (customId, request) in items)
             {
-                var customId = AIBatchSubmission.GenerateCustomId();
-                submission.CustomIds.Add(customId);
+                customIds.Add(customId);
 
                 var batchRequest = new JObject
                 {
@@ -59,7 +57,7 @@ namespace SmartHopper.Providers.Gemini
                     { "body", JObject.Parse(request.EncodedRequestBody ?? "{}") },
                 };
 
-                if (request.Extras != null && request.Extras.TryGetValue("batch_priority", out var priority) && priority != null && int.TryParse(priority.ToString(), out var priorityValue) && priorityValue > 0)
+                if (request.Parameters?.Extras != null && request.Parameters.Extras.TryGetValue("batch_priority", out var priority) && priority != null && int.TryParse(priority.ToString(), out var priorityValue) && priorityValue > 0)
                 {
                     batchRequest["priority"] = priorityValue;
                 }
@@ -72,27 +70,12 @@ namespace SmartHopper.Providers.Gemini
                 { "requests", requestsArray },
             };
 
-            submission.SerializedRequest = batchBody.ToString();
+            var serializedRequest = batchBody.ToString();
 
             try
             {
-                var batchRequest = new AIRequestCall
-                {
-                    Endpoint = $"/models/{requests[0].Model}:batchGenerateContent",
-                    HttpMethod = "POST",
-                    EncodedRequestBody = batchBody.ToString(),
-                    ContentType = "application/json",
-                    Authentication = "x-goog-api-key",
-                };
-
-                var response = await this.CallApiAsync(batchRequest);
-
-                if (!response.IsSuccess)
-                {
-                    throw new InvalidOperationException($"Failed to submit batch: {response.Body}");
-                }
-
-                var responseObj = JObject.Parse(response.Body);
+                var firstRequest = items[0].Request;
+                var responseObj = await this.PostBatchRequestAsync($"/models/{firstRequest.Model}:batchGenerateContent", serializedRequest, cancellationToken).ConfigureAwait(false);
                 var operationName = responseObj["name"]?.ToString();
 
                 if (string.IsNullOrWhiteSpace(operationName))
@@ -100,11 +83,9 @@ namespace SmartHopper.Providers.Gemini
                     throw new InvalidOperationException("No operation name in batch submission response");
                 }
 
-                submission.BatchId = operationName;
+                Debug.WriteLine($"[{this.Name}] Batch submitted: {operationName}");
 
-                Debug.WriteLine($"[{this.Name}] Batch submitted: {submission.BatchId}");
-
-                return submission;
+                return new AIBatchSubmission(operationName, this.Name, serializedRequest, customIds);
             }
             catch (Exception ex)
             {
@@ -113,38 +94,62 @@ namespace SmartHopper.Providers.Gemini
             }
         }
 
-        /// <inheritdoc/>
-        public async Task<AIBatchStatus> GetBatchStatusAsync(string batchId)
+        private async Task<JObject> PostBatchRequestAsync(string endpoint, string requestBody, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(batchId))
+            using var client = new HttpClient();
+            var apiKey = this.GetSetting<string>("ApiKey");
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
-                throw new ArgumentException("Batch ID cannot be null or empty", nameof(batchId));
+                throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
             }
 
-            var status = new AIBatchStatus
+            client.DefaultRequestHeaders.Remove("x-goog-api-key");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-goog-api-key", apiKey);
+
+            var uri = this.BuildFullUrl(endpoint);
+            using var content = new StringContent(requestBody ?? "{}", System.Text.Encoding.UTF8, "application/json");
+            using var response = await client.PostAsync(uri, content, cancellationToken).ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
             {
-                BatchId = batchId,
-            };
+                throw new InvalidOperationException($"HTTP {(int)response.StatusCode}: {body}");
+            }
+
+            return JObject.Parse(body);
+        }
+
+        /// <inheritdoc/>
+        public async Task<AIBatchStatus> GetBatchStatusAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null || string.IsNullOrWhiteSpace(submission.BatchId))
+            {
+                throw new ArgumentException("Submission with BatchId cannot be null or empty", nameof(submission));
+            }
 
             try
             {
                 var request = new AIRequestCall
                 {
-                    Endpoint = $"/{batchId}",
+                    Endpoint = $"/{submission.BatchId}",
                     HttpMethod = "GET",
                     Authentication = "x-goog-api-key",
                 };
 
-                var response = await this.CallApiAsync(request);
+                var response = await this.Call(request);
 
-                if (!response.IsSuccess)
+                var air = response as AIReturn;
+                if (air == null)
                 {
-                    status.State = AIBatchState.Failed;
-                    status.ErrorMessage = response.Body;
-                    return status;
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, "Failed to get batch status");
                 }
 
-                var responseObj = JObject.Parse(response.Body);
+                if (!air.Success)
+                {
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, string.Join(" | ", air.Messages.Select(m => m.Message)));
+                }
+
+                var responseBody = (air.Body?.Interactions?.FirstOrDefault(i => i is AIInteractionText) as AIInteractionText)?.Content ?? string.Empty;
+                var responseObj = JObject.Parse(responseBody);
                 var done = responseObj["done"]?.Value<bool>() ?? false;
 
                 if (done)
@@ -152,11 +157,14 @@ namespace SmartHopper.Providers.Gemini
                     var result = responseObj["result"] as JObject;
                     if (result != null && result.ContainsKey("responses"))
                     {
-                        status.State = AIBatchState.Completed;
                         var responses = result["responses"] as JArray;
 
                         if (responses != null)
                         {
+                            var resultsDict = new Dictionary<string, JObject>();
+                            var messages = new List<AIRuntimeMessage>();
+                            int completedCount = 0;
+
                             foreach (var resp in responses.OfType<JObject>())
                             {
                                 var customId = resp["custom_id"]?.ToString();
@@ -165,7 +173,7 @@ namespace SmartHopper.Providers.Gemini
                                     continue;
                                 }
 
-                                status.CompletedCount++;
+                                completedCount++;
 
                                 var body = resp["result"]?.ToString();
                                 if (!string.IsNullOrWhiteSpace(body))
@@ -173,71 +181,65 @@ namespace SmartHopper.Providers.Gemini
                                     try
                                     {
                                         var bodyObj = JObject.Parse(body);
-                                        var decoded = this.Decode(bodyObj);
-                                        status.Results[customId] = decoded;
+                                        resultsDict[customId] = bodyObj;
                                     }
                                     catch (Exception ex)
                                     {
-                                        status.Messages.Add(new AIBatchMessage
-                                        {
-                                            CustomId = customId,
-                                            Level = "error",
-                                            Content = $"Failed to decode response: {ex.Message}",
-                                        });
+                                        messages.Add(new AIRuntimeMessage(
+                                            AIRuntimeMessageSeverity.Error,
+                                            AIRuntimeMessageOrigin.Provider,
+                                            AIMessageCode.BodyInvalid,
+                                            $"Failed to decode response for {customId}: {ex.Message}"));
                                     }
                                 }
                             }
+
+                            return new AIBatchStatus(submission.BatchId, resultsDict, messages);
                         }
                     }
                     else if (result != null && result.ContainsKey("error"))
                     {
-                        status.State = AIBatchState.Failed;
-                        status.ErrorMessage = result["error"]?.ToString();
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, result["error"]?.ToString());
                     }
                 }
-                else
-                {
-                    status.State = AIBatchState.Processing;
-                }
 
-                return status;
+                return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[{this.Name}] Batch status error: {ex.Message}");
-                status.State = AIBatchState.Failed;
-                status.ErrorMessage = ex.Message;
-                return status;
+                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, ex.Message);
             }
         }
 
         /// <inheritdoc/>
-        public async Task<bool> CancelBatchAsync(string batchId)
+        public async Task CancelBatchAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(batchId))
+            if (submission == null || string.IsNullOrWhiteSpace(submission.BatchId))
             {
-                throw new ArgumentException("Batch ID cannot be null or empty", nameof(batchId));
+                throw new ArgumentException("Submission with BatchId cannot be null or empty", nameof(submission));
             }
 
             try
             {
                 var request = new AIRequestCall
                 {
-                    Endpoint = $"/{batchId}:cancel",
+                    Endpoint = $"/{submission.BatchId}:cancel",
                     HttpMethod = "POST",
                     Authentication = "x-goog-api-key",
                 };
 
-                var response = await this.CallApiAsync(request);
+                var response = await this.Call(request);
 
-                Debug.WriteLine($"[{this.Name}] Batch cancel response: {response.IsSuccess}");
-
-                return response.IsSuccess;
+                var air = response as AIReturn;
+                var cancelMessage = air == null || air.Success
+                    ? "success"
+                    : string.Join(" | ", air.Messages.Select(m => m.Message));
+                Debug.WriteLine($"[{this.Name}] Batch cancel response: {cancelMessage}");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[{this.Name}] Batch cancel error: {ex.Message}");
-                return false;
             }
         }
     }

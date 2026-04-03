@@ -39,7 +39,7 @@ namespace SmartHopper.Providers.Gemini
         /// Creates a new instance of the Gemini provider settings.
         /// </summary>
         /// <returns>A new GeminiProviderSettings instance.</returns>
-        public IAIProviderSettings CreateSettings()
+        public IAIProviderSettings CreateProviderSettings()
         {
             return new GeminiProviderSettings();
         }

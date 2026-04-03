@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
@@ -171,34 +172,36 @@ namespace SmartHopper.Providers.Gemini
         }
 
         /// <inheritdoc/>
-        public override async Task<List<AIModelCapabilities>> RetrieveApiModels()
+        public override async Task<List<string>> RetrieveApiModels()
         {
             try
             {
                 var request = new AIRequestCall
                 {
                     Endpoint = "/models",
-                    HttpMethod = "GET",
-                    Authentication = "x-goog-api-key",
                 };
 
-                var response = await this.provider.CallApiAsync(request);
+                var response = await this.provider.Call(request).ConfigureAwait(false);
 
-                if (!response.IsSuccess)
+                if (response == null)
                 {
-                    return await this.RetrieveModels();
+                    return new List<string>();
                 }
 
-                var jObject = JObject.Parse(response.Body);
-                var modelsArray = jObject["models"] as JArray;
+                var raw = (response as AIReturn)?.Raw;
+                if (raw == null)
+                {
+                    return new List<string>();
+                }
+
+                var modelsArray = raw["models"] as JArray;
 
                 if (modelsArray == null)
                 {
-                    return await this.RetrieveModels();
+                    return new List<string>();
                 }
 
-                var providerName = this.provider.Name.ToLowerInvariant();
-                var models = new List<AIModelCapabilities>();
+                var modelNames = new List<string>();
 
                 foreach (var modelObj in modelsArray)
                 {
@@ -213,18 +216,17 @@ namespace SmartHopper.Providers.Gemini
                         name = name.Substring("models/".Length);
                     }
 
-                    var staticModel = (await this.RetrieveModels()).FirstOrDefault(m => m.Model == name);
-                    if (staticModel != null)
-                    {
-                        models.Add(staticModel);
-                    }
+                    modelNames.Add(name);
                 }
 
-                return models.Count > 0 ? models : await this.RetrieveModels();
+                return modelNames
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             }
             catch
             {
-                return await this.RetrieveModels();
+                return new List<string>();
             }
         }
     }

@@ -20,48 +20,51 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.Gemini
 {
     public partial class GeminiProvider
     {
         /// <inheritdoc/>
-        protected override IStreamingAdapter CreateStreamingAdapter(AIRequestCall request)
+        protected override IStreamingAdapter CreateStreamingAdapter()
         {
-            return new GeminiStreamingAdapter(this, request);
+            return new GeminiStreamingAdapter(this);
         }
 
         private sealed class GeminiStreamingAdapter : IStreamingAdapter
         {
             private readonly GeminiProvider provider;
-            private readonly AIRequestCall request;
 
-            public GeminiStreamingAdapter(GeminiProvider provider, AIRequestCall request)
+            public GeminiStreamingAdapter(GeminiProvider provider)
             {
                 this.provider = provider;
-                this.request = request;
             }
 
-            public async IAsyncEnumerable<AIReturn> StreamAsync()
+            public async IAsyncEnumerable<AIReturn> StreamAsync(
+                AIRequestCall request,
+                StreamingOptions options,
+                CancellationToken cancellationToken = default)
             {
-                string endpoint = this.request.Endpoint;
-                string httpMethod = this.request.HttpMethod;
-                string requestBody = this.request.EncodedRequestBody;
-                string contentType = this.request.ContentType;
-                string authentication = this.request.Authentication;
+                string endpoint = request.Endpoint;
+                string httpMethod = request.HttpMethod;
+                string requestBody = request.EncodedRequestBody;
+                string contentType = request.ContentType;
+                string authentication = request.Authentication;
 
                 if (string.IsNullOrWhiteSpace(endpoint))
                 {
                     var error = new AIReturn();
-                    error.AddError("Endpoint cannot be null or empty");
+                    error.CreateProviderError("Endpoint cannot be null or empty", request);
                     yield return error;
                     yield break;
                 }
@@ -74,7 +77,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     try
                     {
-                        int seconds = this.request?.TimeoutSeconds > 0 ? this.request.TimeoutSeconds : 120;
+                        int seconds = request?.TimeoutSeconds > 0 ? request.TimeoutSeconds : 120;
                         httpClient.Timeout = TimeSpan.FromSeconds(seconds);
                     }
                     catch (Exception ex)
@@ -94,7 +97,7 @@ namespace SmartHopper.Providers.Gemini
                         if (string.IsNullOrWhiteSpace(apiKey))
                         {
                             authError = new AIReturn();
-                            authError.AddError($"{this.provider.Name} API key is not configured or is invalid.");
+                            authError.CreateProviderError($"{this.provider.Name} API key is not configured or is invalid.", request);
                         }
                         else
                         {
@@ -106,7 +109,7 @@ namespace SmartHopper.Providers.Gemini
                         if (string.IsNullOrWhiteSpace(apiKey))
                         {
                             authError = new AIReturn();
-                            authError.AddError($"{this.provider.Name} API key is not configured or is invalid.");
+                            authError.CreateProviderError($"{this.provider.Name} API key is not configured or is invalid.", request);
                         }
                         else
                         {
@@ -117,7 +120,7 @@ namespace SmartHopper.Providers.Gemini
                     else if (auth != "x-api-key")
                     {
                         authError = new AIReturn();
-                        authError.AddError($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key', 'x-goog-api-key'.");
+                        authError.CreateProviderError($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key', 'x-goog-api-key'.", request);
                     }
 
                     if (authError != null)
@@ -140,7 +143,7 @@ namespace SmartHopper.Providers.Gemini
                     catch (Exception ex)
                     {
                         bodyError = new AIReturn();
-                        bodyError.AddError($"Failed to create request body: {ex.Message}");
+                        bodyError.CreateProviderError($"Failed to create request body: {ex.Message}", request);
                     }
 
                     if (bodyError != null)
@@ -150,56 +153,87 @@ namespace SmartHopper.Providers.Gemini
                     }
 
                     AIReturn sendError = null;
+                    AIReturn responseError = null;
+                    HttpResponseMessage response = null;
                     try
                     {
-                        using (var request = new HttpRequestMessage(new HttpMethod(httpMethod), fullUri))
+                        using (var httpRequest = new HttpRequestMessage(new HttpMethod(httpMethod), fullUri))
                         {
-                            request.Content = content;
-                            using (var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
-                            {
-                                if (!response.IsSuccessStatusCode)
-                                {
-                                    var errorBody = await response.Content.ReadAsStringAsync();
-                                    sendError = new AIReturn();
-                                    sendError.AddError($"HTTP {(int)response.StatusCode}: {errorBody}");
-                                    yield return sendError;
-                                    yield break;
-                                }
-
-                                using (var stream = await response.Content.ReadAsStreamAsync())
-                                using (var reader = new StreamReader(stream))
-                                {
-                                    string line;
-                                    while ((line = await reader.ReadLineAsync()) != null)
-                                    {
-                                        if (string.IsNullOrWhiteSpace(line))
-                                        {
-                                            continue;
-                                        }
-
-                                        try
-                                        {
-                                            var chunk = JObject.Parse(line);
-                                            var decoded = this.provider.Decode(chunk);
-                                            if (decoded != null)
-                                            {
-                                                yield return decoded;
-                                            }
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Debug.WriteLine($"Error parsing stream chunk: {ex.Message}");
-                                        }
-                                    }
-                                }
-                            }
+                            httpRequest.Content = content;
+                            response = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
                         }
                     }
                     catch (Exception ex)
                     {
                         sendError = new AIReturn();
-                        sendError.AddError($"Stream request failed: {ex.Message}");
+                        sendError.CreateNetworkError(ex.InnerException?.Message ?? ex.Message, request);
+                    }
+
+                    if (responseError != null)
+                    {
+                        yield return responseError;
+                        yield break;
+                    }
+
+                    if (sendError != null)
+                    {
                         yield return sendError;
+                        yield break;
+                    }
+
+                    using (response)
+                    {
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            var errorBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            responseError = new AIReturn();
+                            responseError.CreateProviderError($"HTTP {(int)response.StatusCode}: {errorBody}", request);
+                        }
+
+                        if (responseError != null)
+                        {
+                            yield return responseError;
+                            yield break;
+                        }
+
+                        using (var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+                        using (var reader = new StreamReader(stream))
+                        {
+                            string line;
+                            while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
+                            {
+                                if (string.IsNullOrWhiteSpace(line))
+                                {
+                                    continue;
+                                }
+
+                                AIReturn chunkReturn = null;
+                                try
+                                {
+                                    var chunk = JObject.Parse(line);
+                                    var decoded = this.provider.Decode(chunk);
+                                    if (decoded != null && decoded.Count > 0)
+                                    {
+                                        chunkReturn = new AIReturn
+                                        {
+                                            Request = request,
+                                            Status = AICallStatus.Streaming,
+                                        };
+                                        chunkReturn.CreateSuccess(decoded, request);
+                                        chunkReturn.Status = AICallStatus.Streaming;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.WriteLine($"Error parsing stream chunk: {ex.Message}");
+                                }
+
+                                if (chunkReturn != null)
+                                {
+                                    yield return chunkReturn;
+                                }
+                            }
+                        }
                     }
                 }
             }
