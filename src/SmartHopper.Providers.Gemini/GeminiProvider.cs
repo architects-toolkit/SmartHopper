@@ -21,7 +21,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -60,14 +63,6 @@ namespace SmartHopper.Providers.Gemini
         private GeminiProvider()
         {
             this.Models = new GeminiProviderModels(this);
-        }
-
-        /// <summary>
-        /// Gets the default model for the specified capability.
-        /// </summary>
-        public string GetDefaultModel(AICapability requiredCapability = AICapability.Text2Text, bool useSettings = true)
-        {
-            return "gemini-2.5-flash";
         }
 
         /// <inheritdoc/>
@@ -123,6 +118,12 @@ namespace SmartHopper.Providers.Gemini
                     description: "Safety filter level",
                     type: typeof(string),
                     defaultValue: "BLOCK_MEDIUM_AND_ABOVE"),
+                new AIExtraDescriptor(
+                    key: "service_tier",
+                    displayName: "Service Tier",
+                    description: "Inference tier override: standard (default), flex (50% discount), priority (premium, lower latency). Overrides global provider setting.",
+                    type: typeof(string),
+                    defaultValue: string.Empty),
             };
         }
 
@@ -151,7 +152,7 @@ namespace SmartHopper.Providers.Gemini
             }
             else if (this.GetSetting<bool>("EnableStreaming"))
             {
-                request.Endpoint = $"/models/{request.Model}:streamGenerateContent";
+                request.Endpoint = $"/models/{request.Model}:streamGenerateContent?alt=sse";
             }
             else
             {
@@ -166,11 +167,139 @@ namespace SmartHopper.Providers.Gemini
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            // For single interaction, wrap in a request and encode
-            var body = AIBodyBuilder.Create().Add(interaction).Build();
-            var request = new AIRequestCall();
-            request.Body = body;
-            return this.Encode(request);
+            var token = this.EncodeToJToken(interaction);
+            return token?.ToString() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Converts a single interaction to a Gemini content object (JToken).
+        /// Returns null for interactions that should not be sent (e.g., UI-only errors).
+        /// </summary>
+        private JToken? EncodeToJToken(IAIInteraction interaction)
+        {
+            if (interaction == null)
+            {
+                return null;
+            }
+
+            // UI-only diagnostics must not be sent to providers
+            if (interaction is AIInteractionError)
+            {
+                return null;
+            }
+
+            // Skip system/context interactions - they are handled via system_instruction in Encode(AIRequestCall)
+            if (interaction.Agent == AIAgent.System || interaction.Agent == AIAgent.Context)
+            {
+                return null;
+            }
+
+            var role = interaction.Agent switch
+            {
+                AIAgent.User => "user",
+                AIAgent.Assistant => "model",
+                AIAgent.ToolCall => "model",
+                AIAgent.ToolResult => "user",
+                _ => "user",
+            };
+
+            var parts = new JArray();
+
+            if (interaction is AIInteractionText textInteraction)
+            {
+                if (!string.IsNullOrWhiteSpace(textInteraction.Content))
+                {
+                    parts.Add(new JObject { { "text", textInteraction.Content } });
+                }
+
+                if (!string.IsNullOrWhiteSpace(textInteraction.Reasoning))
+                {
+                    parts.Add(new JObject
+                    {
+                        { "text", textInteraction.Reasoning },
+                        { "thought", true },
+                    });
+                }
+            }
+            else if (interaction is AIInteractionToolResult toolResultInteraction)
+            {
+                parts.Add(new JObject
+                {
+                    {
+                        "functionResponse", new JObject
+                        {
+                            { "id", toolResultInteraction.Id ?? string.Empty },
+                            { "name", toolResultInteraction.Name ?? string.Empty },
+                            { "response", toolResultInteraction.Result ?? new JObject() },
+                        }
+                    },
+                });
+            }
+            else if (interaction is AIInteractionToolCall toolCallInteraction)
+            {
+                parts.Add(new JObject
+                {
+                    {
+                        "functionCall", new JObject
+                        {
+                            { "id", toolCallInteraction.Id ?? string.Empty },
+                            { "name", toolCallInteraction.Name ?? string.Empty },
+                            { "args", toolCallInteraction.Arguments ?? new JObject() },
+                        }
+                    },
+                });
+            }
+            else if (interaction is AIInteractionImage imageInteraction)
+            {
+                if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                {
+                    parts.Add(new JObject
+                    {
+                        {
+                            "inline_data", new JObject
+                            {
+                                { "mime_type", imageInteraction.MimeType ?? "image/png" },
+                                { "data", imageInteraction.ImageData },
+                            }
+                        },
+                    });
+                }
+                else if (imageInteraction.ImageUrl != null)
+                {
+                    // Fetch image from URL and convert to base64 inline data
+                    var (base64Data, mimeType) = this.FetchImageFromUrl(imageInteraction.ImageUrl);
+                    if (!string.IsNullOrWhiteSpace(base64Data))
+                    {
+                        parts.Add(new JObject
+                        {
+                            {
+                                "inline_data", new JObject
+                                {
+                                    { "mime_type", mimeType },
+                                    { "data", base64Data },
+                                }
+                            },
+                        });
+                    }
+                    else
+                    {
+                        // Fallback: add URL as text if fetch fails
+                        parts.Add(new JObject { { "text", imageInteraction.ImageUrl.ToString() } });
+                        Debug.WriteLine($"[GeminiProvider] Warning: Failed to fetch image from URL, sending URL as text: {imageInteraction.ImageUrl}");
+                    }
+                }
+            }
+
+            if (parts.Count > 0)
+            {
+                return new JObject
+                {
+                    { "role", role },
+                    { "parts", parts },
+                };
+            }
+
+            return null;
         }
 
         /// <inheritdoc/>
@@ -273,9 +402,9 @@ namespace SmartHopper.Providers.Gemini
                             parts.Add(new JObject
                             {
                                 {
-                                    "inlineData", new JObject
+                                    "inline_data", new JObject
                                     {
-                                        { "mimeType", imageInteraction.MimeType ?? "image/png" },
+                                        { "mime_type", imageInteraction.MimeType ?? "image/png" },
                                         { "data", imageInteraction.ImageData },
                                     }
                                 },
@@ -283,7 +412,27 @@ namespace SmartHopper.Providers.Gemini
                         }
                         else if (imageInteraction.ImageUrl != null)
                         {
-                            parts.Add(new JObject { { "text", imageInteraction.ImageUrl.ToString() } });
+                            // Fetch image from URL and convert to base64 inline data
+                            var (base64Data, mimeType) = this.FetchImageFromUrl(imageInteraction.ImageUrl);
+                            if (!string.IsNullOrWhiteSpace(base64Data))
+                            {
+                                parts.Add(new JObject
+                                {
+                                    {
+                                        "inline_data", new JObject
+                                        {
+                                            { "mime_type", mimeType },
+                                            { "data", base64Data },
+                                        }
+                                    },
+                                });
+                            }
+                            else
+                            {
+                                // Fallback: add URL as text if fetch fails
+                                parts.Add(new JObject { { "text", imageInteraction.ImageUrl.ToString() } });
+                                Debug.WriteLine($"[GeminiProvider] Warning: Failed to fetch image from URL, sending URL as text: {imageInteraction.ImageUrl}");
+                            }
                         }
                     }
 
@@ -336,7 +485,7 @@ namespace SmartHopper.Providers.Gemini
                         this.InjectPropertyOrdering(schema);
                     }
 
-                    generationConfig["responseSchema"] = schema;
+                    generationConfig["responseJsonSchema"] = schema;
                 }
             }
 
@@ -390,6 +539,9 @@ namespace SmartHopper.Providers.Gemini
                 }
             }
 
+            this.ApplySafetySettings(jObject, request);
+            this.ApplyServiceTier(jObject, request);
+
             return jObject.ToString();
         }
 
@@ -407,6 +559,9 @@ namespace SmartHopper.Providers.Gemini
 
             var thinkingStr = thinkingValue.ToString();
             var thinkingConfig = new JObject();
+
+            // Enable thought summaries to be returned in the response
+            thinkingConfig["includeThoughts"] = true;
 
             if (this.IsGemini3Model(request.Model))
             {
@@ -446,6 +601,59 @@ namespace SmartHopper.Providers.Gemini
             if (request.Parameters.Extras.TryGetValue("seed", out var seed) && seed != null && int.TryParse(seed.ToString(), out var seedValue) && seedValue > 0)
             {
                 generationConfig["seed"] = seedValue;
+            }
+        }
+
+        private void ApplySafetySettings(JObject jObject, AIRequestCall request)
+        {
+            var safetyLevel = request.Parameters?.Extras != null && 
+                              request.Parameters.Extras.TryGetValue("safety_level", out var safetyValue) && 
+                              safetyValue != null 
+                              ? safetyValue.ToString() 
+                              : this.GetSetting<string>("SafetyLevel");
+
+            if (string.IsNullOrWhiteSpace(safetyLevel))
+            {
+                safetyLevel = "BLOCK_MEDIUM_AND_ABOVE";
+            }
+
+            var safetyCategories = new[]
+            {
+                "HARM_CATEGORY_HARASSMENT",
+                "HARM_CATEGORY_HATE_SPEECH",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "HARM_CATEGORY_CIVIC_INTEGRITY",
+            };
+
+            var safetySettings = new JArray();
+            foreach (var category in safetyCategories)
+            {
+                safetySettings.Add(new JObject
+                {
+                    { "category", category },
+                    { "threshold", safetyLevel },
+                });
+            }
+
+            jObject["safetySettings"] = safetySettings;
+        }
+
+        private void ApplyServiceTier(JObject jObject, AIRequestCall request)
+        {
+            // Priority: 1) Extra settings per-request, 2) Global provider setting
+            var serviceTier = request.Parameters?.Extras != null &&
+                              request.Parameters.Extras.TryGetValue("service_tier", out var tierValue) &&
+                              tierValue != null
+                              ? tierValue.ToString()
+                              : this.GetSetting<string>("ServiceTier");
+
+            // Only add to request if explicitly set (not empty and not "standard")
+            if (!string.IsNullOrWhiteSpace(serviceTier) &&
+                !string.Equals(serviceTier, "standard", StringComparison.OrdinalIgnoreCase))
+            {
+                jObject["service_tier"] = serviceTier.ToUpperInvariant();
+                Debug.WriteLine($"[GeminiProvider] Using service tier: {serviceTier}");
             }
         }
 
@@ -546,6 +754,57 @@ namespace SmartHopper.Providers.Gemini
                 Debug.WriteLine($"Error formatting tools: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Fetches an image from a URL and returns it as base64-encoded data with MIME type.
+        /// Falls back to WebClient for synchronous operation since Encode() is synchronous.
+        /// </summary>
+        /// <param name="imageUrl">The URL of the image to fetch.</param>
+        /// <returns>Tuple of (base64Data, mimeType). Base64 data may be empty if fetch fails.</returns>
+        private (string base64Data, string mimeType) FetchImageFromUrl(Uri imageUrl)
+        {
+            try
+            {
+                Debug.WriteLine($"[GeminiProvider] Fetching image from URL: {imageUrl}");
+
+                using var client = new WebClient();
+                byte[] imageBytes = client.DownloadData(imageUrl);
+
+                string mimeType = this.GetMimeTypeFromUrl(imageUrl);
+                string base64Data = Convert.ToBase64String(imageBytes);
+
+                Debug.WriteLine($"[GeminiProvider] Successfully fetched image: {imageBytes.Length} bytes, MIME type: {mimeType}");
+
+                return (base64Data, mimeType);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GeminiProvider] Error fetching image from URL {imageUrl}: {ex.Message}");
+                return (string.Empty, "image/png");
+            }
+        }
+
+        /// <summary>
+        /// Determines MIME type from URL extension or defaults to image/png.
+        /// </summary>
+        private string GetMimeTypeFromUrl(Uri url)
+        {
+            string path = url?.LocalPath?.ToLowerInvariant() ?? string.Empty;
+            string extension = Path.GetExtension(path);
+
+            return extension switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                ".heic" => "image/heic",
+                ".heif" => "image/heif",
+                ".gif" => "image/gif",
+                ".bmp" => "image/bmp",
+                ".tiff" or ".tif" => "image/tiff",
+                _ => "image/png",
+            };
         }
     }
 }

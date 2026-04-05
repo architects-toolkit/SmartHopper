@@ -90,6 +90,23 @@ namespace SmartHopper.Providers.Gemini
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Higher values make the output more random; lower values make it more deterministic. Google recommends keeping this value at 1.0.",
                 },
+                new SettingDescriptor
+                {
+                    Name = "SafetyLevel",
+                    Type = typeof(string),
+                    DefaultValue = "BLOCK_MEDIUM_AND_ABOVE",
+                    DisplayName = "Safety Level",
+                    Description = "Default safety filter level for content moderation (BLOCK_NONE, BLOCK_ONLY_HIGH, BLOCK_MEDIUM_AND_ABOVE, BLOCK_LOW_AND_ABOVE, HARM_BLOCK_THRESHOLD_UNSPECIFIED)",
+                },
+                new SettingDescriptor
+                {
+                    Name = "ServiceTier",
+                    Type = typeof(string),
+                    DefaultValue = "standard",
+                    DisplayName = "Service Tier",
+                    Description = "Inference tier for GenerateContent requests: standard (default), flex (50% discount, 1-15 min), priority (premium, lower latency, but 75-100% more expensive than standard). Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "standard", "flex", "priority" },
+                },
             };
         }
 

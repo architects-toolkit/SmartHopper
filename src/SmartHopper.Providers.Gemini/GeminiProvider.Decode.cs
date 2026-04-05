@@ -43,6 +43,9 @@ namespace SmartHopper.Providers.Gemini
                     return result;
                 }
 
+                // Extract usage metadata from response
+                this.ExtractUsageMetadata(result, responseObject);
+
                 var candidates = responseObject["candidates"] as JArray;
                 if (candidates == null || candidates.Count == 0)
                 {
@@ -143,6 +146,59 @@ namespace SmartHopper.Providers.Gemini
             {
                 Debug.WriteLine($"Error decoding Gemini response: {ex.Message}");
                 return new List<IAIInteraction>();
+            }
+        }
+
+        /// <summary>
+        /// Extracts usage metadata from the Gemini response and attaches it to the last interaction.
+        /// </summary>
+        private void ExtractUsageMetadata(List<IAIInteraction> interactions, JObject jObject)
+        {
+            try
+            {
+                var usageMetadata = jObject["usageMetadata"] as JObject;
+                if (usageMetadata == null)
+                {
+                    return;
+                }
+
+                var metrics = new AIMetrics();
+
+                var promptTokenCount = usageMetadata["promptTokenCount"]?.Value<int>() ?? 0;
+                if (promptTokenCount > 0)
+                {
+                    metrics.InputTokensPrompt = promptTokenCount;
+                }
+
+                var candidatesTokenCount = usageMetadata["candidatesTokenCount"]?.Value<int>() ?? 0;
+                if (candidatesTokenCount > 0)
+                {
+                    metrics.OutputTokensGeneration = candidatesTokenCount;
+                }
+
+                // Extract thinking tokens (thoughtsTokenCount) for models that support thinking
+                var thoughtsTokenCount = usageMetadata["thoughtsTokenCount"]?.Value<int>() ?? 0;
+                if (thoughtsTokenCount > 0)
+                {
+                    metrics.OutputTokensReasoning = thoughtsTokenCount;
+                }
+
+                if (metrics.InputTokensPrompt > 0 || metrics.OutputTokensGeneration > 0)
+                {
+                    // Store metrics in a temporary interaction that will be merged with the actual response
+                    var metricsInteraction = new AIInteractionText
+                    {
+                        Agent = AIAgent.Assistant,
+                        Content = string.Empty,
+                        Metrics = metrics,
+                    };
+                    interactions.Add(metricsInteraction);
+                    Debug.WriteLine($"[GeminiProvider] Extracted usage metadata: InputTokens={metrics.InputTokensPrompt}, OutputTokens={metrics.OutputTokensGeneration}, ReasoningTokens={metrics.OutputTokensReasoning}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[GeminiProvider] Error extracting usage metadata: {ex.Message}");
             }
         }
     }

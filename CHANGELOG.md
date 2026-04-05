@@ -46,6 +46,8 @@ Many thanks to the following contributors to this release:
   - Tool calling with function declarations
   - Extended thinking/reasoning with configurable thinking levels
   - Batch processing with priority support
+  - **Service Tier selection** (`standard`, `flex`, `priority`) with per-request override via Extra Settings
+  - **Batch Priority** per-setup override via `batch_priority` Extra Setting
   - Context caching ready (infrastructure in place)
   - `x-goog-api-key` authentication support in centralized `CallApi` method
 

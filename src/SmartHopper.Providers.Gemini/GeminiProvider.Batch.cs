@@ -43,32 +43,53 @@ namespace SmartHopper.Providers.Gemini
             }
 
             var customIds = new List<string>();
-            var requestsArray = new JArray();
+            var inlinedRequests = new JArray();
 
             foreach (var (customId, request) in items)
             {
                 customIds.Add(customId);
 
-                var batchRequest = new JObject
+                // Parse the encoded request body to extract the actual GenerateContentRequest
+                var requestBody = JObject.Parse(request.EncodedRequestBody ?? "{}");
+
+                // Create InlinedRequest with request and metadata
+                var inlinedRequest = new JObject
                 {
-                    { "custom_id", customId },
-                    { "method", "POST" },
-                    { "url", $"/models/{request.Model}:generateContent" },
-                    { "body", JObject.Parse(request.EncodedRequestBody ?? "{}") },
+                    { "request", requestBody },
+                    { "metadata", new JObject { { "custom_id", customId } } },
                 };
 
-                if (request.Parameters?.Extras != null && request.Parameters.Extras.TryGetValue("batch_priority", out var priority) && priority != null && int.TryParse(priority.ToString(), out var priorityValue) && priorityValue > 0)
-                {
-                    batchRequest["priority"] = priorityValue;
-                }
-
-                requestsArray.Add(batchRequest);
+                inlinedRequests.Add(inlinedRequest);
             }
 
+            // Extract batch priority from first request if available
+            var batchPriority = 0;
+            if (items[0].Request.Parameters?.Extras != null && items[0].Request.Parameters.Extras.TryGetValue("batch_priority", out var priority) && priority != null && int.TryParse(priority.ToString(), out var priorityValue))
+            {
+                batchPriority = priorityValue;
+            }
+
+            // Build the batch request according to Gemini API spec
             var batchBody = new JObject
             {
-                { "requests", requestsArray },
+                { "displayName", $"batch-{DateTime.UtcNow:yyyyMMddHHmmss}" },
+                {
+                    "inputConfig", new JObject
+                    {
+                        {
+                            "requests", new JObject
+                            {
+                                { "requests", inlinedRequests },
+                            }
+                        },
+                    }
+                },
             };
+
+            if (batchPriority != 0)
+            {
+                batchBody["priority"] = batchPriority.ToString();
+            }
 
             var serializedRequest = batchBody.ToString();
 
@@ -148,61 +169,77 @@ namespace SmartHopper.Providers.Gemini
                     return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, string.Join(" | ", air.Messages.Select(m => m.Message)));
                 }
 
+                // Parse the response body which contains the Operation object
                 var responseBody = (air.Body?.Interactions?.FirstOrDefault(i => i is AIInteractionText) as AIInteractionText)?.Content ?? string.Empty;
-                var responseObj = JObject.Parse(responseBody);
-                var done = responseObj["done"]?.Value<bool>() ?? false;
+                var operationObj = JObject.Parse(responseBody);
+
+                // Check if operation is done
+                var done = operationObj["done"]?.Value<bool>() ?? false;
 
                 if (done)
                 {
-                    var result = responseObj["result"] as JObject;
-                    if (result != null && result.ContainsKey("responses"))
+                    // Extract the result which contains the GenerateContentBatchOutput
+                    var result = operationObj["result"] as JObject;
+                    if (result != null)
                     {
-                        var responses = result["responses"] as JArray;
-
-                        if (responses != null)
+                        // Check for errors in the batch result
+                        if (result.ContainsKey("error"))
                         {
-                            var resultsDict = new Dictionary<string, JObject>();
-                            var messages = new List<AIRuntimeMessage>();
-                            int completedCount = 0;
-
-                            foreach (var resp in responses.OfType<JObject>())
-                            {
-                                var customId = resp["custom_id"]?.ToString();
-                                if (string.IsNullOrWhiteSpace(customId))
-                                {
-                                    continue;
-                                }
-
-                                completedCount++;
-
-                                var body = resp["result"]?.ToString();
-                                if (!string.IsNullOrWhiteSpace(body))
-                                {
-                                    try
-                                    {
-                                        var bodyObj = JObject.Parse(body);
-                                        resultsDict[customId] = bodyObj;
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        messages.Add(new AIRuntimeMessage(
-                                            AIRuntimeMessageSeverity.Error,
-                                            AIRuntimeMessageOrigin.Provider,
-                                            AIMessageCode.BodyInvalid,
-                                            $"Failed to decode response for {customId}: {ex.Message}"));
-                                    }
-                                }
-                            }
-
-                            return new AIBatchStatus(submission.BatchId, resultsDict, messages);
+                            var error = result["error"];
+                            return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, error?.ToString());
                         }
-                    }
-                    else if (result != null && result.ContainsKey("error"))
-                    {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, result["error"]?.ToString());
+
+                        // Extract responses from the output
+                        var output = result["output"] as JObject;
+                        if (output != null && output.ContainsKey("responses"))
+                        {
+                            var responses = output["responses"] as JArray;
+
+                            if (responses != null)
+                            {
+                                var resultsDict = new Dictionary<string, JObject>();
+                                var messages = new List<AIRuntimeMessage>();
+
+                                foreach (var resp in responses.OfType<JObject>())
+                                {
+                                    // Extract custom_id from metadata
+                                    var metadata = resp["metadata"] as JObject;
+                                    var customId = metadata?["custom_id"]?.ToString();
+                                    if (string.IsNullOrWhiteSpace(customId))
+                                    {
+                                        continue;
+                                    }
+
+                                    // Extract the result from the response
+                                    var resultContent = resp["result"];
+                                    if (resultContent != null)
+                                    {
+                                        try
+                                        {
+                                            // Result can be either a JObject or a string
+                                            var resultObj = resultContent is JObject jObj
+                                                ? jObj
+                                                : JObject.Parse(resultContent.ToString());
+                                            resultsDict[customId] = resultObj;
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            messages.Add(new AIRuntimeMessage(
+                                                AIRuntimeMessageSeverity.Error,
+                                                AIRuntimeMessageOrigin.Provider,
+                                                AIMessageCode.BodyInvalid,
+                                                $"Failed to decode response for {customId}: {ex.Message}"));
+                                        }
+                                    }
+                                }
+
+                                return new AIBatchStatus(submission.BatchId, resultsDict, messages);
+                            }
+                        }
                     }
                 }
 
+                // Batch is still processing
                 return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
             }
             catch (Exception ex)
