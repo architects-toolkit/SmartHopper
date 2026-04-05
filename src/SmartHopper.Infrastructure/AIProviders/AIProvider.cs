@@ -846,7 +846,52 @@ namespace SmartHopper.Infrastructure.AIProviders
                     if (!response.IsSuccessStatusCode)
                     {
                         Debug.WriteLine($"[{this.Name}] Call - Error response: {content}");
-                        throw new Exception($"Error from {this.Name} API: {response.StatusCode} - {content}");
+
+                        // Create AIReturn with structured error instead of throwing
+                        var errorReturn = new AIReturn();
+
+                        // Build descriptive error message with status code
+                        var statusCode = (int)response.StatusCode;
+                        var errorMessage = $"HTTP {statusCode} {response.StatusCode}: {content}";
+
+                        // Add context for common error codes
+                        if (statusCode == 503)
+                        {
+                            errorMessage = $"HTTP 503 Service Unavailable: The {this.Name} API is at capacity. If using Flex tier, try again later or switch to Standard tier. Response: {content}";
+                        }
+                        else if (statusCode == 429)
+                        {
+                            errorMessage = $"HTTP 429 Too Many Requests: Rate limit exceeded for {this.Name}. Please retry after a delay. Response: {content}";
+                        }
+                        else if (statusCode == 401 || statusCode == 403)
+                        {
+                            errorMessage = $"HTTP {statusCode}: Authentication failed for {this.Name}. Check your API key. Response: {content}";
+                        }
+                        else if (statusCode == 408)
+                        {
+                            errorMessage = $"HTTP 408 Request Timeout: The request to {this.Name} took too long. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                        }
+                        else if (statusCode == 413)
+                        {
+                            errorMessage = $"HTTP 413 Payload Too Large: The request to {this.Name} exceeds size limits. Try reducing input length or batch size. Response: {content}";
+                        }
+                        else if (statusCode == 500)
+                        {
+                            errorMessage = $"HTTP 500 Internal Server Error: {this.Name} encountered an internal error. Retry after a brief delay. Response: {content}";
+                        }
+                        else if (statusCode == 502)
+                        {
+                            errorMessage = $"HTTP 502 Bad Gateway: {this.Name} gateway error. The upstream server returned an invalid response. Response: {content}";
+                        }
+                        else if (statusCode == 504)
+                        {
+                            errorMessage = $"HTTP 504 Gateway Timeout: {this.Name} upstream timeout. The server took too long to respond. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                        }
+
+                        errorReturn.CreateProviderError(errorMessage, request);
+                        errorReturn.Status = AICallStatus.Finished;
+
+                        return errorReturn;
                     }
 
                     // Prepare the AIReturn

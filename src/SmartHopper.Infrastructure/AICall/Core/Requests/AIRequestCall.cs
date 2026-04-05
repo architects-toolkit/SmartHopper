@@ -355,6 +355,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     // logging only
                 }
 
+                stopwatch.Stop();
                 return air;
             }
             catch (OperationCanceledException)

@@ -51,6 +51,12 @@ Many thanks to the following contributors to this release:
   - Context caching ready (infrastructure in place)
   - `x-goog-api-key` authentication support in centralized `CallApi` method
 
+- **HTTP Error Handling**: All providers now properly surface HTTP errors as structured AIReturn messages instead of throwing exceptions
+  - 503 Service Unavailable: Includes Flex tier guidance for capacity issues
+  - 429 Too Many Requests: Includes retry guidance for rate limits
+  - 401/403 Authentication errors: Clear API key check guidance
+  - Errors tagged with `Provider` origin for consistent UI surfacing
+
 - **Mixed-Type Data Tree Support**: Infrastructure for handling heterogeneous Grasshopper data types (GH_Boolean, GH_String, etc.) in component input/output trees
   - New `GHStructureConverter` utility class (`SmartHopper.Core.Grasshopper.Converters`) with `ConvertToGooTree<T>()` method for converting typed `GH_Structure<T>` to `GH_Structure<IGH_Goo>`
   - Added `IGH_Goo` to `groupIdenticalBranches` type gate in `DataTreeProcessor` to enable identical branch grouping for mixed-type trees
