@@ -55,6 +55,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             "- Return ONLY valid JSON that conforms to the schema\n" +
             "- Do not include any extra text, explanations, or markdown formatting\n" +
             "- Do not wrap the output in code blocks\n" +
+            "- Do not return a copy of the JSON Schema in the response\n" +
             "- Every required field in the schema must be present\n" +
             "- Field types must exactly match the schema types\n" +
             "- Null values are only allowed if the schema permits them";
