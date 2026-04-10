@@ -36,7 +36,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly IAIProvider[] _providers;
         private readonly DropDown _integrityCheckModeDropDown;
         private readonly NumericStepper _httpTimeoutStepper;
-        private readonly NumericStepper _batchHttpTimeoutStepper;
 
         /// <summary>
         /// Initializes a new instance of the ProvidersSettingsPage class
@@ -138,16 +137,16 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(new Panel { Height = 10 });
 
-            // HTTP Timeout for regular calls
+            // Timeout
             layout.Add(new Label
             {
-                Text = "HTTP Timeout (Regular Calls)",
+                Text = "Timeout",
                 Font = new Font(SystemFont.Default, 10),
             });
 
             this._httpTimeoutStepper = new NumericStepper
             {
-                Value = 120,
+                Value = 300,
                 MinValue = 1,
                 MaxValue = 600,
                 Width = 100,
@@ -162,49 +161,6 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     this._httpTimeoutStepper,
                     new Label
                     {
-                        Text = "seconds (default: 120)",
-                        TextColor = Colors.Gray,
-                        Font = new Font(SystemFont.Default, 9),
-                        VerticalAlignment = VerticalAlignment.Center,
-                    },
-                },
-            });
-
-            layout.Add(new Label
-            {
-                Text = "Timeout for regular API calls. Increase if you experience timeout errors on slow connections.",
-                TextColor = Colors.Gray,
-                Font = new Font(SystemFont.Default, 9),
-                Wrap = WrapMode.Word,
-                Width = 500,
-            });
-
-            layout.Add(new Panel { Height = 10 });
-
-            // HTTP Timeout for batch calls
-            layout.Add(new Label
-            {
-                Text = "HTTP Timeout (Batch Calls)",
-                Font = new Font(SystemFont.Default, 10),
-            });
-
-            this._batchHttpTimeoutStepper = new NumericStepper
-            {
-                Value = 300,
-                MinValue = 1,
-                MaxValue = 600,
-                Width = 100,
-            };
-
-            layout.Add(new StackLayout
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 10,
-                Items =
-                {
-                    this._batchHttpTimeoutStepper,
-                    new Label
-                    {
                         Text = "seconds (default: 300)",
                         TextColor = Colors.Gray,
                         Font = new Font(SystemFont.Default, 9),
@@ -215,7 +171,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(new Label
             {
-                Text = "Timeout for batch API operations (file uploads/downloads). Batch operations typically require longer timeouts.",
+                Text = "HTTP timeout for AI operations including response generation, file uploads, downloads, and other API calls. Increase if you experience timeout errors on slow connections or with large file operations.",
                 TextColor = Colors.Gray,
                 Font = new Font(SystemFont.Default, 9),
                 Wrap = WrapMode.Word,
@@ -327,17 +283,11 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 this._integrityCheckModeDropDown.SelectedIndex = targetIndex;
             }
 
-            // Load global HTTP timeout settings
-            var httpTimeout = SmartHopperSettings.Instance.GetSetting("Global", "HttpTimeoutSeconds");
+            // Load timeout settings
+            var httpTimeout = SmartHopperSettings.Instance.GetSetting("Global", "TimeoutSeconds");
             if (httpTimeout is int httpTimeoutInt)
             {
                 this._httpTimeoutStepper.Value = httpTimeoutInt;
-            }
-
-            var batchHttpTimeout = SmartHopperSettings.Instance.GetSetting("Global", "BatchHttpTimeoutSeconds");
-            if (batchHttpTimeout is int batchHttpTimeoutInt)
-            {
-                this._batchHttpTimeoutStepper.Value = batchHttpTimeoutInt;
             }
         }
 
@@ -364,9 +314,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 _ => ProviderIntegrityCheckMode.Soft
             };
 
-            // Save global HTTP timeout settings
-            SmartHopperSettings.Instance.SetSetting("Global", "HttpTimeoutSeconds", (int)this._httpTimeoutStepper.Value);
-            SmartHopperSettings.Instance.SetSetting("Global", "BatchHttpTimeoutSeconds", (int)this._batchHttpTimeoutStepper.Value);
+            // Save timeout settings
+            SmartHopperSettings.Instance.SetSetting("Global", "TimeoutSeconds", (int)this._httpTimeoutStepper.Value);
         }
     }
 }

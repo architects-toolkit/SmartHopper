@@ -714,8 +714,8 @@ namespace SmartHopper.Providers.MistralAI
                 var toolCallFragments = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
                 var toolCallsEmitted = false;
 
-                // Determine idle timeout from request (fallback to 60s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                // Determine idle timeout from request (fallback to 600s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 600);
                 await foreach (var data in this.ReadSseDataAsync(
                     response,
                     idleTimeout,

@@ -77,7 +77,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     try
                     {
-                        int seconds = request?.TimeoutSeconds > 0 ? request.TimeoutSeconds : 120;
+                        int seconds = request?.TimeoutSeconds > 0 ? request.TimeoutSeconds : 600;
                         httpClient.Timeout = TimeSpan.FromSeconds(seconds);
                     }
                     catch (Exception ex)

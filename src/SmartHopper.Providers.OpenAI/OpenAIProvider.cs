@@ -566,8 +566,9 @@ namespace SmartHopper.Providers.OpenAI
 
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
+            bool hasTools = !string.IsNullOrWhiteSpace(toolFilter);
 
-            Debug.WriteLine($"[OpenAI] FormatRequestBody - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[OpenAI] FormatRequestBody - Model: {request.Model}, MaxTokens: {maxTokens}, HasTools: {hasTools}");
 
             // Build request body for chat completions
             var requestBody = new JObject
@@ -579,9 +580,15 @@ namespace SmartHopper.Providers.OpenAI
             // Configure tokens and parameters based on model family
             // - o-series (o1/o3/o4...) and gpt-5: use max_completion_tokens and reasoning_effort; omit temperature
             // - others: use max_tokens and temperature
+            // NOTE: reasoning_effort is incompatible with function tools on gpt-5.4, so omit it when tools are present
             if (OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model))
             {
-                requestBody["reasoning_effort"] = reasoningEffort;
+                // Only add reasoning_effort if no tools are present (gpt-5.4 incompatibility)
+                if (!hasTools)
+                {
+                    requestBody["reasoning_effort"] = reasoningEffort;
+                }
+
                 requestBody["max_completion_tokens"] = maxTokens;
             }
             else
@@ -666,7 +673,7 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             // Add tools if requested
-            if (!string.IsNullOrWhiteSpace(toolFilter))
+            if (hasTools)
             {
                 var tools = this.GetFormattedTools(toolFilter);
                 if (tools != null && tools.Count > 0)
@@ -1159,8 +1166,8 @@ namespace SmartHopper.Providers.OpenAI
                     yield return initial;
                 }
 
-                // Determine idle timeout from request (fallback to 60s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                // Determine idle timeout from request (fallback to 600s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 600);
                 await foreach (var data in this.ReadSseDataAsync(
                     response,
                     idleTimeout,

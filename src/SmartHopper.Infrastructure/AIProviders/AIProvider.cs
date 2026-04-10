@@ -623,31 +623,21 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
-        /// Creates an HttpClient configured for batch operations with extended timeout.
-        /// Batch operations typically involve file uploads/downloads and require longer timeouts
-        /// than standard API calls. Uses the configurable BatchHttpTimeoutSeconds setting from provider settings,
-        /// with a default of 5 minutes (300 seconds).
+        /// Creates an HttpClient configured for batch operations with the specified timeout.
+        /// The timeout should be resolved by RequestTimeoutPolicy before calling this method.
+        /// If no timeout is provided, uses a safe default of 600 seconds (10 minutes).
         /// </summary>
-        /// <param name="requestTimeoutSeconds">Optional per-request timeout in seconds. If provided, uses this value instead of the setting.</param>
-        /// <returns>A new HttpClient with appropriate batch timeout configured.</returns>
+        /// <param name="requestTimeoutSeconds">Optional per-request timeout in seconds. If not provided, defaults to 600 seconds.</param>
+        /// <returns>A new HttpClient with appropriate timeout configured.</returns>
         protected HttpClient CreateBatchHttpClient(int? requestTimeoutSeconds = null)
         {
             var client = new HttpClient();
 
-            // Determine timeout: use provided value, then setting, then default.
-            // Clamp to reasonable bounds (1 second - 10 minutes).
-            int timeoutSeconds;
-            if (requestTimeoutSeconds.HasValue)
-            {
-                timeoutSeconds = requestTimeoutSeconds.Value;
-            }
-            else
-            {
-                // Get timeout from global settings, default to 300 seconds
-                var globalBatchTimeout = SmartHopperSettings.Instance.GetSetting("Global", "BatchHttpTimeoutSeconds");
-                timeoutSeconds = globalBatchTimeout is int batchTimeout ? batchTimeout : 300;
-            }
+            // Use provided timeout or safe default
+            // The actual timeout resolution from settings should be handled by RequestTimeoutPolicy
+            int timeoutSeconds = requestTimeoutSeconds ?? 600;
 
+            // Clamp to reasonable bounds (1 second - 10 minutes)
             timeoutSeconds = Math.Max(1, Math.Min(timeoutSeconds, 600));
 
             try
@@ -740,22 +730,11 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             using (var httpClient = new HttpClient())
             {
-                // Apply per-request timeout with fallback to provider settings
+                // Apply timeout from request (should be resolved by RequestTimeoutPolicy)
+                // If somehow still null, apply a safe default
                 try
                 {
-                    int seconds;
-                    if (request?.TimeoutSeconds > 0)
-                    {
-                        // Use per-request timeout if explicitly set
-                        seconds = request.TimeoutSeconds;
-                    }
-                    else
-                    {
-                        // Fall back to global setting or default (120 seconds)
-                        var globalHttpTimeout = SmartHopperSettings.Instance.GetSetting("Global", "HttpTimeoutSeconds");
-                        seconds = globalHttpTimeout is int httpTimeout ? httpTimeout : 120;
-                    }
-
+                    int seconds = request?.TimeoutSeconds ?? 600;
                     httpClient.Timeout = TimeSpan.FromSeconds(seconds);
                 }
                 catch (Exception ex)

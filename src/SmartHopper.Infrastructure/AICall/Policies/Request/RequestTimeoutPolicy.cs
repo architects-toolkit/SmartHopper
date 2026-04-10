@@ -18,6 +18,7 @@
 
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {
@@ -28,8 +29,10 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
     /// </summary>
     public sealed class RequestTimeoutPolicy : IRequestPolicy
     {
-        // Default and bounds (seconds)
-        private const int DefaultTimeout = 120;
+        // Default fallback values when settings cannot be read
+        private const int DefaultTimeout = 300;
+        
+        // Bounds (seconds)
         private const int MinTimeout = 1;
         private const int MaxTimeout = 600; // 10 minutes maximum guard
 
@@ -41,23 +44,29 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 return Task.CompletedTask;
             }
 
-            int original = rq.TimeoutSeconds;
-            int normalized = original;
+            int? original = rq.TimeoutSeconds;
+            int normalized;
 
-            if (normalized <= 0)
+            // If timeout is not set (null), resolve from settings
+            if (original == null)
             {
-                normalized = DefaultTimeout;
+                // Read response generation timeout from settings
+                var settingValue = SmartHopperSettings.Instance.GetSetting("Global", "TimeoutSeconds");
+                normalized = settingValue is int timeout ? timeout : DefaultTimeout;
                 rq.TimeoutSeconds = normalized;
+
                 if (rq.Body != null)
                 {
-                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddError($"Timeout applied: {normalized}s (default)")
+                        .AddError($"Timeout applied: {normalized}s (from settings)")
                         .Build();
                 }
 
                 return Task.CompletedTask;
             }
+
+            // Use the explicitly set timeout value
+            normalized = original.Value;
 
             // Clamp to bounds
             if (normalized < MinTimeout)

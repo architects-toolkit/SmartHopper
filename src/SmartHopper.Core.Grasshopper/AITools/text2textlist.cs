@@ -61,11 +61,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private const int DefaultBatchDivisor = 3;
 
         /// <summary>
-        /// Default timeout for AI requests.
-        /// </summary>
-        private const int DefaultTimeoutSeconds = 300;
-
-        /// <summary>
         /// Defines the required capabilities for the AI tool provided by this class.
         /// </summary>
         private readonly AICapability toolCapabilityRequirements = AICapability.TextInput | AICapability.JsonOutput;
@@ -286,10 +281,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     capability: this.toolCapabilityRequirements,
                     endpoint: endpoint,
                     body: requestBody);
-
-                // Set extended timeout for iterative list generation (5 minutes)
-                // The while loop may require multiple AI calls, each taking 20-40 seconds
-                request.TimeoutSeconds = DefaultTimeoutSeconds;
 
                 while (allItems.Count < count && iteration < maxIterations)
                 {

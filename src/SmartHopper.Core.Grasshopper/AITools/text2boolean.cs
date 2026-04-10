@@ -119,7 +119,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 body: requestBody,
                 endpoint: this.toolName,
                 capability: this.toolCapabilityRequirements);
-            request.Parameters = toolCall.Parameters;
             return request;
         }
 

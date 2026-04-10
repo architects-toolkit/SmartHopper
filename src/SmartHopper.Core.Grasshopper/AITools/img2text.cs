@@ -148,7 +148,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 body: this.BuildRequestBody(args),
                 endpoint: this.toolName,
                 capability: this.toolCapabilityRequirements);
-            request.Parameters = toolCall.Parameters;
             return request;
         }
 
@@ -189,7 +188,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     body: this.BuildRequestBody(args),
                     endpoint: this.toolName,
                     capability: this.toolCapabilityRequirements);
-                request.Parameters = toolCall.Parameters;
 
                 var result = await request.Exec().ConfigureAwait(false);
 

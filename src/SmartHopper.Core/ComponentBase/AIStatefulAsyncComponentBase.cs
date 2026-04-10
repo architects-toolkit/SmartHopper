@@ -436,6 +436,38 @@ namespace SmartHopper.Core.ComponentBase
 
         #endregion
 
+        #region TIMEOUT CONFIGURATION
+
+        /// <summary>
+        /// Centralized timeout configuration for AI requests.
+        /// This method configures the timeout on any request object (AIToolCall, AIRequestCall, etc.)
+        /// based on custom timeout from Settings input. If no custom timeout is set,
+        /// the timeout is left null to be resolved by RequestTimeoutPolicy from settings.
+        /// </summary>
+        /// <param name="request">The request object to configure (AIToolCall, AIRequestCall, etc.)</param>
+        protected void ConfigureRequestTimeout(AIRequestBase request)
+        {
+            if (request == null)
+            {
+                return;
+            }
+
+            var parameters = this.GetParameters();
+
+            // Honor custom timeout from Settings input if set
+            if (parameters.TimeoutSeconds.HasValue && parameters.TimeoutSeconds.Value > 0)
+            {
+                request.TimeoutSeconds = parameters.TimeoutSeconds.Value;
+            }
+            else
+            {
+                // Leave null to trigger settings lookup in RequestTimeoutPolicy
+                request.TimeoutSeconds = null;
+            }
+        }
+
+        #endregion
+
         #region AI
 
         /// <summary>
@@ -471,6 +503,9 @@ namespace SmartHopper.Core.ComponentBase
                 .Add(toolCallInteraction)
                 .Build();
             toolCall.Body = immutableBody;
+
+            // Apply centralized timeout configuration (handles both batch and regular paths)
+            this.ConfigureRequestTimeout(toolCall);
 
             // Batch interception: if batch mode is active and the tool supports BuildRequest,
             // queue the request instead of executing it and return a sentinel placeholder.

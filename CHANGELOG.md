@@ -66,6 +66,23 @@ Many thanks to the following contributors to this release:
 
 ### Changed
 
+- **Refactored Timeout Configuration System**:
+  - **AIRequestBase.TimeoutSeconds** is now nullable (`int?`) to allow null/empty values
+  - **RequestTimeoutPolicy** now resolves timeout from settings when null:
+    - Reads `Timeout` from settings (with fallback to `HttpTimeoutSeconds` for backward compatibility)
+    - Uses `DefaultTimeout` constant (600s) as final fallback
+  - **AISettingsComponent** now has "Timeout" input parameter (before "Extras") for custom timeout override
+  - **AIStatefulAsyncComponentBase** additions:
+    - New `ConfigureRequestTimeout()` helper method - centralizes timeout configuration for both batch and regular paths
+  - **AIProvider** simplified - removed duplicate timeout resolution logic, now relies on RequestTimeoutPolicy
+  - **Renamed HTTP Timeout Setting** (UI label and setting key):
+    - `HTTP Timeout (Regular Calls)` → `Timeout` (setting key: `TimeoutSeconds`, default: 600s)
+    - Old setting keys (`HttpTimeoutSeconds`, `ResponseGenerationTimeoutSeconds`) automatically migrated for backward compatibility
+  - **Timeout resolution priority** (highest to lowest):
+    1. Custom timeout from AI Settings component input
+    2. Settings-based timeout (`TimeoutSeconds`)
+    3. Safe default (600s)
+
 - Components can now mix different `IGH_Goo` types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values)
 - Foundation laid for future extensibility to support `GH_Integer`, `GH_Number`, `GH_Path`, and other Grasshopper data types
 - Existing `GH_String`-only workers remain compatible and can be migrated individually when needed

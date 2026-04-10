@@ -38,6 +38,9 @@ namespace SmartHopper.Infrastructure.AICall.Core
         /// <summary>Gets the max tokens override. Null means "use global setting".</summary>
         public int? MaxTokens { get; init; }
 
+        /// <summary>Gets the timeout override in seconds. Null means "resolve from settings based on operation type".</summary>
+        public int? TimeoutSeconds { get; init; }
+
         /// <summary>Gets the top-p override (0.0–1.0). Null means omit.</summary>
         public double? TopP { get; init; }
 
@@ -83,6 +86,7 @@ namespace SmartHopper.Infrastructure.AICall.Core
         private string _model;
         private double? _temperature;
         private int? _maxTokens;
+        private int? _timeoutSeconds;
         private double? _topP;
         private int? _seed;
         private bool _batchTier;
@@ -96,6 +100,9 @@ namespace SmartHopper.Infrastructure.AICall.Core
 
         /// <inheritdoc cref="AIRequestParameters.MaxTokens"/>
         public AIRequestParametersBuilder WithMaxTokens(int? maxTokens) { _maxTokens = maxTokens; return this; }
+
+        /// <inheritdoc cref="AIRequestParameters.TimeoutSeconds"/>
+        public AIRequestParametersBuilder WithTimeout(int? timeoutSeconds) { _timeoutSeconds = timeoutSeconds; return this; }
 
         /// <inheritdoc cref="AIRequestParameters.TopP"/>
         public AIRequestParametersBuilder WithTopP(double? topP) { _topP = topP; return this; }
@@ -157,6 +164,9 @@ namespace SmartHopper.Infrastructure.AICall.Core
         /// <summary>Clears the max tokens override.</summary>
         public AIRequestParametersBuilder ClearMaxTokens() { _maxTokens = null; return this; }
 
+        /// <summary>Clears the timeout override.</summary>
+        public AIRequestParametersBuilder ClearTimeout() { _timeoutSeconds = null; return this; }
+
         /// <summary>Clears the top-p override.</summary>
         public AIRequestParametersBuilder ClearTopP() { _topP = null; return this; }
 
@@ -175,6 +185,7 @@ namespace SmartHopper.Infrastructure.AICall.Core
             Model = _model,
             Temperature = _temperature,
             MaxTokens = _maxTokens,
+            TimeoutSeconds = _timeoutSeconds,
             TopP = _topP,
             Seed = _seed,
             BatchTier = _batchTier,
