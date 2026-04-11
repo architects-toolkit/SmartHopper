@@ -276,7 +276,7 @@ namespace SmartHopper.Menu.Dialogs
                 Items =
                 {
                     new Label { Text = "- Md Ahasan Habib from Noun Project for", Font = new Font(SystemFont.Default, 10) },
-                    CreateLinkButton("Rhinoceros Icon", "https://thenounproject.com/browse/icons/term/rhinoceros/"),
+                    CreateLinkButton("Rhinoceros Icon", "https://thenounproject.com/icon/rhinoceros-7895112/"),
                     new Label { Text = "(CC BY 3.0)", Font = new Font(SystemFont.Default, 10) }
                 },
             };
@@ -361,9 +361,9 @@ namespace SmartHopper.Menu.Dialogs
             contentLayout.Items.Add(magicHtmlLink);
             contentLayout.Items.Add(dataFlowLink);
             contentLayout.Items.Add(null); // spacing
-            contentLayout.Items.Add(logoDesignThanksLabel);
             contentLayout.Items.Add(rhinoIconLink);
             contentLayout.Items.Add(ladybugIconLink);
+            contentLayout.Items.Add(logoDesignThanksLabel);
             contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(new StackLayoutItem(null, true)); // Push everything up
