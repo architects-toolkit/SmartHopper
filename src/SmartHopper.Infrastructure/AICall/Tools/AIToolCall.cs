@@ -129,7 +129,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 var execTask = AIToolManager.ExecuteTool(this);
                 var completed = await Task.WhenAny(
                     execTask,
-                    Task.Delay(TimeSpan.FromSeconds(Math.Min(Math.Max(timeoutSec, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS)))).ConfigureAwait(false);
+                    Task.Delay(TimeSpan.FromSeconds((double)Math.Min(Math.Max(timeoutSec, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS)))).ConfigureAwait(false);
                 if (completed != execTask)
                 {
                     var timed = new AIReturn();
