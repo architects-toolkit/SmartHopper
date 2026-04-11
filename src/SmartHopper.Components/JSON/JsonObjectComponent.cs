@@ -23,6 +23,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Components.JSON
 {
@@ -101,7 +102,7 @@ namespace SmartHopper.Components.JSON
                     obj[key] = CoerceToJToken(values[i]);
                 }
 
-                DA.SetData("JSON", obj.ToString(Newtonsoft.Json.Formatting.None));
+                DA.SetData("JSON", JsonFormatHelper.JsonToString(obj));
             }
             catch (Exception ex)
             {

@@ -28,6 +28,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -185,8 +186,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
+                // Normalize JSON output to minified format
+                var normalizedJson = JsonFormatHelper.JsonToString(response, out string jsonError);
+                if (string.IsNullOrWhiteSpace(normalizedJson))
+                {
+                    output.CreateToolError($"AI response is not valid JSON: {jsonError}");
+                    return output;
+                }
+
                 var toolResult = new JObject();
-                toolResult.Add("json", response);
+                toolResult.Add("json", normalizedJson);
 
                 toolResult.WithEnvelope(
                     ToolResultEnvelope.Create(

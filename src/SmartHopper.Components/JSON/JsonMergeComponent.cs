@@ -22,6 +22,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Components.JSON
 {
@@ -102,7 +103,7 @@ namespace SmartHopper.Components.JSON
                     });
                 }
 
-                DA.SetData("JSON", merged.ToString(Newtonsoft.Json.Formatting.None));
+                DA.SetData("JSON", JsonFormatHelper.JsonToString(merged));
             }
             catch (Exception ex)
             {

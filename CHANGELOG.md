@@ -38,6 +38,16 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- **Centralized JSON Formatting Utility** (`JsonFormatHelper`):
+  - New utility class in `SmartHopper.Infrastructure.Utilities` for consistent JSON formatting
+  - Core methods: `JsonToString()` (JToken/string to minified JSON), `StringToJson()` (string to JToken), `IsValidJson()` (validation with optional parsing)
+  - All methods support optional error handling via `out string error` parameter
+  - **Automatic markdown code block extraction**: String-based methods automatically extract JSON from ` ```json ... ``` `, ` ```txt ... ``` `, ` ```text ... ``` `, and ` ``` ... ``` ` blocks before processing
+  - Ensures all JSON output is minified (no unnecessary whitespace) across all JSON components and tools
+  - Provides graceful error handling with detailed error messages for invalid JSON
+  - Integrates seamlessly with existing `JsonPathHelper` for error messaging
+  - Follows `AIResponseParser` patterns for consistency with existing response parsing logic
+
 - **Google Gemini Provider**: Full integration of Google's Gemini AI models
   - Support for Gemini 3.1, 2.5, 2.0, and 1.5 models
   - Text generation with streaming support

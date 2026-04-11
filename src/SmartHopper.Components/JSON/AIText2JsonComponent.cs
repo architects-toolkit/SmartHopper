@@ -296,7 +296,9 @@ namespace SmartHopper.Components.JSON
                         }
 
                         string json = toolResult["json"]?.ToString() ?? string.Empty;
-                        outputs["JSON"].Add(new GH_String(json));
+                        // Ensure JSON is minified for consistency
+                        string normalizedJson = JsonFormatHelper.JsonToString(json);
+                        outputs["JSON"].Add(new GH_String(normalizedJson));
                     }
                     catch (Exception ex)
                     {

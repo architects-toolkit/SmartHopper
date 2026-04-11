@@ -24,6 +24,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Components.JSON
 {
@@ -98,7 +99,7 @@ namespace SmartHopper.Components.JSON
                 // Property definitions are now processed directly by BuildSchema
                 // which handles :required suffix via ParseAndInsertProperty
                 var schema = BuildSchema(propertyDefs, isArray, title, description);
-                DA.SetData("Schema", schema.ToString(Newtonsoft.Json.Formatting.Indented));
+                DA.SetData("Schema", JsonFormatHelper.JsonToString(schema));
             }
             catch (Exception ex)
             {
