@@ -490,6 +490,12 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Gets whether the provider infrastructure has completed initialization.
+        /// This flag is set to true after RefreshProvidersAsync completes, regardless of provider count.
+        /// </summary>
+        public bool IsInfrastructureReady => this._refreshCompleted;
+
+        /// <summary>
         /// Gets a provider by name.
         /// </summary>
         /// <param name="providerName">Name of the provider to get.</param>

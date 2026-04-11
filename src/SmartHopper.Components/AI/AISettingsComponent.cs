@@ -95,24 +95,6 @@ namespace SmartHopper.Components.AI
             base.RemovedFromDocument(document);
         }
 
-        /// <summary>
-        /// Checks if the plugin infrastructure is ready for processing.
-        /// </summary>
-        private bool IsInfrastructureReady()
-        {
-            try
-            {
-                // Check if ProviderManager is initialized and has providers
-                var manager = ProviderManager.Instance;
-                return manager != null && manager.GetProviderCount() > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AISettingsComponent] Infrastructure check failed: {ex.Message}");
-                return false;
-            }
-        }
-
         /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
