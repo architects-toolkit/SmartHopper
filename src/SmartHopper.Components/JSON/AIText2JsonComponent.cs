@@ -34,6 +34,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Components.JSON
 {
@@ -278,7 +279,9 @@ namespace SmartHopper.Components.JSON
 
                         if (toolResult == null)
                         {
-                            parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"[Batch Item {i}] Tool returned null result");
+                            string batchPath = $"[Batch Item {i}]";
+                            string warningMsg = JsonPathHelper.FormatJsonPathWarning(batchPath, "Tool returned null result");
+                            parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, warningMsg);
                             outputs["JSON"].Add(new GH_String(string.Empty));
                             continue;
                         }
@@ -297,7 +300,9 @@ namespace SmartHopper.Components.JSON
                     }
                     catch (Exception ex)
                     {
-                        parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"[Batch Item {i}] {ex.Message}");
+                        string batchPath = $"[Batch Item {i}]";
+                        string errorMsg = JsonPathHelper.FormatJsonPathError(batchPath, ex.Message);
+                        parent.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, errorMsg);
                         outputs["JSON"].Add(new GH_String(string.Empty));
                     }
                 }

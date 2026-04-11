@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
@@ -25,6 +26,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Returns
 {
@@ -543,8 +545,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                         ? JValue.CreateNull()
                         : (value is JToken jt ? jt : JToken.FromObject(value));
                 }
-                catch
+                catch (Exception ex)
                 {
+                    // Log mapping error with JSON path information
+                    string errorMsg = JsonPathHelper.FormatJsonPathMappingError(sourcePath, jsonKey, ex.Message);
+                    Debug.WriteLine($"[AIReturn.ToJObject] {errorMsg}");
+                    
                     // If reflection fails, use null
                     token = JValue.CreateNull();
                 }

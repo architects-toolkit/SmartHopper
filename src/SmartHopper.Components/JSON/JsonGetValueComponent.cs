@@ -21,11 +21,13 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Components.JSON
 {
     /// <summary>
-    /// Grasshopper component that extracts a nested value from a JSON object using dot-notation path.
+    /// Grasshopper component that extracts a nested value from a JSON object using dot-notation or bracket notation paths.
+    /// Supports paths like "address.city", "results[0].name", or "items[5]".
     /// </summary>
     public class JsonGetValueComponent : GH_Component
     {
@@ -92,7 +94,7 @@ namespace SmartHopper.Components.JSON
 
                 if (result == null)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Path '{path}' not found in JSON.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"JSON Path '{path}' not found in JSON.");
                     DA.SetData("Value", string.Empty);
                     return;
                 }
@@ -101,12 +103,14 @@ namespace SmartHopper.Components.JSON
             }
             catch (Exception ex)
             {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error extracting value: {ex.Message}");
+                string errorMessage = JsonPathHelper.FormatJsonPathError(path, ex.Message);
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, errorMessage);
             }
         }
 
         /// <summary>
-        /// Navigates a dot-notation path within a JToken tree.
+        /// Navigates a path within a JToken tree, supporting both dot notation (e.g., "address.city")
+        /// and bracket notation (e.g., "results[0].name" or "items[5]").
         /// </summary>
         private static JToken NavigatePath(JToken root, string path)
         {
@@ -115,8 +119,8 @@ namespace SmartHopper.Components.JSON
                 return root;
             }
 
-            var segments = path.Split('.');
             JToken current = root;
+            var segments = ParsePathSegments(path);
 
             foreach (var segment in segments)
             {
@@ -125,21 +129,109 @@ namespace SmartHopper.Components.JSON
                     return null;
                 }
 
-                if (current is JObject obj)
+                if (segment.IsArrayIndex)
                 {
-                    current = obj[segment];
-                }
-                else if (current is JArray arr && int.TryParse(segment, out int index))
-                {
-                    current = index >= 0 && index < arr.Count ? arr[index] : null;
+                    if (current is JArray arr)
+                    {
+                        current = segment.Index >= 0 && segment.Index < arr.Count ? arr[segment.Index] : null;
+                    }
+                    else
+                    {
+                        return null;
+                    }
                 }
                 else
                 {
-                    return null;
+                    if (current is JObject obj)
+                    {
+                        current = obj[segment.Name];
+                    }
+                    else
+                    {
+                        return null;
+                    }
                 }
             }
 
             return current;
+        }
+
+        /// <summary>
+        /// Parses a path string into segments, handling both dot notation and bracket notation.
+        /// Examples: "address.city" → ["address", "city"]
+        ///           "results[0].name" → ["results", "[0]", "name"]
+        ///           "items[5]" → ["items", "[5]"]
+        /// </summary>
+        private static System.Collections.Generic.List<PathSegment> ParsePathSegments(string path)
+        {
+            var segments = new System.Collections.Generic.List<PathSegment>();
+            var current = new System.Text.StringBuilder();
+
+            for (int i = 0; i < path.Length; i++)
+            {
+                char ch = path[i];
+
+                if (ch == '.')
+                {
+                    if (current.Length > 0)
+                    {
+                        segments.Add(new PathSegment { Name = current.ToString() });
+                        current.Clear();
+                    }
+                }
+                else if (ch == '[')
+                {
+                    if (current.Length > 0)
+                    {
+                        segments.Add(new PathSegment { Name = current.ToString() });
+                        current.Clear();
+                    }
+
+                    int endBracket = path.IndexOf(']', i);
+                    if (endBracket > i + 1)
+                    {
+                        string indexStr = path.Substring(i + 1, endBracket - i - 1);
+                        if (int.TryParse(indexStr, out int index))
+                        {
+                            segments.Add(new PathSegment { IsArrayIndex = true, Index = index });
+                        }
+
+                        i = endBracket;
+                    }
+                }
+                else
+                {
+                    current.Append(ch);
+                }
+            }
+
+            if (current.Length > 0)
+            {
+                segments.Add(new PathSegment { Name = current.ToString() });
+            }
+
+            return segments;
+        }
+
+        /// <summary>
+        /// Represents a single segment in a JSON path.
+        /// </summary>
+        private class PathSegment
+        {
+            /// <summary>
+            /// Gets or sets the property name (for object navigation).
+            /// </summary>
+            public string Name { get; set; } = string.Empty;
+
+            /// <summary>
+            /// Gets or sets a value indicating whether this segment is an array index.
+            /// </summary>
+            public bool IsArrayIndex { get; set; }
+
+            /// <summary>
+            /// Gets or sets the array index (when IsArrayIndex is true).
+            /// </summary>
+            public int Index { get; set; }
         }
 
         /// <summary>

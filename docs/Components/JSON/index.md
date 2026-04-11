@@ -92,9 +92,14 @@ This produces a nested `address` object with `city` and `zip` Properties, where 
 
 ## JsonGetValueComponent — Path Examples
 
+Supports both dot notation and bracket notation for accessing nested values:
+
 | Path | Extracts |
 |------|---------|
 | `name` | Top-level `name` property |
 | `address.city` | `city` inside `address` object |
-| `items.0` | First element of `items` array |
-| `data.tags.1` | Second element of `tags` array inside `data` |
+| `results[0].name` | `name` property of first element in `results` array |
+| `results[29].Effect` | `Effect` property of 30th element in `results` array |
+| `data.tags[1]` | Second element of `tags` array inside `data` |
+
+**Error Messages:** When a path fails to resolve, error messages clearly indicate the JSON path where the error occurred (e.g., `JSON Path: 'results[29].Effect' | Error: ...`), helping you quickly identify the problematic path.
