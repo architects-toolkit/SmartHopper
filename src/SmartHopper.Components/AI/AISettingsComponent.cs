@@ -19,13 +19,16 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Drawing;
+using System.Threading;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.Grasshopper.Types;
 using SmartHopper.Infrastructure.AICall.Core;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.AI
 {
@@ -33,9 +36,18 @@ namespace SmartHopper.Components.AI
     /// Stateless component that assembles an <see cref="AIRequestParameters"/> from
     /// cross-provider universal inputs and an optional Extras JSON object from
     /// <see cref="AIExtraSettingsComponent"/>.
+    /// 
+    /// Defers processing until plugin infrastructure is fully initialized to handle
+    /// race conditions when files are opened directly from Windows Explorer.
     /// </summary>
     public class AISettingsComponent : GH_Component
     {
+        private bool _infrastructureReady = false;
+        private bool _retryScheduled = false;
+        private Stopwatch _retryStopwatch = new Stopwatch();
+        private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private const int MaxRetryDurationSeconds = 60;
+
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("133A3D6E-1DF0-4FD3-92B5-F686C2FD587D");
 
@@ -63,6 +75,35 @@ namespace SmartHopper.Components.AI
                 "Assembles AI request settings (model, temperature, tokens, extras) to pass to any AI component.",
                 "SmartHopper", "AI")
         {
+            _retryStopwatch.Start();
+        }
+
+        /// <summary>
+        /// Checks if the plugin infrastructure is ready for processing.
+        /// Readiness means the provider infrastructure has completed initialization,
+        /// regardless of whether any providers were successfully discovered.
+        /// </summary>
+        private bool IsInfrastructureReady()
+        {
+            try
+            {
+                var manager = ProviderManager.Instance;
+                return manager != null && manager.IsInfrastructureReady;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AISettingsComponent] Infrastructure check failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            // Cancel any pending retry operations
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
+            base.RemovedFromDocument(document);
         }
 
         /// <inheritdoc/>
@@ -75,13 +116,19 @@ namespace SmartHopper.Components.AI
             pManager.AddIntegerParameter("Timeout", "Tout", "HTTP timeout in seconds. Leave disconnected to use the global setting.", GH_ParamAccess.item);
             pManager.AddTextParameter("Extras", "X", "Provider-specific extra settings as a JSON object. Connect an AI Extra Settings component output here.", GH_ParamAccess.item, string.Empty);
 
-            // All inputs are optional
-            pManager[0].Optional = true;
-            pManager[1].Optional = true;
-            pManager[2].Optional = true;
-            pManager[3].Optional = true;
-            pManager[4].Optional = true;
-            pManager[5].Optional = true;
+            // All inputs are optional - use safe index access with bounds checking
+            try
+            {
+                for (int i = 0; i < pManager.ParamCount; i++)
+                {
+                    pManager[i].Optional = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Silently handle any parameter manager issues during initialization
+                System.Diagnostics.Debug.WriteLine($"[AISettingsComponent] Warning: Could not set parameter optional flags: {ex.Message}");
+            }
         }
 
         /// <inheritdoc/>
@@ -93,56 +140,145 @@ namespace SmartHopper.Components.AI
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            var builder = AIRequestParameters.Create();
+            // Check if infrastructure is ready
+            _infrastructureReady = IsInfrastructureReady();
 
-            string model = null;
-            if (DA.GetData("Model", ref model) && !string.IsNullOrWhiteSpace(model))
+            if (!_infrastructureReady)
             {
-                builder.WithModel(model.Trim());
-            }
-
-            double temperature = double.NaN;
-            if (DA.GetData("Temperature", ref temperature) && !double.IsNaN(temperature))
-            {
-                builder.WithTemperature(temperature);
-            }
-
-            int maxTokens = 0;
-            if (DA.GetData("Max Tokens", ref maxTokens) && maxTokens > 0)
-            {
-                builder.WithMaxTokens(maxTokens);
-            }
-
-            string extrasJson = null;
-            if (DA.GetData("Extras", ref extrasJson) && !string.IsNullOrWhiteSpace(extrasJson))
-            {
-                try
+                // Check if we've exceeded the retry duration
+                if (_retryStopwatch.Elapsed.TotalSeconds > MaxRetryDurationSeconds)
                 {
-                    var dict = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(extrasJson);
-                    if (dict != null)
+                    // Max retry duration exceeded - show error and stop trying
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        "Plugin infrastructure failed to initialize within 60 seconds. Please restart Rhino and try again.");
+                    DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
+                    return;
+                }
+
+                // Schedule retry only if not already scheduled
+                if (!_retryScheduled)
+                {
+                    _retryScheduled = true;
+                    ScheduleRetry();
+                }
+
+                // Return empty settings while waiting
+                DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
+                return;
+            }
+
+            // Infrastructure is ready - process normally
+            try
+            {
+                var builder = AIRequestParameters.Create();
+
+                string model = null;
+                if (DA.GetData("Model", ref model) && !string.IsNullOrWhiteSpace(model))
+                {
+                    builder.WithModel(model.Trim());
+                }
+
+                double temperature = double.NaN;
+                if (DA.GetData("Temperature", ref temperature) && !double.IsNaN(temperature))
+                {
+                    builder.WithTemperature(temperature);
+                }
+
+                int maxTokens = 0;
+                if (DA.GetData("Max Tokens", ref maxTokens) && maxTokens > 0)
+                {
+                    builder.WithMaxTokens(maxTokens);
+                }
+
+                string extrasJson = null;
+                if (DA.GetData("Extras", ref extrasJson) && !string.IsNullOrWhiteSpace(extrasJson))
+                {
+                    try
                     {
-                        builder.WithExtras(new ReadOnlyDictionary<string, JToken>(dict));
+                        var dict = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(extrasJson);
+                        if (dict != null)
+                        {
+                            builder.WithExtras(new ReadOnlyDictionary<string, JToken>(dict));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Extras JSON is invalid and will be ignored: {ex.Message}");
                     }
                 }
-                catch (Exception ex)
+
+                bool batch = false;
+                if (DA.GetData("Batch", ref batch) && batch)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Extras JSON is invalid and will be ignored: {ex.Message}");
+                    builder.WithBatchTier(true);
                 }
-            }
 
-            bool batch = false;
-            if (DA.GetData("Batch", ref batch) && batch)
+                int timeoutSeconds = 0;
+                if (DA.GetData("Timeout", ref timeoutSeconds) && timeoutSeconds > 0)
+                {
+                    builder.WithTimeout(timeoutSeconds);
+                }
+
+                DA.SetData("Settings", new GH_AIRequestParameters(builder.Build()));
+            }
+            catch (IndexOutOfRangeException ex)
             {
-                builder.WithBatchTier(true);
+                // Fallback for unexpected index errors during initialization
+                Debug.WriteLine($"[AISettingsComponent] Index out of range: {ex.Message}");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    "Unexpected initialization error. Please recompute the component.");
+                DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
             }
-
-            int timeoutSeconds = 0;
-            if (DA.GetData("Timeout", ref timeoutSeconds) && timeoutSeconds > 0)
+            catch (Exception ex)
             {
-                builder.WithTimeout(timeoutSeconds);
+                // Catch any other unexpected errors
+                Debug.WriteLine($"[AISettingsComponent] Unexpected error: {ex.Message}");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    $"Unexpected error assembling AI settings: {ex.Message}");
+                DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
             }
+        }
 
-            DA.SetData("Settings", new GH_AIRequestParameters(builder.Build()));
+        /// <summary>
+        /// Schedules a retry by delaying 2 seconds and then expiring the solution.
+        /// </summary>
+        private void ScheduleRetry()
+        {
+            // Use Task.Delay with cancellation support and explicit scheduler
+            System.Threading.Tasks.Task.Delay(2000, _cancellationTokenSource.Token)
+                .ContinueWith(_ =>
+                {
+                    if (_cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            try
+                            {
+                                // Only expire if the component is still in the document
+                                if (this.OnPingDocument() != null && !this.Locked)
+                                {
+                                    _retryScheduled = false;
+                                    this.ExpireSolution(true);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[AISettingsComponent] Error during solution expiration: {ex.Message}");
+                                _retryScheduled = false;
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[AISettingsComponent] Error during retry scheduling: {ex.Message}");
+                        _retryScheduled = false;
+                    }
+                }, TaskScheduler.Default);
         }
     }
 }

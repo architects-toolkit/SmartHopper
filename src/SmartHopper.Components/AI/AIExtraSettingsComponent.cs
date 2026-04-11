@@ -18,8 +18,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Threading;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
@@ -39,6 +41,12 @@ namespace SmartHopper.Components.AI
     {
         /// <summary>Provider name for which the current params were built.</summary>
         private string _builtForProvider;
+
+        private bool _infrastructureReady = false;
+        private bool _retryScheduled = false;
+        private System.Diagnostics.Stopwatch _retryStopwatch = new System.Diagnostics.Stopwatch();
+        private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private const int MaxRetryDurationSeconds = 60;
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("8872AB8F-A76E-4FBB-96B8-1C3838D2C51B");
@@ -66,6 +74,35 @@ namespace SmartHopper.Components.AI
                 "Generates provider-specific AI settings (service tier, reasoning effort, etc.) as a JSON extras object.\nConnect output to the Extras input of AI Settings component.\nRight-click to select provider.",
                 "SmartHopper", "AI")
         {
+            _retryStopwatch.Start();
+        }
+
+        /// <summary>
+        /// Checks if the plugin infrastructure is ready for processing.
+        /// Readiness means the provider infrastructure has completed initialization,
+        /// regardless of whether any providers were successfully discovered.
+        /// </summary>
+        private bool IsInfrastructureReady()
+        {
+            try
+            {
+                var manager = ProviderManager.Instance;
+                return manager != null && manager.IsInfrastructureReady;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIExtraSettingsComponent] Infrastructure check failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            // Cancel any pending retry operations
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
+            base.RemovedFromDocument(document);
         }
 
         /// <inheritdoc/>
@@ -83,6 +120,33 @@ namespace SmartHopper.Components.AI
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            // Check if infrastructure is ready
+            _infrastructureReady = IsInfrastructureReady();
+
+            if (!_infrastructureReady)
+            {
+                // Check if we've exceeded the retry duration
+                if (_retryStopwatch.Elapsed.TotalSeconds > MaxRetryDurationSeconds)
+                {
+                    // Max retry duration exceeded - show error and stop trying
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        "Plugin infrastructure failed to initialize within 60 seconds. Please restart Rhino and try again.");
+                    DA.SetData("Extras", "{}");
+                    return;
+                }
+
+                // Schedule retry only if not already scheduled
+                if (!_retryScheduled)
+                {
+                    _retryScheduled = true;
+                    ScheduleRetry();
+                }
+
+                // Return empty extras while waiting
+                DA.SetData("Extras", "{}");
+                return;
+            }
+
             var effectiveProvider = this.GetActualAIProviderName();
 
             // Rebuild inputs if provider changed
@@ -182,6 +246,13 @@ namespace SmartHopper.Components.AI
 
         internal void RebuildInputParams(string providerName)
         {
+            // Guard: don't attempt to rebuild if infrastructure isn't ready
+            if (!IsInfrastructureReady())
+            {
+                Debug.WriteLine("[AIExtraSettingsComponent] Skipping RebuildInputParams - infrastructure not ready");
+                return;
+            }
+
             var descriptors = ProviderManager.Instance.GetExtraDescriptors(providerName).ToList();
 
             // Build target param names
@@ -214,6 +285,48 @@ namespace SmartHopper.Components.AI
 
             _builtForProvider = providerName;
             this.Params.OnParametersChanged();
+        }
+
+        /// <summary>
+        /// Schedules a retry by delaying 2 seconds and then expiring the solution.
+        /// </summary>
+        private void ScheduleRetry()
+        {
+            // Use Task.Delay with cancellation support and explicit scheduler
+            System.Threading.Tasks.Task.Delay(2000, _cancellationTokenSource.Token)
+                .ContinueWith(_ =>
+                {
+                    if (_cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            try
+                            {
+                                // Only expire if the component is still in the document
+                                if (this.OnPingDocument() != null && !this.Locked)
+                                {
+                                    _retryScheduled = false;
+                                    this.ExpireSolution(true);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[AIExtraSettingsComponent] Error during solution expiration: {ex.Message}");
+                                _retryScheduled = false;
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[AIExtraSettingsComponent] Error during retry scheduling: {ex.Message}");
+                        _retryScheduled = false;
+                    }
+                }, System.Threading.Tasks.TaskScheduler.Default);
         }
 
         private IGH_Param CreateParamFromDescriptor(AIExtraDescriptor d)
