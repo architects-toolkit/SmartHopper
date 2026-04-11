@@ -797,6 +797,8 @@ namespace SmartHopper.Core.UI.Chat
 
                     // Clear streaming and per-turn state and finish
                     this._dialog.ResponseReceived?.Invoke(this._dialog, lastReturn);
+
+                    // Turn is complete and stable - exit processing state and ready for next user message
                     this._dialog.ExecuteScript("setStatus('Ready'); setProcessing(false);");
                 });
             }
