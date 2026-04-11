@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Threading;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -41,10 +42,10 @@ namespace SmartHopper.Components.AI
     public class AISettingsComponent : GH_Component
     {
         private bool _infrastructureReady = false;
-        private bool _initializationAttempted = false;
         private bool _retryScheduled = false;
-        private const int MaxRetryAttempts = 30; // 30 * 2000ms = 60 seconds max
-        private int _retryCount = 0;
+        private Stopwatch _retryStopwatch = new Stopwatch();
+        private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private const int MaxRetryDurationSeconds = 60;
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("133A3D6E-1DF0-4FD3-92B5-F686C2FD587D");
@@ -63,6 +64,35 @@ namespace SmartHopper.Components.AI
                 "Assembles AI request settings (model, temperature, tokens, extras) to pass to any AI component.",
                 "SmartHopper", "AI")
         {
+            _retryStopwatch.Start();
+        }
+
+        /// <summary>
+        /// Checks if the plugin infrastructure is ready for processing.
+        /// Readiness means the provider infrastructure has completed initialization,
+        /// regardless of whether any providers were successfully discovered.
+        /// </summary>
+        private bool IsInfrastructureReady()
+        {
+            try
+            {
+                var manager = ProviderManager.Instance;
+                return manager != null && manager.IsInfrastructureReady;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AISettingsComponent] Infrastructure check failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            // Cancel any pending retry operations
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
+            base.RemovedFromDocument(document);
         }
 
         /// <summary>
@@ -116,70 +146,36 @@ namespace SmartHopper.Components.AI
         /// <inheritdoc/>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            try
+            // Check if infrastructure is ready
+            _infrastructureReady = IsInfrastructureReady();
+
+            if (!_infrastructureReady)
             {
-                // Check infrastructure readiness
-                if (!_initializationAttempted)
+                // Check if we've exceeded the retry duration
+                if (_retryStopwatch.Elapsed.TotalSeconds > MaxRetryDurationSeconds)
                 {
-                    _initializationAttempted = true;
-                }
-
-                // Re-check infrastructure status on every call until ready
-                if (!_infrastructureReady)
-                {
-                    _infrastructureReady = IsInfrastructureReady();
-                }
-
-                // If not ready, schedule retry and return early without processing
-                if (!_infrastructureReady)
-                {
-                    _retryCount++;
-                    
-                    if (_retryCount > MaxRetryAttempts)
-                    {
-                        // Max retries exceeded - show error and stop trying
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                            "Plugin infrastructure failed to initialize. Please restart Rhino and try again.");
-                        DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
-                        return;
-                    }
-
-                    if (!_retryScheduled)
-                    {
-                        _retryScheduled = true;
-                        Debug.WriteLine($"[AISettingsComponent] Infrastructure not ready, scheduling retry #{_retryCount}");
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, 
-                            "Plugin infrastructure is initializing. Retrying...");
-                        
-                        // Schedule retry with polling delay
-                        System.Threading.Tasks.Task.Delay(2000).ContinueWith(_ =>
-                        {
-                            try
-                            {
-                                Rhino.RhinoApp.InvokeOnUiThread(() =>
-                                {
-                                    _retryScheduled = false;
-
-                                    // Expire solution to trigger another SolveInstance call
-                                    this.ExpireSolution(true);
-                                });
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"[AISettingsComponent] Error during retry scheduling: {ex.Message}");
-                                _retryScheduled = false;
-                            }
-                        });
-                    }
-                    
-                    // Return early - do not process until ready
+                    // Max retry duration exceeded - show error and stop trying
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        "Plugin infrastructure failed to initialize within 60 seconds. Please restart Rhino and try again.");
                     DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
                     return;
                 }
 
-                // Reset retry count once ready
-                _retryCount = 0;
+                // Schedule retry only if not already scheduled
+                if (!_retryScheduled)
+                {
+                    _retryScheduled = true;
+                    ScheduleRetry();
+                }
 
+                // Return empty settings while waiting
+                DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
+                return;
+            }
+
+            // Infrastructure is ready - process normally
+            try
+            {
                 var builder = AIRequestParameters.Create();
 
                 string model = null;
@@ -235,7 +231,7 @@ namespace SmartHopper.Components.AI
             {
                 // Fallback for unexpected index errors during initialization
                 Debug.WriteLine($"[AISettingsComponent] Index out of range: {ex.Message}");
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, 
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                     "Unexpected initialization error. Please recompute the component.");
                 DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
             }
@@ -243,10 +239,52 @@ namespace SmartHopper.Components.AI
             {
                 // Catch any other unexpected errors
                 Debug.WriteLine($"[AISettingsComponent] Unexpected error: {ex.Message}");
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                     $"Unexpected error assembling AI settings: {ex.Message}");
                 DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
             }
+        }
+
+        /// <summary>
+        /// Schedules a retry by delaying 2 seconds and then expiring the solution.
+        /// </summary>
+        private void ScheduleRetry()
+        {
+            // Use Task.Delay with cancellation support and explicit scheduler
+            System.Threading.Tasks.Task.Delay(2000, _cancellationTokenSource.Token)
+                .ContinueWith(_ =>
+                {
+                    if (_cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        Rhino.RhinoApp.InvokeOnUiThread(() =>
+                        {
+                            try
+                            {
+                                // Only expire if the component is still in the document
+                                if (this.OnPingDocument() != null && !this.Locked)
+                                {
+                                    _retryScheduled = false;
+                                    this.ExpireSolution(true);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[AISettingsComponent] Error during solution expiration: {ex.Message}");
+                                _retryScheduled = false;
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[AISettingsComponent] Error during retry scheduling: {ex.Message}");
+                        _retryScheduled = false;
+                    }
+                }, TaskScheduler.Default);
         }
     }
 }

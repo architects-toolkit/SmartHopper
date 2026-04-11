@@ -45,9 +45,10 @@ namespace SmartHopper.Infrastructure.AIProviders
 
         public static ProviderManager Instance => _instance.Value;
 
-        private readonly Dictionary<string, IAIProvider> _providers = new Dictionary<string, IAIProvider>();
-        private readonly Dictionary<string, IAIProviderSettings> _providerSettings = new Dictionary<string, IAIProviderSettings>();
-        private readonly Dictionary<string, Assembly> _providerAssemblies = new Dictionary<string, Assembly>();
+        private readonly ConcurrentDictionary<string, IAIProvider> _providers = new ConcurrentDictionary<string, IAIProvider>();
+        private readonly ConcurrentDictionary<string, IAIProviderSettings> _providerSettings = new ConcurrentDictionary<string, IAIProviderSettings>();
+        private readonly ConcurrentDictionary<string, Assembly> _providerAssemblies = new ConcurrentDictionary<string, Assembly>();
+        private volatile bool _refreshCompleted = false;
         private readonly ConcurrentDictionary<string, bool> _mismatchedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers with hash mismatches
         private readonly ConcurrentDictionary<string, bool> _unavailableProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers where hash check was unavailable (network issues)
         private readonly ConcurrentDictionary<string, bool> _unknownProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers not found in hash manifest (custom/third-party)
@@ -101,12 +102,22 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
 
-            // Discover new providers
-            await this.DiscoverProvidersAsync().ConfigureAwait(false);
+            try
+            {
+                // Discover new providers
+                await this.DiscoverProvidersAsync().ConfigureAwait(false);
 
-            // After discovery, refresh settings for all providers
-            Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
-            SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
+                // After discovery, refresh settings for all providers
+                Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
+                SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
+            }
+            finally
+            {
+                // Mark refresh as completed regardless of provider count or errors
+                // This signals that infrastructure initialization is done
+                this._refreshCompleted = true;
+                Debug.WriteLine("[ProviderManager] Provider refresh completed (infrastructure ready)");
+            }
         }
 
         /// <summary>
