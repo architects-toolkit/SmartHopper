@@ -470,6 +470,15 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Gets the count of registered providers.
+        /// </summary>
+        /// <returns>The number of providers currently registered.</returns>
+        public int GetProviderCount()
+        {
+            return this._providers.Count;
+        }
+
+        /// <summary>
         /// Gets a provider by name.
         /// </summary>
         /// <param name="providerName">Name of the provider to get.</param>
