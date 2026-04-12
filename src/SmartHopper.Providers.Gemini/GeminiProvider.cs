@@ -606,10 +606,10 @@ namespace SmartHopper.Providers.Gemini
 
         private void ApplySafetySettings(JObject jObject, AIRequestCall request)
         {
-            var safetyLevel = request.Parameters?.Extras != null && 
-                              request.Parameters.Extras.TryGetValue("safety_level", out var safetyValue) && 
-                              safetyValue != null 
-                              ? safetyValue.ToString() 
+            var safetyLevel = request.Parameters?.Extras != null &&
+                              request.Parameters.Extras.TryGetValue("safety_level", out var safetyValue) &&
+                              safetyValue != null
+                              ? safetyValue.ToString()
                               : this.GetSetting<string>("SafetyLevel");
 
             if (string.IsNullOrWhiteSpace(safetyLevel))
