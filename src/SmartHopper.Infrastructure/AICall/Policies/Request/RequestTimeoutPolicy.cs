@@ -28,8 +28,8 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
     /// </summary>
     public sealed class RequestTimeoutPolicy : IRequestPolicy
     {
-        // Default and bounds (seconds)
-        private const int DefaultTimeout = 120;
+        // Default and bounds (seconds). 300s is a safe default for long-running AI calls.
+        private const int DefaultTimeout = 300;
         private const int MinTimeout = 1;
         private const int MaxTimeout = 600; // 10 minutes maximum guard
 
@@ -41,7 +41,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 return Task.CompletedTask;
             }
 
-            int original = rq.TimeoutSeconds;
+            int original = rq.TimeoutSeconds ?? 0;
             int normalized = original;
 
             if (normalized <= 0)

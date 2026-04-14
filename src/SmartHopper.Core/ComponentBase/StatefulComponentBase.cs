@@ -197,6 +197,7 @@ namespace SmartHopper.Core.ComponentBase
                         Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition");
                         this.ResetAsyncState();
                         this.ResetProgress();
+                        this.OnEnteringProcessingState();
 
                         // Safety net for boolean toggle scenarios
                         this.ScheduleProcessingSafetyCheck();
@@ -205,6 +206,7 @@ namespace SmartHopper.Core.ComponentBase
                     break;
 
                 case ComponentState.NeedsRun:
+                    this.OnEnteringNeedsRunState();
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.OnDisplayExpired(true);
@@ -462,6 +464,16 @@ namespace SmartHopper.Core.ComponentBase
             // If other inputs changed
             if (changedInputs.Count > 0)
             {
+                // Special case: AI provider changed - always force to NeedsRun
+                // regardless of Run parameter value, so user explicitly triggers recalculation
+                if (changedInputs.Contains("AIProvider"))
+                {
+                    Debug.WriteLine($"[{this.GetType().Name}] AI Provider changed, forcing transition to NeedsRun");
+                    this.StateManager.CancelDebounce();
+                    this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
+                    return;
+                }
+
                 if (!this.run)
                 {
                     Debug.WriteLine($"[{this.GetType().Name}] Inputs changed, starting debounce to NeedsRun");
@@ -476,7 +488,7 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Finalizes processing by committing hashes and transitioning to Completed.
+        /// Finalizes processing by committing hashes and transitioning to Completed or Error.
         /// </summary>
         protected override void OnWorkerCompleted()
         {
@@ -486,8 +498,15 @@ namespace SmartHopper.Core.ComponentBase
             // Cancel any pending debounce
             this.StateManager.CancelDebounce();
 
-            // Transition to Completed
-            this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
+            // If any errors were recorded during execution, transition to Error instead of Completed
+            if (this.RuntimeMessageLevel == GH_RuntimeMessageLevel.Error)
+            {
+                this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
+            }
+            else
+            {
+                this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
+            }
 
             base.OnWorkerCompleted();
             Debug.WriteLine("[StatefulComponentBase] Worker completed, expiring solution");
@@ -513,7 +532,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Completed state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateCompleted(IGH_DataAccess DA)
+        protected virtual void OnStateCompleted(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted");
 
@@ -530,7 +549,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Waiting state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateWaiting(IGH_DataAccess DA)
+        protected virtual void OnStateWaiting(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateWaiting");
 
@@ -546,7 +565,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the NeedsRun state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateNeedsRun(IGH_DataAccess DA)
+        protected virtual void OnStateNeedsRun(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateNeedsRun");
 
@@ -569,7 +588,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Processing state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateProcessing(IGH_DataAccess DA)
+        protected virtual void OnStateProcessing(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateProcessing");
 
@@ -578,10 +597,27 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
+        /// Called when the component transitions into Processing state from a different state.
+        /// Use this to reset component-specific state that should only be cleared on fresh Processing entry,
+        /// not when the component is already in Processing state.
+        /// </summary>
+        protected virtual void OnEnteringProcessingState()
+        {
+        }
+
+        /// <summary>
+        /// Called when the component transitions into NeedsRun state.
+        /// Use this to clear stale data from a previous run so it does not persist into the next run.
+        /// </summary>
+        protected virtual void OnEnteringNeedsRunState()
+        {
+        }
+
+        /// <summary>
         /// Handles the Cancelled state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateCancelled(IGH_DataAccess DA)
+        protected virtual void OnStateCancelled(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateCancelled");
 
@@ -605,7 +641,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Error state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateError(IGH_DataAccess DA)
+        protected virtual void OnStateError(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateError");
             this.ApplyPersistentRuntimeMessages();
@@ -702,7 +738,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Applies stored runtime messages to the component.
         /// </summary>
-        private void ApplyPersistentRuntimeMessages()
+        protected void ApplyPersistentRuntimeMessages()
         {
             Debug.WriteLine($"[{this.GetType().Name}] Applying {this.runtimeMessages.Count} runtime messages");
             foreach (var (level, message) in this.runtimeMessages.Values)

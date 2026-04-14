@@ -680,7 +680,14 @@ namespace SmartHopper.Providers.DeepSeek
             // Create a new metrics instance
             var metrics = new AIMetrics();
             metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
-            metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
+
+            var totalPromptTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0;
+
+            // Extract KV cache hit tokens from nested prompt_tokens_details object
+            var promptTokensDetails = usage?["prompt_tokens_details"] as JObject;
+            metrics.InputTokensCached = promptTokensDetails?["cached_tokens"]?.Value<int>() ?? 0;
+            metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
+
             metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
             metrics.OutputTokensReasoning = reasoningTokens;
             return metrics;
@@ -957,7 +964,8 @@ namespace SmartHopper.Providers.DeepSeek
                 }
 
                 // Determine idle timeout from request (fallback to 60s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                var timeoutSeconds = request.TimeoutSeconds ?? 0;
+                var idleTimeout = TimeSpan.FromSeconds(timeoutSeconds > 0 ? timeoutSeconds : 60);
                 await foreach (var data in this.ReadSseDataAsync(
                     response,
                     idleTimeout,

@@ -84,9 +84,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
         /// <summary>
         /// Per-request timeout in seconds applied to provider HTTP calls and tool execution wrappers.
-        /// Values <= 0 mean "use default". Normalized by RequestTimeoutPolicy.
+        /// Null or values <= 0 mean "use default". Normalized by RequestTimeoutPolicy.
         /// </summary>
-        public virtual int TimeoutSeconds { get; set; } = 120;
+        public virtual int? TimeoutSeconds { get; set; }
 
         /// <summary>
         /// When true, skips AIMetrics.IsValid() checks for this request's results.

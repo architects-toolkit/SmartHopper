@@ -236,8 +236,37 @@ namespace SmartHopper.Providers.MistralAI
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
-                // Mistral does not (yet) support vision in the same way; fallback to prompt as content
-                messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+                // Vision input: send image using OpenAI-compatible image_url content block
+                string imageUrlValue = null;
+                if (imageInteraction.ImageUrl != null)
+                {
+                    imageUrlValue = imageInteraction.ImageUrl.ToString();
+                }
+                else if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                {
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    imageUrlValue = $"data:{mimeType};base64,{imageInteraction.ImageData}";
+                }
+
+                if (imageUrlValue != null)
+                {
+                    messageObj["content"] = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "image_url",
+                            ["image_url"] = new JObject
+                            {
+                                ["url"] = imageUrlValue,
+                            },
+                        },
+                    };
+                }
+                else
+                {
+                    // No image data; fall back to prompt text
+                    messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+                }
             }
             else
             {
@@ -353,6 +382,17 @@ namespace SmartHopper.Providers.MistralAI
 
             try
             {
+                // Handle provider error responses
+                if (response["error"] is JObject errorObj)
+                {
+                    var msg = errorObj["message"]?.ToString()
+                              ?? errorObj["type"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[MistralAI] Decode: provider error in response body: {msg}");
+                    interactions.Add(new AIInteractionError { Content = msg });
+                    return interactions;
+                }
+
                 var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;
@@ -642,7 +682,8 @@ namespace SmartHopper.Providers.MistralAI
                 var toolCallsEmitted = false;
 
                 // Determine idle timeout from request (fallback to 60s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                var timeoutSeconds = request.TimeoutSeconds ?? 0;
+                var idleTimeout = TimeSpan.FromSeconds(timeoutSeconds > 0 ? timeoutSeconds : 60);
                 await foreach (var data in this.ReadSseDataAsync(
                     response,
                     idleTimeout,

@@ -29,6 +29,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     public class AIInteractionImage : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
         /// <summary>
+        /// Gets or sets the mime type of the image.
+        /// </summary>
+        public string MimeType { get; set; }
+
+        /// <summary>
         /// Gets or sets the URL of the generated image.
         /// </summary>
         public Uri ImageUrl { get; set; }
