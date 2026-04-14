@@ -139,7 +139,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.Outputs.TryGetValue("Result", out var outTree) && outTree != null)
+                    if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
                         this._resultTree = outTree;
 
                     // Expected: A broadcasts to ALL paths (mixed depths trigger Rule 3)

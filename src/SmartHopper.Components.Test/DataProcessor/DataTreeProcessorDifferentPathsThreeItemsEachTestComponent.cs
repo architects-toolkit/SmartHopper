@@ -159,7 +159,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.Outputs.TryGetValue("Result", out var outTree) && outTree != null)
+                    if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
                         this._resultTree = outTree;
                     else
                         this._resultTree = new GH_Structure<GH_Integer>();

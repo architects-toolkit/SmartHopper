@@ -728,9 +728,8 @@ namespace SmartHopper.Providers.OpenRouter
                     yield return initial;
                 }
 
-                // Determine idle timeout from request (fallback to 60s if invalid)
-                var timeoutSeconds = request.TimeoutSeconds ?? 0;
-                var idleTimeout = TimeSpan.FromSeconds(timeoutSeconds > 0 ? timeoutSeconds : 60);
+                // Determine idle timeout from request (fallback to 600s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds((double)(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 600));
                 await foreach (var data in this.ReadSseDataAsync(
                     response,
                     idleTimeout,
