@@ -35,13 +35,18 @@ namespace SmartHopper.Components.Test.Misc
     public class TestStatefulPrimeCalculatorComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("C2C612B0-2C57-47CE-B9FE-E10621F18935");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public TestStatefulPrimeCalculatorComponent()
-            : base("Test Stateful Prime Calculator", "TEST-STATEFUL-PRIME",
-                  "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
-                  "SmartHopper", "Testing Base")
+            : base(
+                "Test Stateful Prime Calculator",
+                "TEST-STATEFUL-PRIME",
+                "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
+                "SmartHopper",
+                "Testing Base")
         {
         }
 
@@ -57,7 +62,7 @@ namespace SmartHopper.Components.Test.Misc
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new TestStatefulPrimeCalculatorWorker(this, AddRuntimeMessage);
+            return new TestStatefulPrimeCalculatorWorker(this, this.AddRuntimeMessage);
         }
 
         private sealed class TestStatefulPrimeCalculatorWorker : AsyncWorkerBase
@@ -117,7 +122,7 @@ namespace SmartHopper.Components.Test.Misc
                     // Add small delay to prevent UI freeze
                     if (count % 100 == 0)
                     {
-                        await Task.Delay(1, token);
+                        await Task.Delay(1, token).ConfigureAwait(false);
                     }
                 }
 

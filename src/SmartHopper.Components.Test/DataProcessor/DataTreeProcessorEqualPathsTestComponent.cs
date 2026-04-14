@@ -36,22 +36,24 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorEqualPathsTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("B0C2B1B7-3A6C-46A5-9E52-9F9E4F6B7C11");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public DataTreeProcessorEqualPathsTestComponent()
-            : base("Test DataTreeProcessor (Equal Paths)", "TEST-DTP-EQ",
-                  "Tests DataTreeProcessor with two input trees that share equal branch paths (one item each).",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test DataTreeProcessor (Equal Paths)",
+                "TEST-DTP-EQ",
+                "Tests DataTreeProcessor with two input trees that share equal branch paths (one item each).",
+                "SmartHopper",
+                "Testing Data")
         {
             // We want the component to run when Run? toggles on, even if inputs did not change (they are internal)
             this.RunOnlyOnInputChanges = false;
         }
 
-        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
-        {
-            // No external inputs; this component uses internal hardcoded data for testing
-        }
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager) { }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
@@ -62,7 +64,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -75,7 +77,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorEqualPathsTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -144,50 +146,50 @@ namespace SmartHopper.Components.Test.DataProcessor
                         token: token).ConfigureAwait(false);
 
                     // Extract result tree
-                    if (result != null && result.TryGetValue("Sum", out var sumTree) && sumTree != null)
+                    if (result != null && result.Outputs.TryGetValue("Sum", out var sumTree) && sumTree != null)
                     {
-                        _resultTree = sumTree;
+                        this._resultTree = sumTree;
                     }
                     else
                     {
-                        _resultTree = new GH_Structure<GH_Integer>();
+                        this._resultTree = new GH_Structure<GH_Integer>();
                     }
 
                     // Validate expected output: path {0} with one item = 7
                     int expected = 7;
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 1 &&
-                        _resultTree.get_Branch(path) != null &&
-                        _resultTree.get_Branch(path).Count == 1 &&
-                        _resultTree.get_Branch(path)[0] is GH_Integer gi && gi.Value == expected;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 1 &&
+                        this._resultTree.get_Branch(path) != null &&
+                        this._resultTree.get_Branch(path).Count == 1 &&
+                        this._resultTree.get_Branch(path)[0] is GH_Integer gi && gi.Value == expected;
 
-                    _success = new GH_Boolean(ok);
+                    this._success = new GH_Boolean(ok);
 
-                    _messages.Add(new GH_String($"Inputs A=2, B=5 at path {path}. Expected sum {expected}."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._messages.Add(new GH_String($"Inputs A=2, B=5 at path {path}. Expected sum {expected}."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String("Operation was cancelled."));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String("Operation was cancelled."));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
 
-                message = _success.Value ? "Processed equal-path trees successfully" : "Processing failed";
+                message = this._success.Value ? "Processed equal-path trees successfully" : "Processing failed";
             }
         }
     }

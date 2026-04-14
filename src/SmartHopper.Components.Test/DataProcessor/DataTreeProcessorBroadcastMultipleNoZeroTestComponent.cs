@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorBroadcastMultipleNoZeroTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("11287A68-04D7-46F4-99DE-C5B0C45F0732");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public DataTreeProcessorBroadcastMultipleNoZeroTestComponent()
-            : base("Test Broadcast (Multiple No {0})", "TEST-BC-MULTI-NO0",
-                  "Tests flat {0} broadcasting to multiple paths {1},{2} (no {0} in B)",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test Broadcast (Multiple No {0}",
+                "TEST-BC-MULTI-NO0",
+                "Tests flat {0} broadcasting to multiple paths {1},{2} (no {0} in B)",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -58,7 +63,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorBroadcastMultipleNoZeroTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -132,38 +137,38 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
-                        _resultTree = outTree;
+                    if (result != null && result.Outputs.TryGetValue("Result", out var outTree) && outTree != null)
+                        this._resultTree = outTree;
 
                     // Expected: A broadcasts to both {1} and {2}
                     // {1}: 100 + 1 = 101
                     // {2}: 100 + 2 = 102
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 2 &&
-                        _resultTree.get_Branch(path1) != null && _resultTree.get_Branch(path1).Count == 1 &&
-                        _resultTree.get_Branch(path1)[0] is GH_Integer v1 && v1.Value == 101 &&
-                        _resultTree.get_Branch(path2) != null && _resultTree.get_Branch(path2).Count == 1 &&
-                        _resultTree.get_Branch(path2)[0] is GH_Integer v2 && v2.Value == 102;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 2 &&
+                        this._resultTree.get_Branch(path1) != null && this._resultTree.get_Branch(path1).Count == 1 &&
+                        this._resultTree.get_Branch(path1)[0] is GH_Integer v1 && v1.Value == 101 &&
+                        this._resultTree.get_Branch(path2) != null && this._resultTree.get_Branch(path2).Count == 1 &&
+                        this._resultTree.get_Branch(path2)[0] is GH_Integer v2 && v2.Value == 102;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Case 4: A={{0}} [100], B={{1}} [1], {{2}} [2]. Expected: A broadcasts to ALL paths (Rule 2)."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"Case 4: A={{0}} [100], B={{1}} [1], {{2}} [2]. Expected: A broadcasts to ALL paths (Rule 2)."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Broadcast to multiple paths (no {0}) test passed" : "Test failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Broadcast to multiple paths (no {0}) test passed" : "Test failed";
             }
         }
     }

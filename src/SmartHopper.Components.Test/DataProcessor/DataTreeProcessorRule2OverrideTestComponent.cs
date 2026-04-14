@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorRule2OverrideTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("FE2E0986-FFAF-4A64-9F97-0FD3F4E571D8");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public DataTreeProcessorRule2OverrideTestComponent()
-            : base("Test Rule 2 Override", "TEST-BC-RULE2-OR",
-                  "Tests Rule 2 overriding Rule 4 with multiple top-level paths",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test Rule 2 Override",
+                "TEST-BC-RULE2-OR",
+                "Tests Rule 2 overriding Rule 4 with multiple top-level paths",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -58,7 +63,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorRule2OverrideTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -133,41 +138,41 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
-                        _resultTree = outTree;
+                    if (result != null && result.Outputs.TryGetValue("Result", out var outTree) && outTree != null)
+                        this._resultTree = outTree;
 
                     // Expected: A broadcasts to ALL paths despite {0} match (Rule 2 overrides Rule 4)
                     // {0}: 888 / 1 = 888
                     // {1}: 888 / 2 = 444
                     // {2}: 888 / 3 = 296
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 3 &&
-                        _resultTree.get_Branch(path0) != null && _resultTree.get_Branch(path0).Count == 1 &&
-                        _resultTree.get_Branch(path0)[0] is GH_Integer v0 && v0.Value == 888 &&
-                        _resultTree.get_Branch(path1) != null && _resultTree.get_Branch(path1).Count == 1 &&
-                        _resultTree.get_Branch(path1)[0] is GH_Integer v1 && v1.Value == 444 &&
-                        _resultTree.get_Branch(path2) != null && _resultTree.get_Branch(path2).Count == 1 &&
-                        _resultTree.get_Branch(path2)[0] is GH_Integer v2 && v2.Value == 296;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 3 &&
+                        this._resultTree.get_Branch(path0) != null && this._resultTree.get_Branch(path0).Count == 1 &&
+                        this._resultTree.get_Branch(path0)[0] is GH_Integer v0 && v0.Value == 888 &&
+                        this._resultTree.get_Branch(path1) != null && this._resultTree.get_Branch(path1).Count == 1 &&
+                        this._resultTree.get_Branch(path1)[0] is GH_Integer v1 && v1.Value == 444 &&
+                        this._resultTree.get_Branch(path2) != null && this._resultTree.get_Branch(path2).Count == 1 &&
+                        this._resultTree.get_Branch(path2)[0] is GH_Integer v2 && v2.Value == 296;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Case 11: A={{0}} [888], B={{0}} [1], {{1}} [2], {{2}} [3]. Expected: A broadcasts to ALL (Rule 2 overrides Rule 4)."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"Case 11: A={{0}} [888], B={{0}} [1], {{1}} [2], {{2}} [3]. Expected: A broadcasts to ALL (Rule 2 overrides Rule 4)."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Rule 2 override test passed" : "Test failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Rule 2 override test passed" : "Test failed";
             }
         }
     }
