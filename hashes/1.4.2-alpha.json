@@ -1,0 +1,26 @@
+{
+  "providers": {
+    "SmartHopper.Providers.DeepSeek.dll-net7.0-windows": "2e2f3cc3e04560a79a1b0eae8e99dc86ec93f7dcc969fc0b62045c0cf93d9b46",
+    "SmartHopper.Providers.MistralAI.dll-net7.0-windows": "5b6ff6ccfb45bb22794f7a22b227c77b2297744fb99c10bd8b34168271f906cc",
+    "SmartHopper.Providers.Anthropic.dll-net7.0": "60ccf8f9fb55565ea75bb2b6ee93a9944340425905fb5711686edab2de0de906",
+    "SmartHopper.Providers.Anthropic.dll-net7.0-windows": "6f89fcd847f00853ffeee5bd969b9c5b5cb0f8a464efdc30e57dde2f1c19574a",
+    "SmartHopper.Providers.MistralAI.dll-net7.0": "47d29112f15ff231478fa765f008279ee8e4a33621483bc9809bf9bcc056982b",
+    "SmartHopper.Providers.OpenRouter.dll-net7.0": "dab141487559563f77a1dee1621d392916d59a40dba8facdf13f8d401f9edc6b",
+    "SmartHopper.Providers.DeepSeek.dll-net7.0": "9116e88fe35548849dd90b0309b410a91c7aa95bbf4e9379ef3cb31a1f2de31a",
+    "SmartHopper.Providers.OpenAI.dll-net7.0": "11d86b819bd2efa5de5f68f80f48ade8856e6d2da61873e3b9712a969e360552",
+    "SmartHopper.Providers.OpenRouter.dll-net7.0-windows": "56e8dd4b5cbaa1f02ab09f51e8ce0f1a76b3138330b95c5f8b5d1408aeb4fba2",
+    "SmartHopper.Providers.OpenAI.dll-net7.0-windows": "c742dfa60b29aff9d33cb82e3b9d4d5fad33edd36323016dd828722c351f8091"
+  },
+  "algorithm": "SHA-256",
+  "metadata": {
+    "platforms": [
+      "net7.0-windows",
+      "net7.0"
+    ],
+    "commitSha": "bea0f4759fe4a3f386381a3a81db49357665e14b",
+    "repository": "architects-toolkit/SmartHopper",
+    "buildNumber": "39"
+  },
+  "version": "1.4.2-alpha",
+  "generated": "2026-03-14T09:43:52Z"
+}
