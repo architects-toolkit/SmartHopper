@@ -197,7 +197,6 @@ namespace SmartHopper.Core.ComponentBase
                         Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition");
                         this.ResetAsyncState();
                         this.ResetProgress();
-                        this.OnEnteringProcessingState();
 
                         // Safety net for boolean toggle scenarios
                         this.ScheduleProcessingSafetyCheck();
@@ -206,7 +205,6 @@ namespace SmartHopper.Core.ComponentBase
                     break;
 
                 case ComponentState.NeedsRun:
-                    this.OnEnteringNeedsRunState();
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.OnDisplayExpired(true);
@@ -594,23 +592,6 @@ namespace SmartHopper.Core.ComponentBase
 
             // Delegate to AsyncComponentBase
             base.SolveInstance(DA);
-        }
-
-        /// <summary>
-        /// Called when the component transitions into Processing state from a different state.
-        /// Use this to reset component-specific state that should only be cleared on fresh Processing entry,
-        /// not when the component is already in Processing state.
-        /// </summary>
-        protected virtual void OnEnteringProcessingState()
-        {
-        }
-
-        /// <summary>
-        /// Called when the component transitions into NeedsRun state.
-        /// Use this to clear stale data from a previous run so it does not persist into the next run.
-        /// </summary>
-        protected virtual void OnEnteringNeedsRunState()
-        {
         }
 
         /// <summary>
