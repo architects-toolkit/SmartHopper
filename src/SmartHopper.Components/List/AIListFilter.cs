@@ -149,7 +149,7 @@ namespace SmartHopper.Components.List
                         async (branches) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
-                            return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
+                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
@@ -162,7 +162,7 @@ namespace SmartHopper.Components.List
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent, CancellationToken cancellationToken)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent)
             {
                 /*
                  * Inputs will be available as a dictionary

@@ -741,19 +741,9 @@ namespace SmartHopper.Infrastructure.AIProviders
                     httpClient.DefaultRequestHeaders.Remove("x-api-key");
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
                 }
-                else if (auth == "x-goog-api-key")
-                {
-                    if (string.IsNullOrWhiteSpace(apiKey))
-                    {
-                        throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
-                    }
-
-                    httpClient.DefaultRequestHeaders.Remove("x-goog-api-key");
-                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-goog-api-key", apiKey);
-                }
                 else
                 {
-                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key', 'x-goog-api-key'.");
+                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key'.");
                 }
 
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
