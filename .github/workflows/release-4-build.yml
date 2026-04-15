@@ -442,6 +442,7 @@ jobs:
       with:
         pr-number: ${{ steps.hash-pr.outputs.hash_pr_number }}
         token: ${{ secrets.GITHUB_TOKEN }}
+        version: ${{ needs.prep.outputs.version }}
 
     - name: Auto-merge Hash PR
       if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''

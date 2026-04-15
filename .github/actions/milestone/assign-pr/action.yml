@@ -8,6 +8,10 @@ inputs:
   token:
     description: 'GitHub token with issues:write and pull-requests:write permissions'
     required: true
+  version:
+    description: 'Version to use for milestone assignment (if not provided, reads from Solution.props)'
+    required: false
+    default: ''
   working-directory:
     description: 'Directory containing Solution.props (defaults to repository root)'
     required: false
@@ -28,26 +32,33 @@ runs:
           const fs = require('fs');
           const path = require('path');
           
-          const workingDir = '${{ inputs.working-directory }}';
-          const solutionPropsPath = path.join(workingDir, 'Solution.props');
+          let fullVersion = '${{ inputs.version }}';
           
-          if (!fs.existsSync(solutionPropsPath)) {
-            console.log('Solution.props file not found at:', solutionPropsPath);
-            return;
+          // If version not provided as input, read from Solution.props
+          if (!fullVersion) {
+            const workingDir = '${{ inputs.working-directory }}';
+            const solutionPropsPath = path.join(workingDir, 'Solution.props');
+            
+            if (!fs.existsSync(solutionPropsPath)) {
+              console.log('Solution.props file not found at:', solutionPropsPath);
+              return;
+            }
+            
+            const content = fs.readFileSync(solutionPropsPath, 'utf8');
+            console.log('Solution.props content:', content);
+            
+            // Extract version from Solution.props
+            const versionMatch = content.match(/<SolutionVersion>(.*?)<\/SolutionVersion>/);
+            if (!versionMatch) {
+              console.log('Could not find SolutionVersion in Solution.props');
+              return;
+            }
+            
+            fullVersion = versionMatch[1];
+            console.log('Found full version from Solution.props:', fullVersion);
+          } else {
+            console.log('Using provided version:', fullVersion);
           }
-          
-          const content = fs.readFileSync(solutionPropsPath, 'utf8');
-          console.log('Solution.props content:', content);
-          
-          // Extract version from Solution.props
-          const versionMatch = content.match(/<SolutionVersion>(.*?)<\/SolutionVersion>/);
-          if (!versionMatch) {
-            console.log('Could not find SolutionVersion in Solution.props');
-            return;
-          }
-          
-          const fullVersion = versionMatch[1];
-          console.log('Found full version:', fullVersion);
           
           // Parse and process version
           // - Build numbers (e.g., ".250720") are removed because they are not relevant for milestone assignment.
