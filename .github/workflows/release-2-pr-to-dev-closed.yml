@@ -1,9 +1,10 @@
 name: 🏁 2 PR Release to Main from Dev
 
-# Description: This workflow automatically creates a PR to merge a release branch into main. When the release/* branch is merged to dev.
+# Description: This workflow automatically creates a PR to merge a release branch into main (or main-X.Y.Z for stabilization paths).
+# When the release/* branch is merged to dev or dev-X.Y.Z.
 #
 # Triggers:
-# - Automatically when a PR to dev is closed
+# - Automatically when a PR to dev or dev-* is closed
 #
 # Permissions:
 # - contents:write - Required to create GitHub releases
@@ -15,6 +16,7 @@ on:
     types: [ closed ]
     branches:
       - dev
+      - 'dev-*'
   workflow_dispatch:
     inputs:
       pr-title:
@@ -37,15 +39,24 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         id: create-pr-event
         run: |
+          DEV_BRANCH="${{ github.event.pull_request.base.ref }}"
+          # If merging into dev-X.Y.Z, target main-X.Y.Z; otherwise target main
+          if [[ "$DEV_BRANCH" == dev-* ]]; then
+            SUFFIX="${DEV_BRANCH#dev-}"
+            TARGET_BRANCH="main-${SUFFIX}"
+          else
+            TARGET_BRANCH="main"
+          fi
+          MAIN_HEAD="$DEV_BRANCH"
           gh pr create \
             --repo ${{ github.repository }} \
-            --base main \
-            --head dev \
+            --base "$TARGET_BRANCH" \
+            --head "$MAIN_HEAD" \
             --title "${{ github.event.pull_request.head.ref }}" \
             --body "${{ github.event.pull_request.body }}"
           
           # Capture PR number
-          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
+          PR_NUMBER=$(gh pr list --base "$TARGET_BRANCH" --head "$MAIN_HEAD" --json number --jq '.[0].number')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -68,7 +79,7 @@ jobs:
             --title "${{ github.event.inputs['pr-title'] }}" \
             --body "${{ github.event.inputs['pr-body'] }}"
           
-          # Capture PR number
+          # Capture PR number (manual dispatch always targets main)
           PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:

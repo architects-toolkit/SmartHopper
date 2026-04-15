@@ -16,12 +16,11 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
-using Xunit;
-
 namespace SmartHopper.Core.Grasshopper.Tests.Utils
 {
+    using System;
+    using SmartHopper.Core.Grasshopper.Utils.Internal;
+    using Xunit;
     /// <summary>
     /// Unit tests for CSharpIdentifierHelper functionality.
     /// Verifies sanitization and unsanitization work correctly for C# identifiers.
@@ -84,7 +83,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils
         public void SanitizeIdentifier_NullOrWhitespace_ShouldReturnAsIs()
         {
             Assert.Null(CSharpIdentifierHelper.SanitizeIdentifier(null));
-            Assert.Equal("", CSharpIdentifierHelper.SanitizeIdentifier(""));
+            Assert.Equal(string.Empty, CSharpIdentifierHelper.SanitizeIdentifier(string.Empty));
             Assert.Equal("   ", CSharpIdentifierHelper.SanitizeIdentifier("   "));
         }
 
@@ -118,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils
         public void UnsanitizeIdentifier_NullOrWhitespace_ShouldReturnAsIs()
         {
             Assert.Null(CSharpIdentifierHelper.UnsanitizeIdentifier(null));
-            Assert.Equal("", CSharpIdentifierHelper.UnsanitizeIdentifier(""));
+            Assert.Equal(string.Empty, CSharpIdentifierHelper.UnsanitizeIdentifier(string.Empty));
             Assert.Equal("   ", CSharpIdentifierHelper.UnsanitizeIdentifier("   "));
         }
 
@@ -163,7 +162,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils
 
             // Edge cases
             Assert.False(CSharpIdentifierHelper.IsSanitized(null));
-            Assert.False(CSharpIdentifierHelper.IsSanitized(""));
+            Assert.False(CSharpIdentifierHelper.IsSanitized(string.Empty));
             Assert.False(CSharpIdentifierHelper.IsSanitized("@"));
             Assert.False(CSharpIdentifierHelper.IsSanitized("@   "));
         }

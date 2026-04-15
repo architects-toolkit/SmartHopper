@@ -45,9 +45,10 @@ namespace SmartHopper.Infrastructure.AIProviders
 
         public static ProviderManager Instance => _instance.Value;
 
-        private readonly Dictionary<string, IAIProvider> _providers = new Dictionary<string, IAIProvider>();
-        private readonly Dictionary<string, IAIProviderSettings> _providerSettings = new Dictionary<string, IAIProviderSettings>();
-        private readonly Dictionary<string, Assembly> _providerAssemblies = new Dictionary<string, Assembly>();
+        private readonly ConcurrentDictionary<string, IAIProvider> _providers = new ConcurrentDictionary<string, IAIProvider>();
+        private readonly ConcurrentDictionary<string, IAIProviderSettings> _providerSettings = new ConcurrentDictionary<string, IAIProviderSettings>();
+        private readonly ConcurrentDictionary<string, Assembly> _providerAssemblies = new ConcurrentDictionary<string, Assembly>();
+        private volatile bool _refreshCompleted = false;
         private readonly ConcurrentDictionary<string, bool> _mismatchedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers with hash mismatches
         private readonly ConcurrentDictionary<string, bool> _unavailableProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers where hash check was unavailable (network issues)
         private readonly ConcurrentDictionary<string, bool> _unknownProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers not found in hash manifest (custom/third-party)
@@ -101,12 +102,37 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
 
-            // Discover new providers
-            await this.DiscoverProvidersAsync().ConfigureAwait(false);
+            try
+            {
+                // Discover new providers
+                await this.DiscoverProvidersAsync().ConfigureAwait(false);
 
-            // After discovery, refresh settings for all providers
-            Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
-            SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
+                // After discovery, refresh settings for all providers
+                Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
+                SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
+            }
+            finally
+            {
+                // Mark refresh as completed regardless of provider count or errors
+                // This signals that infrastructure initialization is done
+                this._refreshCompleted = true;
+                Debug.WriteLine("[ProviderManager] Provider refresh completed (infrastructure ready)");
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the provider infrastructure has completed initialization.
+        /// This flag is set to true after RefreshProvidersAsync completes, regardless of provider count.
+        /// </summary>
+        public bool IsInfrastructureReady => this._refreshCompleted;
+
+        /// <summary>
+        /// Gets the count of registered providers.
+        /// </summary>
+        /// <returns>The number of providers currently registered.</returns>
+        public int GetProviderCount()
+        {
+            return this._providers.Count;
         }
 
         /// <summary>
@@ -167,10 +193,10 @@ namespace SmartHopper.Infrastructure.AIProviders
                     catch (CryptographicException ex)
                     {
                         Debug.WriteLine($"Authenticode signature verification failed for {assemblyPath}: {ex.Message}");
-                        await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                        await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
                         {
                             StyledMessageDialog.ShowError($"Authenticode signature verification failed for provider '{Path.GetFileName(assemblyPath)}'. Please replace it with a file downloaded from official SmartHopper sources.", "SmartHopper");
-                        }))).ConfigureAwait(false);
+                        })).ConfigureAwait(false);
                         return;
                     }
                 }
@@ -206,7 +232,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 effectiveMode == ProviderIntegrityCheckMode.Hard)
                             {
                                 // Strict/Hard mode: Show error and prevent loading
-                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
                                 {
                                     StyledMessageDialog.ShowError(
                                         $"Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
@@ -215,10 +241,9 @@ namespace SmartHopper.Infrastructure.AIProviders
                                         $"Platform: {platform}\n" +
                                         $"Expected: {hashResult.PublicHash}\n" +
                                         $"Actual: {hashResult.LocalHash}\n\n" +
-                                        $"Please re-download the provider from official SmartHopper sources.",
-                                        "Provider Integrity Check Failed - SmartHopper"
-                                    );
-                                }))).ConfigureAwait(false);
+                                        "Please re-download the provider from official SmartHopper sources.",
+                                        "Provider Integrity Check Failed - SmartHopper");
+                                })).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification and will not be loaded");
@@ -230,7 +255,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 // Soft mode: Show warning and continue loading
                                 this._mismatchedProviders[mmAsmName] = true;
 
-                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
                                 {
                                     StyledMessageDialog.ShowWarning(
                                         $"WARNING: Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification.\n\n" +
@@ -239,11 +264,10 @@ namespace SmartHopper.Infrastructure.AIProviders
                                         $"Platform: {platform}\n" +
                                         $"Expected: {hashResult.PublicHash}\n" +
                                         $"Actual: {hashResult.LocalHash}\n\n" +
-                                        $"The provider has been loaded but will show a warning when used. " +
-                                        $"Change 'Integrity Check Mode' to 'Hard' or 'Strict' in settings to block unverified providers.",
-                                        "Provider Integrity Check Warning - SmartHopper"
-                                    );
-                                }))).ConfigureAwait(false);
+                                        "The provider has been loaded but will show a warning when used. " +
+                                        "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in settings to block unverified providers.",
+                                        "Provider Integrity Check Warning - SmartHopper");
+                                })).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' failed integrity verification");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' failed integrity verification");
@@ -256,17 +280,16 @@ namespace SmartHopper.Infrastructure.AIProviders
                             if (effectiveMode == ProviderIntegrityCheckMode.Strict)
                             {
                                 // Strict mode: Block when hashes are unavailable
-                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
                                 {
                                     StyledMessageDialog.ShowError(
                                         $"Provider '{Path.GetFileName(assemblyPath)}' cannot be loaded.\n\n" +
                                         $"Unable to retrieve hash verification data from the official repository. " +
                                         $"This may be due to network connectivity issues.\n\n" +
                                         $"Strict integrity check mode requires hash verification for all providers. " +
-                                        $"Please check your internet connection and try again, or switch to 'Hard' or 'Soft' mode in settings.",
-                                        "Provider Integrity Check Failed - SmartHopper"
-                                    );
-                                }))).ConfigureAwait(false);
+                                        "Please check your internet connection and try again, or switch to 'Hard' or 'Soft' mode in settings.",
+                                        "Provider Integrity Check Failed - SmartHopper");
+                                })).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Provider '{Path.GetFileName(assemblyPath)}' blocked - hash repository unavailable in Strict mode");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash unavailable (Strict mode)");
@@ -290,17 +313,16 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 effectiveMode == ProviderIntegrityCheckMode.Hard)
                             {
                                 // Strict/Hard mode: Block unknown providers
-                                await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
+                                await Task.Run(() => RhinoApp.InvokeOnUiThread(() =>
                                 {
                                     StyledMessageDialog.ShowError(
                                         $"Provider '{Path.GetFileName(assemblyPath)}' is not recognized.\n\n" +
                                         $"SHA-256 hash not found in official repository (platform: {platform}). " +
                                         $"This provider may be a custom/third-party provider or from a different SmartHopper version.\n\n" +
                                         $"{effectiveMode} integrity check mode only allows verified providers. " +
-                                        $"Switch to 'Soft' mode in settings to allow third-party providers.",
-                                        "Provider Integrity Check Failed - SmartHopper"
-                                    );
-                                }))).ConfigureAwait(false);
+                                        "Switch to 'Soft' mode in settings to allow third-party providers.",
+                                        "Provider Integrity Check Failed - SmartHopper");
+                                })).ConfigureAwait(false);
 
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' blocked - hash not found in {effectiveMode} mode");
                                 Debug.WriteLine($"[ProviderManager] Provider '{Path.GetFileName(assemblyPath)}' blocked - hash not found ({effectiveMode} mode)");

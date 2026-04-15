@@ -1,0 +1,103 @@
+name: 'Create or Get Milestone'
+description: 'Creates a milestone if it does not exist, or returns the existing one. Handles already_exists errors gracefully.'
+
+inputs:
+  title:
+    description: 'Milestone title to create or find'
+    required: true
+  description:
+    description: 'Milestone description (only used when creating new)'
+    required: false
+    default: ''
+  state:
+    description: 'Milestone state (open/closed), only used when creating new'
+    required: false
+    default: 'open'
+  token:
+    description: 'GitHub token with issues:write permission'
+    required: true
+
+outputs:
+  milestone-number:
+    description: 'The milestone number (for API usage)'
+    value: ${{ steps.create-or-get.outputs.milestone-number }}
+  milestone-title:
+    description: 'The milestone title'
+    value: ${{ steps.create-or-get.outputs.milestone-title }}
+  created:
+    description: 'Whether the milestone was newly created (true) or already existed (false)'
+    value: ${{ steps.create-or-get.outputs.created }}
+
+runs:
+  using: composite
+  steps:
+    - name: Create or get milestone
+      id: create-or-get
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const title = '${{ inputs.title }}';
+          const description = '${{ inputs.description }}' || `Milestone for ${title}`;
+          const state = '${{ inputs.state }}';
+          
+          // List milestones to check if it exists
+          const { data: milestones } = await github.rest.issues.listMilestones({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            state: 'all',
+            per_page: 100
+          });
+          
+          let milestone = milestones.find(m => m.title === title);
+          
+          if (milestone) {
+            console.log(`Found existing milestone: ${milestone.title} (#${milestone.number})`);
+            core.setOutput('milestone-number', milestone.number);
+            core.setOutput('milestone-title', milestone.title);
+            core.setOutput('created', 'false');
+            return;
+          }
+          
+          // Try to create the milestone
+          try {
+            const { data: newMilestone } = await github.rest.issues.createMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              description: description,
+              state: state
+            });
+            
+            console.log(`Created new milestone: ${newMilestone.title} (#${newMilestone.number})`);
+            core.setOutput('milestone-number', newMilestone.number);
+            core.setOutput('milestone-title', newMilestone.title);
+            core.setOutput('created', 'true');
+            
+          } catch (error) {
+            // Handle case where milestone was created by another concurrent process
+            if (error.status === 422 && error.message && error.message.includes('already_exists')) {
+              console.log(`Milestone "${title}" already exists (concurrent creation). Fetching...`);
+              
+              // Re-fetch to get the existing milestone
+              const { data: allMilestones } = await github.rest.issues.listMilestones({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all',
+                per_page: 100
+              });
+              
+              milestone = allMilestones.find(m => m.title === title);
+              
+              if (milestone) {
+                console.log(`Found existing milestone: ${milestone.title} (#${milestone.number})`);
+                core.setOutput('milestone-number', milestone.number);
+                core.setOutput('milestone-title', milestone.title);
+                core.setOutput('created', 'false');
+              } else {
+                core.setFailed(`Milestone exists but could not be found: ${error.message}`);
+              }
+            } else {
+              core.setFailed(`Failed to create milestone: ${error.message}`);
+            }
+          }

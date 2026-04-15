@@ -25,6 +25,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -44,9 +45,32 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// Base class for AI providers, encapsulating common logic.
     /// </summary>
     /// <typeparam name="T">The type of the derived provider class.</typeparam>
-    public abstract class AIProvider<T> : AIProvider where T : AIProvider<T>
+    public abstract class AIProvider<T> : AIProvider
+        where T : AIProvider<T>
     {
-        private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
+        private static readonly Lazy<T> InstanceValue = new (() =>
+        {
+            try
+            {
+                var instance = Activator.CreateInstance(typeof(T), nonPublic: true) as T;
+                if (instance == null)
+                {
+                    throw new InvalidOperationException($"Failed to create instance of {typeof(T).FullName}. Activator.CreateInstance returned null.");
+                }
+
+                return instance;
+            }
+            catch (System.Reflection.TargetInvocationException tie) when (tie.InnerException != null)
+            {
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Constructor threw exception: {tie.InnerException.GetType().Name}: {tie.InnerException.Message}");
+                throw tie.InnerException;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Failed to create instance: {ex.GetType().Name}: {ex.Message}");
+                throw;
+            }
+        });
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.
@@ -335,7 +359,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public async Task<IAIReturn> Call(AIRequestCall request)
+        public async Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default)
         {
             // Start stopwatch
             var stopwatch = new Stopwatch();
@@ -363,7 +387,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
 
             // Execute CallApi
-            var response = await this.CallApi(request);
+            var response = await this.CallApi(request, cancellationToken).ConfigureAwait(false);
 
             // For backoffice/admin-style calls, return raw without chat decoding or timestamping
             if (request?.RequestKind == AIRequestKind.Backoffice)
@@ -654,8 +678,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Makes an HTTP request to the specified endpoint with authentication.
         /// </summary>
         /// <param name="request">The request to make.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
         /// <returns>The HTTP response content as a type T.</returns>
-        private async Task<IAIReturn> CallApi(AIRequestCall request)
+        private async Task<IAIReturn> CallApi(AIRequestCall request, CancellationToken cancellationToken = default)
         {
             string endpoint = request.Endpoint;
             string httpMethod = request.HttpMethod;
@@ -675,10 +700,11 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             using (var httpClient = new HttpClient())
             {
-                // Apply per-request timeout (policy should normalize, but clamp defensively)
+                // Apply timeout from request (should be resolved by RequestTimeoutPolicy)
+                // If somehow still null/zero, apply a safe default
                 try
                 {
-                    var seconds = request?.TimeoutSeconds ?? 120;
+                    int seconds = request?.TimeoutSeconds ?? 600;
                     httpClient.Timeout = TimeSpan.FromSeconds(seconds);
                 }
                 catch (Exception ex)
@@ -732,34 +758,79 @@ namespace SmartHopper.Infrastructure.AIProviders
                     switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
                     {
                         case "GET":
-                            response = await httpClient.GetAsync(fullUri).ConfigureAwait(false);
+                            response = await httpClient.GetAsync(fullUri, cancellationToken).ConfigureAwait(false);
                             break;
                         case "POST":
                             var postContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PostAsync(fullUri, postContent).ConfigureAwait(false);
+                            response = await httpClient.PostAsync(fullUri, postContent, cancellationToken).ConfigureAwait(false);
                             break;
                         case "DELETE":
-                            response = await httpClient.DeleteAsync(fullUri).ConfigureAwait(false);
+                            response = await httpClient.DeleteAsync(fullUri, cancellationToken).ConfigureAwait(false);
                             break;
                         case "PATCH":
                             var patchContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PatchAsync(fullUri, patchContent).ConfigureAwait(false);
+                            response = await httpClient.PatchAsync(fullUri, patchContent, cancellationToken).ConfigureAwait(false);
                             break;
                         default:
                             throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");
                     }
 
-                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                     Debug.WriteLine($"[{this.Name}] Call - Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
                     {
                         Debug.WriteLine($"[{this.Name}] Call - Error response: {content}");
-                        throw new Exception($"Error from {this.Name} API: {response.StatusCode} - {content}");
+
+                        // Return structured error instead of throwing
+                        var errorReturn = new AIReturn();
+                        var statusCode = (int)response.StatusCode;
+                        string errorMessage;
+
+                        if (statusCode == 503)
+                        {
+                            errorMessage = $"HTTP 503 Service Unavailable: The {this.Name} API is at capacity. Please retry after a delay. Response: {content}";
+                        }
+                        else if (statusCode == 429)
+                        {
+                            errorMessage = $"HTTP 429 Too Many Requests: Rate limit exceeded for {this.Name}. Please retry after a delay. Response: {content}";
+                        }
+                        else if (statusCode == 401 || statusCode == 403)
+                        {
+                            errorMessage = $"HTTP {statusCode}: Authentication failed for {this.Name}. Check your API key. Response: {content}";
+                        }
+                        else if (statusCode == 408)
+                        {
+                            errorMessage = $"HTTP 408 Request Timeout: The request to {this.Name} took too long. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                        }
+                        else if (statusCode == 413)
+                        {
+                            errorMessage = $"HTTP 413 Payload Too Large: The request to {this.Name} exceeds size limits. Try reducing input length. Response: {content}";
+                        }
+                        else if (statusCode == 500)
+                        {
+                            errorMessage = $"HTTP 500 Internal Server Error: {this.Name} encountered an internal error. Retry after a brief delay. Response: {content}";
+                        }
+                        else if (statusCode == 502)
+                        {
+                            errorMessage = $"HTTP 502 Bad Gateway: {this.Name} gateway error. Response: {content}";
+                        }
+                        else if (statusCode == 504)
+                        {
+                            errorMessage = $"HTTP 504 Gateway Timeout: {this.Name} upstream timeout. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                        }
+                        else
+                        {
+                            errorMessage = $"HTTP {statusCode} {response.StatusCode}: {content}";
+                        }
+
+                        errorReturn.CreateProviderError(errorMessage, request);
+                        errorReturn.Status = AICallStatus.Finished;
+                        return errorReturn;
                     }
 
                     // Prepare the AIReturn
@@ -792,6 +863,14 @@ namespace SmartHopper.Infrastructure.AIProviders
                         request: request);
 
                     return aiReturn;
+                }
+                catch (TaskCanceledException ex)
+                {
+                    Debug.WriteLine($"[{this.Name}] Call - TaskCanceledException (Timeout or Cancellation): {ex.Message}");
+                    var errorReturn = new AIReturn();
+                    errorReturn.CreateProviderError($"HTTP Request Timeout or Cancellation: The request to {this.Name} took too long (exceeded {request?.TimeoutSeconds ?? 600} seconds) or was cancelled. Try increasing the HTTP timeout in Settings.", request);
+                    errorReturn.Status = AICallStatus.Finished;
+                    return errorReturn;
                 }
                 catch (Exception ex)
                 {

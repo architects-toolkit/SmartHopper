@@ -318,18 +318,48 @@ namespace SmartHopper.Providers.Anthropic
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
-                // Anthropic does not support image generation; fallback to prompt as text
-                var prompt = imageInteraction.OriginalPrompt ?? string.Empty;
-                if (string.IsNullOrEmpty(prompt))
+                // Vision input: send image for understanding/description
+                if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
                 {
-                    return null;
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    return new JObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JObject
+                        {
+                            ["type"] = "base64",
+                            ["media_type"] = mimeType,
+                            ["data"] = imageInteraction.ImageData,
+                        },
+                    };
                 }
-
-                return new JObject
+                else if (imageInteraction.ImageUrl != null)
                 {
-                    ["type"] = "text",
-                    ["text"] = prompt,
-                };
+                    return new JObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JObject
+                        {
+                            ["type"] = "url",
+                            ["url"] = imageInteraction.ImageUrl.ToString(),
+                        },
+                    };
+                }
+                else
+                {
+                    // No image data; fall back to prompt text if available
+                    var prompt = imageInteraction.OriginalPrompt ?? string.Empty;
+                    if (string.IsNullOrEmpty(prompt))
+                    {
+                        return null;
+                    }
+
+                    return new JObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = prompt,
+                    };
+                }
             }
 
             // Unknown interaction type - skip
@@ -522,6 +552,10 @@ namespace SmartHopper.Providers.Anthropic
                 try
                 {
                     var schemaObj = JObject.Parse(jsonSchema);
+
+                    // Anthropic requires additionalProperties=false on all object schemas in structured output mode
+                    InjectAdditionalPropertiesFalse(schemaObj);
+
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
                     svc.SetCurrentWrapperInfo(wrapperInfo);
@@ -532,10 +566,13 @@ namespace SmartHopper.Providers.Anthropic
 
                     if (supportsStructuredOutputs)
                     {
-                        requestBody["output_format"] = new JObject
+                        requestBody["output_config"] = new JObject
                         {
-                            ["type"] = "json_schema",
-                            ["schema"] = wrappedSchema,
+                            ["format"] = new JObject
+                            {
+                                ["type"] = "json_schema",
+                                ["schema"] = wrappedSchema,
+                            },
                         };
                     }
                 }
@@ -621,6 +658,17 @@ namespace SmartHopper.Providers.Anthropic
 
             try
             {
+                // Handle provider error responses
+                if (response["error"] is JObject errorObj)
+                {
+                    var msg = errorObj["message"]?.ToString()
+                              ?? errorObj["type"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[Anthropic] Decode: provider error in response body: {msg}");
+                    interactions.Add(new AIInteractionError { Content = msg });
+                    return interactions;
+                }
+
                 // Anthropic message response has top-level 'content' array and 'role': 'assistant'
                 var content = response["content"] as JArray;
                 string contentText = string.Empty;
@@ -867,8 +915,8 @@ namespace SmartHopper.Providers.Anthropic
                 AIInteractionToolCall? currentToolCall = null;
                 var toolArgsBuffer = new StringBuilder();
 
-                // Determine idle timeout from request (fallback to 60s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                // Determine idle timeout from request (fallback to 600s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds((double)(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 600));
                 await foreach (var data in this.ReadSseDataAsync(
                     responseMsg,
                     idleTimeout,
@@ -1081,6 +1129,37 @@ namespace SmartHopper.Providers.Anthropic
                 request.Headers[betaHeaderName] = existing.EndsWith(",", StringComparison.Ordinal)
                     ? existing + betaValue
                     : string.Concat(existing, ",", betaValue);
+            }
+        }
+
+        /// <summary>
+        /// Recursively adds additionalProperties=false to all object-type schemas in a JSON schema.
+        /// Anthropic requires this for structured output mode.
+        /// </summary>
+        private static void InjectAdditionalPropertiesFalse(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                var type = obj["type"]?.ToString();
+                if (type == "object")
+                {
+                    if (!obj.ContainsKey("additionalProperties"))
+                    {
+                        obj["additionalProperties"] = false;
+                    }
+                }
+
+                foreach (var property in obj.Properties().ToList())
+                {
+                    InjectAdditionalPropertiesFalse(property.Value);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    InjectAdditionalPropertiesFalse(item);
+                }
             }
         }
 

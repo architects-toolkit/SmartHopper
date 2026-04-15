@@ -36,11 +36,23 @@ namespace SmartHopper.Components.List
 {
     public class AIListFilter : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new("CD2E5F8A-94D4-48D7-8E68-8185341245D0");
+        public override Guid ComponentGuid => new ("CD2E5F8A-94D4-48D7-8E68-8185341245D0");
 
         protected override Bitmap Icon => Resources.listfilter;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "list_filter",
+            "List Filter",
+            "Filter List",
+            "Alter List",
+            "List Reorder",
+            "List Shuffle",
+            "List Process",
+            "List Alter",
+        };
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "list_filter" };
@@ -53,9 +65,12 @@ namespace SmartHopper.Components.List
         };
 
         public AIListFilter()
-            : base("AI List Filter", "AIListFilter",
-                  "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nThis components takes the list as a whole. This means that each criterion will filter each full list.\nIf a tree structure is provided, criteria and lists will only match within the same branch paths.",
-                  "SmartHopper", "List")
+            : base(
+                "AI List Filter",
+                "AIListFilter",
+                "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nThis components takes the list as a whole. This means that each criterion will filter each full list.\nIf a tree structure is provided, criteria and lists will only match within the same branch paths.",
+                "SmartHopper",
+                "List")
         {
         }
 
@@ -72,7 +87,7 @@ namespace SmartHopper.Components.List
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListFilterWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIListFilterWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIListFilterWorker : AsyncWorkerBase

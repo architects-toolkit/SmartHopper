@@ -517,17 +517,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         #region String Array Parsing Tests
 
         /// <summary>
-
         /// Tests that ParseStringArrayFromResponse correctly parses a JSON array of strings.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseStringArrayFromResponse JsonArray ReturnsStrings [Windows]")]
 #else
         [Fact(DisplayName = "ParseStringArrayFromResponse JsonArray ReturnsStrings [Core]")]
 #endif
-
         public void ParseStringArrayFromResponse_JsonArray_ReturnsStrings()
         {
             // Arrange
@@ -541,17 +537,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseStringArrayFromResponse parses comma-separated strings.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseStringArrayFromResponse CommaSeparated ReturnsStrings [Windows]")]
 #else
         [Fact(DisplayName = "ParseStringArrayFromResponse CommaSeparated ReturnsStrings [Core]")]
 #endif
-
         public void ParseStringArrayFromResponse_CommaSeparated_ReturnsStrings()
         {
             // Arrange
@@ -565,17 +557,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseStringArrayFromResponse parses bracketed comma-separated strings.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseStringArrayFromResponse BracketedCommaSeparated ReturnsStrings [Windows]")]
 #else
         [Fact(DisplayName = "ParseStringArrayFromResponse BracketedCommaSeparated ReturnsStrings [Core]")]
 #endif
-
         public void ParseStringArrayFromResponse_BracketedCommaSeparated_ReturnsStrings()
         {
             // Arrange
@@ -589,17 +577,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseStringArrayFromResponse handles mixed quote styles.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseStringArrayFromResponse MixedQuotes ReturnsStrings [Windows]")]
 #else
         [Fact(DisplayName = "ParseStringArrayFromResponse MixedQuotes ReturnsStrings [Core]")]
 #endif
-
         public void ParseStringArrayFromResponse_MixedQuotes_ReturnsStrings()
         {
             // Arrange
@@ -613,17 +597,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseStringArrayFromResponse handles nested structures within strings.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseStringArrayFromResponse WithNestedStructures ReturnsStrings [Windows]")]
 #else
         [Fact(DisplayName = "ParseStringArrayFromResponse WithNestedStructures ReturnsStrings [Core]")]
 #endif
-
         public void ParseStringArrayFromResponse_WithNestedStructures_ReturnsStrings()
         {
             // Arrange
@@ -640,17 +620,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseStringArrayFromResponse returns empty list for empty inputs.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Theory(DisplayName = "ParseStringArrayFromResponse EmptyInput ReturnsEmptyList [Windows]")]
 #else
         [Theory(DisplayName = "ParseStringArrayFromResponse EmptyInput ReturnsEmptyList [Core]")]
 #endif
-
         [InlineData("")]
 
         [InlineData(null)]
@@ -671,17 +647,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         #region Data Formatting Tests
 
         /// <summary>
-
         /// Tests that NormalizeJsonArrayString creates valid JSON array.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "NormalizeJsonArrayString ValidList ReturnsJsonArray [Windows]")]
 #else
         [Fact(DisplayName = "NormalizeJsonArrayString ValidList ReturnsJsonArray [Core]")]
 #endif
-
         public void NormalizeJsonArrayString_ValidList_ReturnsJsonArray()
         {
             // Arrange
@@ -695,17 +667,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that NormalizeJsonArrayString handles empty lists.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "NormalizeJsonArrayString EmptyList ReturnsEmptyJsonArray [Windows]")]
 #else
         [Fact(DisplayName = "NormalizeJsonArrayString EmptyList ReturnsEmptyJsonArray [Core]")]
 #endif
-
         public void NormalizeJsonArrayString_EmptyList_ReturnsEmptyJsonArray()
         {
             // Arrange
@@ -723,17 +691,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         #region Edge Cases and Complex Scenarios
 
         /// <summary>
-
         /// Tests that ParseIndicesFromResponse falls back to text parsing for malformed JSON.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseIndicesFromResponse MalformedJson FallsBackToTextParsing [Windows]")]
 #else
         [Fact(DisplayName = "ParseIndicesFromResponse MalformedJson FallsBackToTextParsing [Core]")]
 #endif
-
         public void ParseIndicesFromResponse_MalformedJson_FallsBackToTextParsing()
         {
             // Arrange
@@ -747,17 +711,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseIndicesFromResponse filters out invalid values.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseIndicesFromResponse MixedValidAndInvalid ReturnsValidIndices [Windows]")]
 #else
         [Fact(DisplayName = "ParseIndicesFromResponse MixedValidAndInvalid ReturnsValidIndices [Core]")]
 #endif
-
         public void ParseIndicesFromResponse_MixedValidAndInvalid_ReturnsValidIndices()
         {
             // Arrange
@@ -771,17 +731,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseIndicesFromResponse handles negative numbers.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseIndicesFromResponse NegativeNumbers IgnoresNegatives [Windows]")]
 #else
         [Fact(DisplayName = "ParseIndicesFromResponse NegativeNumbers IgnoresNegatives [Core]")]
 #endif
-
         public void ParseIndicesFromResponse_NegativeNumbers_IgnoresNegatives()
         {
             // Arrange
@@ -799,17 +755,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseStringArrayFromResponse handles escaped quotes.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseStringArrayFromResponse EscapedQuotes HandlesCorrectly [Windows]")]
 #else
         [Fact(DisplayName = "ParseStringArrayFromResponse EscapedQuotes HandlesCorrectly [Core]")]
 #endif
-
         public void ParseStringArrayFromResponse_EscapedQuotes_HandlesCorrectly()
         {
             // Arrange
@@ -827,17 +779,13 @@ namespace SmartHopper.Core.Grasshopper.Tests.Utils.Parsing
         }
 
         /// <summary>
-
         /// Tests that ParseIndicesFromResponse handles large ranges efficiently.
-
         /// </summary>
-
 #if NET7_WINDOWS
         [Fact(DisplayName = "ParseIndicesFromResponse VeryLargeRange HandlesEfficiently [Windows]")]
 #else
         [Fact(DisplayName = "ParseIndicesFromResponse VeryLargeRange HandlesEfficiently [Core]")]
 #endif
-
         public void ParseIndicesFromResponse_VeryLargeRange_HandlesEfficiently()
         {
             // Arrange

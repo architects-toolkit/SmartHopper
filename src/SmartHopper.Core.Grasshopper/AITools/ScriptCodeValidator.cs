@@ -34,7 +34,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Patterns that indicate use of non-Rhino geometry libraries.
         /// Each entry contains: regex pattern, human-readable name, and suggested fix.
         /// </summary>
-        private static readonly List<(Regex Pattern, string LibraryName, string SuggestedFix)> BannedPatterns = new()
+        private static readonly List<(Regex Pattern, string LibraryName, string SuggestedFix)> BannedPatterns = new ()
         {
             // .NET generic geometry
             (SystemNumericsVector3Regex(), "System.Numerics.Vector3", "Use Rhino.Geometry.Vector3d or Point3d instead"),
@@ -132,7 +132,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             /// <summary>
             /// Gets the list of issues found in the script.
             /// </summary>
-            public List<string> Issues { get; init; } = new();
+            public List<string> Issues { get; init; } = new ();
 
             /// <summary>
             /// Gets a correction prompt to send back to the AI for self-healing.

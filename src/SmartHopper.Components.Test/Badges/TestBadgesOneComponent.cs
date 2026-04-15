@@ -51,9 +51,12 @@ namespace SmartHopper.Components.Test.Badges
         /// Initializes a new instance of the <see cref="TestBadgesOneComponent"/> class.
         /// </summary>
         public TestBadgesOneComponent()
-            : base("Test Badges: One", "TBadges1",
-                   "Renders a single sample badge above the component for visual verification.",
-                   "SmartHopper", "Testing Badges")
+            : base(
+                "Test Badges: One",
+                "TBadges1",
+                "Renders a single sample badge above the component for visual verification.",
+                "SmartHopper",
+                "Testing Badges")
         {
         }
 
@@ -153,7 +156,10 @@ namespace SmartHopper.Components.Test.Badges
                 }
             }
 
-            public OneBadgeAttributes(AIProviderComponentBase owner) : base(owner) { }
+            public OneBadgeAttributes(AIProviderComponentBase owner)
+                : base(owner)
+            {
+            }
 
             /// <inheritdoc />
             protected override IEnumerable<(Action<Graphics, float, float> draw, string label)> GetAdditionalBadges()

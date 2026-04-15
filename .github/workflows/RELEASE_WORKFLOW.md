@@ -4,13 +4,64 @@ This guide explains the standard release process for SmartHopper, which is trigg
 
 ## Overview
 
-The regular release workflow allows you to:
+The release workflow supports three paths:
 
-- Release planned features and improvements from the `dev` branch
-- Automatically prepare release documentation and version updates
-- Create a structured PR flow: `release/*` → `dev` → `main`
-- Build and publish to GitHub Releases and Yak package manager
-- Maintain clean version history with milestone-based releases
+1. **Regular Releases**: Planned releases from milestones (dev → main)
+2. **Stabilization Path**: Milestone-driven stage progression for specific versions, on isolated branches
+3. **Hotfix Releases**: Emergency patches from main
+
+## Regular Release Flow
+
+Triggered manually via `release-1-milestone.yml` when a milestone is ready to release:
+
+1. **Manual trigger** with milestone title (e.g., `1.4.3-alpha`)
+2. Creates `release/X.Y.Z-stage` branch from `dev`
+3. Updates version, changelog, badges
+4. Creates PR to `dev` → merge → PR to `main` → merge
+5. Publishes release and builds artifacts
+
+## Stabilization Path Flow
+
+Use when you want to promote a specific version to stable without conflicting with other active development.
+
+### Starting a Stabilization Path
+
+1. **Create a milestone** with no suffix (e.g., `1.4.2`) in GitHub
+2. `stabilization-0-init.yml` automatically:
+   - Finds the latest prerelease tag matching `1.4.2-*`
+   - Creates `dev-1.4.2` and `main-1.4.2` branches from that tag
+3. The daily `release-promotion.yml` run detects the open `1.4.2` milestone and checks the current staged release (`1.4.2-alpha`) for promotion eligibility
+
+### Promotion Loop (per stage)
+
+When ALL conditions are met for the staged release:
+
+- ✅ No open issues with version label
+- ✅ Release published at least 30 days ago
+- ✅ Last closed issue at least 30 days ago
+
+Automation:
+
+1. Creates next-stage milestone (e.g., `1.4.2-beta`)
+2. Closes current staged milestone (e.g., `1.4.2-alpha`)
+3. Dispatches `release-1-milestone.yml` targeting `dev-1.4.2`
+4. PR flow: `release/1.4.2-beta` → `dev-1.4.2` → `main-1.4.2` → GitHub Release `1.4.2-beta`
+5. Repeat for beta → rc → stable
+
+### Completing a Stabilization Path
+
+1. When `1.4.2` (stable) is released on `main-1.4.2`, close the `1.4.2` milestone
+2. `stabilization-2-complete.yml` automatically creates a backport PR: `main-1.4.2` → `main`
+3. After manual approval and merge, `dev-1.4.2` and `main-1.4.2` branches are deleted
+
+### Cancelling a Stabilization Path
+
+Close the `1.4.2` milestone while sub-milestones (`1.4.2-alpha`, etc.) are still open.
+`stabilization-1-cancel.yml` automatically:
+
+- Closes all open `1.4.2-*` sub-milestones
+- Migrates their open issues to the next dev alpha milestone
+- Deletes `dev-1.4.2` and `main-1.4.2` branches
 
 ## When to Use Regular Releases
 
@@ -19,7 +70,7 @@ Use the regular release workflow for:
 - **Planned feature releases** with multiple changes
 - **Minor/major version bumps** (X.Y.0 or X.0.0)
 - **Milestone completions** with grouped issues/PRs
-- **Scheduled releases** following your development cycle
+- **Manual release of any version** from an existing milestone
 
 **Do NOT use for:**
 
@@ -36,13 +87,14 @@ Use the regular release workflow for:
 3. Associate PRs and issues with a milestone (e.g., `1.2.0`)
 4. Ensure all changes update `CHANGELOG.md` under `[Unreleased]`
 
-### Step 2: Close the Milestone
+### Step 2: Trigger Release Preparation
 
-1. Go to **Issues** → **Milestones**
-2. Ensure all issues/PRs are completed
-3. Click **Close milestone** for the target version (e.g., `1.2.0`)
+1. Go to **Actions** → **🏁 1 Prepare Release Branch**
+2. Click **Run workflow**
+3. Enter the **milestone title** (e.g., `1.2.0` or `1.4.3-alpha`)
+4. Click **Run workflow**
 
-**This automatically triggers:** 🏁 1 Prepare Release on Milestone Close
+**This automatically triggers:** 🏁 1 Prepare Release Branch
 
 ### Step 3: Automatic Release Preparation (Workflow 1)
 
@@ -119,14 +171,21 @@ The workflow automatically:
 3. Review the release notes
 4. Click **Publish release**
 
-### Step 10: Upload to Yak (Manual)
+### Step 10: Upload to Yak (Automatic for Stable Releases)
 
-1. Go to **Actions** → **🚀 5 Upload to Yak Rhino Server**
+**For stable releases (X.Y.Z without prerelease suffix):**
+- Automatically triggered by `release-4-build.yml` after a successful build (race-condition-free)
+- The `trigger-yak-upload` job waits for `merge-and-release` to complete before dispatching `release-6-upload-yak.yml`
+- No manual action required
+
+**For prerelease versions (alpha/beta/rc) or manual re-upload:**
+1. Go to **Actions** → **🚀 6 Upload to Yak Rhino Server**
 2. Click **Run workflow**
 3. Configure:
    - **Version**: Leave empty (uses main branch version) or specify
+   - **Platform**: Select `both` (default)
    - **Confirm upload to Yak**: Check this box
-   - **Just testing**: Uncheck for production, check for test server
+   - **Just testing**: Check for test server, uncheck for production
 4. Click **Run workflow**
 
 The workflow will:
@@ -148,11 +207,20 @@ Version is determined by the milestone title (e.g., milestone `1.2.0` → releas
 
 ## Workflow Files
 
-- **release-1-milestone.yml** - Prepares release branch when milestone closes
-- **release-2-pr-to-dev-closed.yml** - Creates PR from dev to main
-- **release-3-pr-to-main-closed.yml** - Creates GitHub Release (draft)
-- **release-4-build.yml** - Builds and uploads artifacts
-- **release-5-upload-yak.yml** - Uploads to Yak package manager
+### Release Workflows
+
+- **release-1-milestone.yml** — Prepares release branch; auto-detects `dev-X.Y.Z` for stabilization paths
+- **release-2-pr-to-dev-closed.yml** — Creates PR from `dev` (or `dev-X.Y.Z`) to `main` (or `main-X.Y.Z`)
+- **release-3-pr-to-main-closed.yml** — Creates GitHub Release; supports `main-*` branches
+- **release-4-build.yml** — Builds artifacts and auto-triggers Yak upload after successful build (stable only)
+- **release-promotion.yml** — Scans open no-suffix milestones daily; promotes eligible staged releases
+- **release-6-upload-yak.yml** — Uploads to Yak package manager (manual or dispatched by build)
+
+### Stabilization Workflows
+
+- **stabilization-0-init.yml** — Triggered on `milestone.created` for `X.Y.Z` titles; creates `dev-X.Y.Z` / `main-X.Y.Z` branches
+- **stabilization-1-cancel.yml** — Triggered on `milestone.closed` (with open sub-milestones); cancels path, migrates issues, deletes branches
+- **stabilization-2-complete.yml** — Triggered on `milestone.closed` (no open sub-milestones); creates backport PR and cleans up branches
 
 ## Validations
 
@@ -167,9 +235,52 @@ All PRs (release → dev, dev → main) run:
 
 - **dev**: Protected branch, requires PR reviews
 - **main**: Protected branch, requires PR reviews
+- **dev-X.Y.Z**: Protected stabilization branch (created by automation); `github-actions[bot]` has bypass for create/delete
+- **main-X.Y.Z**: Protected stabilization branch (created by automation); `github-actions[bot]` has bypass for create/delete
 - **release/\***: Temporary branches, deleted after merge
 
-## Example Scenario
+All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-build-hash-validation`, `pr-manifest-validation`) run on PRs to `dev-*` and `main-*` branches identical to `dev` and `main`.
+
+### Stabilization Path Example
+
+**Scenario**: Promote version `1.4.2` from alpha through to stable.
+
+**Setup:**
+
+1. Create milestone `1.4.2` (no suffix) in GitHub
+2. `stabilization-0-init.yml` creates `dev-1.4.2` and `main-1.4.2` from tag `1.4.2-alpha`
+
+**Daily promotion loop (alpha → beta):**
+
+1. `release-promotion.yml` scans open no-suffix milestones → finds `1.4.2`
+2. Looks up staged release → finds `1.4.2-alpha` tag
+3. Validates:
+   - ✅ No open issues labeled `version: 1.4.2`
+   - ✅ `1.4.2-alpha` published 35 days ago
+   - ✅ Last closed issue 32 days ago
+4. Creates milestone `1.4.2-beta`, closes `1.4.2-alpha`
+5. Dispatches `release-1-milestone.yml` with `milestone-title: 1.4.2-beta`
+6. Workflow 1 detects `dev-1.4.2` → creates `release/1.4.2-beta` → PR to `dev-1.4.2`
+7. PR merged → Workflow 2 creates PR `dev-1.4.2` → `main-1.4.2`
+8. PR merged → Workflow 3 creates draft release `1.4.2-beta` on `main-1.4.2`
+9. Publish release → Workflow 4 builds artifacts
+
+**Repeat for beta → rc → stable.**
+
+**Completion:**
+
+1. `1.4.2` released on `main-1.4.2`
+2. Close milestone `1.4.2`
+3. `stabilization-2-complete.yml` creates backport PR: `main-1.4.2` → `main`
+4. After merge, branches `dev-1.4.2` and `main-1.4.2` are deleted
+
+**Blocking Scenarios** (promotion will NOT happen):
+
+- ❌ Any open issue labeled `version: 1.4.2` (any stage)
+- ❌ `1.4.2-alpha` release published < 30 days ago
+- ❌ No open `1.4.2` milestone exists (stabilization path not initialized)
+
+### Regular Release Example
 
 **Goal:** Release version `1.2.0` with new AI features.
 

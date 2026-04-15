@@ -50,7 +50,17 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the exposure level of this component in the ribbon.
         /// </summary>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "Models",
+            "AI Models",
+            "List Models",
+            "Get Models",
+            "Available Models",
+            "Provider Models",
+        };
 
         /// <summary>
         /// Initializes a new instance of the AIModelsComponent class.
@@ -60,7 +70,8 @@ namespace SmartHopper.Components.AI
                   "AI Models",
                   "AIModels",
                   "Retrieve the list of available models from the selected AI provider.",
-                  "SmartHopper", "AI")
+                  "SmartHopper",
+                  "AI")
         {
             this.RunOnlyOnInputChanges = false;
         }
