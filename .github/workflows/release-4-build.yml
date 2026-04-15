@@ -447,7 +447,7 @@ jobs:
       run: |
         $prNumber = "${{ steps.hash-pr.outputs.hash_pr_number }}"
         if ($prNumber) {
-          gh pr merge $prNumber --auto --squash --delete-branch
+          gh pr merge $prNumber --auto --squash
         }
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
