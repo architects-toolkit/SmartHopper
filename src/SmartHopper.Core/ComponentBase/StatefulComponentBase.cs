@@ -245,7 +245,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             _ = Task.Run(async () =>
             {
-                await Task.Delay(this.GetDebounceTime());
+                await Task.Delay(this.GetDebounceTime()).ConfigureAwait(false);
 
                 if (this.StateManager.CurrentState == ComponentState.Processing && this.Workers.Count == 0)
                 {

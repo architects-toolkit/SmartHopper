@@ -124,7 +124,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             {
                 // Respect per-request timeout. We cannot cancel the underlying work if the tool ignores cancellation,
                 // but we do return a standardized timeout error when exceeded.
-                var timeoutSec = (this.TimeoutSeconds ?? 0) <= 0 ? DEFAULT_TIMEOUT_SECONDS : this.TimeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
+                var timeoutSec = (this.TimeoutSeconds ?? 0) <= 0 ? DEFAULT_TIMEOUT_SECONDS : this.TimeoutSeconds.Value;
                 var execTask = AIToolManager.ExecuteTool(this);
                 var completed = await Task.WhenAny(
                     execTask,
