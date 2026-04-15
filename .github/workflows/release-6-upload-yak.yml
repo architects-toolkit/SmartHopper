@@ -52,6 +52,7 @@ jobs:
 
     permissions:
       contents: read
+      issues: write
 
     steps:
       - name: Checkout repository
@@ -78,6 +79,13 @@ jobs:
             Write-Host "Using version from main branch: $version"
           }
           echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Create version label if doesn't exist
+        if: inputs.upload_to_yak == 'true'
+        uses: ./.github/actions/versioning/create-version-label
+        with:
+          version: ${{ steps.get_version.outputs.version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create artifacts directory
         shell: pwsh

@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorBroadcastMultipleTopLevelTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("CBD8E900-B6EF-4ADE-B68C-A1A6AB486647");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public DataTreeProcessorBroadcastMultipleTopLevelTestComponent()
-            : base("Test Broadcast (Multiple Top-Level)", "TEST-BC-MULTI-TOP",
-                  "Tests flat {0} broadcasting to multiple top-level paths {0},{1}",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test Broadcast (Multiple Top-Level)",
+                "TEST-BC-MULTI-TOP",
+                "Tests flat {0} broadcasting to multiple top-level paths {0},{1}",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -58,7 +63,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorBroadcastMultipleTopLevelTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -131,41 +136,41 @@ namespace SmartHopper.Components.Test.DataProcessor
                         token: token).ConfigureAwait(false);
 
                     if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
-                        _resultTree = outTree;
+                        this._resultTree = outTree;
 
                     // Expected: A broadcasts to both {0} and {1}
                     // {0}: [10,20] + [1] = [10,20,1]
                     // {1}: [10,20] + [2] = [10,20,2]
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 2 &&
-                        _resultTree.get_Branch(path0) != null && _resultTree.get_Branch(path0).Count == 3 &&
-                        _resultTree.get_Branch(path0)[0] is GH_Integer a00 && a00.Value == 10 &&
-                        _resultTree.get_Branch(path0)[1] is GH_Integer a01 && a01.Value == 20 &&
-                        _resultTree.get_Branch(path0)[2] is GH_Integer a02 && a02.Value == 1 &&
-                        _resultTree.get_Branch(path1) != null && _resultTree.get_Branch(path1).Count == 3 &&
-                        _resultTree.get_Branch(path1)[0] is GH_Integer a10 && a10.Value == 10 &&
-                        _resultTree.get_Branch(path1)[1] is GH_Integer a11 && a11.Value == 20 &&
-                        _resultTree.get_Branch(path1)[2] is GH_Integer a12 && a12.Value == 2;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 2 &&
+                        this._resultTree.get_Branch(path0) != null && this._resultTree.get_Branch(path0).Count == 3 &&
+                        this._resultTree.get_Branch(path0)[0] is GH_Integer a00 && a00.Value == 10 &&
+                        this._resultTree.get_Branch(path0)[1] is GH_Integer a01 && a01.Value == 20 &&
+                        this._resultTree.get_Branch(path0)[2] is GH_Integer a02 && a02.Value == 1 &&
+                        this._resultTree.get_Branch(path1) != null && this._resultTree.get_Branch(path1).Count == 3 &&
+                        this._resultTree.get_Branch(path1)[0] is GH_Integer a10 && a10.Value == 10 &&
+                        this._resultTree.get_Branch(path1)[1] is GH_Integer a11 && a11.Value == 20 &&
+                        this._resultTree.get_Branch(path1)[2] is GH_Integer a12 && a12.Value == 2;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Case 3: A={{0}} [10,20], B={{0}} [1], {{1}} [2]. Expected: A broadcasts to ALL paths (Rule 2)."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"Case 3: A={{0}} [10,20], B={{0}} [1], {{1}} [2]. Expected: A broadcasts to ALL paths (Rule 2)."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Broadcast to multiple top-level test passed" : "Test failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Broadcast to multiple top-level test passed" : "Test failed";
             }
         }
     }

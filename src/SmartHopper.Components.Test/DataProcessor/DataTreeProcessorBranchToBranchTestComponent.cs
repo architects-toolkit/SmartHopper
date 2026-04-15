@@ -39,13 +39,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorBranchToBranchTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("4FBE8A03-5A39-4C99-B190-F95468A0D3AC");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
         public DataTreeProcessorBranchToBranchTestComponent()
-            : base("Test DataTreeProcessor (BranchToBranch)", "TEST-DTP-B2B",
-                  "Tests DataTreeProcessor with BranchToBranch topology where each branch is processed as a complete list.",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test DataTreeProcessor (BranchToBranch)",
+                "TEST-DTP-B2B",
+                "Tests DataTreeProcessor with BranchToBranch topology - one-to-one branch matching.",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -61,7 +66,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -75,7 +80,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorBranchToBranchTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -117,7 +122,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)
                     {
                         await Task.Yield();
-                        _functionCallCount++;
+                        this._functionCallCount++;
 
                         var aList = branches.ContainsKey("A") ? branches["A"] : null;
                         if (aList == null || aList.Count == 0)
@@ -136,51 +141,51 @@ namespace SmartHopper.Components.Test.DataProcessor
                         token: token).ConfigureAwait(false);
 
                     if (result != null && result.TryGetValue("BranchSum", out var sumTree) && sumTree != null)
-                        _resultTree = sumTree;
+                        this._resultTree = sumTree;
                     else
-                        _resultTree = new GH_Structure<GH_Integer>();
+                        this._resultTree = new GH_Structure<GH_Integer>();
 
                     // BranchToBranch should:
                     // 1. Call function TWICE (once per branch)
                     // 2. First call with [1,2,3], sum = 6, placed at {0}
                     // 3. Second call with [4,5], sum = 9, placed at {1}
                     bool ok =
-                        _functionCallCount == 2 &&
-                        _resultTree != null &&
-                        _resultTree.PathCount == 2 &&
-                        _resultTree.get_Branch(path0) != null &&
-                        _resultTree.get_Branch(path0).Count == 1 &&
-                        _resultTree.get_Branch(path0)[0] is GH_Integer gi0 && gi0.Value == 6 &&
-                        _resultTree.get_Branch(path1) != null &&
-                        _resultTree.get_Branch(path1).Count == 1 &&
-                        _resultTree.get_Branch(path1)[0] is GH_Integer gi1 && gi1.Value == 9;
+                        this._functionCallCount == 2 &&
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 2 &&
+                        this._resultTree.get_Branch(path0) != null &&
+                        this._resultTree.get_Branch(path0).Count == 1 &&
+                        this._resultTree.get_Branch(path0)[0] is GH_Integer gi0 && gi0.Value == 6 &&
+                        this._resultTree.get_Branch(path1) != null &&
+                        this._resultTree.get_Branch(path1).Count == 1 &&
+                        this._resultTree.get_Branch(path1)[0] is GH_Integer gi1 && gi1.Value == 9;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"BranchToBranch topology. Input: {{{path0}}}=[1,2,3], {{{path1}}}=[4,5]."));
-                    _messages.Add(new GH_String($"Function called {_functionCallCount} time(s) (expected 2)."));
-                    _messages.Add(new GH_String($"Expected branch sums: {{{path0}}}=[6], {{{path1}}}=[9]."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"BranchToBranch topology. Input: {{{path0}}}=[1,2,3], {{{path1}}}=[4,5]."));
+                    this._messages.Add(new GH_String($"Function called {this._functionCallCount} time(s) (expected 2)."));
+                    this._messages.Add(new GH_String($"Expected branch sums: {{{path0}}}=[6], {{{path1}}}=[9]."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String("Operation was cancelled."));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String("Operation was cancelled."));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Processed BranchToBranch topology successfully" : "Processing failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Processed BranchToBranch topology successfully" : "Processing failed";
             }
         }
     }

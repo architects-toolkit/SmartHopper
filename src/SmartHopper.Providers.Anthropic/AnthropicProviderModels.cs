@@ -62,6 +62,39 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
+                    Model = "claude-opus-4-6",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
+                    ContextLimit = 200000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-sonnet-4-6",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 85,
+                    ContextLimit = 200000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-haiku-4-6",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 100,
+                    ContextLimit = 200000,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
                     Model = "claude-opus-4-5",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
@@ -73,7 +106,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-opus-4-0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -95,7 +128,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-sonnet-4-0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -106,7 +139,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-3-7-sonnet-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -117,7 +150,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-3-5-haiku-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -129,7 +162,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-haiku-4-5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = true,
@@ -141,7 +174,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-3-5-haiku-20241022",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -153,7 +186,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-3-7-sonnet-20250219",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -164,7 +197,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-3-haiku-20240307",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
@@ -176,7 +209,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-haiku-4-5-20251001",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 85,
@@ -198,7 +231,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-opus-4-20250514",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -209,7 +242,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-sonnet-4-20250514",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -264,7 +297,10 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     var id = item["id"]?.ToString();
                     var model = id;
-                    if (!string.IsNullOrWhiteSpace(model)) models.Add(model);
+                    if (!string.IsNullOrWhiteSpace(model))
+                    {
+                        models.Add(model);
+                    }
                 }
 
                 return models

@@ -35,13 +35,18 @@ namespace SmartHopper.Components.Test.Misc
     public class TestAsyncPrimeCalculatorComponent : AsyncComponentBase
     {
         public override Guid ComponentGuid => new Guid("B2C612B0-2C57-47CE-B9FE-E10621F18934");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public TestAsyncPrimeCalculatorComponent()
-            : base("Test Async Prime Calculator", "TEST-PRIME",
-                  "Test component for AsyncComponentBase - Calculates the nth prime number.",
-                  "SmartHopper", "Testing Base")
+            : base(
+                "Test Async Prime Calculator",
+                "TEST-PRIME",
+                "Test component for AsyncComponentBase - Calculates the nth prime number.",
+                "SmartHopper",
+                "Testing Base")
         {
         }
 
@@ -57,7 +62,7 @@ namespace SmartHopper.Components.Test.Misc
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new TestPrimeCalculatorWorker(this, AddRuntimeMessage);
+            return new TestPrimeCalculatorWorker(this, this.AddRuntimeMessage);
         }
 
         private sealed class TestPrimeCalculatorWorker : AsyncWorkerBase
@@ -67,7 +72,7 @@ namespace SmartHopper.Components.Test.Misc
 
             public TestPrimeCalculatorWorker(
 
-                //Action<string> progressReporter,
+                // Action<string> progressReporter,
                 GH_Component parent,
                 Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
@@ -107,7 +112,7 @@ namespace SmartHopper.Components.Test.Misc
                         b++;
                     }
 
-                    //ReportProgress($"{((double)count / this._nthPrime * 100):F2}%");
+                    // ReportProgress($"{((double)count / this._nthPrime * 100):F2}%");
 
                     if (isPrime)
                     {
@@ -119,7 +124,7 @@ namespace SmartHopper.Components.Test.Misc
                     // Add small delay to prevent UI freeze
                     if (count % 100 == 0)
                     {
-                        await Task.Delay(1, token);
+                        await Task.Delay(1, token).ConfigureAwait(false);
                     }
                 }
 

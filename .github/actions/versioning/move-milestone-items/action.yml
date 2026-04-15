@@ -1,0 +1,244 @@
+name: Move Milestone Items
+description: Moves open issues and PRs from a closed milestone to a target milestone
+
+inputs:
+  closed-milestone-title:
+    description: 'Title of the closed milestone'
+    required: true
+  token:
+    description: 'GitHub token for API access'
+    required: true
+
+outputs:
+  target-milestone:
+    description: 'Title of the target milestone items were moved to'
+    value: ${{ steps.move.outputs.target-milestone }}
+  items-moved:
+    description: 'Number of items moved'
+    value: ${{ steps.move.outputs.items-moved }}
+
+runs:
+  using: composite
+  steps:
+    - name: Move items to target milestone
+      id: move
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          // ===== SHARED VERSION UTILITIES (used across versioning actions) =====
+          // Parse semantic version from string
+          function parseVersion(versionStr) {
+            const match = versionStr.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+            if (!match) return null;
+            
+            return {
+              major: parseInt(match[1]),
+              minor: parseInt(match[2]),
+              patch: parseInt(match[3]),
+              prerelease: match[4] || null,
+              suffix: match[4] || null,  // Alias for consistency with manage-milestones
+              original: versionStr
+            };
+          }
+          
+          // Format version object back to string
+          function formatVersion(version) {
+            let versionStr = `${version.major}.${version.minor}.${version.patch}`;
+            const suffix = version.prerelease || version.suffix;
+            if (suffix) {
+              versionStr += `-${suffix}`;
+            }
+            return versionStr;
+          }
+          // ===== END SHARED VERSION UTILITIES =====
+          
+          // Find milestone by title
+          async function findMilestone(title) {
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            return milestones.data.find(m => m.title === title);
+          }
+          
+          // Create new milestone
+          async function createMilestone(title, description) {
+            const response = await github.rest.issues.createMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              description: description || `Auto-created milestone for version ${title}`
+            });
+            
+            console.log(`Created new milestone: ${title}`);
+            return response.data;
+          }
+          
+          // Get open issues and PRs for a milestone
+          async function getOpenItemsInMilestone(milestoneNumber) {
+            const [issues, pulls] = await Promise.all([
+              github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                milestone: milestoneNumber,
+                state: 'open'
+              }),
+              github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open'
+              })
+            ]);
+            
+            const prsInMilestone = pulls.data.filter(pr => 
+              pr.milestone && pr.milestone.number === milestoneNumber
+            );
+            
+            return {
+              issues: issues.data.filter(issue => !issue.pull_request),
+              prs: prsInMilestone
+            };
+          }
+          
+          // Move item to new milestone
+          async function moveItemToMilestone(itemNumber, newMilestoneNumber) {
+            try {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: itemNumber,
+                milestone: newMilestoneNumber
+              });
+              console.log(`Successfully moved item #${itemNumber} to milestone #${newMilestoneNumber}`);
+              return true;
+            } catch (error) {
+              console.error(`Failed to move item #${itemNumber}:`, error.message);
+              return false;
+            }
+          }
+          
+          const closedMilestoneTitle = '${{ inputs.closed-milestone-title }}';
+          console.log(`Processing closed milestone: ${closedMilestoneTitle}`);
+          
+          const closedVersion = parseVersion(closedMilestoneTitle);
+          if (!closedVersion) {
+            console.log('Milestone title is not a valid semantic version, skipping.');
+            core.setOutput('target-milestone', '');
+            core.setOutput('items-moved', '0');
+            return;
+          }
+          
+          // Get open items in the closed milestone (from context)
+          const closedMilestone = context.payload.milestone;
+          const openItems = await getOpenItemsInMilestone(closedMilestone.number);
+          const totalItems = openItems.issues.length + openItems.prs.length;
+          
+          console.log(`Found ${openItems.issues.length} open issues and ${openItems.prs.length} open PRs`);
+          
+          if (totalItems === 0) {
+            console.log('No open items to move, exiting.');
+            core.setOutput('target-milestone', '');
+            core.setOutput('items-moved', '0');
+            return;
+          }
+          
+          // Determine target milestone
+          let targetMilestone = null;
+          
+          // Extract stage from prerelease (e.g., 'alpha' from 'alpha.240101')
+          function getStage(prerelease) {
+            if (!prerelease || prerelease === 'stable') return 'stable';
+            return prerelease.split('.')[0].toLowerCase();
+          }
+          
+          // Get next stage in stabilization path
+          function getNextStage(stage) {
+            if (stage === 'alpha') return 'beta';
+            if (stage === 'beta') return 'rc';
+            if (stage === 'rc') return null; // stable (no suffix)
+            return null;
+          }
+          
+          // Check whether a parent stabilization milestone (X.Y.Z, no suffix) is still open
+          async function findOpenStabilizationMilestone(major, minor, patch) {
+            const parentTitle = `${major}.${minor}.${patch}`;
+            const milestones = await github.paginate(
+              github.rest.issues.listMilestones,
+              { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 }
+            );
+            return milestones.find(m => m.title === parentTitle) || null;
+          }
+          
+          // For alpha, beta, rc: check if we're in a stabilization path first
+          if (closedVersion.prerelease && closedVersion.prerelease !== 'stable') {
+            const stage = getStage(closedVersion.prerelease);
+            const parentMilestone = await findOpenStabilizationMilestone(
+              closedVersion.major, closedVersion.minor, closedVersion.patch
+            );
+            
+            if (parentMilestone) {
+              // Stabilization path: route to same series next stage
+              const nextStage = getNextStage(stage);
+              const nextStageSuffix = nextStage ? `-${nextStage}` : '';
+              const nextStageTitle = `${closedVersion.major}.${closedVersion.minor}.${closedVersion.patch}${nextStageSuffix}`;
+              console.log(`Stabilization path detected (parent milestone '${parentMilestone.title}' is open). Routing to: ${nextStageTitle}`);
+              targetMilestone = await findMilestone(nextStageTitle);
+              if (!targetMilestone) {
+                targetMilestone = await createMilestone(nextStageTitle, `Stabilization path milestone for ${nextStageTitle}`);
+              }
+            } else {
+              // Normal dev path: move to next minor alpha
+              const nextMinorAlpha = {
+                major: closedVersion.major,
+                minor: closedVersion.minor + 1,
+                patch: 0,
+                prerelease: 'alpha'
+              };
+              const nextMinorAlphaTitle = formatVersion(nextMinorAlpha);
+              console.log(`Closed milestone is ${closedVersion.prerelease} (stage: ${stage}), looking for next minor alpha: ${nextMinorAlphaTitle}`);
+              targetMilestone = await findMilestone(nextMinorAlphaTitle);
+              if (!targetMilestone) {
+                targetMilestone = await createMilestone(nextMinorAlphaTitle, `Next minor alpha version after ${closedMilestoneTitle}`);
+              }
+            }
+          } else {
+            // For stable: always route to next minor alpha (create if needed)
+            const nextMinorAlpha = {
+              major: closedVersion.major,
+              minor: closedVersion.minor + 1,
+              patch: 0,
+              prerelease: 'alpha'
+            };
+            const nextMinorAlphaTitle = formatVersion(nextMinorAlpha);
+            console.log(`Closed stable milestone, routing to: ${nextMinorAlphaTitle}`);
+            targetMilestone = await findMilestone(nextMinorAlphaTitle);
+            if (!targetMilestone) {
+              targetMilestone = await createMilestone(nextMinorAlphaTitle, `Next minor alpha version after ${closedMilestoneTitle}`);
+            }
+          }
+          
+          console.log(`Target milestone: ${targetMilestone.title}`);
+          
+          // Move all items
+          const movePromises = [];
+          
+          for (const issue of openItems.issues) {
+            console.log(`Moving issue #${issue.number}: ${issue.title}`);
+            movePromises.push(moveItemToMilestone(issue.number, targetMilestone.number));
+          }
+          
+          for (const pr of openItems.prs) {
+            console.log(`Moving PR #${pr.number}: ${pr.title}`);
+            movePromises.push(moveItemToMilestone(pr.number, targetMilestone.number));
+          }
+          
+          const results = await Promise.all(movePromises);
+          const successCount = results.filter(r => r).length;
+          
+          console.log(`Successfully moved ${successCount}/${totalItems} items to "${targetMilestone.title}"`);
+          
+          core.setOutput('target-milestone', targetMilestone.title);
+          core.setOutput('items-moved', successCount.toString());

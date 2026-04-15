@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("7A6E5F0B-9D3C-4A0C-8B2E-1F3A4D5C6B7E");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.senary;
 
         public DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent()
-            : base("Test DataTreeProcessor (Different Paths, 3 + 1 items)", "TEST-DTP-DIFF-3-1",
-                  "Tests DataTreeProcessor with different paths where A has 3 items and B has 1 item.",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test DataTreeProcessor (Different Paths, 3 + 1 items)",
+                "TEST-DTP-DIFF-3-1",
+                "Tests DataTreeProcessor with different paths where A has 3 items and B has 1 item.",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorDifferentPathsFirstThreeSecondOneTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -140,44 +145,44 @@ namespace SmartHopper.Components.Test.DataProcessor
                         token: token).ConfigureAwait(false);
 
                     if (result != null && result.TryGetValue("Sum", out var sumTree) && sumTree != null)
-                        _resultTree = sumTree;
+                        this._resultTree = sumTree;
                     else
-                        _resultTree = new GH_Structure<GH_Integer>();
+                        this._resultTree = new GH_Structure<GH_Integer>();
 
                     // With different paths and A having multiple items, expect broadcast of B's single item across A's three items at pathA
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 1 &&
-                        _resultTree.get_Branch(pathA) != null &&
-                        _resultTree.get_Branch(pathA).Count == 3 &&
-                        _resultTree.get_Branch(pathA)[0] is GH_Integer gi0 && gi0.Value == (1 + 5) &&
-                        _resultTree.get_Branch(pathA)[1] is GH_Integer gi1 && gi1.Value == (2 + 5) &&
-                        _resultTree.get_Branch(pathA)[2] is GH_Integer gi2 && gi2.Value == (3 + 5);
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 1 &&
+                        this._resultTree.get_Branch(pathA) != null &&
+                        this._resultTree.get_Branch(pathA).Count == 3 &&
+                        this._resultTree.get_Branch(pathA)[0] is GH_Integer gi0 && gi0.Value == (1 + 5) &&
+                        this._resultTree.get_Branch(pathA)[1] is GH_Integer gi1 && gi1.Value == (2 + 5) &&
+                        this._resultTree.get_Branch(pathA)[2] is GH_Integer gi2 && gi2.Value == (3 + 5);
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Different paths A={pathA} (3 items), B={pathB} (1 item). Expected broadcast at {pathA}: [6,7,8]."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"Different paths A={pathA} (3 items), B={pathB} (1 item). Expected broadcast at {pathA}: [6,7,8]."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String("Operation was cancelled."));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String("Operation was cancelled."));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Processed different-path trees (3+1) successfully" : "Processing failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Processed different-path trees (3+1) successfully" : "Processing failed";
             }
         }
     }

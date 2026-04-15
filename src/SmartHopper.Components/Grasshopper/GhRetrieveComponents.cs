@@ -40,10 +40,11 @@ namespace SmartHopper.Components.Grasshopper
 
         public GhRetrieveComponents()
             : base(
-                  "Retrieve Components", "GhRetrieveComponents",
-                  "Get a JSON list of all available Grasshopper components in your Grasshopper installation. Use optional category filter to focus the results.",
-                  "SmartHopper", "Grasshopper"
-                  )
+                "Retrieve Components",
+                "GhRetrieveComponents",
+                "Get a JSON list of all available Grasshopper components in your Grasshopper installation. Use optional category filter to focus the results.",
+                "SmartHopper",
+                "Grasshopper")
         {
         }
 
@@ -55,7 +56,7 @@ namespace SmartHopper.Components.Grasshopper
         {
             pManager.AddTextParameter("Category Filter", "C",
                 "Optional list of categories with include/exclude syntax. E.g. ['+Math', '-Params'].",
-                GH_ParamAccess.list, "");
+                GH_ParamAccess.list, string.Empty);
             pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item, false);
         }
 
@@ -115,7 +116,8 @@ namespace SmartHopper.Components.Grasshopper
                 var toolResult = toolResultInteraction?.Result;
                 if (toolResult == null)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    this.AddRuntimeMessage(
+                        GH_RuntimeMessageLevel.Error,
                         "Tool 'gh_list_components' did not return a valid result");
                     return;
                 }

@@ -268,19 +268,40 @@ namespace SmartHopper.Providers.OpenAI
             else if (interaction is AIInteractionImage imageInteraction)
             {
                 // Handle image interactions (for vision models)
-                var contentArray = new JArray
+                string imageUrlValue;
+                if (imageInteraction.ImageUrl != null)
                 {
-                    new JObject
+                    imageUrlValue = imageInteraction.ImageUrl.ToString();
+                }
+                else if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                {
+                    // Construct a data URI from base64 data
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    imageUrlValue = $"data:{mimeType};base64,{imageInteraction.ImageData}";
+                }
+                else
+                {
+                    // No image data available; fall back to prompt text
+                    msgContent = imageInteraction.OriginalPrompt ?? string.Empty;
+                    imageUrlValue = null;
+                }
+
+                if (imageUrlValue != null)
+                {
+                    var contentArray = new JArray
                     {
-                        ["type"] = "image_url",
-                        ["image_url"] = new JObject
+                        new JObject
                         {
-                            ["url"] = imageInteraction.ImageUrl?.ToString() ?? imageInteraction.ImageData,
+                            ["type"] = "image_url",
+                            ["image_url"] = new JObject
+                            {
+                                ["url"] = imageUrlValue,
+                            },
                         },
-                    },
-                };
-                messageObj["content"] = contentArray;
-                contentSetExplicitly = true;
+                    };
+                    messageObj["content"] = contentArray;
+                    contentSetExplicitly = true;
+                }
             }
             else
             {
@@ -383,7 +404,10 @@ namespace SmartHopper.Providers.OpenAI
                     }
                 }
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #endif
 
             return messages;
@@ -401,6 +425,17 @@ namespace SmartHopper.Providers.OpenAI
 
             try
             {
+                // Handle provider error responses (e.g. batch items with status_code 4xx/5xx)
+                if (response["error"] is JObject errorObj)
+                {
+                    var msg = errorObj["message"]?.ToString()
+                              ?? errorObj["type"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[OpenAI] Decode: provider error in response body: {msg}");
+                    interactions.Add(new AIInteractionError { Content = msg });
+                    return interactions;
+                }
+
                 // Handle different response types based on the response structure
                 if (response["data"] != null)
                 {
@@ -427,6 +462,82 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
+        /// Recursively adds additionalProperties=false to all object-type schemas in a JSON schema.
+        /// OpenAI requires this for strict mode response_format.
+        /// </summary>
+        private static void InjectAdditionalPropertiesFalse(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                var type = obj["type"]?.ToString();
+                if (type == "object")
+                {
+                    if (!obj.ContainsKey("additionalProperties"))
+                    {
+                        obj["additionalProperties"] = false;
+                    }
+                }
+
+                foreach (var property in obj.Properties().ToList())
+                {
+                    InjectAdditionalPropertiesFalse(property.Value);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    InjectAdditionalPropertiesFalse(item);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Recursively ensures every object-type schema node lists all its property keys in required.
+        /// OpenAI strict mode requires required to include every key present in properties.
+        /// </summary>
+        private static void InjectRequiredForAllProperties(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                var type = obj["type"]?.ToString();
+                if (type == "object" && obj["properties"] is JObject props)
+                {
+                    var existingRequired = obj["required"] as JArray ?? new JArray();
+                    var existingKeys = new System.Collections.Generic.HashSet<string>(
+                        existingRequired.Select(k => k.ToString()),
+                        StringComparer.Ordinal);
+
+                    var allKeys = props.Properties().Select(p => p.Name).ToList();
+                    var missingKeys = allKeys.Where(k => !existingKeys.Contains(k)).ToList();
+
+                    if (missingKeys.Count > 0)
+                    {
+                        var newRequired = new JArray(existingRequired);
+                        foreach (var key in missingKeys)
+                        {
+                            newRequired.Add(key);
+                        }
+
+                        obj["required"] = newRequired;
+                    }
+                }
+
+                foreach (var property in obj.Properties().ToList())
+                {
+                    InjectRequiredForAllProperties(property.Value);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    InjectRequiredForAllProperties(item);
+                }
+            }
+        }
+
+        /// <summary>
         /// Formats request body for chat completions endpoint.
         /// </summary>
         private string FormatChatCompletionsRequestBody(AIRequestCall request, JArray messages)
@@ -435,8 +546,9 @@ namespace SmartHopper.Providers.OpenAI
             string reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "medium";
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
+            bool hasTools = !string.IsNullOrWhiteSpace(toolFilter);
 
-            Debug.WriteLine($"[OpenAI] FormatRequestBody - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[OpenAI] FormatRequestBody - Model: {request.Model}, MaxTokens: {maxTokens}, HasTools: {hasTools}");
 
             // Build request body for chat completions
             var requestBody = new JObject
@@ -448,9 +560,15 @@ namespace SmartHopper.Providers.OpenAI
             // Configure tokens and parameters based on model family
             // - o-series (o1/o3/o4...) and gpt-5: use max_completion_tokens and reasoning_effort; omit temperature
             // - others: use max_tokens and temperature
+            // NOTE: reasoning_effort is incompatible with function tools on gpt-5.4, so omit it when tools are present
             if (OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model))
             {
-                requestBody["reasoning_effort"] = reasoningEffort;
+                // Only add reasoning_effort if no tools are present (gpt-5.4 incompatibility)
+                if (!hasTools)
+                {
+                    requestBody["reasoning_effort"] = reasoningEffort;
+                }
+
                 requestBody["max_completion_tokens"] = maxTokens;
             }
             else
@@ -465,6 +583,11 @@ namespace SmartHopper.Providers.OpenAI
                 try
                 {
                     var schemaObj = JObject.Parse(jsonSchema);
+
+                    // OpenAI strict mode requires additionalProperties=false and all properties in required
+                    InjectAdditionalPropertiesFalse(schemaObj);
+                    InjectRequiredForAllProperties(schemaObj);
+
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
 
@@ -985,8 +1108,8 @@ namespace SmartHopper.Providers.OpenAI
                     yield return initial;
                 }
 
-                // Determine idle timeout from request (fallback to 60s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                // Determine idle timeout from request (fallback to 600s if invalid)
+                var idleTimeout = TimeSpan.FromSeconds((double)(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 600));
                 await foreach (var data in this.ReadSseDataAsync(
                     response,
                     idleTimeout,

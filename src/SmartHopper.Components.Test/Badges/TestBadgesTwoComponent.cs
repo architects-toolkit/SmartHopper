@@ -45,9 +45,12 @@ namespace SmartHopper.Components.Test.Badges
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestBadgesTwoComponent()
-            : base("Test Badges: Two", "TBadges2",
-                   "Renders two sample badges above the component for visual verification.",
-                   "SmartHopper", "Testing Badges")
+            : base(
+                "Test Badges: Two",
+                "TBadges2",
+                "Renders two sample badges above the component for visual verification.",
+                "SmartHopper",
+                "Testing Badges")
         {
         }
 
@@ -141,7 +144,10 @@ namespace SmartHopper.Components.Test.Badges
                 g.DrawEllipse(pen, rect);
             }
 
-            public TwoBadgesAttributes(AIProviderComponentBase owner) : base(owner) { }
+            public TwoBadgesAttributes(AIProviderComponentBase owner)
+                : base(owner)
+            {
+            }
 
             protected override IEnumerable<(Action<Graphics, float, float> draw, string label)> GetAdditionalBadges()
             {

@@ -239,7 +239,7 @@ namespace SmartHopper.Components.Test.Misc
             public override async Task DoWorkAsync(CancellationToken token)
             {
                 // Simple calculation with a small delay to simulate async work
-                await Task.Delay(100, token);
+                await Task.Delay(100, token).ConfigureAwait(false);
                 this.result = (this.inputNumber * 2d) + 1d;
             }
 

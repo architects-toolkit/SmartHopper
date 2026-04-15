@@ -1,0 +1,177 @@
+name: Stabilization 1 - 🛑 Cancel Path
+
+# Description: Cancels a stabilization path when a no-suffix milestone (e.g. "1.4.2") is closed
+# while staged sub-milestones (1.4.2-alpha, 1.4.2-beta, etc.) are still open.
+# Closes all sub-milestones, migrates their open issues to the next dev milestone,
+# and deletes the dev-X.Y.Z and main-X.Y.Z branches.
+#
+# Triggers:
+# - milestone.closed when title matches X.Y.Z (no suffix) AND open sub-milestones exist
+#
+# Permissions:
+# - contents: write - Required to delete branches
+# - issues: write - Required to close milestones and update issues
+
+on:
+  milestone:
+    types: [closed]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  cancel-stabilization-path:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if this is a cancellation scenario
+        id: check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = '${{ github.event.milestone.title }}';
+
+            // Only handle stable X.Y.Z milestones (no suffix)
+            if (!/^\d+\.\d+\.\d+$/.test(title)) {
+              console.log(`Milestone '${title}' is not a stable X.Y.Z version. Skipping.`);
+              core.setOutput('should-cancel', 'false');
+              return;
+            }
+
+            // Check for open sub-milestones (e.g. 1.4.2-alpha, 1.4.2-beta, 1.4.2-rc)
+            const allMilestones = await github.paginate(
+              github.rest.issues.listMilestones,
+              { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 }
+            );
+
+            const subMilestones = allMilestones.filter(m => m.title.startsWith(`${title}-`));
+
+            if (subMilestones.length > 0) {
+              console.log(`Found ${subMilestones.length} open sub-milestone(s): ${subMilestones.map(m => m.title).join(', ')}`);
+              console.log('Cancellation path triggered.');
+              core.setOutput('should-cancel', 'true');
+              core.setOutput('sub-milestones', JSON.stringify(subMilestones.map(m => ({ number: m.number, title: m.title }))));
+            } else {
+              console.log('No open sub-milestones found. This is a successful completion — handled by stabilization-2-complete.yml.');
+              core.setOutput('should-cancel', 'false');
+            }
+
+      - name: Find next dev milestone for issue migration
+        if: steps.check.outputs.should-cancel == 'true'
+        id: find-next-milestone
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Find the lowest-numbered open alpha milestone (next dev target)
+            const allMilestones = await github.paginate(
+              github.rest.issues.listMilestones,
+              { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 }
+            );
+
+            const alphaMilestones = allMilestones
+              .filter(m => /^\d+\.\d+\.\d+-alpha$/.test(m.title))
+              .sort((a, b) => {
+                const [aMaj, aMin, aPat] = a.title.replace(/-alpha$/, '').split('.').map(Number);
+                const [bMaj, bMin, bPat] = b.title.replace(/-alpha$/, '').split('.').map(Number);
+                if (aMaj !== bMaj) return aMaj - bMaj;
+                if (aMin !== bMin) return aMin - bMin;
+                return aPat - bPat;
+              });
+
+            if (alphaMilestones.length > 0) {
+              const target = alphaMilestones[0];
+              console.log(`Target migration milestone: ${target.title} (#${target.number})`);
+              core.setOutput('target-milestone-number', target.number.toString());
+              core.setOutput('target-milestone-title', target.title);
+            } else {
+              console.log('No alpha milestone found for migration. Items will be unassigned.');
+              core.setOutput('target-milestone-number', '');
+              core.setOutput('target-milestone-title', '');
+            }
+
+      - name: Migrate issues and close sub-milestones
+        if: steps.check.outputs.should-cancel == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const subMilestones = JSON.parse('${{ steps.check.outputs.sub-milestones }}');
+            const targetMilestoneNumber = '${{ steps.find-next-milestone.outputs.target-milestone-number }}';
+            const targetMilestoneTitle = '${{ steps.find-next-milestone.outputs.target-milestone-title }}';
+
+            for (const sub of subMilestones) {
+              console.log(`Processing sub-milestone: ${sub.title} (#${sub.number})`);
+
+              // Get all open issues and PRs in this milestone
+              const issues = await github.paginate(
+                github.rest.issues.listForRepo,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  milestone: sub.number,
+                  state: 'open',
+                  per_page: 100
+                }
+              );
+
+              console.log(`  Found ${issues.length} open item(s) in ${sub.title}`);
+
+              // Migrate each item
+              for (const issue of issues) {
+                const newMilestone = targetMilestoneNumber ? parseInt(targetMilestoneNumber) : null;
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  milestone: newMilestone
+                });
+                const dest = targetMilestoneTitle || 'unassigned';
+                console.log(`  Moved #${issue.number} to ${dest}`);
+              }
+
+              // Close the sub-milestone
+              await github.rest.issues.updateMilestone({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                milestone_number: sub.number,
+                state: 'closed'
+              });
+              console.log(`  ✅ Closed sub-milestone: ${sub.title}`);
+            }
+
+      - name: Checkout repository
+        if: steps.check.outputs.should-cancel == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete stabilization branches
+        if: steps.check.outputs.should-cancel == 'true'
+        run: |
+          VERSION="${{ github.event.milestone.title }}"
+          DEV_BRANCH="dev-${VERSION}"
+          MAIN_BRANCH="main-${VERSION}"
+
+          for BRANCH in "$DEV_BRANCH" "$MAIN_BRANCH"; do
+            if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
+              git push origin --delete "$BRANCH"
+              echo "✅ Deleted branch: ${BRANCH}"
+            else
+              echo "Branch ${BRANCH} does not exist, skipping."
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: steps.check.outputs.should-cancel == 'true'
+        run: |
+          echo "## 🛑 Stabilization Path Cancelled"
+          echo ""
+          echo "- **Version:** ${{ github.event.milestone.title }}"
+          echo "- **Sub-milestones closed:** ${{ steps.check.outputs.sub-milestones }}"
+          echo "- **Issues migrated to:** ${{ steps.find-next-milestone.outputs.target-milestone-title || 'unassigned' }}"
+          echo "- **Branches deleted:** dev-${{ github.event.milestone.title }}, main-${{ github.event.milestone.title }}"

@@ -1,0 +1,241 @@
+name: 'Check Issues for Version'
+description: 'Check promotion eligibility: milestone status, release age, and open issues with version label (all stages)'
+inputs:
+  version:
+    description: 'Version to check for issues (e.g., 1.4.2-alpha)'
+    required: true
+  days-lookback:
+    description: 'Number of days to look back for issues (default: 30)'
+    required: false
+    default: '30'
+  token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+
+outputs:
+  has-issues:
+    description: 'Whether any open issues exist with this version label'
+    value: ${{ steps.check-issues.outputs.has_issues }}
+  issue-count:
+    description: 'Number of open issues with this version label'
+    value: ${{ steps.check-issues.outputs.issue_count }}
+  issues-list:
+    description: 'Comma-separated list of issue numbers'
+    value: ${{ steps.check-issues.outputs.issues_list }}
+  release-date:
+    description: 'Release published date (ISO 8601)'
+    value: ${{ steps.check-issues.outputs.release_date }}
+  release-age-days:
+    description: 'Number of days since release was published'
+    value: ${{ steps.check-issues.outputs.release_age_days }}
+  release-old-enough:
+    description: 'Whether release is at least 30 days old'
+    value: ${{ steps.check-issues.outputs.release_old_enough }}
+  last-closed-issue-date:
+    description: 'Date of last closed issue with this version label (ISO 8601)'
+    value: ${{ steps.check-issues.outputs.last_closed_issue_date }}
+  last-closed-age-days:
+    description: 'Number of days since last issue was closed'
+    value: ${{ steps.check-issues.outputs.last_closed_age_days }}
+  last-closed-old-enough:
+    description: 'Whether last closed issue is at least 30 days old'
+    value: ${{ steps.check-issues.outputs.last_closed_old_enough }}
+  can-promote:
+    description: 'Whether all conditions are met for promotion (milestone clear, release old enough, no recent closed issues)'
+    value: ${{ steps.check-issues.outputs.can_promote }}
+  blocking-reason:
+    description: 'Reason why promotion is blocked (if can-promote is false)'
+    value: ${{ steps.check-issues.outputs.blocking_reason }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check for issues with version label
+      id: check-issues
+      shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        $version = "${{ inputs.version }}"
+        $labelName = "version: $version"
+        $daysLookback = [int]"${{ inputs.days-lookback }}"
+        $repo = "${{ github.repository }}"
+        
+        Write-Host "=== Promotion Eligibility Check for $version ==="
+        Write-Host ""
+        
+        $headers = @{
+          "Authorization" = "Bearer $env:GITHUB_TOKEN"
+          "Accept" = "application/vnd.github.v3+json"
+        }
+        
+        $repoOwner = $repo.Split('/')[0]
+        $repoName = $repo.Split('/')[1]
+        $canPromote = $true
+        $blockingReasons = @()
+        
+        # ============================================================
+        # CHECK 1: Open issues with version label (any stage)
+        # ============================================================
+        Write-Host "CHECK 1: Looking for ALL open issues with version label (base + all stages)"
+        
+        # Parse version to get base version (X.Y.Z without stage suffix)
+        if ($version -match '^(\d+\.\d+\.\d+)') {
+          $baseVersion = $matches[1]
+          Write-Host "  Base version: $baseVersion"
+        } else {
+          Write-Host "  ⚠️ Could not parse base version from '$version'"
+          $baseVersion = $version
+        }
+        
+        # Search for all open issues with labels matching the base version (any stage)
+        # This will match: version: X.Y.Z, version: X.Y.Z-alpha, version: X.Y.Z-beta, etc.
+        $openIssues = @()
+        $page = 1
+        $perPage = 100
+        
+        do {
+          # Search for issues with labels starting with "version: X.Y.Z"
+          $query = "state:open label:""version: $baseVersion"" repo:$repo"
+          $uri = "https://api.github.com/search/issues?q=$([Uri]::EscapeDataString($query))&per_page=$perPage&page=$page"
+          
+          try {
+            $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method GET
+            $openIssues += $response.items
+            
+            if ($response.items.Count -lt $perPage) {
+              break
+            }
+            $page++
+          } catch {
+            Write-Error "Failed to fetch open issues: $($_.Exception.Message)"
+            exit 1
+          }
+        } while ($response.items.Count -eq $perPage)
+        
+        $openIssueCount = $openIssues.Count
+        $openIssueNumbers = ($openIssues | ForEach-Object { $_.number }) -join ","
+        
+        if ($openIssueCount -gt 0) {
+          Write-Host "  ❌ Found $openIssueCount open issue(s): $openIssueNumbers"
+          Write-Host "     (Issues discovered in version $baseVersion line, any stage)"
+          echo "has_issues=true" >> $env:GITHUB_OUTPUT
+          $canPromote = $false
+          $blockingReasons += "version_label_has_open_issues"
+        } else {
+          Write-Host "  ✅ No open issues with version label (checked all stages)"
+          echo "has_issues=false" >> $env:GITHUB_OUTPUT
+        }
+        
+        echo "issue_count=$openIssueCount" >> $env:GITHUB_OUTPUT
+        echo "issues_list=$openIssueNumbers" >> $env:GITHUB_OUTPUT
+        Write-Host ""
+        
+        # (CHECK 2 removed: target milestone check was redundant with CHECK 1.
+        #  Bugs from alpha labeled 'version: 1.4.3-alpha' are caught by CHECK 1.
+        #  Checking the beta milestone also incorrectly blocks on planned features.)
+        
+        # ============================================================
+        # CHECK 3: Release age (must be >= 30 days old)
+        # ============================================================
+        Write-Host "CHECK 3: Checking release age"
+        
+        try {
+          # Get release by tag
+          $releaseUri = "https://api.github.com/repos/$repo/releases/tags/$version"
+          $release = Invoke-RestMethod -Uri $releaseUri -Headers $headers -Method GET
+          
+          $publishedAt = [DateTime]::Parse($release.published_at)
+          $now = Get-Date
+          $ageDays = ($now - $publishedAt).Days
+          $releaseOldEnough = $ageDays -ge $daysLookback
+          
+          Write-Host "  Release published: $($publishedAt.ToString('yyyy-MM-dd'))"
+          Write-Host "  Age: $ageDays days"
+          
+          if ($releaseOldEnough) {
+            Write-Host "  ✅ Release is old enough (>= $daysLookback days)"
+            echo "release_old_enough=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "  ❌ Release is too recent (< $daysLookback days)"
+            echo "release_old_enough=false" >> $env:GITHUB_OUTPUT
+            $canPromote = $false
+            $blockingReasons += "release_too_recent"
+          }
+          
+          echo "release_date=$($publishedAt.ToString('yyyy-MM-ddTHH:mm:ssZ'))" >> $env:GITHUB_OUTPUT
+          echo "release_age_days=$ageDays" >> $env:GITHUB_OUTPUT
+        } catch {
+          Write-Warning "Failed to fetch release: $($_.Exception.Message)"
+          echo "release_date=unknown" >> $env:GITHUB_OUTPUT
+          echo "release_age_days=-1" >> $env:GITHUB_OUTPUT
+          echo "release_old_enough=unknown" >> $env:GITHUB_OUTPUT
+        }
+        Write-Host ""
+        
+        # ============================================================
+        # CHECK 4: Last closed issue age (must be >= 30 days old)
+        # ============================================================
+        Write-Host "CHECK 4: Checking last closed issue with label '$labelName'"
+        
+        try {
+          # Search for closed issues with version label, sorted by closed date (most recent first)
+          $query = "state:closed label:""$labelName"" repo:$repo"
+          $closedIssuesUri = "https://api.github.com/search/issues?q=$([Uri]::EscapeDataString($query))&sort=updated&order=desc&per_page=1"
+          $closedResponse = Invoke-RestMethod -Uri $closedIssuesUri -Headers $headers -Method GET
+          
+          if ($closedResponse.total_count -gt 0 -and $closedResponse.items.Count -gt 0) {
+            $lastClosedIssue = $closedResponse.items[0]
+            $closedAt = [DateTime]::Parse($lastClosedIssue.closed_at)
+            $now = Get-Date
+            $closedAgeDays = ($now - $closedAt).Days
+            $closedOldEnough = $closedAgeDays -ge $daysLookback
+            
+            Write-Host "  Last closed issue: #$($lastClosedIssue.number)"
+            Write-Host "  Closed: $($closedAt.ToString('yyyy-MM-dd'))"
+            Write-Host "  Age: $closedAgeDays days"
+            
+            if ($closedOldEnough) {
+              Write-Host "  ✅ Last closed issue is old enough (>= $daysLookback days)"
+              echo "last_closed_old_enough=true" >> $env:GITHUB_OUTPUT
+            } else {
+              Write-Host "  ❌ Last closed issue is too recent (< $daysLookback days)"
+              echo "last_closed_old_enough=false" >> $env:GITHUB_OUTPUT
+              $canPromote = $false
+              $blockingReasons += "last_closed_too_recent"
+            }
+            
+            echo "last_closed_issue_date=$($closedAt.ToString('yyyy-MM-ddTHH:mm:ssZ'))" >> $env:GITHUB_OUTPUT
+            echo "last_closed_age_days=$closedAgeDays" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "  ✅ No closed issues found with version label"
+            echo "last_closed_issue_date=none" >> $env:GITHUB_OUTPUT
+            echo "last_closed_age_days=-1" >> $env:GITHUB_OUTPUT
+            echo "last_closed_old_enough=true" >> $env:GITHUB_OUTPUT
+          }
+        } catch {
+          Write-Warning "Failed to check closed issues: $($_.Exception.Message)"
+          echo "last_closed_issue_date=unknown" >> $env:GITHUB_OUTPUT
+          echo "last_closed_age_days=-1" >> $env:GITHUB_OUTPUT
+          echo "last_closed_old_enough=unknown" >> $env:GITHUB_OUTPUT
+        }
+        Write-Host ""
+        
+        # ============================================================
+        # FINAL DECISION
+        # ============================================================
+        Write-Host "=== PROMOTION DECISION ==="
+        
+        if ($canPromote) {
+          Write-Host "✅ ALL CONDITIONS MET - Can promote $version"
+          echo "can_promote=true" >> $env:GITHUB_OUTPUT
+          echo "blocking_reason=none" >> $env:GITHUB_OUTPUT
+        } else {
+          $reasonsText = $blockingReasons -join ", "
+          Write-Host "❌ BLOCKED - Cannot promote $version"
+          Write-Host "   Reasons: $reasonsText"
+          echo "can_promote=false" >> $env:GITHUB_OUTPUT
+          echo "blocking_reason=$reasonsText" >> $env:GITHUB_OUTPUT
+        }
+        Write-Host ""
