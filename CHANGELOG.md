@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Many thanks to the following contributors to this release:
+
+- [marc-romu](https://github.com/marc-romu)
+
+----
+
 ### Changed
 
 - **Infrastructure**: Migrated critical fixes including provider stability improvements, timeout policy refinements, and streaming adapter fixes
