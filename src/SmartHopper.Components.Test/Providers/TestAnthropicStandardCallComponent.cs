@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestAnthropicStandardCallComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("C3D4E5F6-A7B8-9012-CDEF-345678901234");
+        public override Guid ComponentGuid => new Guid("96E4F7C5-B7E4-4C0E-8CE4-538D50D724E5");
 
         public TestAnthropicStandardCallComponent()
             : base("Test Anthropic Standard Call", "TEST-ANTHROPIC-CALL", "Tests Anthropic standard API call and metrics validation", "SmartHopper", "Test/Providers")

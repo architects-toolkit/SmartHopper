@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiVisionComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("A1B2C3D4-E5F6-7890-ABCD-123456789012");
+        public override Guid ComponentGuid => new Guid("06FB22C2-2C27-4117-8330-56904038A513");
 
         public TestGeminiVisionComponent()
             : base("Test Gemini Vision", "TEST-GEMINI-VISION", "Tests Gemini vision API call with image input", "SmartHopper", "Test/Providers")

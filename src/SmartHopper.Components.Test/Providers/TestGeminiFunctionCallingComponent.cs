@@ -35,7 +35,7 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiFunctionCallingComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("F6G7H8I9-J0K1-2345-LMNO-678901234567");
+        public override Guid ComponentGuid => new Guid("A12F1236-3B3B-498D-9DB9-DC94FEFB0660");
 
         public TestGeminiFunctionCallingComponent()
             : base("Test Gemini Function Calling", "TEST-GEMINI-FUNC", "Tests Gemini function calling and response parsing", "SmartHopper", "Test/Providers")

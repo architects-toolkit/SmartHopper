@@ -35,7 +35,7 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestAnthropicToolsComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("D4E5F6A7-B8C9-0123-DEFA-456789012345");
+        public override Guid ComponentGuid => new Guid("8C2D73B5-34DA-41A9-BECB-3F7F33766FAF");
 
         public TestAnthropicToolsComponent()
             : base("Test Anthropic Tools", "TEST-ANTHROPIC-TOOLS", "Tests Anthropic tool encoding and response parsing", "SmartHopper", "Test/Providers")

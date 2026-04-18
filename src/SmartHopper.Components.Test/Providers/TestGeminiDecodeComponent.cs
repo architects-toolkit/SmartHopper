@@ -36,7 +36,7 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiDecodeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("D4E5F6G7-H8I9-0123-JKLM-456789012345");
+        public override Guid ComponentGuid => new Guid("BA230457-1318-4346-A6F3-453F32EDBD38");
 
         public TestGeminiDecodeComponent()
             : base("Test Gemini Decode", "TEST-GEMINI-DEC", "Tests Gemini response decoding to AIReturn", "SmartHopper", "Test/Providers")

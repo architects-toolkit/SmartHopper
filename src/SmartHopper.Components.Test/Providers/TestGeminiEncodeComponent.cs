@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiEncodeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("E5F6G7H8-I9J0-1234-KLMN-567890123456");
+        public override Guid ComponentGuid => new Guid("BFA00A8F-3DA2-4261-87A6-DBCE0E861188");
 
         public TestGeminiEncodeComponent()
             : base("Test Gemini Encode", "TEST-GEMINI-ENC", "Tests Gemini message encoding from AIRequestCall", "SmartHopper", "Test/Providers")

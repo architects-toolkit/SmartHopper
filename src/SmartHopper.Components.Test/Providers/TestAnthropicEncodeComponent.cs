@@ -35,7 +35,7 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestAnthropicEncodeComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("A1B2C3D4-E5F6-7890-ABCD-EF1234567890");
+        public override Guid ComponentGuid => new Guid("817E8806-0DE0-4104-A650-1D28D7763E93");
 
         public TestAnthropicEncodeComponent()
             : base("Test Anthropic Encode", "TEST-ANTHROPIC-ENC", "Tests Anthropic message encoding from AIRequestCall", "SmartHopper", "Test/Providers")

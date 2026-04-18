@@ -37,7 +37,7 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestAnthropicBatchCallComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("B2C3D4E5-F6A7-8901-BCDE-F23456789012");
+        public override Guid ComponentGuid => new Guid("963561E5-8242-4B9F-AF16-16635E173401");
 
         public TestAnthropicBatchCallComponent()
             : base("Test Anthropic Batch Call", "TEST-ANTHROPIC-BATCH", "Tests Anthropic batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
