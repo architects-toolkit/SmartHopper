@@ -139,6 +139,29 @@ namespace SmartHopper.Providers.Gemini
             return JObject.Parse(body);
         }
 
+        private async Task<JObject> SendBatchRequestAsync(HttpMethod method, string endpoint, CancellationToken cancellationToken)
+        {
+            using var client = new HttpClient();
+            var apiKey = this.GetSetting<string>("ApiKey");
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
+            }
+
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-goog-api-key", apiKey);
+
+            var uri = this.BuildFullUrl(endpoint);
+            using var req = new HttpRequestMessage(method, uri);
+            using var response = await client.SendAsync(req, cancellationToken).ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"HTTP {(int)response.StatusCode}: {body}");
+            }
+
+            return string.IsNullOrWhiteSpace(body) ? new JObject() : JObject.Parse(body);
+        }
+
         /// <inheritdoc/>
         public async Task<AIBatchStatus> GetBatchStatusAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
         {
@@ -149,29 +172,10 @@ namespace SmartHopper.Providers.Gemini
 
             try
             {
-                var request = new AIRequestCall
-                {
-                    Endpoint = $"/{submission.BatchId}",
-                    HttpMethod = "GET",
-                    Authentication = "x-goog-api-key",
-                };
-
-                var response = await this.Call(request);
-
-                var air = response as AIReturn;
-                if (air == null)
-                {
-                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, "Failed to get batch status");
-                }
-
-                if (!air.Success)
-                {
-                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, string.Join(" | ", air.Messages.Select(m => m.Message)));
-                }
-
-                // Parse the response body which contains the Operation object
-                var responseBody = (air.Body?.Interactions?.FirstOrDefault(i => i is AIInteractionText) as AIInteractionText)?.Content ?? string.Empty;
-                var operationObj = JObject.Parse(responseBody);
+                // Use a direct HTTP GET instead of routing through the Call()/Decode() pipeline,
+                // because batch status responses are Operation objects (name/done/result), not
+                // generateContent responses with a candidates array.
+                var operationObj = await this.SendBatchRequestAsync(HttpMethod.Get, $"/{submission.BatchId}", cancellationToken).ConfigureAwait(false);
 
                 // Check if operation is done
                 var done = operationObj["done"]?.Value<bool>() ?? false;
@@ -259,20 +263,8 @@ namespace SmartHopper.Providers.Gemini
 
             try
             {
-                var request = new AIRequestCall
-                {
-                    Endpoint = $"/{submission.BatchId}:cancel",
-                    HttpMethod = "POST",
-                    Authentication = "x-goog-api-key",
-                };
-
-                var response = await this.Call(request);
-
-                var air = response as AIReturn;
-                var cancelMessage = air == null || air.Success
-                    ? "success"
-                    : string.Join(" | ", air.Messages.Select(m => m.Message));
-                Debug.WriteLine($"[{this.Name}] Batch cancel response: {cancelMessage}");
+                await this.SendBatchRequestAsync(HttpMethod.Post, $"/{submission.BatchId}:cancel", cancellationToken).ConfigureAwait(false);
+                Debug.WriteLine($"[{this.Name}] Batch cancel response: success");
             }
             catch (Exception ex)
             {
