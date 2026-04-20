@@ -292,16 +292,9 @@ namespace SmartHopper.Components.Text
                         }
                         else if (!string.IsNullOrEmpty(str))
                         {
-                            // Check if this is a fallback value (not empty but not parseable as bool)
-                            // The result will be the parsed fallback or null if not parseable
-                            bool? parsedFallback = null;
-                            if (bool.TryParse(str, out bool fallbackVal))
-                            {
-                                parsedFallback = fallbackVal;
-                            }
-
-                            resultBranch.Add(parsedFallback.HasValue ? new GH_Boolean(parsedFallback.Value) : null);
-                            usedFallbackBranch.Add(new GH_Boolean(!parsedFallback.HasValue));
+                            // Non-parseable string - use fallback (null result)
+                            resultBranch.Add(null);
+                            usedFallbackBranch.Add(new GH_Boolean(true));
                         }
                         else
                         {
