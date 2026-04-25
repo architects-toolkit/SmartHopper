@@ -82,6 +82,7 @@ Many thanks to the following contributors to this release:
     - Reads `Timeout` from settings (with fallback to `HttpTimeoutSeconds` for backward compatibility)
     - Uses `TimeoutDefaults.DefaultTimeoutSeconds` (300s) as final fallback
   - **AISettingsComponent** now has "Timeout" input parameter (before "Extras") for custom timeout override
+    - **Breaking (saved files)**: Inserting `Timeout` before `Extras` shifts the `Extras` parameter index by one. Grasshopper persists wire connections by parameter index, so existing `.ghx`/`.gh` files with a wire into `Extras` will, after upgrade, resolve that wire to the new `Timeout` (integer) input. Because the source value (Extras JSON string) is type-incompatible with `Timeout`, the input is silently ignored and the previously wired provider-specific extras are lost on file load. Reconnect the `Extras` input on `AISettingsComponent` after upgrading.
   - **AIStatefulAsyncComponentBase** additions:
     - New `ConfigureRequestTimeout()` helper method - centralizes timeout configuration for both batch and regular paths
   - **AIProvider** simplified - removed duplicate timeout resolution logic, now relies on RequestTimeoutPolicy
