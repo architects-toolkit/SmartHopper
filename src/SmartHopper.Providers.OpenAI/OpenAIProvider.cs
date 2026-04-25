@@ -1076,8 +1076,17 @@ namespace SmartHopper.Providers.OpenAI
                 if (!response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider.Name);
                     var err = new AIReturn();
-                    err.CreateProviderError($"HTTP {(int)response.StatusCode}: {content}", request);
+                    if (isNetworkLike)
+                    {
+                        err.CreateNetworkError(message, request);
+                    }
+                    else
+                    {
+                        err.CreateProviderError(message, request);
+                    }
+
                     yield return err;
                     yield break;
                 }

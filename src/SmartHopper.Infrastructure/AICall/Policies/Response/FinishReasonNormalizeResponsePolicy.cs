@@ -42,6 +42,16 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
             try
             {
                 var response = context.Response;
+
+                // Skip normalization when there is no body to update (e.g., HTTP error returns
+                // produced by AIProvider.CallApi or streaming adapters with non-success status).
+                // Without a body we cannot replace the last interaction; the error message has
+                // already been surfaced via AIRuntimeMessage on the AIReturn.
+                if (response.Body == null)
+                {
+                    return Task.CompletedTask;
+                }
+
                 var metrics = response.Metrics; // aggregated snapshot
 
                 // Try to get existing finish reason or fallback to last interaction

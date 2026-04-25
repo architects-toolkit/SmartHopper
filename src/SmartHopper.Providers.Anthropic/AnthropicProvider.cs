@@ -956,8 +956,17 @@ namespace SmartHopper.Providers.Anthropic
                 if (!responseMsg.IsSuccessStatusCode)
                 {
                     var content = await responseMsg.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)responseMsg.StatusCode, responseMsg.ReasonPhrase, content, this.Provider.Name);
                     var err = new AIReturn();
-                    err.CreateProviderError($"HTTP {(int)responseMsg.StatusCode}: {content}", request);
+                    if (isNetworkLike)
+                    {
+                        err.CreateNetworkError(message, request);
+                    }
+                    else
+                    {
+                        err.CreateProviderError(message, request);
+                    }
+
                     yield return err;
                     yield break;
                 }

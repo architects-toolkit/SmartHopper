@@ -184,7 +184,8 @@ namespace SmartHopper.Infrastructure.AIProviders
             if (!response.IsSuccessStatusCode)
             {
                 string error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                throw new HttpRequestException($"Streaming request failed: {(int)response.StatusCode} {response.ReasonPhrase} - {error}");
+                var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, error, this.Provider?.Name ?? "provider");
+                throw new ProviderHttpStatusException((int)response.StatusCode, isNetworkLike, message);
             }
 
             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);

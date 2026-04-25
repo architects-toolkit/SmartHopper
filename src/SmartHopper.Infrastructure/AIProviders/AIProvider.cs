@@ -707,6 +707,65 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Builds a descriptive error message for a non-success HTTP response and classifies whether
+        /// it should be surfaced as a network-style error (transient/connectivity) or as a provider error
+        /// (client-side misuse such as auth/payload).
+        /// </summary>
+        /// <param name="statusCode">HTTP status code.</param>
+        /// <param name="reasonPhrase">HTTP reason phrase or status enum name.</param>
+        /// <param name="content">Raw response body for context.</param>
+        /// <param name="providerName">Provider name to embed in the message.</param>
+        /// <returns>Tuple of (enriched message, isNetworkLike). Network-like covers 5xx, 408 and 429.</returns>
+        public static (string Message, bool IsNetworkLike) ClassifyHttpError(int statusCode, string reasonPhrase, string content, string providerName)
+        {
+            string message;
+            bool isNetworkLike;
+            switch (statusCode)
+            {
+                case 401:
+                case 403:
+                    message = $"HTTP {statusCode}: Authentication failed for {providerName}. Check your API key. Response: {content}";
+                    isNetworkLike = false;
+                    break;
+                case 408:
+                    message = $"HTTP 408 Request Timeout: The request to {providerName} took too long. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 413:
+                    message = $"HTTP 413 Payload Too Large: The request to {providerName} exceeds size limits. Try reducing input length or batch size. Response: {content}";
+                    isNetworkLike = false;
+                    break;
+                case 429:
+                    message = $"HTTP 429 Too Many Requests: Rate limit exceeded for {providerName}. Please retry after a delay. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 500:
+                    message = $"HTTP 500 Internal Server Error: {providerName} encountered an internal error. Retry after a brief delay. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 502:
+                    message = $"HTTP 502 Bad Gateway: {providerName} gateway error. The upstream server returned an invalid response. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 503:
+                    message = $"HTTP 503 Service Unavailable: The {providerName} API is at capacity. If using Flex tier, try again later or switch to Standard tier. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 504:
+                    message = $"HTTP 504 Gateway Timeout: {providerName} upstream timeout. The server took too long to respond. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                default:
+                    message = $"HTTP {statusCode} {reasonPhrase}: {content}";
+                    // Treat any unspecified 5xx as network-like; everything else as provider error.
+                    isNetworkLike = statusCode >= 500 && statusCode < 600;
+                    break;
+            }
+
+            return (message, isNetworkLike);
+        }
+
+        /// <summary>
         /// Makes an HTTP request to the specified endpoint with authentication.
         /// </summary>
         /// <param name="request">The request to make.</param>
@@ -829,46 +888,17 @@ namespace SmartHopper.Infrastructure.AIProviders
 
                         // Create AIReturn with structured error instead of throwing
                         var errorReturn = new AIReturn();
+                        var (errorMessage, isNetworkLike) = ClassifyHttpError((int)response.StatusCode, response.StatusCode.ToString(), content, this.Name);
 
-                        // Build descriptive error message with status code
-                        var statusCode = (int)response.StatusCode;
-                        var errorMessage = $"HTTP {statusCode} {response.StatusCode}: {content}";
-
-                        // Add context for common error codes
-                        if (statusCode == 503)
+                        if (isNetworkLike)
                         {
-                            errorMessage = $"HTTP 503 Service Unavailable: The {this.Name} API is at capacity. If using Flex tier, try again later or switch to Standard tier. Response: {content}";
+                            errorReturn.CreateNetworkError(errorMessage, request);
                         }
-                        else if (statusCode == 429)
+                        else
                         {
-                            errorMessage = $"HTTP 429 Too Many Requests: Rate limit exceeded for {this.Name}. Please retry after a delay. Response: {content}";
-                        }
-                        else if (statusCode == 401 || statusCode == 403)
-                        {
-                            errorMessage = $"HTTP {statusCode}: Authentication failed for {this.Name}. Check your API key. Response: {content}";
-                        }
-                        else if (statusCode == 408)
-                        {
-                            errorMessage = $"HTTP 408 Request Timeout: The request to {this.Name} took too long. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
-                        }
-                        else if (statusCode == 413)
-                        {
-                            errorMessage = $"HTTP 413 Payload Too Large: The request to {this.Name} exceeds size limits. Try reducing input length or batch size. Response: {content}";
-                        }
-                        else if (statusCode == 500)
-                        {
-                            errorMessage = $"HTTP 500 Internal Server Error: {this.Name} encountered an internal error. Retry after a brief delay. Response: {content}";
-                        }
-                        else if (statusCode == 502)
-                        {
-                            errorMessage = $"HTTP 502 Bad Gateway: {this.Name} gateway error. The upstream server returned an invalid response. Response: {content}";
-                        }
-                        else if (statusCode == 504)
-                        {
-                            errorMessage = $"HTTP 504 Gateway Timeout: {this.Name} upstream timeout. The server took too long to respond. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                            errorReturn.CreateProviderError(errorMessage, request);
                         }
 
-                        errorReturn.CreateProviderError(errorMessage, request);
                         errorReturn.Status = AICallStatus.Finished;
 
                         return errorReturn;

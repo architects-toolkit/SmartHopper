@@ -187,8 +187,16 @@ namespace SmartHopper.Providers.Gemini
                         if (!response.IsSuccessStatusCode)
                         {
                             var errorBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, errorBody, this.provider.Name);
                             responseError = new AIReturn();
-                            responseError.CreateProviderError($"HTTP {(int)response.StatusCode}: {errorBody}", request);
+                            if (isNetworkLike)
+                            {
+                                responseError.CreateNetworkError(message, request);
+                            }
+                            else
+                            {
+                                responseError.CreateProviderError(message, request);
+                            }
                         }
 
                         if (responseError != null)
