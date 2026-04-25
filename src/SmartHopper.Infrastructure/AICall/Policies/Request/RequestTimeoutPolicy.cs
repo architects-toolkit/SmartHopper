@@ -17,6 +17,7 @@
  */
 
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.Settings;
 
@@ -29,12 +30,13 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
     /// </summary>
     public sealed class RequestTimeoutPolicy : IRequestPolicy
     {
-        // Default fallback values when settings cannot be read
-        private const int DefaultTimeout = 300;
-        
+        // Default fallback values when settings cannot be read.
+        // Sourced from TimeoutDefaults so all layers (policy, provider HTTP, tool execution) stay aligned.
+        private const int DefaultTimeout = TimeoutDefaults.DefaultTimeoutSeconds;
+
         // Bounds (seconds)
-        private const int MinTimeout = 1;
-        private const int MaxTimeout = 600; // 10 minutes maximum guard
+        private const int MinTimeout = TimeoutDefaults.MinTimeoutSeconds;
+        private const int MaxTimeout = TimeoutDefaults.MaxTimeoutSeconds;
 
         public Task ApplyAsync(PolicyContext context)
         {

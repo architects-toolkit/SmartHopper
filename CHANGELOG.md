@@ -80,18 +80,25 @@ Many thanks to the following contributors to this release:
   - **AIRequestBase.TimeoutSeconds** is now nullable (`int?`) to allow null/empty values
   - **RequestTimeoutPolicy** now resolves timeout from settings when null:
     - Reads `Timeout` from settings (with fallback to `HttpTimeoutSeconds` for backward compatibility)
-    - Uses `DefaultTimeout` constant (600s) as final fallback
+    - Uses `TimeoutDefaults.DefaultTimeoutSeconds` (300s) as final fallback
   - **AISettingsComponent** now has "Timeout" input parameter (before "Extras") for custom timeout override
   - **AIStatefulAsyncComponentBase** additions:
     - New `ConfigureRequestTimeout()` helper method - centralizes timeout configuration for both batch and regular paths
   - **AIProvider** simplified - removed duplicate timeout resolution logic, now relies on RequestTimeoutPolicy
   - **Renamed HTTP Timeout Setting** (UI label and setting key):
-    - `HTTP Timeout (Regular Calls)` → `Timeout` (setting key: `TimeoutSeconds`, default: 600s)
+    - `HTTP Timeout (Regular Calls)` → `Timeout` (setting key: `TimeoutSeconds`, default: 300s)
     - Old setting keys (`HttpTimeoutSeconds`, `ResponseGenerationTimeoutSeconds`) automatically migrated for backward compatibility
   - **Timeout resolution priority** (highest to lowest):
     1. Custom timeout from AI Settings component input
     2. Settings-based timeout (`TimeoutSeconds`)
-    3. Safe default (600s)
+    3. Safe default (300s)
+  - **Unified default across layers**: introduced `SmartHopper.Infrastructure.AICall.Core.TimeoutDefaults` with `DefaultTimeoutSeconds = 300`, `MinTimeoutSeconds = 1`, `MaxTimeoutSeconds = 600`. The following call sites now reference these constants instead of hardcoded literals (previously: 300s policy, 600s provider/batch, 120s tool, 600s streaming idle):
+    - `RequestTimeoutPolicy` (default + bounds)
+    - `AIProvider.Call()` and `AIProvider.CreateBatchHttpClient()` (default + bounds)
+    - `AIToolCall.Exec()` (default + bounds)
+    - Streaming idle-timeout fallbacks in OpenAI, OpenRouter, MistralAI, DeepSeek, Anthropic, and Gemini providers
+    - `ProvidersSettingsPage` Timeout `NumericStepper` Value/Min/Max
+  - Behavior under normal flow is unchanged (policy always resolves first); this aligns the safety-net fallback when the policy pipeline is bypassed and ensures the settings UI bounds match the runtime clamp.
 
 - Components can now mix different `IGH_Goo` types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values)
 - Foundation laid for future extensibility to support `GH_Integer`, `GH_Number`, `GH_Path`, and other Grasshopper data types
@@ -119,6 +126,7 @@ Many thanks to the following contributors to this release:
 
 ### Fixed
 
+- **`AIText2BooleanComponent` / `AIList2BooleanComponent` "Used Fallback" output always reported `false`** in non-batch mode when the fallback was actually applied. The components only forwarded `toolResult["result"]` (which after fallback contains a parseable boolean string like `"True"`) and re-inferred `usedFallback` from the string's parseability, masking the tool's authoritative `usedFallback` flag. `ProcessData` now emits parallel `Result` and `UsedFallback` `IGH_Goo` lists carrying both values from the tool result; `ConvertStringTreeToBoolean` consumes them directly instead of inferring the flag.
 - **Batch output lost after file close/reopen during polling**: When a Grasshopper file was saved and reopened while a batch job was still in-flight, `_sentinelTrees` (the path layout + sentinel strings needed to reconstruct output trees) was lost because it was only kept in memory. On reload, `GetSentinelTree()` returned `null`, causing `OnBatchCompleted` to exit early and produce no output. Fixed by serializing the full sentinel tree structure (paths + sentinel strings per branch) in `Write()` via a new `BatchSentinelTrees` key, and restoring it in `Read()` before polling resumes. Added diagnostic logging to `GetSentinelTree()` to surface the null case.
 
 - **Batch processing HTTPClient timeout (100 seconds)**: Batch submission and status polling were timing out after 100 seconds (default HTTPClient timeout) when uploading large batch files or downloading large result files. Fixed by: (1) Adding `CreateBatchHttpClient()` protected helper method to `AIProvider` base class that creates HttpClient with configurable timeout; (2) Refactoring all batch provider implementations (`OpenAIProvider`, `AnthropicProvider`, `MistralAIProvider`) to use the centralized helper instead of hardcoding timeout values; (3) Adding global `HttpTimeoutSeconds` (default 120s) and `BatchHttpTimeoutSeconds` (default 300s) settings in ProvidersSettingsPage under "Network Settings" section so users can adjust timeouts for all providers without code changes. All providers now read timeouts from global settings via `AIProviderSettings.HttpTimeoutSeconds` and `BatchHttpTimeoutSeconds` properties.

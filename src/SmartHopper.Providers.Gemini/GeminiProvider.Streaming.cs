@@ -25,6 +25,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -77,7 +78,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     try
                     {
-                        int seconds = request?.TimeoutSeconds > 0 ? request.TimeoutSeconds.Value : 600;
+                        int seconds = request?.TimeoutSeconds > 0 ? request.TimeoutSeconds.Value : TimeoutDefaults.DefaultTimeoutSeconds;
                         httpClient.Timeout = TimeSpan.FromSeconds(seconds);
                     }
                     catch (Exception ex)

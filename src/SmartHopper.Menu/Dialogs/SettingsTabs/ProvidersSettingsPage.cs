@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.IO;
 using Eto.Drawing;
 using Eto.Forms;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Menu.Dialogs.SettingsTabs.Models;
@@ -146,9 +147,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             this._httpTimeoutStepper = new NumericStepper
             {
-                Value = 300,
-                MinValue = 1,
-                MaxValue = 600,
+                Value = TimeoutDefaults.DefaultTimeoutSeconds,
+                MinValue = TimeoutDefaults.MinTimeoutSeconds,
+                MaxValue = TimeoutDefaults.MaxTimeoutSeconds,
                 Width = 100,
             };
 

@@ -28,6 +28,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -625,20 +626,20 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// <summary>
         /// Creates an HttpClient configured for batch operations with the specified timeout.
         /// The timeout should be resolved by RequestTimeoutPolicy before calling this method.
-        /// If no timeout is provided, uses a safe default of 600 seconds (10 minutes).
+        /// If no timeout is provided, falls back to <see cref="TimeoutDefaults.DefaultTimeoutSeconds"/>.
         /// </summary>
-        /// <param name="requestTimeoutSeconds">Optional per-request timeout in seconds. If not provided, defaults to 600 seconds.</param>
+        /// <param name="requestTimeoutSeconds">Optional per-request timeout in seconds. If not provided, defaults to <see cref="TimeoutDefaults.DefaultTimeoutSeconds"/>.</param>
         /// <returns>A new HttpClient with appropriate timeout configured.</returns>
         protected HttpClient CreateBatchHttpClient(int? requestTimeoutSeconds = null)
         {
             var client = new HttpClient();
 
-            // Use provided timeout or safe default
-            // The actual timeout resolution from settings should be handled by RequestTimeoutPolicy
-            int timeoutSeconds = requestTimeoutSeconds ?? 600;
+            // Use provided timeout or shared default.
+            // Actual timeout resolution from settings is handled by RequestTimeoutPolicy upstream.
+            int timeoutSeconds = requestTimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
 
-            // Clamp to reasonable bounds (1 second - 10 minutes)
-            timeoutSeconds = Math.Max(1, Math.Min(timeoutSeconds, 600));
+            // Clamp to shared bounds
+            timeoutSeconds = Math.Max(TimeoutDefaults.MinTimeoutSeconds, Math.Min(timeoutSeconds, TimeoutDefaults.MaxTimeoutSeconds));
 
             try
             {
@@ -730,11 +731,11 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             using (var httpClient = new HttpClient())
             {
-                // Apply timeout from request (should be resolved by RequestTimeoutPolicy)
-                // If somehow still null, apply a safe default
+                // Apply timeout from request (should be resolved by RequestTimeoutPolicy).
+                // If somehow still null, fall back to the shared default so all layers stay aligned.
                 try
                 {
-                    int seconds = request?.TimeoutSeconds ?? 600;
+                    int seconds = request?.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
                     httpClient.Timeout = TimeSpan.FromSeconds(seconds);
                 }
                 catch (Exception ex)

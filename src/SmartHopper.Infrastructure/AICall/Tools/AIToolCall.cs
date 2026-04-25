@@ -22,6 +22,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -36,10 +37,11 @@ namespace SmartHopper.Infrastructure.AICall.Tools
     /// </summary>
     public class AIToolCall : AIRequestBase
     {
-        // Timeout bounds for tool execution
-        private const int DEFAULT_TIMEOUT_SECONDS = 120;
-        private const int MIN_TIMEOUT_SECONDS = 1;
-        private const int MAX_TIMEOUT_SECONDS = 600;
+        // Timeout bounds for tool execution.
+        // Sourced from TimeoutDefaults to keep request, provider, and tool layers aligned.
+        private const int DEFAULT_TIMEOUT_SECONDS = TimeoutDefaults.DefaultTimeoutSeconds;
+        private const int MIN_TIMEOUT_SECONDS = TimeoutDefaults.MinTimeoutSeconds;
+        private const int MAX_TIMEOUT_SECONDS = TimeoutDefaults.MaxTimeoutSeconds;
 
         /// <summary>
         /// Gets a value indicating whether the tool call is valid.
@@ -125,7 +127,11 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             {
                 // Respect per-request timeout. We cannot cancel the underlying work if the tool ignores cancellation,
                 // but we do return a standardized timeout error when exceeded.
-                var timeoutSec = this.TimeoutSeconds <= 0 ? DEFAULT_TIMEOUT_SECONDS : this.TimeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
+                // Resolution chain: explicit per-request value (when > 0) -> shared default.
+                // RequestTimeoutPolicy normally resolves this from settings before Exec() runs.
+                var timeoutSec = (this.TimeoutSeconds.HasValue && this.TimeoutSeconds.Value > 0)
+                    ? this.TimeoutSeconds.Value
+                    : DEFAULT_TIMEOUT_SECONDS;
                 var clampedTimeout = Math.Min(Math.Max(timeoutSec, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS);
                 var execTask = AIToolManager.ExecuteTool(this);
                 var completed = await Task.WhenAny(

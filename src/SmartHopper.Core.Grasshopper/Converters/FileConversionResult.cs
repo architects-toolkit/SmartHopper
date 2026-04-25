@@ -63,7 +63,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public List<ExtractedImage> Images { get; set; } = new List<ExtractedImage>();
 
         /// <summary>
-        /// Gets whether the conversion was successful.
+        /// Gets or sets a value indicating whether the conversion was successful.
         /// </summary>
         public bool IsSuccess { get; set; }
 

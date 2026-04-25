@@ -28,6 +28,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -771,8 +772,8 @@ namespace SmartHopper.Providers.OpenRouter
                     yield return initial;
                 }
 
-                // Determine idle timeout from request (fallback to 600s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds((double)(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 600));
+                // Determine idle timeout from request; fall back to shared default if invalid.
+                var idleTimeout = TimeSpan.FromSeconds((double)(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : TimeoutDefaults.DefaultTimeoutSeconds));
                 await foreach (var data in this.ReadSseDataAsync(
                     response,
                     idleTimeout,
