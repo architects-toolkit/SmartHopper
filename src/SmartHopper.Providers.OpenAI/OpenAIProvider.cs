@@ -581,15 +581,11 @@ namespace SmartHopper.Providers.OpenAI
             // Configure tokens and parameters based on model family
             // - o-series (o1/o3/o4...) and gpt-5: use max_completion_tokens and reasoning_effort; omit temperature
             // - others: use max_tokens and temperature
-            // NOTE: reasoning_effort is incompatible with function tools on gpt-5.4, so omit it when tools are present
+            // reasoning_effort is officially supported alongside tools on o-series and gpt-5 models
+            // (see https://platform.openai.com/docs/api-reference/chat/create and the GPT-5 cookbook).
             if (OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model))
             {
-                // Only add reasoning_effort if no tools are present (gpt-5.4 incompatibility)
-                if (!hasTools)
-                {
-                    requestBody["reasoning_effort"] = reasoningEffort;
-                }
-
+                requestBody["reasoning_effort"] = reasoningEffort;
                 requestBody["max_completion_tokens"] = maxTokens;
             }
             else
