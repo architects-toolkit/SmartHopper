@@ -23,7 +23,6 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -335,114 +334,12 @@ namespace SmartHopper.Providers.Gemini
 
                 foreach (var interaction in interactions)
                 {
-                    if (interaction.Agent == AIAgent.System || interaction.Agent == AIAgent.Context)
+                    // EncodeToJToken returns null for System/Context (handled above as system_instruction)
+                    // and for UI-only diagnostics (AIInteractionError), so no extra filtering needed here.
+                    var content = this.EncodeToJToken(interaction);
+                    if (content != null)
                     {
-                        continue;
-                    }
-
-                    var role = interaction.Agent switch
-                    {
-                        AIAgent.User => "user",
-                        AIAgent.Assistant => "model",
-                        AIAgent.ToolCall => "model",
-                        AIAgent.ToolResult => "user",
-                        _ => "user",
-                    };
-
-                    var parts = new JArray();
-
-                    if (interaction is AIInteractionText textInteraction)
-                    {
-                        if (!string.IsNullOrWhiteSpace(textInteraction.Content))
-                        {
-                            parts.Add(new JObject { { "text", textInteraction.Content } });
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(textInteraction.Reasoning))
-                        {
-                            parts.Add(new JObject
-                            {
-                                { "text", textInteraction.Reasoning },
-                                { "thought", true },
-                            });
-                        }
-                    }
-                    else if (interaction is AIInteractionToolResult toolResultInteraction)
-                    {
-                        parts.Add(new JObject
-                        {
-                            {
-                                "functionResponse", new JObject
-                                {
-                                    { "id", toolResultInteraction.Id ?? string.Empty },
-                                    { "name", toolResultInteraction.Name ?? string.Empty },
-                                    { "response", toolResultInteraction.Result ?? new JObject() },
-                                }
-                            },
-                        });
-                    }
-                    else if (interaction is AIInteractionToolCall toolCallInteraction)
-                    {
-                        parts.Add(new JObject
-                        {
-                            {
-                                "functionCall", new JObject
-                                {
-                                    { "id", toolCallInteraction.Id ?? string.Empty },
-                                    { "name", toolCallInteraction.Name ?? string.Empty },
-                                    { "args", toolCallInteraction.Arguments ?? new JObject() },
-                                }
-                            },
-                        });
-                    }
-                    else if (interaction is AIInteractionImage imageInteraction)
-                    {
-                        if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
-                        {
-                            parts.Add(new JObject
-                            {
-                                {
-                                    "inline_data", new JObject
-                                    {
-                                        { "mime_type", imageInteraction.MimeType ?? "image/png" },
-                                        { "data", imageInteraction.ImageData },
-                                    }
-                                },
-                            });
-                        }
-                        else if (imageInteraction.ImageUrl != null)
-                        {
-                            // Fetch image from URL and convert to base64 inline data
-                            var (base64Data, mimeType) = this.FetchImageFromUrl(imageInteraction.ImageUrl);
-                            if (!string.IsNullOrWhiteSpace(base64Data))
-                            {
-                                parts.Add(new JObject
-                                {
-                                    {
-                                        "inline_data", new JObject
-                                        {
-                                            { "mime_type", mimeType },
-                                            { "data", base64Data },
-                                        }
-                                    },
-                                });
-                            }
-                            else
-                            {
-                                // Fallback: add URL as text if fetch fails
-                                parts.Add(new JObject { { "text", imageInteraction.ImageUrl.ToString() } });
-                                Debug.WriteLine($"[GeminiProvider] Warning: Failed to fetch image from URL, sending URL as text: {imageInteraction.ImageUrl}");
-                            }
-                        }
-                    }
-
-                    if (parts.Count > 0)
-                    {
-                        contents.Add(new JObject
-                        {
-                            { "role", role },
-                            { "parts", parts },
-                        });
+                        contents.Add(content);
                     }
                 }
 
@@ -757,26 +654,71 @@ namespace SmartHopper.Providers.Gemini
         }
 
         /// <summary>
+        /// Maximum image size in bytes accepted for inlining (Gemini's inline_data limit is ~20 MB).
+        /// </summary>
+        private const long MaxInlineImageBytes = 20L * 1024 * 1024;
+
+        /// <summary>
+        /// Shared <see cref="HttpClient"/> for image downloads. Reused to avoid socket exhaustion.
+        /// Per-request timeout is enforced via a <see cref="System.Threading.CancellationTokenSource"/>
+        /// rather than <see cref="HttpClient.Timeout"/> so the static instance can be reused safely.
+        /// </summary>
+        private static readonly HttpClient ImageFetchClient = new HttpClient();
+
+        /// <summary>
         /// Fetches an image from a URL and returns it as base64-encoded data with MIME type.
-        /// Falls back to WebClient for synchronous operation since Encode() is synchronous.
+        /// Gemini's REST API requires arbitrary HTTP(S) images to be inlined as base64 (file_data
+        /// only accepts Gemini File API URIs or YouTube), so a download is unavoidable here.
+        /// Uses a shared <see cref="HttpClient"/> with a timeout and a size cap. Encode() is
+        /// synchronous, so the async call is bridged with GetAwaiter().GetResult(); this runs on
+        /// the AI worker thread and is bounded by <see cref="TimeoutDefaults.DefaultTimeoutSeconds"/>.
         /// </summary>
         /// <param name="imageUrl">The URL of the image to fetch.</param>
-        /// <returns>Tuple of (base64Data, mimeType). Base64 data may be empty if fetch fails.</returns>
+        /// <returns>Tuple of (base64Data, mimeType). Base64 data is empty if the fetch fails.</returns>
         private (string base64Data, string mimeType) FetchImageFromUrl(Uri imageUrl)
         {
             try
             {
                 Debug.WriteLine($"[GeminiProvider] Fetching image from URL: {imageUrl}");
 
-                using var client = new WebClient();
-                byte[] imageBytes = client.DownloadData(imageUrl);
+                using var cts = new System.Threading.CancellationTokenSource(
+                    TimeSpan.FromSeconds(TimeoutDefaults.DefaultTimeoutSeconds));
 
-                string mimeType = this.GetMimeTypeFromUrl(imageUrl);
+                using var response = ImageFetchClient
+                    .GetAsync(imageUrl, HttpCompletionOption.ResponseHeadersRead, cts.Token)
+                    .GetAwaiter().GetResult();
+                response.EnsureSuccessStatusCode();
+
+                if (response.Content.Headers.ContentLength is long contentLength &&
+                    contentLength > MaxInlineImageBytes)
+                {
+                    Debug.WriteLine($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes (Content-Length={contentLength}); skipping inline.");
+                    return (string.Empty, "image/png");
+                }
+
+                byte[] imageBytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+                if (imageBytes.LongLength > MaxInlineImageBytes)
+                {
+                    Debug.WriteLine($"[GeminiProvider] Image at {imageUrl} exceeds {MaxInlineImageBytes} bytes after download ({imageBytes.LongLength}); skipping inline.");
+                    return (string.Empty, "image/png");
+                }
+
+                string mimeType = response.Content.Headers.ContentType?.MediaType;
+                if (string.IsNullOrWhiteSpace(mimeType) || !mimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    mimeType = this.GetMimeTypeFromUrl(imageUrl);
+                }
+
                 string base64Data = Convert.ToBase64String(imageBytes);
 
                 Debug.WriteLine($"[GeminiProvider] Successfully fetched image: {imageBytes.Length} bytes, MIME type: {mimeType}");
 
                 return (base64Data, mimeType);
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"[GeminiProvider] Timed out fetching image from URL {imageUrl} after {TimeoutDefaults.DefaultTimeoutSeconds}s");
+                return (string.Empty, "image/png");
             }
             catch (Exception ex)
             {
