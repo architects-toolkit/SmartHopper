@@ -54,8 +54,6 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
-<<<<<<< HEAD
-=======
                     Model = "openai/gpt-5.5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     Default = AICapability.Text2Text | AICapability.ReasoningChat,
@@ -129,7 +127,6 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIModelCapabilities
                 {
                     Provider = provider,
->>>>>>> fe6a443e (feat(model-registry): refresh AI model catalog across all providers with Apr 2026 updates and rebalance rankings)
                     Model = "openai/gpt-5-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     Default = AICapability.Text2Text | AICapability.Text2Json,

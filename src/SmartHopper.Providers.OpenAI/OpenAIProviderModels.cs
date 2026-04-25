@@ -98,8 +98,6 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-<<<<<<< HEAD
-=======
                     Model = "gpt-5.4",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
@@ -131,7 +129,6 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
->>>>>>> fe6a443e (feat(model-registry): refresh AI model catalog across all providers with Apr 2026 updates and rebalance rankings)
                     Model = "codex-mini-latest",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
@@ -395,8 +392,6 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 60,
                 },
-<<<<<<< HEAD
-=======
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -406,7 +401,6 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 65,
                 },
->>>>>>> fe6a443e (feat(model-registry): refresh AI model catalog across all providers with Apr 2026 updates and rebalance rankings)
 
                 // Audio
                 new AIModelCapabilities
