@@ -147,7 +147,7 @@ Many thanks to the following contributors to this release:
 - `ProviderManager` now exposes `IsInfrastructureReady` flag to signal when provider infrastructure initialization completes
 - All AI providers (Anthropic, DeepSeek, MistralAI, OpenAI, OpenRouter) received stability improvements and extended known list of models
 
-### Depracated
+### Deprecated
 
 - **Anthropic**: marked deprecated `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-sonnet-4-5-20250929`, `claude-haiku-4-5`, `claude-haiku-4-5-20251001` (superseded by 4-6 / 4-7 series).
 - **DeepSeek**: `deepseek-chat` and `deepseek-reasoner` flagged `Deprecated = true` (DeepSeek docs state both will be deprecated; they alias `deepseek-v4-flash` non-thinking/thinking modes).
