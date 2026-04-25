@@ -149,8 +149,6 @@ namespace SmartHopper.Providers.MistralAI
                     Rank = 60,
                     ContextLimit = 32000,
                 },
-<<<<<<< HEAD
-=======
 
                 // Versioned model aliases (from MistralAI docs)
                 new AIModelCapabilities
@@ -294,7 +292,6 @@ namespace SmartHopper.Providers.MistralAI
                     Rank = 62,
                     ContextLimit = 32000,
                 },
->>>>>>> fe6a443e (feat(model-registry): refresh AI model catalog across all providers with Apr 2026 updates and rebalance rankings)
             };
 
             return Task.FromResult(models);

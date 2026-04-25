@@ -64,13 +64,8 @@ namespace SmartHopper.Providers.Anthropic
                     Model = "claude-opus-4-6",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
-<<<<<<< HEAD
-                    Verified = true,
-                    Rank = 80,
-=======
                     Verified = false,
                     Rank = 75,
->>>>>>> fe6a443e (feat(model-registry): refresh AI model catalog across all providers with Apr 2026 updates and rebalance rankings)
                     ContextLimit = 200000,
                 },
                 new AIModelCapabilities
