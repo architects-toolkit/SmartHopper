@@ -149,7 +149,7 @@ Many thanks to the following contributors to this release:
 
 - **`service_tier` extra descriptor** removed from `OpenAIProvider`, `AnthropicProvider`, and `MistralAIProvider` `GetExtraDescriptors()`. Batch processing is now controlled exclusively via the dedicated `BatchTier` boolean on `AIRequestParameters`/`AISettingsComponent`. Existing `.ghx` files that wired `service_tier=batch` through `AIExtraSettingsComponent` will silently ignore the extra; reconnect the `Batch` input on `AISettingsComponent` instead.
 
-### Depracated
+### Deprecated
 
 - **Anthropic**: marked deprecated `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-sonnet-4-5-20250929`, `claude-haiku-4-5`, `claude-haiku-4-5-20251001` (superseded by 4-6 / 4-7 series).
 - **DeepSeek**: `deepseek-chat` and `deepseek-reasoner` flagged `Deprecated = true` (DeepSeek docs state both will be deprecated; they alias `deepseek-v4-flash` non-thinking/thinking modes).
