@@ -123,6 +123,26 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             Assert.Equal(base64, interaction.ImageData);
         }
 
+        [Fact(DisplayName = "SetResult_InvalidUrl_NoData_Throws")]
+        public void SetResult_InvalidUrl_NoData_Throws()
+        {
+            var interaction = new AIInteractionImage();
+            var ex = Assert.Throws<ArgumentException>(() => interaction.SetResult("not-a-url"));
+            Assert.Equal("imageUrl", ex.ParamName);
+            Assert.Null(interaction.ImageUrl);
+            Assert.Null(interaction.ImageData);
+        }
+
+        [Fact(DisplayName = "SetResult_InvalidUrl_WithData_SetsImageData")]
+        public void SetResult_InvalidUrl_WithData_SetsImageData()
+        {
+            var interaction = new AIInteractionImage();
+            var base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+            interaction.SetResult("not-a-url", base64);
+            Assert.Null(interaction.ImageUrl);
+            Assert.Equal(base64, interaction.ImageData);
+        }
+
         [Fact(DisplayName = "SetResult_WithRevisedPrompt_SetsRevisedPrompt")]
         public void SetResult_WithRevisedPrompt_SetsRevisedPrompt()
         {

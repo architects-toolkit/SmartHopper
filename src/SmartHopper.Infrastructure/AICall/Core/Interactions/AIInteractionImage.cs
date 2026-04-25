@@ -172,15 +172,21 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
             if (imageUrl != null)
             {
-                var hash = HashUtility.ComputeShortHash(imageUrl);
                 if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
                 {
                     this.SetResult(uri, imageData, revisedPrompt);
                     return;
                 }
+
+                if (imageData == null)
+                {
+                    throw new ArgumentException(
+                        $"imageUrl '{imageUrl}' is not a valid absolute URI and no imageData was provided.",
+                        nameof(imageUrl));
+                }
             }
 
-            // Handle case where only imageData is provided (no URL)
+            // Handle case where only imageData is provided (no URL, or URL was invalid but data is present)
             if (imageData != null)
             {
                 this.ImageData = imageData;
