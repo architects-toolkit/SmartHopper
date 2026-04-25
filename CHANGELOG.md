@@ -13,13 +13,6 @@ Many thanks to the following contributors to this release:
 
 ----
 
-<<<<<<< HEAD
-### Changed
-
-- **Infrastructure**: Migrated critical fixes including provider stability improvements, timeout policy refinements, and streaming adapter fixes
-- **Thread Safety**: `ProviderManager` now uses `ConcurrentDictionary` for all provider collections to improve concurrent access safety
-- **Code Quality**: Applied consistent code style with `this.` qualifiers and `ConfigureAwait()` patterns across Infrastructure and Providers
-=======
 ### ⚠️ BREAKING CHANGES
 
 - **Renamed AI Tools** (old → new):
@@ -90,6 +83,10 @@ Many thanks to the following contributors to this release:
 
 ### Changed
 
+- **Infrastructure**: Migrated critical fixes including provider stability improvements, timeout policy refinements, and streaming adapter fixes
+- **Thread Safety**: `ProviderManager` now uses `ConcurrentDictionary` for all provider collections to improve concurrent access safety
+- **Code Quality**: Applied consistent code style with `this.` qualifiers and `ConfigureAwait()` patterns across Infrastructure and Providers
+
 - **AI model rebalancing**:
   - **OpenAI**: demoted `gpt-5.4-mini` Rank 100 → 95; moved `Default = Text2Image | Image2Image` from `gpt-image-1-mini` to `gpt-image-2`; cleared `Default = Text2Image` from `dall-e-3` (Rank 80 → 70); demoted `gpt-image-1.5` Rank 75 → 65.
   - **Anthropic**: demoted `claude-opus-4-6` Rank 80 → 75 (superseded by `claude-opus-4-7`).
@@ -143,7 +140,6 @@ Many thanks to the following contributors to this release:
 
 - **`DataTreeProcessor.RunAsync` heterogeneous output support**: Added `RunAsync<T>` overload (delegates to `RunAsync<T, IGH_Goo>`) and `ExtractTypedTree<U>` helper so a single processing call can populate output channels of different concrete `IGH_Goo` types. Matching `RunProcessingAsync<T>` overload added to `StatefulComponentBase`.
 - **`File2MdComponent` / `AIFile2MdComponent`**: Replaced manual `foreach` tree iteration with `RunProcessingAsync<GH_String>` + `ExtractTypedTree<U>`, gaining flat-tree broadcasting and consistent `ItemGraft` path management. `ComponentProcessingOptions` property added to both components.
->>>>>>> fe6a443e (feat(model-registry): refresh AI model catalog across all providers with Apr 2026 updates and rebalance rankings)
 
 ### Fixed
 
