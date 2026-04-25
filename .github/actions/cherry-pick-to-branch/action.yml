@@ -20,9 +20,9 @@ inputs:
     required: false
     default: ''
   labels:
-    description: 'Comma-separated list of labels to apply to the PR.'
+    description: 'Comma-separated list of labels to apply to the PR. Missing labels are skipped (not auto-created).'
     required: false
-    default: 'patch,automated'
+    default: ''
   draft-always:
     description: 'If true, force the PR to be opened as draft regardless of conflicts.'
     required: false
@@ -204,29 +204,36 @@ runs:
           body+=$'\n\n---\n\n'"$extra"
         fi
 
-        # Build label args.
-        label_args=()
-        IFS=',' read -ra label_arr <<< "$labels"
-        for l in "${label_arr[@]}"; do
-          l_trim=$(echo "$l" | xargs)
-          [ -n "$l_trim" ] && label_args+=("--label" "$l_trim")
-        done
-        if [ "$has_conflicts" = "true" ]; then
-          label_args+=("--label" "has-conflicts")
-        fi
-
         draft_flag=()
         if [ "$has_conflicts" = "true" ] || [ "$draft_always" = "true" ]; then
           draft_flag+=("--draft")
         fi
 
+        # Create PR without labels first, so unknown labels never abort creation.
         pr_url=$(gh pr create \
           --base "$target" \
           --head "$branch" \
           --title "$title" \
           --body "$body" \
-          "${label_args[@]}" \
           "${draft_flag[@]}")
         echo "pr-url=$pr_url" >> "$GITHUB_OUTPUT"
         pr_number=$(basename "$pr_url")
         echo "pr-number=$pr_number" >> "$GITHUB_OUTPUT"
+
+        # Apply labels best-effort: skip any that don't exist on the repo.
+        all_labels=()
+        IFS=',' read -ra label_arr <<< "$labels"
+        for l in "${label_arr[@]}"; do
+          l_trim=$(echo "$l" | xargs)
+          [ -n "$l_trim" ] && all_labels+=("$l_trim")
+        done
+        if [ "$has_conflicts" = "true" ]; then
+          all_labels+=("has-conflicts")
+        fi
+        for l in "${all_labels[@]}"; do
+          if gh pr edit "$pr_number" --add-label "$l" >/dev/null 2>&1; then
+            echo "::notice::Applied label '$l' to PR #$pr_number"
+          else
+            echo "::warning::Label '$l' does not exist in repo; skipping."
+          fi
+        done
