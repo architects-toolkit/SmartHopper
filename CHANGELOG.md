@@ -38,6 +38,13 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):
+  - **OpenAI**: added `gpt-5.5` (new flagship, Rank 100, Default `Text2Text | ReasoningChat`) and `gpt-image-2` (new image flagship, Default `Text2Image | Image2Image`).
+  - **Anthropic**: added `claude-opus-4-7` (new flagship, Rank 90, Default `Text2Text | ReasoningChat | ToolReasoningChat`).
+  - **DeepSeek**: added `deepseek-v4-pro` (Rank 100) and `deepseek-v4-flash` (Rank 95, Default `Text2Text | ToolChat | ToolReasoningChat`, with `Reasoning` capability).
+  - **MistralAI**: added dated aliases `mistral-medium-3-1-25-08`, `mistral-small-3-2-25-06`, `magistral-medium-1-2-25-09`, `magistral-small-1-2-25-09`, `voxtral-mini-transcribe-26-02`, and new `devstral-2-25-12` code-agent model. Kept `*-latest` aliases (Mistral repoints them automatically).
+  - **OpenRouter**: added `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `deepseek/deepseek-v4-flash`, `mistralai/mistral-small-4`.
+
 - **Centralized JSON Formatting Utility** (`JsonFormatHelper`):
   - New utility class in `SmartHopper.Infrastructure.Utilities` for consistent JSON formatting
   - Core methods: `JsonToString()` (JToken/string to minified JSON), `StringToJson()` (string to JToken), `IsValidJson()` (validation with optional parsing)
@@ -75,6 +82,11 @@ Many thanks to the following contributors to this release:
   - `ExtractTypedTree<U>()` helper method for extracting strongly-typed trees from heterogeneous results
 
 ### Changed
+
+- **AI model rebalancing**:
+  - **OpenAI**: demoted `gpt-5.4-mini` Rank 100 → 95; moved `Default = Text2Image | Image2Image` from `gpt-image-1-mini` to `gpt-image-2`; cleared `Default = Text2Image` from `dall-e-3` (Rank 80 → 70); demoted `gpt-image-1.5` Rank 75 → 65.
+  - **Anthropic**: demoted `claude-opus-4-6` Rank 80 → 75 (superseded by `claude-opus-4-7`).
+  - **DeepSeek**: cleared `Default` from `deepseek-chat` (Rank 90 → 70) and `deepseek-reasoner` (Rank 80 → 60); both aliased to `deepseek-v4-flash` per official docs.
 
 - **Refactored Timeout Configuration System**:
   - **AIRequestBase.TimeoutSeconds** is now nullable (`int?`) to allow null/empty values
@@ -254,6 +266,12 @@ Many thanks to the following contributors to this release:
 ### Removed
 
 - **`service_tier` extra descriptor** removed from `OpenAIProvider`, `AnthropicProvider`, and `MistralAIProvider` `GetExtraDescriptors()`. Batch processing is now controlled exclusively via the dedicated `BatchTier` boolean on `AIRequestParameters`/`AISettingsComponent`. Existing `.ghx` files that wired `service_tier=batch` through `AIExtraSettingsComponent` will silently ignore the extra; reconnect the `Batch` input on `AISettingsComponent` instead.
+
+### Depracated
+
+- **Anthropic**: marked deprecated `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-sonnet-4-5-20250929`, `claude-haiku-4-5`, `claude-haiku-4-5-20251001` (superseded by 4-6 / 4-7 series).
+- **DeepSeek**: `deepseek-chat` and `deepseek-reasoner` flagged `Deprecated = true` (DeepSeek docs state both will be deprecated; they alias `deepseek-v4-flash` non-thinking/thinking modes).
+- **OpenAI**: `gpt-4o-mini-tts` marked deprecated per OpenAI docs.
 
 ## [1.4.2-alpha] - 2026-03-14
 
