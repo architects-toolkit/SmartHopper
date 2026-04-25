@@ -13,29 +13,6 @@ Many thanks to the following contributors to this release:
 
 ----
 
-### ⚠️ BREAKING CHANGES
-
-- **Renamed AI Tools** (old → new):
-  - `text_generate` → `text2text`
-  - `text_evaluate` → `text2boolean`
-  - `list_generate` → `text2textlist`
-  - `list_evaluate` → `textlist2boolean`
-  - `img_generate` → `text2img`
-  - `img_to_text` → `img2text`
-  - `file2md` → `file2md`
-  - `web_to_md` → `web2md`
-  - `web_generic_page_read` → **REMOVED** (use `web2md` instead)
-
-- **Renamed Components** (class and file names changed):
-  - `AITextGenerate` → `AIText2TextComponent`
-  - `AITextEvaluate` → `AIText2BooleanComponent`
-  - `AITextListGenerate` → `AIText2TextListComponent`
-  - `AIListEvaluate` → `AIList2BooleanComponent`
-  - `AIImgGenerateComponent` → `AIText2ImgComponent`
-  - `AIImgToTextComponent` → `AIImg2TextComponent`
-  - `AIFile2MdComponent` → `AIFile2MdComponent`
-  - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
-
 ### Added
 
 - **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):
@@ -44,42 +21,6 @@ Many thanks to the following contributors to this release:
   - **DeepSeek**: added `deepseek-v4-pro` (Rank 100) and `deepseek-v4-flash` (Rank 95, Default `Text2Text | ToolChat | ToolReasoningChat`, with `Reasoning` capability).
   - **MistralAI**: added dated aliases `mistral-medium-3-1-25-08`, `mistral-small-3-2-25-06`, `magistral-medium-1-2-25-09`, `magistral-small-1-2-25-09`, `voxtral-mini-transcribe-26-02`, and new `devstral-2-25-12` code-agent model. Kept `*-latest` aliases (Mistral repoints them automatically).
   - **OpenRouter**: added `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `deepseek/deepseek-v4-flash`, `mistralai/mistral-small-4`.
-
-- **Centralized JSON Formatting Utility** (`JsonFormatHelper`):
-  - New utility class in `SmartHopper.Infrastructure.Utilities` for consistent JSON formatting
-  - Core methods: `JsonToString()` (JToken/string to minified JSON), `StringToJson()` (string to JToken), `IsValidJson()` (validation with optional parsing)
-  - All methods support optional error handling via `out string error` parameter
-  - **Automatic markdown code block extraction**: String-based methods automatically extract JSON from ` ```json ... ``` `, ` ```txt ... ``` `, ` ```text ... ``` `, and ` ``` ... ``` ` blocks before processing
-  - Ensures all JSON output is minified (no unnecessary whitespace) across all JSON components and tools
-  - Provides graceful error handling with detailed error messages for invalid JSON
-  - Integrates seamlessly with existing `JsonPathHelper` for error messaging
-  - Follows `AIResponseParser` patterns for consistency with existing response parsing logic
-
-- **Google Gemini Provider**: Full integration of Google's Gemini AI models
-  - Support for Gemini 3.1, 2.5, 2.0, and 1.5 models
-  - Text generation with streaming support
-  - Image generation using dedicated image models
-  - Structured outputs with JSON Schema support (Gemini subset)
-  - Tool calling with function declarations
-  - Extended thinking/reasoning with configurable thinking levels
-  - Batch processing with priority support
-  - **Service Tier selection** (`standard`, `flex`, `priority`) with per-request override via Extra Settings
-  - **Batch Priority** per-setup override via `batch_priority` Extra Setting
-  - Context caching ready (infrastructure in place)
-  - `x-goog-api-key` authentication support in centralized `CallApi` method
-
-- **HTTP Error Handling**: All providers now properly surface HTTP errors as structured AIReturn messages instead of throwing exceptions
-  - 503 Service Unavailable: Includes Flex tier guidance for capacity issues
-  - 429 Too Many Requests: Includes retry guidance for rate limits
-  - 401/403 Authentication errors: Clear API key check guidance
-  - Errors tagged with `Provider` origin for consistent UI surfacing
-
-- **Mixed-Type Data Tree Support**: Infrastructure for handling heterogeneous Grasshopper data types (GH_Boolean, GH_String, etc.) in component input/output trees
-  - New `GHStructureConverter` utility class (`SmartHopper.Core.Grasshopper.Converters`) with `ConvertToGooTree<T>()` method for converting typed `GH_Structure<T>` to `GH_Structure<IGH_Goo>`
-  - Added `IGH_Goo` to `groupIdenticalBranches` type gate in `DataTreeProcessor` to enable identical branch grouping for mixed-type trees
-  - New `RunProcessingAsync()` overload in `StatefulComponentBase` returning `ProcessingResult<IGH_Goo>` for heterogeneous IGH_Goo input/output processing
-  - `ProcessingResult<T>` and `ProcessingResult<T, U>` classes in `DataTreeProcessor` for returning both output trees and processing messages
-  - `ExtractTypedTree<U>()` helper method for extracting strongly-typed trees from heterogeneous results
 
 ### Changed
 
