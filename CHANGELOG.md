@@ -22,7 +22,7 @@ Many thanks to the following contributors to this release:
   - `list_evaluate` → `textlist2boolean`
   - `img_generate` → `text2img`
   - `img_to_text` → `img2text`
-  - `file2md` → `file2md`
+  - `file_to_md` → `file2md`
   - `web_to_md` → `web2md`
   - `web_generic_page_read` → **REMOVED** (use `web2md` instead)
 
@@ -33,7 +33,7 @@ Many thanks to the following contributors to this release:
   - `AIListEvaluate` → `AIList2BooleanComponent`
   - `AIImgGenerateComponent` → `AIText2ImgComponent`
   - `AIImgToTextComponent` → `AIImg2TextComponent`
-  - `AIFile2MdComponent` → `AIFile2MdComponent`
+  - `AIFileToMdComponent` → `AIFile2MdComponent`
   - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
 
 ### Added
