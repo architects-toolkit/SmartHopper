@@ -50,11 +50,30 @@ namespace SmartHopper.Providers.DeepSeek
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "deepseek-v4-pro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Rank = 100,
+                    ContextLimit = 128000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4-flash",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ToolReasoningChat,
+                    SupportsStreaming = true,
+                    Rank = 95,
+                    ContextLimit = 128000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "deepseek-reasoner",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
-                    Rank = 80,
+                    Deprecated = true,
+                    Rank = 60,
                     ContextLimit = 64000,
                 },
                 new AIModelCapabilities
@@ -62,9 +81,9 @@ namespace SmartHopper.Providers.DeepSeek
                     Provider = provider,
                     Model = "deepseek-chat",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    Default = AICapability.Text2Text | AICapability.ToolChat,
                     SupportsStreaming = true,
-                    Rank = 90,
+                    Deprecated = true,
+                    Rank = 70,
                     ContextLimit = 60000,
                 },
             };

@@ -13,16 +13,148 @@ Many thanks to the following contributors to this release:
 
 ----
 
+<<<<<<< HEAD
 ### Changed
 
 - **Infrastructure**: Migrated critical fixes including provider stability improvements, timeout policy refinements, and streaming adapter fixes
 - **Thread Safety**: `ProviderManager` now uses `ConcurrentDictionary` for all provider collections to improve concurrent access safety
 - **Code Quality**: Applied consistent code style with `this.` qualifiers and `ConfigureAwait()` patterns across Infrastructure and Providers
+=======
+### ⚠️ BREAKING CHANGES
+
+- **Renamed AI Tools** (old → new):
+  - `text_generate` → `text2text`
+  - `text_evaluate` → `text2boolean`
+  - `list_generate` → `text2textlist`
+  - `list_evaluate` → `textlist2boolean`
+  - `img_generate` → `text2img`
+  - `img_to_text` → `img2text`
+  - `file2md` → `file2md`
+  - `web_to_md` → `web2md`
+  - `web_generic_page_read` → **REMOVED** (use `web2md` instead)
+
+- **Renamed Components** (class and file names changed):
+  - `AITextGenerate` → `AIText2TextComponent`
+  - `AITextEvaluate` → `AIText2BooleanComponent`
+  - `AITextListGenerate` → `AIText2TextListComponent`
+  - `AIListEvaluate` → `AIList2BooleanComponent`
+  - `AIImgGenerateComponent` → `AIText2ImgComponent`
+  - `AIImgToTextComponent` → `AIImg2TextComponent`
+  - `AIFile2MdComponent` → `AIFile2MdComponent`
+  - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
+
+### Added
+
+- **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):
+  - **OpenAI**: added `gpt-5.5` (new flagship, Rank 100, Default `Text2Text | ReasoningChat`) and `gpt-image-2` (new image flagship, Default `Text2Image | Image2Image`).
+  - **Anthropic**: added `claude-opus-4-7` (new flagship, Rank 90, Default `Text2Text | ReasoningChat | ToolReasoningChat`).
+  - **DeepSeek**: added `deepseek-v4-pro` (Rank 100) and `deepseek-v4-flash` (Rank 95, Default `Text2Text | ToolChat | ToolReasoningChat`, with `Reasoning` capability).
+  - **MistralAI**: added dated aliases `mistral-medium-3-1-25-08`, `mistral-small-3-2-25-06`, `magistral-medium-1-2-25-09`, `magistral-small-1-2-25-09`, `voxtral-mini-transcribe-26-02`, and new `devstral-2-25-12` code-agent model. Kept `*-latest` aliases (Mistral repoints them automatically).
+  - **OpenRouter**: added `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `deepseek/deepseek-v4-flash`, `mistralai/mistral-small-4`.
+
+- **Centralized JSON Formatting Utility** (`JsonFormatHelper`):
+  - New utility class in `SmartHopper.Infrastructure.Utilities` for consistent JSON formatting
+  - Core methods: `JsonToString()` (JToken/string to minified JSON), `StringToJson()` (string to JToken), `IsValidJson()` (validation with optional parsing)
+  - All methods support optional error handling via `out string error` parameter
+  - **Automatic markdown code block extraction**: String-based methods automatically extract JSON from ` ```json ... ``` `, ` ```txt ... ``` `, ` ```text ... ``` `, and ` ``` ... ``` ` blocks before processing
+  - Ensures all JSON output is minified (no unnecessary whitespace) across all JSON components and tools
+  - Provides graceful error handling with detailed error messages for invalid JSON
+  - Integrates seamlessly with existing `JsonPathHelper` for error messaging
+  - Follows `AIResponseParser` patterns for consistency with existing response parsing logic
+
+- **Google Gemini Provider**: Full integration of Google's Gemini AI models
+  - Support for Gemini 3.1, 2.5, 2.0, and 1.5 models
+  - Text generation with streaming support
+  - Image generation using dedicated image models
+  - Structured outputs with JSON Schema support (Gemini subset)
+  - Tool calling with function declarations
+  - Extended thinking/reasoning with configurable thinking levels
+  - Batch processing with priority support
+  - **Service Tier selection** (`standard`, `flex`, `priority`) with per-request override via Extra Settings
+  - **Batch Priority** per-setup override via `batch_priority` Extra Setting
+  - Context caching ready (infrastructure in place)
+  - `x-goog-api-key` authentication support in centralized `CallApi` method
+
+- **HTTP Error Handling**: All providers now properly surface HTTP errors as structured AIReturn messages instead of throwing exceptions
+  - 503 Service Unavailable: Includes Flex tier guidance for capacity issues
+  - 429 Too Many Requests: Includes retry guidance for rate limits
+  - 401/403 Authentication errors: Clear API key check guidance
+  - Errors tagged with `Provider` origin for consistent UI surfacing
+
+- **Mixed-Type Data Tree Support**: Infrastructure for handling heterogeneous Grasshopper data types (GH_Boolean, GH_String, etc.) in component input/output trees
+  - New `GHStructureConverter` utility class (`SmartHopper.Core.Grasshopper.Converters`) with `ConvertToGooTree<T>()` method for converting typed `GH_Structure<T>` to `GH_Structure<IGH_Goo>`
+  - Added `IGH_Goo` to `groupIdenticalBranches` type gate in `DataTreeProcessor` to enable identical branch grouping for mixed-type trees
+  - New `RunProcessingAsync()` overload in `StatefulComponentBase` returning `ProcessingResult<IGH_Goo>` for heterogeneous IGH_Goo input/output processing
+  - `ProcessingResult<T>` and `ProcessingResult<T, U>` classes in `DataTreeProcessor` for returning both output trees and processing messages
+  - `ExtractTypedTree<U>()` helper method for extracting strongly-typed trees from heterogeneous results
+
+### Changed
+
+- **AI model rebalancing**:
+  - **OpenAI**: demoted `gpt-5.4-mini` Rank 100 → 95; moved `Default = Text2Image | Image2Image` from `gpt-image-1-mini` to `gpt-image-2`; cleared `Default = Text2Image` from `dall-e-3` (Rank 80 → 70); demoted `gpt-image-1.5` Rank 75 → 65.
+  - **Anthropic**: demoted `claude-opus-4-6` Rank 80 → 75 (superseded by `claude-opus-4-7`).
+  - **DeepSeek**: cleared `Default` from `deepseek-chat` (Rank 90 → 70) and `deepseek-reasoner` (Rank 80 → 60); both aliased to `deepseek-v4-flash` per official docs.
+
+- **Refactored Timeout Configuration System**:
+  - **AIRequestBase.TimeoutSeconds** is now nullable (`int?`) to allow null/empty values
+  - **RequestTimeoutPolicy** now resolves timeout from settings when null:
+    - Reads `Timeout` from settings (with fallback to `HttpTimeoutSeconds` for backward compatibility)
+    - Uses `TimeoutDefaults.DefaultTimeoutSeconds` (300s) as final fallback
+  - **AISettingsComponent** now has "Timeout" input parameter (before "Extras") for custom timeout override
+    - **Breaking (saved files)**: Inserting `Timeout` before `Extras` shifts the `Extras` parameter index by one. Grasshopper persists wire connections by parameter index, so existing `.ghx`/`.gh` files with a wire into `Extras` will, after upgrade, resolve that wire to the new `Timeout` (integer) input. Because the source value (Extras JSON string) is type-incompatible with `Timeout`, the input is silently ignored and the previously wired provider-specific extras are lost on file load. Reconnect the `Extras` input on `AISettingsComponent` after upgrading.
+  - **AIStatefulAsyncComponentBase** additions:
+    - New `ConfigureRequestTimeout()` helper method - centralizes timeout configuration for both batch and regular paths
+  - **AIProvider** simplified - removed duplicate timeout resolution logic, now relies on RequestTimeoutPolicy
+  - **Renamed HTTP Timeout Setting** (UI label and setting key):
+    - `HTTP Timeout (Regular Calls)` → `Timeout` (setting key: `TimeoutSeconds`, default: 300s)
+    - Old setting keys (`HttpTimeoutSeconds`, `ResponseGenerationTimeoutSeconds`) automatically migrated for backward compatibility
+  - **Timeout resolution priority** (highest to lowest):
+    1. Custom timeout from AI Settings component input
+    2. Settings-based timeout (`TimeoutSeconds`)
+    3. Safe default (300s)
+  - **Unified default across layers**: introduced `SmartHopper.Infrastructure.AICall.Core.TimeoutDefaults` with `DefaultTimeoutSeconds = 300`, `MinTimeoutSeconds = 1`, `MaxTimeoutSeconds = 600`. The following call sites now reference these constants instead of hardcoded literals (previously: 300s policy, 600s provider/batch, 120s tool, 600s streaming idle):
+    - `RequestTimeoutPolicy` (default + bounds)
+    - `AIProvider.Call()` and `AIProvider.CreateBatchHttpClient()` (default + bounds)
+    - `AIToolCall.Exec()` (default + bounds)
+    - Streaming idle-timeout fallbacks in OpenAI, OpenRouter, MistralAI, DeepSeek, Anthropic, and Gemini providers
+    - `ProvidersSettingsPage` Timeout `NumericStepper` Value/Min/Max
+  - Behavior under normal flow is unchanged (policy always resolves first); this aligns the safety-net fallback when the policy pipeline is bypassed and ensures the settings UI bounds match the runtime clamp.
+
+- Components can now mix different `IGH_Goo` types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values)
+- Foundation laid for future extensibility to support `GH_Integer`, `GH_Number`, `GH_Path`, and other Grasshopper data types
+- Existing `GH_String`-only workers remain compatible and can be migrated individually when needed
+- **`AIText2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
+  - `inputTree` field changed from `Dictionary<string, GH_Structure<GH_String>>` to `Dictionary<string, GH_Structure<IGH_Goo>>`
+  - Fallback input now stored natively as `GH_Boolean` without string conversion round-trip
+  - Uses `GHStructureConverter.ConvertToGooTree()` for type conversions
+  - Accesses results via `ProcessingResult<IGH_Goo>.Outputs` and `ExtractTypedTree<GH_String>()`
+
+- **`AIList2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
+  - Same structural changes as `AIText2BooleanComponent`
+  - Fallback input stored natively as `GH_Boolean`
+- **`AIFile2MdComponent` batch context persistence**: `_fileContexts` (base markdown + image slot metadata per file) is now serialized via `Write`/`Read` so batch results can be reconstructed after a Grasshopper file save/reload. A `_batchContextLost` flag prevents `GatherInput` from resetting `_fileContextsInitialized` while a batch is active, fixing a same-session overwrite bug where each poll tick re-initialized the context to empty before `OnBatchCompleted` could use it.
+- **`AIFile2MdComponent` batch image descriptions**: `OnBatchCompleted` now extracts image descriptions from `AIInteractionText.Content` (the actual batch response type) instead of `AIInteractionToolResult`, which was never produced in batch mode since `BuildDescribeRequest` bypasses the tool execute wrapper.
+- **`AIFile2MdComponent` batch metrics**: Per-slot image decode metrics are now accumulated manually and merged into `AIReturnSnapshot` after `ProcessBatchResults`, since `ProcessBatchResults` only sees the representative sentinel (one per file) and misses all non-first image slots.
+- **`img2text` AI Tool**: Extracted shared `BuildRequestBody` and `ExtractDescription` helpers so `DescribeImageAsync` (execute path) and `BuildDescribeRequest` (batch path) send identical requests and decode using the same logic. `ExtractDescription` reads from `AIInteractionText.Content` directly, making both paths consistent.
+- **`file2md` AI Tool**: `DescribeImageAsync` internal helper now reads `AIInteractionToolResult["description"]` with a clean single-expression return, removing a dead fallback that logged `assistantText.Content` but always returned `[Image could not be described]`.
+
+- **`AIFile2MdComponent`**: Reworked batch wiring so only the AI calls (image descriptions) are batched. File conversion and image extraction now run locally via `file2md` with `describeImages=false`; each image is then described via `CallAiToolAsync("img2text", ...)` which is batch-interceptable. `OnBatchCompleted` reassembles the final markdown from locally-stored per-file context and batch image description results. `UsingAiTools` updated from `file2md` to `img2text`. Format and Images outputs are computed locally and persisted immediately.
+- **`img2text` AI Tool**: Added `BuildRequest` delegate so the tool supports batch mode. The delegate mirrors the existing `DescribeImageAsync` request construction without executing it.
+
+- **`DataTreeProcessor.RunAsync` heterogeneous output support**: Added `RunAsync<T>` overload (delegates to `RunAsync<T, IGH_Goo>`) and `ExtractTypedTree<U>` helper so a single processing call can populate output channels of different concrete `IGH_Goo` types. Matching `RunProcessingAsync<T>` overload added to `StatefulComponentBase`.
+- **`File2MdComponent` / `AIFile2MdComponent`**: Replaced manual `foreach` tree iteration with `RunProcessingAsync<GH_String>` + `ExtractTypedTree<U>`, gaining flat-tree broadcasting and consistent `ItemGraft` path management. `ComponentProcessingOptions` property added to both components.
+>>>>>>> fe6a443e (feat(model-registry): refresh AI model catalog across all providers with Apr 2026 updates and rebalance rankings)
 
 ### Fixed
 
 - `ProviderManager` now exposes `IsInfrastructureReady` flag to signal when provider infrastructure initialization completes
 - All AI providers (Anthropic, DeepSeek, MistralAI, OpenAI, OpenRouter) received stability improvements and extended known list of models
+
+### Depracated
+
+- **Anthropic**: marked deprecated `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-sonnet-4-5-20250929`, `claude-haiku-4-5`, `claude-haiku-4-5-20251001` (superseded by 4-6 / 4-7 series).
+- **DeepSeek**: `deepseek-chat` and `deepseek-reasoner` flagged `Deprecated = true` (DeepSeek docs state both will be deprecated; they alias `deepseek-v4-flash` non-thinking/thinking modes).
+- **OpenAI**: `gpt-4o-mini-tts` marked deprecated per OpenAI docs.
 
 ## [1.4.2-alpha] - 2026-03-14
 

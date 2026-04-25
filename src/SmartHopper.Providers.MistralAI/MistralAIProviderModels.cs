@@ -168,6 +168,67 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "mistral-medium-3-1-25-08",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
+                    ContextLimit = 131072,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-small-3-2-25-06",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 70,
+                    ContextLimit = 131072,
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "magistral-medium-1-2-25-09",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 75,
+                    ContextLimit = 40000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "magistral-small-1-2-25-09",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 85,
+                    ContextLimit = 40000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "devstral-2-25-12",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 70,
+                    ContextLimit = 131072,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-transcribe-26-02",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 65,
+                    ContextLimit = 32000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "mistral-large-3-25-12",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
