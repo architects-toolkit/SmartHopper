@@ -31,7 +31,7 @@ It never pushes to the target branch directly, so branch protection on `main` / 
 - **`target-branches`** — Comma-separated branches, e.g. `main,dev,main-1.4,dev-1.5`.
 - **`pr-title-prefix`** — Title prefix (default `[patch]`).
 - **`pr-body-extra`** — Optional markdown appended to each PR body.
-- **`labels`** — Comma-separated labels (default `patch,automated`). `has-conflicts` is added automatically when applicable.
+- **`labels`** — Comma-separated labels (default empty). Labels are applied best-effort after the PR is created; any label that doesn't exist in the repo is logged as a warning and skipped (PR is **not** aborted). `has-conflicts` is also applied (best-effort) when conflicts occur.
 - **`draft-always`** — Force every PR to be a draft, even without conflicts.
 - **`mainline`** — Parent number for `git cherry-pick -m <n>` when picking merge commits. Leave empty for normal commits.
 

@@ -35,10 +35,10 @@ on:
         type: string
         default: ''
       labels:
-        description: 'Comma-separated labels to apply to each PR.'
+        description: 'Comma-separated labels to apply to each PR. Missing labels are skipped (not auto-created).'
         required: false
         type: string
-        default: 'patch,automated'
+        default: ''
       draft-always:
         description: 'Force every PR to be opened as draft.'
         required: false
