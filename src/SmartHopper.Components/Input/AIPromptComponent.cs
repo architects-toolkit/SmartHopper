@@ -29,47 +29,44 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 namespace SmartHopper.Components.Input
 {
     /// <summary>
-    /// Wraps instruction text into an AIInputPayload with System agent role.
-    /// Used for system prompts and instructions that guide AI behavior.
+    /// Wraps prompt text into an AIInputPayload with System agent role.
+    /// Used for system prompts that guide AI behavior.
     /// </summary>
-    public class AIInstructionsComponent : AIInputAdapterBase
+    public class AIPromptComponent : AIInputAdapterBase
     {
         public override Guid ComponentGuid => new Guid("5CD4D50A-35FB-45CC-91AB-CFFA0B5F1DD2");
 
-        protected override Bitmap Icon => Resources.aiinstructions;
+        protected override Bitmap Icon => Resources.aiprompt;
 
-        public AIInstructionsComponent()
-            : base("AI Instructions", "AIInstructions", "Wraps instruction text into an AIInputPayload with System role for guiding AI behavior.", GH_Exposure.primary)
+        public AIPromptComponent()
+            : base("AI Prompt", "AIPrompt", "Wraps prompt text into an AIInputPayload with System role for guiding AI behavior.", GH_Exposure.primary)
         {
         }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Instructions", "I", "System instructions to guide AI behavior.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Prompt", "P", "System prompt to guide AI behavior.", GH_ParamAccess.item);
         }
 
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-        {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload wrapping the instructions with System role.", GH_ParamAccess.item);
-        }
+        protected override string PayloadOutputDescription => "AIInputPayload wrapping the prompt with System role.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            string instructions = null;
-            if (!DA.GetData(0, ref instructions))
+            string prompt = null;
+            if (!DA.GetData(0, ref prompt))
             {
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(instructions))
+            if (string.IsNullOrWhiteSpace(prompt))
             {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Instructions cannot be empty.");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Prompt cannot be empty.");
                 return;
             }
 
             try
             {
-                var payload = this.CreateTextPayload(instructions, AIAgent.System);
+                var payload = this.CreateTextPayload(prompt, AIAgent.System);
                 DA.SetData(0, this.WrapPayload(payload));
             }
             catch (Exception ex)
