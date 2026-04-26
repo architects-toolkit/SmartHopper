@@ -79,7 +79,7 @@ namespace SmartHopper.Components.Output
                     Description = "Generated image",
                     ParamType = typeof(Param_GenericObject),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         if (aiReturn?.Body?.GetLastAssistantImage() is var imgInteraction && imgInteraction != null)
                         {
@@ -88,7 +88,7 @@ namespace SmartHopper.Components.Output
                         }
 
                         return null;
-                    },
+                    }),
                 },
             };
         }

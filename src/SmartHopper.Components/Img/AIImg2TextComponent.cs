@@ -293,7 +293,7 @@ namespace SmartHopper.Components.Img
                                         {
                                             if (!File.Exists(source.RawValue))
                                             {
-                                                this.CollectMessage(GH_RuntimeMessageLevel.Warning, $"Image file not found: {source.RawValue}");
+                                                this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Image file not found: {source.RawValue}");
                                             }
                                             else
                                             {
@@ -305,11 +305,11 @@ namespace SmartHopper.Components.Img
                                         }
                                         catch (UnauthorizedAccessException ex)
                                         {
-                                            this.CollectMessage(GH_RuntimeMessageLevel.Warning, $"Unable to access image file '{source.RawValue}': {ex.Message}");
+                                            this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Unable to access image file '{source.RawValue}': {ex.Message}");
                                         }
                                         catch (IOException ex)
                                         {
-                                            this.CollectMessage(GH_RuntimeMessageLevel.Warning, $"Failed to read image file '{source.RawValue}': {ex.Message}");
+                                            this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Failed to read image file '{source.RawValue}': {ex.Message}");
                                         }
                                     }
                                     else if (source.Kind == VersatileImageKind.Bitmap && source.Bitmap != null)

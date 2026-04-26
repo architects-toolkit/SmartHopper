@@ -252,7 +252,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Avoids the computed-property trap of <see cref="AIReturn.Metrics"/> which re-aggregates
         /// from interactions on every access, making any mutation a no-op.
         /// </summary>
-        private AIMetrics _persistedMetrics;
+        protected AIMetrics _persistedMetrics;
 
         /// <summary>
         /// Backing storage for the component's declared required capability before merging

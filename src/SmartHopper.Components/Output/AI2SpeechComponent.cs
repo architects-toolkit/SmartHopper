@@ -79,7 +79,7 @@ namespace SmartHopper.Components.Output
                     Description = "Generated audio file (path, URL, or base64)",
                     ParamType = typeof(VersatileAudioParameter),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         if (aiReturn?.Body?.GetLastAssistantText() is string text && !string.IsNullOrWhiteSpace(text))
                         {
@@ -95,7 +95,7 @@ namespace SmartHopper.Components.Output
                         }
 
                         return null;
-                    }
+                    })
                 }
             };
         }

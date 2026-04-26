@@ -98,12 +98,12 @@ namespace SmartHopper.Components.Output
                     Description = "Extracted integer value. Falls back to the Fallback input when the AI response cannot be parsed.",
                     ParamType = typeof(Param_Integer),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         var text = aiReturn?.Body?.GetLastAssistantText();
                         var (value, _) = IntegerResultResolver.Resolve(text, this._fallback);
                         return value.HasValue ? new GH_Integer(value.Value) : null;
-                    }
+                    })
                 },
                 new OutputMapping
                 {
@@ -112,12 +112,12 @@ namespace SmartHopper.Components.Output
                     Description = "True when the AI response could not be parsed and the Fallback value was used (or null was emitted because no fallback was provided).",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         var text = aiReturn?.Body?.GetLastAssistantText();
                         var (_, usedFallback) = IntegerResultResolver.Resolve(text, this._fallback);
                         return new GH_Boolean(usedFallback);
-                    }
+                    })
                 }
             };
         }

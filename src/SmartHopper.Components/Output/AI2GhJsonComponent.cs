@@ -79,7 +79,7 @@ namespace SmartHopper.Components.Output
                     Description = "Generated GhJSON definition",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         if (aiReturn?.Body?.GetLastAssistantJson() is JObject json)
                         {
@@ -98,7 +98,7 @@ namespace SmartHopper.Components.Output
                         }
 
                         return null;
-                    }
+                    })
                 }
             };
         }

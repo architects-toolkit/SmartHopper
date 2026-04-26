@@ -84,14 +84,14 @@ namespace SmartHopper.Components.Output
                     Description = "Generated JSON data (minified). Falls back to the Fallback input when the AI response cannot be parsed as JSON.",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         var text = aiReturn?.Body?.GetLastAssistantText();
                         var outcome = JsonResultResolver.Resolve(text, this._fallback);
                         return outcome.Value != null
                             ? new GH_String(outcome.Value.ToString(Newtonsoft.Json.Formatting.None))
                             : null;
-                    }
+                    })
                 },
                 new OutputMapping
                 {
@@ -100,12 +100,12 @@ namespace SmartHopper.Components.Output
                     Description = "True when the AI response could not be parsed as JSON and the Fallback value was used (or null was emitted because no fallback was provided).",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         var text = aiReturn?.Body?.GetLastAssistantText();
                         var outcome = JsonResultResolver.Resolve(text, this._fallback);
                         return new GH_Boolean(!outcome.Success);
-                    }
+                    })
                 }
             };
         }

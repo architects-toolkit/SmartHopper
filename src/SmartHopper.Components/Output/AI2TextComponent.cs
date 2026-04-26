@@ -77,17 +77,17 @@ namespace SmartHopper.Components.Output
                     Description = "Generated text output",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         if (aiReturn?.Body?.GetLastAssistantText() is string text && !string.IsNullOrWhiteSpace(text))
                         {
                             // Trim leading and trailing whitespace before returning the text
                             var cleanedText = text.Trim();
-                            return new GH_String(cleanedText);
+                            return (IGH_Goo)new GH_String(cleanedText);
                         }
 
                         return null;
-                    }
+                    })
                 }
             };
         }
