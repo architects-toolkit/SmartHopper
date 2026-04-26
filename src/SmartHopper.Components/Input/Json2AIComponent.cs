@@ -50,10 +50,7 @@ namespace SmartHopper.Components.Input
             pManager.AddTextParameter("JSON", "J", "JSON text to validate and wrap into an AIInputPayload.", GH_ParamAccess.item);
         }
 
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-        {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload wrapping the validated JSON.", GH_ParamAccess.item);
-        }
+        protected override string PayloadOutputDescription => "AIInputPayload wrapping the validated JSON.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

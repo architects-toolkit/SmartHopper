@@ -49,10 +49,7 @@ namespace SmartHopper.Components.Input
             pManager.AddTextParameter("Text", "T", "Text content to wrap into an AIInputPayload.", GH_ParamAccess.item);
         }
 
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-        {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload wrapping the text.", GH_ParamAccess.item);
-        }
+        protected override string PayloadOutputDescription => "AIInputPayload wrapping the text.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
