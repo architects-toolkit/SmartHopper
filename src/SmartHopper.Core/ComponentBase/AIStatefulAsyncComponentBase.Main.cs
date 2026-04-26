@@ -157,7 +157,7 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Stores sentinel <see cref="GH_Structure{GH_String}"/> trees keyed by output parameter name.
-        /// 
+        ///
         /// LIFECYCLE CONTRACT:
         /// - Populated: (1) by <see cref="StoreSentinelTree"/> during batch collection in <see cref="RunProcessingAsync"/>,
         ///   (2) by <see cref="Read"/> when restoring from saved .gh file.
@@ -167,7 +167,7 @@ namespace SmartHopper.Core.ComponentBase
         ///   <see cref="ResetAsyncState"/>, <see cref="LoadResultsFromFile"/>, or shutdown paths.
         /// - Persisted: <see cref="Write"/> saves non-null trees so <see cref="OnBatchCompleted"/> can
         ///   reconstruct outputs after file reload.
-        /// 
+        ///
         /// This ensures sentinels survive file close/reopen and manual result loading.
         /// </summary>
         private Dictionary<string, object> _sentinelTrees;
@@ -181,7 +181,7 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Set of all sentinel custom IDs generated for the current (or most-recent) batch run.
-        /// 
+        ///
         /// LIFECYCLE CONTRACT:
         /// - Populated: (1) by <see cref="StoreBatchSentinelIds"/> during batch submission in <see cref="SubmitBatchQueueAsync"/>,
         ///   (2) by <see cref="Read"/> when restoring from saved .gh file.

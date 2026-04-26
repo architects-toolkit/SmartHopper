@@ -86,6 +86,7 @@ public class Text2AIComponent : GH_Component
 ### Output Components
 
 Output components:
+
 1. Receive multiple `GH_AIInputPayload` inputs per branch
 2. Merge payloads using `AIInputPayloadMerger.MergePerBranch()`
 3. Build final `AIBody` with system prompt
@@ -98,13 +99,14 @@ The `AIContextComponent` is a special input adapter that:
 
 1. **Input**: Provider ID (e.g., "time", "file", "rhino")
 2. **Processing**: Calls `AIContextManager.GetCurrentContext(providerId)`
-3. **Output**: 
+3. **Output**:
    - `GH_AIInputPayload` with context filter
    - Display text showing context data
 
 **Important**: The context filter in the payload is **not** used directly by output components. Instead, output components generate their own filter based on all connected context payloads.
 
 Example flow:
+
 ```
 AIContextComponent("time") → GH_AIInputPayload(Context("time"))
                                     ↓
