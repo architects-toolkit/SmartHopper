@@ -38,6 +38,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.DeepSeek
@@ -170,15 +171,17 @@ namespace SmartHopper.Providers.DeepSeek
                 int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
                 Debug.WriteLine($"[DeepSeek] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #endif
 
-            // Group consecutive interactions by role to avoid multiple assistant messages
-            // DeepSeek requires tool_calls and content to be in the SAME assistant message
+            // Simple sequential encoding (same approach as OpenAI/MistralAI providers).
+            // DeepSeek is OpenAI-compatible and accepts one message per interaction; no role-grouping
+            // is required and doing so historically caused loss of tool_call_id when multiple tool
+            // results were emitted in the same turn.
             var convertedMessages = new JArray();
-            string currentRole = null;
-            JObject currentMessage = null;
-            var currentToolCalls = new JArray();
 
             // Merge System and Summary interactions before encoding
             var mergedInteractions = this.MergeSystemAndSummary(request.Body.Interactions);
@@ -199,115 +202,12 @@ namespace SmartHopper.Providers.DeepSeek
                         continue;
                     }
 
-                    // Check if role changed
-                    if (currentRole != role)
-                    {
-                        // Finalize previous message if exists
-                        if (currentMessage != null)
-                        {
-                            // Add accumulated tool_calls to the message
-                            if (currentToolCalls.Count > 0)
-                            {
-                                currentMessage["tool_calls"] = currentToolCalls;
-                            }
-
-                            // Remove reasoning_content from assistant messages without tool_calls
-                            // per DeepSeek's recommendation to save bandwidth
-                            if (string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase)
-                                && (currentMessage["tool_calls"] == null || (currentMessage["tool_calls"] is JArray tcArray && tcArray.Count == 0)))
-                            {
-                                currentMessage.Remove("reasoning_content");
-                            }
-
-                            convertedMessages.Add(currentMessage);
-                        }
-
-                        // Start new message
-                        currentRole = role;
-                        currentMessage = new JObject
-                        {
-                            ["role"] = role,
-                            ["content"] = token["content"]?.ToString() ?? string.Empty
-                        };
-
-                        if (!string.IsNullOrWhiteSpace(token["reasoning_content"]?.ToString()))
-                        {
-                            currentMessage["reasoning_content"] = token["reasoning_content"]?.ToString();
-                        }
-
-                        currentToolCalls = new JArray();
-
-                        // Copy tool_calls if present in this token
-                        if (token["tool_calls"] is JArray tc && tc.Count > 0)
-                        {
-                            foreach (var toolCall in tc)
-                            {
-                                currentToolCalls.Add(toolCall);
-                            }
-                        }
-
-                        // Copy tool_call_id and name for tool results
-                        if (token["tool_call_id"] != null)
-                        {
-                            currentMessage["tool_call_id"] = token["tool_call_id"];
-                        }
-
-                        if (token["name"] != null)
-                        {
-                            currentMessage["name"] = token["name"];
-                        }
-                    }
-                    else
-                    {
-                        // Same role: merge content and tool_calls
-                        var existingContent = currentMessage["content"]?.ToString() ?? string.Empty;
-                        var newContent = token["content"]?.ToString() ?? string.Empty;
-                        if (!string.IsNullOrEmpty(newContent))
-                        {
-                            currentMessage["content"] = string.IsNullOrEmpty(existingContent) ? newContent : existingContent + " " + newContent;
-                        }
-
-                        var existingReasoning = currentMessage["reasoning_content"]?.ToString() ?? string.Empty;
-                        var newReasoning = token["reasoning_content"]?.ToString() ?? string.Empty;
-                        if (!string.IsNullOrWhiteSpace(newReasoning))
-                        {
-                            currentMessage["reasoning_content"] = string.IsNullOrWhiteSpace(existingReasoning) ? newReasoning : existingReasoning + " " + newReasoning;
-                        }
-
-                        // Accumulate tool_calls
-                        if (token["tool_calls"] is JArray tc && tc.Count > 0)
-                        {
-                            foreach (var toolCall in tc)
-                            {
-                                currentToolCalls.Add(toolCall);
-                            }
-                        }
-                    }
+                    convertedMessages.Add(token);
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[DeepSeek] Warning: Could not encode interaction: {ex.Message}");
                 }
-            }
-
-            // Finalize last message
-            if (currentMessage != null)
-            {
-                // Add accumulated tool_calls to the message
-                if (currentToolCalls.Count > 0)
-                {
-                    currentMessage["tool_calls"] = currentToolCalls;
-                }
-
-                // Remove reasoning_content from assistant messages without tool_calls
-                // per DeepSeek's recommendation to save bandwidth
-                if (string.Equals(currentMessage["role"]?.ToString(), "assistant", StringComparison.OrdinalIgnoreCase)
-                    && (currentMessage["tool_calls"] == null || (currentMessage["tool_calls"] is JArray tcArray && tcArray.Count == 0)))
-                {
-                    currentMessage.Remove("reasoning_content");
-                }
-
-                convertedMessages.Add(currentMessage);
             }
 
 #if DEBUG
@@ -322,7 +222,7 @@ namespace SmartHopper.Providers.DeepSeek
                     var hasToolCalls = msg?["tool_calls"] != null;
                     var toolCallId = msg?["tool_call_id"]?.ToString();
                     var content = msg?["content"]?.ToString();
-                    var preview = content != null ? (content.Length > 50 ? content.Substring(0, 50) + "..." : content) : "";
+                    var preview = content != null ? (content.Length > 50 ? content.Substring(0, 50) + "..." : content) : string.Empty;
 
                     if (hasToolCalls)
                     {
@@ -341,7 +241,10 @@ namespace SmartHopper.Providers.DeepSeek
                     }
                 }
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #endif
 
             // Build request body
@@ -357,15 +260,29 @@ namespace SmartHopper.Providers.DeepSeek
             if (p?.Extras != null)
             {
                 if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                {
                     requestBody["top_p"] = topPToken.Value<double?>();
+                }
+
                 if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                {
                     requestBody["presence_penalty"] = ppToken;
+                }
+
                 if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                {
                     requestBody["frequency_penalty"] = fpToken;
+                }
+
                 if (p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
+                {
                     requestBody["logprobs"] = logprobsToken.Value<bool?>();
+                }
+
                 if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
+                {
                     requestBody["top_logprobs"] = topLogprobsToken.Value<int?>();
+                }
             }
 
             // Add JSON response format if schema is provided (centralized wrapping)
@@ -412,20 +329,23 @@ namespace SmartHopper.Providers.DeepSeek
                 if (tools != null && tools.Count > 0)
                 {
                     requestBody["tools"] = tools;
-                    requestBody["tool_choice"] = "auto";
+
+                    // Handle forced tool call: DeepSeek uses tool_choice with type and function name (OpenAI-compatible)
+                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
+                    {
+                        requestBody["tool_choice"] = new JObject
+                        {
+                            ["type"] = "function",
+                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
+                        };
+                        Debug.WriteLine($"[DeepSeek] Forcing tool call: {request.ForceToolName}");
+                    }
+                    else
+                    {
+                        requestBody["tool_choice"] = "auto";
+                    }
                 }
             }
-
-// #if DEBUG
-//             try
-//             {
-//                 Debug.WriteLine($"[DeepSeek] Request body:");
-//                 Debug.WriteLine(requestBody.ToString(Formatting.Indented));
-//             }
-//             catch { }
-// #else
-//             Debug.WriteLine($"[DeepSeek] Request: {requestBody}");
-// #endif
 
             return requestBody.ToString();
         }
@@ -457,7 +377,7 @@ namespace SmartHopper.Providers.DeepSeek
             }
 
             // UI-only diagnostics must not be sent to providers
-            if (interaction is AIInteractionError)
+            if (interaction is AIInteractionRuntimeMessage)
             {
                 return null;
             }
@@ -493,10 +413,14 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 messageObj["content"] = textInteraction.Content ?? string.Empty;
 
-                if (!string.IsNullOrWhiteSpace(textInteraction.Reasoning))
-                {
-                    messageObj["reasoning_content"] = textInteraction.Reasoning;
-                }
+                // DO NOT send reasoning_content on plain text assistant messages.
+                // Per DeepSeek's reasoning-model contract, reasoning_content from a previous
+                // round MUST NOT be echoed back in subsequent requests on plain assistant
+                // turns (see https://api-docs.deepseek.com/guides/reasoning_model).
+                // The asymmetric rule is enforced elsewhere:
+                //   - AIInteractionToolCall branch below DOES include reasoning_content,
+                //     because DeepSeek requires it on assistant messages with tool_calls
+                //     (otherwise HTTP 400: "Missing reasoning_content field").
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
@@ -568,6 +492,18 @@ namespace SmartHopper.Providers.DeepSeek
 
             try
             {
+                // Handle provider error responses (e.g. batch items with status_code 4xx/5xx).
+                // DeepSeek is OpenAI-compatible: {"error": {"message": "...", "type": "..."}}
+                if (response["error"] is JObject errorObj)
+                {
+                    var errMsg = errorObj["message"]?.ToString()
+                              ?? errorObj["type"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[DeepSeek] Decode: provider error in response body: {errMsg}");
+                    interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
+                    return interactions;
+                }
+
                 var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
                 var message = firstChoice?["message"] as JObject;
@@ -803,7 +739,8 @@ namespace SmartHopper.Providers.DeepSeek
         /// </summary>
         private sealed class DeepSeekStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
         {
-            public DeepSeekStreamingAdapter(DeepSeekProvider provider) : base(provider)
+            public DeepSeekStreamingAdapter(DeepSeekProvider provider)
+                : base(provider)
             {
             }
 
@@ -929,7 +866,10 @@ namespace SmartHopper.Providers.DeepSeek
                 // Helper local function to emit text chunk
                 async IAsyncEnumerable<AIReturn> EmitAsync(string text, bool streamingStatus)
                 {
-                    if (string.IsNullOrEmpty(text)) yield break;
+                    if (string.IsNullOrEmpty(text))
+                    {
+                        yield break;
+                    }
 
                     // Append to provider-local aggregate
                     assistantAggregate.AppendDelta(contentDelta: text);
@@ -967,7 +907,11 @@ namespace SmartHopper.Providers.DeepSeek
                 async Task<List<AIReturn>> FlushAsync(bool force)
                 {
                     var results = new List<AIReturn>();
-                    if (buffer.Length == 0) return results;
+                    if (buffer.Length == 0)
+                    {
+                        return results;
+                    }
+
                     var elapsed = (DateTime.UtcNow - lastEmit).TotalMilliseconds;
                     if (force || !options.CoalesceTokens || buffer.Length >= options.PreferredChunkSize || elapsed >= options.CoalesceDelayMs)
                     {
@@ -1014,7 +958,10 @@ namespace SmartHopper.Providers.DeepSeek
                     var delta = choice?["delta"] as JObject;
                     var finishReason = choice?["finish_reason"]?.ToString();
                     bool hasFinish = !string.IsNullOrEmpty(finishReason);
-                    if (hasFinish) finalFinishReason = finishReason;
+                    if (hasFinish)
+                    {
+                        finalFinishReason = finishReason;
+                    }
 
                     // Usage metrics (may be present in final chunk)
                     var usage = parsed["usage"] as JObject;
@@ -1022,8 +969,15 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         var pt = usage["prompt_tokens"]?.Value<int?>();
                         var ct = usage["completion_tokens"]?.Value<int?>();
-                        if (pt.HasValue) promptTokens = pt.Value;
-                        if (ct.HasValue) completionTokens = ct.Value;
+                        if (pt.HasValue)
+                        {
+                            promptTokens = pt.Value;
+                        }
+
+                        if (ct.HasValue)
+                        {
+                            completionTokens = ct.Value;
+                        }
 
                         // Extract reasoning tokens from nested completion_tokens_details object
                         var completionDetails = usage["completion_tokens_details"] as JObject;
@@ -1098,12 +1052,18 @@ namespace SmartHopper.Providers.DeepSeek
 
                             // Force immediate first emit for snappy UX
                             var emitted = await FlushAsync(force: true).ConfigureAwait(false);
-                            foreach (var d in emitted) { yield return d; }
+                            foreach (var d in emitted)
+                            {
+                                yield return d;
+                            }
                         }
                         else
                         {
                             var emitted = await FlushAsync(force: false).ConfigureAwait(false);
-                            foreach (var d in emitted) { yield return d; }
+                            foreach (var d in emitted)
+                            {
+                                yield return d;
+                            }
                         }
                     }
                     else if (hasReasoningUpdate)
@@ -1154,15 +1114,25 @@ namespace SmartHopper.Providers.DeepSeek
 
                             // id
                             var idVal = t["id"]?.ToString();
-                            if (!string.IsNullOrEmpty(idVal)) entry.Id = idVal;
+                            if (!string.IsNullOrEmpty(idVal))
+                            {
+                                entry.Id = idVal;
+                            }
 
                             var func = t["function"] as JObject;
                             if (func != null)
                             {
                                 var name = func["name"]?.ToString();
-                                if (!string.IsNullOrEmpty(name)) entry.Name = name;
+                                if (!string.IsNullOrEmpty(name))
+                                {
+                                    entry.Name = name;
+                                }
+
                                 var args = func["arguments"]?.ToString();
-                                if (!string.IsNullOrEmpty(args)) entry.Args.Append(args);
+                                if (!string.IsNullOrEmpty(args))
+                                {
+                                    entry.Args.Append(args);
+                                }
                             }
 
                             toolCalls[idx] = entry; // update
@@ -1170,7 +1140,10 @@ namespace SmartHopper.Providers.DeepSeek
 
                         // If we know we're heading to tool calls, flush text first
                         var emittedTc = await FlushAsync(force: true).ConfigureAwait(false);
-                        foreach (var d in emittedTc) { yield return d; }
+                        foreach (var d in emittedTc)
+                        {
+                            yield return d;
+                        }
 
                         // Emit current tool call snapshot with CallingTools status
                         var interactions = new List<IAIInteraction>();
@@ -1179,7 +1152,18 @@ namespace SmartHopper.Providers.DeepSeek
                             var (id, name, argsSb) = kv.Value;
                             JObject argsObj = null;
                             var argsStr = argsSb.ToString();
-                            try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON, ignore */ }
+                            try
+                            {
+                                if (!string.IsNullOrWhiteSpace(argsStr))
+                                {
+                                    argsObj = JObject.Parse(argsStr);
+                                }
+                            }
+                            catch
+                            {
+                                // Partial JSON, ignore
+                            }
+
                             interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj, Reasoning = assistantAggregate.Reasoning });
                         }
 
@@ -1191,7 +1175,10 @@ namespace SmartHopper.Providers.DeepSeek
 
                 // Final flush
                 var finalEmitted = await FlushAsync(force: true).ConfigureAwait(false);
-                foreach (var d in finalEmitted) { yield return d; }
+                foreach (var d in finalEmitted)
+                {
+                    yield return d;
+                }
 
                 // Emit final Finished marker with the complete assistant interaction
                 var final = new AIReturn
@@ -1248,8 +1235,28 @@ namespace SmartHopper.Providers.DeepSeek
                     var (id, name, argsSb) = kv.Value;
                     JObject argsObj = null;
                     var argsStr = argsSb.ToString();
-                    try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON */ }
-                    finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj, Reasoning = assistantAggregate.Reasoning }, markAsNew: false);
+
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(argsStr))
+                        {
+                            argsObj = JObject.Parse(argsStr);
+                        }
+                    }
+                    catch
+                    {
+                        // Partial JSON
+                    }
+
+                    finalBuilder.Add(
+                        new AIInteractionToolCall
+                        {
+                            Id = id,
+                            Name = name,
+                            Arguments = argsObj,
+                            Reasoning = assistantAggregate.Reasoning
+                        },
+                        markAsNew: false);
                 }
 
                 final.SetBody(finalBuilder.Build());
@@ -1263,23 +1270,38 @@ namespace SmartHopper.Providers.DeepSeek
             return new[]
             {
                 // General parameters (shared across providers)
-                new AIExtraDescriptor("top_p", "Top P",
+                new AIExtraDescriptor(
+                    "top_p",
+                    "Top P",
                     "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
-                    typeof(double), null),
-                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "presence_penalty",
+                    "Presence Penalty",
                     "Penalizes tokens already present in the text (-2.0 to 2.0). Positive values encourage new topics.",
-                    typeof(double), null),
-                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "frequency_penalty",
+                    "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
-                    typeof(double), null),
+                    typeof(double),
+                    null),
 
                 // DeepSeek-specific parameters
-                new AIExtraDescriptor("logprobs", "Log Probabilities",
+                new AIExtraDescriptor(
+                    "logprobs",
+                    "Log Probabilities",
                     "Return log probabilities of output tokens. Useful for analyzing model confidence.",
-                    typeof(bool), null),
-                new AIExtraDescriptor("top_logprobs", "Top Logprobs",
+                    typeof(bool),
+                    null),
+                new AIExtraDescriptor(
+                    "top_logprobs",
+                    "Top Logprobs",
                     "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
-                    typeof(int), null),
+                    typeof(int),
+                    null),
             };
         }
     }

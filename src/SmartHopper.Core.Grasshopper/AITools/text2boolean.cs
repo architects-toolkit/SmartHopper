@@ -146,6 +146,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.Arguments ?? new JObject();
                 string? text = args["text"]?.ToString();
                 string? question = args["question"]?.ToString();
+
                 // Parse fallback as boolean using centralized helper
                 string? fallbackStr = args["fallback"]?.ToString();
                 bool? fallback = StringConverter.StringToBoolean(fallbackStr);
@@ -176,39 +177,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
                 Debug.WriteLine($"[TextTools.Text2Boolean] AI response: '{response}'");
 
-                // Parse the boolean from the response
-                var parsedResult = AIResponseParser.ParseBooleanFromResponse(response);
-
-                // Build the result
-                var toolResult = new JObject();
-                bool usedFallback = false;
-
-                if (parsedResult == null)
-                {
-                    // AI response could not be parsed as boolean
-                    if (fallback.HasValue)
-                    {
-                        // Use fallback value if provided
-                        Debug.WriteLine($"[TextTools.Text2Boolean] Using fallback value: '{fallback.Value}'");
-                        toolResult.Add("result", fallback.Value);
-                        toolResult.Add("usedFallback", true);
-                        usedFallback = true;
-                    }
-                    else
-                    {
-                        // No fallback - return null
-                        Debug.WriteLine("[TextTools.Text2Boolean] No fallback provided, returning null");
-                        toolResult.Add("result", null);
-                        toolResult.Add("usedFallback", true);
-                        usedFallback = true;
-                    }
-                }
-                else
-                {
-                    // Successfully parsed boolean
-                    toolResult.Add("result", parsedResult.Value);
-                    toolResult.Add("usedFallback", false);
-                }
+                // Centralized parse + fallback resolution (shared with batch path).
+                var toolResult = BooleanResultResolver.BuildToolResult(response, fallback);
+                Debug.WriteLine($"[TextTools.Text2Boolean] Resolved: {toolResult}");
 
                 var toolBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)

@@ -186,7 +186,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- Speckle Systems for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GrasshopperAsyncComponent", "https://github.com/specklesystems/GrasshopperAsyncComponent"),
-                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -198,7 +198,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- enmerk4r for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("GHPT", "https://github.com/enmerk4r/GHPT"),
-                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -210,7 +210,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- Google for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Material Design Icons", "https://github.com/google/material-design-icons"),
-                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -222,7 +222,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- LobeHub for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Lobe Icons", "https://github.com/lobehub/lobe-icons"),
-                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -234,7 +234,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- Dean Malmgren for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("textract", "https://github.com/deanmalmgren/textract"),
-                    new Label { Text = "(MIT License) - File-to-Markdown dispatcher pattern", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(MIT License) - File-to-Markdown dispatcher pattern", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -246,7 +246,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- OpenDataLab for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("magic-html", "https://github.com/opendatalab/magic-html"),
-                    new Label { Text = "(Apache 2.0 License) - HTML readability scoring", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(Apache 2.0 License) - HTML readability scoring", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -258,7 +258,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- OpenDCAI for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("DataFlow", "https://github.com/OpenDCAI/DataFlow"),
-                    new Label { Text = "(Apache 2.0 License) - Operator/pipeline architecture", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(Apache 2.0 License) - Operator/pipeline architecture", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -277,7 +277,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- Md Ahasan Habib from Noun Project for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Rhinoceros Icon", "https://thenounproject.com/icon/rhinoceros-7895112/"),
-                    new Label { Text = "(CC BY 3.0)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(CC BY 3.0)", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -289,7 +289,7 @@ namespace SmartHopper.Menu.Dialogs
                 {
                     new Label { Text = "- Ladybug Tools for", Font = new Font(SystemFont.Default, 10) },
                     CreateLinkButton("Ladybug Artwork", "https://github.com/ladybug-tools/artwork"),
-                    new Label { Text = "(CC BY 4.0)", Font = new Font(SystemFont.Default, 10) }
+                    new Label { Text = "(CC BY 4.0)", Font = new Font(SystemFont.Default, 10) },
                 },
             };
 
@@ -348,7 +348,7 @@ namespace SmartHopper.Menu.Dialogs
                 Items =
                 {
                     new Label { Text = "Need help or found a bug?", Font = new Font(SystemFont.Default, 10) },
-                    githubLinkLabel
+                    githubLinkLabel,
                 },
             });
             contentLayout.Items.Add(null); // spacing

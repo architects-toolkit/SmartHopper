@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -30,11 +30,13 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Types;
+using SmartHopper.Core.Models;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Img
 {
@@ -111,7 +113,7 @@ namespace SmartHopper.Components.Img
         /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Image", "I", "Image to describe. Accepts: (1) GH_ExtractedImage from file extraction components, (2) absolute file path to an image file (.png, .jpg, .gif, .bmp, .webp, .tiff), (3) public HTTP/HTTPS URL, or (4) raw base64-encoded image data.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Image", "I", "Image to describe. Accepts: (1) VersatileImage format from file extraction components, (2) absolute file path to an image file (.png, .jpg, .gif, .bmp, .webp, .tiff), (3) public HTTP/HTTPS URL, or (4) raw base64-encoded image data.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Prompt", "P", "Custom description prompt for the AI. Leave empty to use the built-in prompt: 'Describe this image in detail.'", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
@@ -126,7 +128,7 @@ namespace SmartHopper.Components.Img
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Description");
             if (results == null || sentinel == null) return;
@@ -271,13 +273,33 @@ namespace SmartHopper.Components.Img
                                 var imgParams = new JObject();
                                 bool hasImage = false;
 
-                                if (item is GH_ExtractedImage extractedImage && extractedImage.Value != null)
+                                if (item is GH_VersatileImage versatileImage && versatileImage.Value != null)
                                 {
-                                    string b64 = extractedImage.Value.Base64Data;
-                                    if (!string.IsNullOrWhiteSpace(b64))
+                                    var source = versatileImage.Value;
+                                    if (source.Kind == VersatileImageKind.Base64 && !string.IsNullOrWhiteSpace(source.RawValue))
                                     {
-                                        imgParams["imageBase64"] = b64;
-                                        imgParams["mimeType"] = extractedImage.Value.MimeType ?? "image/png";
+                                        imgParams["imageBase64"] = source.RawValue;
+                                        imgParams["mimeType"] = "image/png";
+                                        hasImage = true;
+                                    }
+                                    else if (source.Kind == VersatileImageKind.Url && !string.IsNullOrWhiteSpace(source.RawValue))
+                                    {
+                                        imgParams["imageUrl"] = source.RawValue;
+                                        hasImage = true;
+                                    }
+                                    else if (source.Kind == VersatileImageKind.LocalFile && !string.IsNullOrWhiteSpace(source.RawValue))
+                                    {
+                                        var bytes = File.ReadAllBytes(source.RawValue);
+                                        imgParams["imageBase64"] = Convert.ToBase64String(bytes);
+                                        imgParams["mimeType"] = GetMimeType(source.RawValue);
+                                        hasImage = true;
+                                    }
+                                    else if (source.Kind == VersatileImageKind.Bitmap && source.Bitmap != null)
+                                    {
+                                        using var ms = new MemoryStream();
+                                        source.Bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                                        imgParams["imageBase64"] = Convert.ToBase64String(ms.ToArray());
+                                        imgParams["mimeType"] = "image/png";
                                         hasImage = true;
                                     }
                                 }
@@ -333,7 +355,7 @@ namespace SmartHopper.Components.Img
 
                                 try
                                 {
-                                    var toolResult = await this.parent.CallAiToolAsync("img2text", imgParams).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAIToolAsync("img2text", imgParams, token).ConfigureAwait(false);
 
                                     if (toolResult == null)
                                     {
@@ -342,10 +364,10 @@ namespace SmartHopper.Components.Img
                                         continue;
                                     }
 
-                                    // In batch mode, CallAiToolAsync returns a sentinel placeholder under "result".
+                                    // In batch mode, CallAIToolAsync returns a sentinel placeholder under "result".
                                     // Forward it so ReconstructOutputTree can replace it after the batch completes.
                                     var sentinel = toolResult["result"]?.ToString();
-                                    if (sentinel != null && sentinel.StartsWith("##SH_BATCH:", StringComparison.Ordinal))
+                                    if (BatchSentinel.Is(sentinel))
                                     {
                                         outputs["Description"].Add(new GH_String(sentinel));
                                         continue;

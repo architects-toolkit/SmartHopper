@@ -182,6 +182,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Gather input before starting the task
                 worker.GatherInput(DA, out int dataCount);
+                worker.ResetCollectedMessages();
                 this.CurrentWorker = worker;
                 this._dataCount = dataCount;
 
@@ -237,6 +238,7 @@ namespace SmartHopper.Core.ComponentBase
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.Workers[i].SetOutput(DA, out outMessage);
+                        this.Workers[i].FlushCollectedMessages();
                         if (!string.IsNullOrEmpty(outMessage))
                         {
                             this.Message = outMessage;
@@ -260,14 +262,14 @@ namespace SmartHopper.Core.ComponentBase
                 return; // Call SolveInstanve again until state is 0
             }
 
+            this.OnWorkerCompleted();
+
             // Clean up
             this._cancellationSources.Clear();
             this.Workers.Clear();
             this._tasks.Clear();
 
             Interlocked.Exchange(ref this._setData, 0);
-
-            this.OnWorkerCompleted();
         }
 
         protected override void AfterSolveInstance()
@@ -314,7 +316,7 @@ namespace SmartHopper.Core.ComponentBase
                             {
                                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Tasks were canceled.");
                                 this.ResetAsyncState();
-                                this.OnTasksCanceled();
+                                this.OnTasksCancelDetected();
                                 this.ExpireSolution(true);
                             });
 
@@ -394,13 +396,17 @@ namespace SmartHopper.Core.ComponentBase
         protected virtual void OnWorkerCompleted()
         {
             Debug.WriteLine($"[{this.GetType().Name}] All workers completed. State: {this._state}, Tasks: {this._tasks.Count}, SetData: {this._setData}");
+            foreach (var worker in this.Workers)
+            {
+                worker.ResetCollectedMessages();
+            }
         }
 
         /// <summary>
         /// Called when the worker tasks are canceled and the output phase is skipped.
         /// Allows derived classes to react (e.g. transition state machines out of Processing).
         /// </summary>
-        protected virtual void OnTasksCanceled()
+        protected virtual void OnTasksCancelDetected()
         {
         }
 

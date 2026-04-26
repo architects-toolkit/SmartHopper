@@ -45,10 +45,11 @@ namespace SmartHopper.Components.JSON
         /// </summary>
         public JsonArray2TextListComponent()
             : base(
-                  "JSON Array To Text List",
-                  "JsonArray2Text",
-                  "Parse a JSON array string into a Grasshopper text list.\nJSON strings have their outer quotes stripped. Numbers, booleans and objects are serialized to their compact string form.",
-                  "SmartHopper", "JSON")
+                "JSON Array To Text List",
+                "JsonArray2Text",
+                "Parse a JSON array string into a Grasshopper text list.\nJSON strings have their outer quotes stripped. Numbers, booleans and objects are serialized to their compact string form.",
+                "SmartHopper",
+                "JSON")
         {
         }
 

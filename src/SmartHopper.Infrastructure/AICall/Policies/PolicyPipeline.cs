@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -26,6 +27,7 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Policies.Request;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Policies
 {
@@ -76,11 +78,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies
         /// Non-fatal policy errors are recorded as diagnostics within the request body.
         /// </summary>
         /// <param name="request">The request to normalize and validate.</param>
+        /// <param name="cancellationToken">The cancellation token for the operation.</param>
         /// <returns>A task that completes when all policies have been applied.</returns>
-        public async Task ApplyRequestPoliciesAsync(AIRequestCall request)
+        public async Task ApplyRequestPoliciesAsync(AIRequestCall request, CancellationToken cancellationToken = default)
         {
             if (request == null) return;
-            var context = new PolicyContext { Request = request };
+            var context = new PolicyContext { Request = request, CancellationToken = cancellationToken };
             foreach (var policy in this.RequestPolicies)
             {
                 try
@@ -92,7 +95,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                     // Non-fatal: convert to diagnostic (immutable)
                     if (request.Body != null)
                     {
-                        // Use AIInteractionError so this diagnostic is not sent to providers
+                        // Use an error-severity runtime-message diagnostic so this is not sent to providers.
                         request.Body = AIBodyBuilder.FromImmutable(request.Body)
                             .AddError($"Request policy {policy.GetType().Name} failed: {ex.Message}")
                             .Build();
@@ -105,59 +108,27 @@ namespace SmartHopper.Infrastructure.AICall.Policies
 
         /// <summary>
         /// Applies a minimal set of request policies for tool-only requests by shimming the tool call
-        /// into a transient <see cref="AIRequestCall"/>. Non-breaking: existing policies continue to target
-        /// <see cref="AIRequestCall"/>; this overload simply reuses them for tool validation and timeout normalization.
-        /// </summary>
-        /// <summary>
-        /// Applies a minimal set of request policies for tool-only requests by shimming the tool call
         /// into a transient <see cref="AIRequestCall"/>.
         /// Non-fatal policy errors are recorded as diagnostics within the shim and merged back.
         /// </summary>
         /// <param name="toolCall">The tool call to validate and normalize.</param>
+        /// <param name="cancellationToken">The cancellation token for the operation.</param>
         /// <returns>A task that completes when policies have been applied and results merged back to <paramref name="toolCall"/>.</returns>
-        public async Task ApplyRequestPoliciesAsync(AIToolCall toolCall)
+        public async Task ApplyRequestPoliciesAsync(AIToolCall toolCall, CancellationToken cancellationToken = default)
         {
             if (toolCall == null) return;
 
-            // Build a transient AIRequestCall carrying over relevant context
+            // Shim to reuse generic request policies (e.g. RequestTimeoutPolicy, capability validators)
             var shim = new AIRequestCall
             {
                 Provider = toolCall.Provider,
                 Model = toolCall.Model,
-                Endpoint = toolCall.Endpoint,
                 Capability = toolCall.Capability,
-                Body = toolCall.Body,
                 TimeoutSeconds = toolCall.TimeoutSeconds,
+                Body = toolCall.Body,
             };
 
-            // Run a minimal, safe subset of request policies relevant to tool calls
-            var policies = new List<IRequestPolicy>
-            {
-                new Request.RequestTimeoutPolicy(),
-                new Request.AIToolValidationRequestPolicy(),
-            };
-
-            var context = new PolicyContext { Request = shim };
-            foreach (var policy in policies)
-            {
-                try
-                {
-                    await policy.ApplyAsync(context).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    // Non-fatal: convert to diagnostic on shim
-                    if (shim.Body != null)
-                    {
-                        // Use AIInteractionError so this diagnostic is not sent to providers
-                        shim.Body = AIBodyBuilder.FromImmutable(shim.Body)
-                            .AddError($"Request policy {policy.GetType().Name} failed: {ex.Message}")
-                            .Build();
-                    }
-
-                    Debug.WriteLine($"[PolicyPipeline] Tool request policy {policy.GetType().Name} exception: {ex}");
-                }
-            }
+            await this.ApplyRequestPoliciesAsync(shim, cancellationToken).ConfigureAwait(false);
 
             // Merge back normalized fields and diagnostics
             toolCall.TimeoutSeconds = shim.TimeoutSeconds;
@@ -167,7 +138,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies
             }
 
             // Merge request-level diagnostics into the tool call messages
-            var merged = new List<AIRuntimeMessage>(toolCall.Messages ?? new List<AIRuntimeMessage>());
+            var merged = new List<SHRuntimeMessage>(toolCall.Messages ?? new List<SHRuntimeMessage>());
             if (shim.Messages != null && shim.Messages.Count > 0)
             {
                 merged.AddRange(shim.Messages);
@@ -178,14 +149,15 @@ namespace SmartHopper.Infrastructure.AICall.Policies
 
         /// <summary>
         /// Applies all configured response policies to the provided <see cref="AIReturn"/>.
-        /// Non-fatal policy errors are attached as diagnostics to the return.
+        /// Diagnostics produced during policy execution are attached directly to the return object.
         /// </summary>
         /// <param name="response">The response to normalize and validate.</param>
+        /// <param name="cancellationToken">The cancellation token for the operation.</param>
         /// <returns>A task that completes when all policies have been applied.</returns>
-        public async Task ApplyResponsePoliciesAsync(AIReturn response)
+        public async Task ApplyResponsePoliciesAsync(AIReturn response, CancellationToken cancellationToken = default)
         {
             if (response == null) return;
-            var context = new PolicyContext { Request = response.Request as AIRequestCall, Response = response };
+            var context = new PolicyContext { Request = response.Request as AIRequestCall, Response = response, CancellationToken = cancellationToken };
             foreach (var policy in this.ResponsePolicies)
             {
                 try
@@ -213,8 +185,8 @@ namespace SmartHopper.Infrastructure.AICall.Policies
                 {
                     // Non-fatal: attach diagnostic to AIReturn
                     response.AddRuntimeMessage(
-                        AIRuntimeMessageSeverity.Warning,
-                        AIRuntimeMessageOrigin.Return,
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Return,
                         $"Response policy {policy.GetType().Name} failed: {ex.Message}");
                     Debug.WriteLine($"[PolicyPipeline] Response policy {policy.GetType().Name} exception: {ex}");
                 }

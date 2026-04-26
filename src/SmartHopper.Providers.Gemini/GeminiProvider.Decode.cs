@@ -24,6 +24,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Providers.Gemini
 {
@@ -38,6 +39,18 @@ namespace SmartHopper.Providers.Gemini
 
                 if (responseObject == null)
                 {
+                    return result;
+                }
+
+                // Handle provider error responses (e.g. batch items with status_code 4xx/5xx).
+                // Gemini error shape: {"error": {"code": N, "message": "...", "status": "..."}}
+                if (responseObject["error"] is JObject errorObj)
+                {
+                    var errMsg = errorObj["message"]?.ToString()
+                              ?? errorObj["status"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[Gemini] Decode: provider error in response body: {errMsg}");
+                    result.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
                     return result;
                 }
 
@@ -111,17 +124,49 @@ namespace SmartHopper.Providers.Gemini
                                 var inlineData = part["inlineData"] as JObject;
                                 if (inlineData != null)
                                 {
-                                    var imageData = inlineData["data"]?.ToString();
+                                    var data = inlineData["data"]?.ToString();
                                     var mimeType = inlineData["mimeType"]?.ToString() ?? "image/jpeg";
 
-                                    if (!string.IsNullOrWhiteSpace(imageData))
+                                    if (!string.IsNullOrWhiteSpace(data))
                                     {
-                                        result.Add(new AIInteractionImage
+                                        // Check if this is audio data
+                                        if (mimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase))
                                         {
-                                            Agent = AIAgent.Assistant,
-                                            ImageData = imageData,
-                                            MimeType = mimeType,
-                                        });
+                                            // Create audio interaction - store as AIInteractionText with audio metadata
+                                            // The audio data is base64 encoded
+                                            var audioInteraction = new AIInteractionText
+                                            {
+                                                Agent = AIAgent.Assistant,
+                                                Content = $"[Audio: {mimeType}]",
+                                            };
+
+                                            // Store audio data in a way that can be retrieved
+                                            // We'll use the interaction's metadata or extend it
+                                            // For now, add it as a custom property via JObject
+                                            var audioMetadata = new JObject
+                                            {
+                                                ["audioData"] = data,
+                                                ["mimeType"] = mimeType,
+                                            };
+
+                                            // Store in the interaction's result or create a specialized interaction
+                                            result.Add(new AIInteractionText
+                                            {
+                                                Agent = AIAgent.Assistant,
+                                                Content = audioMetadata.ToString(),
+                                            });
+                                            Debug.WriteLine($"[GeminiProvider] Decoded audio response: {mimeType}");
+                                        }
+                                        else
+                                        {
+                                            // Image data
+                                            result.Add(new AIInteractionImage
+                                            {
+                                                Agent = AIAgent.Assistant,
+                                                ImageData = data,
+                                                MimeType = mimeType,
+                                            });
+                                        }
                                     }
                                 }
                             }

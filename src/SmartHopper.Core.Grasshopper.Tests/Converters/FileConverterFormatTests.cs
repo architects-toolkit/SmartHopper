@@ -16,30 +16,30 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
-using System.IO;
-using System.Text;
-using System.Threading.Tasks;
-using SmartHopper.Core.Grasshopper.Converters.Formats;
-using Xunit;
-
 namespace SmartHopper.Core.Grasshopper.Tests.Converters
 {
+    using System;
+    using System.IO;
+    using System.Text;
+    using System.Threading.Tasks;
+    using SmartHopper.Core.Grasshopper.Converters.Formats;
+    using Xunit;
+
     public class TxtConverterTests : IDisposable
     {
         private readonly string _tempDir;
 
         public TxtConverterTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            Directory.CreateDirectory(_tempDir);
+            this._tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(this._tempDir);
         }
 
         public void Dispose()
         {
-            if (Directory.Exists(_tempDir))
+            if (Directory.Exists(this._tempDir))
             {
-                Directory.Delete(_tempDir, true);
+                Directory.Delete(this._tempDir, true);
             }
         }
 
@@ -47,7 +47,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public async Task ConvertAsync_SimpleTextFile_ReturnsContent()
         {
             var converter = new TxtConverter();
-            var filePath = Path.Combine(_tempDir, "test.txt");
+            var filePath = Path.Combine(this._tempDir, "test.txt");
             File.WriteAllText(filePath, "Hello, World!");
             var result = await converter.ConvertAsync(filePath, null);
             Assert.True(result.IsSuccess);
@@ -59,8 +59,8 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public async Task ConvertAsync_EmptyFile_ReturnsSuccessEmptyish()
         {
             var converter = new TxtConverter();
-            var filePath = Path.Combine(_tempDir, "empty.txt");
-            File.WriteAllText(filePath, "");
+            var filePath = Path.Combine(this._tempDir, "empty.txt");
+            File.WriteAllText(filePath, string.Empty);
             var result = await converter.ConvertAsync(filePath, null);
             Assert.True(result.IsSuccess);
             Assert.Empty(result.MarkdownContent);
@@ -70,7 +70,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public async Task ConvertAsync_NormalizesLineEndings_CRLFtoLF()
         {
             var converter = new TxtConverter();
-            var filePath = Path.Combine(_tempDir, "crlf.txt");
+            var filePath = Path.Combine(this._tempDir, "crlf.txt");
             File.WriteAllText(filePath, "Line1\r\nLine2\r\nLine3", Encoding.UTF8);
             var result = await converter.ConvertAsync(filePath, null);
             Assert.True(result.IsSuccess);
@@ -93,15 +93,15 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
 
         public JsonConverterTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            Directory.CreateDirectory(_tempDir);
+            this._tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(this._tempDir);
         }
 
         public void Dispose()
         {
-            if (Directory.Exists(_tempDir))
+            if (Directory.Exists(this._tempDir))
             {
-                Directory.Delete(_tempDir, true);
+                Directory.Delete(this._tempDir, true);
             }
         }
 
@@ -109,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public async Task ConvertAsync_ValidJson_ReturnsFencedBlock()
         {
             var converter = new JsonConverter();
-            var filePath = Path.Combine(_tempDir, "test.json");
+            var filePath = Path.Combine(this._tempDir, "test.json");
             File.WriteAllText(filePath, "{\"key\": \"value\"}");
             var result = await converter.ConvertAsync(filePath, null);
             Assert.True(result.IsSuccess);
@@ -122,7 +122,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public async Task ConvertAsync_InvalidJson_ReturnsFencedBlockRaw()
         {
             var converter = new JsonConverter();
-            var filePath = Path.Combine(_tempDir, "invalid.json");
+            var filePath = Path.Combine(this._tempDir, "invalid.json");
             File.WriteAllText(filePath, "{invalid json}");
             var result = await converter.ConvertAsync(filePath, null);
             Assert.True(result.IsSuccess);
@@ -144,15 +144,15 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
 
         public XmlConverterTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            Directory.CreateDirectory(_tempDir);
+            this._tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(this._tempDir);
         }
 
         public void Dispose()
         {
-            if (Directory.Exists(_tempDir))
+            if (Directory.Exists(this._tempDir))
             {
-                Directory.Delete(_tempDir, true);
+                Directory.Delete(this._tempDir, true);
             }
         }
 
@@ -160,7 +160,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public async Task ConvertAsync_SimpleXml_ReturnsMarkdown()
         {
             var converter = new XmlConverter();
-            var filePath = Path.Combine(_tempDir, "test.xml");
+            var filePath = Path.Combine(this._tempDir, "test.xml");
             File.WriteAllText(filePath, "<?xml version=\"1.0\"?><root><item>test</item></root>");
             var result = await converter.ConvertAsync(filePath, null);
             Assert.True(result.IsSuccess);
@@ -171,7 +171,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public async Task ConvertAsync_MalformedXml_ReturnsFailureOrFallback()
         {
             var converter = new XmlConverter();
-            var filePath = Path.Combine(_tempDir, "malformed.xml");
+            var filePath = Path.Combine(this._tempDir, "malformed.xml");
             File.WriteAllText(filePath, "<root><unclosed>");
             var result = await converter.ConvertAsync(filePath, null);
             Assert.NotNull(result);
@@ -192,15 +192,15 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
 
         public CsvConverterTests()
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-            Directory.CreateDirectory(_tempDir);
+            this._tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(this._tempDir);
         }
 
         public void Dispose()
         {
-            if (Directory.Exists(_tempDir))
+            if (Directory.Exists(this._tempDir))
             {
-                Directory.Delete(_tempDir, true);
+                Directory.Delete(this._tempDir, true);
             }
         }
 
@@ -208,7 +208,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         public async Task ConvertAsync_SimpleCsv_ReturnsMarkdownTable()
         {
             var converter = new CsvConverter();
-            var filePath = Path.Combine(_tempDir, "test.csv");
+            var filePath = Path.Combine(this._tempDir, "test.csv");
             File.WriteAllText(filePath, "Name,Age\nAlice,30\nBob,25");
             var result = await converter.ConvertAsync(filePath, null);
             Assert.True(result.IsSuccess);

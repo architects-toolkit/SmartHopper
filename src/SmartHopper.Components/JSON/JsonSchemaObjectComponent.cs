@@ -55,10 +55,11 @@ namespace SmartHopper.Components.JSON
         /// </summary>
         public JsonSchemaObjectComponent()
             : base(
-                  "JSON Schema Object",
-                  "JsonSchemaObj",
-                  "Build a JSON Schema object property definition composed of Properties.\n\nEach property is prefixed with the object name using dot-notation.\nConnect property outputs from JsonSchemaProp to Properties.\nThe output list can be merged with other properties and fed directly into Json Schema component.",
-                  "SmartHopper", "JSON")
+                "JSON Schema Object",
+                "JsonSchemaObj",
+                "Build a JSON Schema object property definition composed of Properties.\n\nEach property is prefixed with the object name using dot-notation.\nConnect property outputs from JsonSchemaProp to Properties.\nThe output list can be merged with other properties and fed directly into Json Schema component.",
+                "SmartHopper",
+                "JSON")
         {
         }
 
@@ -115,7 +116,6 @@ namespace SmartHopper.Components.JSON
             //     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Description cannot contain colons (:).");
             //     return;
             // }
-
             name = name.Trim();
 
             if (properties == null || properties.Count == 0)

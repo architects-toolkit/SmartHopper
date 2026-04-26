@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Metrics
 {
@@ -153,46 +154,46 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         /// <summary>
         /// Value indicating whether the structure of this AIMetrics is valid.
         /// </summary>
-        public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        public (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
         {
-            var errors = new List<AIRuntimeMessage>();
+            var errors = new List<SHRuntimeMessage>();
 
             if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model))
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.BodyInvalid,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Provider and model fields are required",
                     false));
             }
 
             if (this.InputTokens < 0 || this.OutputTokens < 0)
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.BodyInvalid,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Input and output tokens must be greater than or equal to 0",
                     false));
             }
 
             if (string.IsNullOrEmpty(this.FinishReason))
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.BodyInvalid,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Finish reason must be set",
                     false));
             }
 
             if (this.CompletionTime < 0)
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.BodyInvalid,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Completion time must be greater than or equal to 0",
                     false));
             }

@@ -16,15 +16,15 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
-using SmartHopper.Core.Grasshopper.Converters;
-using Xunit;
-
 namespace SmartHopper.Core.Grasshopper.Tests.Converters
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Threading.Tasks;
+    using SmartHopper.Core.Grasshopper.Converters;
+    using Xunit;
+
     public class MockFileConverter : IFileConverter
     {
         public IEnumerable<string> SupportedExtensions => new[] { ".mock" };
@@ -73,7 +73,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         {
             var registry = new FileConverterRegistry();
             Assert.False(registry.IsSupported(null));
-            Assert.False(registry.IsSupported(""));
+            Assert.False(registry.IsSupported(string.Empty));
             Assert.False(registry.IsSupported("   "));
         }
 

@@ -82,7 +82,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AILadybugForumTopicSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AILadybugForumTopicSummarizeWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AILadybugForumTopicSummarizeWorker : AsyncWorkerBase
@@ -179,7 +179,7 @@ namespace SmartHopper.Components.Knowledge
                                         parameters["instructions"] = this.instructions;
                                     }
 
-                                    var toolResult = await this.parent.CallAiToolAsync("ladybug_forum_topic_summarize", parameters).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAIToolAsync("ladybug_forum_topic_summarize", parameters, token).ConfigureAwait(false);
 
                                     if (toolResult == null)
                                     {

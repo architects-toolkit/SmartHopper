@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -42,6 +42,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_list_components";
+
         /// <summary>
         /// Returns a list of AI tools provided by this plugin.
         /// </summary>
@@ -127,8 +128,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var filterLower = nameFilter.ToLowerInvariant();
                     proxies = proxies.Where(p =>
                         p.Desc.Name.ToLowerInvariant().Contains(filterLower) ||
-                        p.Desc.NickName.ToLowerInvariant().Contains(filterLower)
-                    ).ToList();
+                        p.Desc.NickName.ToLowerInvariant().Contains(filterLower)).ToList();
                 }
 
                 // Apply max results limit
@@ -211,7 +211,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         componentData["outputs"] = outputs;
 
                     return componentData;
-
                 }).ToList();
                 var names = list.Where(x => x.ContainsKey("name")).Select(x => x["name"].ToString()).Distinct().ToList();
                 var guids = list.Where(x => x.ContainsKey("guid")).Select(x => x["guid"].ToString()).Distinct().ToList();

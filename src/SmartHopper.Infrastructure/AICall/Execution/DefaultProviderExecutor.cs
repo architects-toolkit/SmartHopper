@@ -38,8 +38,8 @@ namespace SmartHopper.Infrastructure.AICall.Execution
             if (request == null) return null;
             ct.ThrowIfCancellationRequested();
 
-            // AIRequestCall.Exec() has its own cancellation handling internally for HTTP timeouts; we pre-check here.
-            var res = await request.Exec().ConfigureAwait(false);
+            // Pass cancellation token to the request execution
+            var res = await request.Exec(ct).ConfigureAwait(false);
             return res;
         }
 
@@ -47,7 +47,9 @@ namespace SmartHopper.Infrastructure.AICall.Execution
         {
             if (toolCall == null) return null;
             ct.ThrowIfCancellationRequested();
-            var res = await toolCall.Exec().ConfigureAwait(false);
+
+            // Pass cancellation token to the tool call execution
+            var res = await toolCall.Exec(ct).ConfigureAwait(false);
             return res;
         }
 

@@ -45,6 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Defines the required capabilities for the AI tool provided by this class.
         /// </summary>
         private readonly AICapability toolCapabilityRequirements = AICapability.TextInput | AICapability.ImageOutput;
+
         /// <summary>
         /// Get all tools provided by this class.
         /// </summary>
@@ -83,8 +84,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GenerateImageToolWrapper,
                 requiredCapabilities: this.toolCapabilityRequirements);
         }
-
-
 
         /// <summary>
         /// Tool wrapper for the GenerateImage function.

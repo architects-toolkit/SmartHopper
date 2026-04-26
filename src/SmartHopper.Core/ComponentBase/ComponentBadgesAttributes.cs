@@ -356,7 +356,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Calculate direction vector
                 var dir = new PointF(
                     (float)(-Math.Sin(endRad)),
-                    (float)(Math.Cos(endRad)));
+                    (float)Math.Cos(endRad));
 
                 // Arrow head dimensions
                 float ah = BADGE_SIZE * 0.25f;

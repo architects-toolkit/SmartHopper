@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -29,6 +29,7 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Validation;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Tools
 {
@@ -44,12 +45,17 @@ namespace SmartHopper.Infrastructure.AICall.Tools
         private const int MAX_TIMEOUT_SECONDS = TimeoutDefaults.MaxTimeoutSeconds;
 
         /// <summary>
+        /// Gets or sets the cancellation token for this tool execution.
+        /// </summary>
+        public CancellationToken CancellationToken { get; set; }
+
+        /// <summary>
         /// Gets a value indicating whether the tool call is valid.
         /// </summary>
         /// <returns>A tuple containing a boolean indicating whether the tool call is valid and a list of structured messages.</returns>
-        public override (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        public override (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
         {
-            var messages = new List<AIRuntimeMessage>();
+            var messages = new List<SHRuntimeMessage>();
 
             var (baseValid, baseErrors) = base.IsValid();
             if (!baseValid)
@@ -61,10 +67,10 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             var pendingCount = this.Body?.PendingToolCallsCount() ?? 0;
             if (pendingCount != 1)
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.ToolValidationError,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.ToolValidationError,
                     "Body must have exactly one pending tool call"));
             }
             else
@@ -89,21 +95,27 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 }
             }
 
-            var hasErrors = messages.Count(m => m.Severity == AIRuntimeMessageSeverity.Error) > 0;
+            var hasErrors = messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);
 
             return (!hasErrors, messages);
         }
 
         /// <inheritdoc/>
-        public override async Task<AIReturn> Exec()
+        public override async Task<AIReturn> Exec(CancellationToken cancellationToken = default)
         {
+            // If a token was provided to Exec, use it to update the property so the tool manager can use it
+            if (cancellationToken != default)
+            {
+                this.CancellationToken = cancellationToken;
+            }
+
             // Validate early
             var (ok, errors) = this.IsValid();
             if (!ok)
             {
                 // Build a detailed tool error including specific validation reasons
                 var ret = new AIReturn();
-                var errorTexts = (errors ?? new List<AIRuntimeMessage>())
+                var errorTexts = (errors ?? new List<SHRuntimeMessage>())
                     .Where(m => m != null && !string.IsNullOrWhiteSpace(m.Message))
                     .Select(m => m.Message)
                     .ToList();
@@ -153,7 +165,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 }
 
                 // If the tool didn't provide a body and no error messages, standardize it
-                if (result.Body == null && !result.Messages.Any(m => m.Severity == AIRuntimeMessageSeverity.Error))
+                if (result.Body == null && !result.Messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error))
                 {
                     result.CreateToolError("Tool execution returned no result", this);
                 }

@@ -27,6 +27,7 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Core.UI.Chat
 {
@@ -814,11 +815,11 @@ namespace SmartHopper.Core.UI.Chat
                 {
                     try
                     {
-                        // For all errors (including cancellations), render as an AIInteractionError (red-styled)
+                        // For all errors (including cancellations), render as an error-severity diagnostic (red-styled)
                         var isCancel = ex is OperationCanceledException;
-                        var errInteraction = new AIInteractionError
+                        var errInteraction = new AIInteractionRuntimeMessage
                         {
-                            // Agent is AIAgent.Error by default; content carries message
+                            Severity = SHRuntimeMessageSeverity.Error,
                             Content = isCancel ? "Cancelled." : (ex?.Message ?? "Unknown error"),
                         };
 

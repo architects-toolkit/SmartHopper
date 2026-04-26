@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -31,11 +31,13 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Types;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -75,7 +77,7 @@ namespace SmartHopper.Components.Knowledge
         /// <summary>
         /// Local Images tree produced during DoWorkAsync; does not need AI so it is always available.
         /// </summary>
-        private GH_Structure<GH_ExtractedImage> _localImages;
+        private GH_Structure<GH_VersatileImage> _localImages;
 
         /// <summary>
         /// Holds everything needed to assemble the final markdown for one file once all
@@ -201,7 +203,7 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Markdown", "Md", "Markdown content of the file with AI-generated image descriptions or captions embedded.", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Images", "Img", "Raw images extracted from the document (PDF/DOCX/PPTX). Each item is a GH_ExtractedImage carrying base64 data, MIME type, and source context. Branched per input file.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Images", "Img", "Raw images extracted from the document (PDF/DOCX/PPTX). Each item is a VersatileImage carrying base64 data, MIME type, and source context.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Format", "Fmt", "Detected original format (e.g., pdf, docx, html).", GH_ParamAccess.tree);
         }
 
@@ -306,7 +308,7 @@ namespace SmartHopper.Components.Knowledge
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Markdown");
             if (results == null || sentinel == null) return;
@@ -439,7 +441,7 @@ namespace SmartHopper.Components.Knowledge
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
-            private GH_Structure<GH_ExtractedImage> resultImages;
+            private GH_Structure<GH_VersatileImage> resultImages;
 
             private const string DefaultImageDescriptionPrompt =
                 "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured.";
@@ -485,7 +487,7 @@ namespace SmartHopper.Components.Knowledge
 
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
-                this.resultImages = new GH_Structure<GH_ExtractedImage>();
+                this.resultImages = new GH_Structure<GH_VersatileImage>();
             }
 
             /// <inheritdoc/>
@@ -493,7 +495,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
-                this.resultImages = new GH_Structure<GH_ExtractedImage>();
+                this.resultImages = new GH_Structure<GH_VersatileImage>();
 
                 // Reset per-run component-level context used by OnBatchCompleted
                 // Only reset if not already initialized (prevents clearing during batch polling)
@@ -561,11 +563,11 @@ namespace SmartHopper.Components.Knowledge
                                     ["extractImages"] = true,
                                 };
 
-                                var localResult = await this.parent.CallAiToolAsync("file2md", localParams).ConfigureAwait(false);
+                                var localResult = await this.parent.CallAIToolAsync("file2md", localParams, token).ConfigureAwait(false);
 
                                 if (localResult == null)
                                 {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'file2md' returned no result for '{filePath}'.");
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Tool 'file2md' returned no result for '{filePath}'.", SHRuntimeMessageOrigin.Tool);
                                     outputs["Markdown"].Add(new GH_String(string.Empty));
                                     outputs["Format"].Add(new GH_String(string.Empty));
                                     continue;
@@ -583,23 +585,21 @@ namespace SmartHopper.Components.Knowledge
                                     {
                                         var imgObj = imgToken as JObject;
                                         if (imgObj == null) continue;
-                                        var img = new SmartHopper.Core.Grasshopper.Converters.ExtractedImage(
-                                            imgObj["id"]?.ToString() ?? "img",
-                                            imgObj["base64Data"]?.ToString() ?? string.Empty,
-                                            imgObj["mimeType"]?.ToString() ?? "image/png",
-                                            imgObj["context"]?.ToString() ?? string.Empty,
-                                            imgObj["pageOrSlide"]?.Value<int>() ?? 0);
-                                        outputs["Images"].Add(new GH_ExtractedImage(img));
+                                        var imageSource = VersatileImage.FromExtractedDocument(
+                                            base64Data: imgObj["base64Data"]?.ToString() ?? string.Empty,
+                                            mimeType: imgObj["mimeType"]?.ToString() ?? "image/png",
+                                            id: imgObj["id"]?.ToString() ?? "img",
+                                            context: imgObj["context"]?.ToString() ?? string.Empty,
+                                            pageOrSlide: imgObj["pageOrSlide"]?.Value<int>() ?? 0,
+                                            sourceDocument: ghPath.Value);
+                                        outputs["Images"].Add(new GH_VersatileImage(imageSource));
                                     }
                                 }
 
-                                var warningsArray = localResult["warnings"] as JArray;
-                                if (warningsArray != null)
+                                var localMessages = RuntimeMessageUtility.ExtractMessages(localResult);
+                                foreach (var m in localMessages)
                                 {
-                                    foreach (var w in warningsArray)
-                                    {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w.ToString());
-                                    }
+                                    this.CollectMessage(m);
                                 }
 
                                 // Step 2: if no images, emit base markdown directly
@@ -609,7 +609,7 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                // Step 3: call img2text per image via CallAiToolAsync
+                                // Step 3: call img2text per image via CallAIToolAsync
                                 // In batch mode these calls return sentinels; in normal mode they run async.
                                 var fileSentinelIds = new List<string>();
                                 var imgDescriptions = new List<string>();
@@ -627,15 +627,14 @@ namespace SmartHopper.Components.Knowledge
                                         ["prompt"] = effectivePrompt,
                                     };
 
-                                    var imgResult = await this.parent.CallAiToolAsync("img2text", imgParams).ConfigureAwait(false);
+                                    var imgResult = await this.parent.CallAIToolAsync("img2text", imgParams, token).ConfigureAwait(false);
                                     var resultStr = imgResult?["result"]?.ToString()
                                         ?? imgResult?["description"]?.ToString()
                                         ?? string.Empty;
 
-                                    if (isBatch && resultStr.StartsWith("##SH_BATCH:", StringComparison.Ordinal))
+                                    if (isBatch && BatchSentinel.TryExtract(resultStr, out var sentinelId))
                                     {
                                         // Sentinel placeholder: record context for OnBatchCompleted
-                                        var sentinelId = resultStr.Substring("##SH_BATCH:".Length, resultStr.Length - "##SH_BATCH:".Length - "##".Length);
                                         fileSentinelIds.Add(sentinelId);
                                     }
                                     else
@@ -681,7 +680,7 @@ namespace SmartHopper.Components.Knowledge
 
                                     // Only ONE sentinel enters the output tree — one per file.
                                     // OnBatchCompleted reads the FileBatchContext and assembles all images.
-                                    outputs["Markdown"].Add(new GH_String($"##SH_BATCH:{fileSentinelIds[0]}##"));
+                                    outputs["Markdown"].Add(new GH_String(BatchSentinel.Wrap(fileSentinelIds[0])));
                                 }
                                 else
                                 {
@@ -726,7 +725,7 @@ namespace SmartHopper.Components.Knowledge
 
                     this.resultMarkdown = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Markdown");
                     this.resultFormat = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Format");
-                    this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_ExtractedImage>(resultTrees, "Images");
+                    this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_VersatileImage>(resultTrees, "Images");
 
                     // Store Format and Images on the component so OnBatchCompleted can persist them
                     this.parent._localFormat = this.resultFormat;
@@ -748,7 +747,7 @@ namespace SmartHopper.Components.Knowledge
                         this.parent.FinishResults(
                             "Markdown",
                             this.resultMarkdown ?? new GH_Structure<GH_String>(),
-                            ("Images", (object)(this.resultImages ?? new GH_Structure<GH_ExtractedImage>())),
+                            ("Images", (object)(this.resultImages ?? new GH_Structure<GH_VersatileImage>())),
                             ("Format", (object)(this.resultFormat ?? new GH_Structure<GH_String>())));
                     }
                 }

@@ -262,4 +262,49 @@
   <data name="settingsextra" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\settingsextra.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="text2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\textgenerate.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="aiinstructions" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\textgenerate.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="json2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\jsonai.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="list2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\textlistgenerate.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="img2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\imggenerate.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="file2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\fileai.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="audio2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\textgenerate.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="web2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\webtomd.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="ghjson2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ghget.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="discoursepost2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\discoursepostget.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="discoursetopic2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\discoursetopicsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="ladybugpost2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ladybugpostget.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="ladybugtopic2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\ladybugtopicsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneelpost2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneelpostget.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="mcneeltopic2ai" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\mcneeltopicsummarize.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

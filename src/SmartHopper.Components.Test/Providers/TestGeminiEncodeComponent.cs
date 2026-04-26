@@ -37,7 +37,10 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiEncodeComponent : AIStatefulAsyncComponentBase
     {
+
         public override Guid ComponentGuid => new Guid("BFA00A8F-3DA2-4261-87A6-DBCE0E861188");
+
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestGeminiEncodeComponent()
             : base("Test Gemini Encode", "TEST-GEMINI-ENC", "Tests Gemini message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
@@ -58,7 +61,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -70,7 +73,7 @@ namespace SmartHopper.Components.Test.Providers
             public Worker(TestGeminiEncodeComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -84,7 +87,7 @@ namespace SmartHopper.Components.Test.Providers
                 {
                     // Create test AIRequestCall with different message types using AIBodyBuilder
                     var bodyBuilder = AIBodyBuilder.Create();
-                    
+
                     // Add Context message (maps to user in Gemini)
                     bodyBuilder.Add(new AIInteractionText
                     {
@@ -111,14 +114,14 @@ namespace SmartHopper.Components.Test.Providers
                     call.Body = bodyBuilder.Build();
 
                     // Encode using provider from parent component
-                    var provider = _parent.GetActualAIProvider();
+                    var provider = this._parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify encoding
                     if (string.IsNullOrEmpty(encoded))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Encoded message is empty"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Encoded message is empty"));
                         await Task.Yield();
                         return;
                     }
@@ -126,36 +129,36 @@ namespace SmartHopper.Components.Test.Providers
                     // Check for required role mappings (Gemini uses user, model, function)
                     if (!encoded.Contains("\"role\":\"user\""))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Missing user role (Context message)"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing user role (Context message)"));
                         await Task.Yield();
                         return;
                     }
 
                     if (!encoded.Contains("\"role\":\"model\""))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Missing model role (ToolCall message)"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing model role (ToolCall message)"));
                         await Task.Yield();
                         return;
                     }
 
                     if (!encoded.Contains("\"role\":\"function\""))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Missing function role (ToolResult message)"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing function role (ToolResult message)"));
                         await Task.Yield();
                         return;
                     }
 
-                    _success = new GH_Boolean(true);
-                    _messages.Add(new GH_String("Gemini encoding successful"));
-                    _messages.Add(new GH_String($"Encoded message length: {encoded.Length}"));
+                    this._success = new GH_Boolean(true);
+                    this._messages.Add(new GH_String("Gemini encoding successful"));
+                    this._messages.Add(new GH_String($"Encoded message length: {encoded.Length}"));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Error: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
 
@@ -164,9 +167,9 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Gemini encoding test passed" : "Gemini encoding test failed";
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Gemini encoding test passed" : "Gemini encoding test failed";
             }
         }
     }

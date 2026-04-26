@@ -47,7 +47,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             get
             {
-                this.PruneDeletedSelections();
+                this.selectionCore.PruneDeletedSelections(this.selectedObjects);
                 return this.selectedObjects;
             }
         }
@@ -62,9 +62,7 @@ namespace SmartHopper.Core.ComponentBase
             : base(name, nickname, description, category, subcategory)
         {
             this.selectionCore = new SelectingComponentCore(this, this);
-
-            // Subscribe to document events for deferred selection restoration
-            Instances.DocumentServer.DocumentAdded += this.OnDocumentAdded;
+            this.selectionCore.SubscribeToDocumentEvents();
         }
 
         /// <summary>
@@ -73,7 +71,7 @@ namespace SmartHopper.Core.ComponentBase
         public override void RemovedFromDocument(GH_Document document)
         {
             base.RemovedFromDocument(document);
-            Instances.DocumentServer.DocumentAdded -= this.OnDocumentAdded;
+            this.selectionCore.UnsubscribeFromDocumentEvents();
         }
 
         /// <summary>
@@ -93,56 +91,12 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Validates the selected objects list by removing any objects that have been deleted from the document.
-        /// Call this before accessing SelectedObjects for execution to ensure all objects are valid.
-        /// </summary>
-        public void ValidateSelectedObjects()
-        {
-            this.PruneDeletedSelections();
-        }
-
-        /// <summary>
         /// Adds "Select Components" to the context menu.
         /// </summary>
         protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
-        }
-
-        private void PruneDeletedSelections()
-        {
-            if (this.selectedObjects.Count == 0)
-            {
-                return;
-            }
-
-            var canvas = Instances.ActiveCanvas;
-            var doc = canvas?.Document;
-            if (doc == null)
-            {
-                return;
-            }
-
-            var removedAny = false;
-
-            for (int i = this.selectedObjects.Count - 1; i >= 0; i--)
-            {
-                if (this.selectedObjects[i] is IGH_DocumentObject docObj)
-                {
-                    var found = doc.FindObject(docObj.InstanceGuid, true);
-                    if (found == null)
-                    {
-                        this.selectedObjects.RemoveAt(i);
-                        removedAny = true;
-                    }
-                }
-            }
-
-            if (removedAny)
-            {
-                this.Message = $"{this.selectedObjects.Count} selected";
-            }
         }
 
         /// <summary>
@@ -189,7 +143,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
         {
-            this.selectionCore.OnDocumentAdded(doc);
+            this.selectionCore.OnDocumentAdded(sender, doc);
         }
     }
 

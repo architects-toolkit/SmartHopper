@@ -18,7 +18,6 @@
 
 // Purpose: Encode/decode IGH_Goo instances to a canonical string payload to allow safe, versioned persistence
 // without invoking GH internal type cache on read. Supports common primitives and safely falls back to GH_String.
-
 using System;
 using System.Globalization;
 using Grasshopper.Kernel.Types;

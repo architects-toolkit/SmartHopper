@@ -172,7 +172,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             AIInteractionText? accumulatedText = null;
 
             // Stream deltas internally (no observer notifications)
-            await foreach (var rawDelta in adapter.StreamAsync(specialRequest, new StreamingOptions(), ct))
+            await foreach (var rawDelta in adapter.StreamAsync(specialRequest, new StreamingOptions(), ct).ConfigureAwait(false))
             {
                 if (rawDelta == null)
                 {

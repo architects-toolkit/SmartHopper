@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -23,6 +23,7 @@ using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Response
 {
@@ -90,8 +91,8 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 if (string.Equals(normalized, "length", StringComparison.Ordinal))
                 {
                     response.AddRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Return,
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Return,
                         "AI response was cut off by the maximum token limit. You should increase the token limit for this provider in SmartHopper Settings.");
                 }
 
@@ -99,22 +100,22 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
                 if (usedDefault)
                 {
                     response.AddRuntimeMessage(
-                        AIRuntimeMessageSeverity.Warning,
-                        AIRuntimeMessageOrigin.Return,
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Return,
                         "Finish reason missing; defaulted to 'stop'.");
                 }
                 else if (wasUnknown)
                 {
                     response.AddRuntimeMessage(
-                        AIRuntimeMessageSeverity.Warning,
-                        AIRuntimeMessageOrigin.Return,
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Return,
                         $"Unrecognized finish reason '{original}'. Keeping original value.");
                 }
                 else if (wasTransformed && !string.Equals(original, normalized, StringComparison.Ordinal))
                 {
                     response.AddRuntimeMessage(
-                        AIRuntimeMessageSeverity.Info,
-                        AIRuntimeMessageOrigin.Return,
+                        SHRuntimeMessageSeverity.Info,
+                        SHRuntimeMessageOrigin.Return,
                         $"Normalized finish reason '{original}' -> '{normalized}'.");
                 }
             }
@@ -122,8 +123,8 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
             {
                 // Non-fatal: attach as warning on the response
                 context.Response?.AddRuntimeMessage(
-                    AIRuntimeMessageSeverity.Warning,
-                    AIRuntimeMessageOrigin.Return,
+                    SHRuntimeMessageSeverity.Warning,
+                    SHRuntimeMessageOrigin.Return,
                     $"Finish reason normalization failed: {ex.Message}");
             }
 

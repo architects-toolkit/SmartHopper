@@ -28,7 +28,11 @@ namespace SmartHopper.Providers.MistralAI
 
         public (JObject wrapped, SchemaWrapperInfo info) Wrap(JObject schema)
         {
-            if (schema is null) throw new ArgumentNullException(nameof(schema));
+            if (schema is null)
+            {
+                throw new ArgumentNullException(nameof(schema));
+            }
+
             var schemaType = schema["type"]?.ToString();
 
             // Mistral prefers object-root schemas for structured outputs

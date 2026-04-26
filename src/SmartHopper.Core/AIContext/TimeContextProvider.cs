@@ -46,7 +46,7 @@ namespace SmartHopper.Core.AIContext
             return new Dictionary<string, string>
             {
                 { "current-datetime", now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) },
-                { "current-timezone", $"UTC{(utcOffset.Hours >= 0 ? "+" : "")}{utcOffset.Hours:D2}:{utcOffset.Minutes:D2}" },
+                {"current-timezone", $"UTC{(utcOffset.Hours >= 0 ? "+" : string.Empty)}{utcOffset.Hours:D2}:{utcOffset.Minutes:D2}"},
             };
         }
     }

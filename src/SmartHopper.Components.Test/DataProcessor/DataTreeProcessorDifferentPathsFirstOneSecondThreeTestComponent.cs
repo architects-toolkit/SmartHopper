@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorDifferentPathsFirstOneSecondThreeTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("A8D1E0F3-3C2B-4E1E-9B3F-1A2C3D4E5F60");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.senary;
 
         public DataTreeProcessorDifferentPathsFirstOneSecondThreeTestComponent()
-            : base("Test DataTreeProcessor (Different Paths, 1 + 3 items)", "TEST-DTP-DIFF-1-3",
-                  "Tests DataTreeProcessor with different paths where A has 1 item and B has 3 items.",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test DataTreeProcessor (Different Paths, 1 + 3 items)",
+                "TEST-DTP-DIFF-1-3",
+                "Tests DataTreeProcessor with different paths where A has 1 item and B has 3 items.",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -58,7 +63,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorDifferentPathsFirstOneSecondThreeTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)

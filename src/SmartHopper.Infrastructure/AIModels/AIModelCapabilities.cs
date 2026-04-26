@@ -30,12 +30,12 @@ namespace SmartHopper.Infrastructure.AIModels
         /// <summary>
         /// Gets or sets the AI provider name (e.g., "openai", "anthropic").
         /// </summary>
-        public string Provider { get; set; } = "";
+        public string Provider { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the model name (e.g., "gpt-4", "claude-3-opus").
         /// </summary>
-        public string Model { get; set; } = "";
+        public string Model { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the capabilities supported by this model.

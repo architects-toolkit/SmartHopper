@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -35,7 +35,10 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiFunctionCallingComponent : AIStatefulAsyncComponentBase
     {
+
         public override Guid ComponentGuid => new Guid("A12F1236-3B3B-498D-9DB9-DC94FEFB0660");
+
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestGeminiFunctionCallingComponent()
             : base("Test Gemini Function Calling", "TEST-GEMINI-FUNC", "Tests Gemini function calling and response parsing", "SmartHopper", "Test/Providers")
@@ -57,7 +60,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -70,7 +73,7 @@ namespace SmartHopper.Components.Test.Providers
             public Worker(TestGeminiFunctionCallingComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -87,7 +90,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     // Create test AIRequestCall with function definitions using AIBodyBuilder
                     var bodyBuilder = AIBodyBuilder.Create();
-                    
+
                     bodyBuilder.Add(new AIInteractionText
                     {
                         Agent = AIAgent.System,
@@ -113,62 +116,62 @@ namespace SmartHopper.Components.Test.Providers
                     call.Body = bodyBuilder.Build();
 
                     // Encode using provider from parent component
-                    var provider = _parent.GetActualAIProvider();
+                    var provider = this._parent.GetActualAIProvider();
                     var encoded = provider.Encode(call);
 
                     // Verify function encoding
                     if (string.IsNullOrEmpty(encoded))
                     {
-                        _messages.Add(new GH_String("Encoded message is empty"));
-                        _encodingSuccess = new GH_Boolean(false);
-                        _parsingSuccess = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Encoded message is empty"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
                         await Task.Yield();
                         return;
                     }
 
                     if (!encoded.Contains("\"function_calls\"") && !encoded.Contains("\"functionCalls\""))
                     {
-                        _messages.Add(new GH_String("Missing function_calls in encoding"));
-                        _encodingSuccess = new GH_Boolean(false);
-                        _parsingSuccess = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing function_calls in encoding"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
                         await Task.Yield();
                         return;
                     }
 
                     if (!encoded.Contains("\"calculate_sum\""))
                     {
-                        _messages.Add(new GH_String("Function name not found in encoding"));
-                        _encodingSuccess = new GH_Boolean(false);
-                        _parsingSuccess = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Function name not found in encoding"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
                         await Task.Yield();
                         return;
                     }
 
                     encodingSuccess = true;
-                    _messages.Add(new GH_String("Function encoding successful"));
-                    _messages.Add(new GH_String("- Function calls present"));
-                    _messages.Add(new GH_String("- Function name 'calculate_sum' encoded"));
+                    this._messages.Add(new GH_String("Function encoding successful"));
+                    this._messages.Add(new GH_String("- Function calls present"));
+                    this._messages.Add(new GH_String("- Function name 'calculate_sum' encoded"));
 
                     // Verify parsing would work (basic structure check)
                     if (encoded.Contains("\"role\":\"model\"") &&
                         encoded.Contains("\"role\":\"function\""))
                     {
                         parsingSuccess = true;
-                        _messages.Add(new GH_String("Function result parsing structure valid"));
+                        this._messages.Add(new GH_String("Function result parsing structure valid"));
                     }
                     else
                     {
-                        _messages.Add(new GH_String("Function result parsing structure invalid"));
+                        this._messages.Add(new GH_String("Function result parsing structure invalid"));
                     }
 
-                    _encodingSuccess = new GH_Boolean(encodingSuccess);
-                    _parsingSuccess = new GH_Boolean(parsingSuccess);
+                    this._encodingSuccess = new GH_Boolean(encodingSuccess);
+                    this._parsingSuccess = new GH_Boolean(parsingSuccess);
                 }
                 catch (Exception ex)
                 {
-                    _encodingSuccess = new GH_Boolean(false);
-                    _parsingSuccess = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Error: {ex.Message}"));
+                    this._encodingSuccess = new GH_Boolean(false);
+                    this._parsingSuccess = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
 
@@ -177,10 +180,10 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Encoding Success", _encodingSuccess, DA);
-                _parent.SetPersistentOutput("Parsing Success", _parsingSuccess, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _encodingSuccess.Value && _parsingSuccess.Value ? "Gemini function calling test passed" : "Gemini function calling test failed";
+                this._parent.SetPersistentOutput("Encoding Success", this._encodingSuccess, DA);
+                this._parent.SetPersistentOutput("Parsing Success", this._parsingSuccess, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._encodingSuccess.Value && this._parsingSuccess.Value ? "Gemini function calling test passed" : "Gemini function calling test failed";
             }
         }
     }

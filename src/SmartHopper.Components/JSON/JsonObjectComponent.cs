@@ -46,10 +46,11 @@ namespace SmartHopper.Components.JSON
         /// </summary>
         public JsonObjectComponent()
             : base(
-                  "JSON Object",
-                  "JsonObject",
-                  "Create a JSON object from key-value pairs.\nNumbers, booleans and valid JSON arrays/objects are auto-coerced from their string representation.",
-                  "SmartHopper", "JSON")
+                "JSON Object",
+                "JsonObject",
+                "Create a JSON object from key-value pairs.\nNumbers, booleans and valid JSON arrays/objects are auto-coerced from their string representation.",
+                "SmartHopper",
+                "JSON")
         {
         }
 

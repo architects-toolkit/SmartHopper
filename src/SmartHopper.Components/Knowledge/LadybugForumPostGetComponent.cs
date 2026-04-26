@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -69,7 +70,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new LadybugForumGetPostWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new LadybugForumGetPostWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class LadybugForumGetPostWorker : AsyncWorkerBase
@@ -169,7 +170,7 @@ namespace SmartHopper.Components.Knowledge
 
                                     if (toolResult == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'ladybug_forum_post_get' returned no result.");
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'ladybug_forum_post_get' returned no result.", SHRuntimeMessageOrigin.Tool);
                                         continue;
                                     }
 
@@ -194,7 +195,7 @@ namespace SmartHopper.Components.Knowledge
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[LadybugForumGetPostWorker] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 

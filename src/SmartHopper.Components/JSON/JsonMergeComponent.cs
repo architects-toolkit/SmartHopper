@@ -45,10 +45,11 @@ namespace SmartHopper.Components.JSON
         /// </summary>
         public JsonMergeComponent()
             : base(
-                  "JSON Merge",
-                  "JsonMerge",
-                  "Merge multiple JSON objects into one.\nShallow merge: later objects overwrite keys from earlier ones on conflict.",
-                  "SmartHopper", "JSON")
+                "JSON Merge",
+                "JsonMerge",
+                "Merge multiple JSON objects into one.\nShallow merge: later objects overwrite keys from earlier ones on conflict.",
+                "SmartHopper",
+                "JSON")
         {
         }
 

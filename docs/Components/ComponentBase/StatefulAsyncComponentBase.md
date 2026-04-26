@@ -22,7 +22,7 @@ Unify long‑running execution with a clear state machine so components behave p
 
 - `BeforeSolveInstance()` – Guards against resetting data during Processing state.
 - `SolveInstance(IGH_DataAccess)` – Dispatches to state handlers, checks input changes, manages debounce.
-- `OnWorkerCompleted()` – Updates input hashes, transitions to Completed, expires solution.
+- `OnWorkerCompleted()` – Updates input hashes; if errors were recorded, promotes collected worker messages to persistent store before transitioning to Error, otherwise transitions to Completed.
 - `Write(GH_IWriter)` / `Read(GH_IReader)` – Persists and restores input hashes, outputs, and component state.
 
 ## State transition logic

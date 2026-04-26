@@ -20,7 +20,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -186,16 +188,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                // Normalize JSON output to minified format
-                var normalizedJson = JsonFormatHelper.JsonToString(response, out string jsonError);
-                if (string.IsNullOrWhiteSpace(normalizedJson))
+                // Robustly parse JSON from the AI response, handling markdown code-block
+                // wrapping (```json ... ```), prefatory text, and trailing garbage via
+                // depth-based container extraction. Accepts both object and array roots.
+                var jsonOutcome = JsonResultResolver.Resolve(response);
+                if (!jsonOutcome.Success)
                 {
-                    output.CreateToolError($"AI response is not valid JSON: {jsonError}");
+                    output.CreateToolError($"AI response is not valid JSON: {jsonOutcome.Error}");
                     return output;
                 }
 
                 var toolResult = new JObject();
-                toolResult.Add("json", normalizedJson);
+                toolResult.Add("json", jsonOutcome.Value.ToString(Formatting.None));
 
                 toolResult.WithEnvelope(
                     ToolResultEnvelope.Create(

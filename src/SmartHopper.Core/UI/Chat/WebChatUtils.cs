@@ -45,12 +45,12 @@ namespace SmartHopper.Core.UI.Chat
         /// <summary>
         /// Dictionary to track open chat dialogs by component instance ID.
         /// </summary>
-        private static readonly Dictionary<Guid, WebChatDialog> OpenDialogs = new();
+        private static readonly Dictionary<Guid, WebChatDialog> OpenDialogs = new ();
 
         /// <summary>
         /// Tracks ChatUpdated subscriptions to avoid duplicate handlers per component.
         /// </summary>
-        private static readonly Dictionary<Guid, EventHandler<AIReturn>> UpdateHandlers = new();
+        private static readonly Dictionary<Guid, EventHandler<AIReturn>> UpdateHandlers = new ();
 
         /// <summary>
         /// Static constructor to set up application shutdown handling.

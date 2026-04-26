@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -21,6 +21,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -41,7 +42,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets or sets the structured runtime messages produced while generating this tool result.
         /// These are propagated from inner AI calls to improve diagnostics and visibility.
         /// </summary>
-        public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
+        public List<SHRuntimeMessage> Messages { get; set; } = new List<SHRuntimeMessage>();
 
         /// <summary>
         /// Returns a string representation of the AIInteractionToolResult.

@@ -30,6 +30,8 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Script
 {
@@ -198,14 +200,14 @@ namespace SmartHopper.Components.Script
                             parameters["question"] = question;
                         }
 
-                        var toolResult = await this.parent.CallAiToolAsync("script_review", parameters).ConfigureAwait(false);
+                        var toolResult = await this.parent.CallAIToolAsync("script_review", parameters, token).ConfigureAwait(false);
                         this.StoreResult(path, toolResult);
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIScriptReviewWorker] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
@@ -221,18 +223,12 @@ namespace SmartHopper.Components.Script
                     return;
                 }
 
-                // Check for errors in result
-                var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
-                if (hasErrors)
-                {
-                    foreach (var text in ((JArray)toolResult["messages"])
-                        .Where(msg => msg["severity"]?.ToString() == "Error")
-                        .Select(msg => msg["message"]?.ToString())
-                        .Where(text => !string.IsNullOrWhiteSpace(text)))
-                    {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
-                    }
+                // Extract and collect messages from tool result
+                var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                foreach (var m in toolMessages) this.CollectMessage(m);
 
+                if (toolMessages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error))
+                {
                     this.resultSuccess.Append(new GH_Boolean(false), path);
                     return;
                 }

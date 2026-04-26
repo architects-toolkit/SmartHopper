@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -32,6 +32,7 @@ using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -92,9 +93,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             string baseUrlProperty = this.RequiresBaseUrlParameter
                 ? "\"base_url\": { \"type\": \"string\", \"description\": \"Base URL of the Discourse forum (e.g., https://discourse.example.com).\" },"
-                : "";
+                : string.Empty;
 
-            string baseUrlRequired = this.RequiresBaseUrlParameter ? "\"base_url\", " : "";
+            string baseUrlRequired = this.RequiresBaseUrlParameter ? "\"base_url\", " : string.Empty;
 
             yield return new AITool(
                 name: getPostToolName,
@@ -130,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 name: searchToolName,
                 description: $"Search {this.ForumName} forum posts by query and return matching results.",
                 category: "Knowledge",
-                parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"query\": {{ \"type\": \"string\", \"description\": \"Search query for the forum.\" }}, \"limit\": {{ \"type\": \"integer\", \"description\": \"Maximum number of posts to return (default: 10, max: 50).\" }} }}, \"required\": [{baseUrlRequired}\"query\"] }}",
+                parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"query\": {{ \"type\": \"string\", \"description\": \"Search query for the forum.\" }} }}, \"required\": [{baseUrlRequired}\"query\"] }}",
                 execute: this.SearchAsync);
         }
 
@@ -270,7 +271,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var summariesArray = new JArray();
                 var accumulatedMetrics = new AIMetrics();
-                var allMessages = new List<AIRuntimeMessage>();
+                var allMessages = new List<SHRuntimeMessage>();
 
                 foreach (int id in ids)
                 {
@@ -637,18 +638,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                int limit = args["limit"]?.Value<int>() ?? 10;
-                if (limit <= 0 || limit > 50)
-                {
-                    limit = 10;
-                }
-
-                var results = await this.SearchForumAsync(baseUrl!, query, limit).ConfigureAwait(false);
+                var results = await this.SearchForumAsync(baseUrl!, query).ConfigureAwait(false);
 
                 var toolResult = new JObject
                 {
                     ["query"] = query,
-                    ["limit"] = limit,
                     ["results"] = results,
                 };
 
@@ -740,23 +734,43 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         /// <summary>
         /// Helper method to search the forum.
+        /// Enriches posts with topic titles and generates excerpts from available content.
         /// </summary>
-        private async Task<JArray> SearchForumAsync(string baseUrl, string query, int limit)
+        private async Task<JArray> SearchForumAsync(string baseUrl, string query)
         {
             using var httpClient = new HttpClient();
 
-            var searchUri = new Uri($"{baseUrl}/search.json?q={Uri.EscapeDataString(query)}&limit={limit}");
+            var searchUri = new Uri($"{baseUrl}/search.json?q={Uri.EscapeDataString(query)}");
+            Debug.WriteLine($"[{this.ForumName}ForumTools] Search API call: {searchUri}");
             var response = await httpClient.GetAsync(searchUri).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             var searchResults = JObject.Parse(content);
             var posts = searchResults["posts"] as JArray ?? new JArray();
+            var topics = searchResults["topics"] as JArray ?? new JArray();
+
+            // Build topic lookup by topic_id for title enrichment
+            var topicLookup = new Dictionary<int, string>();
+            foreach (var topic in topics)
+            {
+                if (topic is JObject topicObj)
+                {
+                    int topicId = topicObj.Value<int>("id");
+                    string title = topicObj.Value<string>("title") ?? string.Empty;
+                    if (topicId > 0 && !string.IsNullOrWhiteSpace(title))
+                    {
+                        topicLookup[topicId] = title;
+                    }
+                }
+            }
+
+            Debug.WriteLine($"[{this.ForumName}ForumTools] Search returned {posts.Count} posts, {topics.Count} topics, {topicLookup.Count} topic titles mapped");
 
             var filteredResults = new JArray();
             foreach (var post in posts)
             {
-                var filteredPost = DiscourseUtils.FilterSearchResultPost(post as JObject);
+                var filteredPost = this.EnrichSearchResultPost(post as JObject, topicLookup, baseUrl);
                 if (filteredPost != null)
                 {
                     filteredResults.Add(filteredPost);
@@ -764,6 +778,64 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
 
             return filteredResults;
+        }
+
+        /// <summary>
+        /// Enriches a search result post with topic title and generated excerpt.
+        /// </summary>
+        private JObject EnrichSearchResultPost(JObject post, Dictionary<int, string> topicLookup, string baseUrl)
+        {
+            if (post == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                int postId = post.Value<int>("id");
+                int topicId = post.Value<int>("topic_id");
+
+                // Get title from topic lookup
+                string title = topicLookup.TryGetValue(topicId, out var topicTitle) ? topicTitle : null;
+
+                // Generate excerpt from available content (in priority order)
+                string excerpt = DiscourseUtils.GenerateExcerpt(post);
+
+                int postNumber = post.Value<int>("post_number");
+                string normalizedBaseUrl = baseUrl.TrimEnd('/');
+                string fullUrl = $"{normalizedBaseUrl}/t/{topicId}/{postNumber}";
+
+                // Extract reads and likes from search result
+                int reads = post.Value<int>("reads");
+                int likeCount = post.Value<int>("like_count");
+
+                // Get raw/cooked content if available
+                string rawContent = post.Value<string>("raw") ?? string.Empty;
+                string cookedContent = post.Value<string>("cooked") ?? string.Empty;
+                string blurb = post.Value<string>("blurb") ?? string.Empty;
+
+                return new JObject
+                {
+                    ["id"] = postId,
+                    ["username"] = post["username"],
+                    ["name"] = post["name"],
+                    ["created_at"] = post["created_at"],
+                    ["excerpt"] = excerpt,
+                    ["topic_title"] = title,
+                    ["topic_id"] = topicId,
+                    ["post_number"] = postNumber,
+                    ["url"] = fullUrl,
+                    ["reads"] = reads,
+                    ["likes"] = likeCount,
+                    ["raw"] = rawContent,
+                    ["cooked"] = cookedContent,
+                    ["blurb"] = blurb,
+                };
+            }
+            catch
+            {
+                return post;
+            }
         }
 
         /// <summary>

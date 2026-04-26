@@ -16,13 +16,13 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core;
-using Xunit;
-
 namespace SmartHopper.Infrastructure.Tests.AICall
 {
+    using System.Collections.Generic;
+    using Newtonsoft.Json.Linq;
+    using SmartHopper.Infrastructure.AICall.Core;
+    using Xunit;
+
     public class AIRequestParametersTests
     {
         [Fact(DisplayName = "Empty_IsImmutableRecord_WithNullDefaults")]

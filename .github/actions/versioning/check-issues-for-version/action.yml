@@ -5,9 +5,9 @@ inputs:
     description: 'Version to check for issues (e.g., 1.4.2-alpha)'
     required: true
   days-lookback:
-    description: 'Number of days to look back for issues (default: 15)'
+    description: 'Number of days to look back for issues (default: 30)'
     required: false
-    default: '15'
+    default: '30'
   token:
     description: 'GitHub token for API access'
     required: true
@@ -30,7 +30,7 @@ outputs:
     description: 'Number of days since release was published'
     value: ${{ steps.check-issues.outputs.release_age_days }}
   release-old-enough:
-    description: 'Whether release is at least 15 days old'
+    description: 'Whether release is at least 30 days old'
     value: ${{ steps.check-issues.outputs.release_old_enough }}
   last-closed-issue-date:
     description: 'Date of last closed issue with this version label (ISO 8601)'
@@ -39,7 +39,7 @@ outputs:
     description: 'Number of days since last issue was closed'
     value: ${{ steps.check-issues.outputs.last_closed_age_days }}
   last-closed-old-enough:
-    description: 'Whether last closed issue is at least 15 days old'
+    description: 'Whether last closed issue is at least 30 days old'
     value: ${{ steps.check-issues.outputs.last_closed_old_enough }}
   can-promote:
     description: 'Whether all conditions are met for promotion (milestone clear, release old enough, no recent closed issues)'

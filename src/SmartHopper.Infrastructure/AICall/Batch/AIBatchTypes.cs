@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -22,6 +22,7 @@ using System.Collections.ObjectModel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Batch
 {
@@ -94,8 +95,7 @@ namespace SmartHopper.Infrastructure.AICall.Batch
         /// Initializes a new single-item <see cref="AIBatchSubmission"/> (used during file reload).
         /// </summary>
         public AIBatchSubmission(string batchId, string providerName, string serializedRequest, string customId)
-            : this(batchId, providerName, serializedRequest,
-                   string.IsNullOrEmpty(customId) ? (IReadOnlyList<string>)new List<string>().AsReadOnly() : new ReadOnlyCollection<string>(new[] { customId }))
+            : this(batchId, providerName, serializedRequest, string.IsNullOrEmpty(customId) ? (IReadOnlyList<string>)new List<string>().AsReadOnly() : new ReadOnlyCollection<string>(new[] { customId }))
         {
         }
 
@@ -148,12 +148,12 @@ namespace SmartHopper.Infrastructure.AICall.Batch
 
         /// <summary>
         /// Gets item-level diagnostic messages emitted by the provider during batch result parsing.
-        /// Each message carries a <see cref="AIRuntimeMessageSeverity"/> (Error / Warning / Info),
-        /// origin <see cref="AIRuntimeMessageOrigin.Provider"/>, and a human-readable text.
+        /// Each message carries a <see cref="SHRuntimeMessageSeverity"/> (Error / Warning / Info),
+        /// origin <see cref="SHRuntimeMessageOrigin.Provider"/>, and a human-readable text.
         /// Populated when <see cref="State"/> is <see cref="AIBatchState.Completed"/> and some items
         /// errored, were canceled, or expired.
         /// </summary>
-        public IReadOnlyList<AIRuntimeMessage> Messages { get; }
+        public IReadOnlyList<SHRuntimeMessage> Messages { get; }
 
         /// <summary>Initializes a non-completed status.</summary>
         /// <param name="batchId">Provider batch identifier.</param>
@@ -172,12 +172,58 @@ namespace SmartHopper.Infrastructure.AICall.Batch
         /// <param name="batchId">Provider batch identifier.</param>
         /// <param name="results">Successful result bodies keyed by <c>customId</c>.</param>
         /// <param name="messages">Optional item-level diagnostic messages (errors, warnings, info).</param>
-        public AIBatchStatus(string batchId, IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
+        public AIBatchStatus(string batchId, IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
         {
             this.BatchId = batchId;
             this.State = AIBatchState.Completed;
             this.Results = results;
-            this.Messages = messages ?? Array.Empty<AIRuntimeMessage>();
+            this.Messages = messages ?? Array.Empty<SHRuntimeMessage>();
+        }
+    }
+
+    /// <summary>
+    /// Internal merge helper used by batch providers to combine multiple parsed
+    /// single-file <see cref="AIBatchStatus"/> values (e.g. OpenAI's output + error
+    /// files, or multiple user-selected files in manual load) into accumulator
+    /// collections with a first-wins policy on <c>custom_id</c>.
+    /// </summary>
+    internal static class AIBatchStatusMerge
+    {
+        /// <summary>
+        /// Merges one parsed single-file <see cref="AIBatchStatus"/> into accumulator collections.
+        /// First-wins on <c>custom_id</c>; <see cref="AIBatchStatus.Messages"/> are always appended.
+        /// </summary>
+        /// <param name="source">The status to merge in. Null is a no-op.</param>
+        /// <param name="destResults">Accumulator dictionary keyed by <c>custom_id</c>.</param>
+        /// <param name="destMessages">Accumulator list for diagnostic messages.</param>
+        public static void MergeInto(
+            AIBatchStatus source,
+            IDictionary<string, JObject> destResults,
+            IList<SHRuntimeMessage> destMessages)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            if (source.Results != null && destResults != null)
+            {
+                foreach (var kvp in source.Results)
+                {
+                    if (!destResults.ContainsKey(kvp.Key))
+                    {
+                        destResults[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
+
+            if (source.Messages != null && destMessages != null)
+            {
+                foreach (var m in source.Messages)
+                {
+                    destMessages.Add(m);
+                }
+            }
         }
     }
 }

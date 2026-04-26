@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -26,6 +26,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Returns
@@ -45,13 +46,29 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <summary>
         /// Gets or sets the internal storage for structured messages.
         /// </summary>
-        private List<AIRuntimeMessage> PrivateStructuredMessages { get; set; } = new List<AIRuntimeMessage>();
+        private List<SHRuntimeMessage> PrivateStructuredMessages { get; set; } = new List<SHRuntimeMessage>();
 
         /// <inheritdoc/>
         public AIBody Body { get; private set; } = AIBody.Empty;
 
         /// <inheritdoc/>
         public IAIRequest Request { get; set; }
+
+        /// <summary>
+        /// When true, <see cref="IsValid"/> does not emit a "Request must not be null" error
+        /// when <see cref="Request"/> is null. Intended for synthetic AIReturn instances used
+        /// purely to relay already-captured messages (e.g. per-item batch diagnostics) where
+        /// no originating request exists.
+        /// </summary>
+        public bool SkipRequestValidation { get; set; }
+
+        /// <summary>
+        /// When true, <see cref="IsValid"/> does not validate <see cref="Metrics"/> (neither
+        /// the null check nor the deep metrics validation). Mirrors
+        /// <see cref="AIRequestBase.SkipMetricsValidation"/> but is available directly on the
+        /// return, so it can be used without attaching a synthetic request.
+        /// </summary>
+        public bool SkipMetricsValidation { get; set; }
 
         /// <inheritdoc/>
         public AIMetrics Metrics
@@ -67,12 +84,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         public AICallStatus Status { get; set; } = AICallStatus.Idle;
 
         /// <inheritdoc/>
-        public List<AIRuntimeMessage> Messages
+        public List<SHRuntimeMessage> Messages
         {
             get
             {
                 // Build a combined list without mutating private storage to avoid duplicates across calls
-                var combined = new List<AIRuntimeMessage>();
+                var combined = new List<SHRuntimeMessage>();
                 var seen = new HashSet<string>(StringComparer.Ordinal);
 
                 // 1) Structured messages already added by code paths
@@ -125,7 +142,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 }
 
                 // 5) Sort by severity: Error > Warning > Info
-                int Rank(AIRuntimeMessageSeverity s) => s == AIRuntimeMessageSeverity.Error ? 3 : (s == AIRuntimeMessageSeverity.Warning ? 2 : 1);
+                int Rank(SHRuntimeMessageSeverity s) => s == SHRuntimeMessageSeverity.Error ? 3 : (s == SHRuntimeMessageSeverity.Warning ? 2 : 1);
                 combined.Sort((a, b) => Rank(b.Severity).CompareTo(Rank(a.Severity)));
 
                 return combined;
@@ -133,7 +150,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
 
             set
             {
-                this.PrivateStructuredMessages = value ?? new List<AIRuntimeMessage>();
+                this.PrivateStructuredMessages = value ?? new List<SHRuntimeMessage>();
             }
         }
 
@@ -143,7 +160,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             get
             {
                 // Computed from structured messages - no errors = success
-                return !this.Messages.Any(m => m != null && m.Severity == AIRuntimeMessageSeverity.Error);
+                return !this.Messages.Any(m => m != null && m.Severity == SHRuntimeMessageSeverity.Error);
             }
         }
 
@@ -154,31 +171,32 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         public JObject Raw => this.PrivateEncodedResult;
 
         /// <inheritdoc/>
-        public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        public (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
         {
-            var errors = new List<AIRuntimeMessage>();
+            var errors = new List<SHRuntimeMessage>();
 
-            if (this.Request == null)
+            if (this.Request == null && !this.SkipRequestValidation)
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Return,
-                    AIMessageCode.ReturnInvalid,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Return,
+                    SHMessageCode.ReturnInvalid,
                     "Request must not be null"));
             }
 
             var metrics = this.Metrics;
-            var skipMetricsValidation = (this.Request as AIRequestBase)?.SkipMetricsValidation == true;
+            var skipMetricsValidation = this.SkipMetricsValidation
+                || (this.Request as AIRequestBase)?.SkipMetricsValidation == true;
 
-            if (metrics == null)
+            if (metrics == null && !skipMetricsValidation)
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Return,
-                    AIMessageCode.ReturnInvalid,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Return,
+                    SHMessageCode.ReturnInvalid,
                     "Metrics must not be null"));
             }
-            else if (!skipMetricsValidation)
+            else if (metrics != null && !skipMetricsValidation)
             {
                 var (mOk, mErr) = metrics.IsValid();
                 if (mErr != null)
@@ -189,7 +207,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
 
             if (this.Body == null && !this.Messages.Any())
             {
-                errors.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, AIMessageCode.ReturnInvalid, "Either body or messages must be set"));
+                errors.Add(new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Return, SHMessageCode.ReturnInvalid, "Either body or messages must be set"));
             }
 
             return (errors.Count == 0, errors);
@@ -295,7 +313,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             this.Status = AICallStatus.Finished;
 
             // Add structured error message instead of setting ErrorMessage directly
-            this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Return, message);
+            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Return, message);
 
             this.Body = AIBodyBuilder.Create()
                 .AddError(message, metrics)
@@ -323,7 +341,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             this.Status = AICallStatus.Finished;
 
             // Add structured message with Provider origin (not calling CreateError to avoid Return origin)
-            this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Provider, $"Provider error: {rawMessage}");
+            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Provider, $"Provider error: {rawMessage}");
 
             this.Body = AIBodyBuilder.Create()
                 .AddError(rawMessage, null)
@@ -351,7 +369,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             this.Status = AICallStatus.Finished;
 
             // Add structured message with Network origin
-            this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Network, $"Network error: {rawMessage}");
+            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Network, $"Network error: {rawMessage}");
 
             this.Body = AIBodyBuilder.Create()
                 .AddError(rawMessage, null)
@@ -379,7 +397,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             this.Status = AICallStatus.Finished;
 
             // Add structured message with Tool origin
-            this.AddRuntimeMessage(AIRuntimeMessageSeverity.Error, AIRuntimeMessageOrigin.Tool, $"Tool error: {rawMessage}");
+            this.AddRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Tool, $"Tool error: {rawMessage}");
 
             this.Body = AIBodyBuilder.Create()
                 .AddError(rawMessage, null)
@@ -392,9 +410,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="severity">The severity of the message (error, warning, info).</param>
         /// <param name="origin">The origin of the message (provider, tool, return, network, etc.).</param>
         /// <param name="text">The message content to add.</param>
-        public void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text)
+        public void AddRuntimeMessage(SHRuntimeMessageSeverity severity, SHRuntimeMessageOrigin origin, string text)
         {
-            this.PrivateStructuredMessages.Add(new AIRuntimeMessage(severity, origin, AIMessageCode.Unknown, text ?? string.Empty));
+            this.PrivateStructuredMessages.Add(new SHRuntimeMessage(severity, origin, SHMessageCode.Unknown, text ?? string.Empty));
         }
 
         /// <inheritdoc/>
@@ -550,7 +568,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     // Log mapping error with JSON path information
                     string errorMsg = JsonPathHelper.FormatJsonPathMappingError(sourcePath, jsonKey, ex.Message);
                     Debug.WriteLine($"[AIReturn.ToJObject] {errorMsg}");
-                    
+
                     // If reflection fails, use null
                     token = JValue.CreateNull();
                 }

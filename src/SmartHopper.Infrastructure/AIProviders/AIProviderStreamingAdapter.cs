@@ -156,7 +156,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         protected async IAsyncEnumerable<string> ReadSseDataAsync(HttpResponseMessage response, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            await foreach (var payload in this.ReadSseDataAsync(response, idleTimeout: null, isTerminalData: null, cancellationToken))
+            await foreach (var payload in this.ReadSseDataAsync(response, idleTimeout: null, isTerminalData: null, cancellationToken).ConfigureAwait(false))
             {
                 yield return payload;
             }

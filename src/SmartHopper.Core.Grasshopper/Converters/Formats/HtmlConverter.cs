@@ -60,7 +60,21 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             try
             {
                 var html = await File.ReadAllTextAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
+                return await ConvertHtmlStringAsync(html, options).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                return FileConversionResult.Failure("html", $"Failed to convert HTML: {ex.Message}");
+            }
+        }
 
+        /// <summary>
+        /// Converts an HTML string directly to Markdown without file I/O.
+        /// </summary>
+        public Task<FileConversionResult> ConvertHtmlStringAsync(string html, FileConversionOptions options)
+        {
+            try
+            {
                 var doc = new HtmlDocument();
                 doc.LoadHtml(html);
 
@@ -68,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 var mainContent = HtmlReadabilityHelper.ExtractMainContent(doc);
                 if (mainContent == null)
                 {
-                    return FileConversionResult.Failure("html", "Failed to extract main content from HTML.");
+                    return Task.FromResult(FileConversionResult.Failure("html", "Failed to extract main content from HTML."));
                 }
 
                 // Convert the cleaned HTML to Markdown
@@ -83,11 +97,11 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     result.Metadata["title"] = titleNode.InnerText.Trim();
                 }
 
-                return result;
+                return Task.FromResult(result);
             }
             catch (Exception ex)
             {
-                return FileConversionResult.Failure("html", $"Failed to convert HTML: {ex.Message}");
+                return Task.FromResult(FileConversionResult.Failure("html", $"Failed to convert HTML: {ex.Message}"));
             }
         }
 
@@ -99,6 +113,82 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             if (node == null)
             {
                 return string.Empty;
+            }
+
+            // Convert bold/strong to Markdown format
+            var boldNodes = node.SelectNodes(".//b | .//strong");
+            if (boldNodes != null)
+            {
+                foreach (var bold in boldNodes.ToList())
+                {
+                    var boldText = bold.InnerText.Trim();
+                    if (string.IsNullOrWhiteSpace(boldText))
+                    {
+                        bold.Remove();
+                        continue;
+                    }
+
+                    var md = $"**{boldText}**";
+                    var replacement = HtmlNode.CreateNode(md);
+                    bold.ParentNode?.ReplaceChild(replacement, bold);
+                }
+            }
+
+            // Convert italic/emphasis to Markdown format
+            var italicNodes = node.SelectNodes(".//i | .//em");
+            if (italicNodes != null)
+            {
+                foreach (var italic in italicNodes.ToList())
+                {
+                    var italicText = italic.InnerText.Trim();
+                    if (string.IsNullOrWhiteSpace(italicText))
+                    {
+                        italic.Remove();
+                        continue;
+                    }
+
+                    var md = $"*{italicText}*";
+                    var replacement = HtmlNode.CreateNode(md);
+                    italic.ParentNode?.ReplaceChild(replacement, italic);
+                }
+            }
+
+            // Convert strikethrough to Markdown format
+            var strikeNodes = node.SelectNodes(".//del | .//s | .//strike");
+            if (strikeNodes != null)
+            {
+                foreach (var strike in strikeNodes.ToList())
+                {
+                    var strikeText = strike.InnerText.Trim();
+                    if (string.IsNullOrWhiteSpace(strikeText))
+                    {
+                        strike.Remove();
+                        continue;
+                    }
+
+                    var md = $"~~{strikeText}~~";
+                    var replacement = HtmlNode.CreateNode(md);
+                    strike.ParentNode?.ReplaceChild(replacement, strike);
+                }
+            }
+
+            // Convert underline to Markdown format (using HTML since Markdown doesn't have native underline)
+            var underlineNodes = node.SelectNodes(".//u");
+            if (underlineNodes != null)
+            {
+                foreach (var underline in underlineNodes.ToList())
+                {
+                    var underlineText = underline.InnerText.Trim();
+                    if (string.IsNullOrWhiteSpace(underlineText))
+                    {
+                        underline.Remove();
+                        continue;
+                    }
+
+                    var md = $"<u>{underlineText}</u>";
+                    var replacement = HtmlNode.CreateNode(md);
+                    underline.ParentNode?.ReplaceChild(replacement, underline);
+                }
             }
 
             // Convert links to Markdown format

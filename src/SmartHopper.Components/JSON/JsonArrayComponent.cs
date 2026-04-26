@@ -45,10 +45,11 @@ namespace SmartHopper.Components.JSON
         /// </summary>
         public JsonArrayComponent()
             : base(
-                  "JSON Array",
-                  "JsonArray",
-                  "Create a JSON array from a list of items.\nNumbers, booleans and valid JSON arrays/objects are auto-coerced from their string representation.",
-                  "SmartHopper", "JSON")
+                "JSON Array",
+                "JsonArray",
+                "Create a JSON array from a list of items.\nNumbers, booleans and valid JSON arrays/objects are auto-coerced from their string representation.",
+                "SmartHopper",
+                "JSON")
         {
         }
 

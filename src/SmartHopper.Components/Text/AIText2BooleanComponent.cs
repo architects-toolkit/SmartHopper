@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -30,17 +30,19 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Converters;
+using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 using CommonDrawing = System.Drawing;
 
 namespace SmartHopper.Components.Text
 {
     public class AIText2BooleanComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new("D3EB06A8-C219-46E3-854E-15EC798AD63A");
+        public override Guid ComponentGuid => new ("D3EB06A8-C219-46E3-854E-15EC798AD63A");
 
         protected override CommonDrawing::Bitmap Icon => Resources.textevaluate;
 
@@ -78,9 +80,12 @@ namespace SmartHopper.Components.Text
         private bool? _batchFallbackValue;
 
         public AIText2BooleanComponent()
-            : base("AI Text To Boolean", "AIText2Boolean",
-                  "Use natural language to ask a TRUE or FALSE question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
-                  "SmartHopper", "Text")
+            : base(
+                "AI Text To Boolean",
+                "AIText2Boolean",
+                "Use natural language to ask a TRUE or FALSE question about a text.\nIf a tree structure is provided, questions and texts will only match within the same branch paths.",
+                "SmartHopper",
+                "Text")
         {
         }
 
@@ -99,7 +104,7 @@ namespace SmartHopper.Components.Text
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
@@ -120,10 +125,30 @@ namespace SmartHopper.Components.Text
                 results,
                 (customId, resultBody) =>
                 {
-                    // Decode and parse ONCE, cache both values for TransformOutputs
-                    var (value, usedFallback) = ParseBooleanWithFallback(resultBody, provider.Decode, fallback);
+                    // Decode and parse ONCE via the centralized resolver, cache both
+                    // values for SentinelTransformOutputs.
+                    var (boolValue, usedFallback) = BooleanResultResolver.ResolveFromBody(resultBody, provider.Decode, fallback);
+                    var value = boolValue.HasValue ? new GH_Boolean(boolValue.Value) : null;
                     this._batchParseCache[customId] = (value, usedFallback);
                     return value;
+                },
+                messages);
+
+            // Process Used Fallback output using cached values (no re-parse!)
+            // Use the same sentinel as Result since both trees have identical structure
+            this.ProcessBatchResults<GH_Boolean>(
+                "Used Fallback",
+                sentinel,
+                results,
+                (customId, resultBody) =>
+                {
+                    // Retrieve from cache - no parsing needed
+                    if (this._batchParseCache.TryGetValue(customId, out var cached))
+                    {
+                        return new GH_Boolean(cached.usedFallback);
+                    }
+
+                    return null;
                 },
                 messages);
 
@@ -138,7 +163,7 @@ namespace SmartHopper.Components.Text
         /// batch mode (or when the sentinel id is unknown) this is a no-op and the
         /// non-batch worker emits "Used Fallback" directly via <c>FinishResults</c>.
         /// </remarks>
-        protected override Dictionary<string, IGH_Goo> TransformOutputs(
+        protected override Dictionary<string, IGH_Goo> SentinelTransformOutputs(
             Dictionary<string, IGH_Goo> decodedOutputs, ProcessingUnitContext context)
         {
             if (this._batchParseCache != null
@@ -151,49 +176,9 @@ namespace SmartHopper.Components.Text
             return decodedOutputs;
         }
 
-        /// <summary>
-        /// Helper to parse boolean from provider response, mirroring the parsing and
-        /// fallback logic of the <c>text2boolean</c> tool's execute body so batch and
-        /// non-batch paths behave identically. Returns both the parsed value (or fallback
-        /// / null) and whether the fallback was used.
-        /// </summary>
-        private static (GH_Boolean value, bool usedFallback) ParseBooleanWithFallback(
-            JObject resultBody,
-            System.Func<JObject, System.Collections.Generic.List<IAIInteraction>> decode,
-            bool? fallbackValue)
-        {
-            GH_Boolean fallbackResult = fallbackValue.HasValue ? new GH_Boolean(fallbackValue.Value) : null;
-
-            if (resultBody == null)
-            {
-                return (fallbackResult, true);
-            }
-
-            var interactions = decode(resultBody);
-            var lastText = interactions
-                ?.OfType<AIInteractionText>()
-                .LastOrDefault(i => i.Agent == AIAgent.Assistant);
-
-            if (lastText == null)
-            {
-                return (fallbackResult, true);
-            }
-
-            // Use the same lenient parser as the text2boolean tool (handles "yes"/"no",
-            // surrounding text, etc.) instead of strict bool.TryParse.
-            var parsed = AIResponseParser.ParseBooleanFromResponse(lastText.Content);
-            if (parsed.HasValue)
-            {
-                return (new GH_Boolean(parsed.Value), false);
-            }
-
-            // AI response could not be parsed: apply the user's fallback if provided.
-            return (fallbackResult, true);
-        }
-
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIText2BooleanWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2BooleanWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIText2BooleanWorker : AsyncWorkerBase
@@ -239,6 +224,7 @@ namespace SmartHopper.Components.Text
                 {
                     fallbackStructure.Append(fallbackItem, new GH_Path(0));
                 }
+
                 this.inputTree["Fallback"] = fallbackStructure;
 
                 // Capture for batch mode: OnBatchCompleted needs the fallback value to
@@ -264,7 +250,7 @@ namespace SmartHopper.Components.Text
                         async (branches) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
-                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
+                            return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
@@ -296,6 +282,7 @@ namespace SmartHopper.Components.Text
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
@@ -329,7 +316,9 @@ namespace SmartHopper.Components.Text
                             ? (fallbackBranchData[i] as GH_String)?.Value
                             : null;
 
-                        // Parse the boolean result (null/empty/unparseable -> null)
+                        // Parse the boolean result (null/empty/unparseable -> null).
+                        // The usedFallback flag is taken from the tool output below,
+                        // not inferred from the result string here.
                         if (bool.TryParse(resultStr, out bool val))
                         {
                             resultBranch.Add(new GH_Boolean(val));
@@ -349,10 +338,11 @@ namespace SmartHopper.Components.Text
                     resultTree.AppendRange(resultBranch, path);
                     usedFallbackTree.AppendRange(usedFallbackBranch, path);
                 }
+
                 return (resultTree, usedFallbackTree);
             }
 
-            private static async Task<Dictionary<string, List<IGH_Goo>>> ProcessData(Dictionary<string, List<IGH_Goo>> branches, AIText2BooleanComponent parent)
+            private static async Task<Dictionary<string, List<IGH_Goo>>> ProcessData(Dictionary<string, List<IGH_Goo>> branches, AIText2BooleanComponent parent, CancellationToken cancellationToken)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -416,7 +406,7 @@ namespace SmartHopper.Components.Text
                         ["contextFilter"] = "-*",
                     };
 
-                    var toolResult = await parent.CallAiToolAsync("text2boolean", parameters)
+                    var toolResult = await parent.CallAIToolAsync("text2boolean", parameters, cancellationToken)
                         .ConfigureAwait(false);
 
                     Debug.WriteLine($"[ProcessData] Tool result: {toolResult?.ToString() ?? "null"}");
@@ -428,12 +418,12 @@ namespace SmartHopper.Components.Text
                         continue;
                     }
 
-                    // In batch mode, CallAiToolAsync returns a sentinel placeholder under "result".
+                    // In batch mode, CallAIToolAsync returns a sentinel placeholder under "result".
                     // Forward it so ReconstructOutputTree can replace it after the batch completes.
                     // The UsedFallback tree is unused in batch mode (OnBatchCompleted populates it
                     // from the cached parse), but we keep it aligned for non-batch consistency.
                     var resultValue = toolResult["result"]?.ToString();
-                    if (resultValue != null && resultValue.StartsWith("##SH_BATCH:", StringComparison.Ordinal))
+                    if (BatchSentinel.Is(resultValue))
                     {
                         outputs["Result"].Add(new GH_String(resultValue));
                         outputs["UsedFallback"].Add(new GH_String(resultValue));
@@ -445,10 +435,7 @@ namespace SmartHopper.Components.Text
 
                     // The tool sets "usedFallback" explicitly (true when fallback was applied or
                     // when parsing failed without fallback). Default to true when missing.
-                    var usedFallbackToken = toolResult["usedFallback"];
-                    var usedFallback = usedFallbackToken == null || usedFallbackToken.Type == JTokenType.Null
-                        ? true
-                        : usedFallbackToken.ToObject<bool>();
+                    var usedFallback = toolResult["usedFallback"].GetBoolOrDefault(true);
                     outputs["UsedFallback"].Add(new GH_String(usedFallback.ToString()));
                 }
 

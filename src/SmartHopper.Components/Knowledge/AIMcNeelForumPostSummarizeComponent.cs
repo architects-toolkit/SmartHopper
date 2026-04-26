@@ -82,7 +82,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIMcNeelForumPostSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIMcNeelForumPostSummarizeWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIMcNeelForumPostSummarizeWorker : AsyncWorkerBase
@@ -172,7 +172,7 @@ namespace SmartHopper.Components.Knowledge
                                     parameters["instructions"] = this.instructions;
                                 }
 
-                                var toolResult = await this.parent.CallAiToolAsync("mcneel_forum_post_summarize", parameters).ConfigureAwait(false);
+                                var toolResult = await this.parent.CallAIToolAsync("mcneel_forum_post_summarize", parameters, token).ConfigureAwait(false);
 
                                 if (toolResult == null)
                                 {

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -100,8 +100,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             providerRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Assistant Provider:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(this._assistantProviderComboBox, true)
-            ));
+                new TableCell(this._assistantProviderComboBox, true)));
 
             layout.Add(providerRowLayout);
 
@@ -125,8 +124,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             modelRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Assistant Model:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(this._assistantModelTextBox, true)
-            ));
+                new TableCell(this._assistantModelTextBox, true)));
             layout.Add(modelRowLayout);
 
             layout.Add(new Label

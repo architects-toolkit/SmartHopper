@@ -16,13 +16,13 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System.Reflection;
-using HtmlAgilityPack;
-using SmartHopper.Core.Grasshopper.Converters.Formats;
-using Xunit;
-
 namespace SmartHopper.Core.Grasshopper.Tests.Converters
 {
+    using System.Reflection;
+    using HtmlAgilityPack;
+    using SmartHopper.Core.Grasshopper.Converters.Formats;
+    using Xunit;
+
     public class HtmlReadabilityHelperTests
     {
         private static object InvokePrivateMethod(string methodName, params object[] args)

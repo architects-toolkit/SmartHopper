@@ -174,7 +174,7 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
-        public void OnDocumentAdded(GH_Document doc)
+        public void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
         {
             if (doc != null && doc == this.owner.OnPingDocument())
             {
@@ -198,6 +198,61 @@ namespace SmartHopper.Core.ComponentBase
                 };
                 timer.Start();
             }
+        }
+
+        /// <summary>
+        /// Removes deleted objects from the selection list and updates the component message.
+        /// </summary>
+        /// <param name="selectedObjects">The raw selected objects list (pass the private field, not the property).</param>
+        public void PruneDeletedSelections(List<IGH_DocumentObject> selectedObjects)
+        {
+            if (selectedObjects.Count == 0)
+            {
+                return;
+            }
+
+            var canvas = Instances.ActiveCanvas;
+            var doc = canvas?.Document;
+            if (doc == null)
+            {
+                return;
+            }
+
+            var removedAny = false;
+
+            for (int i = selectedObjects.Count - 1; i >= 0; i--)
+            {
+                if (selectedObjects[i] is IGH_DocumentObject docObj)
+                {
+                    var found = doc.FindObject(docObj.InstanceGuid, true);
+                    if (found == null)
+                    {
+                        selectedObjects.RemoveAt(i);
+                        removedAny = true;
+                    }
+                }
+            }
+
+            if (removedAny)
+            {
+                this.owner.Message = $"{selectedObjects.Count} selected";
+            }
+        }
+
+        /// <summary>
+        /// Subscribes to document events for deferred selection restoration.
+        /// </summary>
+        public void SubscribeToDocumentEvents()
+        {
+            Instances.DocumentServer.DocumentAdded += this.OnDocumentAdded;
+        }
+
+        /// <summary>
+        /// Unsubscribes from document events.
+        /// </summary>
+        public void UnsubscribeFromDocumentEvents()
+        {
+            Instances.DocumentServer.DocumentAdded -= this.OnDocumentAdded;
         }
 
         private void CanvasSelectionChanged()

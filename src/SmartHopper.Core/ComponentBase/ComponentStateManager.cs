@@ -605,6 +605,21 @@ namespace SmartHopper.Core.ComponentBase
             }
         }
 
+        /// <summary>
+        /// Temporarily suppresses input change detection for the next solve cycle.
+        /// This is useful when manually loading results or performing actions that
+        /// should not trigger "inputs changed" detection.
+        /// The suppression is automatically cleared after the first solve.
+        /// </summary>
+        public void SuppressInputChangesForNextSolve()
+        {
+            lock (this.stateLock)
+            {
+                Debug.WriteLine($"[{this.componentName}] Suppressing input change detection for next solve");
+                this.suppressInputChangeDetection = true;
+            }
+        }
+
         #endregion
 
         #region Hash Management

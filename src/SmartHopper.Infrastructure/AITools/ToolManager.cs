@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AITools
 {
@@ -83,7 +84,7 @@ namespace SmartHopper.Infrastructure.AITools
             var (isValid, errors) = toolCall.IsValid();
             if (!isValid)
             {
-                var reasonList = (errors ?? new List<AIRuntimeMessage>())
+                var reasonList = (errors ?? new List<SHRuntimeMessage>())
                     .Where(m => m != null && !string.IsNullOrWhiteSpace(m.Message))
                     .Select(m => m.Message)
                     .ToList();
@@ -104,7 +105,12 @@ namespace SmartHopper.Infrastructure.AITools
             {
                 // Execute the tool
                 Debug.WriteLine($"[AIToolManager] Tool found, executing: {toolInfo.Name}");
-                var result = await _tools[toolInfo.Name].Execute(toolCall);
+
+                // Extract cancellation token if available on the toolCall
+                var cancellationToken = toolCall.CancellationToken;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var result = await _tools[toolInfo.Name].Execute(toolCall).ConfigureAwait(false);
                 Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolInfo.Name}");
 
                 // Ensure tool result interactions carry the original tool call id/name/TurnId for provider schemas (e.g., OpenAI tool_call_id)

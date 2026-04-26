@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -58,8 +58,7 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         string? SessionId = null,
         string? RequestId = null,
         string? ToolInvocationId = null,
-        AIMetricsEventType? EventType = null
-    );
+        AIMetricsEventType? EventType = null);
 
     /// <summary>
     /// Envelope for all metrics events.

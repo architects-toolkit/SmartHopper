@@ -38,6 +38,8 @@ namespace SmartHopper.Components.Test.Providers
     {
         public override Guid ComponentGuid => new Guid("6FBC99E6-AF7B-4390-B1EA-5B7F65E2C7EA");
 
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
         public TestOpenAIDecodeComponent()
             : base("Test OpenAI Decode", "TEST-OPENAI-DEC", "Tests OpenAI response decoding to AIReturn", "SmartHopper", "Test/Providers")
         {
@@ -57,7 +59,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -69,7 +71,7 @@ namespace SmartHopper.Components.Test.Providers
             public Worker(TestOpenAIDecodeComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -107,14 +109,14 @@ namespace SmartHopper.Components.Test.Providers
                     };
 
                     // Decode using provider - returns List<IAIInteraction>
-                    var provider = _parent.GetActualAIProvider();
+                    var provider = this._parent.GetActualAIProvider();
                     var interactions = provider.Decode(mockResponse);
 
                     // Verify decoding - check if we got an assistant message with text content
                     if (interactions == null || interactions.Count == 0)
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded result is null or empty"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Decoded result is null or empty"));
                         await Task.Yield();
                         return;
                     }
@@ -123,28 +125,28 @@ namespace SmartHopper.Components.Test.Providers
                     var assistantInteraction = interactions.Find(i => i is AIInteractionText text && text.Agent == AIAgent.Assistant) as AIInteractionText;
                     if (assistantInteraction == null || string.IsNullOrEmpty(assistantInteraction.Content))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded assistant message is empty"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Decoded assistant message is empty"));
                         await Task.Yield();
                         return;
                     }
 
                     if (!assistantInteraction.Content.Contains("test response"))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded content doesn't match expected response"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Decoded content doesn't match expected response"));
                         await Task.Yield();
                         return;
                     }
 
-                    _success = new GH_Boolean(true);
-                    _messages.Add(new GH_String("OpenAI decoding successful"));
-                    _messages.Add(new GH_String($"Decoded content: {assistantInteraction.Content.Substring(0, Math.Min(50, assistantInteraction.Content.Length))}..."));
+                    this._success = new GH_Boolean(true);
+                    this._messages.Add(new GH_String("OpenAI decoding successful"));
+                    this._messages.Add(new GH_String($"Decoded content: {assistantInteraction.Content.Substring(0, Math.Min(50, assistantInteraction.Content.Length))}..."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Error: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
 
@@ -153,9 +155,9 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "OpenAI decoding test passed" : "OpenAI decoding test failed";
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "OpenAI decoding test passed" : "OpenAI decoding test failed";
             }
         }
     }

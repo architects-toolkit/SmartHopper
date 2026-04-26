@@ -45,6 +45,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Debug.WriteLine($"[GeminiProviderFactory] Successfully got instance: {instance.GetType().FullName}");
                 }
+
                 return instance;
             }
             catch (Exception ex)

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -21,6 +21,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Policies
 {
@@ -32,7 +33,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies
         /// <summary>
         /// The request being processed.
         /// </summary>
-        public AIRequestCall Request { get; init; }
+        public AIRequestCall Request { get; set; }
+
+        /// <summary>
+        /// The cancellation token for the operation.
+        /// </summary>
+        public System.Threading.CancellationToken CancellationToken { get; set; }
 
         /// <summary>
         /// The response being processed (response phase only).
@@ -57,6 +63,6 @@ namespace SmartHopper.Infrastructure.AICall.Policies
         /// <summary>
         /// Structured diagnostics emitted by policies.
         /// </summary>
-        public List<AIRuntimeMessage> Diagnostics { get; } = new List<AIRuntimeMessage>();
+        public List<SHRuntimeMessage> Diagnostics { get; } = new List<SHRuntimeMessage>();
     }
 }

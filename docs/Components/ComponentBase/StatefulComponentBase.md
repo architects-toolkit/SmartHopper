@@ -19,7 +19,7 @@ Unify long-running execution with a clear state machine so components behave pre
 ## Key lifecycle flow
 
 - `SolveInstance(IGH_DataAccess)` reads Run, updates pending input hashes, dispatches per-state handlers, then delegates input-change handling to the state manager.
-- `OnWorkerCompleted()` commits input hashes and transitions to Completed.
+- `OnWorkerCompleted()` commits input hashes; if any Error-level runtime messages were recorded, calls `worker.PromoteCollectedToPersistent(…)` for each worker to write queued messages into the persistent keyed store before transitioning to Error — ensuring messages survive the subsequent `ExpireSolution` cycle. Otherwise transitions to Completed.
 - `Write(GH_IWriter)` / `Read(GH_IReader)` persist and restore input hashes and output trees via `GHPersistenceService`.
 
 ## Code location

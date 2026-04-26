@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,6 +24,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -204,11 +205,21 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
                 try
                 {
-                    var contentPreview = interaction is AIInteractionText t ? (t.Content ?? string.Empty) : string.Empty;
+                    var contentPreview = string.Empty;
+                    if (interaction is AIInteractionText t)
+                    {
+                        contentPreview = t.Content ?? string.Empty;
+                    }
+                    else if (interaction is AIInteractionRuntimeMessage d)
+                    {
+                        contentPreview = d.Content ?? string.Empty;
+                    }
+                    
                     if (contentPreview.Length > 50)
                     {
                         contentPreview = contentPreview.Substring(0, 50) + "...";
                     }
+
                     Debug.WriteLine($"[AIBodyBuilder.Add] idx={this.interactions.Count - 1}, type={interaction.GetType().Name}, agent={interaction.Agent.ToString()}, content={contentPreview}, new={(markAsNew ? 1 : 0)}");
                 }
                 catch
@@ -467,7 +478,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
         /// <param name="messages">Optional runtime messages associated with the result.</param>
         /// <returns>The same builder instance.</returns>
-        public AIBodyBuilder AddToolResult(JObject result, string id = null, string name = null, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
+        public AIBodyBuilder AddToolResult(JObject result, string id = null, string name = null, AIMetrics metrics = null, List<SHRuntimeMessage> messages = null)
         {
             var tr = new AIInteractionToolResult
             {
@@ -475,7 +486,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Name = name,
                 Result = result,
                 Metrics = metrics ?? new AIMetrics(),
-                Messages = messages ?? new List<AIRuntimeMessage>(),
+                Messages = messages ?? new List<SHRuntimeMessage>(),
             };
             return this.Add(tr, this.defaultMarkAsNew);
         }
@@ -490,7 +501,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
         /// <param name="messages">Optional runtime messages associated with the result.</param>
         /// <returns>The same builder instance for fluent chaining.</returns>
-        public AIBodyBuilder AddToolResult(JObject result, bool markAsNew, string id = null, string name = null, AIMetrics metrics = null, List<AIRuntimeMessage> messages = null)
+        public AIBodyBuilder AddToolResult(JObject result, bool markAsNew, string id = null, string name = null, AIMetrics metrics = null, List<SHRuntimeMessage> messages = null)
         {
             var tr = new AIInteractionToolResult
             {
@@ -498,7 +509,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                 Name = name,
                 Result = result,
                 Metrics = metrics ?? new AIMetrics(),
-                Messages = messages ?? new List<AIRuntimeMessage>(),
+                Messages = messages ?? new List<SHRuntimeMessage>(),
             };
             return this.Add(tr, markAsNew);
         }
@@ -511,13 +522,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>The same builder instance.</returns>
         public AIBodyBuilder AddError(string content, AIMetrics metrics = null)
         {
-            var m = metrics ?? new AIMetrics();
-            var it = new AIInteractionError
-            {
-                Content = content,
-                Metrics = m,
-            };
-            return this.Add(it, this.defaultMarkAsNew);
+            return this.AddError(content, this.defaultMarkAsNew, metrics);
         }
 
         /// <summary>
@@ -529,11 +534,95 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>The same builder instance for fluent chaining.</returns>
         public AIBodyBuilder AddError(string content, bool markAsNew, AIMetrics metrics = null)
         {
-            var m = metrics ?? new AIMetrics();
-            var it = new AIInteractionError
+            return this.AddDiagnostic(SHRuntimeMessageSeverity.Error, content, markAsNew, metrics);
+        }
+
+        /// <summary>
+        /// Adds a warning diagnostic interaction using the builder's default newness flag.
+        /// </summary>
+        /// <param name="content">The warning text.</param>
+        /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
+        /// <returns>The same builder instance.</returns>
+        public AIBodyBuilder AddWarning(string content, AIMetrics metrics = null)
+        {
+            return this.AddWarning(content, this.defaultMarkAsNew, metrics);
+        }
+
+        /// <summary>
+        /// Adds a warning diagnostic interaction with explicit newness.
+        /// </summary>
+        /// <param name="content">The warning text.</param>
+        /// <param name="markAsNew">Whether to mark the interaction as new.</param>
+        /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
+        /// <returns>The same builder instance for fluent chaining.</returns>
+        public AIBodyBuilder AddWarning(string content, bool markAsNew, AIMetrics metrics = null)
+        {
+            return this.AddDiagnostic(SHRuntimeMessageSeverity.Warning, content, markAsNew, metrics);
+        }
+
+        /// <summary>
+        /// Adds an informational diagnostic interaction using the builder's default newness flag.
+        /// </summary>
+        /// <param name="content">The informational text.</param>
+        /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
+        /// <returns>The same builder instance.</returns>
+        public AIBodyBuilder AddInfo(string content, AIMetrics metrics = null)
+        {
+            return this.AddInfo(content, this.defaultMarkAsNew, metrics);
+        }
+
+        /// <summary>
+        /// Adds an informational diagnostic interaction with explicit newness.
+        /// </summary>
+        /// <param name="content">The informational text.</param>
+        /// <param name="markAsNew">Whether to mark the interaction as new.</param>
+        /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
+        /// <returns>The same builder instance for fluent chaining.</returns>
+        public AIBodyBuilder AddInfo(string content, bool markAsNew, AIMetrics metrics = null)
+        {
+            return this.AddDiagnostic(SHRuntimeMessageSeverity.Info, content, markAsNew, metrics);
+        }
+
+        /// <summary>
+        /// Adds a debug diagnostic interaction using the builder's default newness flag.
+        /// Debug diagnostics default to non-surfaceable.
+        /// </summary>
+        /// <param name="content">The debug text.</param>
+        /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
+        /// <returns>The same builder instance.</returns>
+        public AIBodyBuilder AddDebug(string content, AIMetrics metrics = null)
+        {
+            return this.AddDebug(content, this.defaultMarkAsNew, metrics);
+        }
+
+        /// <summary>
+        /// Adds a debug diagnostic interaction with explicit newness. Debug diagnostics default to non-surfaceable.
+        /// </summary>
+        /// <param name="content">The debug text.</param>
+        /// <param name="markAsNew">Whether to mark the interaction as new.</param>
+        /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
+        /// <returns>The same builder instance for fluent chaining.</returns>
+        public AIBodyBuilder AddDebug(string content, bool markAsNew, AIMetrics metrics = null)
+        {
+            var it = AIInteractionRuntimeMessage.CreateDebug(content, metrics);
+            return this.Add(it, markAsNew);
+        }
+
+        /// <summary>
+        /// Adds a diagnostic interaction with explicit severity and newness.
+        /// </summary>
+        /// <param name="severity">The diagnostic severity.</param>
+        /// <param name="content">The diagnostic text.</param>
+        /// <param name="markAsNew">Whether to mark the interaction as new.</param>
+        /// <param name="metrics">Optional metrics to attach; a new instance is created if null.</param>
+        /// <returns>The same builder instance for fluent chaining.</returns>
+        public AIBodyBuilder AddDiagnostic(SHRuntimeMessageSeverity severity, string content, bool markAsNew, AIMetrics metrics = null)
+        {
+            var it = new AIInteractionRuntimeMessage
             {
+                Severity = severity,
                 Content = content,
-                Metrics = m,
+                Metrics = metrics ?? new AIMetrics(),
             };
             return this.Add(it, markAsNew);
         }

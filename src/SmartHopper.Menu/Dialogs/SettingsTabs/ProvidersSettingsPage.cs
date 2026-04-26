@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AICall.Core;
@@ -69,53 +70,30 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Add spacing
             layout.Add(new Panel { Height = 10 });
 
-            // Add provider checkboxes
-            foreach (var provider in this._providers)
+            // Add provider checkboxes in two vertical columns (fill first, then second)
+            var sortedProviders = this._providers.OrderBy(p => p.Name).ToArray();
+            int mid = (sortedProviders.Length + 1) / 2; // Round up for first column
+            var firstColumn = sortedProviders.Take(mid);
+            var secondColumn = sortedProviders.Skip(mid);
+
+            var leftStack = new StackLayout { Orientation = Orientation.Vertical, Spacing = 8 };
+            var rightStack = new StackLayout { Orientation = Orientation.Vertical, Spacing = 8, Padding = new Padding(20, 0, 0, 0) };
+
+            foreach (var provider in firstColumn)
             {
-                var providerLayout = new StackLayout
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 10,
-                    VerticalContentAlignment = VerticalAlignment.Center,
-                    Padding = new Padding(0, 5),
-                };
-
-                // Create checkbox for this provider
-                var checkbox = new CheckBox
-                {
-                    Text = provider.Name,
-                    Font = new Font(SystemFont.Default, 11),
-                };
-                this._providerCheckBoxes[provider.GetType().Assembly.GetName().Name] = checkbox;
-
-                // Add provider icon if available
-                if (provider.Icon != null)
-                {
-                    try
-                    {
-                        using (var ms = new MemoryStream())
-                        {
-                            provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                            ms.Position = 0;
-                            var iconView = new ImageView
-                            {
-                                Image = new Bitmap(ms),
-                                Size = new Size(16, 16),
-                            };
-                            providerLayout.Items.Insert(0, iconView);
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore icon loading errors
-                    }
-                }
-
-                providerLayout.Items.Add(checkbox);
-
-                // Provider descriptions could be added here if needed in the future
-                layout.Add(providerLayout);
+                leftStack.Items.Add(this.CreateProviderCell(provider));
             }
+
+            foreach (var provider in secondColumn)
+            {
+                rightStack.Items.Add(this.CreateProviderCell(provider));
+            }
+
+            layout.Add(new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Items = { leftStack, rightStack },
+            });
 
             // Add spacing
             layout.Add(new Panel { Height = 20 });
@@ -221,15 +199,15 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             // Index 0 = Soft, Index 1 = Hard, Index 2 = Strict
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
-                Text = "Soft - No blocking, just warn about issues (default)"
+                Text = "Soft - No blocking, just warn about issues (default)",
             });
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
-                Text = "Hard - Block altered and unknown providers, be permissive when offline"
+                Text = "Hard - Block altered and unknown providers, be permissive when offline",
             });
             this._integrityCheckModeDropDown.Items.Add(new ListItem
             {
-                Text = "Strict - Allow only verified providers from official repository (highest security)"
+                Text = "Strict - Allow only verified providers from official repository (highest security)",
             });
 
             layout.Add(this._integrityCheckModeDropDown);
@@ -317,6 +295,55 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Save timeout settings
             SmartHopperSettings.Instance.SetSetting("Global", "TimeoutSeconds", (int)this._httpTimeoutStepper.Value);
+        }
+
+        /// <summary>
+        /// Creates a StackLayout containing the provider icon and checkbox
+        /// </summary>
+        /// <param name="provider">The AI provider</param>
+        /// <returns>StackLayout with icon and checkbox</returns>
+        private StackLayout CreateProviderCell(IAIProvider provider)
+        {
+            var providerLayout = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                VerticalContentAlignment = VerticalAlignment.Center,
+            };
+
+            // Create checkbox for this provider
+            var checkbox = new CheckBox
+            {
+                Text = provider.Name,
+                Font = new Font(SystemFont.Default, 11),
+            };
+            this._providerCheckBoxes[provider.GetType().Assembly.GetName().Name] = checkbox;
+
+            // Add provider icon if available
+            if (provider.Icon != null)
+            {
+                try
+                {
+                    using (var ms = new MemoryStream())
+                    {
+                        provider.Icon.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                        ms.Position = 0;
+                        var iconView = new ImageView
+                        {
+                            Image = new Bitmap(ms),
+                            Size = new Size(16, 16),
+                        };
+                        providerLayout.Items.Insert(0, iconView);
+                    }
+                }
+                catch
+                {
+                    // Ignore icon loading errors
+                }
+            }
+
+            providerLayout.Items.Add(checkbox);
+            return providerLayout;
         }
     }
 }

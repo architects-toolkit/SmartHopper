@@ -216,8 +216,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 Assert.True(
                     tag == "alpha" || tag == "beta" || tag == "rc" || tag == "dev",
-                    $"Prerelease tag '{tag}' should be alpha, beta, rc, or dev"
-                );
+                    $"Prerelease tag '{tag}' should be alpha, beta, rc, or dev");
             }
         }
     }

@@ -37,7 +37,10 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestGeminiVisionComponent : AIStatefulAsyncComponentBase
     {
+
         public override Guid ComponentGuid => new Guid("06FB22C2-2C27-4117-8330-56904038A513");
+
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestGeminiVisionComponent()
             : base("Test Gemini Vision", "TEST-GEMINI-VISION", "Tests Gemini vision API call with image input", "SmartHopper", "Test/Providers")
@@ -58,7 +61,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -70,7 +73,7 @@ namespace SmartHopper.Components.Test.Providers
             public Worker(TestGeminiVisionComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -107,8 +110,8 @@ namespace SmartHopper.Components.Test.Providers
                     // Verify encoding
                     if (string.IsNullOrEmpty(encoded))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Encoded message is empty"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Encoded message is empty"));
                         await Task.Yield();
                         return;
                     }
@@ -116,38 +119,38 @@ namespace SmartHopper.Components.Test.Providers
                     // Check for image content in encoding
                     if (!encoded.Contains("\"inlineData\"") && !encoded.Contains("\"inline_data\""))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Missing inline image data in encoding"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing inline image data in encoding"));
                         await Task.Yield();
                         return;
                     }
 
                     if (!encoded.Contains("image/png") && !encoded.Contains("image/jpeg"))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Missing image MIME type in encoding"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing image MIME type in encoding"));
                         await Task.Yield();
                         return;
                     }
 
                     if (!encoded.Contains(base64Image.Substring(0, 20)))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Base64 image data not found in encoding"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Base64 image data not found in encoding"));
                         await Task.Yield();
                         return;
                     }
 
-                    _success = new GH_Boolean(true);
-                    _messages.Add(new GH_String("Gemini vision encoding successful"));
-                    _messages.Add(new GH_String("- Inline image data present"));
-                    _messages.Add(new GH_String("- MIME type correctly set"));
-                    _messages.Add(new GH_String("- Base64 data correctly encoded"));
+                    this._success = new GH_Boolean(true);
+                    this._messages.Add(new GH_String("Gemini vision encoding successful"));
+                    this._messages.Add(new GH_String("- Inline image data present"));
+                    this._messages.Add(new GH_String("- MIME type correctly set"));
+                    this._messages.Add(new GH_String("- Base64 data correctly encoded"));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Error: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
 
@@ -156,9 +159,9 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Gemini vision test passed" : "Gemini vision test failed";
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Gemini vision test passed" : "Gemini vision test failed";
             }
         }
     }

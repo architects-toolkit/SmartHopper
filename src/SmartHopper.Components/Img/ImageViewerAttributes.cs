@@ -39,7 +39,8 @@ namespace SmartHopper.Components.Img
         /// Initializes a new instance of the ImageViewerAttributes class.
         /// </summary>
         /// <param name="owner">The component that owns these attributes.</param>
-        public ImageViewerAttributes(IGH_Component owner) : base(owner)
+        public ImageViewerAttributes(IGH_Component owner)
+            : base(owner)
         {
         }
 
@@ -160,8 +161,6 @@ namespace SmartHopper.Components.Img
                 this.DrawCenteredText(graphics, this._imageDisplayBounds, "No Image", Color.Gray);
             }
         }
-
-
 
         /// <summary>
         /// Draws centered text within the specified rectangle.

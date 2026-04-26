@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -117,8 +117,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     var manifestItems = manifest.Elements(opfNs + "item")
                         .ToDictionary(
                             item => item.Attribute("id")?.Value ?? string.Empty,
-                            item => item.Attribute("href")?.Value ?? string.Empty
-                        );
+                            item => item.Attribute("href")?.Value ?? string.Empty);
 
                     // Get base path for content files
                     var opfDir = Path.GetDirectoryName(opfPath)?.Replace('\\', '/') ?? string.Empty;

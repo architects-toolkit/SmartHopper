@@ -38,6 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_list_categories";
+
         /// <summary>
         /// Returns a list of AI tools provided by this plugin.
         /// </summary>

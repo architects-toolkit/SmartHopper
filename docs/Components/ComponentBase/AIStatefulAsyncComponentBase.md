@@ -10,9 +10,9 @@ Offer a turnkey base to build AI components: choose provider/model, build a requ
 
 - Builds on [AIProviderComponentBase](./AIProviderComponentBase.md) and [StatefulComponentBase](./StatefulComponentBase.md) to add a `Settings` input and a `Metrics` output.
 - Capability‑aware model selection via `RequiredCapability` and `UsingAiTools`, delegating to provider `SelectModel()` / `ModelManager.SelectBestModel`.
-- `CallAiToolAsync` helper that injects provider/model into AI Tools, executes them, and stores the last `AIReturn` snapshot.
+- `CallAIToolAsync` helper that injects provider/model into AI Tools, executes them, and stores the last `AIReturn` snapshot.
 - Centralized output finalization via `FinishResults<T>` — persists primary + additional outputs atomically and emits metrics.
-- Virtual hooks `PrepareInputs` and `TransformOutputs` enabling pre/post processing without touching the core pipeline.
+- Virtual hooks `PrepareInputs` and `SentinelTransformOutputs` enabling pre/post processing without touching the core pipeline.
 - Surfaces structured provider/tool diagnostics from `AIReturn.Messages` as persistent Grasshopper runtime messages.
 - Integrates with `ComponentBadgesAttributes` by maintaining a cached badge state (Verified/Deprecated/Invalid/Replaced/Not‑recommended models).
 
@@ -30,7 +30,7 @@ DoWorkAsync()
         └── DataTreeProcessor.RunAsync()
               └── function(inputs)          [once per branch/item]
                     1. PrepareInputs(inputs, context)    ← virtual hook
-                    2. CallAiToolAsync(...)
+                    2. CallAIToolAsync(...)
                        → real result returned immediately
                     3. (return outputs dict)
         └── FinishResults(primary, ...extras)
@@ -50,7 +50,7 @@ DoWorkAsync()
         └── DataTreeProcessor.RunAsync()
               └── function(inputs)          [once per branch/item]
                     1. PrepareInputs(inputs, context)    ← virtual hook
-                    2. CallAiToolAsync(...)
+                    2. CallAIToolAsync(...)
                        → returns ##SH_BATCH:{customId}## sentinel
         └── TrySubmitBatchAsync()           → submits queue to provider
   └── Worker.SetOutput() → no-op
@@ -63,7 +63,7 @@ OnBatchCompleted(results, messages)
   └── ProcessBatchResults<T>(decode, messages)
         └── for each sentinel in tree:
               item = decode(customId, resultBody)
-              TransformOutputs({primary→item}, context)  ← virtual hook
+              SentinelTransformOutputs({primary→item}, context)  ← virtual hook
               extras accumulated per sentinel
         └── SetAIReturnSnapshot(aggregatedMetrics)
         └── FinishResults(primary, ...extras)
@@ -81,7 +81,7 @@ ExpireSolution() → RestorePersistentOutputs() → canvas updated
 
 ### `PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext context)`
 
-Called **before** `CallAiToolAsync` inside `DoWorkAsync`, after inputs are read from DA. Fires at the same point in both paths — inside `function(inputs)` during `DoWorkAsync`.
+Called **before** `CallAIToolAsync` inside `DoWorkAsync`, after inputs are read from DA. Fires at the same point in both paths — inside `function(inputs)` during `DoWorkAsync`.
 
 Override to:
 
@@ -90,9 +90,9 @@ Override to:
 - Add context metadata (file path → format hint, image → MIME type)
 - Validate and throw early if inputs are invalid
 
-> **Note:** Inputs are not available to `TransformOutputs` in batch mode — cache them component-side during `DoWorkAsync` if needed during output transformation.
+> **Note:** Inputs are not available to `SentinelTransformOutputs` in batch mode — cache them component-side during `DoWorkAsync` if needed during output transformation.
 
-### `TransformOutputs(Dictionary<string, IGH_Goo> decodedOutputs, ProcessingUnitContext context)`
+### `SentinelTransformOutputs(Dictionary<string, IGH_Goo> decodedOutputs, ProcessingUnitContext context)`
 
 Called **after** decode but **before** `FinishResults` / `SetPersistentOutput`. Fires inside `ProcessBatchResults` per sentinel (batch), or immediately after the AI call returns a real result (non-batch).
 
@@ -195,7 +195,7 @@ parent.FinishResults(
 ## Usage
 
 - Derive when your component sends prompts/requests to an AI provider (typically by calling AI Tools or an `AIRequestCall`).
-- Call `CallAiToolAsync` (recommended) so provider/model are injected automatically and the `AIReturn` snapshot is stored for metrics and badges.
+- Call `CallAIToolAsync` (recommended) so provider/model are injected automatically and the `AIReturn` snapshot is stored for metrics and badges.
 - Override `RequiredCapability` (and optionally `UsingAiTools`) so model selection, validation, and badges use the correct capability flags.
 - Follow the **implementation requirements** above: `SetOutput` must be a no-op; non-batch branch must call `FinishResults`; `OnBatchCompleted` must call `ProcessBatchResults`.
 

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -25,6 +25,7 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
@@ -33,12 +34,12 @@ namespace SmartHopper.Infrastructure.AICall.Validation
     /// </summary>
     public sealed class JsonSchemaResponseValidator : IValidator<AIReturn>
     {
-        public AIRuntimeMessageSeverity FailOn { get; } = AIRuntimeMessageSeverity.Error;
+        public SHRuntimeMessageSeverity FailOn { get; } = SHRuntimeMessageSeverity.Error;
 
         public Task<ValidationResult> ValidateAsync(AIReturn instance, ValidationContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var messages = new List<AIRuntimeMessage>();
+            var messages = new List<SHRuntimeMessage>();
 
             var rq = context?.Request;
             var rs = context?.Response ?? instance;
@@ -71,10 +72,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
 
             if (string.IsNullOrWhiteSpace(content))
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.ReturnInvalid,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.ReturnInvalid,
                     "Expected JSON structured output from assistant, but content is missing"));
             }
             else
@@ -86,10 +87,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
 
                 if (!svc.Validate(schemaText, instanceJson, out string error))
                 {
-                    messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.ReturnInvalid,
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.ReturnInvalid,
                         $"Response JSON does not match schema: {error}"));
                 }
             }

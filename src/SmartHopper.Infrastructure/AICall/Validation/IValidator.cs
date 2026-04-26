@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -21,10 +21,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
-
     /// <summary>
     /// Typed validator contract for validating specific models (e.g., tool calls) and returning diagnostics.
     /// Implementations should be side-effect free and perform no network I/O.
@@ -34,9 +34,9 @@ namespace SmartHopper.Infrastructure.AICall.Validation
     {
         /// <summary>
         /// Severity threshold at or above which the validator considers the validation to fail.
-        /// For example, when set to <see cref="AIRuntimeMessageSeverity.Error"/>, any Error message fails the validation.
+        /// For example, when set to <see cref="SHRuntimeMessageSeverity.Error"/>, any Error message fails the validation.
         /// </summary>
-        AIRuntimeMessageSeverity FailOn { get; }
+        SHRuntimeMessageSeverity FailOn { get; }
 
         /// <summary>
         /// Validates the instance and returns a result with messages and IsValid computed per <see cref="FailOn"/>.
@@ -61,7 +61,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// <summary>
         /// Gets or sets the collected messages emitted during validation.
         /// </summary>
-        public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
+        public List<SHRuntimeMessage> Messages { get; set; } = new List<SHRuntimeMessage>();
 
         /// <summary>
         /// Optional structured issues including codes and JSON-like path hints.
@@ -71,17 +71,17 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// <summary>
         /// Gets the count of error messages by severity for quick gating/metrics.
         /// </summary>
-        public int ErrorCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Error) ?? 0;
+        public int ErrorCount => this.Messages?.Count(m => m?.Severity == SHRuntimeMessageSeverity.Error) ?? 0;
 
         /// <summary>
         /// Gets the count of warning messages by severity for quick gating/metrics.
         /// </summary>
-        public int WarningCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Warning) ?? 0;
+        public int WarningCount => this.Messages?.Count(m => m?.Severity == SHRuntimeMessageSeverity.Warning) ?? 0;
 
         /// <summary>
         /// Gets the count of information messages by severity for quick gating/metrics.
         /// </summary>
-        public int InfoCount => this.Messages?.Count(m => m?.Severity == AIRuntimeMessageSeverity.Info) ?? 0;
+        public int InfoCount => this.Messages?.Count(m => m?.Severity == SHRuntimeMessageSeverity.Info) ?? 0;
 
         /// <summary>
         /// Gets a value indicating whether messages have been sanitized to avoid PII leakage.
@@ -107,7 +107,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
         /// <summary>
         /// Gets or sets the severity of the issue.
         /// </summary>
-        public AIRuntimeMessageSeverity Severity { get; set; }
+        public SHRuntimeMessageSeverity Severity { get; set; }
 
         /// <summary>
         /// Gets or sets the human-readable message describing the issue.

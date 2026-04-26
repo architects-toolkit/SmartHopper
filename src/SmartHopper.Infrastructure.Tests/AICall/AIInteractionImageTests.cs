@@ -16,12 +16,12 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using Xunit;
-
 namespace SmartHopper.Infrastructure.Tests.AICall
 {
+    using System;
+    using SmartHopper.Infrastructure.AICall.Core.Interactions;
+    using Xunit;
+
     public class AIInteractionImageTests
     {
         [Fact(DisplayName = "CreateVisionInput_WithValidUri_SetsImageUrl")]
@@ -60,7 +60,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void CreateVisionInput_WithEmptyString_ThrowsArgument()
         {
             var interaction = new AIInteractionImage();
-            Assert.Throws<ArgumentException>(() => interaction.CreateVisionInput(""));
+            Assert.Throws<ArgumentException>(() => interaction.CreateVisionInput(string.Empty));
         }
 
         [Fact(DisplayName = "CreateVisionInputFromBase64_SetsDataAndMime")]

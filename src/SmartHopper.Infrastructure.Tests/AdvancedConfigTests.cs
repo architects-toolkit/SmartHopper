@@ -20,6 +20,7 @@ namespace SmartHopper.Infrastructure.Tests
 {
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
@@ -72,7 +73,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             public AIRequestCall PreCall(AIRequestCall request) => request;
 
-            public async Task<IAIReturn> Call(AIRequestCall request)
+            public async Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default)
             {
                 var result = new AIReturn();
                 result.CreateSuccess(AIBody.Empty, request);
