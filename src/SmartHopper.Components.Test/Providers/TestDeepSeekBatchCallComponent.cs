@@ -37,7 +37,9 @@ namespace SmartHopper.Components.Test.Providers
     /// </summary>
     public class TestDeepSeekBatchCallComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("7D757921-1E86-4D0D-99C5-0CFF2CBCD029");
+        public override Guid ComponentGuid => new Guid("9D264C28-E309-47BA-894C-7571AA3CBE3F");
+
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public TestDeepSeekBatchCallComponent()
             : base("Test DeepSeek Batch Call", "TEST-DEEPSEEK-BATCH", "Tests DeepSeek batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
@@ -59,7 +61,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -72,7 +74,7 @@ namespace SmartHopper.Components.Test.Providers
             public Worker(TestDeepSeekBatchCallComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -110,9 +112,9 @@ namespace SmartHopper.Components.Test.Providers
 
                     if (provider == null)
                     {
-                        _messages.Add(new GH_String("DeepSeek provider not found"));
-                        _callSuccess = new GH_Boolean(false);
-                        _metricsValid = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("DeepSeek provider not found"));
+                        this._callSuccess = new GH_Boolean(false);
+                        this._metricsValid = new GH_Boolean(false);
                         await Task.Yield();
                         return;
                     }
@@ -121,23 +123,23 @@ namespace SmartHopper.Components.Test.Providers
                     IAIReturn result = null;
                     try
                     {
-                        result = await provider.Call(call);
-                        
+                        result = await provider.Call(call).ConfigureAwait(false);
+
                         if (result != null && result.Body != null && result.Body.InteractionsCount > 0)
                         {
                             callSuccess = true;
                             var lastInteraction = result.Body.Interactions.LastOrDefault() as AIInteractionText;
                             var responseText = lastInteraction?.Content ?? "No text response";
-                            _messages.Add(new GH_String($"Batch API call successful: {responseText.Substring(0, Math.Min(50, responseText.Length))}..."));
+                            this._messages.Add(new GH_String($"Batch API call successful: {responseText.Substring(0, Math.Min(50, responseText.Length))}..."));
                         }
                         else
                         {
-                            _messages.Add(new GH_String("Batch API call returned empty result"));
+                            this._messages.Add(new GH_String("Batch API call returned empty result"));
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"Batch API call failed: {ex.Message}"));
+                        this._messages.Add(new GH_String($"Batch API call failed: {ex.Message}"));
                     }
 
                     // Validate metrics
@@ -148,45 +150,47 @@ namespace SmartHopper.Components.Test.Providers
                         if (result.Metrics.InputTokens <= 0)
                         {
                             metricsValid = false;
-                            _messages.Add(new GH_String("Input tokens not set or invalid"));
+                            this._messages.Add(new GH_String("Input tokens not set or invalid"));
                         }
 
                         if (result.Metrics.OutputTokens <= 0)
                         {
                             metricsValid = false;
-                            _messages.Add(new GH_String("Output tokens not set or invalid"));
+                            this._messages.Add(new GH_String("Output tokens not set or invalid"));
                         }
 
                         if (metricsValid)
                         {
-                            _messages.Add(new GH_String($"Metrics valid - Input: {result.Metrics.InputTokens}, Output: {result.Metrics.OutputTokens}"));
+                            this._messages.Add(new GH_String($"Metrics valid - Input: {result.Metrics.InputTokens}, Output: {result.Metrics.OutputTokens}"));
                         }
                     }
                     else
                     {
-                        _messages.Add(new GH_String("Metrics not populated"));
+                        this._messages.Add(new GH_String("Metrics not populated"));
                     }
 
-                    _callSuccess = new GH_Boolean(callSuccess);
-                    _metricsValid = new GH_Boolean(metricsValid);
+                    this._callSuccess = new GH_Boolean(callSuccess);
+                    this._metricsValid = new GH_Boolean(metricsValid);
                 }
                 catch (Exception ex)
                 {
-                    _callSuccess = new GH_Boolean(false);
-                    _metricsValid = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Error: {ex.Message}"));
+                    this._callSuccess = new GH_Boolean(false);
+                    this._metricsValid = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
-
-                await Task.Yield();
+                finally
+                {
+                    await Task.Yield();
+                }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Call Success", _callSuccess, DA);
-                _parent.SetPersistentOutput("Metrics Valid", _metricsValid, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _callSuccess.Value && _metricsValid.Value ? "DeepSeek batch call test passed" : "DeepSeek batch call test failed";
+                this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
+                this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._callSuccess.Value && this._metricsValid.Value ? "DeepSeek batch call test passed" : "DeepSeek batch call test failed";
             }
         }
     }

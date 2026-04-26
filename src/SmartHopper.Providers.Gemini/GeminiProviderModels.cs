@@ -53,7 +53,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Provider = providerName,
                     Model = "gemini-3.1-pro-preview",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning | AICapability.AudioInput,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 75,
@@ -63,7 +63,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Provider = providerName,
                     Model = "gemini-3.1-flash-preview",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning | AICapability.AudioInput,
                     Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = false,
@@ -96,7 +96,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Provider = providerName,
                     Model = "gemini-2.5-pro",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning | AICapability.AudioInput,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 85,
@@ -106,7 +106,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Provider = providerName,
                     Model = "gemini-2.5-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning | AICapability.AudioInput,
                     Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = true,
@@ -128,7 +128,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Provider = providerName,
                     Model = "gemini-2.5-flash-lite",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.AudioInput,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 95,
@@ -138,7 +138,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Provider = providerName,
                     Model = "gemini-2.0-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.AudioInput,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 80,
@@ -148,7 +148,7 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Provider = providerName,
                     Model = "gemini-1.5-pro",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.AudioInput,
                     SupportsStreaming = true,
                     Verified = true,
                     Deprecated = true,
@@ -159,12 +159,63 @@ namespace SmartHopper.Providers.Gemini
                 {
                     Provider = providerName,
                     Model = "gemini-1.5-flash",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.AudioInput,
                     SupportsStreaming = true,
                     Verified = true,
                     Deprecated = true,
                     Rank = 55,
                     ContextLimit = 1000000,
+                },
+
+                // Note: Audio input (STT/audio understanding) is supported by all Gemini models listed above.
+                // For dedicated TTS models, see below. For music generation, see Lyria models.
+
+                // Text-to-Speech (TTS) models
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "gemini-2.5-flash-preview-tts",
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
+                    Default = AICapability.Text2Speech,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 70,
+                    ContextLimit = 32000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "gemini-2.5-pro-preview-tts",
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
+                    Default = AICapability.Text2Speech,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 65,
+                    ContextLimit = 32000,
+                },
+
+                // Music generation models (Lyria 3)
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "lyria-3-clip",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    Default = AICapability.Text2Audio,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 70,
+                    ContextLimit = 32000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "lyria-3-pro",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioOutput,
+                    Default = AICapability.Text2Audio,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 65,
+                    ContextLimit = 32000,
                 },
             };
 

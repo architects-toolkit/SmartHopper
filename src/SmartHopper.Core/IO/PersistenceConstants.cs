@@ -19,7 +19,6 @@
 // Purpose: Central constants and keys for component persistence (versioned schema)
 // This file defines keys and version numbers used by the persistence service to
 // read and write component outputs in a robust, forward-compatible way.
-
 using System;
 
 namespace SmartHopper.Core.IO

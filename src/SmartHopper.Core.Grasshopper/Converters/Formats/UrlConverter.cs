@@ -76,7 +76,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SmartHopper/1.5 (+https://github.com/architects-toolkit/SmartHopper)");
 
                 // Check robots.txt
-                Uri robotsUri = new(uri.GetLeftPart(UriPartial.Authority) + "/robots.txt");
+                Uri robotsUri = new (uri.GetLeftPart(UriPartial.Authority) + "/robots.txt");
                 try
                 {
                     var robotsResponse = await httpClient.GetAsync(robotsUri).ConfigureAwait(false);
@@ -154,6 +154,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         textContent = htmlResult.MarkdownContent;
                         result.Metadata = htmlResult.Metadata;
                         result.Warnings = htmlResult.Warnings;
+                        result.IsSuccess = htmlResult.IsSuccess;
                     }
                     finally
                     {
@@ -172,6 +173,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 result.MarkdownContent = textContent;
                 result.Metadata["source"] = url;
                 result.Metadata["format"] = contentFormat;
+                result.IsSuccess = true;
 
                 return result;
             }
@@ -378,7 +380,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
         }
 
-        private static async Task<string?> TryFetchStackExchangeContentAsync(Uri uri, HttpClient httpClient)
+        private async Task<string?> TryFetchStackExchangeContentAsync(Uri uri, HttpClient httpClient)
         {
             if (!TryExtractStackExchangeQuestion(uri, out string? site, out int questionId))
             {
@@ -404,7 +406,20 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                 var question = items[0];
                 var title = question["title"]?.ToString();
-                var markdown = question["body_markdown"]?.ToString() ?? question["body"]?.ToString();
+                var markdown = question["body_markdown"]?.ToString();
+                var htmlBody = question["body"]?.ToString();
+
+                // If body_markdown is empty or contains HTML tags, use body (HTML) and convert it
+                if (string.IsNullOrWhiteSpace(markdown) || markdown.Contains("<p>") || markdown.Contains("<div>"))
+                {
+                    if (!string.IsNullOrWhiteSpace(htmlBody))
+                    {
+                        // Convert HTML to markdown using HtmlConverter
+                        var htmlResult = await this.htmlConverter.ConvertHtmlStringAsync(htmlBody, new FileConversionOptions()).ConfigureAwait(false);
+                        markdown = htmlResult.MarkdownContent;
+                    }
+                }
+
                 if (string.IsNullOrWhiteSpace(markdown))
                 {
                     return null;

@@ -39,13 +39,13 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using SmartHopper.Core.Types;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.DocumentLayoutAnalysis;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.PageSegmenter;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.ReadingOrderDetector;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor;
-using UglyToad.PdfPig.Graphics;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
@@ -327,12 +327,13 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                     if (!string.IsNullOrEmpty(base64Data))
                     {
-                        var extracted = new ExtractedImage(
-                            id: $"img-{imageIndex}",
+                        var extracted = VersatileImage.FromExtractedDocument(
                             base64Data: base64Data,
                             mimeType: mimeType,
+                            id: $"img-{imageIndex}",
                             context: $"Page {pageNumber}",
-                            pageOrSlide: pageNumber);
+                            pageOrSlide: pageNumber,
+                            sourceDocument: null);
                         result.Images.Add(extracted);
                     }
                     else
@@ -591,7 +592,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
             // Blocks with very few words per line (e.g. single-word lines) are
             // equations or captions, not tables.
-            double avgWords = lines.Average(l => l.Words.Count());
+            double avgWords = lines.Average(l => l.Words.Count);
             if (avgWords < 1.5) return false;
 
             return FindConsistentColumnSeparators(lines).Count >= 1;
@@ -705,7 +706,11 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 for (int i = 0; i < clusters.Count; i++)
                 {
                     double d = Math.Abs(x - clusters[i].Centroid);
-                    if (d < nearestDist) { nearestDist = d; nearest = i; }
+                    if (d < nearestDist)
+                    {
+                        nearestDist = d;
+                        nearest = i;
+                    }
                 }
 
                 if (nearest >= 0)

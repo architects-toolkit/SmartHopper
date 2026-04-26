@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -16,13 +16,14 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
-using System.Collections.Generic;
-using SmartHopper.Infrastructure.AICall.Batch;
-using Xunit;
-
 namespace SmartHopper.Infrastructure.Tests.AICall
 {
+    using System;
+    using System.Collections.Generic;
+    using SmartHopper.Infrastructure.AICall.Batch;
+    using SmartHopper.Infrastructure.Diagnostics;
+    using Xunit;
+
     public class AIBatchSubmissionTests
     {
         [Fact(DisplayName = "Constructor_MultiItem_SetsAllProperties")]
@@ -160,13 +161,13 @@ namespace SmartHopper.Infrastructure.Tests.AICall
         public void Constructor_WithMessages_SetsMessages()
         {
             var results = new Dictionary<string, Newtonsoft.Json.Linq.JObject>();
-            var messages = new List<SmartHopper.Infrastructure.AICall.Core.Base.AIRuntimeMessage>
+            var messages = new List<SHRuntimeMessage>
             {
-                new SmartHopper.Infrastructure.AICall.Core.Base.AIRuntimeMessage(
-                    SmartHopper.Infrastructure.AICall.Core.Base.AIRuntimeMessageSeverity.Error,
-                    SmartHopper.Infrastructure.AICall.Core.Base.AIRuntimeMessageOrigin.Provider,
-                    SmartHopper.Infrastructure.AICall.Core.Base.AIMessageCode.Unknown,
-                    "Error")
+                new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Provider,
+                    SHMessageCode.Unknown,
+                    "Error"),
             };
             var status = new AIBatchStatus("batch-123", results, messages);
             Assert.Single(status.Messages);

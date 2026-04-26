@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -44,8 +44,10 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Diagnostics;
 using SmartHopper.Core.IO;
 using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -198,7 +200,6 @@ namespace SmartHopper.Core.ComponentBase
                         Debug.WriteLine($"[{this.GetType().Name}] Resetting async state for fresh Processing transition");
                         this.ResetAsyncState();
                         this.ResetProgress();
-                        this.OnEnteringProcessingState();
 
                         // Safety net for boolean toggle scenarios
                         this.ScheduleProcessingSafetyCheck();
@@ -248,7 +249,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             _ = Task.Run(async () =>
             {
-                await Task.Delay(this.GetDebounceTime());
+                await Task.Delay(this.GetDebounceTime()).ConfigureAwait(false);
 
                 if (this.StateManager.CurrentState == ComponentState.Processing && this.Workers.Count == 0)
                 {
@@ -424,8 +425,8 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            // Get changed inputs from StateManager
-            var changedInputs = this.StateManager.GetChangedInputs();
+            // Get changed inputs using virtual method to allow subclasses to inject virtual inputs
+            var changedInputs = this.InputsChanged();
 
             // When configured to always run, a Run=true pulse should trigger Processing
             // even if the Run? input is driven by volatile data (e.g. GH_Button).
@@ -489,7 +490,7 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Finalizes processing by committing hashes and transitioning to Completed.
+        /// Finalizes processing by committing hashes and transitioning to Completed or Error.
         /// </summary>
         protected override void OnWorkerCompleted()
         {
@@ -499,8 +500,24 @@ namespace SmartHopper.Core.ComponentBase
             // Cancel any pending debounce
             this.StateManager.CancelDebounce();
 
-            // Transition to Completed
-            this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
+            // If any errors were recorded during execution, transition to Error instead of Completed
+            if (this.RuntimeMessageLevel == GH_RuntimeMessageLevel.Error)
+            {
+                // Promote volatile worker messages to the persistent keyed dictionary so they
+                // survive the next SolveInstance cycle triggered by the Error state transition.
+                int idx = 0;
+                foreach (var worker in this.Workers)
+                {
+                    worker.PromoteCollectedToPersistent((level, msg) =>
+                        this.SetPersistentRuntimeMessage($"worker_msg_{idx++}", level, msg, false));
+                }
+
+                this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
+            }
+            else
+            {
+                this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
+            }
 
             base.OnWorkerCompleted();
             Debug.WriteLine("[StatefulComponentBase] Worker completed, expiring solution");
@@ -510,7 +527,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Ensures the state machine does not remain stuck in Processing when the underlying tasks are canceled.
         /// </summary>
-        protected override void OnTasksCanceled()
+        protected override void OnTasksCancelDetected()
         {
             if (this.StateManager.CurrentState == ComponentState.Processing)
             {
@@ -526,7 +543,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Completed state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateCompleted(IGH_DataAccess DA)
+        protected virtual void OnStateCompleted(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted");
 
@@ -543,7 +560,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Waiting state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateWaiting(IGH_DataAccess DA)
+        protected virtual void OnStateWaiting(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateWaiting");
 
@@ -559,7 +576,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the NeedsRun state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateNeedsRun(IGH_DataAccess DA)
+        protected virtual void OnStateNeedsRun(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateNeedsRun");
 
@@ -582,21 +599,12 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Processing state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateProcessing(IGH_DataAccess DA)
+        protected virtual void OnStateProcessing(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateProcessing");
 
             // Delegate to AsyncComponentBase
             base.SolveInstance(DA);
-        }
-
-        /// <summary>
-        /// Called when the component transitions into Processing state from a different state.
-        /// Use this to reset component-specific state that should only be cleared on fresh Processing entry,
-        /// not when the component is already in Processing state.
-        /// </summary>
-        protected virtual void OnEnteringProcessingState()
-        {
         }
 
         /// <summary>
@@ -611,7 +619,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Cancelled state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateCancelled(IGH_DataAccess DA)
+        protected virtual void OnStateCancelled(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateCancelled");
 
@@ -635,7 +643,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Error state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateError(IGH_DataAccess DA)
+        protected virtual void OnStateError(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateError");
             this.ApplyPersistentRuntimeMessages();
@@ -732,7 +740,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Applies stored runtime messages to the component.
         /// </summary>
-        private void ApplyPersistentRuntimeMessages()
+        protected void ApplyPersistentRuntimeMessages()
         {
             Debug.WriteLine($"[{this.GetType().Name}] Applying {this.runtimeMessages.Count} runtime messages");
             foreach (var (level, message) in this.runtimeMessages.Values)
@@ -825,7 +833,7 @@ namespace SmartHopper.Core.ComponentBase
                     $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
                     message.ToGrasshopperLevel(),
                     message.Message,
-                    transitionToError: message.Severity == AIRuntimeMessageSeverity.Error);
+                    transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
             }
 
             return result.Outputs;
@@ -871,7 +879,7 @@ namespace SmartHopper.Core.ComponentBase
                     $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
                     message.ToGrasshopperLevel(),
                     message.Message,
-                    transitionToError: message.Severity == AIRuntimeMessageSeverity.Error);
+                    transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
             }
 
             return result.Outputs;
@@ -914,7 +922,7 @@ namespace SmartHopper.Core.ComponentBase
                     $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
                     message.ToGrasshopperLevel(),
                     message.Message,
-                    transitionToError: message.Severity == AIRuntimeMessageSeverity.Error);
+                    transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
             }
 
             return result;
@@ -1672,6 +1680,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.ExpireSolution(true);
             });
         }
+
 #endif
 
         #endregion

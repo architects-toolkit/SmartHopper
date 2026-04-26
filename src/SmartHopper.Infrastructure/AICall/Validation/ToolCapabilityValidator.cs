@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -24,6 +24,7 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
@@ -41,20 +42,20 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             this.model = model ?? string.Empty;
         }
 
-        public AIRuntimeMessageSeverity FailOn { get; } = AIRuntimeMessageSeverity.Error;
+        public SHRuntimeMessageSeverity FailOn { get; } = SHRuntimeMessageSeverity.Error;
 
         public Task<ValidationResult> ValidateAsync(AIInteractionToolCall instance, ValidationContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var messages = new List<AIRuntimeMessage>();
+            var messages = new List<SHRuntimeMessage>();
 
             if (instance == null)
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.ToolValidationError,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.ToolValidationError,
                     "Tool call instance is null"));
                 var early = new ValidationResult { Messages = messages };
                 early.IsValid = false;
@@ -90,10 +91,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             var ok = ModelManager.Instance.ValidateCapabilities(this.provider, this.model, required);
             if (!ok)
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.CapabilityMismatch,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.CapabilityMismatch,
                     $"Selected model '{this.model}' on provider '{this.provider}' does not support required capabilities ({required}) for tool '{instance.Name}'"));
             }
 

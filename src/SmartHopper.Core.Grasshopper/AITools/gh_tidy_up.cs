@@ -43,6 +43,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_tidy_up";
+
         /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
@@ -221,7 +222,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             modifiedToolCall.SkipMetricsValidation = true;
 
             // Delegate to the general method
-            return await this.GhTidyUpAsync(modifiedToolCall);
+            return await this.GhTidyUpAsync(modifiedToolCall).ConfigureAwait(false);
         }
     }
 }

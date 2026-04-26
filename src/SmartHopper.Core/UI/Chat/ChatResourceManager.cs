@@ -313,11 +313,11 @@ namespace SmartHopper.Core.UI.Chat
             Debug.WriteLine($"[ChatResourceManager] Creating message HTML for role='{roleClass}', displayName='{displayName}', timestamp='{timestamp}'");
 
             // Extract metrics if available
-            string contextUsage = "";
+            string contextUsage = string.Empty;
             if (interaction.Metrics != null)
             {
-                provider = interaction.Metrics.Provider ?? "";
-                model = interaction.Metrics.Model ?? "";
+                provider = interaction.Metrics.Provider ?? string.Empty;
+                model = interaction.Metrics.Model ?? string.Empty;
                 finishReason = interaction.Metrics.FinishReason ?? "unknown";
                 inTokens = interaction.Metrics.InputTokens;
                 outTokens = interaction.Metrics.OutputTokens;

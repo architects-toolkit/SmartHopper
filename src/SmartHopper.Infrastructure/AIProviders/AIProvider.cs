@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -26,6 +26,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core;
@@ -36,6 +37,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Streaming;
 using SmartHopper.Infrastructure.Utils;
@@ -46,9 +48,10 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// Base class for AI providers, encapsulating common logic.
     /// </summary>
     /// <typeparam name="T">The type of the derived provider class.</typeparam>
-    public abstract class AIProvider<T> : AIProvider where T : AIProvider<T>
+    public abstract class AIProvider<T> : AIProvider
+        where T : AIProvider<T>
     {
-        private static readonly Lazy<T> InstanceValue = new(() =>
+        private static readonly Lazy<T> InstanceValue = new (() =>
         {
             try
             {
@@ -57,6 +60,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                 {
                     throw new InvalidOperationException($"Failed to create instance of {typeof(T).FullName}. Activator.CreateInstance returned null.");
                 }
+
                 return instance;
             }
             catch (TargetInvocationException tie) when (tie.InnerException != null)
@@ -121,7 +125,6 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Gets the singleton instance of the provider.
         /// </summary>
         public static T Instance => InstanceValue.Value;
-
     }
 
     /// <summary>
@@ -360,7 +363,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public async Task<IAIReturn> Call(AIRequestCall request)
+        public async Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default)
         {
             // Start stopwatch
             var stopwatch = new Stopwatch();
@@ -370,7 +373,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             request = this.PreCall(request);
 
             // Validate request before calling the API (structured messages)
-            (bool isValid, List<AIRuntimeMessage> messages) = request.IsValid();
+            (bool isValid, List<SHRuntimeMessage> messages) = request.IsValid();
             if (!isValid)
             {
                 stopwatch.Stop();
@@ -388,7 +391,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
 
             // Execute CallApi
-            var response = await this.CallApi(request);
+            var response = await this.CallApi(request, cancellationToken).ConfigureAwait(false);
 
             // For backoffice/admin-style calls, return raw without chat decoding or timestamping
             if (request?.RequestKind == AIRequestKind.Backoffice)
@@ -769,8 +772,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Makes an HTTP request to the specified endpoint with authentication.
         /// </summary>
         /// <param name="request">The request to make.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
         /// <returns>The HTTP response content as a type T.</returns>
-        private async Task<IAIReturn> CallApi(AIRequestCall request)
+        private async Task<IAIReturn> CallApi(AIRequestCall request, CancellationToken cancellationToken = default)
         {
             string endpoint = request.Endpoint;
             string httpMethod = request.HttpMethod;
@@ -858,28 +862,28 @@ namespace SmartHopper.Infrastructure.AIProviders
                     switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
                     {
                         case "GET":
-                            response = await httpClient.GetAsync(fullUri).ConfigureAwait(false);
+                            response = await httpClient.GetAsync(fullUri, cancellationToken).ConfigureAwait(false);
                             break;
                         case "POST":
                             var postContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PostAsync(fullUri, postContent).ConfigureAwait(false);
+                            response = await httpClient.PostAsync(fullUri, postContent, cancellationToken).ConfigureAwait(false);
                             break;
                         case "DELETE":
-                            response = await httpClient.DeleteAsync(fullUri).ConfigureAwait(false);
+                            response = await httpClient.DeleteAsync(fullUri, cancellationToken).ConfigureAwait(false);
                             break;
                         case "PATCH":
                             var patchContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PatchAsync(fullUri, patchContent).ConfigureAwait(false);
+                            response = await httpClient.PatchAsync(fullUri, patchContent, cancellationToken).ConfigureAwait(false);
                             break;
                         default:
                             throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");
                     }
 
-                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                     Debug.WriteLine($"[{this.Name}] Call - Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
@@ -934,6 +938,14 @@ namespace SmartHopper.Infrastructure.AIProviders
                         request: request);
 
                     return aiReturn;
+                }
+                catch (TaskCanceledException ex)
+                {
+                    Debug.WriteLine($"[{this.Name}] Call - TaskCanceledException (Timeout): {ex.Message}");
+                    var errorReturn = new AIReturn();
+                    errorReturn.CreateProviderError($"HTTP Request Timeout: The request to {this.Name} took too long (exceeded {request?.TimeoutSeconds ?? 600} seconds). Try increasing the HTTP timeout in Settings.", request);
+                    errorReturn.Status = AICallStatus.Finished;
+                    return errorReturn;
                 }
                 catch (Exception ex)
                 {

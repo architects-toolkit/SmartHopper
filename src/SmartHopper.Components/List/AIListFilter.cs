@@ -31,12 +31,13 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.List
 {
     public class AIListFilter : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new("CD2E5F8A-94D4-48D7-8E68-8185341245D0");
+        public override Guid ComponentGuid => new ("CD2E5F8A-94D4-48D7-8E68-8185341245D0");
 
         protected override Bitmap Icon => Resources.listfilter;
 
@@ -65,9 +66,12 @@ namespace SmartHopper.Components.List
         };
 
         public AIListFilter()
-            : base("AI List Filter", "AIListFilter",
-                  "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nThis components takes the list as a whole. This means that each criterion will filter each full list.\nIf a tree structure is provided, criteria and lists will only match within the same branch paths.",
-                  "SmartHopper", "List")
+            : base(
+                "AI List Filter",
+                "AIListFilter",
+                "Filter, reorder, shuffle, repeat items or combine multiple tasks on lists of elements using natural language criteria.\nThis components takes the list as a whole. This means that each criterion will filter each full list.\nIf a tree structure is provided, criteria and lists will only match within the same branch paths.",
+                "SmartHopper",
+                "List")
         {
         }
 
@@ -84,7 +88,7 @@ namespace SmartHopper.Components.List
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIListFilterWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIListFilterWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIListFilterWorker : AsyncWorkerBase
@@ -146,7 +150,7 @@ namespace SmartHopper.Components.List
                         async (branches) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
-                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
+                            return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
@@ -156,10 +160,11 @@ namespace SmartHopper.Components.List
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIListFilter parent, CancellationToken cancellationToken)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -232,8 +237,8 @@ namespace SmartHopper.Components.List
 
                     Debug.WriteLine($"[ProcessData] Calling AI tool 'list_filter' with parameters: {parameters}");
 
-                    var toolResult = await parent.CallAiToolAsync(
-                        "list_filter", parameters)
+                    var toolResult = await parent.CallAIToolAsync(
+                        "list_filter", parameters, cancellationToken)
                         .ConfigureAwait(false);
 
                     var indices = toolResult?["result"]?.ToObject<List<int>>() ?? new List<int>();

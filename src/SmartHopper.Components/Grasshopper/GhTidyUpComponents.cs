@@ -43,9 +43,12 @@ namespace SmartHopper.Components.Grasshopper
         /// Initializes a new instance of the <see cref="GhTidyUpComponents"/> class.
         /// </summary>
         public GhTidyUpComponents()
-          : base("Tidy Up", "GhTidyUp",
-                 "Organize selected components into a tidy grid layout\n\n!!! THIS IS STILL EXPERIMENTAL, IT MIGHT MESS UP YOUR DOCUMENT !!!",
-                 "SmartHopper", "Grasshopper")
+            : base(
+                "Tidy Up",
+                "GhTidyUp",
+                "Organize selected components into a tidy grid layout\n\n!!! THIS IS STILL EXPERIMENTAL, IT MIGHT MESS UP YOUR DOCUMENT !!!",
+                "SmartHopper",
+                "Grasshopper")
         {
         }
 

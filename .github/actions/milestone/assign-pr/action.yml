@@ -8,6 +8,10 @@ inputs:
   token:
     description: 'GitHub token with issues:write and pull-requests:write permissions'
     required: true
+  version:
+    description: 'Version to use for milestone assignment (if not provided, reads from Solution.props)'
+    required: false
+    default: ''
   working-directory:
     description: 'Directory containing Solution.props (defaults to repository root)'
     required: false
@@ -17,10 +21,19 @@ inputs:
     required: false
     default: 'true'
 
+outputs:
+  milestone-number:
+    description: 'The assigned milestone number'
+    value: ${{ steps.create-or-get.outputs.milestone-number }}
+  milestone-title:
+    description: 'The assigned milestone title'
+    value: ${{ steps.create-or-get.outputs.milestone-title }}
+
 runs:
   using: 'composite'
   steps:
-    - name: Read version and assign to milestone
+    - name: Read version from Solution.props
+      id: read-version
       uses: actions/github-script@v7
       with:
         github-token: ${{ inputs.token }}
@@ -28,26 +41,33 @@ runs:
           const fs = require('fs');
           const path = require('path');
           
-          const workingDir = '${{ inputs.working-directory }}';
-          const solutionPropsPath = path.join(workingDir, 'Solution.props');
+          let fullVersion = '${{ inputs.version }}';
           
-          if (!fs.existsSync(solutionPropsPath)) {
-            console.log('Solution.props file not found at:', solutionPropsPath);
-            return;
+          // If version not provided as input, read from Solution.props
+          if (!fullVersion) {
+            const workingDir = '${{ inputs.working-directory }}';
+            const solutionPropsPath = path.join(workingDir, 'Solution.props');
+            
+            if (!fs.existsSync(solutionPropsPath)) {
+              console.log('Solution.props file not found at:', solutionPropsPath);
+              return;
+            }
+            
+            const content = fs.readFileSync(solutionPropsPath, 'utf8');
+            console.log('Solution.props content:', content);
+            
+            // Extract version from Solution.props
+            const versionMatch = content.match(/<SolutionVersion>(.*?)<\/SolutionVersion>/);
+            if (!versionMatch) {
+              console.log('Could not find SolutionVersion in Solution.props');
+              return;
+            }
+            
+            fullVersion = versionMatch[1];
+            console.log('Found full version from Solution.props:', fullVersion);
+          } else {
+            console.log('Using provided version:', fullVersion);
           }
-          
-          const content = fs.readFileSync(solutionPropsPath, 'utf8');
-          console.log('Solution.props content:', content);
-          
-          // Extract version from Solution.props
-          const versionMatch = content.match(/<SolutionVersion>(.*?)<\/SolutionVersion>/);
-          if (!versionMatch) {
-            console.log('Could not find SolutionVersion in Solution.props');
-            return;
-          }
-          
-          const fullVersion = versionMatch[1];
-          console.log('Found full version:', fullVersion);
           
           // Parse and process version
           // - Build numbers (e.g., ".250720") are removed because they are not relevant for milestone assignment.
@@ -64,70 +84,37 @@ runs:
           processedVersion = processedVersion.replace('-dev', '-alpha');
           
           console.log('Processed version for milestone:', processedVersion);
-          
-          // Find milestone with matching title (with pagination)
-          let allMilestones = [];
-          let page = 1;
-          let hasMore = true;
-          
-          while (hasMore && page <= 10) {  // Safety limit: max 1000 milestones
-            const { data: pageMilestones } = await github.rest.issues.listMilestones({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'all',
-              sort: 'updated',
-              direction: 'desc',
-              per_page: 100,
-              page: page
-            });
-            allMilestones = allMilestones.concat(pageMilestones);
-            hasMore = pageMilestones.length === 100;
-            page++;
-          }
-          
-          console.log(`Fetched ${allMilestones.length} total milestones`);
-          
-          let targetMilestone = allMilestones.find(milestone => milestone.title === processedVersion);
-          
-          if (!targetMilestone) {
-            console.log(`No milestone found with title: ${processedVersion}`);
-            console.log('Available milestones:', allMilestones.map(m => m.title));
-            
-            // Create the milestone if it doesn't exist
-            console.log(`Creating new milestone: ${processedVersion}`);
-            try {
-              const { data: newMilestone } = await github.rest.issues.createMilestone({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: processedVersion,
-                description: `Milestone for version ${processedVersion}`,
-                state: 'open'
-              });
-              
-              targetMilestone = newMilestone;
-              console.log(`Successfully created milestone: ${targetMilestone.title}`);
-              
-            } catch (error) {
-              console.error('Error creating milestone:', error);
-              core.setFailed(`Failed to create milestone: ${error.message}`);
-              return;
-            }
-          } else {
-            console.log(`Found existing milestone: ${targetMilestone.title} (${targetMilestone.state})`);
-          }
-          
-          // Assign PR to milestone
+          core.setOutput('milestone-title', processedVersion);
+
+    - name: Create or get milestone
+      id: create-or-get
+      if: steps.read-version.outputs.milestone-title != ''
+      uses: ./.github/actions/milestone/create-or-get
+      with:
+        title: ${{ steps.read-version.outputs.milestone-title }}
+        description: 'Milestone for version ${{ steps.read-version.outputs.milestone-title }}'
+        state: 'open'
+        token: ${{ inputs.token }}
+
+    - name: Assign PR to milestone
+      if: steps.create-or-get.outputs.milestone-number != ''
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
           const prNumber = parseInt('${{ inputs.pr-number }}', 10);
+          const milestoneNumber = parseInt('${{ steps.create-or-get.outputs.milestone-number }}', 10);
+          const milestoneTitle = '${{ steps.create-or-get.outputs.milestone-title }}';
           
           try {
             await github.rest.issues.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              milestone: targetMilestone.number
+              milestone: milestoneNumber
             });
             
-            console.log(`Successfully assigned PR #${prNumber} to milestone "${targetMilestone.title}"`);
+            console.log(`Successfully assigned PR #${prNumber} to milestone "${milestoneTitle}"`);
             
             // Add a comment to the PR if requested
             if ('${{ inputs.comment-on-pr }}' === 'true') {
@@ -135,7 +122,7 @@ runs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
-                body: `🏷️ This PR has been automatically assigned to milestone **${targetMilestone.title}** based on the version in \`Solution.props\`.`
+                body: `🏷️ This PR has been automatically assigned to milestone **${milestoneTitle}** based on the version in \`Solution.props\`.`
               });
             }
             

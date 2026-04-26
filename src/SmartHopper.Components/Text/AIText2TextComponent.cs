@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -34,12 +34,13 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Text
 {
     public class AIText2TextComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
+        public override Guid ComponentGuid => new ("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
 
         protected override Bitmap Icon => Resources.textgenerate;
 
@@ -74,14 +75,17 @@ namespace SmartHopper.Components.Text
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
         public AIText2TextComponent()
-            : base("AI Text To Text", "AIText2Text",
-                  "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
-                  "SmartHopper", "Text")
+            : base(
+                "AI Text To Text",
+                "AIText2Text",
+                "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                "SmartHopper",
+                "Text")
         {
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("Result");
             if (results == null || sentinel == null) return;
@@ -119,7 +123,7 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIText2TextWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2TextWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIText2TextWorker : AsyncWorkerBase
@@ -174,7 +178,7 @@ namespace SmartHopper.Components.Text
                         async (branches) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
-                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
+                            return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
@@ -196,10 +200,11 @@ namespace SmartHopper.Components.Text
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIText2TextComponent parent)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIText2TextComponent parent, CancellationToken cancellationToken)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -245,8 +250,8 @@ namespace SmartHopper.Components.Text
                         ["contextFilter"] = "-*",
                     };
 
-                    var toolResult = await parent.CallAiToolAsync(
-                        "text2text", parameters)
+                    var toolResult = await parent.CallAIToolAsync(
+                        "text2text", parameters, cancellationToken)
                         .ConfigureAwait(false);
 
                     string result = toolResult?["result"]?.ToString() ?? string.Empty;

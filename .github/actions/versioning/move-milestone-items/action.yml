@@ -154,9 +154,58 @@ runs:
             return prerelease.split('.')[0].toLowerCase();
           }
           
-          // For alpha, beta, rc: move to next minor alpha
+          // Get next stage in stabilization path
+          function getNextStage(stage) {
+            if (stage === 'alpha') return 'beta';
+            if (stage === 'beta') return 'rc';
+            if (stage === 'rc') return null; // stable (no suffix)
+            return null;
+          }
+          
+          // Check whether a parent stabilization milestone (X.Y.Z, no suffix) is still open
+          async function findOpenStabilizationMilestone(major, minor, patch) {
+            const parentTitle = `${major}.${minor}.${patch}`;
+            const milestones = await github.paginate(
+              github.rest.issues.listMilestones,
+              { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 }
+            );
+            return milestones.find(m => m.title === parentTitle) || null;
+          }
+          
+          // For alpha, beta, rc: check if we're in a stabilization path first
           if (closedVersion.prerelease && closedVersion.prerelease !== 'stable') {
             const stage = getStage(closedVersion.prerelease);
+            const parentMilestone = await findOpenStabilizationMilestone(
+              closedVersion.major, closedVersion.minor, closedVersion.patch
+            );
+            
+            if (parentMilestone) {
+              // Stabilization path: route to same series next stage
+              const nextStage = getNextStage(stage);
+              const nextStageSuffix = nextStage ? `-${nextStage}` : '';
+              const nextStageTitle = `${closedVersion.major}.${closedVersion.minor}.${closedVersion.patch}${nextStageSuffix}`;
+              console.log(`Stabilization path detected (parent milestone '${parentMilestone.title}' is open). Routing to: ${nextStageTitle}`);
+              targetMilestone = await findMilestone(nextStageTitle);
+              if (!targetMilestone) {
+                targetMilestone = await createMilestone(nextStageTitle, `Stabilization path milestone for ${nextStageTitle}`);
+              }
+            } else {
+              // Normal dev path: move to next minor alpha
+              const nextMinorAlpha = {
+                major: closedVersion.major,
+                minor: closedVersion.minor + 1,
+                patch: 0,
+                prerelease: 'alpha'
+              };
+              const nextMinorAlphaTitle = formatVersion(nextMinorAlpha);
+              console.log(`Closed milestone is ${closedVersion.prerelease} (stage: ${stage}), looking for next minor alpha: ${nextMinorAlphaTitle}`);
+              targetMilestone = await findMilestone(nextMinorAlphaTitle);
+              if (!targetMilestone) {
+                targetMilestone = await createMilestone(nextMinorAlphaTitle, `Next minor alpha version after ${closedMilestoneTitle}`);
+              }
+            }
+          } else {
+            // For stable: always route to next minor alpha (create if needed)
             const nextMinorAlpha = {
               major: closedVersion.major,
               minor: closedVersion.minor + 1,
@@ -164,37 +213,10 @@ runs:
               prerelease: 'alpha'
             };
             const nextMinorAlphaTitle = formatVersion(nextMinorAlpha);
-            
-            console.log(`Closed milestone is ${closedVersion.prerelease} (stage: ${stage}), looking for next minor alpha: ${nextMinorAlphaTitle}`);
-            
+            console.log(`Closed stable milestone, routing to: ${nextMinorAlphaTitle}`);
             targetMilestone = await findMilestone(nextMinorAlphaTitle);
             if (!targetMilestone) {
               targetMilestone = await createMilestone(nextMinorAlphaTitle, `Next minor alpha version after ${closedMilestoneTitle}`);
-            }
-          } else {
-            // For stable: try next minor then patch
-            const nextMinor = {
-              major: closedVersion.major,
-              minor: closedVersion.minor + 1,
-              patch: 0,
-              prerelease: 'alpha'
-            }; // Stable releases default to next minor alpha
-            const nextMinorTitle = formatVersion(nextMinor);
-            
-            targetMilestone = await findMilestone(nextMinorTitle);
-            if (!targetMilestone) {
-              const nextPatch = {
-                major: closedVersion.major,
-                minor: closedVersion.minor,
-                patch: closedVersion.patch + 1,
-                prerelease: null
-              };
-              const nextPatchTitle = formatVersion(nextPatch);
-              targetMilestone = await findMilestone(nextPatchTitle);
-              
-              if (!targetMilestone) {
-                targetMilestone = await createMilestone(nextMinorTitle);
-              }
             }
           }
           

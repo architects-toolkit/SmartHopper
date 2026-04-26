@@ -47,27 +47,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
-            // yield return new AITool(
-            //     name: "gh_parameter_data_mapping_none",
-            //     description: "Set a parameter's data mapping to None",
-            //     category: "Parameters",
-            //     parametersSchema: @"{
-            //         ""type"": ""object"",
-            //         ""properties"": {
-            //             ""componentGuid"": { ""type"": ""string"", ""description"": ""GUID of the component"" },
-            //             ""parameterIndex"": { ""type"": ""integer"", ""description"": ""Index of the parameter (0-based)"" },
-            //             ""isInput"": { ""type"": ""boolean"", ""description"": ""true for input, false for output"", ""default"": true }
-            //         },
-            //         ""required"": [""componentGuid"", ""parameterIndex""]
-            //     }",
-            //     execute: this.DataMapperNoneParameterAsync, // Missing funciton
-            //     requiredCapabilities: this.toolCapabilityRequirements);
-
             yield return new AITool(
                 name: "gh_parameter_data_mapping_flatten",
                 description: "Set a parameter's data mapping to Flatten",
-
-                // category: "Parameters",
                 category: "NotTested",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -84,8 +66,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_data_mapping_graft",
                 description: "Set a parameter's data mapping to Graft",
-
-                // category: "Parameters",
                 category: "NotTested",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -102,8 +82,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_reverse",
                 description: "Reverse the order of items in a parameter",
-
-                // category: "Parameters",
                 category: "NotTested",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -121,8 +99,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             yield return new AITool(
                 name: "gh_parameter_simplify",
                 description: "Simplify geometry in a parameter (removes redundant control points)",
-
-                // category: "Parameters",
                 category: "NotTested",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -140,7 +116,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
         private async Task<AIReturn> FlattenParameterAsync(AIToolCall toolCall)
         {
-            return await ExecuteParameterModification(toolCall, "gh_parameter_flatten", (args) =>
+            return await this.ExecuteParameterModification(toolCall, "gh_parameter_flatten", (args) =>
             {
                 var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
                 var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
@@ -161,12 +137,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Instances.RedrawCanvas();
 
                 return $"Flattened {(isInput ? "input" : "output")} parameter '{param.Name}'";
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task<AIReturn> GraftParameterAsync(AIToolCall toolCall)
         {
-            return await ExecuteParameterModification(toolCall, "gh_parameter_graft", (args) =>
+            return await this.ExecuteParameterModification(toolCall, "gh_parameter_graft", (args) =>
             {
                 var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
                 var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
@@ -187,12 +163,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Instances.RedrawCanvas();
 
                 return $"Grafted {(isInput ? "input" : "output")} parameter '{param.Name}'";
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task<AIReturn> ReverseParameterAsync(AIToolCall toolCall)
         {
-            return await ExecuteParameterModification(toolCall, "gh_parameter_reverse", (args) =>
+            return await this.ExecuteParameterModification(toolCall, "gh_parameter_reverse", (args) =>
             {
                 var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
                 var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
@@ -214,12 +190,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Instances.RedrawCanvas();
 
                 return $"{(enable ? "Enabled" : "Disabled")} reverse for {(isInput ? "input" : "output")} parameter '{param.Name}'";
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task<AIReturn> SimplifyParameterAsync(AIToolCall toolCall)
         {
-            return await ExecuteParameterModification(toolCall, "gh_parameter_simplify", (args) =>
+            return await this.ExecuteParameterModification(toolCall, "gh_parameter_simplify", (args) =>
             {
                 var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
                 var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
@@ -241,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Instances.RedrawCanvas();
 
                 return $"{(enable ? "Enabled" : "Disabled")} simplify for {(isInput ? "input" : "output")} parameter '{param.Name}'";
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task<AIReturn> ExecuteParameterModification(AIToolCall toolCall, string toolName, Func<JObject, string> operation)
@@ -277,7 +253,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 });
 
-                return await tcs.Task;
+                return await tcs.Task.ConfigureAwait(false);
             }
             catch (Exception ex)
             {

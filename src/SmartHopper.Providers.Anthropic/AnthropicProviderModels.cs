@@ -310,7 +310,10 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     var id = item["id"]?.ToString();
                     var model = id;
-                    if (!string.IsNullOrWhiteSpace(model)) models.Add(model);
+                    if (!string.IsNullOrWhiteSpace(model))
+                    {
+                        models.Add(model);
+                    }
                 }
 
                 return models

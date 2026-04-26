@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -38,7 +38,9 @@ using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Providers.OpenAI
 {
@@ -137,6 +139,16 @@ namespace SmartHopper.Providers.OpenAI
             {
                 request.Endpoint = "/images/generations";
             }
+            else if (request.Capability.HasFlag(AICapability.SpeechInput))
+            {
+                // Speech-to-Text (STT) endpoint
+                request.Endpoint = "/audio/transcriptions";
+            }
+            else if (request.Capability.HasFlag(AICapability.SpeechOutput))
+            {
+                // Text-to-Speech (TTS) endpoint
+                request.Endpoint = "/audio/speech";
+            }
             else if (request.Endpoint == "/models")
             {
                 request.HttpMethod = "GET";
@@ -164,6 +176,14 @@ namespace SmartHopper.Providers.OpenAI
             {
                 return this.FormatImageGenerationRequestBody(request);
             }
+            else if (request.Endpoint == "/audio/transcriptions")
+            {
+                return this.FormatAudioTranscriptionRequestBody(request);
+            }
+            else if (request.Endpoint == "/audio/speech")
+            {
+                return this.FormatAudioSpeechRequestBody(request);
+            }
             else
             {
                 // Convert interactions to OpenAI format (simple sequential encoding like MistralAI)
@@ -183,7 +203,7 @@ namespace SmartHopper.Providers.OpenAI
         private JToken? EncodeToJToken(IAIInteraction interaction)
         {
             // Skip UI-only diagnostics
-            if (interaction is AIInteractionError)
+            if (interaction is AIInteractionRuntimeMessage)
             {
                 return null;
             }
@@ -349,7 +369,7 @@ namespace SmartHopper.Providers.OpenAI
                         AIInteractionToolResult trDbg => $"ToolResult(id={trDbg.Id}, name={trDbg.Name})",
                         AIInteractionToolCall tcDbg => $"ToolCall(id={tcDbg.Id}, name={tcDbg.Name})",
                         AIInteractionText txtDbg => $"Text(agent={txtDbg.Agent}, len={txtDbg.Content?.Length ?? 0})",
-                        AIInteractionError => $"Error",
+                        AIInteractionRuntimeMessage rm => $"Diagnostic({rm.Severity})",
                         _ => it?.GetType().Name ?? "null"
                     };
                     Debug.WriteLine($"  [{debugIdx}] {typeStr}");
@@ -387,7 +407,7 @@ namespace SmartHopper.Providers.OpenAI
                     var hasToolCalls = msg?["tool_calls"] != null;
                     var toolCallId = msg?["tool_call_id"]?.ToString();
                     var content = msg?["content"]?.ToString();
-                    var preview = content != null ? (content.Length > 50 ? content.Substring(0, 50) + "..." : content) : "";
+                    var preview = content != null ? (content.Length > 50 ? content.Substring(0, 50) + "..." : content) : string.Empty;
 
                     if (hasToolCalls)
                     {
@@ -406,7 +426,10 @@ namespace SmartHopper.Providers.OpenAI
                     }
                 }
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #endif
 
             return messages;
@@ -432,7 +455,7 @@ namespace SmartHopper.Providers.OpenAI
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
                     Debug.WriteLine($"[OpenAI] Decode: provider error in response body: {msg}");
-                    interactions.Add(new AIInteractionError { Content = msg });
+                    interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
                     return interactions;
                 }
 
@@ -446,6 +469,11 @@ namespace SmartHopper.Providers.OpenAI
                         .Build();
                     dummyRequest.Body = body;
                     return this.ProcessImageGenerationResponseData(response, dummyRequest);
+                }
+                else if (response["text"] != null && response["task"] != null)
+                {
+                    // Audio transcription response (STT)
+                    return this.ProcessAudioTranscriptionResponseData(response);
                 }
                 else if (response["choices"] != null)
                 {
@@ -598,21 +626,44 @@ namespace SmartHopper.Providers.OpenAI
             if (p?.Extras != null)
             {
                 if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                {
                     requestBody["top_p"] = topPToken.Value<double?>();
+                }
+
                 if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                {
                     requestBody["presence_penalty"] = ppToken;
+                }
+
                 if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                {
                     requestBody["frequency_penalty"] = fpToken;
+                }
+
                 if (p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
+                {
                     requestBody["logprobs"] = logprobsToken.Value<bool?>();
+                }
+
                 if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
+                {
                     requestBody["top_logprobs"] = topLogprobsToken.Value<int?>();
+                }
+
                 if (p.Extras.TryGetValue("n", out var nToken) && nToken != null)
+                {
                     requestBody["n"] = nToken.Value<int?>();
+                }
+
                 if (p.Extras.TryGetValue("prompt_cache_retention", out var cacheRetentionToken) && cacheRetentionToken != null)
+                {
                     requestBody["prompt_cache_retention"] = cacheRetentionToken.ToString();
+                }
+
                 if (p.Extras.TryGetValue("prompt_cache_key", out var cacheKeyToken) && cacheKeyToken != null)
+                {
                     requestBody["prompt_cache_key"] = cacheKeyToken.ToString();
+                }
             }
 
             // Add response format if JSON schema is provided
@@ -629,10 +680,10 @@ namespace SmartHopper.Providers.OpenAI
                     // Auto-inject missing keys and record a warning so it surfaces in the component.
                     if (InjectRequiredForAllProperties(schemaObj))
                     {
-                        request.Messages.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Warning,
-                            AIRuntimeMessageOrigin.Provider,
-                            AIMessageCode.SchemaRequiredAutoAdded,
+                        request.Messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Warning,
+                            SHRuntimeMessageOrigin.Provider,
+                            SHMessageCode.SchemaRequiredAutoAdded,
                             "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
                         Debug.WriteLine("[OpenAI] InjectRequiredForAllProperties: auto-added missing keys to required arrays");
                     }
@@ -676,7 +727,21 @@ namespace SmartHopper.Providers.OpenAI
                 if (tools != null && tools.Count > 0)
                 {
                     requestBody["tools"] = tools;
-                    requestBody["tool_choice"] = "auto";
+
+                    // Handle forced tool call: OpenAI uses tool_choice with type and function name
+                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
+                    {
+                        requestBody["tool_choice"] = new JObject
+                        {
+                            ["type"] = "function",
+                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
+                        };
+                        Debug.WriteLine($"[OpenAI] Forcing tool call: {request.ForceToolName}");
+                    }
+                    else
+                    {
+                        requestBody["tool_choice"] = "auto";
+                    }
                 }
             }
 
@@ -740,6 +805,95 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             Debug.WriteLine($"[OpenAI] ImageGeneration Request: {requestPayload}");
+            return requestPayload.ToString();
+        }
+
+        /// <summary>
+        /// Formats request body for audio transcription (STT) endpoint.
+        /// </summary>
+        private string FormatAudioTranscriptionRequestBody(AIRequestCall request)
+        {
+            // For audio transcription, the API expects multipart/form-data
+            // but we prepare the JSON structure here for the request body metadata
+            var requestPayload = new JObject
+            {
+                ["model"] = request.Model,
+                ["response_format"] = "json",
+            };
+
+            // Add optional language hint if provided in extras
+            if (request.Parameters?.Extras != null)
+            {
+                if (request.Parameters.Extras.TryGetValue("language", out var langToken) && langToken != null)
+                {
+                    requestPayload["language"] = langToken.ToString();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("prompt", out var promptToken) && promptToken != null)
+                {
+                    requestPayload["prompt"] = promptToken.ToString();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("temperature", out var tempToken) && tempToken != null)
+                {
+                    requestPayload["temperature"] = tempToken.Value<double?>();
+                }
+            }
+
+            Debug.WriteLine($"[OpenAI] AudioTranscription Request: {requestPayload}");
+            return requestPayload.ToString();
+        }
+
+        /// <summary>
+        /// Formats request body for audio speech (TTS) endpoint.
+        /// </summary>
+        private string FormatAudioSpeechRequestBody(AIRequestCall request)
+        {
+            // Get the text input from the request body
+            string input = string.Empty;
+            if (request.Body.Interactions.Count > 0)
+            {
+                var firstInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionText);
+                if (firstInteraction is AIInteractionText textInteraction)
+                {
+                    input = textInteraction.Content ?? string.Empty;
+                }
+            }
+
+            // Default voice
+            string voice = "alloy";
+            string responseFormat = "mp3";
+            double speed = 1.0;
+
+            // Get voice and format from extras if provided
+            if (request.Parameters?.Extras != null)
+            {
+                if (request.Parameters.Extras.TryGetValue("voice", out var voiceToken) && voiceToken != null)
+                {
+                    voice = voiceToken.ToString();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("response_format", out var formatToken) && formatToken != null)
+                {
+                    responseFormat = formatToken.ToString();
+                }
+
+                if (request.Parameters.Extras.TryGetValue("speed", out var speedToken) && speedToken != null)
+                {
+                    speed = speedToken.Value<double?>() ?? 1.0;
+                }
+            }
+
+            var requestPayload = new JObject
+            {
+                ["model"] = request.Model,
+                ["input"] = input,
+                ["voice"] = voice,
+                ["response_format"] = responseFormat,
+                ["speed"] = speed,
+            };
+
+            Debug.WriteLine($"[OpenAI] AudioSpeech Request: model={request.Model}, voice={voice}, input length={input.Length}");
             return requestPayload.ToString();
         }
 
@@ -847,7 +1001,7 @@ namespace SmartHopper.Providers.OpenAI
                         }
                     }
 
-                    content = string.Join("", contentParts).Trim();
+                    content = string.Join(string.Empty, contentParts).Trim();
                     reasoning = string.Join("\n\n", reasoningParts).Trim();
                 }
                 else if (contentToken != null)
@@ -975,11 +1129,50 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
+        /// Processes audio transcription response data (STT) and converts to interactions.
+        /// </summary>
+        private List<IAIInteraction> ProcessAudioTranscriptionResponseData(JObject responseJson)
+        {
+            var interactions = new List<IAIInteraction>();
+
+            try
+            {
+                Debug.WriteLine($"[OpenAI] ProcessAudioTranscriptionResponseData - Processing response");
+
+                // Extract transcribed text from response
+                // OpenAI transcription response: {"text": "transcribed text", "task": "transcribe", ...}
+                var text = responseJson["text"]?.ToString() ?? string.Empty;
+
+                if (string.IsNullOrEmpty(text))
+                {
+                    Debug.WriteLine($"[OpenAI] No transcription text in response: {responseJson}");
+                    return interactions;
+                }
+
+                var interaction = new AIInteractionText();
+                interaction.SetResult(
+                    agent: AIAgent.Assistant,
+                    content: text);
+
+                interactions.Add(interaction);
+
+                Debug.WriteLine($"[OpenAI] Transcription result: '{text.Substring(0, Math.Min(50, text.Length))}...'");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] ProcessAudioTranscriptionResponseData error: {ex.Message}");
+            }
+
+            return interactions;
+        }
+
+        /// <summary>
         /// Provider-scoped streaming adapter for OpenAI Chat Completions SSE.
         /// </summary>
         private sealed class OpenAIStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
         {
-            public OpenAIStreamingAdapter(OpenAIProvider provider) : base(provider)
+            public OpenAIStreamingAdapter(OpenAIProvider provider)
+                : base(provider)
             {
             }
 
@@ -1315,12 +1508,18 @@ namespace SmartHopper.Providers.OpenAI
 
                                 // Force immediate first emit for snappy UX
                                 var emitted = await FlushAsync(force: true).ConfigureAwait(false);
-                                foreach (var d in emitted) { yield return d; }
+                                foreach (var d in emitted)
+                                {
+                                    yield return d;
+                                }
                             }
                             else
                             {
                                 var emitted = await FlushAsync(force: false).ConfigureAwait(false);
-                                foreach (var d in emitted) { yield return d; }
+                                foreach (var d in emitted)
+                                {
+                                    yield return d;
+                                }
                             }
                         }
                         else if (hasReasoningUpdate)
@@ -1388,7 +1587,10 @@ namespace SmartHopper.Providers.OpenAI
 
                         // If we know we're heading to tool calls, flush text first
                         var emittedTc = await FlushAsync(force: true).ConfigureAwait(false);
-                        foreach (var d in emittedTc) { yield return d; }
+                        foreach (var d in emittedTc)
+                        {
+                            yield return d;
+                        }
 
                         // Emit current tool call snapshot with CallingTools status
                         var interactions = new List<IAIInteraction>();
@@ -1397,7 +1599,18 @@ namespace SmartHopper.Providers.OpenAI
                             var (id, name, argsSb) = kv.Value;
                             JObject argsObj = null;
                             var argsStr = argsSb.ToString();
-                            try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON, ignore */ }
+                            try
+                            {
+                                if (!string.IsNullOrWhiteSpace(argsStr))
+                                {
+                                    argsObj = JObject.Parse(argsStr);
+                                }
+                            }
+                            catch
+                            {
+                                // Partial JSON, ignore
+                            }
+
                             interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
                         }
 
@@ -1409,7 +1622,10 @@ namespace SmartHopper.Providers.OpenAI
 
                 // Final flush
                 var finalEmitted = await FlushAsync(force: true).ConfigureAwait(false);
-                foreach (var d in finalEmitted) { yield return d; }
+                foreach (var d in finalEmitted)
+                {
+                    yield return d;
+                }
 
                 // Emit final Finished marker with the complete assistant interaction
                 var final = new AIReturn
@@ -1461,7 +1677,18 @@ namespace SmartHopper.Providers.OpenAI
                     var (id, name, argsSb) = kv.Value;
                     JObject argsObj = null;
                     var argsStr = argsSb.ToString();
-                    try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON */ }
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(argsStr))
+                        {
+                            argsObj = JObject.Parse(argsStr);
+                        }
+                    }
+                    catch
+                    {
+                        // Partial JSON
+                    }
+
                     finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
                 }
 
@@ -1571,8 +1798,7 @@ namespace SmartHopper.Providers.OpenAI
 
             if (!response.IsSuccessStatusCode)
             {
-                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                    $"HTTP {(int)response.StatusCode}: {content}");
+                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, $"HTTP {(int)response.StatusCode}: {content}");
             }
 
             var json = JObject.Parse(content);
@@ -1593,74 +1819,35 @@ namespace SmartHopper.Providers.OpenAI
                 case "completed":
                 {
                     var outputFileId = json["output_file_id"]?.ToString();
-                    if (string.IsNullOrEmpty(outputFileId))
+                    var errorFileId = json["error_file_id"]?.ToString();
+                    if (string.IsNullOrEmpty(outputFileId) && string.IsNullOrEmpty(errorFileId))
                     {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            "Batch completed but output_file_id is missing");
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, "Batch completed but neither output_file_id nor error_file_id is present");
                     }
 
-                    // Download and parse output JSONL
-                    var fileUrl = this.BuildFullUrl($"/files/{outputFileId}/content");
-                    var fileResponse = await client.GetAsync(fileUrl, cancellationToken).ConfigureAwait(false);
-                    var fileContent = await fileResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-                    if (!fileResponse.IsSuccessStatusCode)
+                    // Download both output and error files via the public interface method;
+                    // parsing/merging is delegated to ParseBatchResultsFiles.
+                    IReadOnlyList<string> files;
+                    try
                     {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            $"Failed to download output file ({(int)fileResponse.StatusCode}): {fileContent}");
+                        files = await this.DownloadBatchResultsAsync(submission, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, $"Failed to download batch result files: {ex.Message}");
                     }
 
-                    // Each output line: {"custom_id": "sh-...", "response": {"status_code": 200, "body": {...}}}
-                    // or error: {"custom_id": "sh-...", "response": {"status_code": 4xx, "body": {...}}, "error": {...}}
-                    var resultsDict = new Dictionary<string, JObject>();
-                    var batchMessages = new List<AIRuntimeMessage>();
-                    foreach (var line in fileContent.Split('\n'))
+                    var parsed = this.ParseBatchResultsFiles(files, submission.BatchId);
+                    if ((parsed.Results?.Count ?? 0) == 0 && (parsed.Messages?.Count ?? 0) == 0)
                     {
-                        var trimmed = line.Trim();
-                        if (string.IsNullOrEmpty(trimmed)) continue;
-                        try
-                        {
-                            var resultLine = JObject.Parse(trimmed);
-                            var lineCustomId = resultLine["custom_id"]?.ToString();
-                            if (string.IsNullOrEmpty(lineCustomId)) continue;
-                            var responseObj = resultLine["response"] as JObject;
-                            var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
-                            var resultBody = responseObj?["body"] as JObject;
-                            if (statusCode >= 200 && statusCode < 300 && resultBody != null)
-                            {
-                                resultsDict[lineCustomId] = resultBody;
-                            }
-                            else
-                            {
-                                // Extract error message from response body or top-level error field
-                                var errorMsg = resultBody?["error"]?["message"]?.ToString()
-                                    ?? resultLine["error"]?["message"]?.ToString()
-                                    ?? $"HTTP {statusCode}";
-                                batchMessages.Add(new AIRuntimeMessage(
-                                    AIRuntimeMessageSeverity.Error,
-                                    AIRuntimeMessageOrigin.Provider,
-                                    AIMessageCode.BatchItemError,
-                                    $"Batch item {lineCustomId}: {errorMsg}"));
-                            }
-                        }
-                        catch { /* skip malformed lines */ }
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, "No results found in batch output/error files");
                     }
 
-                    if (resultsDict.Count == 0 && batchMessages.Count == 0)
-                    {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            "No results found in batch output file");
-                    }
-
-                    return new AIBatchStatus(
-                        submission.BatchId,
-                        new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict),
-                        batchMessages.Count > 0 ? batchMessages.AsReadOnly() : null);
+                    return parsed;
                 }
 
                 case "failed":
-                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                        json["errors"]?.ToString());
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, json["errors"]?.ToString());
 
                 case "expired":
                     return new AIBatchStatus(submission.BatchId, AIBatchState.Expired);
@@ -1698,6 +1885,136 @@ namespace SmartHopper.Providers.OpenAI
             }
         }
 
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<string>> DownloadBatchResultsAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = this.CreateBatchHttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            // Re-fetch batch status to obtain output_file_id and error_file_id.
+            var statusUrl = this.BuildFullUrl($"/batches/{submission.BatchId}");
+            var statusResponse = await client.GetAsync(statusUrl, cancellationToken).ConfigureAwait(false);
+            var statusContent = await statusResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!statusResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"HTTP {(int)statusResponse.StatusCode}: {statusContent}");
+            }
+
+            var statusJson = JObject.Parse(statusContent);
+            var outputFileId = statusJson["output_file_id"]?.ToString();
+            var errorFileId = statusJson["error_file_id"]?.ToString();
+
+            var files = new List<string>(2);
+
+            // Canonical order: success output first, error file last.
+            foreach (var fileId in new[] { outputFileId, errorFileId })
+            {
+                if (string.IsNullOrEmpty(fileId))
+                {
+                    continue;
+                }
+
+                var fileUrl = this.BuildFullUrl($"/files/{fileId}/content");
+                var fileResponse = await client.GetAsync(fileUrl, cancellationToken).ConfigureAwait(false);
+                var fileContent = await fileResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!fileResponse.IsSuccessStatusCode)
+                {
+                    throw new InvalidOperationException($"Failed to download file '{fileId}' ({(int)fileResponse.StatusCode}): {fileContent}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(fileContent))
+                {
+                    files.Add(fileContent);
+                }
+            }
+
+            return files;
+        }
+
+        /// <inheritdoc/>
+        public AIBatchStatus ParseBatchResultsFiles(IReadOnlyList<string> fileContents, string batchId = null)
+        {
+            if (fileContents == null || fileContents.Count == 0)
+            {
+                return new AIBatchStatus(batchId, AIBatchState.Failed, "No file contents provided");
+            }
+
+            var merged = new Dictionary<string, JObject>();
+            var messages = new List<SHRuntimeMessage>();
+
+            foreach (var content in fileContents)
+            {
+                AIBatchStatusMerge.MergeInto(this.ParseSingleBatchResultFile(content, batchId), merged, messages);
+            }
+
+            return new AIBatchStatus(
+                batchId,
+                new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(merged),
+                messages.Count > 0 ? messages.AsReadOnly() : null);
+        }
+
+        /// <summary>
+        /// Parses a single OpenAI batch result JSONL file. Each line has the shape
+        /// <c>{"custom_id":"sh-...", "response":{"status_code":N, "body":{...}}, "error":...}</c>.
+        /// Success bodies (2xx) populate <see cref="AIBatchStatus.Results"/>; non-2xx lines emit
+        /// provider-origin error <see cref="SHRuntimeMessage"/>s. Finish reasons (e.g., "length")
+        /// are extracted from successful responses and surfaced as warnings.
+        /// </summary>
+        private AIBatchStatus ParseSingleBatchResultFile(string content, string batchId)
+        {
+            var results = new Dictionary<string, JObject>();
+            var messages = new List<SHRuntimeMessage>();
+
+            foreach (var resultLine in JsonFormatHelper.ParseJsonLines(content))
+            {
+                var lineCustomId = resultLine["custom_id"]?.ToString();
+                if (string.IsNullOrEmpty(lineCustomId))
+                {
+                    continue;
+                }
+
+                var responseObj = resultLine["response"] as JObject;
+                var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
+                var resultBody = responseObj?["body"] as JObject;
+
+                if (statusCode >= 200 && statusCode < 300 && resultBody != null)
+                {
+                    results[lineCustomId] = resultBody;
+
+                    // Extract finish_reason and surface as warning for non-stop reasons
+                    var choices = resultBody["choices"] as JArray;
+                    var firstChoice = choices?.FirstOrDefault() as JObject;
+                    var finishReason = firstChoice?["finish_reason"]?.ToString();
+
+                    if (!string.IsNullOrEmpty(finishReason) && finishReason != "stop")
+                    {
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Warning,
+                            SHRuntimeMessageOrigin.Provider,
+                            SHMessageCode.BatchItemFinishReason,
+                            $"Batch item {lineCustomId}: completed with finish_reason='{finishReason}'"));
+                    }
+                }
+                else
+                {
+                    var errorMsg = resultBody?["error"]?["message"]?.ToString()
+                        ?? resultLine["error"]?["message"]?.ToString()
+                        ?? $"HTTP {statusCode}";
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.BatchItemError,
+                        $"Batch item {lineCustomId}: {errorMsg}"));
+                }
+            }
+
+            return new AIBatchStatus(batchId, results, messages);
+        }
+
         #endregion
 
         /// <inheritdoc/>
@@ -1706,39 +2023,66 @@ namespace SmartHopper.Providers.OpenAI
             return new[]
             {
                 // General parameters (shared across providers)
-                new AIExtraDescriptor("top_p", "Top P",
+                new AIExtraDescriptor(
+                    "top_p",
+                    "Top P",
                     "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
-                    typeof(double), null),
-                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "presence_penalty",
+                    "Presence Penalty",
                     "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
-                    typeof(double), null),
-                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "frequency_penalty",
+                    "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
-                    typeof(double), null),
+                    typeof(double),
+                    null),
 
                 // OpenAI-specific parameters
-                new AIExtraDescriptor("n", "N (Completions)",
+                new AIExtraDescriptor(
+                    "n",
+                    "N (Completions)",
                     "Number of completions to generate for each prompt. Useful for getting multiple variations.",
-                    typeof(int), null),
-                new AIExtraDescriptor("logprobs", "Log Probabilities",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "logprobs",
+                    "Log Probabilities",
                     "Return log probabilities of output tokens. Useful for analyzing model confidence.",
-                    typeof(bool), null),
-                new AIExtraDescriptor("top_logprobs", "Top Logprobs",
+                    typeof(bool),
+                    null),
+                new AIExtraDescriptor(
+                    "top_logprobs",
+                    "Top Logprobs",
                     "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
-                    typeof(int), null),
-                new AIExtraDescriptor("reasoning_effort", "Reasoning Effort",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "reasoning_effort",
+                    "Reasoning Effort",
                     "Reasoning token budget for o-series and gpt-5 models. 'low' is fastest, 'high' is most thorough.",
-                    typeof(string), "medium",
+                    typeof(string),
+                    "medium",
                     new[] { "low", "medium", "high" }),
 
                 // OpenAI prompt caching parameters
-                new AIExtraDescriptor("prompt_cache_retention", "Cache Retention",
+                new AIExtraDescriptor(
+                    "prompt_cache_retention",
+                    "Cache Retention",
                     "Cache retention policy for repeated prompt prefixes. 'in_memory' (5-10 min, default) or '24h' (extended, for gpt-4.1+). Recommended for batch jobs.",
-                    typeof(string), null,
+                    typeof(string),
+                    null,
                     new[] { "in_memory", "24h" }),
-                new AIExtraDescriptor("prompt_cache_key", "Cache Key",
+                new AIExtraDescriptor(
+                    "prompt_cache_key",
+                    "Cache Key",
                     "Optional string to improve cache routing when many requests share a long common prefix. Combine with '24h' retention for batch jobs.",
-                    typeof(string), null),
+                    typeof(string),
+                    null),
             };
         }
     }

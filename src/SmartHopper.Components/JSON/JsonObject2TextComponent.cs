@@ -44,10 +44,11 @@ namespace SmartHopper.Components.JSON
         /// </summary>
         public JsonObject2TextComponent()
             : base(
-                  "JSON To Text",
-                  "Json2Text",
-                  "Serialize a JSON value to a Grasshopper string.\nWhen Pretty is true, outputs human-readable indented JSON.",
-                  "SmartHopper", "JSON")
+                "JSON To Text",
+                "Json2Text",
+                "Serialize a JSON value to a Grasshopper string.\nWhen Pretty is true, outputs human-readable indented JSON.",
+                "SmartHopper",
+                "JSON")
         {
         }
 

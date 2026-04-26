@@ -37,6 +37,8 @@ namespace SmartHopper.Components.Test.Providers
     {
         public override Guid ComponentGuid => new Guid("9B40A72D-F7AA-4C37-BFFF-A3C58DA6838F");
 
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+
         public TestAnthropicDecodeComponent()
             : base("Test Anthropic Decode", "TEST-ANTHROPIC-DEC", "Tests Anthropic response decoding to AIReturn", "SmartHopper", "Test/Providers")
         {
@@ -56,7 +58,7 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -68,7 +70,7 @@ namespace SmartHopper.Components.Test.Providers
             public Worker(TestAnthropicDecodeComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -107,8 +109,8 @@ namespace SmartHopper.Components.Test.Providers
                     // Verify decoding
                     if (interactions == null || interactions.Count == 0)
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded interactions is null or empty"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Decoded interactions is null or empty"));
                         await Task.Yield();
                         return;
                     }
@@ -116,28 +118,28 @@ namespace SmartHopper.Components.Test.Providers
                     var textInteraction = interactions.OfType<AIInteractionText>().FirstOrDefault();
                     if (textInteraction == null || string.IsNullOrEmpty(textInteraction.Content))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded text interaction is empty"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Decoded text interaction is empty"));
                         await Task.Yield();
                         return;
                     }
 
                     if (!textInteraction.Content.Contains("Anthropic test response"))
                     {
-                        _success = new GH_Boolean(false);
-                        _messages.Add(new GH_String("Decoded content doesn't match expected response"));
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Decoded content doesn't match expected response"));
                         await Task.Yield();
                         return;
                     }
 
-                    _success = new GH_Boolean(true);
-                    _messages.Add(new GH_String("Anthropic decoding successful"));
-                    _messages.Add(new GH_String($"Decoded content: {textInteraction.Content.Substring(0, Math.Min(50, textInteraction.Content.Length))}..."));
+                    this._success = new GH_Boolean(true);
+                    this._messages.Add(new GH_String("Anthropic decoding successful"));
+                    this._messages.Add(new GH_String($"Decoded content: {textInteraction.Content.Substring(0, Math.Min(50, textInteraction.Content.Length))}..."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Error: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
 
@@ -146,9 +148,9 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Anthropic decoding test passed" : "Anthropic decoding test failed";
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Anthropic decoding test passed" : "Anthropic decoding test failed";
             }
         }
     }

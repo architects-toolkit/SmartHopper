@@ -81,7 +81,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIDiscoursePostSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIDiscoursePostSummarizeWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIDiscoursePostSummarizeWorker : AsyncWorkerBase
@@ -180,7 +180,7 @@ namespace SmartHopper.Components.Knowledge
                                     parameters["instructions"] = this.instructions;
                                 }
 
-                                var toolResult = await this.parent.CallAiToolAsync("discourse_post_summarize", parameters).ConfigureAwait(false);
+                                var toolResult = await this.parent.CallAIToolAsync("discourse_post_summarize", parameters, token).ConfigureAwait(false);
 
                                 if (toolResult == null)
                                 {

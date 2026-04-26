@@ -24,6 +24,7 @@ using System.Text;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using SmartHopper.Core.Types;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
@@ -277,12 +278,13 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         string mimeType = imagePart.ContentType ?? "image/png";
                         string base64Data = System.Convert.ToBase64String(bytes);
 
-                        var extracted = new ExtractedImage(
-                            id: $"img-{imageIndex}",
+                        var extracted = VersatileImage.FromExtractedDocument(
                             base64Data: base64Data,
                             mimeType: mimeType,
+                            id: $"img-{imageIndex}",
                             context: "Document body",
-                            pageOrSlide: 0);
+                            pageOrSlide: 0,
+                            sourceDocument: null);
                         result.Images.Add(extracted);
                     }
                     catch (Exception ex)

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -32,6 +32,7 @@ using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -258,7 +259,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Accumulate metrics across all iterations
                 var accumulatedMetrics = new AIMetrics();
-                var allMessages = new List<AIRuntimeMessage>();
+                var allMessages = new List<SHRuntimeMessage>();
 
                 // 1. Generate initial request
                 var initialUserPrompt = this.userPrompt;

@@ -28,6 +28,7 @@
  */
 
 using System.Collections.Generic;
+using SmartHopper.Core.Types;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {
@@ -60,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
         /// Gets or sets images extracted from the document.
         /// Only populated when <see cref="FileConversionOptions.ExtractImages"/> is enabled.
         /// </summary>
-        public List<ExtractedImage> Images { get; set; } = new List<ExtractedImage>();
+        public List<VersatileImage> Images { get; set; } = new List<VersatileImage>();
 
         /// <summary>
         /// Gets or sets a value indicating whether the conversion was successful.

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -33,6 +34,8 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -68,7 +71,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Web2MdWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new Web2MdWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class Web2MdWorker : AsyncWorkerBase
@@ -136,6 +139,7 @@ namespace SmartHopper.Components.Knowledge
                                 {
                                     if (ghUrl == null || string.IsNullOrWhiteSpace(ghUrl.Value))
                                     {
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, "Skipping empty or null URL.", SHRuntimeMessageOrigin.Worker);
                                         outputs["Markdown"].Add(new GH_String(string.Empty));
                                         outputs["Format"].Add(new GH_String(string.Empty));
                                         continue;
@@ -164,12 +168,23 @@ namespace SmartHopper.Components.Knowledge
                                     toolCall.SkipMetricsValidation = true;
 
                                     AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
+
+                                    if (!aiResult.Success)
+                                    {
+                                        var errMsgs = aiResult.Messages.Where(m => m.Severity == SHRuntimeMessageSeverity.Error).Select(m => m.Message).ToList();
+                                        var errStr = errMsgs.Count > 0 ? string.Join("; ", errMsgs) : "Unknown error";
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Error fetching '{url}': {errStr}");
+                                        outputs["Markdown"].Add(new GH_String(string.Empty));
+                                        outputs["Format"].Add(new GH_String(string.Empty));
+                                        continue;
+                                    }
+
                                     var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
                                     var toolResult = toolResultInteraction?.Result;
 
                                     if (toolResult == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Tool 'web2md' returned no result for '{url}'.");
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Tool 'web2md' returned no result for '{url}'.", SHRuntimeMessageOrigin.Tool);
                                         outputs["Markdown"].Add(new GH_String(string.Empty));
                                         outputs["Format"].Add(new GH_String(string.Empty));
                                         continue;
@@ -182,15 +197,9 @@ namespace SmartHopper.Components.Knowledge
                                     outputs["Markdown"].Add(new GH_String(content));
                                     outputs["Format"].Add(new GH_String(format));
 
-                                    // Add warnings if present
-                                    var warnings = toolResult["warnings"] as JArray;
-                                    if (warnings != null && warnings.Count > 0)
-                                    {
-                                        foreach (var warning in warnings)
-                                        {
-                                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, warning.ToString());
-                                        }
-                                    }
+                                    // Extract and collect any messages from tool result
+                                    var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                                    foreach (var m in toolMessages) this.CollectMessage(m);
                                 }
                             }
 
@@ -215,7 +224,7 @@ namespace SmartHopper.Components.Knowledge
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[Web2Md] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 

@@ -28,18 +28,23 @@ using SmartHopper.Core.ComponentBase;
 namespace SmartHopper.Components.Test.DataProcessor
 {
     /// <summary>
-    /// Test: GH_Path equality comparison works correctly.
+    /// Test GH_Path equality comparison works correctly.
     /// </summary>
     public class GH_Path_EqualityTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("E19C7C94-E670-4F97-8061-CE81078C29B7");
+
         protected override Bitmap Icon => null;
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+
+        public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public GH_Path_EqualityTestComponent()
-            : base("Test: GH_Path Equality", "TEST-GH-PATH-EQ",
-                  "Tests that GH_Path equality comparison works correctly.",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test GH_Path Equality",
+                "TEST-GH-PATH-EQ",
+                "Tests that GH_Path equality comparison works correctly.",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -57,7 +62,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -70,21 +75,21 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(GH_Path_EqualityTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
                 dataCount = 1;
-                DA.GetData("Run?", ref _shouldRun);
+                DA.GetData("Run?", ref this._shouldRun);
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
-                if (!_shouldRun)
+                if (!this._shouldRun)
                 {
-                    _success = new GH_Boolean(false);
-                    _message = new GH_String("Test not run (Run = false)");
+                    this._success = new GH_Boolean(false);
+                    this._message = new GH_String("Test not run (Run = false)");
                     await Task.Yield();
                     return;
                 }
@@ -100,19 +105,19 @@ namespace SmartHopper.Components.Test.DataProcessor
 
                     if (equal && notEqual)
                     {
-                        _success = new GH_Boolean(true);
-                        _message = new GH_String("✓ PASS: GH_Path equality works correctly");
+                        this._success = new GH_Boolean(true);
+                        this._message = new GH_String("✓ PASS: GH_Path equality works correctly");
                     }
                     else
                     {
-                        _success = new GH_Boolean(false);
-                        _message = new GH_String($"✗ FAIL: Expected equal=true and notEqual=true, got equal={equal} and notEqual={notEqual}");
+                        this._success = new GH_Boolean(false);
+                        this._message = new GH_String($"✗ FAIL: Expected equal=true and notEqual=true, got equal={equal} and notEqual={notEqual}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _message = new GH_String($"✗ FAIL: {ex.Message}");
+                    this._success = new GH_Boolean(false);
+                    this._message = new GH_String($"✗ FAIL: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
 
@@ -121,9 +126,9 @@ namespace SmartHopper.Components.Test.DataProcessor
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Message", _message, DA);
-                message = _message.Value;
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Message", this._message, DA);
+                message = this._message.Value;
             }
         }
     }

@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -69,7 +70,6 @@ namespace SmartHopper.Components.Knowledge
         {
             pManager.AddTextParameter("Base URL", "U", "REQUIRED Base URL of the Discourse forum (e.g., https://discourse.example.com).", GH_ParamAccess.item);
             pManager.AddTextParameter("Query", "Q", "REQUIRED search query or queries for the Discourse forum.", GH_ParamAccess.tree);
-            pManager.AddIntegerParameter("Limit", "L", "Maximum number of posts to return per query (default: 10, max: 50).", GH_ParamAccess.item, 10);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -79,7 +79,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new DiscourseSearchWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new DiscourseSearchWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class DiscourseSearchWorker : AsyncWorkerBase
@@ -88,7 +88,6 @@ namespace SmartHopper.Components.Knowledge
             private readonly ProcessingOptions processingOptions;
             private string baseUrl;
             private Dictionary<string, GH_Structure<GH_String>> inputTrees;
-            private int limit;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultPosts;
@@ -110,16 +109,12 @@ namespace SmartHopper.Components.Knowledge
 
                 var queryTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("Query", out queryTree);
-                int localLimit = 10;
-                DA.GetData(2, ref localLimit);
 
                 this.baseUrl = localBaseUrl ?? string.Empty;
                 this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Query", queryTree ?? new GH_Structure<GH_String>() },
                 };
-
-                this.limit = localLimit;
 
                 this.hasWork = !string.IsNullOrWhiteSpace(this.baseUrl) &&
                                queryTree != null &&
@@ -129,7 +124,7 @@ namespace SmartHopper.Components.Knowledge
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base URL and Query are required.");
                 }
 
-                Debug.WriteLine($"[DiscourseSearchWorker] GatherInput - BaseUrl={this.baseUrl}, QueryTreeCount={queryTree?.DataCount ?? 0}, Limit={this.limit}, HasWork={this.hasWork}");
+                Debug.WriteLine($"[DiscourseSearchWorker] GatherInput - BaseUrl={this.baseUrl}, QueryTreeCount={queryTree?.DataCount ?? 0}, HasWork={this.hasWork}");
 
                 dataCount = 0;
             }
@@ -166,24 +161,23 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[DiscourseSearchWorker] DoWorkAsync starting. Query='{queryValue}', Limit={this.limit}");
+                                Debug.WriteLine($"[DiscourseSearchWorker] DoWorkAsync starting. Query='{queryValue}'");
                                 var parameters = new JObject
                                 {
                                     ["base_url"] = this.baseUrl,
                                     ["query"] = queryValue,
-                                    ["limit"] = this.limit,
                                 };
 
                                 var toolCallInteraction = new AIInteractionToolCall
                                 {
-                                    Name = "discourse_search",
+                                    Name = "discourse_forum_search",
                                     Arguments = parameters,
                                     Agent = AIAgent.Assistant,
                                 };
 
                                 var toolCall = new AIToolCall
                                 {
-                                    Endpoint = "discourse_search",
+                                    Endpoint = "discourse_forum_search",
                                 };
 
                                 toolCall.FromToolCallInteraction(toolCallInteraction);
@@ -197,7 +191,7 @@ namespace SmartHopper.Components.Knowledge
                                 catch (Exception ex)
                                 {
                                     Debug.WriteLine($"[DiscourseSearchWorker] Error executing tool: {ex}");
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                                     continue;
                                 }
 
@@ -221,7 +215,7 @@ namespace SmartHopper.Components.Knowledge
 
                                 if (toolResult == null)
                                 {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_search' returned no result.");
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'discourse_forum_search' returned no result.", SHRuntimeMessageOrigin.Tool);
                                     continue;
                                 }
 
@@ -247,7 +241,7 @@ namespace SmartHopper.Components.Knowledge
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[DiscourseSearchWorker] Error: {ex}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 

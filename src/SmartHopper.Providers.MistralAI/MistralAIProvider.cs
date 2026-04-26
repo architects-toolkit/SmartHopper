@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -35,8 +35,11 @@ using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Providers.MistralAI
 {
@@ -109,9 +112,24 @@ namespace SmartHopper.Providers.MistralAI
                     request.RequestKind = AIRequestKind.Backoffice;
                     break;
                 default:
-                    // Setup proper httpmethod, content type, and authentication
+                    // Determine endpoint based on request capability
+                    if (request.Capability.HasFlag(AICapability.SpeechInput))
+                    {
+                        // Speech-to-Text (STT) endpoint
+                        request.Endpoint = "/audio/transcriptions";
+                    }
+                    else if (request.Capability.HasFlag(AICapability.SpeechOutput))
+                    {
+                        // Text-to-Speech (TTS) endpoint
+                        request.Endpoint = "/audio/speech";
+                    }
+                    else
+                    {
+                        // Default to chat completions
+                        request.Endpoint = "/chat/completions";
+                    }
+
                     request.HttpMethod = "POST";
-                    request.Endpoint = "/chat/completions";
                     break;
             }
 
@@ -149,7 +167,7 @@ namespace SmartHopper.Providers.MistralAI
             }
 
             // UI-only diagnostics must not be sent to providers
-            if (interaction is AIInteractionError)
+            if (interaction is AIInteractionRuntimeMessage)
             {
                 return null;
             }
@@ -289,7 +307,6 @@ namespace SmartHopper.Providers.MistralAI
             }
 
             // Encode request body for Mistral. Supports string and AIText content in interactions.
-
             var p = request.Parameters;
 
             int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
@@ -328,19 +345,39 @@ namespace SmartHopper.Providers.MistralAI
             {
                 // Mistral uses random_seed, not seed
                 if (p.Extras.TryGetValue("random_seed", out var seedToken) && seedToken != null)
+                {
                     requestBody["random_seed"] = seedToken.Value<int?>();
+                }
+
                 if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                {
                     requestBody["top_p"] = topPToken.Value<double?>();
+                }
+
                 if (p.Extras.TryGetValue("frequency_penalty", out var freqPenaltyToken) && freqPenaltyToken != null)
+                {
                     requestBody["frequency_penalty"] = freqPenaltyToken.Value<double?>();
+                }
+
                 if (p.Extras.TryGetValue("presence_penalty", out var presPenaltyToken) && presPenaltyToken != null)
+                {
                     requestBody["presence_penalty"] = presPenaltyToken.Value<double?>();
+                }
+
                 if (p.Extras.TryGetValue("n", out var nToken) && nToken != null)
+                {
                     requestBody["n"] = nToken.Value<int?>();
+                }
+
                 if (p.Extras.TryGetValue("safe_prompt", out var spToken) && spToken != null)
+                {
                     requestBody["safe_prompt"] = spToken;
+                }
+
                 if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
+                {
                     requestBody["service_tier"] = stToken;
+                }
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -387,7 +424,21 @@ namespace SmartHopper.Providers.MistralAI
                 if (tools != null && tools.Count > 0)
                 {
                     requestBody["tools"] = tools;
-                    requestBody["tool_choice"] = "auto";
+
+                    // Handle forced tool call: MistralAI uses tool_choice as "any" or "required" or specific function
+                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
+                    {
+                        requestBody["tool_choice"] = new JObject
+                        {
+                            ["type"] = "function",
+                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
+                        };
+                        Debug.WriteLine($"[MistralAI] Forcing tool call: {request.ForceToolName}");
+                    }
+                    else
+                    {
+                        requestBody["tool_choice"] = "auto";
+                    }
                 }
             }
 
@@ -415,15 +466,15 @@ namespace SmartHopper.Providers.MistralAI
                               ?? errorObj["type"]?.ToString()
                               ?? "Provider returned an error";
                     Debug.WriteLine($"[MistralAI] Decode: provider error in response body: {msg}");
-                    interactions.Add(new AIInteractionError { Content = msg });
+                    interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
                     return interactions;
                 }
 
-                if (string.Equals(response["object"]?.ToString(), "error", StringComparison.OrdinalIgnoreCase))
+                if (response["message"] != null && response["code"] != null)
                 {
                     var msg = response["message"]?.ToString() ?? "Provider returned an error";
                     Debug.WriteLine($"[MistralAI] Decode: provider error in response body: {msg}");
-                    interactions.Add(new AIInteractionError { Content = msg });
+                    interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
                     return interactions;
                 }
 
@@ -459,7 +510,10 @@ namespace SmartHopper.Providers.MistralAI
                                     if (t is JObject to && string.Equals(to["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
                                     {
                                         var textVal = to["text"]?.ToString();
-                                        if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
+                                        if (!string.IsNullOrEmpty(textVal))
+                                        {
+                                            reasoningParts.Add(textVal);
+                                        }
                                     }
                                     else
                                     {
@@ -528,8 +582,14 @@ namespace SmartHopper.Providers.MistralAI
                             }
                             else
                             {
-                                try { argsObj = JObject.Parse(s); }
-                                catch { /* leave null if unparsable */ }
+                                try
+                                {
+                                    argsObj = JObject.Parse(s);
+                                }
+                                catch
+                                {
+                                    // Leave null if unparsable
+                                }
                             }
                         }
 
@@ -586,7 +646,8 @@ namespace SmartHopper.Providers.MistralAI
         {
             private readonly MistralAIProvider provider;
 
-            public MistralAIStreamingAdapter(MistralAIProvider provider) : base(provider)
+            public MistralAIStreamingAdapter(MistralAIProvider provider)
+                : base(provider)
             {
                 this.provider = provider;
             }
@@ -797,19 +858,28 @@ namespace SmartHopper.Providers.MistralAI
                                             if (t is JObject to && string.Equals(to["type"]?.ToString(), "text", StringComparison.OrdinalIgnoreCase))
                                             {
                                                 var textVal = to["text"]?.ToString();
-                                                if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                                if (!string.IsNullOrEmpty(textVal))
+                                    {
+                                        newReasoning += textVal;
+                                    }
                                             }
                                             else
                                             {
                                                 var textVal = t?.ToString();
-                                                if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                                if (!string.IsNullOrEmpty(textVal))
+                                    {
+                                        newReasoning += textVal;
+                                    }
                                             }
                                         }
                                     }
                                     else
                                     {
                                         var textVal = thinkingToken?.ToString();
-                                        if (!string.IsNullOrEmpty(textVal)) newReasoning += textVal;
+                                        if (!string.IsNullOrEmpty(textVal))
+                                    {
+                                        newReasoning += textVal;
+                                    }
                                     }
                                 }
                                 else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
@@ -835,13 +905,19 @@ namespace SmartHopper.Providers.MistralAI
                                 }
 
                                 var idVal = tcTok["id"]?.ToString();
-                                if (!string.IsNullOrEmpty(idVal)) entry.Id = idVal;
+                                if (!string.IsNullOrEmpty(idVal))
+                                {
+                                    entry.Id = idVal;
+                                }
 
                                 var func = tcTok["function"] as JObject;
                                 if (func != null)
                                 {
                                     var nameVal = func[(object)"name"]?.ToString();
-                                    if (!string.IsNullOrEmpty(nameVal)) entry.Name = nameVal;
+                                    if (!string.IsNullOrEmpty(nameVal))
+                                    {
+                                        entry.Name = nameVal;
+                                    }
 
                                     var argsTok = func[(object)"arguments"];
                                     if (argsTok != null)
@@ -849,7 +925,10 @@ namespace SmartHopper.Providers.MistralAI
                                         var frag = argsTok.Type == JTokenType.String
                                             ? argsTok.ToString()
                                             : argsTok.ToString(Newtonsoft.Json.Formatting.None);
-                                        if (!string.IsNullOrEmpty(frag)) entry.Args.Append(frag);
+                                        if (!string.IsNullOrEmpty(frag))
+                                        {
+                                            entry.Args.Append(frag);
+                                        }
                                     }
                                 }
 
@@ -1008,8 +1087,14 @@ namespace SmartHopper.Providers.MistralAI
                             var argsStr = argsSb?.ToString() ?? string.Empty;
                             if (!string.IsNullOrWhiteSpace(argsStr))
                             {
-                                try { argsObj = JObject.Parse(argsStr); }
-                                catch { argsObj = new JObject(); }
+                                try
+                                {
+                                    argsObj = JObject.Parse(argsStr);
+                                }
+                                catch
+                                {
+                                    argsObj = new JObject();
+                                }
                             }
 
                             var toolCall = new AIInteractionToolCall
@@ -1202,8 +1287,7 @@ namespace SmartHopper.Providers.MistralAI
 
             if (!response.IsSuccessStatusCode)
             {
-                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                    $"HTTP {(int)response.StatusCode}: {content}");
+                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, $"HTTP {(int)response.StatusCode}: {content}");
             }
 
             var json = JObject.Parse(content);
@@ -1223,79 +1307,34 @@ namespace SmartHopper.Providers.MistralAI
                 case "SUCCESS":
                 {
                     var outputFileId = json["output_file"]?.ToString();
-                    if (string.IsNullOrEmpty(outputFileId))
+                    var errorFileId = json["error_file"]?.ToString();
+                    if (string.IsNullOrEmpty(outputFileId) && string.IsNullOrEmpty(errorFileId))
                     {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            "Batch succeeded but output_file is missing");
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, "Batch succeeded but neither output_file nor error_file is present");
                     }
 
-                    // Download and parse output JSONL
-                    var fileUrl = this.BuildFullUrl($"/files/{outputFileId}/content");
-                    var fileResponse = await client.GetAsync(fileUrl, cancellationToken).ConfigureAwait(false);
-                    var fileContent = await fileResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-                    if (!fileResponse.IsSuccessStatusCode)
+                    // Delegate download + parse to the interface methods
+                    IReadOnlyList<string> files;
+                    try
                     {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            $"Failed to download output file ({(int)fileResponse.StatusCode}): {fileContent}");
+                        files = await this.DownloadBatchResultsAsync(submission, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, $"Failed to download batch result files: {ex.Message}");
                     }
 
-                    // Each output line: {"custom_id": "sh-...", "response": {"status_code": 200, "body": {...}}}
-                    // or error: {"custom_id": "sh-...", "response": {"status_code": 4xx, "body": {...}}, "error": {...}}
-                    var resultsDict = new Dictionary<string, JObject>();
-                    var batchMessages = new List<AIRuntimeMessage>();
-                    foreach (var line in fileContent.Split('\n'))
+                    var parsed = this.ParseBatchResultsFiles(files, submission.BatchId);
+                    if ((parsed.Results?.Count ?? 0) == 0 && (parsed.Messages?.Count ?? 0) == 0)
                     {
-                        var trimmed = line.Trim();
-                        if (string.IsNullOrEmpty(trimmed)) continue;
-                        try
-                        {
-                            var resultLine = JObject.Parse(trimmed);
-                            var lineCustomId = resultLine["custom_id"]?.ToString();
-                            if (string.IsNullOrEmpty(lineCustomId)) continue;
-
-                            var responseObj = resultLine["response"] as JObject;
-                            var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
-
-                            // Mistral output may wrap response inside "response"."body" or directly
-                            var resultBody = responseObj?["body"] as JObject
-                                ?? resultLine["body"] as JObject;
-
-                            if (statusCode >= 200 && statusCode < 300 && resultBody != null)
-                            {
-                                resultsDict[lineCustomId] = resultBody;
-                            }
-                            else
-                            {
-                                // Extract error message from response body or top-level error field
-                                var errorMsg = resultBody?["error"]?["message"]?.ToString()
-                                    ?? resultLine["error"]?["message"]?.ToString()
-                                    ?? $"HTTP {statusCode}";
-                                batchMessages.Add(new AIRuntimeMessage(
-                                    AIRuntimeMessageSeverity.Error,
-                                    AIRuntimeMessageOrigin.Provider,
-                                    AIMessageCode.BatchItemError,
-                                    $"Batch item {lineCustomId}: {errorMsg}"));
-                            }
-                        }
-                        catch { /* skip malformed lines */ }
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, "No results found in batch output/error files");
                     }
 
-                    if (resultsDict.Count == 0 && batchMessages.Count == 0)
-                    {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            "No results found in batch output file");
-                    }
-
-                    return new AIBatchStatus(
-                        submission.BatchId,
-                        new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict),
-                        batchMessages.Count > 0 ? batchMessages.AsReadOnly() : null);
+                    return parsed;
                 }
 
                 case "FAILED":
-                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                        json["error"]?.ToString());
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, json["error"]?.ToString());
 
                 case "TIMEOUT_EXCEEDED":
                     return new AIBatchStatus(submission.BatchId, AIBatchState.Expired);
@@ -1332,6 +1371,137 @@ namespace SmartHopper.Providers.MistralAI
             }
         }
 
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<string>> DownloadBatchResultsAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = this.CreateBatchHttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+
+            // Re-fetch batch status to obtain output_file and error_file.
+            var statusUrl = this.BuildFullUrl($"/batch/jobs/{submission.BatchId}");
+            var statusResponse = await client.GetAsync(statusUrl, cancellationToken).ConfigureAwait(false);
+            var statusContent = await statusResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!statusResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"HTTP {(int)statusResponse.StatusCode}: {statusContent}");
+            }
+
+            var statusJson = JObject.Parse(statusContent);
+            var outputFileId = statusJson["output_file"]?.ToString();
+            var errorFileId = statusJson["error_file"]?.ToString();
+
+            var files = new List<string>(2);
+
+            // Canonical order: success output first, error file last.
+            foreach (var fileId in new[] { outputFileId, errorFileId })
+            {
+                if (string.IsNullOrEmpty(fileId))
+                {
+                    continue;
+                }
+
+                var fileUrl = this.BuildFullUrl($"/files/{fileId}/content");
+                var fileResponse = await client.GetAsync(fileUrl, cancellationToken).ConfigureAwait(false);
+                var fileContent = await fileResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!fileResponse.IsSuccessStatusCode)
+                {
+                    throw new InvalidOperationException($"Failed to download file '{fileId}' ({(int)fileResponse.StatusCode}): {fileContent}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(fileContent))
+                {
+                    files.Add(fileContent);
+                }
+            }
+
+            return files;
+        }
+
+        /// <inheritdoc/>
+        public AIBatchStatus ParseBatchResultsFiles(IReadOnlyList<string> fileContents, string batchId = null)
+        {
+            if (fileContents == null || fileContents.Count == 0)
+            {
+                return new AIBatchStatus(batchId, AIBatchState.Failed, "No file contents provided");
+            }
+
+            var merged = new Dictionary<string, JObject>();
+            var messages = new List<SHRuntimeMessage>();
+
+            foreach (var content in fileContents)
+            {
+                AIBatchStatusMerge.MergeInto(this.ParseSingleBatchResultFile(content, batchId), merged, messages);
+            }
+
+            return new AIBatchStatus(
+                batchId,
+                new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(merged),
+                messages.Count > 0 ? messages.AsReadOnly() : null);
+        }
+
+        /// <summary>
+        /// Parses a single Mistral batch result JSONL file. Line shape matches OpenAI:
+        /// <c>{"custom_id":"sh-...", "response":{"status_code":N, "body":{...}}, "error":...}</c>.
+        /// Finish reasons (e.g., "length") are extracted from successful responses and surfaced as warnings.
+        /// </summary>
+        private AIBatchStatus ParseSingleBatchResultFile(string content, string batchId)
+        {
+            var results = new Dictionary<string, JObject>();
+            var messages = new List<SHRuntimeMessage>();
+
+            foreach (var resultLine in JsonFormatHelper.ParseJsonLines(content))
+            {
+                var lineCustomId = resultLine["custom_id"]?.ToString();
+                if (string.IsNullOrEmpty(lineCustomId))
+                {
+                    continue;
+                }
+
+                var responseObj = resultLine["response"] as JObject;
+                var statusCode = responseObj?["status_code"]?.Value<int>() ?? 0;
+
+                // Mistral output may wrap response inside "response"."body" or directly
+                var resultBody = responseObj?["body"] as JObject
+                    ?? resultLine["body"] as JObject;
+
+                if (statusCode >= 200 && statusCode < 300 && resultBody != null)
+                {
+                    results[lineCustomId] = resultBody;
+
+                    // Extract finish_reason and surface as warning for non-stop reasons
+                    var choices = resultBody["choices"] as JArray;
+                    var firstChoice = choices?.FirstOrDefault() as JObject;
+                    var finishReason = firstChoice?["finish_reason"]?.ToString();
+
+                    if (!string.IsNullOrEmpty(finishReason) && finishReason != "stop")
+                    {
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Warning,
+                            SHRuntimeMessageOrigin.Provider,
+                            SHMessageCode.BatchItemFinishReason,
+                            $"Batch item {lineCustomId}: completed with finish_reason='{finishReason}'"));
+                    }
+                }
+                else
+                {
+                    var errorMsg = resultBody?["error"]?["message"]?.ToString()
+                        ?? resultLine["error"]?["message"]?.ToString()
+                        ?? $"HTTP {statusCode}";
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.BatchItemError,
+                        $"Batch item {lineCustomId}: {errorMsg}"));
+                }
+            }
+
+            return new AIBatchStatus(batchId, results, messages);
+        }
+
         #endregion
 
         /// <inheritdoc/>
@@ -1340,29 +1510,50 @@ namespace SmartHopper.Providers.MistralAI
             return new[]
             {
                 // General parameters (shared across providers)
-                new AIExtraDescriptor("random_seed", "Random Seed",
+                new AIExtraDescriptor(
+                    "random_seed",
+                    "Random Seed",
                     "Reproducibility seed for deterministic sampling. Mistral uses random_seed instead of seed. Leave empty for random.",
-                    typeof(int), null),
-                new AIExtraDescriptor("top_p", "Top P",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "top_p",
+                    "Top P",
                     "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
-                    typeof(double), null),
-                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "frequency_penalty",
+                    "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
-                    typeof(double), null),
-                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "presence_penalty",
+                    "Presence Penalty",
                     "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
-                    typeof(double), null),
+                    typeof(double),
+                    null),
 
                 // Mistral-specific parameters
-                new AIExtraDescriptor("n", "N (Completions)",
+                new AIExtraDescriptor(
+                    "n",
+                    "N (Completions)",
                     "Number of completions to generate for each prompt. Useful for getting multiple variations.",
-                    typeof(int), null),
-                new AIExtraDescriptor("safe_prompt", "Safe Prompt",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "safe_prompt",
+                    "Safe Prompt",
                     "Inject a safety system prompt before all conversations to reduce unsafe responses.",
-                    typeof(bool), null),
-                new AIExtraDescriptor("service_tier", "Service Tier",
+                    typeof(bool),
+                    null),
+                new AIExtraDescriptor(
+                    "service_tier",
+                    "Service Tier",
                     "Service tier for request processing. May affect speed/availability.",
-                    typeof(string), null),
+                    typeof(string),
+                    null),
             };
         }
     }

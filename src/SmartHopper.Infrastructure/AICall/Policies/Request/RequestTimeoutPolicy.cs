@@ -57,10 +57,12 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 normalized = settingValue is int timeout ? timeout : DefaultTimeout;
                 rq.TimeoutSeconds = normalized;
 
+                // Applying the settings default is routine — emit as a non-surfaceable debug
+                // diagnostic so it is captured in logs/analytics without being shown to end users.
                 if (rq.Body != null)
                 {
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddError($"Timeout applied: {normalized}s (from settings)")
+                        .AddDebug($"Timeout applied: {normalized}s (from settings)")
                         .Build();
                 }
 
@@ -76,9 +78,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 rq.TimeoutSeconds = MinTimeout;
                 if (rq.Body != null)
                 {
-                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
+                    // Surface as a warning: the request's explicit timeout was adjusted to the allowed minimum.
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddError($"Timeout increased from {original}s to {MinTimeout}s (minimum)")
+                        .AddWarning($"Timeout increased from {original}s to {MinTimeout}s (minimum)")
                         .Build();
                 }
             }
@@ -87,9 +89,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 rq.TimeoutSeconds = MaxTimeout;
                 if (rq.Body != null)
                 {
-                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
+                    // Surface as a warning: the request's explicit timeout was clamped to the allowed maximum.
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddError($"Timeout reduced from {original}s to {MaxTimeout}s (maximum)")
+                        .AddWarning($"Timeout reduced from {original}s to {MaxTimeout}s (maximum)")
                         .Build();
                 }
             }

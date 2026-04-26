@@ -182,7 +182,7 @@ namespace SmartHopper.Providers.Gemini
             }
 
             // UI-only diagnostics must not be sent to providers
-            if (interaction is AIInteractionError)
+            if (interaction is AIInteractionRuntimeMessage)
             {
                 return null;
             }
@@ -286,6 +286,59 @@ namespace SmartHopper.Providers.Gemini
                         parts.Add(new JObject { { "text", imageInteraction.ImageUrl.ToString() } });
                         Debug.WriteLine($"[GeminiProvider] Warning: Failed to fetch image from URL, sending URL as text: {imageInteraction.ImageUrl}");
                     }
+                }
+            }
+            else if (interaction is AIInteractionAudio audioInteraction)
+            {
+                // Handle audio input for STT
+                string base64Data = null;
+                string mimeType = audioInteraction.MimeType ?? "audio/wav";
+
+                if (audioInteraction.Data != null && audioInteraction.Data.Length > 0)
+                {
+                    base64Data = Convert.ToBase64String(audioInteraction.Data);
+                }
+                else if (!string.IsNullOrWhiteSpace(audioInteraction.FilePath))
+                {
+                    try
+                    {
+                        var audioBytes = System.IO.File.ReadAllBytes(audioInteraction.FilePath);
+                        base64Data = Convert.ToBase64String(audioBytes);
+
+                        // Try to infer MIME type from file extension if not set
+                        if (string.IsNullOrWhiteSpace(audioInteraction.MimeType))
+                        {
+                            var ext = System.IO.Path.GetExtension(audioInteraction.FilePath).ToLowerInvariant();
+                            mimeType = ext switch
+                            {
+                                ".wav" => "audio/wav",
+                                ".mp3" => "audio/mpeg",
+                                ".ogg" => "audio/ogg",
+                                ".flac" => "audio/flac",
+                                ".m4a" => "audio/mp4",
+                                _ => "audio/wav",
+                            };
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[GeminiProvider] Error reading audio file: {ex.Message}");
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(base64Data))
+                {
+                    parts.Add(new JObject
+                    {
+                        {
+                            "inline_data", new JObject
+                            {
+                                { "mime_type", mimeType },
+                                { "data", base64Data },
+                            }
+                        },
+                    });
+                    Debug.WriteLine($"[GeminiProvider] Encoded audio input: {mimeType}");
                 }
             }
 
@@ -415,6 +468,48 @@ namespace SmartHopper.Providers.Gemini
                     }
                 }
             }
+            else if (request.Capability.HasFlag(AICapability.SpeechOutput))
+            {
+                // TTS: Text-to-Speech output
+                var modalities = new JArray { "AUDIO" };
+                if (request.Capability.HasFlag(AICapability.TextOutput))
+                {
+                    modalities.Insert(0, "TEXT");
+                }
+
+                generationConfig["responseModalities"] = modalities;
+
+                // Add speech configuration for TTS
+                var voiceName = "Kore"; // Default voice
+                if (request.Parameters?.Extras != null &&
+                    request.Parameters.Extras.TryGetValue("voice", out var voiceToken) &&
+                    voiceToken != null)
+                {
+                    voiceName = voiceToken.ToString();
+                }
+
+                generationConfig["speechConfig"] = new JObject
+                {
+                    ["voiceConfig"] = new JObject
+                    {
+                        ["prebuiltVoiceConfig"] = new JObject
+                        {
+                            ["voiceName"] = voiceName,
+                        },
+                    },
+                };
+            }
+            else if (request.Capability.HasFlag(AICapability.AudioOutput))
+            {
+                // Lyra music generation
+                var modalities = new JArray { "AUDIO" };
+                if (request.Capability.HasFlag(AICapability.TextOutput))
+                {
+                    modalities.Insert(0, "TEXT");
+                }
+
+                generationConfig["responseModalities"] = modalities;
+            }
 
             this.ApplyThinkingConfig(generationConfig, request);
             this.ApplySamplingParams(generationConfig, request);
@@ -433,6 +528,30 @@ namespace SmartHopper.Providers.Gemini
                     {
                         new JObject { { "functionDeclarations", toolsArray } },
                     };
+
+                    // Handle forced tool call: Gemini uses function_calling_config with mode and allowed_function_names
+                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
+                    {
+                        jObject["toolConfig"] = new JObject
+                        {
+                            ["functionCallingConfig"] = new JObject
+                            {
+                                ["mode"] = "ANY",
+                                ["allowedFunctionNames"] = new JArray { request.ForceToolName }
+                            }
+                        };
+                        Debug.WriteLine($"[Gemini] Forcing tool call: {request.ForceToolName}");
+                    }
+                    else
+                    {
+                        jObject["toolConfig"] = new JObject
+                        {
+                            ["functionCallingConfig"] = new JObject
+                            {
+                                ["mode"] = "AUTO"
+                            }
+                        };
+                    }
                 }
             }
 

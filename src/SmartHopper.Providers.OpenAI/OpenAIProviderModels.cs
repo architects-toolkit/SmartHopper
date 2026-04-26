@@ -402,12 +402,13 @@ namespace SmartHopper.Providers.OpenAI
                     Rank = 65,
                 },
 
-                // Audio
+                // Speech/TTS
                 new AIModelCapabilities
                 {
                     Provider = provider,
                     Model = "gpt-4o-mini-tts",
-                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
+                    Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
@@ -418,7 +419,8 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-mini-transcribe",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 70,
@@ -428,7 +430,8 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-transcribe",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 60,
@@ -438,7 +441,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-audio-mini",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.SpeechOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 60,
@@ -448,7 +451,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-audio",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.SpeechOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 40,
@@ -458,7 +461,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-mini-audio-preview",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.SpeechOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -469,7 +472,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "gpt-4o-audio-preview",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    Capabilities = AICapability.TextInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.SpeechOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
@@ -480,10 +483,30 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "whisper-1",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 40,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tts-1",
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
+                    Default = AICapability.Text2Speech,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 50,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tts-1-hd",
+                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 60,
                 },
             };
 

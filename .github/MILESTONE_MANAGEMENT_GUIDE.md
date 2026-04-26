@@ -86,14 +86,14 @@ When a milestone is closed, open issues/PRs are migrated:
     Creates: 1.4.3-beta, 1.5.0-alpha
     Closes: older 1.x.x-beta milestones
     ↓
-    (15 days, no issues reported)
+    (30 days, no issues reported)
     ↓
 1.4.3-beta (released)
     ↓
     Creates: 1.4.3-rc
     Closes: older 1.x.x-rc milestones
     ↓
-    (15 days, no issues reported)
+    (30 days, no issues reported)
     ↓
 1.4.3-rc (released)
     ↓

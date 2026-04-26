@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -29,6 +29,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Providers.Gemini
 {
@@ -179,72 +180,30 @@ namespace SmartHopper.Providers.Gemini
 
                 // Check if operation is done
                 var done = operationObj["done"]?.Value<bool>() ?? false;
-
-                if (done)
+                if (!done)
                 {
-                    // Extract the result which contains the GenerateContentBatchOutput
-                    var result = operationObj["result"] as JObject;
-                    if (result != null)
-                    {
-                        // Check for errors in the batch result
-                        if (result.ContainsKey("error"))
-                        {
-                            var error = result["error"];
-                            return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, error?.ToString());
-                        }
-
-                        // Extract responses from the output
-                        var output = result["output"] as JObject;
-                        if (output != null && output.ContainsKey("responses"))
-                        {
-                            var responses = output["responses"] as JArray;
-
-                            if (responses != null)
-                            {
-                                var resultsDict = new Dictionary<string, JObject>();
-                                var messages = new List<AIRuntimeMessage>();
-
-                                foreach (var resp in responses.OfType<JObject>())
-                                {
-                                    // Extract custom_id from metadata
-                                    var metadata = resp["metadata"] as JObject;
-                                    var customId = metadata?["custom_id"]?.ToString();
-                                    if (string.IsNullOrWhiteSpace(customId))
-                                    {
-                                        continue;
-                                    }
-
-                                    // Extract the result from the response
-                                    var resultContent = resp["result"];
-                                    if (resultContent != null)
-                                    {
-                                        try
-                                        {
-                                            // Result can be either a JObject or a string
-                                            var resultObj = resultContent is JObject jObj
-                                                ? jObj
-                                                : JObject.Parse(resultContent.ToString());
-                                            resultsDict[customId] = resultObj;
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            messages.Add(new AIRuntimeMessage(
-                                                AIRuntimeMessageSeverity.Error,
-                                                AIRuntimeMessageOrigin.Provider,
-                                                AIMessageCode.BodyInvalid,
-                                                $"Failed to decode response for {customId}: {ex.Message}"));
-                                        }
-                                    }
-                                }
-
-                                return new AIBatchStatus(submission.BatchId, resultsDict, messages);
-                            }
-                        }
-                    }
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
                 }
 
-                // Batch is still processing
-                return new AIBatchStatus(submission.BatchId, AIBatchState.InProgress);
+                // Terminal: check for top-level operation error
+                var resultRoot = operationObj["result"] as JObject;
+                if (resultRoot != null && resultRoot.ContainsKey("error"))
+                {
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, resultRoot["error"]?.ToString());
+                }
+
+                // Delegate download + parse to the interface methods.
+                IReadOnlyList<string> files;
+                try
+                {
+                    files = await this.DownloadBatchResultsAsync(submission, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, $"Failed to download batch results: {ex.Message}");
+                }
+
+                return this.ParseBatchResultsFiles(files, submission.BatchId);
             }
             catch (Exception ex)
             {
@@ -270,6 +229,157 @@ namespace SmartHopper.Providers.Gemini
             {
                 Debug.WriteLine($"[{this.Name}] Batch cancel error: {ex.Message}");
             }
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<string>> DownloadBatchResultsAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null || string.IsNullOrWhiteSpace(submission.BatchId))
+            {
+                throw new ArgumentException("Submission with BatchId cannot be null or empty", nameof(submission));
+            }
+
+            // Gemini's batch-mode "file" is the GenerateContentBatchOutput embedded in the Operation JSON.
+            var request = new AIRequestCall
+            {
+                Endpoint = $"/{submission.BatchId}",
+                HttpMethod = "GET",
+                Authentication = "x-goog-api-key",
+            };
+
+            var response = await this.Call(request);
+            if (response is not AIReturn air || !air.Success)
+            {
+                var msg = response is AIReturn r ? string.Join(" | ", r.Messages.Select(m => m.Message)) : "unknown error";
+                throw new InvalidOperationException($"Failed to fetch batch operation: {msg}");
+            }
+
+            var body = (air.Body?.Interactions?.FirstOrDefault(i => i is AIInteractionText) as AIInteractionText)?.Content ?? string.Empty;
+            return string.IsNullOrWhiteSpace(body)
+                ? Array.Empty<string>()
+                : new[] { body };
+        }
+
+        /// <inheritdoc/>
+        public AIBatchStatus ParseBatchResultsFiles(IReadOnlyList<string> fileContents, string batchId = null)
+        {
+            if (fileContents == null || fileContents.Count == 0)
+            {
+                return new AIBatchStatus(batchId, AIBatchState.Failed, "No file contents provided");
+            }
+
+            var merged = new Dictionary<string, JObject>();
+            var messages = new List<SHRuntimeMessage>();
+
+            foreach (var content in fileContents)
+            {
+                AIBatchStatusMerge.MergeInto(this.ParseSingleBatchResultFile(content, batchId), merged, messages);
+            }
+
+            return new AIBatchStatus(
+                batchId,
+                new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(merged),
+                messages.Count > 0 ? messages.AsReadOnly() : null);
+        }
+
+        /// <summary>
+        /// Parses a single Gemini batch operation JSON. Shape:
+        /// <c>{"done":true, "result":{"output":{"responses":[{"metadata":{"custom_id":"..."}, "result":{...}}]}}}</c>.
+        /// Inline errors surface as <c>response.error</c> per item.
+        /// Finish reasons (e.g., "MAX_TOKENS") are extracted from successful responses and surfaced as warnings.
+        /// </summary>
+        private AIBatchStatus ParseSingleBatchResultFile(string content, string batchId)
+        {
+            var results = new Dictionary<string, JObject>();
+            var messages = new List<SHRuntimeMessage>();
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return new AIBatchStatus(batchId, results, messages);
+            }
+
+            JObject operationObj;
+            try
+            {
+                operationObj = JObject.Parse(content);
+            }
+            catch (Exception ex)
+            {
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Provider,
+                    SHMessageCode.BodyInvalid,
+                    $"Failed to parse batch operation JSON: {ex.Message}"));
+                return new AIBatchStatus(batchId, results, messages);
+            }
+
+            var output = (operationObj["result"] as JObject)?["output"] as JObject;
+            var responses = output?["responses"] as JArray;
+            if (responses == null)
+            {
+                return new AIBatchStatus(batchId, results, messages);
+            }
+
+            foreach (var resp in responses.OfType<JObject>())
+            {
+                var metadata = resp["metadata"] as JObject;
+                var customId = metadata?["custom_id"]?.ToString();
+                if (string.IsNullOrWhiteSpace(customId))
+                {
+                    continue;
+                }
+
+                // Inline error surface: per-item response.error
+                if (resp["error"] is JObject inlineError)
+                {
+                    var errorMsg = inlineError["message"]?.ToString() ?? inlineError.ToString();
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.BatchItemError,
+                        $"Batch item {customId}: {errorMsg}"));
+                    continue;
+                }
+
+                var resultContent = resp["result"];
+                if (resultContent == null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var resultObj = resultContent is JObject jObj
+                        ? jObj
+                        : JObject.Parse(resultContent.ToString());
+                    results[customId] = resultObj;
+
+                    // Extract finishReason and surface as warning for non-STOP reasons
+                    // Gemini uses camelCase finishReason in candidates array
+                    var candidates = resultObj["candidates"] as JArray;
+                    var firstCandidate = candidates?.FirstOrDefault() as JObject;
+                    var finishReason = firstCandidate?["finishReason"]?.ToString();
+
+                    if (!string.IsNullOrEmpty(finishReason) && finishReason != "STOP")
+                    {
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Warning,
+                            SHRuntimeMessageOrigin.Provider,
+                            SHMessageCode.BatchItemFinishReason,
+                            $"Batch item {customId}: completed with finishReason='{finishReason}'"));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.BodyInvalid,
+                        $"Failed to decode response for {customId}: {ex.Message}"));
+                }
+            }
+
+            return new AIBatchStatus(batchId, results, messages);
         }
     }
 }

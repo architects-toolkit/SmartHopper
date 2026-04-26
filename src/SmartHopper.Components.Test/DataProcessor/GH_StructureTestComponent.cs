@@ -35,13 +35,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class GH_StructureTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("0069CD6E-C135-4D2E-85F3-78A7FC498F82");
+
         protected override Bitmap Icon => null;
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+
+        public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public GH_StructureTestComponent()
-            : base("Test GH_Structure", "TEST-GH-STRUCT",
-                  "Tests GH_Structure, GH_Path, and related Grasshopper data types.",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test GH_Structure",
+                "TEST-GH-STRUCT",
+                "Tests GH_Structure, GH_Path, and related Grasshopper data types.",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -56,7 +61,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -68,7 +73,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(GH_StructureTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -90,18 +95,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         tree.Append(new GH_String("test"), new GH_Path(0));
                         if (tree.Paths.Count == 1 && tree.DataCount == 1)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_WithStrings_CanBeCreated"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_WithStrings_CanBeCreated"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_WithStrings_CanBeCreated: Unexpected counts"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_WithStrings_CanBeCreated: Unexpected counts"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_WithStrings_CanBeCreated: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_WithStrings_CanBeCreated: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -112,18 +117,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         tree.Append(new GH_Boolean(true), new GH_Path(0));
                         if (tree.Paths.Count == 1 && tree.DataCount == 1)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_WithBooleans_CanBeCreated"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_WithBooleans_CanBeCreated"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_WithBooleans_CanBeCreated: Unexpected counts"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_WithBooleans_CanBeCreated: Unexpected counts"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_WithBooleans_CanBeCreated: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_WithBooleans_CanBeCreated: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -134,18 +139,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         tree.Append(new GH_Integer(42), new GH_Path(0));
                         if (tree.Paths.Count == 1 && tree.DataCount == 1)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_WithIntegers_CanBeCreated"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_WithIntegers_CanBeCreated"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_WithIntegers_CanBeCreated: Unexpected counts"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_WithIntegers_CanBeCreated: Unexpected counts"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_WithIntegers_CanBeCreated: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_WithIntegers_CanBeCreated: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -156,18 +161,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         tree.Append(new GH_Number(3.14), new GH_Path(0));
                         if (tree.Paths.Count == 1 && tree.DataCount == 1)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_WithNumbers_CanBeCreated"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_WithNumbers_CanBeCreated"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_WithNumbers_CanBeCreated: Unexpected counts"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_WithNumbers_CanBeCreated: Unexpected counts"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_WithNumbers_CanBeCreated: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_WithNumbers_CanBeCreated: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -179,18 +184,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         var path3 = new GH_Path(0, 0, 0);
                         if (path1.ToString() == "{0}" && path2.ToString() == "{1;2}" && path3.ToString() == "{0;0;0}")
                         {
-                            _messages.Add(new GH_String("✓ GH_Path_ToString_MatchesExpected"));
+                            this._messages.Add(new GH_String("✓ GH_Path_ToString_MatchesExpected"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Path_ToString_MatchesExpected: String mismatch"));
+                            this._messages.Add(new GH_String("✗ GH_Path_ToString_MatchesExpected: String mismatch"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Path_ToString_MatchesExpected: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Path_ToString_MatchesExpected: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -202,18 +207,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         var path3 = new GH_Path(1);
                         if (path1 == path2 && path1 != path3)
                         {
-                            _messages.Add(new GH_String("✓ GH_Path_Equality_Works"));
+                            this._messages.Add(new GH_String("✓ GH_Path_Equality_Works"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Path_Equality_Works: Equality check failed"));
+                            this._messages.Add(new GH_String("✗ GH_Path_Equality_Works: Equality check failed"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Path_Equality_Works: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Path_Equality_Works: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -226,18 +231,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         tree.Append(new GH_String("c"), new GH_Path(0));
                         if (tree.Paths.Count == 1 && tree.DataCount == 3)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_MultipleItems_SamePath"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_MultipleItems_SamePath"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_MultipleItems_SamePath: Unexpected counts"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_MultipleItems_SamePath: Unexpected counts"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_MultipleItems_SamePath: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_MultipleItems_SamePath: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -250,18 +255,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         tree.Append(new GH_String("c"), new GH_Path(2));
                         if (tree.Paths.Count == 3 && tree.DataCount == 3)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_MultipleItems_DifferentPaths"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_MultipleItems_DifferentPaths"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_MultipleItems_DifferentPaths: Unexpected counts"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_MultipleItems_DifferentPaths: Unexpected counts"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_MultipleItems_DifferentPaths: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_MultipleItems_DifferentPaths: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -275,18 +280,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         var branch = tree.get_Branch(new GH_Path(0));
                         if (branch != null && branch.Count == 2)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_GetBranch_ReturnsCorrectBranch"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_GetBranch_ReturnsCorrectBranch"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_GetBranch_ReturnsCorrectBranch: Branch count mismatch"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_GetBranch_ReturnsCorrectBranch: Branch count mismatch"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_GetBranch_ReturnsCorrectBranch: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_GetBranch_ReturnsCorrectBranch: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -299,18 +304,18 @@ namespace SmartHopper.Components.Test.DataProcessor
                         tree.Flatten();
                         if (tree.Paths.Count == 1 && tree.DataCount == 2)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_Flatten_ReducesToSinglePath"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_Flatten_ReducesToSinglePath"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_Flatten_ReducesToSinglePath: Unexpected counts"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_Flatten_ReducesToSinglePath: Unexpected counts"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_Flatten_ReducesToSinglePath: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_Flatten_ReducesToSinglePath: {ex.Message}"));
                         testsFailed++;
                     }
 
@@ -320,48 +325,48 @@ namespace SmartHopper.Components.Test.DataProcessor
                         var tree = new GH_Structure<GH_String>();
                         tree.Append(new GH_String("a"), new GH_Path(0));
                         tree.Append(new GH_String("b"), new GH_Path(0));
-                        tree.Graft(false);
+                        tree.Graft(GH_GraftMode.GraftAll);
                         if (tree.PathCount == 2)
                         {
-                            _messages.Add(new GH_String("✓ GH_Structure_Graft_CreatesNestedPaths"));
+                            this._messages.Add(new GH_String("✓ GH_Structure_Graft_CreatesNestedPaths"));
                             testsPassed++;
                         }
                         else
                         {
-                            _messages.Add(new GH_String("✗ GH_Structure_Graft_CreatesNestedPaths: Path count mismatch"));
+                            this._messages.Add(new GH_String("✗ GH_Structure_Graft_CreatesNestedPaths: Path count mismatch"));
                             testsFailed++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _messages.Add(new GH_String($"✗ GH_Structure_Graft_CreatesNestedPaths: {ex.Message}"));
+                        this._messages.Add(new GH_String($"✗ GH_Structure_Graft_CreatesNestedPaths: {ex.Message}"));
                         testsFailed++;
                     }
 
-                    _success = new GH_Boolean(testsFailed == 0);
-                    _messages.Insert(0, new GH_String($"GH_Structure Tests: {testsPassed} passed, {testsFailed} failed"));
+                    this._success = new GH_Boolean(testsFailed == 0);
+                    this._messages.Insert(0, new GH_String($"GH_Structure Tests: {testsPassed} passed, {testsFailed} failed"));
 
                     await Task.Yield();
                 }
                 catch (OperationCanceledException)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String("Operation was cancelled."));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String("Operation was cancelled."));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "All GH_Structure tests passed" : "Some tests failed";
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "All GH_Structure tests passed" : "Some tests failed";
             }
         }
     }

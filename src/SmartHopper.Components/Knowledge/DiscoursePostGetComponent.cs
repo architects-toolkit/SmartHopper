@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -70,7 +71,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new DiscoursePostGetWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new DiscoursePostGetWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class DiscoursePostGetWorker : AsyncWorkerBase
@@ -160,14 +161,14 @@ namespace SmartHopper.Components.Knowledge
 
                                     var toolCallInteraction = new AIInteractionToolCall
                                     {
-                                        Name = "discourse_post_get",
+                                        Name = "discourse_forum_post_get",
                                         Arguments = parameters,
                                         Agent = AIAgent.Assistant,
                                     };
 
                                     var toolCall = new AIToolCall
                                     {
-                                        Endpoint = "discourse_post_get",
+                                        Endpoint = "discourse_forum_post_get",
                                     };
 
                                     toolCall.FromToolCallInteraction(toolCallInteraction);
@@ -179,7 +180,7 @@ namespace SmartHopper.Components.Knowledge
 
                                     if (toolResult == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_post_get' returned no result.");
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'discourse_forum_post_get' returned no result.", SHRuntimeMessageOrigin.Tool);
                                         continue;
                                     }
 
@@ -204,7 +205,7 @@ namespace SmartHopper.Components.Knowledge
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[DiscoursePostGetWorker] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 

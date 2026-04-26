@@ -510,6 +510,5 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.NotNull(resolved);
             Assert.Equal("PrimaryModel", resolved!.Model);
         }
-
     }
 }

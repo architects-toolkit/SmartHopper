@@ -148,7 +148,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 // Build and execute the AIRequestCall
-                var request = BuildGenerateRequest(toolCall);
+                var request = this.BuildGenerateRequest(toolCall);
 
                 // Execute the AIRequestCall
                 var result = await request.Exec().ConfigureAwait(false);

@@ -402,5 +402,61 @@ namespace SmartHopper.Components.Properties {
                 return ((Bitmap)(obj));
             }
         }
+
+        internal static Bitmap text2ai {
+            get {
+                object obj = ResourceManager.GetObject("text2ai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap aiinstructions {
+            get {
+                object obj = ResourceManager.GetObject("aiinstructions", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap json2ai {
+            get {
+                object obj = ResourceManager.GetObject("json2ai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap img2ai {
+            get {
+                object obj = ResourceManager.GetObject("img2ai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap audio2ai {
+            get {
+                object obj = ResourceManager.GetObject("audio2ai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap mcneelpost2ai {
+            get {
+                object obj = ResourceManager.GetObject("mcneelpost2ai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap ladybugpost2ai {
+            get {
+                object obj = ResourceManager.GetObject("ladybugpost2ai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
+        internal static Bitmap discoursepost2ai {
+            get {
+                object obj = ResourceManager.GetObject("discoursepost2ai", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
     }
 }

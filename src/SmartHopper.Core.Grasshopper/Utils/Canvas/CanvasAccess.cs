@@ -164,7 +164,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
                         // Instances.RedrawCanvas();
                     });
-                    await Task.Delay(duration / steps);
+                    await Task.Delay(duration / steps).ConfigureAwait(false);
                 }
 
                 // Final snap to target
@@ -178,7 +178,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
             return true;
         }
-
 
         /// <summary>
         /// Moves instances to specific targets by GUID mapping, with optional relative offsets, batching into one undo event.
@@ -243,7 +242,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                         }
                     });
 
-                    await Task.Delay(duration / steps);
+                    await Task.Delay(duration / steps).ConfigureAwait(false);
                 }
 
                 // Final snap to target

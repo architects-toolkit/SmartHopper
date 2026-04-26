@@ -37,13 +37,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorItemToItemTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("C4D5E6F7-8A9B-4C0D-9E1F-2A3B4C5D6E7F");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
         public DataTreeProcessorItemToItemTestComponent()
-            : base("Test DataTreeProcessor (ItemToItem)", "TEST-DTP-ITEM",
-                  "Tests DataTreeProcessor with ItemToItem topology where each item is processed independently.",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test DataTreeProcessor (Item-to-Item)",
+                "TEST-DTP-ITEM",
+                "Tests DataTreeProcessor Item-to-Item topology where items are matched pairwise.",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -59,7 +64,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -72,7 +77,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorItemToItemTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -137,44 +142,44 @@ namespace SmartHopper.Components.Test.DataProcessor
                         token: token).ConfigureAwait(false);
 
                     if (result != null && result.Outputs.TryGetValue("Sum", out var sumTree) && sumTree != null)
-                        _resultTree = sumTree;
+                        this._resultTree = sumTree;
                     else
-                        _resultTree = new GH_Structure<GH_Integer>();
+                        this._resultTree = new GH_Structure<GH_Integer>();
 
                     // ItemToItem should process each item independently: (1+10), (2+20), (3+30) = [11, 22, 33]
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 1 &&
-                        _resultTree.get_Branch(path) != null &&
-                        _resultTree.get_Branch(path).Count == 3 &&
-                        _resultTree.get_Branch(path)[0] is GH_Integer gi0 && gi0.Value == 11 &&
-                        _resultTree.get_Branch(path)[1] is GH_Integer gi1 && gi1.Value == 22 &&
-                        _resultTree.get_Branch(path)[2] is GH_Integer gi2 && gi2.Value == 33;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 1 &&
+                        this._resultTree.get_Branch(path) != null &&
+                        this._resultTree.get_Branch(path).Count == 3 &&
+                        this._resultTree.get_Branch(path)[0] is GH_Integer gi0 && gi0.Value == 11 &&
+                        this._resultTree.get_Branch(path)[1] is GH_Integer gi1 && gi1.Value == 22 &&
+                        this._resultTree.get_Branch(path)[2] is GH_Integer gi2 && gi2.Value == 33;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"ItemToItem topology at path {path}. A=[1,2,3], B=[10,20,30]. Expected item-wise sums [11,22,33]."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"ItemToItem topology at path {path}. A=[1,2,3], B=[10,20,30]. Expected item-wise sums [11,22,33]."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String("Operation was cancelled."));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String("Operation was cancelled."));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Processed ItemToItem topology successfully" : "Processing failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Processed ItemToItem topology successfully" : "Processing failed";
             }
         }
     }

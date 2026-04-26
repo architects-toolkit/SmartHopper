@@ -45,7 +45,6 @@ namespace SmartHopper.Components.AI
         private string _systemPrompt;
 
         // Removed duplicated last-return storage; use base AIReturn snapshot instead
-
         protected override AICapability RequiredCapability => AICapability.ToolChat;
 
         private readonly string _defaultSystemPrompt = """
@@ -209,7 +208,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the unique ID for this component type.
         /// </summary>
-        public override Guid ComponentGuid => new("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
+        public override Guid ComponentGuid => new ("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
         /// <summary>
         /// Disable automatic restoration of persistent outputs from the base class.
@@ -316,7 +315,7 @@ namespace SmartHopper.Components.AI
                     }
 
                     // This worker is intentionally short-lived; incremental updates will retrigger recomputes
-                    await System.Threading.Tasks.Task.CompletedTask;
+                    await System.Threading.Tasks.Task.CompletedTask.ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

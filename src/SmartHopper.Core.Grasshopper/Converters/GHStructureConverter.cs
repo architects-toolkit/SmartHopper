@@ -34,7 +34,8 @@ namespace SmartHopper.Core.Grasshopper.Converters
         /// <typeparam name="T">The concrete IGH_Goo type of the source structure.</typeparam>
         /// <param name="tree">The source tree to convert. Can be null.</param>
         /// <returns>A new GH_Structure&lt;IGH_Goo&gt; containing all items from the source.</returns>
-        public static GH_Structure<IGH_Goo> ConvertToGooTree<T>(GH_Structure<T> tree) where T : IGH_Goo
+        public static GH_Structure<IGH_Goo> ConvertToGooTree<T>(GH_Structure<T> tree)
+            where T : IGH_Goo
         {
             var result = new GH_Structure<IGH_Goo>();
             if (tree == null) return result;
@@ -52,6 +53,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
                     }
                 }
             }
+
             return result;
         }
     }

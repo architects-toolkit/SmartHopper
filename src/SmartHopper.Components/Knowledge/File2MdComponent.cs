@@ -29,11 +29,14 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Types;
+using SmartHopper.Core.Models;
+using SmartHopper.Core.Parameters;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -76,7 +79,7 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Markdown", "Md", "Markdown content of the file.", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Images", "Img", "Images extracted from the document (PDF/DOCX/PPTX). Each item is a GH_ExtractedImage carrying base64 data, MIME type, and source context. Branched per input file. Connect to Image Viewer or AIImg2Text.", GH_ParamAccess.tree);
+            pManager.AddParameter(new VersatileImageParameter(), "Images", "Img", "Images extracted from the document (PDF/DOCX/PPTX). Each item is a VersatileImage carrying base64 data, MIME type, and source context. Connect to Image Viewer or AIImg2Text.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Format", "Fmt", "Detected original format (e.g., pdf, docx, html).", GH_ParamAccess.tree);
         }
 
@@ -103,7 +106,7 @@ namespace SmartHopper.Components.Knowledge
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
-            private GH_Structure<GH_ExtractedImage> resultImages;
+            private GH_Structure<GH_VersatileImage> resultImages;
 
             public File2MdWorker(
                 File2MdComponent parent,
@@ -126,7 +129,7 @@ namespace SmartHopper.Components.Knowledge
 
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
-                this.resultImages = new GH_Structure<GH_ExtractedImage>();
+                this.resultImages = new GH_Structure<GH_VersatileImage>();
             }
 
             /// <inheritdoc/>
@@ -134,7 +137,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 this.resultMarkdown = new GH_Structure<GH_String>();
                 this.resultFormat = new GH_Structure<GH_String>();
-                this.resultImages = new GH_Structure<GH_ExtractedImage>();
+                this.resultImages = new GH_Structure<GH_VersatileImage>();
 
                 if (!this.hasWork)
                 {
@@ -182,12 +185,12 @@ namespace SmartHopper.Components.Knowledge
 
                                 foreach (var img in images)
                                 {
-                                    outputs["Images"].Add(new GH_ExtractedImage(img));
+                                    outputs["Images"].Add(new GH_VersatileImage(img));
                                 }
 
                                 foreach (var w in warnings)
                                 {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w);
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Warning, w, SHRuntimeMessageOrigin.Tool);
                                 }
                             }
 
@@ -198,16 +201,16 @@ namespace SmartHopper.Components.Knowledge
 
                     this.resultMarkdown = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Markdown");
                     this.resultFormat = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Format");
-                    this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_ExtractedImage>(resultTrees, "Images");
+                    this.resultImages = DataTreeProcessor.ExtractTypedTree<GH_VersatileImage>(resultTrees, "Images");
                 }
                 catch (OperationCanceledException)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Operation was cancelled.");
+                    this.CollectMessage(SHRuntimeMessageSeverity.Warning, "Operation was cancelled.");
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[File2Md] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
@@ -215,12 +218,12 @@ namespace SmartHopper.Components.Knowledge
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
                 this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
-                this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_ExtractedImage>(), DA);
+                this.parent.SetPersistentOutput("Images", this.resultImages ?? new GH_Structure<GH_VersatileImage>(), DA);
                 this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
                 errorMessage = null;
             }
 
-            private static async Task<(string markdown, string format, List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage> images, List<string> warnings)> ConvertFileAsync(string filePath)
+            private static async Task<(string markdown, string format, List<VersatileImage> images, List<string> warnings)> ConvertFileAsync(string filePath)
             {
                 var parameters = new JObject
                 {
@@ -247,11 +250,11 @@ namespace SmartHopper.Components.Knowledge
 
                 Debug.WriteLine($"[File2Md] Calling file2md tool for: {filePath}");
                 AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                
+
                 Debug.WriteLine($"[File2Md] AIReturn status: {aiResult?.Status}");
                 Debug.WriteLine($"[File2Md] AIReturn has Body: {aiResult?.Body != null}");
                 Debug.WriteLine($"[File2Md] AIReturn Metrics: {(aiResult?.Metrics != null ? $"InputTokens={aiResult.Metrics.InputTokens}, OutputTokens={aiResult.Metrics.OutputTokens}" : "NULL")}");
-                
+
                 if (aiResult?.Body != null)
                 {
                     Debug.WriteLine($"[File2Md] Body interaction count: {aiResult.Body.Interactions.Count}");
@@ -275,7 +278,8 @@ namespace SmartHopper.Components.Knowledge
                     {
                         Debug.WriteLine($"[File2Md] Found assistant text instead: {assistantText.Content?.Substring(0, Math.Min(100, assistantText.Content?.Length ?? 0))}...");
                     }
-                    return (string.Empty, string.Empty, new List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage>(), new List<string> { $"Tool 'file2md' returned no result for '{filePath}'." });
+
+                    return (string.Empty, string.Empty, new List<VersatileImage>(), new List<string> { $"Tool 'file2md' returned no result for '{filePath}'." });
                 }
 
                 string content = toolResult["content"]?.ToString() ?? string.Empty;
@@ -283,7 +287,7 @@ namespace SmartHopper.Components.Knowledge
 
                 Debug.WriteLine($"[File2Md] Extracted content length: {content.Length}, format: {format}");
 
-                var images = new List<SmartHopper.Core.Grasshopper.Converters.ExtractedImage>();
+                var images = new List<VersatileImage>();
                 var imagesArray = toolResult["images"] as JArray;
                 if (imagesArray != null)
                 {
@@ -292,12 +296,14 @@ namespace SmartHopper.Components.Knowledge
                     {
                         var imgObj = imgToken as JObject;
                         if (imgObj == null) continue;
-                        images.Add(new SmartHopper.Core.Grasshopper.Converters.ExtractedImage(
-                            imgObj["id"]?.ToString() ?? "img",
+                        var imageSource = VersatileImage.FromExtractedDocument(
                             imgObj["base64Data"]?.ToString() ?? string.Empty,
                             imgObj["mimeType"]?.ToString() ?? "image/png",
+                            imgObj["id"]?.ToString() ?? "img",
                             imgObj["context"]?.ToString() ?? string.Empty,
-                            imgObj["pageOrSlide"]?.Value<int>() ?? 0));
+                            imgObj["pageOrSlide"]?.Value<int>() ?? 0,
+                            filePath);
+                        images.Add(imageSource);
                     }
                 }
 

@@ -60,7 +60,8 @@ namespace SmartHopper.Components.AI
         public AIFileContextComponent()
             : base("AI File Context", "AIFileCtx",
                 "Defines the current file context.\n\nFor example, explain the aim of this file, your expectations of the results, the main input parameters, and what to avoid.\n\nAI-powered components will read this information to generate relevant responses.",
-                "SmartHopper", "AI")
+                "SmartHopper",
+                "AI")
         {
             // Register this component as a context provider
             AIContextManager.RegisterProvider(this);
@@ -91,6 +92,6 @@ namespace SmartHopper.Components.AI
             return new Dictionary<string, string> { { "file-context", this.context } };
         }
 
-        public override Guid ComponentGuid => new("A7F5D347-9F4E-4A75-B6A9-115C06B6115D");
+        public override Guid ComponentGuid => new ("A7F5D347-9F4E-4A75-B6A9-115C06B6115D");
     }
 }

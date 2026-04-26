@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -213,7 +214,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ["mimeType"] = image.MimeType,
                             ["context"] = image.Context,
                             ["pageOrSlide"] = image.PageOrSlide,
-                            ["base64Data"] = image.Base64Data,
+                            ["base64Data"] = image.RawValue,
                         });
                     }
 
@@ -259,7 +260,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             {
                                 imagesSb.AppendLine($"*{image.Context}*");
                                 imagesSb.AppendLine();
-                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.Base64Data})");
+                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.RawValue})");
                                 imagesSb.AppendLine();
                             }
                             else
@@ -306,18 +307,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Calls the <c>img2text</c> tool to obtain a text description of an extracted image.
         /// </summary>
-        /// <param name="image">The extracted image to describe.</param>
+        /// <param name="imageSource">The image source containing base64 data and mime type.</param>
         /// <param name="prompt">The description prompt to send to the AI.</param>
         /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
         /// <returns>The AI-generated text description, or a fallback string on failure.</returns>
-        private static async Task<string> DescribeImageAsync(ExtractedImage image, string prompt, AIToolCall sourceToolCall)
+        private static async Task<string> DescribeImageAsync(VersatileImage imageSource, string prompt, AIToolCall sourceToolCall)
         {
             try
             {
                 var imgArgs = new JObject
                 {
-                    ["imageBase64"] = image.Base64Data,
-                    ["mimeType"] = image.MimeType,
+                    ["imageBase64"] = imageSource.RawValue,
+                    ["mimeType"] = "image/png",
                     ["prompt"] = prompt,
                 };
 
@@ -358,9 +359,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// for each extracted image to enable later substitution.
         /// </summary>
         /// <param name="markdown">The base markdown content.</param>
-        /// <param name="images">The list of extracted images.</param>
+        /// <param name="images">The list of extracted images with metadata.</param>
         /// <returns>Annotated markdown with image placeholders.</returns>
-        private static string InsertImagePlaceholders(string markdown, IList<ExtractedImage> images)
+        private static string InsertImagePlaceholders(string markdown, IList<VersatileImage> images)
         {
             if (images == null || images.Count == 0)
             {

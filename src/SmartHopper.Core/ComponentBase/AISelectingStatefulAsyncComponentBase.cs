@@ -38,7 +38,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             get
             {
-                this.PruneDeletedSelections();
+                this.selectionCore.PruneDeletedSelections(this.selectedObjects);
                 return this.selectedObjects;
             }
         }
@@ -50,13 +50,13 @@ namespace SmartHopper.Core.ComponentBase
             : base(name, nickname, description, category, subCategory)
         {
             this.selectionCore = new SelectingComponentCore(this, this);
-            Instances.DocumentServer.DocumentAdded += this.OnDocumentAdded;
+            this.selectionCore.SubscribeToDocumentEvents();
         }
 
         public override void RemovedFromDocument(GH_Document document)
         {
             base.RemovedFromDocument(document);
-            Instances.DocumentServer.DocumentAdded -= this.OnDocumentAdded;
+            this.selectionCore.UnsubscribeFromDocumentEvents();
         }
 
         public override void CreateAttributes()
@@ -97,42 +97,7 @@ namespace SmartHopper.Core.ComponentBase
 
         private void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
         {
-            this.selectionCore.OnDocumentAdded(doc);
-        }
-
-        private void PruneDeletedSelections()
-        {
-            if (this.selectedObjects.Count == 0)
-            {
-                return;
-            }
-
-            var canvas = Instances.ActiveCanvas;
-            var doc = canvas?.Document;
-            if (doc == null)
-            {
-                return;
-            }
-
-            var removedAny = false;
-
-            for (int i = this.selectedObjects.Count - 1; i >= 0; i--)
-            {
-                if (this.selectedObjects[i] is IGH_DocumentObject docObj)
-                {
-                    var found = doc.FindObject(docObj.InstanceGuid, true);
-                    if (found == null)
-                    {
-                        this.selectedObjects.RemoveAt(i);
-                        removedAny = true;
-                    }
-                }
-            }
-
-            if (removedAny)
-            {
-                this.Message = $"{this.selectedObjects.Count} selected";
-            }
+            this.selectionCore.OnDocumentAdded(sender, doc);
         }
     }
 

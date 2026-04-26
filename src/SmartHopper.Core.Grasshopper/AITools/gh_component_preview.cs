@@ -178,7 +178,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             };
 
             // Delegate to the general method
-            return await this.GhTogglePreviewAsync(modifiedToolCall);
+            return await this.GhTogglePreviewAsync(modifiedToolCall).ConfigureAwait(false);
         }
     }
 }

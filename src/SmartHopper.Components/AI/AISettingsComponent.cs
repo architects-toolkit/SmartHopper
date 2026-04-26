@@ -27,7 +27,8 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
-using SmartHopper.Core.Grasshopper.Types;
+using SmartHopper.Core.Models;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AIProviders;
 
@@ -37,6 +38,7 @@ namespace SmartHopper.Components.AI
     /// Stateless component that assembles an <see cref="AIRequestParameters"/> from
     /// cross-provider universal inputs and an optional Extras JSON object from
     /// <see cref="AIExtraSettingsComponent"/>.
+    ///
     /// Defers processing until plugin infrastructure is fully initialized to handle
     /// race conditions when files are opened directly from Windows Explorer.
     /// </summary>
@@ -73,9 +75,10 @@ namespace SmartHopper.Components.AI
                 "AI Settings",
                 "AISett",
                 "Assembles AI request settings (model, temperature, tokens, extras) to pass to any AI component.",
-                "SmartHopper", "AI")
+                "SmartHopper",
+                "AI")
         {
-            _retryStopwatch.Start();
+            this._retryStopwatch.Start();
         }
 
         /// <summary>
@@ -101,8 +104,8 @@ namespace SmartHopper.Components.AI
         public override void RemovedFromDocument(GH_Document document)
         {
             // Cancel any pending retry operations
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource?.Dispose();
+            this._cancellationTokenSource?.Cancel();
+            this._cancellationTokenSource?.Dispose();
             base.RemovedFromDocument(document);
         }
 
@@ -141,25 +144,26 @@ namespace SmartHopper.Components.AI
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Check if infrastructure is ready
-            _infrastructureReady = IsInfrastructureReady();
+            this._infrastructureReady = this.IsInfrastructureReady();
 
-            if (!_infrastructureReady)
+            if (!this._infrastructureReady)
             {
                 // Check if we've exceeded the retry duration
-                if (_retryStopwatch.Elapsed.TotalSeconds > MaxRetryDurationSeconds)
+                if (this._retryStopwatch.Elapsed.TotalSeconds > MaxRetryDurationSeconds)
                 {
                     // Max retry duration exceeded - show error and stop trying
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    this.AddRuntimeMessage(
+                        GH_RuntimeMessageLevel.Error,
                         "Plugin infrastructure failed to initialize within 60 seconds. Please restart Rhino and try again.");
                     DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
                     return;
                 }
 
                 // Schedule retry only if not already scheduled
-                if (!_retryScheduled)
+                if (!this._retryScheduled)
                 {
-                    _retryScheduled = true;
-                    ScheduleRetry();
+                    this._retryScheduled = true;
+                    this.ScheduleRetry();
                 }
 
                 // Return empty settings while waiting
@@ -225,7 +229,8 @@ namespace SmartHopper.Components.AI
             {
                 // Fallback for unexpected index errors during initialization
                 Debug.WriteLine($"[AISettingsComponent] Index out of range: {ex.Message}");
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                this.AddRuntimeMessage(
+                    GH_RuntimeMessageLevel.Warning,
                     "Unexpected initialization error. Please recompute the component.");
                 DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
             }
@@ -233,7 +238,8 @@ namespace SmartHopper.Components.AI
             {
                 // Catch any other unexpected errors
                 Debug.WriteLine($"[AISettingsComponent] Unexpected error: {ex.Message}");
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                this.AddRuntimeMessage(
+                    GH_RuntimeMessageLevel.Error,
                     $"Unexpected error assembling AI settings: {ex.Message}");
                 DA.SetData("Settings", new GH_AIRequestParameters(AIRequestParameters.Empty));
             }
@@ -245,10 +251,10 @@ namespace SmartHopper.Components.AI
         private void ScheduleRetry()
         {
             // Use Task.Delay with cancellation support and explicit scheduler
-            System.Threading.Tasks.Task.Delay(2000, _cancellationTokenSource.Token)
+            System.Threading.Tasks.Task.Delay(2000, this._cancellationTokenSource.Token)
                 .ContinueWith(_ =>
                 {
-                    if (_cancellationTokenSource.Token.IsCancellationRequested)
+                    if (this._cancellationTokenSource.Token.IsCancellationRequested)
                     {
                         return;
                     }
@@ -262,21 +268,21 @@ namespace SmartHopper.Components.AI
                                 // Only expire if the component is still in the document
                                 if (this.OnPingDocument() != null && !this.Locked)
                                 {
-                                    _retryScheduled = false;
+                                    this._retryScheduled = false;
                                     this.ExpireSolution(true);
                                 }
                             }
                             catch (Exception ex)
                             {
                                 Debug.WriteLine($"[AISettingsComponent] Error during solution expiration: {ex.Message}");
-                                _retryScheduled = false;
+                                this._retryScheduled = false;
                             }
                         });
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[AISettingsComponent] Error during retry scheduling: {ex.Message}");
-                        _retryScheduled = false;
+                        this._retryScheduled = false;
                     }
                 }, TaskScheduler.Default);
         }

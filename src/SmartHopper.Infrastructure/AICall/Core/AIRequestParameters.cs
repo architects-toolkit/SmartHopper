@@ -93,32 +93,60 @@ namespace SmartHopper.Infrastructure.AICall.Core
         private readonly Dictionary<string, JToken> _extras = new Dictionary<string, JToken>();
 
         /// <inheritdoc cref="AIRequestParameters.Model"/>
-        public AIRequestParametersBuilder WithModel(string model) { _model = model; return this; }
+        public AIRequestParametersBuilder WithModel(string model)
+        {
+            this._model = model;
+            return this;
+        }
 
         /// <inheritdoc cref="AIRequestParameters.Temperature"/>
-        public AIRequestParametersBuilder WithTemperature(double? temperature) { _temperature = temperature; return this; }
+        public AIRequestParametersBuilder WithTemperature(double? temperature)
+        {
+            this._temperature = temperature;
+            return this;
+        }
 
         /// <inheritdoc cref="AIRequestParameters.MaxTokens"/>
-        public AIRequestParametersBuilder WithMaxTokens(int? maxTokens) { _maxTokens = maxTokens; return this; }
+        public AIRequestParametersBuilder WithMaxTokens(int? maxTokens)
+        {
+            this._maxTokens = maxTokens;
+            return this;
+        }
 
         /// <inheritdoc cref="AIRequestParameters.TimeoutSeconds"/>
-        public AIRequestParametersBuilder WithTimeout(int? timeoutSeconds) { _timeoutSeconds = timeoutSeconds; return this; }
+        public AIRequestParametersBuilder WithTimeout(int? timeoutSeconds)
+        {
+            this._timeoutSeconds = timeoutSeconds;
+            return this;
+        }
 
         /// <inheritdoc cref="AIRequestParameters.TopP"/>
-        public AIRequestParametersBuilder WithTopP(double? topP) { _topP = topP; return this; }
+        public AIRequestParametersBuilder WithTopP(double? topP)
+        {
+            this._topP = topP;
+            return this;
+        }
 
         /// <inheritdoc cref="AIRequestParameters.Seed"/>
-        public AIRequestParametersBuilder WithSeed(int? seed) { _seed = seed; return this; }
+        public AIRequestParametersBuilder WithSeed(int? seed)
+        {
+            this._seed = seed;
+            return this;
+        }
 
         /// <inheritdoc cref="AIRequestParameters.BatchTier"/>
-        public AIRequestParametersBuilder WithBatchTier(bool batchTier) { _batchTier = batchTier; return this; }
+        public AIRequestParametersBuilder WithBatchTier(bool batchTier)
+        {
+            this._batchTier = batchTier;
+            return this;
+        }
 
         /// <summary>Adds or overwrites a single extra parameter.</summary>
         public AIRequestParametersBuilder WithExtra(string key, JToken value)
         {
             if (!string.IsNullOrEmpty(key))
             {
-                _extras[key] = value;
+                this._extras[key] = value;
             }
 
             return this;
@@ -131,7 +159,7 @@ namespace SmartHopper.Infrastructure.AICall.Core
             {
                 foreach (var kv in extras)
                 {
-                    _extras[kv.Key] = kv.Value;
+                    this._extras[kv.Key] = kv.Value;
                 }
             }
 
@@ -139,57 +167,89 @@ namespace SmartHopper.Infrastructure.AICall.Core
         }
 
         /// <summary>Adds or overwrites a single extra parameter (alias for WithExtra).</summary>
-        public AIRequestParametersBuilder AddExtra(string key, JToken value) => WithExtra(key, value);
+        public AIRequestParametersBuilder AddExtra(string key, JToken value) => this.WithExtra(key, value);
 
         /// <summary>Merges a dictionary of extra parameters (alias for WithExtras).</summary>
-        public AIRequestParametersBuilder AddExtras(IReadOnlyDictionary<string, JToken> extras) => WithExtras(extras);
+        public AIRequestParametersBuilder AddExtras(IReadOnlyDictionary<string, JToken> extras) => this.WithExtras(extras);
 
         /// <summary>Removes an extra parameter by key.</summary>
         public AIRequestParametersBuilder RemoveExtra(string key)
         {
             if (!string.IsNullOrEmpty(key))
             {
-                _extras.Remove(key);
+                this._extras.Remove(key);
             }
 
             return this;
         }
 
         /// <summary>Clears the model override.</summary>
-        public AIRequestParametersBuilder ClearModel() { _model = null; return this; }
+        public AIRequestParametersBuilder ClearModel()
+        {
+            this._model = null;
+            return this;
+        }
 
         /// <summary>Clears the temperature override.</summary>
-        public AIRequestParametersBuilder ClearTemperature() { _temperature = null; return this; }
+        public AIRequestParametersBuilder ClearTemperature()
+        {
+            this._temperature = null;
+            return this;
+        }
 
         /// <summary>Clears the max tokens override.</summary>
-        public AIRequestParametersBuilder ClearMaxTokens() { _maxTokens = null; return this; }
+        public AIRequestParametersBuilder ClearMaxTokens()
+        {
+            this._maxTokens = null;
+            return this;
+        }
 
         /// <summary>Clears the timeout override.</summary>
-        public AIRequestParametersBuilder ClearTimeout() { _timeoutSeconds = null; return this; }
+        public AIRequestParametersBuilder ClearTimeout()
+        {
+            this._timeoutSeconds = null;
+            return this;
+        }
 
         /// <summary>Clears the top-p override.</summary>
-        public AIRequestParametersBuilder ClearTopP() { _topP = null; return this; }
+        public AIRequestParametersBuilder ClearTopP()
+        {
+            this._topP = null;
+            return this;
+        }
 
         /// <summary>Clears the seed override.</summary>
-        public AIRequestParametersBuilder ClearSeed() { _seed = null; return this; }
+        public AIRequestParametersBuilder ClearSeed()
+        {
+            this._seed = null;
+            return this;
+        }
 
         /// <summary>Resets the batch tier flag to false.</summary>
-        public AIRequestParametersBuilder ClearBatchTier() { _batchTier = false; return this; }
+        public AIRequestParametersBuilder ClearBatchTier()
+        {
+            this._batchTier = false;
+            return this;
+        }
 
         /// <summary>Clears all extra parameters.</summary>
-        public AIRequestParametersBuilder ClearExtras() { _extras.Clear(); return this; }
+        public AIRequestParametersBuilder ClearExtras()
+        {
+            this._extras.Clear();
+            return this;
+        }
 
         /// <summary>Builds and returns the immutable <see cref="AIRequestParameters"/>.</summary>
         public AIRequestParameters Build() => new AIRequestParameters
         {
-            Model = _model,
-            Temperature = _temperature,
-            MaxTokens = _maxTokens,
-            TimeoutSeconds = _timeoutSeconds,
-            TopP = _topP,
-            Seed = _seed,
-            BatchTier = _batchTier,
-            Extras = new ReadOnlyDictionary<string, JToken>(_extras),
+            Model = this._model,
+            Temperature = this._temperature,
+            MaxTokens = this._maxTokens,
+            TimeoutSeconds = this._timeoutSeconds,
+            TopP = this._topP,
+            Seed = this._seed,
+            BatchTier = this._batchTier,
+            Extras = new ReadOnlyDictionary<string, JToken>(this._extras),
         };
     }
 }

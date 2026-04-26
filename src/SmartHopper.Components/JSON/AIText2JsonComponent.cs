@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -34,6 +34,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Components.JSON
@@ -89,10 +90,11 @@ namespace SmartHopper.Components.JSON
         /// </summary>
         public AIText2JsonComponent()
             : base(
-                  "AI Text To JSON",
-                  "AIText2Json",
-                  "Generate structured JSON from a prompt using AI, conforming to a provided JSON Schema.\nIf a tree structure is provided, prompts and schemas will only match within the same branch paths.",
-                  "SmartHopper", "JSON")
+                "AI Text To JSON",
+                "AIText2Json",
+                "Generate structured JSON from a prompt using AI, conforming to a provided JSON Schema.\nIf a tree structure is provided, prompts and schemas will only match within the same branch paths.",
+                "SmartHopper",
+                "JSON")
         {
         }
 
@@ -111,7 +113,7 @@ namespace SmartHopper.Components.JSON
         }
 
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<AIRuntimeMessage> messages = null)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
         {
             var sentinel = this.GetSentinelTree("JSON");
             if (results == null || sentinel == null) return;
@@ -139,7 +141,7 @@ namespace SmartHopper.Components.JSON
         /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIText2JsonWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2JsonWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIText2JsonWorker : AsyncWorkerBase
@@ -195,7 +197,7 @@ namespace SmartHopper.Components.JSON
                         async (branches) =>
                         {
                             Debug.WriteLine($"[AIText2Json] ProcessData called with {branches.Count} branches");
-                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
+                            return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
@@ -222,7 +224,8 @@ namespace SmartHopper.Components.JSON
 
             private static async Task<Dictionary<string, List<GH_String>>> ProcessData(
                 Dictionary<string, List<GH_String>> branches,
-                AIText2JsonComponent parent)
+                AIText2JsonComponent parent,
+                CancellationToken cancellationToken)
             {
                 var promptList = branches["Prompt"];
                 var instructionsList = branches["Instructions"];
@@ -274,8 +277,8 @@ namespace SmartHopper.Components.JSON
 
                     try
                     {
-                        var toolResult = await parent.CallAiToolAsync(
-                            "text2json", parameters).ConfigureAwait(false);
+                        var toolResult = await parent.CallAIToolAsync(
+                            "text2json", parameters, cancellationToken).ConfigureAwait(false);
 
                         if (toolResult == null)
                         {
@@ -286,16 +289,17 @@ namespace SmartHopper.Components.JSON
                             continue;
                         }
 
-                        // In batch mode, CallAiToolAsync returns a sentinel placeholder under "result".
+                        // In batch mode, CallAIToolAsync returns a sentinel placeholder under "result".
                         // Forward it so ReconstructOutputTree can replace it after the batch completes.
                         var sentinel = toolResult["result"]?.ToString();
-                        if (sentinel != null && sentinel.StartsWith("##SH_BATCH:", StringComparison.Ordinal))
+                        if (BatchSentinel.Is(sentinel))
                         {
                             outputs["JSON"].Add(new GH_String(sentinel));
                             continue;
                         }
 
                         string json = toolResult["json"]?.ToString() ?? string.Empty;
+
                         // Ensure JSON is minified for consistency
                         string normalizedJson = JsonFormatHelper.JsonToString(json);
                         outputs["JSON"].Add(new GH_String(normalizedJson));

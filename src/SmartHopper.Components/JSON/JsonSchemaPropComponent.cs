@@ -43,10 +43,11 @@ namespace SmartHopper.Components.JSON
         /// </summary>
         public JsonSchemaPropComponent()
             : base(
-                  "JSON Schema Property",
-                  "JsonSchemaProp",
-                  "Build a JSON Schema property definition for use with Json Schema component.\n\nOutputs a string in the format \"name:type:description\" or \"name:type:description:required\" when Required? is true.\nSet Array? to true to create an array property with items of the specified Type.\nFor nested properties, prefix the name: e.g. Name = \"address\" and connect as a sub-property to JsonSchemaObject.\n\nValid types: string, number, integer, boolean, object",
-                  "SmartHopper", "JSON")
+                "JSON Schema Property",
+                "JsonSchemaProp",
+                "Build a JSON Schema property definition for use with Json Schema component.\n\nOutputs a string in the format \"name:type:description\" or \"name:type:description:required\" when Required? is true.\nSet Array? to true to create an array property with items of the specified Type.\nFor nested properties, prefix the name: e.g. Name = \"address\" and connect as a sub-property to JsonSchemaObject.\n\nValid types: string, number, integer, boolean, object",
+                "SmartHopper",
+                "JSON")
         {
         }
 
@@ -103,7 +104,6 @@ namespace SmartHopper.Components.JSON
             //     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Description cannot contain colons (:).");
             //     return;
             // }
-
             type = NormalizeType(type);
             name = name.Trim();
 

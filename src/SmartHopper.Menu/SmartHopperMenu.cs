@@ -87,7 +87,9 @@ namespace SmartHopper.Menu
             foreach (ToolStripItem item in menuStrip.Items)
             {
                 if (item.Text == "SmartHopper")
+                {
                     return true;
+                }
             }
 
             return false;

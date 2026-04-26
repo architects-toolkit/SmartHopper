@@ -216,14 +216,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private static List<string> NormalizeListInput(AIInteractionToolCall toolCall)
         {
             var args = toolCall.Arguments ?? new JObject();
-            var token = args["list"];
-            if (token is JArray array)
-            {
-                return array.Select(t => t.ToString()).ToList();
-            }
-
-            var raw = token?.ToString();
-            return AIResponseParser.ParseStringArrayFromResponse(raw);
+            return StringListResultResolver.ParseOrEmpty(args["list"]);
         }
     }
 }

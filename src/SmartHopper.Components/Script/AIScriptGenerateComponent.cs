@@ -30,6 +30,8 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Script
 {
@@ -227,7 +229,7 @@ namespace SmartHopper.Components.Script
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIScriptGenerateWorker] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
@@ -242,18 +244,13 @@ namespace SmartHopper.Components.Script
                     return;
                 }
 
-                // Check for errors
-                var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
+                // Extract and collect messages from tool result (errors, warnings, etc.)
+                var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                foreach (var m in toolMessages) this.CollectMessage(m);
+
+                var hasErrors = toolMessages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);
                 if (hasErrors)
                 {
-                    foreach (var text in ((JArray)toolResult["messages"])
-                        .Where(msg => msg["severity"]?.ToString() == "Error")
-                        .Select(msg => msg["message"]?.ToString())
-                        .Where(text => !string.IsNullOrWhiteSpace(text)))
-                    {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
-                    }
-
                     this.resultInfo.Append(new GH_String("Tool failed. See runtime errors."), path);
                     return;
                 }
@@ -295,7 +292,7 @@ namespace SmartHopper.Components.Script
                     ["contextFilter"] = "-*",
                 };
 
-                return await this.parent.CallAiToolAsync("script_generate", parameters).ConfigureAwait(false);
+                return await this.parent.CallAIToolAsync("script_generate", parameters, token).ConfigureAwait(false);
             }
 
             /// <summary>
@@ -312,7 +309,7 @@ namespace SmartHopper.Components.Script
                     ["contextFilter"] = "-*",
                 };
 
-                var getResult = await this.parent.CallAiToolAsync("gh_get", getParams).ConfigureAwait(false);
+                var getResult = await this.parent.CallAIToolAsync("gh_get", getParams, token).ConfigureAwait(false);
 
                 if (getResult == null)
                 {
@@ -350,7 +347,7 @@ namespace SmartHopper.Components.Script
                     ["contextFilter"] = "-*",
                 };
 
-                return await this.parent.CallAiToolAsync("script_edit", editParams).ConfigureAwait(false);
+                return await this.parent.CallAIToolAsync("script_edit", editParams, token).ConfigureAwait(false);
             }
 
             /// <inheritdoc/>

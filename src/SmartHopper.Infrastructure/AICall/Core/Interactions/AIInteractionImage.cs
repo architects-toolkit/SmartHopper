@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -74,7 +75,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets or sets the structured runtime messages associated with this image interaction.
         /// Used to propagate warnings, infos, or provider notes alongside the result.
         /// </summary>
-        public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
+        public List<SHRuntimeMessage> Messages { get; set; } = new List<SHRuntimeMessage>();
 
         /// <summary>
         /// Returns a string representation of the AIInteractionImage.

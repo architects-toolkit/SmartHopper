@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -66,7 +67,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new McNeelForumGetPostWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new McNeelForumGetPostWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class McNeelForumGetPostWorker : AsyncWorkerBase
@@ -166,7 +167,7 @@ namespace SmartHopper.Components.Knowledge
 
                                     if (toolResult == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_post_get' returned no result.");
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'mcneel_forum_post_get' returned no result.", SHRuntimeMessageOrigin.Tool);
                                         continue;
                                     }
 
@@ -191,7 +192,7 @@ namespace SmartHopper.Components.Knowledge
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIMcNeelForumGetPostWorker] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 

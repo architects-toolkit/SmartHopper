@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -26,6 +26,7 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
@@ -34,20 +35,20 @@ namespace SmartHopper.Infrastructure.AICall.Validation
     /// </summary>
     public sealed class ToolJsonSchemaValidator : IValidator<AIInteractionToolCall>
     {
-        public AIRuntimeMessageSeverity FailOn { get; } = AIRuntimeMessageSeverity.Error;
+        public SHRuntimeMessageSeverity FailOn { get; } = SHRuntimeMessageSeverity.Error;
 
         public Task<ValidationResult> ValidateAsync(AIInteractionToolCall instance, ValidationContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var messages = new List<AIRuntimeMessage>();
+            var messages = new List<SHRuntimeMessage>();
 
             if (instance == null)
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.ToolValidationError,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.ToolValidationError,
                     "Tool call instance is null"));
                 var early = new ValidationResult
                 {
@@ -97,10 +98,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 var json = instance.Arguments.ToString(Formatting.None);
                 if (!svc.Validate(schemaText, json, out string error))
                 {
-                    messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.ToolValidationError,
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.ToolValidationError,
                         $"Arguments for tool '{instance.Name}' do not match schema: {error}"));
                 }
 
@@ -129,10 +130,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
 
                     if (missing.Count > 0)
                     {
-                        messages.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Error,
-                            AIRuntimeMessageOrigin.Validation,
-                            AIMessageCode.ToolValidationError,
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Error,
+                            SHRuntimeMessageOrigin.Validation,
+                            SHMessageCode.ToolValidationError,
                             $"Arguments for tool '{instance.Name}' are missing required properties: {string.Join(", ", missing)}. Retry the tool call and include these properties."));
                     }
                 }
@@ -147,18 +148,18 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 if (hasRequired)
                 {
                     // Make the message stable and actionable so repeated validation passes dedupe cleanly.
-                    messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.ToolValidationError,
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.ToolValidationError,
                         $"Arguments for tool '{instance.Name}' are missing required properties: {string.Join(", ", required)}. Retry the tool call and include these properties."));
                 }
                 else
                 {
-                    messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Info,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.ToolValidationError,
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Info,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.ToolValidationError,
                         $"No arguments provided for tool '{instance.Name}'. Created default empty arguments {{}} to satisfy the schema."));
                 }
             }

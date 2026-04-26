@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -21,6 +21,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {
@@ -57,10 +58,10 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
             {
                 if (!svc.TryParseSchema(schemaText, out JObject schemaObj, out string parseError))
                 {
-                    context?.Diagnostics?.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.BodyInvalid,
+                    context?.Diagnostics?.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.BodyInvalid,
                         $"Invalid JSON output schema: {parseError}"));
                     return Task.CompletedTask;
                 }
@@ -72,10 +73,10 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
             }
             catch (Exception ex)
             {
-                context?.Diagnostics?.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Warning,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.BodyInvalid,
+                context?.Diagnostics?.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Warning,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     $"Schema validation setup failed: {ex.Message}"));
             }
 
