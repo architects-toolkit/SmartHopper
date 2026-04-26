@@ -235,6 +235,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Runtime Messages**: Fixed error messages disappearing after state transitions due to premature list clearing
 
 - **`AI2Boolean`, `AI2Integer`, `AI2Number`**: Added optional `Fallback` (F) input and `Used Fallback` (UF) boolean output. When the AI response cannot be parsed, the component emits the user-supplied fallback (or `null` if none) and `UsedFallback = true`. Parsing is delegated to the centralized `BooleanResultResolver` / `IntegerResultResolver` / `NumberResultResolver` utilities to keep behavior aligned with the legacy `text2boolean` tool.
+- **`AI2Json`**: Added optional `Fallback` (F) text input (parsed as JSON object or array) and `Used Fallback` (UF) boolean output. Extraction now delegates to `JsonResultResolver.Resolve`, which handles markdown code-block wrapping (` ```json … ``` `), prefatory text, and brace-depth recovery — bringing parity with the `text2json` tool's robustness. Replaces the previous `JsonFormatHelper.JsonToString` extractor.
 
 - **`AI2*` output components**: Updated `UsingAiTools` references to current tool names after the v2 rename:
   - `AI2Text`, `AI2Boolean`, `AI2Number`, `AI2Integer`, `AI2Markdown`: `text_generate` → `text2text`

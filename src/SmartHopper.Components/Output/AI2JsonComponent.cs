@@ -23,9 +23,10 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Components.Output
 {
@@ -37,6 +38,10 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Initializes a new instance of the <see cref="AI2JsonComponent"/> class.
         /// </summary>
+        // Fallback JSON token captured from the optional Fallback input. Used by the
+        // OutputMapping extractors when the AI response cannot be parsed as JSON.
+        private JToken _fallback;
+
         public AI2JsonComponent()
             : base("AI to JSON", "AI→JSON", "Generate structured JSON data from AI input", GH_Exposure.secondary)
         {
@@ -76,22 +81,30 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "JSON",
                     NickName = "J",
-                    Description = "Generated JSON data",
+                    Description = "Generated JSON data (minified). Falls back to the Fallback input when the AI response cannot be parsed as JSON.",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
                     Extractor = (aiReturn) =>
                     {
-                        if (aiReturn?.Body?.GetLastAssistantText() is string text && !string.IsNullOrWhiteSpace(text))
-                        {
-                            // Use JsonFormatHelper to validate and minify JSON
-                            var minifiedJson = JsonFormatHelper.JsonToString(text, out var error);
-                            if (string.IsNullOrEmpty(error) && !string.IsNullOrEmpty(minifiedJson))
-                            {
-                                return new GH_String(minifiedJson);
-                            }
-                        }
-
-                        return null;
+                        var text = aiReturn?.Body?.GetLastAssistantText();
+                        var outcome = JsonResultResolver.Resolve(text, this._fallback);
+                        return outcome.Value != null
+                            ? new GH_String(outcome.Value.ToString(Newtonsoft.Json.Formatting.None))
+                            : null;
+                    }
+                },
+                new OutputMapping
+                {
+                    ParamName = "Used Fallback",
+                    NickName = "UF",
+                    Description = "True when the AI response could not be parsed as JSON and the Fallback value was used (or null was emitted because no fallback was provided).",
+                    ParamType = typeof(Param_Boolean),
+                    Access = GH_ParamAccess.tree,
+                    Extractor = (aiReturn) =>
+                    {
+                        var text = aiReturn?.Body?.GetLastAssistantText();
+                        var outcome = JsonResultResolver.Resolve(text, this._fallback);
+                        return new GH_Boolean(!outcome.Success);
                     }
                 }
             };
@@ -103,6 +116,8 @@ namespace SmartHopper.Components.Output
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Schema", "S", "Optional JSON schema for structured output", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Fallback", "F", "OPTIONAL fallback JSON (object or array) to emit when the AI response cannot be parsed. If not provided, the output will be null for unparsable responses.", GH_ParamAccess.item);
+            pManager[pManager.ParamCount - 1].Optional = true;
         }
 
         /// <summary>
@@ -123,6 +138,21 @@ namespace SmartHopper.Components.Output
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[AI2JsonComponent] Error gathering Schema input: {ex.Message}");
+            }
+
+            // Capture optional Fallback JSON for use by the extractors when parsing fails.
+            this._fallback = null;
+            var fallbackItem = new GH_String();
+            if (DA.GetData("Fallback", ref fallbackItem) && fallbackItem != null && !string.IsNullOrWhiteSpace(fallbackItem.Value))
+            {
+                try
+                {
+                    this._fallback = JToken.Parse(fallbackItem.Value);
+                }
+                catch (Newtonsoft.Json.JsonException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[AI2JsonComponent] Invalid Fallback JSON ignored: {ex.Message}");
+                }
             }
         }
 
