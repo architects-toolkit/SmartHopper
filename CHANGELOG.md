@@ -234,9 +234,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Runtime Messages**: Fixed error messages disappearing after state transitions due to premature list clearing
 
+- **`AI2Boolean`, `AI2Integer`, `AI2Number`**: Added optional `Fallback` (F) input and `Used Fallback` (UF) boolean output. When the AI response cannot be parsed, the component emits the user-supplied fallback (or `null` if none) and `UsedFallback = true`. Parsing is delegated to the centralized `BooleanResultResolver` / `IntegerResultResolver` / `NumberResultResolver` utilities to keep behavior aligned with the legacy `text2boolean` tool.
+
+- **`AI2*` output components**: Updated `UsingAiTools` references to current tool names after the v2 rename:
+  - `AI2Text`, `AI2Boolean`, `AI2Number`, `AI2Integer`, `AI2Markdown`: `text_generate` → `text2text`
+  - `AI2Json`: `text_generate` → `text2json`
+  - `AI2Img`: `img_generate` → `text2img`
+  - `AI2Script`: `script_new` → `script_generate`
+
 ### Removed
 
-- **`boolean_classify` AI tool**: Removed orphaned tool (`SmartHopper.Core.Grasshopper/AITools/boolean_classify.cs`) and its companion `BooleanClassificationResolver` utility. Boolean classification is now handled directly by `AI2BooleanComponent` via `text_generate` + local response parsing, removing the unused tool indirection.
+- **`boolean_classify` AI tool**: Removed orphaned tool (`SmartHopper.Core.Grasshopper/AITools/boolean_classify.cs`) and its companion `BooleanClassificationResolver` utility. Boolean classification is now handled directly by `AI2BooleanComponent` via `text2text` + local response parsing, removing the unused tool indirection.
+- **`integer_extract`, `number_extract`, `markdown_format` AI tools**: Removed orphaned tools with no consumers. Their roles are covered by the new `AI2Integer`, `AI2Number`, and `AI2Markdown` output components, which use `text2text` directly with local response parsing via `AIResponseParser`.
+- **`img_generate` AI tool**: Removed legacy tool — superseded by `text2img` (renamed in this release per BREAKING CHANGES). All image generation components now consume `text2img`.
 
 ## [1.4.2-beta] - 2026-04-15
 

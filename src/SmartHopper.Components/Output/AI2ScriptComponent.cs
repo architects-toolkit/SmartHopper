@@ -54,7 +54,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the AI tools used by this component.
         /// </summary>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "script_new" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "script_generate" };
 
         /// <summary>
         /// Gets the internal system prompt.
