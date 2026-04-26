@@ -55,7 +55,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the AI tools used by this component.
         /// </summary>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "img_generate" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "text2img" };
 
         /// <summary>
         /// Gets the internal system prompt.

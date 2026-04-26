@@ -36,9 +36,29 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Initializes a new instance of the <see cref="AI2BooleanComponent"/> class.
         /// </summary>
+        // Fallback value captured from the optional Fallback input. Used by the
+        // OutputMapping extractors when the AI response cannot be parsed.
+        private bool? _fallback;
+
         public AI2BooleanComponent()
             : base("AI to Boolean", "AI→Bool", "Classify input as true or false", GH_Exposure.primary)
         {
+        }
+
+        /// <inheritdoc/>
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddBooleanParameter("Fallback", "F", "OPTIONAL fallback value to use when the AI response cannot be parsed as true/false. If not provided, the output will be null for unparsable responses.", GH_ParamAccess.item);
+            pManager[pManager.ParamCount - 1].Optional = true;
+        }
+
+        /// <inheritdoc/>
+        protected override void GatherAdditionalInputs(IGH_DataAccess DA, Dictionary<string, object> additionalInputs)
+        {
+            var fallbackItem = new GH_Boolean();
+            this._fallback = DA.GetData("Fallback", ref fallbackItem) && fallbackItem != null
+                ? fallbackItem.Value
+                : (bool?)null;
         }
 
         /// <summary>
@@ -54,7 +74,7 @@ namespace SmartHopper.Components.Output
         /// <summary>
         /// Gets the AI tools used by this component.
         /// </summary>
-        protected override IReadOnlyList<string> UsingAiTools => new[] { "text_generate" };
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
         /// <summary>
         /// Gets the internal system prompt.
@@ -75,22 +95,28 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Boolean",
                     NickName = "B",
-                    Description = "Boolean classification result",
+                    Description = "Boolean classification result. Falls back to the Fallback input when the AI response cannot be parsed.",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
                     Extractor = (aiReturn) =>
                     {
-                        if (aiReturn?.Body?.GetLastAssistantText() is string text && !string.IsNullOrWhiteSpace(text))
-                        {
-                            // Use AIResponseParser to extract boolean value
-                            var parsedBool = AIResponseParser.ParseBooleanFromResponse(text);
-                            if (parsedBool.HasValue)
-                            {
-                                return new GH_Boolean(parsedBool.Value);
-                            }
-                        }
-
-                        return null;
+                        var text = aiReturn?.Body?.GetLastAssistantText();
+                        var (value, _) = BooleanResultResolver.Resolve(text, this._fallback);
+                        return value.HasValue ? new GH_Boolean(value.Value) : null;
+                    }
+                },
+                new OutputMapping
+                {
+                    ParamName = "Used Fallback",
+                    NickName = "UF",
+                    Description = "True when the AI response could not be parsed and the Fallback value was used (or null was emitted because no fallback was provided).",
+                    ParamType = typeof(Param_Boolean),
+                    Access = GH_ParamAccess.tree,
+                    Extractor = (aiReturn) =>
+                    {
+                        var text = aiReturn?.Body?.GetLastAssistantText();
+                        var (_, usedFallback) = BooleanResultResolver.Resolve(text, this._fallback);
+                        return new GH_Boolean(usedFallback);
                     }
                 }
             };
