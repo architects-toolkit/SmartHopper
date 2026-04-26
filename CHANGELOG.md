@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AIImgToTextComponent` → `AIImg2TextComponent`
   - `AIFileToMdComponent` → `AIFile2MdComponent`
   - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
+  - `AIInstructionsComponent` → `AIPromptComponent`
 
 - **Batch API breaking changes** (for custom `IAIBatchProvider` implementations):
   - `AIBatchStatus.ResultBody` replaced by `Results` (dictionary mapping custom ID to response body)

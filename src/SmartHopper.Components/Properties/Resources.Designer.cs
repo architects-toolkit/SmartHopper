@@ -410,9 +410,9 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
-        internal static Bitmap aiinstructions {
+        internal static Bitmap aiprompt {
             get {
-                object obj = ResourceManager.GetObject("aiinstructions", resourceCulture);
+                object obj = ResourceManager.GetObject("aiprompt", resourceCulture);
                 return ((Bitmap)(obj));
             }
         }
