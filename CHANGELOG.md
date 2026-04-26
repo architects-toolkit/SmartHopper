@@ -44,6 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### 📋 List I/O components
+
+- **Typed list adapters** (8 new components) that collapse / expand JSON arrays per branch:
+  - **Inputs (`SmartHopper > Input`)**: `TextList2AI`, `NumberList2AI`, `IntegerList2AI`, `BooleanList2AI` — read a typed `GH_ParamAccess.list` and emit a single `GH_AIInputPayload` whose payload text is a `JsonConvert.SerializeObject(list)` JSON array. One payload per branch.
+  - **Outputs (`SmartHopper > Output`)**: `AI2TextList`, `AI2NumberList`, `AI2IntegerList`, `AI2BooleanList` — instruct the model to return a JSON array of the requested type, then expand each parsed element into the output branch (`GH_ParamAccess.list`). Each gains an optional `Fallback` (F) typed list input and `Used Fallback` (UF) boolean output: when the AI response is unparseable or yields zero parseable items, the fallback list is emitted (or empty if not provided) and `UsedFallback=true`. Built on the unified `OutputMapping.Extractor` enumerable contract.
+- **`OutputMapping.Extractor` unified**: single `Func<AIReturn, IEnumerable<IGH_Goo>>` covers both scalar and list outputs. Replaces the prior scalar `Func<AIReturn, IGH_Goo>` and the short-lived `ListExtractor` field. Scalar callsites use the new `OutputMapping.Single(...)` helper. **Breaking** for any external `OutputMapping` consumer — migration is a 1-line wrap.
+- **`AIOutputAdapterBase` batch ↔ non-batch parity**: both legs now route mapping decoding through a single private `DecodeAllMappings(...)` helper. New mapping-aware `ProcessMappingsBatchResults` walks the primary sentinel tree, decodes each branch's `AIReturn` once via `provider.Decode`, and `AppendRange`'s the per-mapping items at the sentinel's path — so list-shaped outputs (e.g. `AI2*List`) work transparently in batch mode. The `AIOutputAdapterBase`-level override of `SentinelTransformOutputs` was removed; the virtual hook remains on `AIStatefulAsyncComponentBase` for legacy non-adapter components (`AIText2BooleanComponent`, `AIList2BooleanComponent`).
+- **`AIInputAdapterBase` output centralization**: the standard `Input >` output is now sealed-registered by the base class. Subclasses no longer duplicate the registration; they may tailor the tooltip via the new `PayloadOutputDescription` virtual property and add extra outputs via the new `RegisterAdditionalOutputParams` hook. Refactored `Text2AI`, `Img2AI`, `Audio2AI`, `Json2AI`, `AIInstructions`, and the four `*List2AI` components.
+
 #### 🆕 New AI Providers and Models
 
 - **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):

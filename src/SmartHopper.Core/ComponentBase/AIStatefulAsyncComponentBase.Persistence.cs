@@ -88,7 +88,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <param name="aiReturn">The AI return object containing messages.</param>
         /// <param name="keyPrefix">A key prefix to namespace the persistent message keys.</param>
-        private void SurfaceMessagesFromReturn(IAIReturn aiReturn, string keyPrefix)
+        protected void SurfaceMessagesFromReturn(IAIReturn aiReturn, string keyPrefix)
         {
             if (aiReturn?.Messages == null || aiReturn.Messages.Count == 0)
             {

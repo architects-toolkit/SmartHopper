@@ -78,7 +78,7 @@ namespace SmartHopper.Components.Output
                     Description = "Generated script code",
                     ParamType = typeof(Param_String),
                     Access = GH_ParamAccess.tree,
-                    Extractor = (aiReturn) =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         if (aiReturn?.Body?.GetLastAssistantText() is string text)
                         {
@@ -86,7 +86,7 @@ namespace SmartHopper.Components.Output
                         }
 
                         return null;
-                    }
+                    })
                 }
             };
         }
