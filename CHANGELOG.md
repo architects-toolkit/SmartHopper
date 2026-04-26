@@ -234,6 +234,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Runtime Messages**: Fixed error messages disappearing after state transitions due to premature list clearing
 
+### Removed
+
+- **`boolean_classify` AI tool**: Removed orphaned tool (`SmartHopper.Core.Grasshopper/AITools/boolean_classify.cs`) and its companion `BooleanClassificationResolver` utility. Boolean classification is now handled directly by `AI2BooleanComponent` via `text_generate` + local response parsing, removing the unused tool indirection.
+
 ## [1.4.2-beta] - 2026-04-15
 
 Many thanks to the following contributors to this release:
