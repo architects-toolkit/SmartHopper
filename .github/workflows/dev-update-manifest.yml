@@ -69,5 +69,5 @@ jobs:
           git config --local user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
           git config --local user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
           git add yak-package/manifest.yml
-          git commit -m "chore: update manifest text to ${{ steps.manifest_text.outputs.release-type }} version [skip ci]"
+          git commit -m "chore: update manifest text to ${{ steps.update_manifest.outputs.release-type }} version [skip ci]"
           git push

@@ -81,7 +81,7 @@ namespace SmartHopper.Components.Output
                     {
                         if (aiReturn?.Body?.GetLastAssistantText() is string text && !string.IsNullOrWhiteSpace(text))
                         {
-                            // Use AIResponseParser to extract and validate text
+                            // Trim leading and trailing whitespace before returning the text
                             var cleanedText = text.Trim();
                             return new GH_String(cleanedText);
                         }

@@ -289,10 +289,28 @@ namespace SmartHopper.Components.Img
                                     }
                                     else if (source.Kind == VersatileImageKind.LocalFile && !string.IsNullOrWhiteSpace(source.RawValue))
                                     {
-                                        var bytes = File.ReadAllBytes(source.RawValue);
-                                        imgParams["imageBase64"] = Convert.ToBase64String(bytes);
-                                        imgParams["mimeType"] = GetMimeType(source.RawValue);
-                                        hasImage = true;
+                                        try
+                                        {
+                                            if (!File.Exists(source.RawValue))
+                                            {
+                                                this.CollectMessage(GH_RuntimeMessageLevel.Warning, $"Image file not found: {source.RawValue}");
+                                            }
+                                            else
+                                            {
+                                                var bytes = File.ReadAllBytes(source.RawValue);
+                                                imgParams["imageBase64"] = Convert.ToBase64String(bytes);
+                                                imgParams["mimeType"] = GetMimeType(source.RawValue);
+                                                hasImage = true;
+                                            }
+                                        }
+                                        catch (UnauthorizedAccessException ex)
+                                        {
+                                            this.CollectMessage(GH_RuntimeMessageLevel.Warning, $"Unable to access image file '{source.RawValue}': {ex.Message}");
+                                        }
+                                        catch (IOException ex)
+                                        {
+                                            this.CollectMessage(GH_RuntimeMessageLevel.Warning, $"Failed to read image file '{source.RawValue}': {ex.Message}");
+                                        }
                                     }
                                     else if (source.Kind == VersatileImageKind.Bitmap && source.Bitmap != null)
                                     {
