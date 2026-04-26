@@ -1,120 +1,100 @@
 # AIStatefulAsyncComponentBase
 
-Combines provider selection with the stateful async execution model for AI‑powered components.
+`src/SmartHopper.Core/ComponentBase/AIStatefulAsyncComponentBase.*.cs` — partial class split across **8 files**:
+
+| File | Concern |
+| --- | --- |
+| `AIStatefulAsyncComponentBase.Main.cs` | Fields, constructor, parameter registration, `RequiredCapability` / `UsingAiTools`. |
+| `AIStatefulAsyncComponentBase.Lifecycle.cs` | `SolveInstance`, state hooks, `OnEnteringNeedsRunState`, removal, cancel. |
+| `AIStatefulAsyncComponentBase.AI.cs` | `CallAIToolAsync`, `CallAIAsync`, batch interception, timeout config. |
+| `AIStatefulAsyncComponentBase.Batch.cs` | Batch queue, submission, polling, sentinel/ID lifecycle. |
+| `AIStatefulAsyncComponentBase.Processing.cs` | `ProcessBatchResults`, `ReconstructOutputTree`. |
+| `AIStatefulAsyncComponentBase.Metrics.cs` | `FinishResults`, `SetMetricsOutput`, `PrepareInputs` / `SentinelTransformOutputs`, `_persistedMetrics`. |
+| `AIStatefulAsyncComponentBase.Persistence.cs` | `Read`/`Write` for batch state, *Load results from file*, *Check batch status*. |
+| `AIStatefulAsyncComponentBase.UI.cs` | `CreateAttributes` (badges), `UpdateBadgeCache`, `GetStateMessage` overrides. |
+
+Inherits from [AIProviderComponentBase](./AIProviderComponentBase.md). Adds a `Settings` input (parameters, model, extras) and a `Metrics` output, AI request orchestration, capability-aware model selection, badge rendering and a full batch-processing pipeline.
 
 ## Purpose
 
-Offer a turnkey base to build AI components: choose provider/model, build a request, execute, and surface metrics/messages while following the component state machine.
+The canonical base for any component that talks to an AI provider through SmartHopper. It owns the provider/model resolution, the AI request lifecycle (sync or batch), the metrics emission and the on-canvas badge rendering, so derived components only need to express *what* they do (system prompt, tool, output mapping).
 
-## Key features
+## Inputs / outputs added
 
-- Builds on [AIProviderComponentBase](./AIProviderComponentBase.md) and [StatefulComponentBase](./StatefulComponentBase.md) to add a `Settings` input and a `Metrics` output.
-- Capability‑aware model selection via `RequiredCapability` and `UsingAiTools`, delegating to provider `SelectModel()` / `ModelManager.SelectBestModel`.
-- `CallAIToolAsync` helper that injects provider/model into AI Tools, executes them, and stores the last `AIReturn` snapshot.
-- Centralized output finalization via `FinishResults<T>` — persists primary + additional outputs atomically and emits metrics.
-- Virtual hooks `PrepareInputs` and `SentinelTransformOutputs` enabling pre/post processing without touching the core pipeline.
-- Surfaces structured provider/tool diagnostics from `AIReturn.Messages` as persistent Grasshopper runtime messages.
-- Integrates with `ComponentBadgesAttributes` by maintaining a cached badge state (Verified/Deprecated/Invalid/Replaced/Not‑recommended models).
+- `Settings` (`S`, `IGH_Goo`, optional, item) — accepts an `AIRequestParameters` (preferred) or any value cast to a model name string. Drives the `_requestParameters` field used for model, temperature, max tokens, batch tier, custom timeout and provider-specific extras.
+- `Run?` (`R`, bool, item, default `false`) — inherited from `StatefulComponentBase`.
+- `Metrics` (`M`, text, item) — JSON containing provider/model, all token counters, finish reason, completion time, context usage, data count and iteration count. See `SetMetricsOutput`.
 
----
+## Capability-aware model selection
 
-## Unified Execution Flow
+- `protected virtual AICapability RequiredCapability { get; set; }` — the component's declared capability. The getter merges in capabilities required by every tool listed in `UsingAiTools`.
+- `protected virtual IReadOnlyList<string> UsingAiTools => Array.Empty<string>()` — names of tools used by this component. Drives the merged capability and the *not recommended* badge.
+- `GetModel()` returns the user's model from `Settings`, or the provider's `GetDefaultModel(RequiredCapability, useSettings: true)` fallback.
+- `UpdateBadgeCache()` runs a synthetic `AIRequestCall` through validation to populate the badge flags: *Verified*, *Deprecated*, *Invalid*, *Replaced*, *Not recommended*. Cached per solve.
 
-Both the non-batch and batch paths converge at `FinishResults<T>`. The two virtual hooks fire at the same logical positions in both paths.
+## Two execution modes
 
-### Non-batch path
+Both modes converge at `FinishResults<T>` and emit metrics atomically.
+
+### Non-batch (sync)
 
 ```text
 DoWorkAsync()
-  └── RunProcessingAsync()
-        └── DataTreeProcessor.RunAsync()
-              └── function(inputs)          [once per branch/item]
-                    1. PrepareInputs(inputs, context)    ← virtual hook
-                    2. CallAIToolAsync(...)
-                       → real result returned immediately
-                    3. (return outputs dict)
+  └── RunProcessingAsync()                 [via DataTreeProcessor.RunAsync]
+        └── function(inputs)               [once per branch/item]
+              1. PrepareInputs(inputs, ctx)            ← virtual hook
+              2. CallAIToolAsync(...) / CallAIAsync(...)
+              3. (return outputs dict)
         └── FinishResults(primary, ...extras)
-              → SetPersistentOutput for each output
-              → stamp CompletionTime from _batchCompletionTime (if any)
+              → SetPersistentOutput per output
               → SetMetricsOutput(null)
-  └── Worker.SetOutput() → no-op
-        |
-[Completed State] → RestorePersistentOutputs() → canvas updated
+  └── Worker.SetOutput()  → no-op
 ```
 
-### Batch path
+### Batch
 
 ```text
 DoWorkAsync()
   └── RunProcessingAsync()
-        └── DataTreeProcessor.RunAsync()
-              └── function(inputs)          [once per branch/item]
-                    1. PrepareInputs(inputs, context)    ← virtual hook
-                    2. CallAIToolAsync(...)
-                       → returns ##SH_BATCH:{customId}## sentinel
-        └── TrySubmitBatchAsync()           → submits queue to provider
-  └── Worker.SetOutput() → no-op
-        |
-[Stay in Processing State]
-        |
+        └── function(inputs)
+              1. PrepareInputs(inputs, ctx)
+              2. CallAIToolAsync / CallAIAsync queues item, returns sentinel ##SH_BATCH:{customId}##
+        └── TrySubmitBatchAsync()         → submits queue to provider
+  └── Worker.SetOutput()  → no-op
+[Stay in Processing]
 PollBatchStatusAsync() [background timer]
-        |
-OnBatchCompleted(results, messages)
-  └── ProcessBatchResults<T>(decode, messages)
-        └── for each sentinel in tree:
-              item = decode(customId, resultBody)
-              SentinelTransformOutputs({primary→item}, context)  ← virtual hook
-              extras accumulated per sentinel
-        └── SetAIReturnSnapshot(aggregatedMetrics)
-        └── FinishResults(primary, ...extras)
-              → SetPersistentOutput for each output
-              → stamp CompletionTime from _batchCompletionTime
-              → SetMetricsOutput(null)
-        |
-Transition to [Completed State]
-ExpireSolution() → RestorePersistentOutputs() → canvas updated
+  └── OnBatchCompleted(results, messages)
+        └── ProcessBatchResults<T>(decode, messages)
+              for each sentinel:
+                item = decode(customId, body)
+                SentinelTransformOutputs({ primary → item }, ctx)
+              SetAIReturnSnapshot(aggregatedMetrics)
+              FinishResults(primary, ...extras)
+[Completed] → ExpireSolution → RestorePersistentOutputs
 ```
-
----
 
 ## Virtual hooks
 
-### `PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext context)`
+### `PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext ctx)`
 
-Called **before** `CallAIToolAsync` inside `DoWorkAsync`, after inputs are read from DA. Fires at the same point in both paths — inside `function(inputs)` during `DoWorkAsync`.
+Fires inside `function(inputs)` in both modes, **before** the AI call. Override to inject derived fields, normalize values or validate early. Inputs are not available to `SentinelTransformOutputs` in batch mode — cache anything you need on the component.
 
-Override to:
+### `SentinelTransformOutputs(Dictionary<string, IGH_Goo> decodedOutputs, ProcessingUnitContext ctx)`
 
-- Inject computed fields (e.g. derived prompt from multiple inputs)
-- Normalize or sanitize input values
-- Add context metadata (file path → format hint, image → MIME type)
-- Validate and throw early if inputs are invalid
+Fires after each result is decoded, before `FinishResults`. Default returns the dictionary unchanged. Override to split one response into multiple outputs or to add computed fields. Extra keys (anything other than the primary output param name) are accumulated and forwarded to `FinishResults` as `additionalOutputs`.
 
-> **Note:** Inputs are not available to `SentinelTransformOutputs` in batch mode — cache them component-side during `DoWorkAsync` if needed during output transformation.
-
-### `SentinelTransformOutputs(Dictionary<string, IGH_Goo> decodedOutputs, ProcessingUnitContext context)`
-
-Called **after** decode but **before** `FinishResults` / `SetPersistentOutput`. Fires inside `ProcessBatchResults` per sentinel (batch), or immediately after the AI call returns a real result (non-batch).
-
-Override to:
-
-- Split one AI response into multiple named outputs (A, B, C)
-- Add computed fields alongside AI output (e.g. word count, confidence)
-- Normalize or sanitize decoded values
-
-Extra keys returned (any key other than the primary output param name) are accumulated and passed to `FinishResults` as `additionalOutputs`.
+> Renamed from the historical `TransformOutputs`. The previous name no longer exists.
 
 ### `ProcessingUnitContext`
 
-Lightweight read-only struct passed to both hooks:
-
-| Property | Type | Available in non-batch | Available in batch |
-| --- | --- | --- | --- |
-| `Path` | `GH_Path` | ✓ | — |
-| `ItemIndex` | `int?` | ✓ | — |
-| `SentinelId` | `string` | — | ✓ |
-
----
+```csharp
+public readonly struct ProcessingUnitContext
+{
+    public GH_Path Path { get; init; }       // non-batch only
+    public int? ItemIndex { get; init; }     // non-batch only
+    public string SentinelId { get; init; }  // batch only
+}
+```
 
 ## `FinishResults<T>`
 
@@ -123,34 +103,35 @@ protected void FinishResults<T>(
     string primaryOutputParamName,
     GH_Structure<T> primaryTree,
     params (string name, object value)[] additionalOutputs)
-    where T : IGH_Goo
+    where T : IGH_Goo;
 ```
 
-Single finalization point called by **both** paths. Responsibilities:
-
-1. `SetPersistentOutput` for the primary tree
-2. `SetPersistentOutput` for each additional output (any GH-compatible type)
-3. Stamp `AIReturnSnapshot.Metrics.CompletionTime` from `_batchCompletionTime` (fixes batch completion-time bug)
-4. `SetMetricsOutput(null)` — emits the Metrics output
-
-`additionalOutputs` value routing:
+Single finalization point invoked by both modes. Routing for `additionalOutputs.value`:
 
 - `IGH_Structure` → `DA.SetDataTree`
 - `IEnumerable` (non-string) → `DA.SetDataList`
-- Anything else → `GH_Convert.ToGoo` → `DA.SetData`
+- anything else → `GH_Convert.ToGoo` → `DA.SetData`
 
----
+It also stamps `CompletionTime` from `_batchCompletionTime` when present and emits the `Metrics` output via `SetMetricsOutput(null)`.
 
-## Metrics emission
+## Metrics
 
-| Component type | Where metrics are emitted |
+Two emission patterns:
+
+| Component shape | Where metrics are emitted |
 | --- | --- |
-| Standard AI components (Group A) | `FinishResults` (non-batch) or `ProcessBatchResults` → `FinishResults` (batch) |
-| Synchronous-output components (e.g. `AIChatComponent`) | `SetMetricsOutput(DA)` called directly inside `SolveInstance` with the live DA reference |
+| Standard AI components | `FinishResults` (non-batch) or `ProcessBatchResults` → `FinishResults` (batch). |
+| Sync-output components (e.g. `AIChatComponent`) | Call `SetMetricsOutput(DA)` directly inside their `SolveInstance`; do not use `FinishResults`. |
 
-`OnSolveInstancePostSolve` does **not** call `SetMetricsOutput`. Components that set outputs/metrics synchronously in their own `SolveInstance` (like `AIChatComponent`) are unaffected by the hook pattern and continue to work exactly as before.
+`OnSolveInstancePostSolve` does not call `SetMetricsOutput`. The single authoritative metrics instance is `_persistedMetrics`; `AIReturn.Metrics` re-aggregates on every read so writes to it are no-ops, hence the dedicated field.
 
----
+## Batch features
+
+- `IsBatchRequest()` — true when `Settings.BatchTier == true` **and** the provider implements `IAIBatchProvider`. Surfaces a one-shot remark when batch is requested but unsupported.
+- `TrySubmitBatchAsync<T>(outputName, resultDict, ct)` — convenience: stores the sentinel tree and submits the queue.
+- `_sentinelTrees`, `_batchSentinelIds`, `_batchQueue`, `_batchSubmission` — explicit lifecycle, see XML docs in `Main.cs`. Persisted by `Write/Read` so polling resumes after file save/load and *Load results from file* can rebuild trees.
+- Cancellation: `OnTasksCancelDetected` immediately surfaces *"Cancelling batch …"*, calls `IAIBatchProvider.CancelBatchAsync`, then updates the message with success/failure.
+- Context menu: *Load results from file* (multi-select) and *Check batch status* (enabled only while a batch is active).
 
 ## Implementation requirements (standard AI component)
 
@@ -167,7 +148,7 @@ public override void SetOutput(IGH_DataAccess DA, out string message)
 // OnBatchCompleted — delegate entirely to ProcessBatchResults:
 protected override void OnBatchCompleted(
     IReadOnlyDictionary<string, JObject> results,
-    IReadOnlyList<AIRuntimeMessage> messages = null)
+    IReadOnlyList<SHRuntimeMessage> messages = null)
 {
     var sentinel = this.GetSentinelTree("Result");
     if (results == null || sentinel == null) return;
@@ -180,28 +161,26 @@ protected override void OnBatchCompleted(
 }
 ```
 
-For components with **multiple outputs** (e.g. `AIFile2MdComponent`), pass extras to `FinishResults`:
+For multi-output components, pass extras to `FinishResults`:
 
 ```csharp
 parent.FinishResults(
-    "Markdown",
-    markdownTree,
+    "Markdown", markdownTree,
     ("Images", imagesTree),
     ("Format", formatTree));
 ```
 
----
+## Usage checklist
 
-## Usage
-
-- Derive when your component sends prompts/requests to an AI provider (typically by calling AI Tools or an `AIRequestCall`).
-- Call `CallAIToolAsync` (recommended) so provider/model are injected automatically and the `AIReturn` snapshot is stored for metrics and badges.
-- Override `RequiredCapability` (and optionally `UsingAiTools`) so model selection, validation, and badges use the correct capability flags.
-- Follow the **implementation requirements** above: `SetOutput` must be a no-op; non-batch branch must call `FinishResults`; `OnBatchCompleted` must call `ProcessBatchResults`.
-
----
+- Override `RequiredCapability` (and `UsingAiTools` if the component routes through tools).
+- Use `CallAIToolAsync` for tool-based work and `CallAIAsync` for full chat-completion calls (e.g. output adapters with forced tool calls).
+- Override `PrepareInputs` / `SentinelTransformOutputs` for input/output shaping.
+- Implement `OnBatchCompleted` and call `ProcessBatchResults<T>` if your component supports batch.
+- Use `SetPersistentRuntimeMessage` (inherited) for errors that should persist across solves.
+- Use `SetAIReturnSnapshot(ret)` if an external source (e.g. WebChat) provides the response.
 
 ## Related
 
-- [AIProviderComponentBase](./AIProviderComponentBase.md) – provider UI/persistence.
-- [StatefulComponentBase](./StatefulComponentBase.md) – stateful execution foundation.
+- [AIProviderComponentBase](./AIProviderComponentBase.md), [StatefulComponentBase](./StatefulComponentBase.md)
+- [AIOutputAdapterBase](./AIOutputAdapterBase.md), [AISelectingStatefulAsyncComponentBase](./AISelectingStatefulAsyncComponentBase.md)
+- [BatchSentinel](./BatchSentinel.md), [Data tree processing schema](./DataTreeProcessingSchema.md)

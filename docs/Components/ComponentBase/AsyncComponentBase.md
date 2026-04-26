@@ -1,46 +1,46 @@
 # AsyncComponentBase
 
-Base class for long‑running Grasshopper components that execute work off the UI thread.
+`src/SmartHopper.Core/ComponentBase/AsyncComponentBase.cs`
+
+Base class for Grasshopper components that run long-running work on a background `Task`. Inherits from `GH_Component`. Adapted from Speckle's `GrasshopperAsyncComponent`.
 
 ## Purpose
 
-Provide a robust async skeleton: snapshot inputs, run on a background task with cancellation, and marshal results and messages back to Grasshopper safely.
+Run compute-heavy or I/O-bound work off the UI thread while staying inside Grasshopper's solve lifecycle. Provides cancellation, exception propagation and a strict pre-/post-solve handshake so outputs are written exactly once per run.
 
-## Key features
+## Design criteria
 
-- **Task lifecycle** with cancellation token handling and proper cleanup.
-- **Worker-based execution** via `CreateWorker()` abstract method.
-- **Two-phase solve pattern**: pre-solve (gather inputs, start tasks) and post-solve (set outputs).
-- **State tracking** with `_state` counter and `_setData` latch for coordinating async completion.
-- **LIFO worker processing**: workers are reversed before output phase for expected ordering.
-- **Automatic message reset**: calls `worker.ResetCollectedMessages()` after `GatherInput` so each run starts with a clean message queue without requiring workers to do it manually.
-- **Automatic message flush**: calls `worker.FlushCollectedMessages()` on the UI thread immediately after each `worker.SetOutput()`, surfacing all messages collected during `DoWorkAsync`.
-- Separation of UI thread vs. worker thread responsibilities.
+- **Two-phase solve.** Pre-solve gathers inputs and starts the task; post-solve consumes the result. Tracked by `_state` (worker completion counter) and `_setData` (output-phase latch).
+- **Workers, not tasks.** Compute logic lives in an `AsyncWorkerBase` returned from `CreateWorker(progressReporter)`. The component owns the lifecycle; the worker owns the compute.
+- **LIFO output ordering.** Workers are reversed before output to match Grasshopper's expected ordering when multiple workers are present.
+- **UI thread safety.** `SetOutput` is invoked through `Rhino.RhinoApp.InvokeOnUiThread`. Workers must never call GH/Rhino UI directly.
+- **Cancellation is first-class.** Each task gets a dedicated `CancellationTokenSource`. The context-menu item *Cancel current process* and `RequestTaskCancellation()` cancel all sources; the cancellation is detected in the continuation, which raises `OnTasksCancelDetected()`.
 
-## Key lifecycle flow
+## Key members
 
-1. **BeforeSolveInstance()** – Cancels running tasks, resets async state (if not in output phase).
-2. **SolveInstance() [pre-solve]** – `InPreSolve=true`; creates worker, calls `GatherInput`, calls `worker.ResetCollectedMessages()`, starts Task.
-3. **AfterSolveInstance()** – Waits for tasks via `Task.WhenAll`, then sets `_state` to worker count and `_setData=1`.
-4. **SolveInstance() [post-solve]** – `InPreSolve=false`; for each worker (LIFO): calls `SetOutput()`, then calls `FlushCollectedMessages()`, then decrements `_state`.
-5. **OnWorkerCompleted()** – Called when `_state` reaches 0 after output phase.
+- `protected abstract AsyncWorkerBase CreateWorker(Action<string> progressReporter)` — factory.
+- `protected virtual void OnSolveInstancePreSolve(IGH_DataAccess DA)` / `OnSolveInstancePostSolve(IGH_DataAccess DA)` — hooks.
+- `protected virtual void OnWorkerCompleted()` — called when all workers have set their outputs.
+- `protected virtual void OnTasksCancelDetected()` — fires after task cancellation; output phase is skipped.
+- `protected void ResetAsyncState()` — clears tasks, workers, cancellation sources and resets `_state`/`_setData`. Used when re-entering work.
+- `public virtual void RequestTaskCancellation()` — cancels every active token source.
+- `protected int DataCount { get; }` / `SetDataCount(int)` — surfaces the data count for state messages and metrics.
+- `public bool InPreSolve` — exposed for `IGH_TaskCapableComponent` callers.
 
-## Internal state variables
+## Lifecycle
 
-- `_state` – Tracks worker completion count; starts at 0, set to `Workers.Count` when all tasks complete.
-- `_setData` – Latch (0/1) indicating output phase is ready.
-- `InPreSolve` – Flag distinguishing input-gathering phase from output-setting phase.
+1. **`BeforeSolveInstance`** – cancels in-flight tasks (unless we are already in the output phase) and calls `ResetAsyncState`.
+2. **`SolveInstance` (pre-solve)** – first pass: creates a worker, calls `worker.GatherInput`, starts `Task.Run(worker.DoWorkAsync)`, then returns so Grasshopper proceeds to `AfterSolveInstance`.
+3. **`AfterSolveInstance`** – `Task.WhenAll` of all worker tasks. On success: sets `_state = Workers.Count`, `_setData = 1`, reverses workers (LIFO). On cancel: resets state, raises `OnTasksCancelDetected`. On fault: surfaces task errors as runtime messages and still proceeds to the output phase. Always re-expires the solution to drive the second solve pass.
+4. **`SolveInstance` (post-solve)** – second pass: invokes `worker.SetOutput` for each worker on the UI thread, decrements `_state`. When `_state == 0` clears tasks/workers/sources and calls `OnWorkerCompleted`.
 
-## Usage
+## When to derive
 
-- Derive your component from `AsyncComponentBase` when you need async work without a full state machine.
-- Implement `CreateWorker(Action<string>)` returning an `AsyncWorkerBase`.
-- Keep mutable state out of the worker; pass an immutable snapshot of inputs.
-- Only access Grasshopper/Rhino UI on the UI thread.
-- Use `CollectMessage` in workers for messages from background code; `AddRuntimeMessage` remains valid in `GatherInput` (UI thread).
+- You need async work but **do not** need a state machine, debounce or `Run` button semantics. For all of those use [StatefulComponentBase](./StatefulComponentBase.md).
+- Keep mutable state out of the worker; pass an immutable input snapshot in `GatherInput`.
 
 ## Related
 
-- [StatefulComponentBase](./StatefulComponentBase.md) – adds state machine, debouncing, and Run handling on top; also promotes collected messages to persistent store on Error.
-- [AsyncWorkerBase](../Workers/AsyncWorkerBase.md) – worker abstraction with thread-safe message collection.
-- [ProgressInfo](../Helpers/ProgressInfo.md) – lightweight progress reporting payload.
+- [AsyncWorkerBase](./AsyncWorkerBase.md)
+- [StatefulComponentBase](./StatefulComponentBase.md)
+- [ProgressInfo](./ProgressInfo.md)

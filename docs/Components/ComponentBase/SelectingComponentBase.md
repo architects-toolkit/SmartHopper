@@ -1,95 +1,65 @@
-# SelectingComponentBase
+# SelectingComponentBase / SelectingStatefulComponentBase / AISelectingStatefulAsyncComponentBase
 
-Base that adds a "Select Components" UI to pick Grasshopper objects directly from the canvas.
+This page documents the family of bases that add a *Select Components* button to a Grasshopper component for picking other canvas objects as inputs.
 
-## Purpose
+## The three bases
 
-Provide a consistent, shared schema for components that need the user to select other Grasshopper objects as inputs.
+| Base | Inherits | Use when |
+| --- | --- | --- |
+| `SelectingComponentBase` | `GH_Component` | Plain non-async, non-stateful component that just needs a Select button. |
+| `SelectingStatefulComponentBase` | [StatefulComponentBase](./StatefulComponentBase.md) | Selection + state machine + persistent outputs, no AI. |
+| `AISelectingStatefulAsyncComponentBase` | [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) | Selection + AI request orchestration. |
 
-## Key types
+All three implement `ISelectingComponent` and delegate the actual logic to the shared `SelectingComponentCore` helper. None of them re-implements selection or persistence.
 
-- **`SelectingComponentBase`**
-  Non‑AI base: inherits `GH_Component` and implements `ISelectingComponent`.
+## `ISelectingComponent`
 
-- **`AISelectingStatefulAsyncComponentBase`**
-  AI base: inherits `AIStatefulAsyncComponentBase` and implements `ISelectingComponent`. Uses the same selection pipeline as `SelectingComponentBase`.
+```csharp
+public interface ISelectingComponent
+{
+    List<IGH_DocumentObject> SelectedObjects { get; }
+    void EnableSelectionMode();
+}
+```
 
-- **`ISelectingComponent`**
-  Small contract implemented by both bases:
-  - `List<IGH_ActiveObject> SelectedObjects { get; }`
-  - `void EnableSelectionMode()`
+> `SelectedObjects` exposes `IGH_DocumentObject`, not `IGH_ActiveObject`, so types like scribbles (which do not implement `IGH_ActiveObject`) are supported.
 
-- **`SelectingComponentCore`** (internal)
-  Shared helper that contains all selection logic:
-  - Enters/leaves selection mode
-  - Tracks selected objects on the canvas
-  - Handles GUID‑based persistence and deferred restoration
+## `SelectingComponentCore` (internal helper)
 
-- **`SelectingComponentAttributes`**
-  Shared `GH_ComponentAttributes` that renders:
-  - The "Select" button below the component
-  - Dashed highlight rectangles around selected objects on hover
-  - A connector line from the combined selection center to the "Select" button using the same color as dialog links
-  It works with any `GH_Component` that also implements `ISelectingComponent`.
+Contains every piece of selection logic. Created by each base in its constructor with a `SubscribeToDocumentEvents()` call:
+
+- `EnableSelectionMode()` — clears `SelectedObjects`, enters selection mode, hides the canvas context menu, refreshes the canvas to consume the current selection.
+- Reads `Instances.ActiveCanvas.Document.SelectedObjects()` and filters to **components**, **params**, **groups**, **scribbles** (type name contains `Scribble`) and **panels** (type name contains `Panel`).
+- `Write(GH_IWriter)` / `Read(GH_IReader)` — persists `SelectedObjectsCount` and `SelectedObject_0..N` as `InstanceGuid`s.
+- `OnDocumentAdded` — restores GUIDs once the document is fully loaded; missing objects are skipped, the message is updated and `ExpireSolution` is called.
+- `PruneDeletedSelections(...)` — invoked from each `SelectedObjects` getter to drop dead references.
+- `RenderSelectButton` / `RenderSelectionOverlay` / `BuildSelectedBounds` / `Restart`+`StopSelectDisplayTimer` — drawing primitives shared between the plain and AI custom-attributes classes.
+
+All canvas/UI work is marshalled to Rhino's UI thread via `RhinoApp.InvokeOnUiThread`.
+
+## Custom attributes
+
+- `SelectingComponentAttributes` (used by `SelectingComponentBase` and `SelectingStatefulComponentBase`) extends `GH_ComponentAttributes` and renders the Select button below the component plus a dashed-rectangle highlight around hovered selections.
+- `AISelectingComponentAttributes` (used by `AISelectingStatefulAsyncComponentBase`) extends [`ComponentBadgesAttributes`](#related), so the AI variant keeps provider/model badges and adds the Select button. It also defers tooltip rendering so the tooltip stays above the Select overlay.
+
+Both classes share a 5 s auto-hide timer for the dashed highlight when hovering the Select button.
 
 ## Selection pipeline
 
-- **1. User clicks "Select" button**
-  `SelectingComponentAttributes` calls `ISelectingComponent.EnableSelectionMode()`.
+1. User clicks Select → attributes call `ISelectingComponent.EnableSelectionMode()`.
+2. Core enters selection mode, clears the list, refreshes canvas.
+3. Core reads currently-selected canvas objects, filters and stores them, sets `Message = "N selected"`.
+4. On `Write` the core stores `InstanceGuid`s.
+5. On `Read` and on `OnDocumentAdded` GUIDs are resolved back to live `IGH_DocumentObject` instances; missing ones are skipped.
 
-- **2. Enter selection mode**
-  `SelectingComponentCore.EnableSelectionMode()`:
-  - Clears `SelectedObjects`
-  - Sets an internal `inSelectionMode` flag
-  - Hides the canvas context menu
-  - Triggers a refresh to process current canvas selection
+## Design criteria
 
-- **3. Collect selected objects**
-  The core reads `Instances.ActiveCanvas.Document.SelectedObjects()` and filters to supported types (see below), populating `SelectedObjects` and updating the component message to `"N selected"`.
-
-- **4. Persist selection**
-  On `Write(...)` the core stores:
-  - `SelectedObjectsCount`
-  - `SelectedObject_0..N` as `InstanceGuid`s of each `IGH_DocumentObject`
-
-- **5. Restore selection**
-  On `Read(...)` and when the document finishes loading (`OnDocumentAdded`):
-  - GUIDs are resolved back to document objects
-  - Only existing objects are re‑added to `SelectedObjects`
-  - Missing/deleted objects are skipped
-  - The component `Message` is updated and the solution is expired when something is restored
-
-All document‑load restoration is invoked on Rhino's UI thread via `RhinoApp.InvokeOnUiThread` to keep canvas access safe.
-
-## What gets selected
-
-`SelectingComponentCore` currently accepts:
-
-- **`IGH_Component`** instances
-- **`IGH_Param`** instances
-- **Groups** (`Grasshopper.Kernel.Special.GH_Group`)
-- **Scribbles** (types whose name contains `"Scribble"`)
-- **Panels** (types whose name contains `"Panel"`)
-
-Everything is stored as `IGH_ActiveObject` in `SelectedObjects` but must also be an `IGH_DocumentObject` to be persisted (so it has an `InstanceGuid`).
-
-## When to derive
-
-- **Use `SelectingComponentBase`** when:
-  - You are building a non‑AI component in `SmartHopper.Components`.
-  - You want a "Select" button + selection highlight and persistent `SelectedObjects`.
-
-- **Use `AISelectingStatefulAsyncComponentBase`** when:
-  - You also need the AI stateful async pipeline (`Run?`, metrics, provider/model selection).
-  - You want the same selection UX integrated into an AI component.
-
-In both cases, you typically:
-
-- Read `SelectedObjects` in `SolveInstance` (or async worker) to drive your logic.
-- Do **not** re‑implement any selection or persistence logic: this is fully handled by `SelectingComponentCore`.
+- **One source of truth.** All selection logic lives in `SelectingComponentCore`; the three bases are thin pass-throughs.
+- **Persist GUIDs, not objects.** Documents survive copy/paste and re-open without dangling references.
+- **UI thread for canvas work.** Restoration is dispatched through `RhinoApp.InvokeOnUiThread`.
+- **`IGH_DocumentObject`** as the public type so scribbles and other non-`IGH_ActiveObject` items can be selected.
 
 ## Related
 
-- [StatefulComponentBase](./StatefulComponentBase.md)
-- [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md)
-- `ISelectingComponent`, `SelectingComponentCore`, and `SelectingComponentAttributes` in `src/SmartHopper.Core/ComponentBase`
+- `ISelectingComponent`, `SelectingComponentCore`, `SelectingComponentAttributes`, `AISelectingComponentAttributes` in `src/SmartHopper.Core/ComponentBase/`
+- `ComponentBadgesAttributes` for the AI variant.
