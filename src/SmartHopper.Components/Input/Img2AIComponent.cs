@@ -51,10 +51,7 @@ namespace SmartHopper.Components.Input
             pManager.AddParameter(new VersatileImageParameter(), "Image", "I", "Image source (Bitmap, file path, URL, base64, or data-URI).", GH_ParamAccess.item);
         }
 
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-        {
-            pManager.AddParameter(new AIInputPayloadParameter(), "Input >", ">", "AIInputPayload wrapping the image for AI vision processing.", GH_ParamAccess.item);
-        }
+        protected override string PayloadOutputDescription => "AIInputPayload wrapping the image for AI vision processing.";
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {

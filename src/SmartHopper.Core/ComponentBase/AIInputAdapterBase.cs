@@ -135,5 +135,36 @@ namespace SmartHopper.Core.ComponentBase
 
             return new GH_AIInputPayload(payload);
         }
+
+        /// <summary>
+        /// Gets the tooltip description for the standard <c>Input &gt;</c> output.
+        /// Override in subclasses to tailor the description (e.g. "AIInputPayload wrapping the audio file").
+        /// </summary>
+        protected virtual string PayloadOutputDescription => "AIInputPayload produced by this adapter.";
+
+        /// <summary>
+        /// Sealed registration of the standard <c>Input &gt;</c> output. Always present and at index 0.
+        /// Subclasses must use <see cref="RegisterAdditionalOutputParams"/> to add extra outputs.
+        /// </summary>
+        protected sealed override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddParameter(
+                new AIInputPayloadParameter(),
+                "Input >",
+                ">",
+                this.PayloadOutputDescription,
+                GH_ParamAccess.item);
+
+            this.RegisterAdditionalOutputParams(pManager);
+        }
+
+        /// <summary>
+        /// Hook for subclasses that need to expose extra outputs beyond the standard <c>Input &gt;</c> output.
+        /// Default is a no-op. Indices for extra outputs start at 1.
+        /// </summary>
+        /// <param name="pManager">The Grasshopper output parameter manager.</param>
+        protected virtual void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
+        {
+        }
     }
 }
