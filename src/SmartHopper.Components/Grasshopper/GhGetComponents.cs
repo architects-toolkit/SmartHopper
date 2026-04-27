@@ -111,9 +111,9 @@ namespace SmartHopper.Components.Grasshopper
         {
             base.OnStateCompleted(DA);
 
-            var componentNames = this.persistentOutputs.ContainsKey("Names") ? (List<string>)this.persistentOutputs["Names"] : new List<string>();
-            var componentGuids = this.persistentOutputs.ContainsKey("Guids") ? (List<string>)this.persistentOutputs["Guids"] : new List<string>();
-            var json = this.persistentOutputs.ContainsKey("JSON") ? (string)this.persistentOutputs["JSON"] : string.Empty;
+            var componentNames = this.GetPersistentOutput<List<string>>("Names", new List<string>());
+            var componentGuids = this.GetPersistentOutput<List<string>>("Guids", new List<string>());
+            var json = this.GetPersistentOutput<string>("JSON", string.Empty);
 
             DA.SetDataList(0, componentNames);
             DA.SetDataList(1, componentGuids);
@@ -124,9 +124,9 @@ namespace SmartHopper.Components.Grasshopper
         {
             base.OnStateWaiting(DA);
 
-            var componentNames = this.persistentOutputs.ContainsKey("Names") ? (List<string>)this.persistentOutputs["Names"] : new List<string>();
-            var componentGuids = this.persistentOutputs.ContainsKey("Guids") ? (List<string>)this.persistentOutputs["Guids"] : new List<string>();
-            var json = this.persistentOutputs.ContainsKey("JSON") ? (string)this.persistentOutputs["JSON"] : string.Empty;
+            var componentNames = this.GetPersistentOutput<List<string>>("Names", new List<string>());
+            var componentGuids = this.GetPersistentOutput<List<string>>("Guids", new List<string>());
+            var json = this.GetPersistentOutput<string>("JSON", string.Empty);
 
             DA.SetDataList(0, componentNames);
             DA.SetDataList(1, componentGuids);

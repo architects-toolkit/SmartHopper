@@ -190,7 +190,7 @@ namespace SmartHopper.Components.Test.Misc
             }
 
             // Check if we have restored outputs
-            if (this.persistentOutputs.ContainsKey("Result"))
+            if (this.HasPersistentOutput("Result"))
             {
                 this.restorationSuccess = true;
             }

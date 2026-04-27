@@ -99,7 +99,15 @@ namespace SmartHopper.Core.ComponentBase
             Grasshopper.Kernel.Types.IGH_Goo rawGoo = null;
             if (DA.GetData(WellKnownInputs.Settings, ref rawGoo))
             {
-                AIRequestParametersGooParser.TryFromGoo(rawGoo, out var parsed);
+                if (!AIRequestParametersGooParser.TryFromGoo(rawGoo, out var parsed))
+                {
+                    this.SetPersistentRuntimeMessage(
+                        "settings_parse_failed",
+                        GH_RuntimeMessageLevel.Warning,
+                        $"Could not parse '{WellKnownInputs.Settings}' input ({rawGoo?.GetType().Name ?? "null"}); falling back to defaults.",
+                        false);
+                }
+
                 Debug.WriteLine($"[AIStatefulAsyncComponentBase] Settings parsed: Model={parsed.Model}, MaxTokens={parsed.MaxTokens}, Temperature={parsed.Temperature}");
                 this.SetParameters(parsed);
             }

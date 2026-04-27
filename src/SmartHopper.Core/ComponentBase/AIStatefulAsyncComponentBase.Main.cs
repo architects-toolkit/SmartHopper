@@ -197,15 +197,16 @@ namespace SmartHopper.Core.ComponentBase
         private AIReturn AIReturnSnapshot;
 
         /// <summary>
-        /// Replaces the authoritative metrics instance. Use sparingly — most
-        /// derived code should accumulate via
-        /// <see cref="CombineIntoPersistedMetrics(AIMetrics)"/> instead so
-        /// per-slot metrics merge cleanly with the existing snapshot.
+        /// Gets or sets the authoritative metrics instance kept across state
+        /// transitions. Replacing the value should be rare — most derived code
+        /// should accumulate via <see cref="CombineIntoPersistedMetrics(AIMetrics)"/>
+        /// instead so per-slot metrics merge cleanly with the existing snapshot.
+        /// Setting <c>null</c> clears the snapshot.
         /// </summary>
-        /// <param name="metrics">New metrics instance, or <c>null</c> to clear.</param>
-        protected void SetPersistedMetrics(AIMetrics metrics)
+        protected AIMetrics PersistedMetrics
         {
-            this._batchState.PersistedMetrics = metrics;
+            get => this._batchState.PersistedMetrics;
+            set => this._batchState.PersistedMetrics = value;
         }
 
         /// <summary>

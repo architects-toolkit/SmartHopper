@@ -67,8 +67,10 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Storage for persistent output values that survive state transitions.
+        /// Access from derived classes through <see cref="GetPersistentOutput{T}"/>
+        /// and <see cref="HasPersistentOutput"/>.
         /// </summary>
-        protected readonly Dictionary<string, object> persistentOutputs;
+        private readonly Dictionary<string, object> persistentOutputs;
 
         /// <summary>
         /// Storage for persistent output type information.
@@ -163,9 +165,10 @@ namespace SmartHopper.Core.ComponentBase
             // Initialize the centralized state manager
             this.StateManager = new ComponentStateManager(this.GetType().Name);
 
-            // Subscribe to state manager events
+            // Subscribe to state manager events. StateChanged is the single source of
+            // truth for component-level reactions (message + per-state hooks);
+            // StateEntered is intentionally not used to avoid duplicate Message writes.
             this.StateManager.StateChanged += this.OnStateManagerStateChanged;
-            this.StateManager.StateEntered += this.OnStateManagerStateEntered;
         }
 
         #endregion
@@ -247,15 +250,6 @@ namespace SmartHopper.Core.ComponentBase
                     this.ExpireSolution(true);
                 });
             }
-        }
-
-        /// <summary>
-        /// Handles entering a new state from the ComponentStateManager.
-        /// </summary>
-        /// <param name="newState">The state being entered.</param>
-        private void OnStateManagerStateEntered(ComponentState newState)
-        {
-            this.Message = this.GetStateMessage();
         }
 
         /// <summary>
@@ -1399,6 +1393,17 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             return defaultValue;
+        }
+
+        /// <summary>
+        /// Returns whether persistent storage currently holds a value for
+        /// <paramref name="paramName"/>.
+        /// </summary>
+        /// <param name="paramName">The persistent output name.</param>
+        /// <returns><c>true</c> if a value is stored under that name.</returns>
+        protected bool HasPersistentOutput(string paramName)
+        {
+            return this.persistentOutputs.ContainsKey(paramName);
         }
 
         /// <summary>
