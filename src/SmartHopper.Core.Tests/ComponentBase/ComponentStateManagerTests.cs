@@ -23,6 +23,8 @@ namespace SmartHopper.Core.Tests.ComponentBase
     using System.Threading;
     using System.Threading.Tasks;
     using SmartHopper.Core.ComponentBase;
+    using SmartHopper.Core.ComponentBase.Cores;
+    using SmartHopper.Core.ComponentBase.State;
     using Xunit;
 
     /// <summary>

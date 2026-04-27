@@ -21,11 +21,13 @@ using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Attributes;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Settings;
 using Timer = System.Timers.Timer;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Attributes
 {
     /// <summary>
     /// Custom attributes for AI components that displays the provider logo

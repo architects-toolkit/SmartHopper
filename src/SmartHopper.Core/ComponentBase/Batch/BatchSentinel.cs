@@ -17,8 +17,9 @@
  */
 
 using System;
+using SmartHopper.Core.ComponentBase;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Batch
 {
     /// <summary>
     /// Centralized helpers for the <c>##SH_BATCH:{customId}##</c> placeholder protocol used by

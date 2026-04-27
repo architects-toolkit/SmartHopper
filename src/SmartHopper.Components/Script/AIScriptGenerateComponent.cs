@@ -30,6 +30,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.Diagnostics;
 
@@ -236,7 +237,7 @@ namespace SmartHopper.Components.Script
             /// <summary>
             /// Stores the result from a tool call into the output trees.
             /// </summary>
-            private void StoreResult(GH_Path path, JObject toolResult, bool isEdit)
+            private void StoreResult(GH_Path path, ToolCallResult toolResult, bool isEdit)
             {
                 if (toolResult == null)
                 {
@@ -282,7 +283,7 @@ namespace SmartHopper.Components.Script
             /// <summary>
             /// Generates a new script component using script_generate tool.
             /// </summary>
-            private async Task<JObject> GenerateNewScriptAsync(string prompt, CancellationToken token)
+            private async Task<ToolCallResult> GenerateNewScriptAsync(string prompt, CancellationToken token)
             {
                 Debug.WriteLine("[AIScriptGenerateWorker] Create mode: calling script_generate");
 
@@ -298,7 +299,7 @@ namespace SmartHopper.Components.Script
             /// <summary>
             /// Edits an existing script component using gh_get + script_edit tools.
             /// </summary>
-            private async Task<JObject> EditExistingScriptAsync(string guid, string prompt, CancellationToken token)
+            private async Task<ToolCallResult> EditExistingScriptAsync(string guid, string prompt, CancellationToken token)
             {
                 Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: getting GhJSON for {guid}");
 
@@ -313,28 +314,14 @@ namespace SmartHopper.Components.Script
 
                 if (getResult == null)
                 {
-                    return new JObject
-                    {
-                        ["messages"] = new JArray(new JObject
-                        {
-                            ["severity"] = "Error",
-                            ["message"] = $"gh_get returned no result for {guid}",
-                        }),
-                    };
+                    return ToolCallResult.FromError($"gh_get returned no result for {guid}");
                 }
 
                 // gh_get returns GhJSON in the "ghjson" field
                 var existingGhJson = getResult["ghjson"]?.ToString();
                 if (string.IsNullOrWhiteSpace(existingGhJson))
                 {
-                    return new JObject
-                    {
-                        ["messages"] = new JArray(new JObject
-                        {
-                            ["severity"] = "Error",
-                            ["message"] = $"Could not retrieve GhJSON for component {guid}",
-                        }),
-                    };
+                    return ToolCallResult.FromError($"Could not retrieve GhJSON for component {guid}");
                 }
 
                 Debug.WriteLine($"[AIScriptGenerateWorker] Retrieved GhJSON, length: {existingGhJson.Length}");

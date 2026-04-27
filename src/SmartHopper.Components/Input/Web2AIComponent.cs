@@ -192,10 +192,9 @@ namespace SmartHopper.Components.Input
                         toolCall.SkipMetricsValidation = true;
 
                         AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                        var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                        var toolResult = toolResultInteraction?.Result;
+                        var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
-                        if (toolResult == null)
+                        if (toolResult.Result == null)
                         {
                             this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Tool 'web2md' returned no result for URL: {url}", SHRuntimeMessageOrigin.Tool);
                             outputs["Input >"].Add(new GH_AIInputPayload(null));

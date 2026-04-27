@@ -181,8 +181,7 @@ namespace SmartHopper.Components.Grasshopper
                     }
 
                     // Success path: read tool result payload from gh_put
-                    var toolResultInteraction = aiResult.Body?.GetLastInteraction() as AIInteractionToolResult;
-                    var toolResult = toolResultInteraction?.Result;
+                    var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
                     this.analysis = toolResult?["analysis"]?.ToString();
                     this.componentNames = toolResult?["components"]?.ToObject<List<string>>() ?? new List<string>();

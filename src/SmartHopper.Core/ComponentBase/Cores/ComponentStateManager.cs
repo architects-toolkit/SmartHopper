@@ -21,8 +21,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using SmartHopper.Core.ComponentBase.State;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Cores
 {
     /// <summary>
     /// Specifies the reason for a state transition.

@@ -157,11 +157,9 @@ namespace SmartHopper.Components.Grasshopper
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 
-                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
-                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
-                var toolResult = toolResultInteraction?.Result;
+                var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
 
-                if (toolResult == null)
+                if (toolResult.Result == null)
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_merge' did not return a valid result");
                     return;

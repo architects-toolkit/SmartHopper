@@ -179,10 +179,9 @@ namespace SmartHopper.Components.Knowledge
                                         continue;
                                     }
 
-                                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                                    var toolResult = toolResultInteraction?.Result;
+                                    var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
-                                    if (toolResult == null)
+                                    if (toolResult.Result == null)
                                     {
                                         this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Tool 'web2md' returned no result for '{url}'.", SHRuntimeMessageOrigin.Tool);
                                         outputs["Markdown"].Add(new GH_String(string.Empty));

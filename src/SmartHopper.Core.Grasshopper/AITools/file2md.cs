@@ -341,10 +341,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
 
-                // img2text.DescribeImageAsync always wraps the provider response in an
-                // AIInteractionToolResult with {"description": text}.
-                var toolResultInteraction = imgResult?.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                return toolResultInteraction?.Result?["description"]?.ToString() ?? "[Image could not be described]";
+                var toolResult = ToolCallResult.FromAIReturn(imgResult);
+                return toolResult["description"]?.ToString() ?? "[Image could not be described]";
             }
             catch (Exception ex)
             {

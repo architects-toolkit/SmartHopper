@@ -106,8 +106,8 @@ namespace SmartHopper.Components.Input
         {
             base.OnStateCompleted(DA);
 
-            var payload = this.persistentOutputs.ContainsKey("Payload") ? (GH_AIInputPayload)this.persistentOutputs["Payload"] : null;
-            var ghjson = this.persistentOutputs.ContainsKey("GhJSON") ? (string)this.persistentOutputs["GhJSON"] : string.Empty;
+            var payload = this.GetPersistentOutput<GH_AIInputPayload>("Payload");
+            var ghjson = this.GetPersistentOutput<string>("GhJSON", string.Empty);
 
             if (payload != null)
             {
@@ -120,8 +120,8 @@ namespace SmartHopper.Components.Input
         {
             base.OnStateWaiting(DA);
 
-            var payload = this.persistentOutputs.ContainsKey("Payload") ? (GH_AIInputPayload)this.persistentOutputs["Payload"] : null;
-            var ghjson = this.persistentOutputs.ContainsKey("GhJSON") ? (string)this.persistentOutputs["GhJSON"] : string.Empty;
+            var payload = this.GetPersistentOutput<GH_AIInputPayload>("Payload");
+            var ghjson = this.GetPersistentOutput<string>("GhJSON", string.Empty);
 
             if (payload != null)
             {
@@ -178,11 +178,9 @@ namespace SmartHopper.Components.Input
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 
-                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
-                var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                var toolResult = toolResultInteraction?.Result;
+                var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
 
-                if (toolResult == null)
+                if (toolResult.Result == null)
                 {
                     this.SetPersistentRuntimeMessage("gh_get_error", GH_RuntimeMessageLevel.Error, "Tool 'gh_get' returned no result.");
                     return;

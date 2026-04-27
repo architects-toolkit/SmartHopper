@@ -22,6 +22,9 @@ using System.Windows.Forms;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
+using SmartHopper.Core.ComponentBase.Attributes;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Mixins;
 
 namespace SmartHopper.Core.ComponentBase
 {

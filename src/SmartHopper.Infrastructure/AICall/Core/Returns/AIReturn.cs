@@ -20,14 +20,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.Diagnostics;
-using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Returns
 {
@@ -485,98 +483,6 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
             this.Body = AIBodyBuilder.FromImmutable(this.Body)
                 .SetCompletionTime(completionTime)
                 .Build();
-        }
-    }
-
-    /// <summary>
-    /// Extension methods for AIReturn.
-    /// </summary>
-    public static class AIReturnExtensions
-    {
-        /// <summary>
-        /// Build standardized result as JObject using reflection to map properties.
-        /// </summary>
-        /// <param name="aireturn">The AIReturn instance.</param>
-        /// <param name="fields">Dictionary mapping JSON key names to field paths. Use "Request.PropertyName" or "Metrics.PropertyName" for nested properties.</param>
-        /// <returns>JObject with mapped values.</returns>
-        public static JObject ToJObject(this AIReturn aireturn, Dictionary<string, string> fields = null)
-        {
-            fields ??= new Dictionary<string, string>
-            {
-                ["success"] = "Success",
-                ["result"] = "Result",
-                ["messages"] = "Messages",
-            };
-
-            var jo = new JObject();
-            var aiReturnType = aireturn.GetType();
-            var requestType = aireturn.Request?.GetType() ?? typeof(AIRequestCall);
-            var metricsType = aireturn.Metrics?.GetType() ?? typeof(AIMetrics);
-
-            foreach (var (jsonKey, sourcePath) in fields)
-            {
-                object? value = null;
-                JToken? token;
-
-                try
-                {
-                    if (sourcePath.StartsWith("Request.", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Handle nested Response properties
-                        var propName = sourcePath["Request.".Length..];
-                        var requestProp = requestType.GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-
-                        if (requestProp != null && aireturn.Request != null)
-                        {
-                            value = requestProp.GetValue(aireturn.Request);
-                        }
-                    }
-                    else if (sourcePath.StartsWith("Metrics.", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Handle nested Response properties
-                        var propName = sourcePath["Metrics.".Length..];
-                        var metricsProp = metricsType.GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-
-                        if (metricsProp != null && aireturn.Metrics != null)
-                        {
-                            value = metricsProp.GetValue(aireturn.Metrics);
-                        }
-                    }
-                    else if (sourcePath == "Status")
-                    {
-                        // Handle AICallStatus properties
-                        value = aireturn.Status.ToString();
-                    }
-                    else
-                    {
-                        // Handle AIReturn properties
-                        var prop = aiReturnType.GetProperty(sourcePath, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-
-                        if (prop != null)
-                        {
-                            value = prop.GetValue(aireturn);
-                        }
-                    }
-
-                    // Convert value to JToken
-                    token = value == null
-                        ? JValue.CreateNull()
-                        : (value is JToken jt ? jt : JToken.FromObject(value));
-                }
-                catch (Exception ex)
-                {
-                    // Log mapping error with JSON path information
-                    string errorMsg = JsonPathHelper.FormatJsonPathMappingError(sourcePath, jsonKey, ex.Message);
-                    Debug.WriteLine($"[AIReturn.ToJObject] {errorMsg}");
-
-                    // If reflection fails, use null
-                    token = JValue.CreateNull();
-                }
-
-                jo[jsonKey] = token;
-            }
-
-            return jo;
         }
     }
 }

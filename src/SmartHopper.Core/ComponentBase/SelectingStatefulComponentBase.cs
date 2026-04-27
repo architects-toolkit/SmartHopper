@@ -20,6 +20,8 @@ using System.Collections.Generic;
 using System.Windows.Forms;
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Mixins;
 
 namespace SmartHopper.Core.ComponentBase
 {

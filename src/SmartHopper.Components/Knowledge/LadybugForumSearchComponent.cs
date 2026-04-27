@@ -192,19 +192,8 @@ namespace SmartHopper.Components.Knowledge
                                     Debug.WriteLine($"[LadybugForumSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
                                 }
 
-                                var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                                if (toolResultInteraction == null)
-                                {
-                                    Debug.WriteLine("[LadybugForumSearchWorker] toolResultInteraction is null.");
-                                }
-                                else
-                                {
-                                    Debug.WriteLine($"[LadybugForumSearchWorker] toolResultInteraction.Result is {(toolResultInteraction.Result == null ? "null" : "non-null")}.");
-                                }
-
-                                var toolResult = toolResultInteraction?.Result;
-
-                                if (toolResult == null)
+                                var toolResult = ToolCallResult.FromAIReturn(aiResult);
+                                if (toolResult.Result == null)
                                 {
                                     this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'ladybug_forum_search' returned no result.", SHRuntimeMessageOrigin.Tool);
                                     continue;

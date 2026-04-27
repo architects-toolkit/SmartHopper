@@ -23,9 +23,11 @@ using System.Windows.Forms;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
 using Timer = System.Timers.Timer;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Attributes
 {
     /// <summary>
     /// Encapsulates the mouse/hover/render state required to host a "Select" button

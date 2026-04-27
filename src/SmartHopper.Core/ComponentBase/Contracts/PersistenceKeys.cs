@@ -8,7 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Contracts
 {
     /// <summary>
     /// Centralized registry of Grasshopper <c>GH_IReader</c> / <c>GH_IWriter</c> keys used

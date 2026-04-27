@@ -28,6 +28,8 @@ using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Requests;

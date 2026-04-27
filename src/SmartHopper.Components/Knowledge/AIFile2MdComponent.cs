@@ -30,6 +30,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;

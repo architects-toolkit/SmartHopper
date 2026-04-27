@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Utilities
@@ -100,6 +101,36 @@ namespace SmartHopper.Infrastructure.AICall.Utilities
                 System.Diagnostics.Debug.WriteLine($"[RuntimeMessageUtility.ExtractMessages] Error extracting messages: {ex.Message}");
             }
 
+            return messages;
+        }
+
+        /// <summary>
+        /// Extracts runtime messages from a <see cref="ToolCallResult"/> envelope.
+        /// Combines diagnostics carried on the envelope with messages found inside
+        /// the underlying JSON payload.
+        /// </summary>
+        /// <param name="toolResult">The envelope to extract messages from.</param>
+        /// <returns>A list of extracted SHRuntimeMessage objects, or empty list if none found.</returns>
+        public static List<SHRuntimeMessage> ExtractMessages(ToolCallResult toolResult)
+        {
+            var messages = new List<SHRuntimeMessage>();
+            if (toolResult == null)
+            {
+                return messages;
+            }
+
+            if (toolResult.Messages != null)
+            {
+                foreach (var m in toolResult.Messages)
+                {
+                    if (m != null)
+                    {
+                        messages.Add(m);
+                    }
+                }
+            }
+
+            messages.AddRange(ExtractMessages(toolResult.Result));
             return messages;
         }
 

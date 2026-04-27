@@ -24,6 +24,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;

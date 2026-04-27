@@ -27,10 +27,12 @@ using System.Linq;
 using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
+using SmartHopper.Core.ComponentBase.Attributes;
+using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.UI;
 using Timer = System.Timers.Timer;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Cores
 {
     internal sealed class SelectingComponentCore
     {

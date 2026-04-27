@@ -16,7 +16,9 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-namespace SmartHopper.Core.ComponentBase
+using SmartHopper.Core.ComponentBase.Contracts;
+
+namespace SmartHopper.Core.ComponentBase.State
 {
     /// <summary>
     /// Defines the possible states a component can be in.

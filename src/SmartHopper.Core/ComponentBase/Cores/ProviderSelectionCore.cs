@@ -21,9 +21,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
+using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Cores
 {
     /// <summary>
     /// Instance helper that owns the state required for AI provider selection on a

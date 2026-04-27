@@ -19,7 +19,7 @@
 using System.Collections.Generic;
 using Grasshopper.Kernel;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Contracts
 {
     /// <summary>
     /// Interface for components that support selecting objects on the Grasshopper canvas.

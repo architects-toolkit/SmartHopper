@@ -24,6 +24,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Cores;
+using SmartHopper.Core.ComponentBase.State;
 
 namespace SmartHopper.Components.Test.Misc
 {

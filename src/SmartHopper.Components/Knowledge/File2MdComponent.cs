@@ -264,13 +264,11 @@ namespace SmartHopper.Components.Knowledge
                     }
                 }
 
-                var toolResultInteraction = aiResult?.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                var toolResult = toolResultInteraction?.Result;
+                var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
-                Debug.WriteLine($"[File2Md] Found ToolResult interaction: {toolResultInteraction != null}");
-                Debug.WriteLine($"[File2Md] ToolResult JObject: {toolResult != null}");
+                Debug.WriteLine($"[File2Md] ToolCallResult.Success={toolResult.Success}, Result is {(toolResult.Result == null ? "null" : "non-null")}");
 
-                if (toolResult == null)
+                if (toolResult.Result == null)
                 {
                     Debug.WriteLine($"[File2Md] ERROR: No tool result found. Checking for assistant text response...");
                     var assistantText = aiResult?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;

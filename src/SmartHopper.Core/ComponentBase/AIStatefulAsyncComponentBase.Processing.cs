@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;

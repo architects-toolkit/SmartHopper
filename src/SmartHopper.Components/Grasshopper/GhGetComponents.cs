@@ -175,10 +175,8 @@ namespace SmartHopper.Components.Grasshopper
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 
-                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
-                var toolResultInteraction = aiResult.Body.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                var toolResult = toolResultInteraction?.Result;
-                if (toolResult == null)
+                var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
+                if (toolResult.Result == null)
                 {
                     this.SetPersistentRuntimeMessage("gh_get_error", GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");
                     return;

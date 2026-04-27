@@ -36,9 +36,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
+using SmartHopper.Core.ComponentBase;
 using Timer = System.Timers.Timer;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Attributes
 {
     /// <summary>
     /// Custom attributes for AI components that display model badges (verified/deprecated)

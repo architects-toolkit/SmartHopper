@@ -18,7 +18,7 @@
 
 using SmartHopper.Infrastructure.AIProviders;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Contracts
 {
     /// <summary>
     /// Interface for Grasshopper components that provide AI provider selection functionality.

@@ -25,6 +25,8 @@ using System.Threading.Tasks;
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Cores;
+using SmartHopper.Core.ComponentBase.State;
 
 namespace SmartHopper.Components.Test.Misc
 {

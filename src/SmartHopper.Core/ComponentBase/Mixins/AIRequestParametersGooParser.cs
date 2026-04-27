@@ -19,7 +19,7 @@
 using Grasshopper.Kernel.Types;
 using SmartHopper.Infrastructure.AICall.Core;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Mixins
 {
     /// <summary>
     /// Single source of truth for converting a Grasshopper goo wire into an

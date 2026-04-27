@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -131,8 +132,11 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="toolName">Name of the registered tool.</param>
         /// <param name="parameters">Tool-specific parameters; provider/model will be injected.</param>
         /// <param name="cancellationToken">Cancellation token for the operation.</param>
-        /// <returns>Raw tool result as JObject.</returns>
-        protected async Task<JObject> CallAIToolAsync(string toolName, JObject parameters, System.Threading.CancellationToken cancellationToken = default)
+        /// <returns>Typed <see cref="ToolCallResult"/> envelope carrying execution
+        /// success, the raw tool payload and diagnostic messages. The envelope's
+        /// indexer and <see cref="ToolCallResult.ToString"/> delegate to the
+        /// underlying payload for backward compatibility.</returns>
+        protected async Task<ToolCallResult> CallAIToolAsync(string toolName, JObject parameters, System.Threading.CancellationToken cancellationToken = default)
         {
             parameters ??= new JObject();
 
@@ -209,7 +213,7 @@ namespace SmartHopper.Core.ComponentBase
                     var sentinel = this.TryQueueBatchRequest(
                         batchRequest,
                         toolName,
-                        customId => new JObject { ["result"] = BatchSentinel.Wrap(customId) });
+                        customId => ToolCallResult.FromBatchSentinel(new JObject { ["result"] = BatchSentinel.Wrap(customId) }));
 
                     if (sentinel != null)
                         return sentinel;
@@ -218,7 +222,7 @@ namespace SmartHopper.Core.ComponentBase
 
             // Validation/capability messages will be surfaced from AIReturn after execution
             AIReturn toolResult;
-            JObject result;
+            ToolCallResult result;
 
             try
             {
@@ -231,15 +235,16 @@ namespace SmartHopper.Core.ComponentBase
 
                 if (toolResultInteraction?.Result != null)
                 {
-                    result = toolResultInteraction.Result;
+                    result = new ToolCallResult(toolResult.Success, toolResultInteraction.Result, toolResult.Messages);
                 }
                 else
                 {
-                    result = new JObject
+                    var fallbackPayload = new JObject
                     {
                         ["success"] = toolResult.Success,
                         ["messages"] = JArray.FromObject(toolResult.Messages),
                     };
+                    result = new ToolCallResult(toolResult.Success, fallbackPayload, toolResult.Messages);
                 }
             }
             catch (Exception ex)
@@ -250,16 +255,7 @@ namespace SmartHopper.Core.ComponentBase
                     GH_RuntimeMessageLevel.Error,
                     ex.Message,
                     false);
-                result = new JObject
-                {
-                    ["success"] = false,
-                    ["messages"] = new JArray(new JObject
-                    {
-                        ["severity"] = "Error",
-                        ["origin"] = "Return",
-                        ["message"] = ex.Message
-                    }),
-                };
+                result = ToolCallResult.FromError(ex.Message);
                 toolResult = null;
             }
 

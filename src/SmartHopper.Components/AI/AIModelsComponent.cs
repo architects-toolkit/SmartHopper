@@ -28,6 +28,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.AI

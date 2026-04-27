@@ -19,6 +19,9 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using SmartHopper.Core.ComponentBase.Attributes;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase

@@ -30,6 +30,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.Diagnostics;
 
@@ -214,7 +215,7 @@ namespace SmartHopper.Components.Script
             /// <summary>
             /// Stores the result from a tool call into the output trees.
             /// </summary>
-            private void StoreResult(GH_Path path, JObject toolResult)
+            private void StoreResult(GH_Path path, ToolCallResult toolResult)
             {
                 if (toolResult == null)
                 {

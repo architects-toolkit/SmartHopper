@@ -8,7 +8,7 @@
  * version 3 of the License, or (at your option) any later version.
  */
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Contracts
 {
     /// <summary>
     /// Canonical names for well-known Grasshopper input/output parameters exposed by the

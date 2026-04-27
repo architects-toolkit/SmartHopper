@@ -22,7 +22,7 @@ using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Metrics;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Cores
 {
     /// <summary>
     /// Mutable per-run state for the batch / metrics machinery on

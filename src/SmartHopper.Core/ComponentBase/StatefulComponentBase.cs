@@ -43,10 +43,12 @@ using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
+using SmartHopper.Core.ComponentBase.State;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Diagnostics;
 using SmartHopper.Core.IO;
-using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
 

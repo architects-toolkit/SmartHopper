@@ -26,7 +26,7 @@
 using System.Drawing;
 using Grasshopper.Kernel;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Attributes
 {
     /// <summary>
     /// Provides helper methods to draw compact inline labels anchored to a rectangle.

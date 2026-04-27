@@ -175,10 +175,9 @@ namespace SmartHopper.Components.Knowledge
                                     toolCall.SkipMetricsValidation = true;
 
                                     AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                                    var toolResult = toolResultInteraction?.Result;
+                                    var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
-                                    if (toolResult == null)
+                                    if (toolResult.Result == null)
                                     {
                                         this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'discourse_forum_post_get' returned no result.", SHRuntimeMessageOrigin.Tool);
                                         continue;

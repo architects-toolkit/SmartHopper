@@ -20,8 +20,11 @@ using System;
 using System.Collections.Generic;
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
 
-namespace SmartHopper.Core.ComponentBase
+namespace SmartHopper.Core.ComponentBase.Mixins
 {
     /// <summary>
     /// Composition helper that collapses the ~70-line boilerplate shared by every
