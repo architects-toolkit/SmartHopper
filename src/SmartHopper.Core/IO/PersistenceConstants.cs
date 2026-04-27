@@ -48,11 +48,5 @@ namespace SmartHopper.Core.IO
         /// Build the writer/reader key for an output parameter GUID.
         /// </summary>
         public static string KeyForOutputV2(Guid paramGuid) => OutKeyPrefixV2 + paramGuid.ToString("N");
-
-        /// <summary>
-        /// Feature flag: allow attempting legacy (v1) restore using GH internals.
-        /// Disabled by default to avoid crashes from malformed legacy chunks. Set to true only for migration.
-        /// </summary>
-        public const bool EnableLegacyRestore = false;
     }
 }

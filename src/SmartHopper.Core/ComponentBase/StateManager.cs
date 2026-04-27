@@ -45,12 +45,18 @@ namespace SmartHopper.Core.ComponentBase
         Processing,
 
         /// <summary>
-        /// Manually cancelled, add error and transition to Waiting.
+        /// Manually cancelled. The component stays in this state until the user
+        /// pulses <c>Run</c> again (→ <see cref="Processing"/>) or an input change
+        /// is detected (→ <see cref="NeedsRun"/>); it does not transition
+        /// automatically. A runtime error message is surfaced while in this state.
         /// </summary>
         Cancelled,
 
         /// <summary>
-        /// An error occurred, add error and transition to Waiting.
+        /// An error occurred. Same recovery semantics as <see cref="Cancelled"/>:
+        /// the component stays in <c>Error</c> until a Run pulse or input change
+        /// triggers the next solve. A runtime error message is surfaced while in
+        /// this state.
         /// </summary>
         Error,
     }

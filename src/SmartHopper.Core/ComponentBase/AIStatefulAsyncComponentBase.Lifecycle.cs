@@ -63,24 +63,11 @@ namespace SmartHopper.Core.ComponentBase
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Grasshopper.Kernel.Types.IGH_Goo rawGoo = null;
-            if (DA.GetData("Settings", ref rawGoo) && rawGoo != null)
+            if (DA.GetData(WellKnownInputs.Settings, ref rawGoo))
             {
-                var scriptVar = rawGoo.ScriptVariable();
-                if (scriptVar is AIRequestParameters p)
-                {
-                    Debug.WriteLine($"[AIStatefulAsyncComponentBase] Received AIRequestParameters: Model={p.Model}, MaxTokens={p.MaxTokens}, Temperature={p.Temperature}");
-                    this.SetParameters(p);
-                }
-                else if (scriptVar is string s)
-                {
-                    this.SetParameters(AIRequestParameters.FromModel(s.Trim()));
-                }
-                else
-                {
-                    // Try string cast path (GH_String etc.)
-                    string fallbackStr = rawGoo.ToString();
-                    this.SetParameters(AIRequestParameters.FromModel(fallbackStr?.Trim()));
-                }
+                AIRequestParametersGooParser.TryFromGoo(rawGoo, out var parsed);
+                Debug.WriteLine($"[AIStatefulAsyncComponentBase] Settings parsed: Model={parsed.Model}, MaxTokens={parsed.MaxTokens}, Temperature={parsed.Temperature}");
+                this.SetParameters(parsed);
             }
             else
             {
@@ -99,7 +86,7 @@ namespace SmartHopper.Core.ComponentBase
             var changed = base.InputsChanged();
 
             // Clear batch capability check when provider changes to ensure re-validation
-            if (changed.Contains("AIProvider"))
+            if (changed.Contains(WellKnownInputs.AIProvider))
             {
                 this._batchUnsupportedChecked = false;
             }
@@ -111,7 +98,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.BeforeSolveInstance();
 
-            // NOTE: AIReturnSnapshot clearing is done in OnEnteringNeedsRunState (on input change)
+            // NOTE: AIReturnSnapshot clearing is done in OnEnteringNeedsRun (on input change)
             // and defensively in OnStateProcessing, not on every solve.
             // This prevents metrics loss when batch completes and component re-enters Processing.
         }
@@ -131,10 +118,12 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <inheritdoc/>
-        protected override void OnEnteringNeedsRunState()
+        protected override void OnEnteringNeedsRun()
         {
+            base.OnEnteringNeedsRun();
+
             Debug.WriteLine("[AIStatefulAsyncComponentBase] Entering NeedsRun state - clearing previous run batch state");
-            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRunState ENTRY: _sentinelTrees={(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}");
+            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun ENTRY: _sentinelTrees={(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}");
 
             // Clear previous response metrics and all previous-run batch state.
             // _batchSubmission and _batchPollTimer are intentionally NOT cleared here:
@@ -150,7 +139,7 @@ namespace SmartHopper.Core.ComponentBase
             this._batchStartTime = null;
             this._batchCompletionTime = null;
             this.ResetProgress();
-            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRunState EXIT: _sentinelTrees={(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}");
+            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun EXIT: _sentinelTrees={(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}");
         }
 
 

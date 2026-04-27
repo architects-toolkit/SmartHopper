@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 
 namespace SmartHopper.Core.ComponentBase
@@ -453,6 +454,13 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="from">The source state.</param>
         /// <param name="to">The target state.</param>
         /// <returns>True if the transition is valid; otherwise false.</returns>
+        /// <remarks>
+        /// Transitions are looked up in <see cref="AllowedTransitions"/> — a single
+        /// declarative table that captures the full state graph. Keeping the graph
+        /// as data (rather than a <c>switch</c>) makes it trivially auditable and
+        /// ensures every newly added <see cref="ComponentState"/> value has to
+        /// declare its successors explicitly.
+        /// </remarks>
         public bool IsValidTransition(ComponentState from, ComponentState to)
         {
             // Same state is not a transition
@@ -461,45 +469,62 @@ namespace SmartHopper.Core.ComponentBase
                 return false;
             }
 
-            // Define valid transitions based on state machine
-            switch (from)
-            {
-                case ComponentState.Completed:
-                    return to == ComponentState.Waiting
-                        || to == ComponentState.NeedsRun
-                        || to == ComponentState.Processing
-                        || to == ComponentState.Error;
-
-                case ComponentState.Waiting:
-                    return to == ComponentState.NeedsRun
-                        || to == ComponentState.Processing
-                        || to == ComponentState.Error;
-
-                case ComponentState.NeedsRun:
-                    return to == ComponentState.Processing
-                        || to == ComponentState.Error;
-
-                case ComponentState.Processing:
-                    return to == ComponentState.Completed
-                        || to == ComponentState.Cancelled
-                        || to == ComponentState.Error;
-
-                case ComponentState.Cancelled:
-                    return to == ComponentState.Waiting
-                        || to == ComponentState.NeedsRun
-                        || to == ComponentState.Processing
-                        || to == ComponentState.Error;
-
-                case ComponentState.Error:
-                    return to == ComponentState.Waiting
-                        || to == ComponentState.NeedsRun
-                        || to == ComponentState.Processing
-                        || to == ComponentState.Error;
-
-                default:
-                    return false;
-            }
+            return AllowedTransitions.TryGetValue(from, out var successors) && successors.Contains(to);
         }
+
+        /// <summary>
+        /// Declarative state graph used by <see cref="IsValidTransition"/>.
+        /// Each entry lists the set of states reachable in a single step from the
+        /// key state. States not listed as a key have no outgoing edges.
+        /// </summary>
+        /// <remarks>
+        /// The graph intentionally allows <c>Error</c> as a destination from every
+        /// non-terminal state, and allows recovery back into any running state from
+        /// both <c>Cancelled</c> and <c>Error</c>. <c>NeedsRun</c> is purely a
+        /// waiting-for-Run marker and cannot self-bypass into <c>Completed</c>.
+        /// </remarks>
+        private static readonly IReadOnlyDictionary<ComponentState, ICollection<ComponentState>> AllowedTransitions =
+            new Dictionary<ComponentState, ICollection<ComponentState>>
+            {
+                [ComponentState.Completed] = new HashSet<ComponentState>
+                {
+                    ComponentState.Waiting,
+                    ComponentState.NeedsRun,
+                    ComponentState.Processing,
+                    ComponentState.Error,
+                },
+                [ComponentState.Waiting] = new HashSet<ComponentState>
+                {
+                    ComponentState.NeedsRun,
+                    ComponentState.Processing,
+                    ComponentState.Error,
+                },
+                [ComponentState.NeedsRun] = new HashSet<ComponentState>
+                {
+                    ComponentState.Processing,
+                    ComponentState.Error,
+                },
+                [ComponentState.Processing] = new HashSet<ComponentState>
+                {
+                    ComponentState.Completed,
+                    ComponentState.Cancelled,
+                    ComponentState.Error,
+                },
+                [ComponentState.Cancelled] = new HashSet<ComponentState>
+                {
+                    ComponentState.Waiting,
+                    ComponentState.NeedsRun,
+                    ComponentState.Processing,
+                    ComponentState.Error,
+                },
+                [ComponentState.Error] = new HashSet<ComponentState>
+                {
+                    ComponentState.Waiting,
+                    ComponentState.NeedsRun,
+                    ComponentState.Processing,
+                    ComponentState.Error,
+                },
+            };
 
         /// <summary>
         /// Forces an immediate state change without validation or queueing.

@@ -5,7 +5,7 @@
 | File | Concern |
 | --- | --- |
 | `AIStatefulAsyncComponentBase.Main.cs` | Fields, constructor, parameter registration, `RequiredCapability` / `UsingAiTools`. |
-| `AIStatefulAsyncComponentBase.Lifecycle.cs` | `SolveInstance`, state hooks, `OnEnteringNeedsRunState`, removal, cancel. |
+| `AIStatefulAsyncComponentBase.Lifecycle.cs` | `SolveInstance`, state hooks, `OnEnteringNeedsRun`, removal, cancel. |
 | `AIStatefulAsyncComponentBase.AI.cs` | `CallAIToolAsync`, `CallAIAsync`, batch interception, timeout config. |
 | `AIStatefulAsyncComponentBase.Batch.cs` | Batch queue, submission, polling, sentinel/ID lifecycle. |
 | `AIStatefulAsyncComponentBase.Processing.cs` | `ProcessBatchResults`, `ReconstructOutputTree`. |

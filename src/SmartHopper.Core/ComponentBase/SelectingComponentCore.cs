@@ -65,13 +65,13 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
-                writer.SetInt32("SelectedObjectsCount", this.selectingComponent.SelectedObjects.Count);
+                writer.SetInt32(PersistenceKeys.SelectedObjectsCount, this.selectingComponent.SelectedObjects.Count);
 
                 for (int i = 0; i < this.selectingComponent.SelectedObjects.Count; i++)
                 {
                     if (this.selectingComponent.SelectedObjects[i] is IGH_DocumentObject docObj)
                     {
-                        writer.SetGuid($"SelectedObject_{i}", docObj.InstanceGuid);
+                        writer.SetGuid($"{PersistenceKeys.SelectedObjectPrefix}{i}", docObj.InstanceGuid);
                     }
                 }
 
@@ -91,14 +91,14 @@ namespace SmartHopper.Core.ComponentBase
                 this.pendingSelectionGuids.Clear();
                 this.hasPendingRestore = false;
 
-                if (reader.ItemExists("SelectedObjectsCount"))
+                if (reader.ItemExists(PersistenceKeys.SelectedObjectsCount))
                 {
-                    int count = reader.GetInt32("SelectedObjectsCount");
+                    int count = reader.GetInt32(PersistenceKeys.SelectedObjectsCount);
                     System.Diagnostics.Debug.WriteLine($"[SelectingComponentCore] Read: Loading {count} selected object GUIDs");
 
                     for (int i = 0; i < count; i++)
                     {
-                        string key = $"SelectedObject_{i}";
+                        string key = $"{PersistenceKeys.SelectedObjectPrefix}{i}";
                         if (reader.ItemExists(key))
                         {
                             Guid objectGuid = reader.GetGuid(key);

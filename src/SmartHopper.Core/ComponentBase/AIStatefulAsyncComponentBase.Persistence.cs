@@ -132,14 +132,14 @@ namespace SmartHopper.Core.ComponentBase
                 // Persist batch state so polling can resume after file close/reopen
                 if (this._batchSubmission != null)
                 {
-                    writer.SetString("BatchId", this._batchSubmission.BatchId);
-                    writer.SetString("BatchProvider", this._batchSubmission.ProviderName);
-                    writer.SetString("BatchRequest", this._batchSubmission.SerializedRequest ?? string.Empty);
-                    writer.SetString("BatchSubmittedAt", this._batchSubmission.SubmittedAt.ToString("O"));
+                    writer.SetString(PersistenceKeys.BatchId, this._batchSubmission.BatchId);
+                    writer.SetString(PersistenceKeys.BatchProvider, this._batchSubmission.ProviderName);
+                    writer.SetString(PersistenceKeys.BatchRequest, this._batchSubmission.SerializedRequest ?? string.Empty);
+                    writer.SetString(PersistenceKeys.BatchSubmittedAt, this._batchSubmission.SubmittedAt.ToString("O"));
 
                     if (this._batchSubmission.CustomIds != null && this._batchSubmission.CustomIds.Count > 0)
                     {
-                        writer.SetString("BatchCustomIds", new JArray(this._batchSubmission.CustomIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
+                        writer.SetString(PersistenceKeys.BatchCustomIds, new JArray(this._batchSubmission.CustomIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
                     }
 
                     Debug.WriteLine($"[AIStatefulAsync] Write: persisted batch state, batchId={this._batchSubmission.BatchId}, items={this._batchSubmission.CustomIds?.Count ?? 0}");
@@ -148,7 +148,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Persist sentinel IDs so OnBatchCompleted can reconstruct trees after reload
                 if (this._batchSentinelIds != null && this._batchSentinelIds.Count > 0)
                 {
-                    writer.SetString("BatchSentinelIds", new JArray(this._batchSentinelIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
+                    writer.SetString(PersistenceKeys.BatchSentinelIds, new JArray(this._batchSentinelIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
                 }
 
                 // Persist sentinel trees (path layout + sentinel strings) so OnBatchCompleted
@@ -183,7 +183,7 @@ namespace SmartHopper.Core.ComponentBase
                         }
                     }
 
-                    writer.SetString("BatchSentinelTrees", sentinelTreesJson.ToString(Newtonsoft.Json.Formatting.None));
+                    writer.SetString(PersistenceKeys.BatchSentinelTrees, sentinelTreesJson.ToString(Newtonsoft.Json.Formatting.None));
                     Debug.WriteLine($"[AIStatefulAsync] Write: persisted {this._sentinelTrees.Count} sentinel tree(s)");
                 }
             }
@@ -202,25 +202,25 @@ namespace SmartHopper.Core.ComponentBase
 
             try
             {
-                if (reader.ItemExists("BatchId"))
+                if (reader.ItemExists(PersistenceKeys.BatchId))
                 {
-                    var batchId = reader.GetString("BatchId");
-                    var providerName = reader.ItemExists("BatchProvider") ? reader.GetString("BatchProvider") : string.Empty;
-                    var serializedReq = reader.ItemExists("BatchRequest") ? reader.GetString("BatchRequest") : string.Empty;
+                    var batchId = reader.GetString(PersistenceKeys.BatchId);
+                    var providerName = reader.ItemExists(PersistenceKeys.BatchProvider) ? reader.GetString(PersistenceKeys.BatchProvider) : string.Empty;
+                    var serializedReq = reader.ItemExists(PersistenceKeys.BatchRequest) ? reader.GetString(PersistenceKeys.BatchRequest) : string.Empty;
 
                     IReadOnlyList<string> customIds = null;
-                    if (reader.ItemExists("BatchCustomIds"))
+                    if (reader.ItemExists(PersistenceKeys.BatchCustomIds))
                     {
-                        var idsJson = reader.GetString("BatchCustomIds");
+                        var idsJson = reader.GetString(PersistenceKeys.BatchCustomIds);
                         if (!string.IsNullOrEmpty(idsJson))
                         {
                             customIds = JArray.Parse(idsJson).Values<string>().ToList().AsReadOnly();
                         }
                     }
-                    else if (reader.ItemExists("BatchCustomId"))
+                    else if (reader.ItemExists(PersistenceKeys.LegacyBatchCustomId))
                     {
                         // Legacy single-ID format
-                        var singleId = reader.GetString("BatchCustomId");
+                        var singleId = reader.GetString(PersistenceKeys.LegacyBatchCustomId);
                         if (!string.IsNullOrEmpty(singleId))
                             customIds = new List<string> { singleId }.AsReadOnly();
                     }
@@ -249,9 +249,9 @@ namespace SmartHopper.Core.ComponentBase
                     }
                 }
 
-                if (reader.ItemExists("BatchSentinelIds"))
+                if (reader.ItemExists(PersistenceKeys.BatchSentinelIds))
                 {
-                    var sentinelJson = reader.GetString("BatchSentinelIds");
+                    var sentinelJson = reader.GetString(PersistenceKeys.BatchSentinelIds);
                     if (!string.IsNullOrEmpty(sentinelJson))
                     {
                         this._batchSentinelIds = new HashSet<string>(JArray.Parse(sentinelJson).Values<string>());
@@ -259,9 +259,9 @@ namespace SmartHopper.Core.ComponentBase
                     }
                 }
 
-                if (reader.ItemExists("BatchSentinelTrees"))
+                if (reader.ItemExists(PersistenceKeys.BatchSentinelTrees))
                 {
-                    var treesJson = reader.GetString("BatchSentinelTrees");
+                    var treesJson = reader.GetString(PersistenceKeys.BatchSentinelTrees);
                     if (!string.IsNullOrEmpty(treesJson))
                     {
                         var treesObj = JObject.Parse(treesJson);

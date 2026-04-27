@@ -13,7 +13,7 @@ Make long-running components behave predictably across button/toggle Run inputs,
 - **Centralized state machine.** All transitions go through `ComponentStateManager.RequestTransition`. Per-state handlers (`OnStateCompleted`, `OnStateProcessing`, …) live on the base.
 - **Hash-based input change detection.** Stable, deterministic hashes for each input parameter (FNV-1a on string form, type-aware for goo) plus per-input branch counts. Computed on every solve, committed by `OnWorkerCompleted`, restored from `.gh` files.
 - **Debounce only when needed.** Bursty input changes start a debounce timer (minimum 1000 ms, configurable via `SmartHopperSettings.DebounceTime`). A direct Run = true pulse on a `RunOnlyOnInputChanges = false` component skips debounce and goes straight to `Processing`.
-- **Persistence is GUID-keyed (V2).** Outputs and hashes are written through `GHPersistenceService.WriteOutputsV2` so renaming output parameters does not corrupt restoration. Legacy `Value_*` reading is retained behind `PersistenceConstants.EnableLegacyRestore`.
+- **Persistence is GUID-keyed (V2).** Outputs and hashes are written through `GHPersistenceService.WriteOutputsV2` so renaming output parameters does not corrupt restoration. The legacy `Value_*` / `Type_*` pre-V2 reader and the `PersistenceConstants.EnableLegacyRestore` flag were removed in the ComponentBase deep refactor; pre-V2 alpha files lose persistent outputs on first open.
 - **Runtime messages persist by key.** `SetPersistentRuntimeMessage(key, level, message)` accumulates messages that survive solves; `ClearOnePersistentRuntimeMessage` and `ClearPersistentRuntimeMessages` purge them.
 - **Restoration suppression.** During `Read` the state manager enters `BeginRestoration`/`EndRestoration` so the first solve does not misclassify restored hashes as a real input change.
 
@@ -30,7 +30,7 @@ Make long-running components behave predictably across button/toggle Run inputs,
 - `protected virtual bool AutoRestorePersistentOutputs => true` — set to `false` if a derived class wants full control of output replay.
 - `protected void SetPersistentOutput(string paramName, object value, IGH_DataAccess DA)` — stores the value in `persistentOutputs` and writes it through `DA` if provided.
 - `protected T GetPersistentOutput<T>(string paramName, T defaultValue = default)`.
-- `protected virtual void OnEnteringProcessingState()` / `OnEnteringNeedsRunState()` — derive-class hooks fired only on transition into the state.
+- `protected virtual void OnEnteringCompleted()` / `OnEnteringWaiting()` / `OnEnteringNeedsRun()` / `OnEnteringProcessing()` / `OnEnteringCancelled()` / `OnEnteringError()` — symmetric derive-class hooks fired once per transition into the matching state. The legacy `OnEnteringNeedsRunState` is `[Obsolete]`; override `OnEnteringNeedsRun` instead.
 - `protected async Task<...> RunProcessingAsync<T,U>(...)` — wraps `DataTreeProcessor.RunAsync`, wires progress and surfaces tree-processing messages.
 - `public override void RequestTaskCancellation()` — also forces `Cancelled` state.
 

@@ -49,11 +49,5 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         /// <returns>The AI provider instance, or null if not available.</returns>
         AIProvider GetActualAIProvider();
-
-        /// <summary>
-        /// Checks if the provider selection has changed since last time.
-        /// </summary>
-        /// <returns>True if the provider selection has changed.</returns>
-        bool HasProviderChanged();
     }
 }

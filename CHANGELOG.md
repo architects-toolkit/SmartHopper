@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Removed legacy interaction classes**: `AIInteractionError`, `AIInteractionInfo`, `AIInteractionWarning`, `AIInteractionDebug`, `AIInteractionDiagnosticBase`. Use `AIInteractionRuntimeMessage` with explicit `Severity` instead.
 
+- **`ComponentBase` deep refactor** (`src/SmartHopper.Core/ComponentBase/`):
+  - `IProviderComponent.HasProviderChanged()` removed — its accessor mutated state on read. Replace with the new `ProviderSelectionCore.ProviderChanged` event and idempotent `IsProviderChangedSinceLastCommit()`/`CommitProviderChange()` methods. `ProviderComponentHelper` was folded into `ProviderSelectionCore`.
+  - `AIStatefulAsyncComponentBase.SetAIReturnSnapshot` is now `protected` (was `public`); `_persistedMetrics` is now `private` (was `protected`) — derived classes must use the new `protected SetPersistedMetrics(AIMetrics)` setter or `CombineIntoPersistedMetrics`.
+  - `OnEnteringNeedsRunState` is `[Obsolete]` — override `OnEnteringNeedsRun` instead. Symmetric `OnEnteringCompleted` / `OnEnteringWaiting` / `OnEnteringProcessing` / `OnEnteringCancelled` / `OnEnteringError` virtuals added.
+  - Inner attributes classes `SelectingComponentAttributes` and `AISelectingComponentAttributes` retained but now thin shells over the new `internal SelectingButtonBehavior` helper.
+  - **Legacy `Value_*` / `Type_*` persistence reader removed** along with `PersistenceConstants.EnableLegacyRestore`. Files saved with the V2 schema (anything from the public release line) restore unchanged; pre-V2 alpha files lose persistent outputs on first open and must be re-run once.
+
 ### Added
 
 #### 📋 List I/O components

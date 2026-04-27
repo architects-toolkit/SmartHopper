@@ -41,11 +41,13 @@ namespace SmartHopper.Core.ComponentBase
         #region METRICS
 
         /// <summary>
-        /// Replaces the internal last AIReturn snapshot.
-        /// Use this when an external source (e.g., WebChat) provides the full response state.
+        /// Replaces the internal last AIReturn snapshot. Visibility is
+        /// <c>protected</c> so only derived components (e.g. batch/output
+        /// adapters) can publish a new snapshot — making it symmetric with
+        /// <see cref="CurrentAIReturnSnapshot"/>'s reader.
         /// </summary>
-        /// <param name="ret">AIReturn snapshot to store.</param>
-        public virtual void SetAIReturnSnapshot(AIReturn ret)
+        /// <param name="ret">AIReturn snapshot to store. Null is ignored.</param>
+        protected virtual void SetAIReturnSnapshot(AIReturn ret)
         {
             if (ret == null)
             {
@@ -99,7 +101,7 @@ namespace SmartHopper.Core.ComponentBase
             var ghString = new GH_String(metricsJsonString);
 
             // Set the metrics output
-            this.SetPersistentOutput("Metrics", ghString, dA);
+            this.SetPersistentOutput(WellKnownInputs.Metrics, ghString, dA);
 
             Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
         }

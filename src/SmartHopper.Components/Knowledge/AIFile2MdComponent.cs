@@ -413,9 +413,9 @@ namespace SmartHopper.Components.Knowledge
         }
 
         /// <inheritdoc/>
-        protected override void OnEnteringNeedsRunState()
+        protected override void OnEnteringNeedsRun()
         {
-            base.OnEnteringNeedsRunState();
+            base.OnEnteringNeedsRun();
             this._fileContexts = null;
             this._fileContextsInitialized = false;
             this._batchContextLost = false;

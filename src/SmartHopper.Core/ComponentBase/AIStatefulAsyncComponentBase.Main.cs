@@ -163,7 +163,7 @@ namespace SmartHopper.Core.ComponentBase
         ///   (2) by <see cref="Read"/> when restoring from saved .gh file.
         /// - Cleared: ONLY in <see cref="SubmitBatchQueueAsync"/> immediately before submitting a NEW batch,
         ///   ensuring a fresh batch starts with clean state.
-        /// - NOT cleared: <see cref="OnEnteringNeedsRunState"/>,
+        /// - NOT cleared: <see cref="OnEnteringNeedsRun"/>,
         ///   <see cref="ResetAsyncState"/>, <see cref="LoadResultsFromFile"/>, or shutdown paths.
         /// - Persisted: <see cref="Write"/> saves non-null trees so <see cref="OnBatchCompleted"/> can
         ///   reconstruct outputs after file reload.
@@ -236,7 +236,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Wall-clock seconds elapsed from batch submission to completion.
         /// Set by <see cref="PollBatchStatusAsync"/> when the batch finishes and consumed by
         /// <see cref="FinishResults{T}"/> to stamp <see cref="AIMetrics.CompletionTime"/>.
-        /// Cleared in <see cref="OnEnteringNeedsRunState"/>.
+        /// Cleared in <see cref="OnEnteringNeedsRun"/>.
         /// </summary>
         private double? _batchCompletionTime;
 
@@ -252,7 +252,19 @@ namespace SmartHopper.Core.ComponentBase
         /// Avoids the computed-property trap of <see cref="AIReturn.Metrics"/> which re-aggregates
         /// from interactions on every access, making any mutation a no-op.
         /// </summary>
-        protected AIMetrics _persistedMetrics;
+        private AIMetrics _persistedMetrics;
+
+        /// <summary>
+        /// Replaces the authoritative metrics instance. Use sparingly — most
+        /// derived code should accumulate via
+        /// <see cref="CombineIntoPersistedMetrics(AIMetrics)"/> instead so
+        /// per-slot metrics merge cleanly with the existing snapshot.
+        /// </summary>
+        /// <param name="metrics">New metrics instance, or <c>null</c> to clear.</param>
+        protected void SetPersistedMetrics(AIMetrics metrics)
+        {
+            this._persistedMetrics = metrics;
+        }
 
         /// <summary>
         /// Backing storage for the component's declared required capability before merging
@@ -348,9 +360,9 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific inputs
             this.RegisterAdditionalInputParams(pManager);
 
-            pManager.AddGenericParameter("Settings", "S", "AI request settings (model, temperature, tokens, extras).\nConnect an AI Settings component or enter a model name as text for quick setup.\nLeave empty to use all provider defaults.", GH_ParamAccess.item);
+            pManager.AddGenericParameter(WellKnownInputs.Settings, "S", "AI request settings (model, temperature, tokens, extras).\nConnect an AI Settings component or enter a model name as text for quick setup.\nLeave empty to use all provider defaults.", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
-            pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter(WellKnownInputs.Run, "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
         }
 
         /// <summary>
@@ -362,7 +374,7 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific outputs
             base.RegisterOutputParams(pManager);
 
-            pManager.AddTextParameter("Metrics", "M", "Usage metrics in JSON format including input tokens, output tokens, and completion time.", GH_ParamAccess.item);
+            pManager.AddTextParameter(WellKnownInputs.Metrics, "M", "Usage metrics in JSON format including input tokens, output tokens, and completion time.", GH_ParamAccess.item);
         }
 
         #endregion

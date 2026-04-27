@@ -503,7 +503,7 @@ namespace SmartHopper.Core.ComponentBase
                     aggregatedMetrics.Combine(m);
                 }
 
-                this._persistedMetrics = aggregatedMetrics;
+                this.SetPersistedMetrics(aggregatedMetrics);
 
                 var batchReturn = new AIReturn();
                 var batchRequest = new SmartHopper.Infrastructure.AICall.Core.Requests.AIRequestCall();

@@ -35,9 +35,15 @@ GH_Component
 - **AI provider**
   - [AIProviderComponentBase](./AIProviderComponentBase.md) – stateful + provider selection.
   - [ProviderComponentBase](./ProviderComponentBase.md) – non-async provider selection.
-  - [ProviderComponentHelper](./ProviderComponentHelper.md) – shared menu / default-resolution / serialization helper.
+  - [ProviderComponentHelper](./ProviderComponentHelper.md) – legacy static helper, superseded by `ProviderSelectionCore`.
   - [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) – core AI component base.
   - [AISelectingStatefulAsyncComponentBase](./AISelectingStatefulAsyncComponentBase.md) – AI + canvas selection.
+- **Shared cores & constants** (introduced in the deep refactor)
+  - `ProviderSelectionCore` – instance-owned provider state with `ProviderChanged` event, idempotent commit, menu/persistence wiring. Replaces `ProviderComponentHelper`.
+  - `SelectingButtonBehavior` (`internal`) – mouse/hover/render state shared by `SelectingComponentAttributes` and `AISelectingComponentAttributes`.
+  - `WellKnownInputs` – constants for canonical input/output parameter names (`AIProvider`, `Run?`, `Settings`, `Metrics`, …).
+  - `PersistenceKeys` (`internal`) – central registry of every GH file key written by these bases.
+  - `AIRequestParametersGooParser` – `TryFromGoo(IGH_Goo, out AIRequestParameters)`; single source of truth for the `Settings` input wire conversion.
 - **AI input/output adapters**
   - [AIInputAdapterBase](./AIInputAdapterBase.md) – synchronous adapters that build `AIInputPayload`.
   - [AIOutputAdapterBase](./AIOutputAdapterBase.md) – AI components driven by `AIInputPayload` trees.

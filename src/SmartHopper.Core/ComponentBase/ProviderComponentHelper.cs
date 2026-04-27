@@ -155,7 +155,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
-                writer.SetString("AIProvider", selectedProvider);
+                writer.SetString(PersistenceKeys.SelectedProvider, selectedProvider);
                 Debug.WriteLine($"[ProviderComponentHelper] [Write] Stored AI provider: {selectedProvider}");
                 return true;
             }
@@ -176,9 +176,9 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
-                if (reader.ItemExists("AIProvider"))
+                if (reader.ItemExists(PersistenceKeys.SelectedProvider))
                 {
-                    string storedProvider = reader.GetString("AIProvider");
+                    string storedProvider = reader.GetString(PersistenceKeys.SelectedProvider);
                     Debug.WriteLine($"[ProviderComponentHelper] [Read] Read stored AI provider: {storedProvider}");
 
                     // Check if the provider exists in the available providers
