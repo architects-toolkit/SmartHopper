@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -16,88 +16,70 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using Grasshopper;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
-using Timer = System.Timers.Timer;
 
 namespace SmartHopper.Core.ComponentBase
 {
+    /// <summary>
+    /// Combines <see cref="AIStatefulAsyncComponentBase"/> with the
+    /// "Select Components" button flow. Selection plumbing is delegated to a
+    /// composed <see cref="SelectingSupport"/>; this shell only wires lifecycle
+    /// overrides.
+    /// </summary>
     public abstract class AISelectingStatefulAsyncComponentBase : AIStatefulAsyncComponentBase, ISelectingComponent
     {
+        private readonly SelectingSupport selection;
+
         /// <summary>
-        /// Gets the currently selected Grasshopper objects for this component's selection mode.
-        /// Uses <see cref="IGH_DocumentObject"/> to support all object types including scribbles.
+        /// Initializes a new instance of the <see cref="AISelectingStatefulAsyncComponentBase"/> class.
         /// </summary>
-        public List<IGH_DocumentObject> SelectedObjects
-        {
-            get
-            {
-                this.selectionCore.PruneDeletedSelections(this.selectedObjects);
-                return this.selectedObjects;
-            }
-        }
-
-        private readonly List<IGH_DocumentObject> selectedObjects = new List<IGH_DocumentObject>();
-        private readonly SelectingComponentCore selectionCore;
-
         protected AISelectingStatefulAsyncComponentBase(string name, string nickname, string description, string category, string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            this.selectionCore = new SelectingComponentCore(this, this);
-            this.selectionCore.SubscribeToDocumentEvents();
+            this.selection = new SelectingSupport(this, this);
         }
 
+        /// <inheritdoc/>
+        public List<IGH_DocumentObject> SelectedObjects => this.selection.SelectedObjects;
+
+        /// <inheritdoc/>
+        public void EnableSelectionMode() => this.selection.EnableSelectionMode();
+
+        /// <inheritdoc/>
         public override void RemovedFromDocument(GH_Document document)
         {
             base.RemovedFromDocument(document);
-            this.selectionCore.UnsubscribeFromDocumentEvents();
+            this.selection.OnRemovedFromDocument();
         }
 
+        /// <inheritdoc/>
         public override void CreateAttributes()
         {
             this.m_attributes = new AISelectingComponentAttributes(this, this);
         }
 
-        public void EnableSelectionMode()
-        {
-            this.selectionCore.EnableSelectionMode();
-        }
-
+        /// <inheritdoc/>
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
         }
 
+        /// <inheritdoc/>
         public override bool Write(GH_IO.Serialization.GH_IWriter writer)
         {
-            if (!base.Write(writer))
-            {
-                return false;
-            }
-
-            return this.selectionCore.Write(writer);
+            return base.Write(writer) && this.selection.Write(writer);
         }
 
+        /// <inheritdoc/>
         public override bool Read(GH_IO.Serialization.GH_IReader reader)
         {
-            if (!base.Read(reader))
-            {
-                return false;
-            }
-
-            return this.selectionCore.Read(reader);
-        }
-
-        private void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
-        {
-            this.selectionCore.OnDocumentAdded(sender, doc);
+            return base.Read(reader) && this.selection.Read(reader);
         }
     }
 

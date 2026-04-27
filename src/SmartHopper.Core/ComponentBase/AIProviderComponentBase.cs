@@ -145,5 +145,27 @@ namespace SmartHopper.Core.ComponentBase
             base.OnWorkerCompleted();
             this.providerCore.CommitChange();
         }
+
+        /// <summary>
+        /// Commits the pending provider change when processing is cancelled. Without this,
+        /// <see cref="InputsChanged"/> would keep reporting <see cref="WellKnownInputs.AIProvider"/>
+        /// for every subsequent solve, permanently marking the component as dirty.
+        /// </summary>
+        protected override void OnTasksCancelDetected()
+        {
+            base.OnTasksCancelDetected();
+            this.providerCore.CommitChange();
+        }
+
+        /// <summary>
+        /// Commits the pending provider change on error for the same reason as
+        /// <see cref="OnTasksCancelDetected"/>: the user's selection has taken effect on
+        /// the attempted run and should not resurface as "changed" on the next solve.
+        /// </summary>
+        protected override void OnEnteringError()
+        {
+            base.OnEnteringError();
+            this.providerCore.CommitChange();
+        }
     }
 }

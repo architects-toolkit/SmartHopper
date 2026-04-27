@@ -30,7 +30,6 @@ Make long-running components behave predictably across button/toggle Run inputs,
 - `protected virtual bool AutoRestorePersistentOutputs => true` — set to `false` if a derived class wants full control of output replay.
 - `protected void SetPersistentOutput(string paramName, object value, IGH_DataAccess DA)` — stores the value in `persistentOutputs` and writes it through `DA` if provided.
 - `protected T GetPersistentOutput<T>(string paramName, T defaultValue = default)`.
-- `protected virtual void OnEnteringCompleted()` / `OnEnteringWaiting()` / `OnEnteringNeedsRun()` / `OnEnteringProcessing()` / `OnEnteringCancelled()` / `OnEnteringError()` — symmetric derive-class hooks fired once per transition into the matching state. The legacy `OnEnteringNeedsRunState` is `[Obsolete]`; override `OnEnteringNeedsRun` instead.
 - `protected async Task<...> RunProcessingAsync<T,U>(...)` — wraps `DataTreeProcessor.RunAsync`, wires progress and surfaces tree-processing messages.
 - `public override void RequestTaskCancellation()` — also forces `Cancelled` state.
 

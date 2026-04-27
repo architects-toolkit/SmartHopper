@@ -34,19 +34,53 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     public abstract partial class AIStatefulAsyncComponentBase
     {
-        /// <summary>Static flag indicating if a document is being removed (Rhino closing or document close).</summary>
-        private static bool _isDocumentRemoving;
+        /// <summary>
+        /// Tracks which documents are currently being removed (closed / Rhino shutdown), keyed
+        /// by <see cref="GH_Document.DocumentID"/>. Replaces the previous single static boolean,
+        /// which incorrectly treated any open-document close as "the whole app is shutting down"
+        /// when multiple documents were loaded — causing batches in doc B to be preserved when
+        /// the user was only closing doc A.
+        /// </summary>
+        private static readonly HashSet<Guid> _removingDocumentIds = new HashSet<Guid>();
+        private static readonly object _removingDocumentIdsLock = new object();
 
         /// <summary>Static constructor to subscribe to document removal event for shutdown detection.</summary>
         static AIStatefulAsyncComponentBase()
         {
-            // GH_DocumentServer.DocumentRemoved fires early during Rhino shutdown or document close
-            // This allows us to distinguish between manual component removal and shutdown scenarios
-            Grasshopper.Instances.DocumentServer.DocumentRemoved += (sender, e) =>
+            // GH_DocumentServer.DocumentRemoved fires early during Rhino shutdown or document close.
+            // Recording the DocumentID lets each component compare against its own document in
+            // RemovedFromDocument(), so only components whose document is actually closing take
+            // the "preserve batch" path.
+            Grasshopper.Instances.DocumentServer.DocumentRemoved += (sender, doc) =>
             {
-                _isDocumentRemoving = true;
-                Debug.WriteLine("[AIStatefulAsync] Document removed event fired - shutdown detected");
+                if (doc == null)
+                {
+                    return;
+                }
+
+                lock (_removingDocumentIdsLock)
+                {
+                    _removingDocumentIds.Add(doc.DocumentID);
+                }
+
+                Debug.WriteLine($"[AIStatefulAsync] Document {doc.DocumentID} removed - shutdown detected for that document");
             };
+        }
+
+        /// <summary>
+        /// Returns whether the given document is currently being closed/removed.
+        /// </summary>
+        private static bool IsDocumentBeingRemoved(GH_Document document)
+        {
+            if (document == null)
+            {
+                return false;
+            }
+
+            lock (_removingDocumentIdsLock)
+            {
+                return _removingDocumentIds.Contains(document.DocumentID);
+            }
         }
 
         #region LIFECYCLE
@@ -181,11 +215,13 @@ namespace SmartHopper.Core.ComponentBase
         /// <inheritdoc/>
         public override void RemovedFromDocument(GH_Document document)
         {
-            // Distinguish between manual component removal and document/Rhino close
-            // _isDocumentRemoving is set by GH_DocumentServer.DocumentRemoved event which fires early
+            // Distinguish between manual component removal and document/Rhino close.
+            // IsDocumentBeingRemoved() checks the specific document id, so closing doc A does
+            // not make components in doc B take the "preserve batch" path.
+            var shuttingDown = IsDocumentBeingRemoved(document);
             if (this._batchSubmission != null)
             {
-                if (_isDocumentRemoving)
+                if (shuttingDown)
                 {
                     // Document/Rhino closing: preserve batch, just stop polling
                     Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument (shutdown): Preserving batch {this._batchSubmission.BatchId}");

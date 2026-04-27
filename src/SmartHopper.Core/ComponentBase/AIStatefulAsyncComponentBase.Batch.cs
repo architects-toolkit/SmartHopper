@@ -647,7 +647,7 @@ namespace SmartHopper.Core.ComponentBase
                 // Bypasses IsValidTransition — required when the caller may already be in
                 // a terminal state (e.g. Error after a failed poll) and a normal
                 // RequestTransition would be rejected. Going through an intermediate
-                // Processing state is NOT an option: OnEnteringProcessingState clears
+                // Processing state is NOT an option: OnEnteringProcessing clears
                 // _sentinelTrees when _batchSubmission is null (new batch starting), which
                 // would destroy the customId → branch-path map needed to populate outputs
                 // from the freshly loaded results.

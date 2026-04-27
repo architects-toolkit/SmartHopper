@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -16,38 +16,22 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using GH_IO.Serialization;
-using Grasshopper;
 using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
-    /// Combines SelectingComponentBase functionality with StatefulComponentBase state management.
-    /// Provides both selection UI and persistent output handling for components that need to select
-    /// Grasshopper objects and maintain state across solve cycles.
+    /// Combines <see cref="StatefulComponentBase"/> state management with the
+    /// "Select Components" button flow. Selection plumbing is delegated to a
+    /// composed <see cref="SelectingSupport"/>; this shell only wires lifecycle
+    /// overrides.
     /// </summary>
     public abstract class SelectingStatefulComponentBase : StatefulComponentBase, ISelectingComponent
     {
-        /// <summary>
-        /// Gets the currently selected Grasshopper objects for this component's selection mode.
-        /// Exposed as a property to encapsulate internal state while allowing read access.
-        /// Uses <see cref="IGH_DocumentObject"/> to support all object types including scribbles.
-        /// </summary>
-        public List<IGH_DocumentObject> SelectedObjects
-        {
-            get
-            {
-                this.selectionCore.PruneDeletedSelections(this.selectedObjects);
-                return this.selectedObjects;
-            }
-        }
-
-        private readonly List<IGH_DocumentObject> selectedObjects = new List<IGH_DocumentObject>();
-        private readonly SelectingComponentCore selectionCore;
+        private readonly SelectingSupport selection;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectingStatefulComponentBase"/> class.
@@ -60,89 +44,45 @@ namespace SmartHopper.Core.ComponentBase
             string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            this.selectionCore = new SelectingComponentCore(this, this);
-            this.selectionCore.SubscribeToDocumentEvents();
+            this.selection = new SelectingSupport(this, this);
         }
 
-        /// <summary>
-        /// Clean up event subscriptions.
-        /// </summary>
+        /// <inheritdoc/>
+        public List<IGH_DocumentObject> SelectedObjects => this.selection.SelectedObjects;
+
+        /// <inheritdoc/>
+        public void EnableSelectionMode() => this.selection.EnableSelectionMode();
+
+        /// <inheritdoc/>
         public override void RemovedFromDocument(GH_Document document)
         {
             base.RemovedFromDocument(document);
-            this.selectionCore.UnsubscribeFromDocumentEvents();
+            this.selection.OnRemovedFromDocument();
         }
 
-        /// <summary>
-        /// Set up custom attributes for the select button.
-        /// </summary>
+        /// <inheritdoc/>
         public override void CreateAttributes()
         {
             this.m_attributes = new SelectingComponentAttributes(this, this);
         }
 
-        /// <summary>
-        /// Enable selection mode to pick GH objects on canvas.
-        /// </summary>
-        public void EnableSelectionMode()
-        {
-            this.selectionCore.EnableSelectionMode();
-        }
-
-        /// <summary>
-        /// Adds "Select Components" to the context menu.
-        /// </summary>
+        /// <inheritdoc/>
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
         }
 
-        /// <summary>
-        /// Writes the component's persistent data to the Grasshopper file, including selected objects.
-        /// </summary>
-        /// <param name="writer">The writer to use for serialization.</param>
-        /// <returns>True if the write operation succeeds, false if it fails or an exception occurs.</returns>
+        /// <inheritdoc/>
         public override bool Write(GH_IWriter writer)
         {
-            if (!base.Write(writer))
-            {
-                return false;
-            }
-
-            return this.selectionCore.Write(writer);
+            return base.Write(writer) && this.selection.Write(writer);
         }
 
-        /// <summary>
-        /// Reads the component's persistent data from the Grasshopper file, including selected objects.
-        /// </summary>
-        /// <param name="reader">The reader to use for deserialization.</param>
-        /// <returns>True if the read operation succeeds, false if it fails, required data is missing, or an exception occurs.</returns>
+        /// <inheritdoc/>
         public override bool Read(GH_IReader reader)
         {
-            if (!base.Read(reader))
-            {
-                return false;
-            }
-
-            return this.selectionCore.Read(reader);
-        }
-
-        /// <summary>
-        /// Attempts to restore selected objects from pending GUIDs.
-        /// </summary>
-        private void TryRestoreSelection()
-        {
-            this.selectionCore.TryRestoreSelection();
-        }
-
-        /// <summary>
-        /// Called when a document is added to the DocumentServer.
-        /// Used to restore selections after document is fully loaded.
-        /// </summary>
-        private void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
-        {
-            this.selectionCore.OnDocumentAdded(sender, doc);
+            return base.Read(reader) && this.selection.Read(reader);
         }
     }
 }
