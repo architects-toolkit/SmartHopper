@@ -152,44 +152,15 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private AIRequestParameters _requestParameters;
 
-        /// <summary>Active batch submission, or null when not in batch mode.</summary>
-        private AIBatchSubmission _batchSubmission;
-
         /// <summary>
-        /// Stores sentinel <see cref="GH_Structure{GH_String}"/> trees keyed by output parameter name.
-        ///
-        /// LIFECYCLE CONTRACT:
-        /// - Populated: (1) by <see cref="StoreSentinelTree"/> during batch collection in <see cref="RunProcessingAsync"/>,
-        ///   (2) by <see cref="Read"/> when restoring from saved .gh file.
-        /// - Cleared: ONLY in <see cref="SubmitBatchQueueAsync"/> immediately before submitting a NEW batch,
-        ///   ensuring a fresh batch starts with clean state.
-        /// - NOT cleared: <see cref="OnEnteringNeedsRun"/>,
-        ///   <see cref="ResetAsyncState"/>, <see cref="LoadResultsFromFile"/>, or shutdown paths.
-        /// - Persisted: <see cref="Write"/> saves non-null trees so <see cref="OnBatchCompleted"/> can
-        ///   reconstruct outputs after file reload.
-        ///
-        /// This ensures sentinels survive file close/reopen and manual result loading.
+        /// Bundles the nine batch / metrics fields that previously lived directly on
+        /// the base class (submission, sentinel trees, queue, sentinel ids, progress,
+        /// unsupported-checked flag, start/completion time, persisted metrics).
+        /// See <see cref="BatchRunState"/> for the per-run vs. cross-run lifecycle
+        /// contract — this object centralises the reset semantics so
+        /// <see cref="OnEnteringNeedsRun"/> shrinks to a single call.
         /// </summary>
-        private Dictionary<string, object> _sentinelTrees;
-
-        /// <summary>
-        /// Queue of (CustomId, Request) pairs collected during a batch-mode component run.
-        /// Populated by <see cref="CallAIToolAsync"/> when <see cref="IsBatchRequest"/> is true.
-        /// Consumed and cleared by <see cref="SubmitBatchQueueAsync"/>.
-        /// </summary>
-        private List<(string CustomId, AIRequestCall Request)> _batchQueue;
-
-        /// <summary>
-        /// Set of all sentinel custom IDs generated for the current (or most-recent) batch run.
-        ///
-        /// LIFECYCLE CONTRACT:
-        /// - Populated: (1) by <see cref="StoreBatchSentinelIds"/> during batch submission in <see cref="SubmitBatchQueueAsync"/>,
-        ///   (2) by <see cref="Read"/> when restoring from saved .gh file.
-        /// - Cleared: ONLY in <see cref="SubmitBatchQueueAsync"/> immediately before submitting a NEW batch.
-        /// - Persisted: <see cref="Write"/> saves non-null IDs so <see cref="LoadResultsFromFile"/> can validate
-        ///   custom_id matches and apply order-based fallback if needed.
-        /// </summary>
-        private HashSet<string> _batchSentinelIds;
+        private readonly BatchRunState _batchState = new BatchRunState();
 
         /// <summary>
         /// When true, <see cref="SubmitBatchQueueAsync"/> collects the batch queue and sentinel
@@ -217,42 +188,13 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>Guards against concurrent poll calls.</summary>
         private int _batchPollRunning;
 
-        /// <summary>Number of items completed so far in the active batch, for live progress display.</summary>
-        private int _batchProgressCompleted;
-
-        /// <summary>
-        /// Tracks whether the batch unsupported check has been performed for the current run.
-        /// Resets when batch tier is disabled to ensure the check runs again on re-enable.
-        /// </summary>
-        private bool _batchUnsupportedChecked;
-
-        /// <summary>Timestamp when the batch was submitted to the provider.</summary>
-        private DateTime? _batchStartTime;
-
         /// <summary>Maximum time to poll for batch completion (24 hours + 60 seconds to match typical provider limits + extra 60 seconds buffer).</summary>
         private static readonly TimeSpan MaxBatchPollingDuration = TimeSpan.FromHours(24) + TimeSpan.FromSeconds(60);
-
-        /// <summary>
-        /// Wall-clock seconds elapsed from batch submission to completion.
-        /// Set by <see cref="PollBatchStatusAsync"/> when the batch finishes and consumed by
-        /// <see cref="FinishResults{T}"/> to stamp <see cref="AIMetrics.CompletionTime"/>.
-        /// Cleared in <see cref="OnEnteringNeedsRun"/>.
-        /// </summary>
-        private double? _batchCompletionTime;
 
         /// <summary>
         /// Last AI return snapshot stored by this component.
         /// </summary>
         private AIReturn AIReturnSnapshot;
-
-        /// <summary>
-        /// Single authoritative metrics instance for this component run.
-        /// Set by <see cref="ProcessBatchResults{T}"/> (batch) or <see cref="FinishResults{T}"/> (non-batch)
-        /// and read by <see cref="SetMetricsOutput"/>.
-        /// Avoids the computed-property trap of <see cref="AIReturn.Metrics"/> which re-aggregates
-        /// from interactions on every access, making any mutation a no-op.
-        /// </summary>
-        private AIMetrics _persistedMetrics;
 
         /// <summary>
         /// Replaces the authoritative metrics instance. Use sparingly — most
@@ -263,7 +205,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="metrics">New metrics instance, or <c>null</c> to clear.</param>
         protected void SetPersistedMetrics(AIMetrics metrics)
         {
-            this._persistedMetrics = metrics;
+            this._batchState.PersistedMetrics = metrics;
         }
 
         /// <summary>

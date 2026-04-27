@@ -228,10 +228,10 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Batch submitted and polling: show live progress counter
-            if (this._batchSubmission != null)
+            if (this._batchState.Submission != null)
             {
-                var total = this._batchSubmission.CustomIds?.Count ?? 0;
-                return $"Processing batch ({this._batchProgressCompleted}/{total})...";
+                var total = this._batchState.Submission.CustomIds?.Count ?? 0;
+                return $"Processing batch ({this._batchState.ProgressCompleted}/{total})...";
             }
 
             // Batch mode active but not yet submitted: data-tree is collecting items

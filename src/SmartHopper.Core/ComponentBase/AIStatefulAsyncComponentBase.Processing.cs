@@ -215,7 +215,7 @@ namespace SmartHopper.Core.ComponentBase
                               $"InputTokens={aggregatedMetrics.InputTokens}, OutputTokens={aggregatedMetrics.OutputTokens}");
 
                 // Store as the single authoritative source for SetMetricsOutput
-                this._persistedMetrics = aggregatedMetrics;
+                this._batchState.PersistedMetrics = aggregatedMetrics;
 
                 // Build AIReturn for body/interactions (used by CurrentAIReturnSnapshot consumers)
                 var batchReturn = new AIReturn();

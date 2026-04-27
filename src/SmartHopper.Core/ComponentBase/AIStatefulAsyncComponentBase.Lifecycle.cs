@@ -122,7 +122,7 @@ namespace SmartHopper.Core.ComponentBase
             // Clear batch capability check when provider changes to ensure re-validation
             if (changed.Contains(WellKnownInputs.AIProvider))
             {
-                this._batchUnsupportedChecked = false;
+                this._batchState.UnsupportedChecked = false;
             }
 
             return changed;
@@ -142,7 +142,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             // When a batch submission is already active, skip spawning a new worker.
             // The poll timer (started in Read()) drives completion; no new work should begin.
-            if (this._batchSubmission != null)
+            if (this._batchState.Submission != null)
             {
                 Debug.WriteLine("[AIStatefulAsyncComponentBase] OnStateProcessing: batch active, skipping worker spawn");
                 return;
@@ -156,31 +156,20 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.OnEnteringNeedsRun();
 
-            Debug.WriteLine("[AIStatefulAsyncComponentBase] Entering NeedsRun state - clearing previous run batch state");
-            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun ENTRY: _sentinelTrees={(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}");
-
-            // Clear previous response metrics and all previous-run batch state.
-            // _batchSubmission and _batchPollTimer are intentionally NOT cleared here:
-            // an in-flight remote batch must keep polling until it completes or fails.
-            // _sentinelTrees is also NOT cleared here - it must survive until a new batch
-            // starts so that loaded results can be processed.
+            // BatchRunState.ResetForNextRun() wipes the seven per-run scratch fields
+            // (queue, sentinel ids, progress, unsupported flag, timings, persisted metrics)
+            // while preserving the two cross-run survivors (Submission, SentinelTrees) so an
+            // in-flight remote batch keeps polling and saved-batch reload remains correct.
+            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun: resetting per-run state, SentinelTrees count={this._batchState.SentinelTrees?.Count ?? 0}");
             this.AIReturnSnapshot = null;
-            this._persistedMetrics = null;
-            this._batchQueue = null;
-            this._batchSentinelIds = null;
-            this._batchProgressCompleted = 0;
-            this._batchUnsupportedChecked = false;
-            this._batchStartTime = null;
-            this._batchCompletionTime = null;
+            this._batchState.ResetForNextRun();
             this.ResetProgress();
-            Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun EXIT: _sentinelTrees={(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}");
         }
-
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)
         {
             // Skip output if batch is still active - outputs will be set after batch completes
-            if (this._batchSubmission != null)
+            if (this._batchState.Submission != null)
             {
                 Debug.WriteLine("[AIStatefulAsync] OnSolveInstancePostSolve: Batch still active, skipping output");
                 return;
@@ -202,7 +191,7 @@ namespace SmartHopper.Core.ComponentBase
         protected override void RestorePersistentOutputs(IGH_DataAccess DA)
         {
             // If a batch is actively being processed, skip restoration of sentinel trees
-            if (this._batchSubmission != null)
+            if (this._batchState.Submission != null)
             {
                 Debug.WriteLine("[AIStatefulAsync] RestorePersistentOutputs: Batch submission active, skipping sentinel tree output");
                 return;
@@ -219,18 +208,18 @@ namespace SmartHopper.Core.ComponentBase
             // IsDocumentBeingRemoved() checks the specific document id, so closing doc A does
             // not make components in doc B take the "preserve batch" path.
             var shuttingDown = IsDocumentBeingRemoved(document);
-            if (this._batchSubmission != null)
+            if (this._batchState.Submission != null)
             {
                 if (shuttingDown)
                 {
                     // Document/Rhino closing: preserve batch, just stop polling
-                    Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument (shutdown): Preserving batch {this._batchSubmission.BatchId}");
+                    Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument (shutdown): Preserving batch {this._batchState.Submission.BatchId}");
                     this.StopBatchPollTimer();
                 }
                 else
                 {
                     // Manual component removal: cancel the batch (no UI update needed as component is being destroyed)
-                    var batchId = this._batchSubmission.BatchId;
+                    var batchId = this._batchState.Submission.BatchId;
                     Debug.WriteLine($"[AIStatefulAsync] RemovedFromDocument (manual removal): Cancelling batch {batchId}");
                     _ = this.CancelRemoteBatchAsync(batchId);
                 }
@@ -249,9 +238,9 @@ namespace SmartHopper.Core.ComponentBase
         {
             // If a batch is active, don't transition to Completed yet.
             // The batch polling will handle the transition when results are ready.
-            if (this._batchSubmission != null)
+            if (this._batchState.Submission != null)
             {
-                Debug.WriteLine($"[AIStatefulAsync] OnWorkerCompleted: Batch submission active ({this._batchSubmission.BatchId}), staying in Processing state");
+                Debug.WriteLine($"[AIStatefulAsync] OnWorkerCompleted: Batch submission active ({this._batchState.Submission.BatchId}), staying in Processing state");
 
                 // Stay in Processing state - batch polling will transition to Completed
                 // Still commit hashes so we don't re-trigger processing
@@ -275,9 +264,9 @@ namespace SmartHopper.Core.ComponentBase
         protected override void OnTasksCancelDetected()
         {
             // If a batch is active, cancel it on the provider and update UI with confirmation
-            if (this._batchSubmission != null)
+            if (this._batchState.Submission != null)
             {
-                var batchId = this._batchSubmission.BatchId;
+                var batchId = this._batchState.Submission.BatchId;
                 Debug.WriteLine($"[AIStatefulAsync] OnTasksCancelDetected: Cancelling remote batch {batchId}");
 
                 // Add immediate feedback that cancellation is in progress
@@ -307,7 +296,7 @@ namespace SmartHopper.Core.ComponentBase
 
             try
             {
-                var submission = this._batchSubmission;
+                var submission = this._batchState.Submission;
                 if (submission != null)
                 {
                     var provider = ProviderManager.Instance.GetProvider(submission.ProviderName);
@@ -332,7 +321,7 @@ namespace SmartHopper.Core.ComponentBase
             finally
             {
                 this.StopBatchPollTimer();
-                this._batchSubmission = null;
+                this._batchState.Submission = null;
 
                 // Update the UI with cancellation confirmation on the main thread
                 Rhino.RhinoApp.InvokeOnUiThread(() =>

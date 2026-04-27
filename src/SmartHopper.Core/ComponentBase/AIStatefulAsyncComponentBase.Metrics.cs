@@ -72,7 +72,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
-            var metrics = this._persistedMetrics ?? this.AIReturnSnapshot?.Metrics;
+            var metrics = this._batchState.PersistedMetrics ?? this.AIReturnSnapshot?.Metrics;
             if (metrics == null)
             {
                 Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
@@ -152,16 +152,16 @@ namespace SmartHopper.Core.ComponentBase
         protected void CombineIntoPersistedMetrics(AIMetrics metrics)
         {
             if (metrics == null) return;
-            if (this._persistedMetrics == null)
+            if (this._batchState.PersistedMetrics == null)
             {
-                this._persistedMetrics = new AIMetrics
+                this._batchState.PersistedMetrics = new AIMetrics
                 {
                     Provider = this.GetActualAIProviderName(),
                     Model = this.GetModel(),
                 };
             }
 
-            this._persistedMetrics.Combine(metrics);
+            this._batchState.PersistedMetrics.Combine(metrics);
         }
 
         /// <summary>
@@ -197,15 +197,15 @@ namespace SmartHopper.Core.ComponentBase
 
             // Stamp CompletionTime into _persistedMetrics (the single authoritative metrics instance).
             // AIReturn.Metrics is computed fresh on every access — writing to it is a no-op.
-            if (this._batchCompletionTime.HasValue)
+            if (this._batchState.CompletionTime.HasValue)
             {
-                if (this._persistedMetrics != null)
+                if (this._batchState.PersistedMetrics != null)
                 {
-                    this._persistedMetrics.CompletionTime = this._batchCompletionTime.Value;
-                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchCompletionTime.Value:F2}s into _persistedMetrics");
+                    this._batchState.PersistedMetrics.CompletionTime = this._batchState.CompletionTime.Value;
+                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchState.CompletionTime.Value:F2}s into _persistedMetrics");
                 }
 
-                this._batchCompletionTime = null;
+                this._batchState.CompletionTime = null;
             }
 
             // Always emit metrics (replaces the ShouldEmitMetricsInPostSolve pattern)

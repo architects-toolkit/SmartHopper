@@ -112,7 +112,7 @@ namespace SmartHopper.Core.ComponentBase
 
                 // Get the actual provider name (resolving Default to the actual provider)
                 string actualProviderName = this.owner.GetActualAIProviderName();
-                if (this.owner.GetActualAIProviderName() == ProviderComponentHelper.DEFAULT_PROVIDER)
+                if (this.owner.GetActualAIProviderName() == ProviderSelectionCore.DEFAULT_PROVIDER)
                 {
                     actualProviderName = SmartHopperSettings.Instance.DefaultAIProvider;
                 }

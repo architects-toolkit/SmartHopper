@@ -29,7 +29,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>Prefix for committed input branch-count entries, suffixed with the parameter name.</summary>
         public const string InputBranchCountPrefix = "InputBranchCount_";
 
-        // ----- ProviderComponentHelper / ProviderSelectionCore -----
+        // ----- ProviderSelectionCore -----
 
         /// <summary>Key used by provider bases to persist the selected provider name.</summary>
         public const string SelectedProvider = "AIProvider";

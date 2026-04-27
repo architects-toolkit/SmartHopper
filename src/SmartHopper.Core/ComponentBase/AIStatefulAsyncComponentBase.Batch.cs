@@ -58,14 +58,14 @@ namespace SmartHopper.Core.ComponentBase
             // Fast path: batch tier not enabled
             if (this._requestParameters?.BatchTier != true)
             {
-                this._batchUnsupportedChecked = false;
+                this._batchState.UnsupportedChecked = false;
                 return false;
             }
 
             // Check if provider supports batch (cached per run)
-            if (!this._batchUnsupportedChecked)
+            if (!this._batchState.UnsupportedChecked)
             {
-                this._batchUnsupportedChecked = true;
+                this._batchState.UnsupportedChecked = true;
 
                 var providerName = this.GetActualAIProviderName();
                 var provider = ProviderManager.Instance.GetProvider(providerName);
@@ -95,8 +95,8 @@ namespace SmartHopper.Core.ComponentBase
         protected void StoreSentinelTree<T>(string paramName, GH_Structure<T> tree)
             where T : IGH_Goo
         {
-            this._sentinelTrees ??= new Dictionary<string, object>();
-            this._sentinelTrees[paramName] = tree;
+            this._batchState.SentinelTrees ??= new Dictionary<string, object>();
+            this._batchState.SentinelTrees[paramName] = tree;
         }
 
         /// <summary>
@@ -107,8 +107,8 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="customIds">Custom IDs from the batch submission.</param>
         protected void StoreBatchSentinelIds(IEnumerable<string> customIds)
         {
-            this._batchSentinelIds = new HashSet<string>(customIds ?? Enumerable.Empty<string>());
-            Debug.WriteLine($"[AIStatefulAsync] StoreBatchSentinelIds: stored {this._batchSentinelIds.Count} sentinel IDs");
+            this._batchState.SentinelIds = new HashSet<string>(customIds ?? Enumerable.Empty<string>());
+            Debug.WriteLine($"[AIStatefulAsync] StoreBatchSentinelIds: stored {this._batchState.SentinelIds.Count} sentinel IDs");
         }
 
         /// <summary>
@@ -117,10 +117,10 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void ClearSentinelState()
         {
-            Debug.WriteLine($"[AIStatefulAsync] ClearSentinelState: clearing _sentinelTrees (was {(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}) and _batchSentinelIds (was {(this._batchSentinelIds == null ? "null" : $"count={this._batchSentinelIds.Count}")})");
-            this._sentinelTrees = null;
-            this._batchSentinelIds = null;
-            this._batchQueue = null;
+            Debug.WriteLine($"[AIStatefulAsync] ClearSentinelState: clearing _sentinelTrees (was {(this._batchState.SentinelTrees == null ? "null" : $"count={this._batchState.SentinelTrees.Count}")}) and _batchSentinelIds (was {(this._batchState.SentinelIds == null ? "null" : $"count={this._batchState.SentinelIds.Count}")})");
+            this._batchState.SentinelTrees = null;
+            this._batchState.SentinelIds = null;
+            this._batchState.Queue = null;
         }
 
         /// <summary>
@@ -131,13 +131,13 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The sentinel <see cref="GH_Structure{GH_String}"/>, or <c>null</c>.</returns>
         protected GH_Structure<GH_String> GetSentinelTree(string paramName)
         {
-            if (this._sentinelTrees == null)
+            if (this._batchState.SentinelTrees == null)
             {
                 Debug.WriteLine($"[AIStatefulAsync] GetSentinelTree('{paramName}'): _sentinelTrees is null - tree was not persisted or restored");
                 return null;
             }
 
-            this._sentinelTrees.TryGetValue(paramName, out var tree);
+            this._batchState.SentinelTrees.TryGetValue(paramName, out var tree);
             var result = tree as GH_Structure<GH_String>;
             Debug.WriteLine($"[AIStatefulAsync] GetSentinelTree('{paramName}'): {(result == null ? "NOT FOUND" : $"found, {result.PathCount} path(s), {result.DataCount} item(s)")}");
             return result;
@@ -179,12 +179,12 @@ namespace SmartHopper.Core.ComponentBase
         /// Returns <c>false</c> during a fresh run (before submission) and after batch completion.
         /// Derived classes can use this to distinguish poll cycles from genuinely new runs.
         /// </summary>
-        protected bool HasActiveBatchSubmission => this._batchSubmission != null;
+        protected bool HasActiveBatchSubmission => this._batchState.Submission != null;
 
         /// <summary>
         /// Gets a value indicating whether there are queued batch requests waiting to be submitted.
         /// </summary>
-        protected bool HasBatchQueue => this._batchQueue?.Count > 0;
+        protected bool HasBatchQueue => this._batchState.Queue?.Count > 0;
 
         /// <summary>Cancellation token source for batch polling. Created when polling starts, disposed when stopped.</summary>
         private CancellationTokenSource _batchPollCts;
@@ -199,13 +199,13 @@ namespace SmartHopper.Core.ComponentBase
         protected async Task<bool> SubmitBatchQueueAsync(CancellationToken cancellationToken = default)
         {
             // Prevent duplicate batch submissions
-            if (this._batchSubmission != null)
+            if (this._batchState.Submission != null)
             {
-                Debug.WriteLine($"[AIStatefulAsync] Batch submission already active ({this._batchSubmission.BatchId}), skipping duplicate submission");
+                Debug.WriteLine($"[AIStatefulAsync] Batch submission already active ({this._batchState.Submission.BatchId}), skipping duplicate submission");
                 return false;
             }
 
-            var queue = this._batchQueue;
+            var queue = this._batchState.Queue;
             if (queue == null || queue.Count == 0) return false;
 
             // Collect-only mode: LoadResultsFromFile fallback.
@@ -219,8 +219,8 @@ namespace SmartHopper.Core.ComponentBase
                 Debug.WriteLine($"[AIStatefulAsync] SubmitBatchQueueAsync: collect-only mode, queue has {queue.Count} items");
 
                 var collectedCustomIds = queue.Select(q => q.CustomId).ToList();
-                this._batchSentinelIds = new HashSet<string>(collectedCustomIds);
-                this._batchQueue = null;
+                this._batchState.SentinelIds = new HashSet<string>(collectedCustomIds);
+                this._batchState.Queue = null;
 
                 var pending = this._pendingFileLoadedResults;
                 var messages = this._pendingFileLoadMessages ?? new List<SHRuntimeMessage>();
@@ -265,7 +265,7 @@ namespace SmartHopper.Core.ComponentBase
                     try
                     {
                         this.ClearPersistentRuntimeMessages();
-                        this._batchCompletionTime ??= 0.0;
+                        this._batchState.CompletionTime ??= 0.0;
                         this.CompleteBatchAndTransition(finalResults, messages, expectedResultCount: 0, forceState: true);
                         this.StateManager.CommitHashes();
                     }
@@ -299,16 +299,16 @@ namespace SmartHopper.Core.ComponentBase
             try
             {
                 var submission = await batchProvider.SubmitBatchAsync(queue, cancellationToken).ConfigureAwait(false);
-                this._batchSubmission = submission;
+                this._batchState.Submission = submission;
                 
                 // Store the sentinel IDs from the submission for later result mapping
                 this.StoreBatchSentinelIds(submission.CustomIds);
                 
-                this._batchProgressCompleted = 0;
-                this._batchStartTime = DateTime.UtcNow;
+                this._batchState.ProgressCompleted = 0;
+                this._batchState.StartTime = DateTime.UtcNow;
                 this.Message = $"Processing batch (0/{submission.CustomIds?.Count ?? 0})...";
                 this.StartBatchPollTimer(cancellationToken: cancellationToken);
-                Debug.WriteLine($"[AIStatefulAsync] Batch submitted: batchId={submission.BatchId}, itemCount={submission.CustomIds?.Count ?? 0}, startTime={this._batchStartTime:O}");
+                Debug.WriteLine($"[AIStatefulAsync] Batch submitted: batchId={submission.BatchId}, itemCount={submission.CustomIds?.Count ?? 0}, startTime={this._batchState.StartTime:O}");
                 return true;
             }
             catch (Exception ex)
@@ -337,7 +337,7 @@ namespace SmartHopper.Core.ComponentBase
             int intervalMs = Math.Max(1, SmartHopperSettings.Instance.BatchPollIntervalSeconds) * 1000;
             int dueTimeMs = immediateFirstPoll ? 0 : intervalMs;
             this._batchPollTimer = new System.Threading.Timer(this.OnBatchPollTimerTick, null, dueTimeMs, intervalMs);
-            Debug.WriteLine($"[AIStatefulAsync] Batch poll timer started, dueTime={dueTimeMs}ms, interval={intervalMs}ms, batchId={this._batchSubmission?.BatchId}");
+            Debug.WriteLine($"[AIStatefulAsync] Batch poll timer started, dueTime={dueTimeMs}ms, interval={intervalMs}ms, batchId={this._batchState.Submission?.BatchId}");
         }
 
         /// <summary>Stops and disposes the poll timer and cancellation token source without cancelling the batch.</summary>
@@ -381,7 +381,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="cancellationToken">Cancellation token to stop polling.</param>
         private async Task PollBatchStatusAsync(CancellationToken cancellationToken = default)
         {
-            var submission = this._batchSubmission;
+            var submission = this._batchState.Submission;
             if (submission == null)
             {
                 this.StopBatchPollTimer();
@@ -391,13 +391,13 @@ namespace SmartHopper.Core.ComponentBase
 
             // Check for timeout - stop polling after 24 hours
             // Note: We don't cancel the remote batch here - APIs handle their own timeouts
-            if (this._batchStartTime.HasValue &&
-                (DateTime.UtcNow - this._batchStartTime.Value) > MaxBatchPollingDuration)
+            if (this._batchState.StartTime.HasValue &&
+                (DateTime.UtcNow - this._batchState.StartTime.Value) > MaxBatchPollingDuration)
             {
                 Debug.WriteLine($"[AIStatefulAsync] Batch polling timeout exceeded for {submission.BatchId} - stopping local polling");
 
                 this.StopBatchPollTimer();
-                this._batchSubmission = null;
+                this._batchState.Submission = null;
 
                 this.OnBatchFinalized(AIBatchState.Expired, null, null, "Batch polling timeout exceeded (24 hours)");
                 this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
@@ -424,11 +424,11 @@ namespace SmartHopper.Core.ComponentBase
                     case AIBatchState.InProgress:
                         if (status.CompletedCount.HasValue)
                         {
-                            this._batchProgressCompleted = status.CompletedCount.Value;
-                            var total = this._batchSubmission?.CustomIds?.Count ?? 0;
+                            this._batchState.ProgressCompleted = status.CompletedCount.Value;
+                            var total = this._batchState.Submission?.CustomIds?.Count ?? 0;
                             Rhino.RhinoApp.InvokeOnUiThread(() =>
                             {
-                                this.Message = $"Processing batch ({this._batchProgressCompleted}/{total})...";
+                                this.Message = $"Processing batch ({this._batchState.ProgressCompleted}/{total})...";
                                 this.OnDisplayExpired(false);
                             });
                         }
@@ -437,14 +437,14 @@ namespace SmartHopper.Core.ComponentBase
 
                     case AIBatchState.Completed:
                         this.StopBatchPollTimer();
-                        this._batchSubmission = null;
+                        this._batchState.Submission = null;
 
                         // Calculate batch completion time and store for FinishResults to consume
-                        if (this._batchStartTime.HasValue)
+                        if (this._batchState.StartTime.HasValue)
                         {
-                            this._batchCompletionTime = (DateTime.UtcNow - this._batchStartTime.Value).TotalSeconds;
-                            Debug.WriteLine($"[AIStatefulAsync] Batch completed: batchId={submission.BatchId}, completionTime={this._batchCompletionTime:F2}s");
-                            this._batchStartTime = null;
+                            this._batchState.CompletionTime = (DateTime.UtcNow - this._batchState.StartTime.Value).TotalSeconds;
+                            Debug.WriteLine($"[AIStatefulAsync] Batch completed: batchId={submission.BatchId}, completionTime={this._batchState.CompletionTime:F2}s");
+                            this._batchState.StartTime = null;
                         }
 
                         this.CompleteBatchAndTransition(status.Results, status.Messages, submission.CustomIds?.Count ?? 0);
@@ -454,7 +454,7 @@ namespace SmartHopper.Core.ComponentBase
                     case AIBatchState.Cancelled:
                     case AIBatchState.Expired:
                         this.StopBatchPollTimer();
-                        this._batchSubmission = null;
+                        this._batchState.Submission = null;
 
                         // Centralized batch finalization for terminal failure cases
                         this.OnBatchFinalized(status.State, null, status.Messages, status.ErrorMessage);

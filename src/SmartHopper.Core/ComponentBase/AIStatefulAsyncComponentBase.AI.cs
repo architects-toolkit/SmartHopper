@@ -90,13 +90,13 @@ namespace SmartHopper.Core.ComponentBase
 
             try
             {
-                var index = this._batchQueue?.Count ?? 0;
+                var index = this._batchState.Queue?.Count ?? 0;
                 var customId = AIBatchSubmission.GenerateCustomId(identifier, index);
 
-                if (this._batchQueue == null) this._batchQueue = new List<(string, AIRequestCall)>();
-                if (this._batchSentinelIds == null) this._batchSentinelIds = new HashSet<string>();
-                this._batchQueue.Add((customId, request));
-                this._batchSentinelIds.Add(customId);
+                if (this._batchState.Queue == null) this._batchState.Queue = new List<(string, AIRequestCall)>();
+                if (this._batchState.SentinelIds == null) this._batchState.SentinelIds = new HashSet<string>();
+                this._batchState.Queue.Add((customId, request));
+                this._batchState.SentinelIds.Add(customId);
 
                 Debug.WriteLine($"[AIStatefulAsync] Queued batch item #{index}: customId={customId}, identifier={identifier}");
                 return sentinelFactory(customId);

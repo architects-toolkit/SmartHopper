@@ -17,6 +17,8 @@
  */
 
 using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
 using SmartHopper.Infrastructure.AIProviders;
@@ -31,17 +33,9 @@ namespace SmartHopper.Core.ComponentBase
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Replaces the previous combination of <c>ProviderComponentHelper</c> (static utils) +
-    /// ad-hoc <c>aiProvider</c> / <c>previousSelectedProvider</c> fields duplicated on each
-    /// provider base. The low-level utility methods remain available on
-    /// <see cref="ProviderComponentHelper"/> for callers that only need menu rendering or
-    /// default-name resolution without carrying state.
-    /// </para>
-    /// <para>
     /// Idempotence contract: <see cref="HasPendingChange"/> is a pure query and may be
     /// called any number of times per solve. <see cref="CommitChange"/> is the only
-    /// mutator that acknowledges a pending change. The old <c>HasProviderChanged()</c>
-    /// method mutated on read, which made it unsafe to call twice.
+    /// mutator that acknowledges a pending change.
     /// </para>
     /// </remarks>
     public sealed class ProviderSelectionCore
@@ -50,7 +44,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Sentinel value stored when the user has not picked a specific provider and
         /// the component should resolve to the global default at use-time.
         /// </summary>
-        public const string DEFAULT_PROVIDER = ProviderComponentHelper.DEFAULT_PROVIDER;
+        public const string DEFAULT_PROVIDER = "Default";
 
         private readonly GH_Component owner;
         private string currentProvider;
@@ -115,7 +109,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public string GetActualProviderName()
         {
-            return ProviderComponentHelper.GetActualProviderName(this.currentProvider);
+            return ResolveActualProviderName(this.currentProvider);
         }
 
         /// <summary>
@@ -124,7 +118,9 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         public AIProvider GetActualProvider()
         {
-            return ProviderComponentHelper.GetActualProvider(this.currentProvider);
+            string actualProviderName = ResolveActualProviderName(this.currentProvider);
+            var provider = ProviderManager.Instance.GetProvider(actualProviderName);
+            return provider as AIProvider;
         }
 
         /// <summary>
@@ -136,7 +132,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="menu">Target context menu.</param>
         public void AppendMenuItems(ToolStripDropDown menu)
         {
-            ProviderComponentHelper.AppendProviderMenuItems(
+            BuildProviderMenu(
                 menu,
                 this.currentProvider,
                 providerName =>
@@ -154,7 +150,17 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns><c>true</c> on success.</returns>
         public bool Write(GH_IO.Serialization.GH_IWriter writer)
         {
-            return ProviderComponentHelper.WriteProvider(writer, this.currentProvider);
+            try
+            {
+                writer.SetString(PersistenceKeys.SelectedProvider, this.currentProvider);
+                Debug.WriteLine($"[ProviderSelectionCore] [Write] Stored AI provider: {this.currentProvider}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ProviderSelectionCore] [Write] Exception: {ex.Message}");
+                return false;
+            }
         }
 
         /// <summary>
@@ -166,7 +172,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns><c>true</c> on success.</returns>
         public bool Read(GH_IO.Serialization.GH_IReader reader)
         {
-            if (!ProviderComponentHelper.ReadProvider(reader, out string storedProvider))
+            if (!ReadProviderFromReader(reader, out string storedProvider))
             {
                 return false;
             }
@@ -174,6 +180,128 @@ namespace SmartHopper.Core.ComponentBase
             this.currentProvider = storedProvider;
             this.committedProvider = storedProvider;
             return true;
+        }
+
+        /// <summary>
+        /// Resolves a stored provider name (which may be <see cref="DEFAULT_PROVIDER"/>)
+        /// to the concrete provider name registered with the
+        /// <see cref="ProviderManager"/>.
+        /// </summary>
+        private static string ResolveActualProviderName(string selectedProvider)
+        {
+            if (selectedProvider == DEFAULT_PROVIDER)
+            {
+                return ProviderManager.Instance.GetDefaultAIProvider();
+            }
+
+            return selectedProvider;
+        }
+
+        /// <summary>
+        /// Builds the <c>Select AI Provider</c> submenu and wires the click handlers
+        /// to <paramref name="onProviderSelected"/>.
+        /// </summary>
+        private static void BuildProviderMenu(
+            ToolStripDropDown menu,
+            string currentProvider,
+            Action<string> onProviderSelected)
+        {
+            var providersMenu = new ToolStripMenuItem("Select AI Provider");
+            menu.Items.Add(providersMenu);
+
+            // Add the Default option first
+            var defaultItem = new ToolStripMenuItem(DEFAULT_PROVIDER)
+            {
+                Checked = currentProvider == DEFAULT_PROVIDER,
+                CheckOnClick = true,
+                Tag = DEFAULT_PROVIDER,
+            };
+
+            defaultItem.Click += (s, e) =>
+            {
+                if (s is ToolStripMenuItem menuItem)
+                {
+                    foreach (ToolStripMenuItem otherItem in providersMenu.DropDownItems)
+                    {
+                        if (otherItem != menuItem)
+                        {
+                            otherItem.Checked = false;
+                        }
+                    }
+
+                    onProviderSelected?.Invoke(DEFAULT_PROVIDER);
+                }
+            };
+
+            providersMenu.DropDownItems.Add(defaultItem);
+
+            var providers = ProviderManager.Instance.GetProviders();
+            foreach (var provider in providers)
+            {
+                var item = new ToolStripMenuItem(provider.Name)
+                {
+                    Checked = provider.Name == currentProvider,
+                    CheckOnClick = true,
+                    Tag = provider.Name,
+                };
+
+                item.Click += (s, e) =>
+                {
+                    if (s is ToolStripMenuItem menuItem)
+                    {
+                        foreach (ToolStripMenuItem otherItem in providersMenu.DropDownItems)
+                        {
+                            if (otherItem != menuItem)
+                            {
+                                otherItem.Checked = false;
+                            }
+                        }
+
+                        onProviderSelected?.Invoke(menuItem.Tag.ToString());
+                    }
+                };
+
+                providersMenu.DropDownItems.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Reads a stored provider name from <paramref name="reader"/>, falling back to
+        /// <see cref="DEFAULT_PROVIDER"/> if the entry is missing or refers to a
+        /// provider that is no longer registered.
+        /// </summary>
+        private static bool ReadProviderFromReader(GH_IO.Serialization.GH_IReader reader, out string selectedProvider)
+        {
+            try
+            {
+                if (reader.ItemExists(PersistenceKeys.SelectedProvider))
+                {
+                    string storedProvider = reader.GetString(PersistenceKeys.SelectedProvider);
+                    Debug.WriteLine($"[ProviderSelectionCore] [Read] Read stored AI provider: {storedProvider}");
+
+                    var providers = ProviderManager.Instance.GetProviders();
+                    if (storedProvider == DEFAULT_PROVIDER || providers.Any(p => p.Name == storedProvider))
+                    {
+                        selectedProvider = storedProvider;
+                        Debug.WriteLine($"[ProviderSelectionCore] [Read] Successfully restored AI provider: {selectedProvider}");
+                        return true;
+                    }
+
+                    Debug.WriteLine($"[ProviderSelectionCore] [Read] Stored provider '{storedProvider}' not found, using default");
+                    selectedProvider = DEFAULT_PROVIDER;
+                    return true;
+                }
+
+                Debug.WriteLine("[ProviderSelectionCore] [Read] No stored AI provider found, using default");
+                selectedProvider = DEFAULT_PROVIDER;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ProviderSelectionCore] [Read] Exception: {ex.Message}");
+                selectedProvider = DEFAULT_PROVIDER;
+                return false;
+            }
         }
     }
 }

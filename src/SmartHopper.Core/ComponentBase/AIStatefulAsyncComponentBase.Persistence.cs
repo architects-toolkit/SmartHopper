@@ -130,34 +130,34 @@ namespace SmartHopper.Core.ComponentBase
             try
             {
                 // Persist batch state so polling can resume after file close/reopen
-                if (this._batchSubmission != null)
+                if (this._batchState.Submission != null)
                 {
-                    writer.SetString(PersistenceKeys.BatchId, this._batchSubmission.BatchId);
-                    writer.SetString(PersistenceKeys.BatchProvider, this._batchSubmission.ProviderName);
-                    writer.SetString(PersistenceKeys.BatchRequest, this._batchSubmission.SerializedRequest ?? string.Empty);
-                    writer.SetString(PersistenceKeys.BatchSubmittedAt, this._batchSubmission.SubmittedAt.ToString("O"));
+                    writer.SetString(PersistenceKeys.BatchId, this._batchState.Submission.BatchId);
+                    writer.SetString(PersistenceKeys.BatchProvider, this._batchState.Submission.ProviderName);
+                    writer.SetString(PersistenceKeys.BatchRequest, this._batchState.Submission.SerializedRequest ?? string.Empty);
+                    writer.SetString(PersistenceKeys.BatchSubmittedAt, this._batchState.Submission.SubmittedAt.ToString("O"));
 
-                    if (this._batchSubmission.CustomIds != null && this._batchSubmission.CustomIds.Count > 0)
+                    if (this._batchState.Submission.CustomIds != null && this._batchState.Submission.CustomIds.Count > 0)
                     {
-                        writer.SetString(PersistenceKeys.BatchCustomIds, new JArray(this._batchSubmission.CustomIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
+                        writer.SetString(PersistenceKeys.BatchCustomIds, new JArray(this._batchState.Submission.CustomIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
                     }
 
-                    Debug.WriteLine($"[AIStatefulAsync] Write: persisted batch state, batchId={this._batchSubmission.BatchId}, items={this._batchSubmission.CustomIds?.Count ?? 0}");
+                    Debug.WriteLine($"[AIStatefulAsync] Write: persisted batch state, batchId={this._batchState.Submission.BatchId}, items={this._batchState.Submission.CustomIds?.Count ?? 0}");
                 }
 
                 // Persist sentinel IDs so OnBatchCompleted can reconstruct trees after reload
-                if (this._batchSentinelIds != null && this._batchSentinelIds.Count > 0)
+                if (this._batchState.SentinelIds != null && this._batchState.SentinelIds.Count > 0)
                 {
-                    writer.SetString(PersistenceKeys.BatchSentinelIds, new JArray(this._batchSentinelIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
+                    writer.SetString(PersistenceKeys.BatchSentinelIds, new JArray(this._batchState.SentinelIds.ToArray()).ToString(Newtonsoft.Json.Formatting.None));
                 }
 
                 // Persist sentinel trees (path layout + sentinel strings) so OnBatchCompleted
                 // can reconstruct output trees correctly after file close/reopen.
                 // Without this, GetSentinelTree() returns null on reload and no output is produced.
-                if (this._sentinelTrees != null && this._sentinelTrees.Count > 0)
+                if (this._batchState.SentinelTrees != null && this._batchState.SentinelTrees.Count > 0)
                 {
                     var sentinelTreesJson = new JObject();
-                    foreach (var kvp in this._sentinelTrees)
+                    foreach (var kvp in this._batchState.SentinelTrees)
                     {
                         if (kvp.Value is GH_Structure<GH_String> tree)
                         {
@@ -184,7 +184,7 @@ namespace SmartHopper.Core.ComponentBase
                     }
 
                     writer.SetString(PersistenceKeys.BatchSentinelTrees, sentinelTreesJson.ToString(Newtonsoft.Json.Formatting.None));
-                    Debug.WriteLine($"[AIStatefulAsync] Write: persisted {this._sentinelTrees.Count} sentinel tree(s)");
+                    Debug.WriteLine($"[AIStatefulAsync] Write: persisted {this._batchState.SentinelTrees.Count} sentinel tree(s)");
                 }
             }
             catch (Exception ex)
@@ -227,7 +227,7 @@ namespace SmartHopper.Core.ComponentBase
 
                     if (!string.IsNullOrEmpty(batchId) && !string.IsNullOrEmpty(providerName))
                     {
-                        this._batchSubmission = new SmartHopper.Infrastructure.AICall.Batch.AIBatchSubmission(batchId, providerName, serializedReq, customIds ?? new List<string>().AsReadOnly());
+                        this._batchState.Submission = new SmartHopper.Infrastructure.AICall.Batch.AIBatchSubmission(batchId, providerName, serializedReq, customIds ?? new List<string>().AsReadOnly());
                         Debug.WriteLine($"[AIStatefulAsync] Read: restored batch state, batchId={batchId}, items={customIds?.Count ?? 0}");
 
                         // Restore component to Processing state so sentinel values aren't output
@@ -237,7 +237,7 @@ namespace SmartHopper.Core.ComponentBase
                         // Resume polling — defer until after component is fully loaded
                         Rhino.RhinoApp.InvokeOnUiThread(() =>
                         {
-                            if (this._batchSubmission != null)
+                            if (this._batchState.Submission != null)
                             {
                                 // Start timer with immediate first poll to check if batch already complete
                                 this.StartBatchPollTimer(immediateFirstPoll: true);
@@ -254,8 +254,8 @@ namespace SmartHopper.Core.ComponentBase
                     var sentinelJson = reader.GetString(PersistenceKeys.BatchSentinelIds);
                     if (!string.IsNullOrEmpty(sentinelJson))
                     {
-                        this._batchSentinelIds = new HashSet<string>(JArray.Parse(sentinelJson).Values<string>());
-                        Debug.WriteLine($"[AIStatefulAsync] Read: restored {this._batchSentinelIds.Count} sentinel IDs");
+                        this._batchState.SentinelIds = new HashSet<string>(JArray.Parse(sentinelJson).Values<string>());
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored {this._batchState.SentinelIds.Count} sentinel IDs");
                     }
                 }
 
@@ -265,7 +265,7 @@ namespace SmartHopper.Core.ComponentBase
                     if (!string.IsNullOrEmpty(treesJson))
                     {
                         var treesObj = JObject.Parse(treesJson);
-                        this._sentinelTrees = new Dictionary<string, object>();
+                        this._batchState.SentinelTrees = new Dictionary<string, object>();
                         foreach (var prop in treesObj.Properties())
                         {
                             var tree = new GH_Structure<GH_String>();
@@ -280,10 +280,10 @@ namespace SmartHopper.Core.ComponentBase
                                 }
                             }
 
-                            this._sentinelTrees[prop.Name] = tree;
+                            this._batchState.SentinelTrees[prop.Name] = tree;
                         }
 
-                        Debug.WriteLine($"[AIStatefulAsync] Read: restored {this._sentinelTrees.Count} sentinel tree(s)");
+                        Debug.WriteLine($"[AIStatefulAsync] Read: restored {this._batchState.SentinelTrees.Count} sentinel tree(s)");
                     }
                 }
             }
@@ -314,7 +314,7 @@ namespace SmartHopper.Core.ComponentBase
             {
                 this.CheckBatchStatus();
             });
-            checkBatchItem.Enabled = this._batchSubmission != null;
+            checkBatchItem.Enabled = this._batchState.Submission != null;
         }
 
         /// <summary>
@@ -329,9 +329,9 @@ namespace SmartHopper.Core.ComponentBase
         {
             try
             {
-                Debug.WriteLine($"[AIStatefulAsync] LoadResultsFromFile: Early check - _sentinelTrees is {(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}");
+                Debug.WriteLine($"[AIStatefulAsync] LoadResultsFromFile: Early check - _sentinelTrees is {(this._batchState.SentinelTrees == null ? "null" : $"count={this._batchState.SentinelTrees.Count}")}");
 
-                var hasSentinels = this._sentinelTrees != null && this._sentinelTrees.Count > 0;
+                var hasSentinels = this._batchState.SentinelTrees != null && this._batchState.SentinelTrees.Count > 0;
                 
                 string[] fileNames;
                 using (var dialog = new OpenFileDialog
@@ -355,11 +355,11 @@ namespace SmartHopper.Core.ComponentBase
                     return;
                 }
 
-                Debug.WriteLine($"[AIStatefulAsync] LoadResultsFromFile: After dialog - _sentinelTrees is {(this._sentinelTrees == null ? "null" : $"count={this._sentinelTrees.Count}")}, hasSentinels={hasSentinels}");
+                Debug.WriteLine($"[AIStatefulAsync] LoadResultsFromFile: After dialog - _sentinelTrees is {(this._batchState.SentinelTrees == null ? "null" : $"count={this._batchState.SentinelTrees.Count}")}, hasSentinels={hasSentinels}");
 
                 // Resolve provider: prefer the one attached to the active batch submission
                 // (if any), else fall back to the component's configured provider.
-                var providerName = this._batchSubmission?.ProviderName ?? this.GetActualAIProviderName();
+                var providerName = this._batchState.Submission?.ProviderName ?? this.GetActualAIProviderName();
                 var provider = ProviderManager.Instance.GetProvider(providerName);
                 if (provider is not IAIBatchProvider batchProvider)
                 {
@@ -390,7 +390,7 @@ namespace SmartHopper.Core.ComponentBase
                 AIBatchStatus status;
                 try
                 {
-                    status = batchProvider.ParseBatchResultsFiles(contents, this._batchSubmission?.BatchId);
+                    status = batchProvider.ParseBatchResultsFiles(contents, this._batchState.Submission?.BatchId);
                 }
                 catch (Exception ex)
                 {
@@ -421,7 +421,7 @@ namespace SmartHopper.Core.ComponentBase
                 // loaded file, we can finalize directly. Otherwise we trigger a collect-only
                 // run that lets the component's normal processing rebuild sentinel trees
                 // from scratch, then re-maps results in order.
-                var expectedIds = this._batchSentinelIds;
+                var expectedIds = this._batchState.SentinelIds;
                 var loadedIds = status.Results?.Keys;
                 var loadedTotal = status.Results?.Count ?? 0;
                 var expectedTotal = expectedIds?.Count ?? 0;
@@ -478,7 +478,7 @@ namespace SmartHopper.Core.ComponentBase
                         try
                         {
                             this.ClearPersistentRuntimeMessages();
-                            this._batchCompletionTime ??= 0.0;
+                            this._batchState.CompletionTime ??= 0.0;
                             this.CompleteBatchAndTransition(effectiveResults, messages, expectedResultCount: 0, forceState: true);
                             this.StateManager.CommitHashes();
                         }
@@ -560,7 +560,7 @@ namespace SmartHopper.Core.ComponentBase
         /// </summary>
         private void CheckBatchStatus()
         {
-            if (this._batchSubmission == null)
+            if (this._batchState.Submission == null)
             {
                 this.SetPersistentRuntimeMessage(
                     "check_batch_status",
