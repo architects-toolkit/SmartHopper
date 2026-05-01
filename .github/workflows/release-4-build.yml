@@ -411,7 +411,7 @@ jobs:
         }
 
         git fetch origin $targetBranch
-        $tempBranch = "hash-update-$version-${{ github.run_number }}"
+        $tempBranch = "hash-update/$version-${{ github.run_number }}"
         git checkout -b $tempBranch origin/$targetBranch
         
         # Copy the hash file

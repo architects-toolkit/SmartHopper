@@ -151,8 +151,10 @@ namespace SmartHopper.Providers.DeepSeek
                 return "GET and DELETE requests do not use a request body";
             }
 
-            int maxTokens = this.GetSetting<int>("MaxTokens");
-            double temperature = this.GetSetting<double>("Temperature");
+            var p = request.Parameters;
+
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
             string? toolFilter = request.Body.ToolFilter;
 
             Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
@@ -349,6 +351,21 @@ namespace SmartHopper.Providers.DeepSeek
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
             };
+
+            // Apply optional parameters from extras only
+            if (p?.Extras != null)
+            {
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                    requestBody["top_p"] = topPToken.Value<double?>();
+                if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                    requestBody["presence_penalty"] = ppToken;
+                if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                    requestBody["frequency_penalty"] = fpToken;
+                if (p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
+                    requestBody["logprobs"] = logprobsToken.Value<bool?>();
+                if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
+                    requestBody["top_logprobs"] = topLogprobsToken.Value<int?>();
+            }
 
             // Add JSON response format if schema is provided (centralized wrapping)
             if (!string.IsNullOrWhiteSpace(request.Body.JsonOutputSchema))
@@ -680,7 +697,14 @@ namespace SmartHopper.Providers.DeepSeek
             // Create a new metrics instance
             var metrics = new AIMetrics();
             metrics.FinishReason = firstChoice?["finish_reason"]?.ToString() ?? metrics.FinishReason;
-            metrics.InputTokensPrompt = usage?["prompt_tokens"]?.Value<int>() ?? metrics.InputTokensPrompt;
+
+            var totalPromptTokens = usage?["prompt_tokens"]?.Value<int>() ?? 0;
+
+            // Extract KV cache hit tokens from nested prompt_tokens_details object
+            var promptTokensDetails = usage?["prompt_tokens_details"] as JObject;
+            metrics.InputTokensCached = promptTokensDetails?["cached_tokens"]?.Value<int>() ?? 0;
+            metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
+
             metrics.OutputTokensGeneration = usage?["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
             metrics.OutputTokensReasoning = reasoningTokens;
             return metrics;
@@ -1221,6 +1245,32 @@ namespace SmartHopper.Providers.DeepSeek
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return new[]
+            {
+                // General parameters (shared across providers)
+                new AIExtraDescriptor("top_p", "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double), null),
+                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    "Penalizes tokens already present in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double), null),
+                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double), null),
+
+                // DeepSeek-specific parameters
+                new AIExtraDescriptor("logprobs", "Log Probabilities",
+                    "Return log probabilities of output tokens. Useful for analyzing model confidence.",
+                    typeof(bool), null),
+                new AIExtraDescriptor("top_logprobs", "Top Logprobs",
+                    "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
+                    typeof(int), null),
+            };
         }
     }
 }

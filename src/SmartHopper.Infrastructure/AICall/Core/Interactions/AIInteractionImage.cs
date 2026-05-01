@@ -24,7 +24,7 @@ using SmartHopper.Infrastructure.AICall.Utilities;
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
     /// <summary>
-    /// Represents an AI-generated image result with associated metadata.
+    /// Represents an AI image interaction — either a generated image result or an image input for vision.
     /// </summary>
     public class AIInteractionImage : AIInteractionBase, IAIKeyedInteraction, IAIRenderInteraction
     {
@@ -65,6 +65,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         public string ImageStyle { get; set; } = "vivid";
 
         /// <summary>
+        /// Gets or sets the MIME type of the image (e.g., "image/png", "image/jpeg").
+        /// Used primarily for vision input to indicate the format of base64-encoded image data.
+        /// </summary>
+        public string MimeType { get; set; }
+
+        /// <summary>
         /// Gets or sets the structured runtime messages associated with this image interaction.
         /// Used to propagate warnings, infos, or provider notes alongside the result.
         /// </summary>
@@ -76,7 +82,64 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// <returns>A formatted string containing image metadata.</returns>
         public override string ToString()
         {
-            return $"AIInteractionImage ({this.ImageSize}) generated from '{this.OriginalPrompt.Substring(0, Math.Min(50, this.OriginalPrompt.Length))}...'";
+            if (string.IsNullOrEmpty(this.OriginalPrompt))
+            {
+                return $"AIInteractionImage ({this.ImageSize}) [vision input]";
+            }
+
+            var preview = this.OriginalPrompt.Length <= 50
+                ? this.OriginalPrompt
+                : this.OriginalPrompt.Substring(0, 50) + "...";
+            return $"AIInteractionImage ({this.ImageSize}) generated from '{preview}'";
+        }
+
+        /// <summary>
+        /// Creates a vision input interaction from a URL.
+        /// Use this when sending an image to an AI model for understanding/description.
+        /// </summary>
+        /// <param name="imageUrl">The URL of the image to analyze.</param>
+        public void CreateVisionInput(Uri imageUrl)
+        {
+            this.ImageUrl = imageUrl ?? throw new ArgumentNullException(nameof(imageUrl));
+        }
+
+        /// <summary>
+        /// Creates a vision input interaction from a URL string.
+        /// Use this when sending an image to an AI model for understanding/description.
+        /// </summary>
+        /// <param name="imageUrl">The URL of the image to analyze.</param>
+        public void CreateVisionInput(string imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                throw new ArgumentException("Image URL cannot be null or empty.", nameof(imageUrl));
+            }
+
+            if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
+            {
+                this.ImageUrl = uri;
+            }
+            else
+            {
+                throw new ArgumentException($"Invalid image URL: {imageUrl}", nameof(imageUrl));
+            }
+        }
+
+        /// <summary>
+        /// Creates a vision input interaction from base64-encoded image data.
+        /// Use this when sending an image to an AI model for understanding/description.
+        /// </summary>
+        /// <param name="base64Data">The base64-encoded image data (without data URI prefix).</param>
+        /// <param name="mimeType">The MIME type of the image (e.g., "image/png", "image/jpeg"). Defaults to "image/png".</param>
+        public void CreateVisionInputFromBase64(string base64Data, string mimeType = "image/png")
+        {
+            if (string.IsNullOrWhiteSpace(base64Data))
+            {
+                throw new ArgumentException("Base64 image data cannot be null or empty.", nameof(base64Data));
+            }
+
+            this.ImageData = base64Data;
+            this.MimeType = mimeType ?? "image/png";
         }
 
         /// <summary>

@@ -147,5 +147,12 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// </summary>
         /// <returns>The streaming adapter, or null if the provider doesn't support streaming.</returns>
         IStreamingAdapter GetStreamingAdapter();
+
+        /// <summary>
+        /// Returns descriptors for the provider-specific extra parameters that can be surfaced
+        /// as dynamic inputs on the <c>AIExtraSettingsComponent</c>.
+        /// </summary>
+        /// <returns>An enumerable of <see cref="AIExtraDescriptor"/> instances.</returns>
+        IEnumerable<AIExtraDescriptor> GetExtraDescriptors();
     }
 }

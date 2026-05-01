@@ -1,0 +1,348 @@
+﻿/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024-2026 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Converters;
+using SmartHopper.Core.Grasshopper.Converters.Formats;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AITools;
+
+namespace SmartHopper.Core.Grasshopper.AITools
+{
+    /// <summary>
+    /// Provides AI tool for converting local files to Markdown.
+    /// Supports PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, and more.
+    /// </summary>
+    public sealed class file2md : IAIToolProvider
+    {
+        private readonly string toolName = "file2md";
+        private static FileConverterRegistry? registry;
+
+        /// <summary>
+        /// Default prompt used for <c>describe</c> mode: long, thorough description.
+        /// </summary>
+        private const string DefaultImageDescriptionPrompt =
+            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured.";
+
+        /// <summary>
+        /// Default prompt used for <c>caption</c> and <c>embed</c> modes: short, one-sentence caption.
+        /// </summary>
+        private const string DefaultImageCaptionPrompt =
+            "Write a concise, descriptive caption for this image in one sentence.";
+
+        /// <summary>
+        /// Gets or creates the converter registry with all built-in converters.
+        /// </summary>
+        private static FileConverterRegistry GetRegistry()
+        {
+            if (registry == null)
+            {
+                registry = new FileConverterRegistry();
+
+                // Register all converters
+                registry.RegisterAll(new IFileConverter[]
+                {
+                    new TxtConverter(),
+                    new CsvConverter(),
+                    new JsonConverter(),
+                    new XmlConverter(),
+                    new HtmlConverter(),
+                    new PdfConverter(),
+                    new DocxConverter(),
+                    new XlsxConverter(),
+                    new PptxConverter(),
+                    new EmlConverter(),
+                    new EpubConverter(),
+                    new RtfConverter(),
+                });
+            }
+
+            return registry;
+        }
+
+        public IEnumerable<AITool> GetTools()
+        {
+            yield return new AITool(
+                name: this.toolName,
+                description: "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced.",
+                category: "Knowledge",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""filePath"": {
+                            ""type"": ""string"",
+                            ""description"": ""Absolute path to the file to convert.""
+                        },
+                        ""preserveTableStructure"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve table structure as Markdown tables. Default: true."",
+                            ""default"": true
+                        },
+                        ""removeHeadersFooters"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to attempt to remove headers and footers (PDF, DOCX). Default: true."",
+                            ""default"": true
+                        },
+                        ""extractImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to extract embedded images from the document as base64 data. Applies to PDF, DOCX, and PPTX. Default: false."",
+                            ""default"": false
+                        },
+                        ""describeImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""When true, uses AI to describe each extracted image and embeds the results in the markdown output. Forces extractImages=true automatically. Requires an AI provider with vision capability. Default: false."",
+                            ""default"": false
+                        },
+                        ""imageMode"": {
+                            ""type"": ""string"",
+                            ""description"": ""Controls how described images appear in the markdown. 'embed' (default): embed image as base64 data URI with short AI caption as alt text. 'describe': replace image with a long AI text description. 'caption': replace image with a short AI-generated title."",
+                            ""default"": ""embed""
+                        },
+                        ""imageDescriptionPrompt"": {
+                            ""type"": ""string"",
+                            ""description"": ""Custom prompt for AI image description. If omitted, a built-in detailed description prompt is used.""
+                        }
+                    },
+                    ""required"": [""filePath""]
+                }",
+                execute: this.FileToMdAsync);
+        }
+
+        private async Task<AIReturn> FileToMdAsync(AIToolCall toolCall)
+        {
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
+            try
+            {
+                // Local tool: skip metrics validation
+                toolCall.SkipMetricsValidation = true;
+
+                // Extract parameters
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.Arguments ?? new JObject();
+
+                string filePath = args["filePath"]?.ToString();
+                if (string.IsNullOrWhiteSpace(filePath))
+                {
+                    output.CreateError("Missing 'filePath' parameter.");
+                    return output;
+                }
+
+                // Get conversion options
+                bool describeImages = args["describeImages"]?.Value<bool>() ?? false;
+                string imageMode = args["imageMode"]?.ToString() ?? "embed";
+                string imageDescriptionPrompt = args["imageDescriptionPrompt"]?.ToString();
+
+                var options = new FileConversionOptions
+                {
+                    PreserveTableStructure = args["preserveTableStructure"]?.Value<bool>() ?? true,
+                    RemoveHeadersFooters = args["removeHeadersFooters"]?.Value<bool>() ?? true,
+                    ExtractImages = (args["extractImages"]?.Value<bool>() ?? false) || describeImages,
+                    DetectHeadings = true,
+                    MaxContentLength = 0
+                };
+
+                // Convert the file
+                var converterRegistry = GetRegistry();
+                var result = await converterRegistry.ConvertAsync(filePath, options).ConfigureAwait(false);
+
+                if (!result.IsSuccess)
+                {
+                    var errorMessage = result.Warnings.Count > 0
+                        ? string.Join("; ", result.Warnings)
+                        : "Conversion failed.";
+                    output.CreateError(errorMessage);
+                    return output;
+                }
+
+                // Build result
+                var toolResult = new JObject
+                {
+                    ["content"] = result.MarkdownContent,
+                    ["originalFormat"] = result.DetectedFormat,
+                    ["source"] = filePath,
+                };
+
+                // Add metadata if present
+                if (result.Metadata.Count > 0)
+                {
+                    var metadata = new JObject();
+                    foreach (var kvp in result.Metadata)
+                    {
+                        metadata[kvp.Key] = kvp.Value;
+                    }
+
+                    toolResult["metadata"] = metadata;
+                }
+
+                // Always return raw images array when images were extracted
+                if (result.Images.Count > 0)
+                {
+                    var imagesArray = new JArray();
+                    foreach (var image in result.Images)
+                    {
+                        imagesArray.Add(new JObject
+                        {
+                            ["id"] = image.Id,
+                            ["mimeType"] = image.MimeType,
+                            ["context"] = image.Context,
+                            ["pageOrSlide"] = image.PageOrSlide,
+                            ["base64Data"] = image.Base64Data,
+                        });
+                    }
+
+                    toolResult["images"] = imagesArray;
+                    toolResult["imageCount"] = result.Images.Count;
+                }
+
+                // Describe images via AI and append to markdown
+                if (describeImages && result.Images.Count > 0)
+                {
+                    string providerName = toolCall.Provider?.ToString();
+                    if (string.IsNullOrWhiteSpace(providerName))
+                    {
+                        result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
+                    }
+                    else
+                    {
+                        // Select default prompt based on mode
+                        string defaultPrompt = (imageMode == "describe")
+                            ? DefaultImageDescriptionPrompt
+                            : DefaultImageCaptionPrompt;
+
+                        string effectivePrompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
+                            ? defaultPrompt
+                            : imageDescriptionPrompt;
+
+                        var imagesSb = new StringBuilder();
+                        imagesSb.AppendLine();
+                        imagesSb.AppendLine("---");
+                        imagesSb.AppendLine();
+                        imagesSb.AppendLine("## Document Images");
+                        imagesSb.AppendLine();
+
+                        foreach (var image in result.Images)
+                        {
+                            string aiText = await DescribeImageAsync(image, effectivePrompt, toolCall).ConfigureAwait(false);
+
+                            if (imageMode == "embed")
+                            {
+                                imagesSb.AppendLine($"*{image.Context}*");
+                                imagesSb.AppendLine();
+                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.Base64Data})");
+                                imagesSb.AppendLine();
+                            }
+                            else
+                            {
+                                // describe or caption: text-only block
+                                imagesSb.AppendLine($"**[{image.Id} — {image.Context}]**");
+                                imagesSb.AppendLine();
+                                imagesSb.AppendLine(aiText);
+                                imagesSb.AppendLine();
+                            }
+                        }
+
+                        result.MarkdownContent += imagesSb.ToString();
+                        toolResult["content"] = result.MarkdownContent;
+                    }
+                }
+
+                // Add warnings if present
+                if (result.Warnings.Count > 0)
+                {
+                    var warnings = new JArray();
+                    foreach (var warning in result.Warnings)
+                    {
+                        warnings.Add(warning);
+                    }
+
+                    toolResult["warnings"] = warnings;
+                }
+
+                var builder = AIBodyBuilder.Create();
+                builder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name);
+                var immutable = builder.Build();
+                output.CreateSuccess(immutable, toolCall);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[FileToMd] Error in FileToMdAsync: {ex.Message}");
+                output.CreateError($"Error: {ex.Message}");
+                return output;
+            }
+        }
+
+        /// <summary>
+        /// Calls the <c>img2text</c> tool to obtain a text description of an extracted image.
+        /// </summary>
+        /// <param name="image">The extracted image to describe.</param>
+        /// <param name="prompt">The description prompt to send to the AI.</param>
+        /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
+        /// <returns>The AI-generated text description, or a fallback string on failure.</returns>
+        private static async Task<string> DescribeImageAsync(ExtractedImage image, string prompt, AIToolCall sourceToolCall)
+        {
+            try
+            {
+                var imgArgs = new JObject
+                {
+                    ["imageBase64"] = image.Base64Data,
+                    ["mimeType"] = image.MimeType,
+                    ["prompt"] = prompt,
+                };
+
+                var imgInteraction = new AIInteractionToolCall
+                {
+                    Name = "img2text",
+                    Arguments = imgArgs,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var imgToolCall = new AIToolCall
+                {
+                    Endpoint = "img2text",
+                    Provider = sourceToolCall.Provider,
+                    Model = sourceToolCall.Model,
+                    Parameters = sourceToolCall.Parameters,
+                };
+
+                imgToolCall.FromToolCallInteraction(imgInteraction);
+
+                var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
+                var toolResultInteraction = imgResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
+                return toolResultInteraction?.Result?["description"]?.ToString() ?? "[Image could not be described]";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[file2md] DescribeImageAsync failed: {ex.Message}");
+                return "[Image description failed]";
+            }
+        }
+    }
+}

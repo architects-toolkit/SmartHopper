@@ -55,6 +55,17 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "gpt-5.5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ReasoningChat,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 90,
+                    ContextLimit = 400000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "gpt-5-nano",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     Default = AICapability.Text2Text,
@@ -71,7 +82,7 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 95,
+                    Rank = 80,
                     ContextLimit = 400000,
                 },
                 new AIModelCapabilities
@@ -82,6 +93,37 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 70,
+                    ContextLimit = 400000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.4",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 95,
+                    ContextLimit = 400000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.4-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 100,
+                    ContextLimit = 400000,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.4-nano",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 80,
                     ContextLimit = 400000,
                 },
                 new AIModelCapabilities
@@ -305,6 +347,16 @@ namespace SmartHopper.Providers.OpenAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
+                    Model = "gpt-image-2",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 70,
+                },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
                     Model = "dall-e-3",
                     Capabilities = AICapability.TextInput | AICapability.ImageOutput,
                     Default = AICapability.Text2Image,
@@ -327,7 +379,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-1-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 70,
@@ -341,6 +392,15 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 60,
                 },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-1.5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 65,
+                },
 
                 // Audio
                 new AIModelCapabilities
@@ -350,6 +410,7 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.AudioOutput,
                     SupportsStreaming = false,
                     Verified = false,
+                    Deprecated = true,
                     Rank = 60,
                     ContextLimit = 2000,
                 },

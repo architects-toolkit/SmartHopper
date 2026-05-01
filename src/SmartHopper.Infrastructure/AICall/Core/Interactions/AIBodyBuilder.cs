@@ -374,6 +374,45 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
+        /// Adds an image input interaction for vision (image understanding).
+        /// The image is referenced by URL.
+        /// </summary>
+        /// <param name="imageUrl">The URL of the image to analyze.</param>
+        /// <returns>The same builder instance.</returns>
+        public AIBodyBuilder AddImageInput(Uri imageUrl)
+        {
+            var img = new AIInteractionImage { Agent = AIAgent.User };
+            img.CreateVisionInput(imageUrl);
+            return this.Add(img, this.defaultMarkAsNew);
+        }
+
+        /// <summary>
+        /// Adds an image input interaction for vision (image understanding).
+        /// The image is referenced by URL string.
+        /// </summary>
+        /// <param name="imageUrl">The URL of the image to analyze.</param>
+        /// <returns>The same builder instance.</returns>
+        public AIBodyBuilder AddImageInput(string imageUrl)
+        {
+            var img = new AIInteractionImage { Agent = AIAgent.User };
+            img.CreateVisionInput(imageUrl);
+            return this.Add(img, this.defaultMarkAsNew);
+        }
+
+        /// <summary>
+        /// Adds an image input interaction for vision (image understanding) from base64 data.
+        /// </summary>
+        /// <param name="base64Data">The base64-encoded image data (without data URI prefix).</param>
+        /// <param name="mimeType">The MIME type of the image (e.g., "image/png", "image/jpeg"). Defaults to "image/png".</param>
+        /// <returns>The same builder instance.</returns>
+        public AIBodyBuilder AddImageInputFromBase64(string base64Data, string mimeType = "image/png")
+        {
+            var img = new AIInteractionImage { Agent = AIAgent.User };
+            img.CreateVisionInputFromBase64(base64Data, mimeType);
+            return this.Add(img, this.defaultMarkAsNew);
+        }
+
+        /// <summary>
         /// Adds a tool call interaction.
         /// </summary>
         /// <param name="id">The tool call id to correlate with results.</param>

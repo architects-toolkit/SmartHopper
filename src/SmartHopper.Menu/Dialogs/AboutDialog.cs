@@ -226,6 +226,42 @@ namespace SmartHopper.Menu.Dialogs
                 },
             };
 
+            var textractLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- Dean Malmgren for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("textract", "https://github.com/deanmalmgren/textract"),
+                    new Label { Text = "(MIT License) - File-to-Markdown dispatcher pattern", Font = new Font(SystemFont.Default, 10) }
+                },
+            };
+
+            var magicHtmlLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- OpenDataLab for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("magic-html", "https://github.com/opendatalab/magic-html"),
+                    new Label { Text = "(Apache 2.0 License) - HTML readability scoring", Font = new Font(SystemFont.Default, 10) }
+                },
+            };
+
+            var dataFlowLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- OpenDCAI for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("DataFlow", "https://github.com/OpenDCAI/DataFlow"),
+                    new Label { Text = "(Apache 2.0 License) - Operator/pipeline architecture", Font = new Font(SystemFont.Default, 10) }
+                },
+            };
+
             var logoDesignThanksLabel = new Label
             {
                 Text = "Acknowledgement to Jordina Roca Musach for the SmartHopper logo design.",
@@ -297,6 +333,9 @@ namespace SmartHopper.Menu.Dialogs
             contentLayout.Items.Add(ghptLink);
             contentLayout.Items.Add(materialIconsLink);
             contentLayout.Items.Add(lobeIconsLink);
+            contentLayout.Items.Add(textractLink);
+            contentLayout.Items.Add(magicHtmlLink);
+            contentLayout.Items.Add(dataFlowLink);
             contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(logoDesignThanksLabel);
             contentLayout.Items.Add(null); // spacing

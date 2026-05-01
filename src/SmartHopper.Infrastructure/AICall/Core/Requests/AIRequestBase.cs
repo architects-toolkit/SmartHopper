@@ -79,6 +79,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <inheritdoc/>
         public virtual bool WantsStreaming { get; set; }
 
+        /// <summary>
+        /// Per-request AI settings. When set, individual properties take precedence over
+        /// global provider settings (Temperature, MaxTokens, etc.) on a per-field basis.
+        /// Null means fall back entirely to global settings.
+        /// </summary>
+        public AICall.Core.AIRequestParameters Parameters { get; set; }
+
         /// <inheritdoc/>
         public virtual AIRequestKind RequestKind { get; set; } = AIRequestKind.Generation;
 

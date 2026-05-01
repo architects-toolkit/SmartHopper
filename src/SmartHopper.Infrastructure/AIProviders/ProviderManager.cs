@@ -45,9 +45,10 @@ namespace SmartHopper.Infrastructure.AIProviders
 
         public static ProviderManager Instance => _instance.Value;
 
-        private readonly Dictionary<string, IAIProvider> _providers = new Dictionary<string, IAIProvider>();
-        private readonly Dictionary<string, IAIProviderSettings> _providerSettings = new Dictionary<string, IAIProviderSettings>();
-        private readonly Dictionary<string, Assembly> _providerAssemblies = new Dictionary<string, Assembly>();
+        private readonly ConcurrentDictionary<string, IAIProvider> _providers = new ConcurrentDictionary<string, IAIProvider>();
+        private readonly ConcurrentDictionary<string, IAIProviderSettings> _providerSettings = new ConcurrentDictionary<string, IAIProviderSettings>();
+        private readonly ConcurrentDictionary<string, Assembly> _providerAssemblies = new ConcurrentDictionary<string, Assembly>();
+        private volatile bool _refreshCompleted = false;
         private readonly ConcurrentDictionary<string, bool> _mismatchedProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers with hash mismatches
         private readonly ConcurrentDictionary<string, bool> _unavailableProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers where hash check was unavailable (network issues)
         private readonly ConcurrentDictionary<string, bool> _unknownProviders = new ConcurrentDictionary<string, bool>(); // Tracks providers not found in hash manifest (custom/third-party)
@@ -101,12 +102,22 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             Debug.WriteLine("[ProviderManager] Starting provider discovery and registration");
 
-            // Discover new providers
-            await this.DiscoverProvidersAsync().ConfigureAwait(false);
+            try
+            {
+                // Discover new providers
+                await this.DiscoverProvidersAsync().ConfigureAwait(false);
 
-            // After discovery, refresh settings for all providers
-            Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
-            SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
+                // After discovery, refresh settings for all providers
+                Debug.WriteLine("[ProviderManager] Provider discovery complete, refreshing settings");
+                SmartHopperSettings.Instance.RefreshProvidersLocalStorage();
+            }
+            finally
+            {
+                // Mark refresh as completed regardless of provider count or errors
+                // This signals that infrastructure initialization is done
+                this._refreshCompleted = true;
+                Debug.WriteLine("[ProviderManager] Provider refresh completed (infrastructure ready)");
+            }
         }
 
         /// <summary>
@@ -280,6 +291,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: Could not verify provider '{Path.GetFileName(assemblyPath)}' - hash check skipped. Enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash unavailable for {Path.GetFileName(assemblyPath)}, skipping verification");
                             }
+
                             break;
 
                         case ProviderVerificationStatus.NotFound:
@@ -313,6 +325,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                                 RhinoApp.WriteLine($"[SmartHopper] Provider Integrity Check Failed: '{Path.GetFileName(assemblyPath)}' is not known - enable only if you trust this source.");
                                 Debug.WriteLine($"[ProviderManager] Hash not found for {Path.GetFileName(assemblyPath)}, allowing in Soft mode");
                             }
+
                             break;
                     }
                 }
@@ -468,6 +481,21 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Gets the count of registered providers.
+        /// </summary>
+        /// <returns>The number of providers currently registered.</returns>
+        public int GetProviderCount()
+        {
+            return this._providers.Count;
+        }
+
+        /// <summary>
+        /// Gets whether the provider infrastructure has completed initialization.
+        /// This flag is set to true after RefreshProvidersAsync completes, regardless of provider count.
+        /// </summary>
+        public bool IsInfrastructureReady => this._refreshCompleted;
+
+        /// <summary>
         /// Gets a provider by name.
         /// </summary>
         /// <param name="providerName">Name of the provider to get.</param>
@@ -537,6 +565,17 @@ namespace SmartHopper.Infrastructure.AIProviders
         public IAIProviderSettings GetProviderSettings(string providerName)
         {
             return this._providerSettings.TryGetValue(providerName, out var settings) ? settings : null;
+        }
+
+        /// <summary>
+        /// Gets the extra parameter descriptors for a provider.
+        /// </summary>
+        /// <param name="providerName">The name of the provider.</param>
+        /// <returns>An enumerable of <see cref="AIExtraDescriptor"/> instances, or empty if provider not found.</returns>
+        public IEnumerable<AIExtraDescriptor> GetExtraDescriptors(string providerName)
+        {
+            var provider = this.GetProvider(providerName);
+            return provider?.GetExtraDescriptors() ?? Enumerable.Empty<AIExtraDescriptor>();
         }
 
         /// <summary>

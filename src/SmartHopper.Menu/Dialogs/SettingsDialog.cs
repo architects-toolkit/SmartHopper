@@ -91,6 +91,7 @@ namespace SmartHopper.Menu.Dialogs
             {
                 DefaultAIProvider = this._settings.DefaultAIProvider,
                 DebounceTime = this._settings.DebounceTime,
+                BatchPollIntervalSeconds = this._settings.BatchPollIntervalSeconds,
             };
 
             this._trustedProvidersSettings = new TrustedProvidersSettings(this._settings.TrustedProviders);
@@ -215,6 +216,7 @@ namespace SmartHopper.Menu.Dialogs
                 // Update global settings from models
                 this._settings.DefaultAIProvider = this._generalSettings.DefaultAIProvider;
                 this._settings.DebounceTime = this._generalSettings.DebounceTime;
+                this._settings.BatchPollIntervalSeconds = this._generalSettings.BatchPollIntervalSeconds;
                 this._settings.SmartHopperAssistant.EnableCanvasButton = this._assistantSettings.EnableCanvasButton;
                 this._settings.SmartHopperAssistant.EnableAIGreeting = this._assistantSettings.EnableAIGreeting;
                 this._settings.SmartHopperAssistant.AssistantProvider = this._assistantSettings.AssistantProvider;
