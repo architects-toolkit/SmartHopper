@@ -22,8 +22,24 @@ on:
         default: 'dev'
       target-branches:
         description: 'Comma-separated list of target branches (e.g., main,dev,main-1.4,dev-1.5).'
-        required: true
+        required: false
         type: string
+        default: ''
+      auto-discover:
+        description: 'Automatically discover all dev and dev-* branches as targets (overrides target-branches).'
+        required: false
+        type: boolean
+        default: false
+      include-main-branches:
+        description: 'When auto-discover is true, also include main-* branches (for critical fixes only).'
+        required: false
+        type: boolean
+        default: false
+      exclude-branches:
+        description: 'Comma-separated branches to exclude from auto-discovery.'
+        required: false
+        type: string
+        default: ''
       pr-title-prefix:
         description: 'Prefix for each PR title.'
         required: false
@@ -53,15 +69,50 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   resolve:
     runs-on: ubuntu-latest
     outputs:
-      targets: ${{ steps.split.outputs.targets }}
-      has-targets: ${{ steps.split.outputs.has-targets }}
+      targets: ${{ inputs.auto-discover == true && steps.discover.outputs.targets || steps.split.outputs.targets }}
+      has-targets: ${{ inputs.auto-discover == true && (steps.discover.outputs.count != '0') || steps.split.outputs.has-targets == 'true' }}
     steps:
+      - name: Discover branches
+        if: inputs.auto-discover == true
+        id: discover
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            let targets = branches
+              .map(b => b.name)
+              .filter(n => n === 'dev' || n.startsWith('dev-'));
+            if ('${{ inputs.include-main-branches }}' === 'true') {
+              const mainBranches = branches
+                .map(b => b.name)
+                .filter(n => n.startsWith('main-'));
+              targets = targets.concat(mainBranches);
+            }
+            // Exclude specified branches
+            const excludeRaw = '${{ inputs.exclude-branches }}';
+            if (excludeRaw) {
+              const excludeSet = new Set(excludeRaw.split(',').map(b => b.trim()).filter(Boolean));
+              targets = targets.filter(t => !excludeSet.has(t));
+            }
+            // Exclude the source branch to avoid self-cherry-pick
+            const source = '${{ inputs.source-branch }}';
+            targets = targets.filter(t => t !== source);
+            core.setOutput('targets', JSON.stringify(targets));
+            core.setOutput('count', targets.length.toString());
+            console.log(`Discovered ${targets.length} target branch(es): ${JSON.stringify(targets)}`);
+
       - name: Split target list
+        if: inputs.auto-discover != true
         id: split
         shell: bash
         run: |
@@ -86,6 +137,9 @@ jobs:
     needs: resolve
     if: needs.resolve.outputs.has-targets == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: "patch-${{ matrix.target }}"
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
@@ -126,3 +180,34 @@ jobs:
             fi
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
+
+  summary:
+    needs: [resolve, propagate]
+    if: always() && needs.resolve.outputs.has-targets == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate results and notify on failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const propagateResult = '${{ needs.propagate.result }}';
+            const shas = '${{ inputs.source-shas }}';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            
+            if (propagateResult === 'failure') {
+              // Create issue for manual attention
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `\uD83C\uDF52 Patch propagate needs attention (run #${context.runNumber})`,
+                body: `One or more cherry-picks had conflicts or failures.\n\n` +
+                      `**Run:** [#${context.runNumber}](${runUrl})\n` +
+                      `**SHAs:** \`${shas}\`\n` +
+                      `**Source branch:** \`${{ inputs.source-branch }}\`\n\n` +
+                      `Please review the workflow run and resolve any draft PRs with conflict markers.`,
+                labels: ['automation', 'needs-attention']
+              });
+              console.log('Created needs-attention issue for failed propagation');
+            } else {
+              console.log(`Propagation result: ${propagateResult} — no issue needed`);
+            }

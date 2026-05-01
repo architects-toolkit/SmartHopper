@@ -24,6 +24,9 @@ permissions:
 jobs:
   cancel-stabilization-path:
     runs-on: ubuntu-latest
+    concurrency:
+      group: "stabilization-close-${{ github.event.milestone.title }}"
+      cancel-in-progress: false
     steps:
       - name: Check if this is a cancellation scenario
         id: check

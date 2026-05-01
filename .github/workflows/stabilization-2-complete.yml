@@ -27,6 +27,9 @@ permissions:
 jobs:
   complete-stabilization-path:
     runs-on: ubuntu-latest
+    concurrency:
+      group: "stabilization-close-${{ github.event.milestone.title }}"
+      cancel-in-progress: false
     if: github.event_name == 'milestone'
     steps:
       - name: Check if this is a successful completion scenario
@@ -162,7 +165,20 @@ jobs:
           VERSION="${BRANCH#main-}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Validate version format
+        id: validate
+        run: |
+          VERSION="${{ steps.extract-version.outputs.version }}"
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "Version '$VERSION' is valid semver format"
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "::warning::Version '$VERSION' does not match X.Y.Z format — skipping branch cleanup"
+          fi
+
       - name: Delete stabilization branches
+        if: steps.validate.outputs.valid == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

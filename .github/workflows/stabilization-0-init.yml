@@ -98,14 +98,25 @@ jobs:
             let sha;
             
             if (tag) {
-              // Get SHA from tag
               const tagRef = await github.rest.git.getRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `tags/${tag}`
               });
-              sha = tagRef.data.object.sha;
-              console.log(`Tag ${tag} points to SHA: ${sha}`);
+              
+              // Dereference annotated tags to get the commit SHA
+              if (tagRef.data.object.type === 'tag') {
+                const tagObj = await github.rest.git.getTag({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_sha: tagRef.data.object.sha
+                });
+                sha = tagObj.data.object.sha;
+                console.log(`Tag ${tag} is annotated, dereferenced to commit SHA: ${sha}`);
+              } else {
+                sha = tagRef.data.object.sha;
+                console.log(`Tag ${tag} is lightweight, points to SHA: ${sha}`);
+              }
             } else {
               // Get SHA from main branch
               const branchRef = await github.rest.git.getRef({

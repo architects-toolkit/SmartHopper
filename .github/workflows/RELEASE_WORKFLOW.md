@@ -213,8 +213,12 @@ Version is determined by the milestone title (e.g., milestone `1.2.0` → releas
 - **release-2-pr-to-dev-closed.yml** — Creates PR from `dev` (or `dev-X.Y.Z`) to `main` (or `main-X.Y.Z`)
 - **release-3-pr-to-main-closed.yml** — Creates GitHub Release; supports `main-*` branches
 - **release-4-build.yml** — Builds artifacts and auto-triggers Yak upload after successful build (stable only)
-- **release-promotion.yml** — Scans open no-suffix milestones daily; promotes eligible staged releases
+- **release-promotion.yml** — Scans open no-suffix milestones daily; promotes eligible staged releases; supports `promotion: freeze` label
 - **release-6-upload-yak.yml** — Uploads to Yak package manager (manual or dispatched by build)
+
+### Patch Propagation
+
+- **patch-propagate.yml** — Fan-out cherry-picks to multiple target branches; supports `auto-discover` to find all `dev`/`dev-*` branches, `include-main-branches` for critical fixes, and `exclude-branches` to skip specific targets
 
 ### Stabilization Workflows
 
@@ -279,6 +283,25 @@ All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-
 - ❌ Any open issue labeled `version: 1.4.2` (any stage)
 - ❌ `1.4.2-alpha` release published < 30 days ago
 - ❌ No open `1.4.2` milestone exists (stabilization path not initialized)
+- ❌ A `promotion: freeze` label is active for the version (see below)
+
+### Controlling Promotion
+
+**Freezing promotion:**
+- Add the `promotion: freeze` label to any open issue that also has a `version: X.Y.Z` label
+- Promotion will be skipped for that version until the label is removed or the issue is closed
+- `force-promote` in workflow_dispatch overrides the freeze
+
+**Blocked promotion notifications:**
+- When a release is older than 30 days but cannot be promoted, an issue titled `⛔ Promotion blocked: X.Y.Z-stage` is auto-created
+- The issue is updated daily with the latest blocking reason
+- Close the issue manually once the blocking condition is resolved
+
+**Patch propagation:**
+- Use `patch-propagate.yml` with `auto-discover: true` to fan out a fix to all `dev` and `dev-*` branches
+- Set `include-main-branches: true` for critical fixes that also need to reach `main-*` branches
+- Use `exclude-branches` to skip specific branches from auto-discovery
+- If any cherry-pick has conflicts, an issue is auto-created with the `needs-attention` label
 
 ### Regular Release Example
 
