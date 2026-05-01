@@ -25,6 +25,10 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: "release-${{ inputs.milestone-title }}"
+  cancel-in-progress: false
+
 jobs:
   release-preparation:
     runs-on: ubuntu-latest

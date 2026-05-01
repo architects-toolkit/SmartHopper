@@ -397,12 +397,22 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         
-        # Fetch main branch
-        git fetch origin main
-        
-        # Create a temporary branch from main
+        # Determine target branch: main-X.Y.Z for stabilization builds, main otherwise
+        $baseVersion = if ($version -match '^(\d+\.\d+\.\d+)') { $matches[1] } else { $null }
+        $targetBranch = "main"
+
+        if ($baseVersion) {
+          $stabBranch = "main-$baseVersion"
+          $branchExists = git ls-remote --exit-code --heads origin $stabBranch 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            $targetBranch = $stabBranch
+            Write-Host "Stabilization branch detected: targeting $targetBranch for hash PR"
+          }
+        }
+
+        git fetch origin $targetBranch
         $tempBranch = "hash-update-$version-${{ github.run_number }}"
-        git checkout -b $tempBranch origin/main
+        git checkout -b $tempBranch origin/$targetBranch
         
         # Copy the hash file
         if (!(Test-Path "hashes")) {
@@ -418,11 +428,11 @@ jobs:
           git commit -m "chore: add provider hash manifest for version $version (dual platform)"
           git push origin $tempBranch
           
-          # Create PR to main
-          Write-Host "Creating PR to merge hash file to main..."
+          # Create PR to target branch
+          Write-Host "Creating PR to merge hash file to $targetBranch..."
           $prBody = "Auto-generated PR to add provider hash manifest for version $version (native builds on Windows and macOS).`n`n**Hash File:** \`hashes/$version.json\``n**Build:** #${{ github.run_number }}`n**Platforms:** net7.0-windows (Windows runner), net7.0 (macOS runner)"
           
-          gh pr create --base main --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody
+          gh pr create --base $targetBranch --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody
           
           $prNumber = gh pr list --head $tempBranch --json number --jq '.[0].number'
           
