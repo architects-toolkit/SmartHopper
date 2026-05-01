@@ -1,0 +1,129 @@
+# Generic, reusable Mistral AI Chat Completions API wrapper.
+# This action is a raw API client with no domain-specific logic.
+# It can be used by any workflow that needs AI text generation capabilities.
+
+name: 'Mistral AI Chat'
+description: 'Generic wrapper around the Mistral AI Chat Completions API'
+
+inputs:
+  api-key:
+    description: 'Mistral AI API key'
+    required: true
+  model:
+    description: 'Mistral model name'
+    required: false
+    default: 'mistral-medium-latest'
+  system-prompt:
+    description: 'System message content'
+    required: false
+    default: ''
+  user-prompt:
+    description: 'User message content'
+    required: true
+  temperature:
+    description: 'Sampling temperature'
+    required: false
+    default: '0.7'
+  max-tokens:
+    description: 'Maximum tokens in response'
+    required: false
+    default: '4096'
+
+outputs:
+  response:
+    description: 'Raw text content from the API response'
+    value: ${{ steps.call_api.outputs.response }}
+  usage-prompt-tokens:
+    description: 'Prompt tokens used'
+    value: ${{ steps.call_api.outputs.usage-prompt-tokens }}
+  usage-completion-tokens:
+    description: 'Completion tokens used'
+    value: ${{ steps.call_api.outputs.usage-completion-tokens }}
+  success:
+    description: 'Whether the API call succeeded'
+    value: ${{ steps.call_api.outputs.success }}
+  error:
+    description: 'Error message if the call failed'
+    value: ${{ steps.call_api.outputs.error }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Call Mistral AI API
+      id: call_api
+      shell: bash
+      env:
+        API_KEY: ${{ inputs.api-key }}
+        MODEL: ${{ inputs.model }}
+        SYSTEM_PROMPT: ${{ inputs.system-prompt }}
+        USER_PROMPT: ${{ inputs.user-prompt }}
+        TEMPERATURE: ${{ inputs.temperature }}
+        MAX_TOKENS: ${{ inputs.max-tokens }}
+      run: |
+        # Build JSON payload using jq to safely handle special characters
+        PAYLOAD=$(jq -n \
+          --arg model "$MODEL" \
+          --arg system "$SYSTEM_PROMPT" \
+          --arg user "$USER_PROMPT" \
+          --argjson temperature "$TEMPERATURE" \
+          --argjson max_tokens "$MAX_TOKENS" \
+          '{
+            model: $model,
+            messages: (
+              if ($system | length) > 0
+              then [{role: "system", content: $system}, {role: "user", content: $user}]
+              else [{role: "user", content: $user}]
+              end
+            ),
+            temperature: $temperature,
+            max_tokens: $max_tokens
+          }')
+
+        # Call the API
+        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.mistral.ai/v1/chat/completions" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $API_KEY" \
+          -d "$PAYLOAD")
+
+        # Split body and status code
+        HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+        HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
+
+        if [ "$HTTP_STATUS" -eq 200 ]; then
+          # Extract response content
+          CONTENT=$(echo "$HTTP_BODY" | jq -r '.choices[0].message.content // empty')
+          PROMPT_TOKENS=$(echo "$HTTP_BODY" | jq -r '.usage.prompt_tokens // 0')
+          COMPLETION_TOKENS=$(echo "$HTTP_BODY" | jq -r '.usage.completion_tokens // 0')
+
+          if [ -z "$CONTENT" ]; then
+            echo "::warning::Mistral API call succeeded but returned empty content"
+            echo "success=false" >> "$GITHUB_OUTPUT"
+            echo "error=API returned empty content" >> "$GITHUB_OUTPUT"
+            echo "response=" >> "$GITHUB_OUTPUT"
+            echo "usage-prompt-tokens=0" >> "$GITHUB_OUTPUT"
+            echo "usage-completion-tokens=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "success=true" >> "$GITHUB_OUTPUT"
+            echo "error=" >> "$GITHUB_OUTPUT"
+            {
+              echo "response<<EOF_MISTRAL_RESPONSE"
+              echo "$CONTENT"
+              echo "EOF_MISTRAL_RESPONSE"
+            } >> "$GITHUB_OUTPUT"
+            echo "usage-prompt-tokens=$PROMPT_TOKENS" >> "$GITHUB_OUTPUT"
+            echo "usage-completion-tokens=$COMPLETION_TOKENS" >> "$GITHUB_OUTPUT"
+          fi
+        else
+          # Error handling
+          ERROR_MSG=$(echo "$HTTP_BODY" | head -c 500)
+          echo "::warning::Mistral API call failed: HTTP $HTTP_STATUS - $ERROR_MSG"
+          echo "success=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "error<<EOF_MISTRAL_ERROR"
+            echo "HTTP $HTTP_STATUS: $ERROR_MSG"
+            echo "EOF_MISTRAL_ERROR"
+          } >> "$GITHUB_OUTPUT"
+          echo "response=" >> "$GITHUB_OUTPUT"
+          echo "usage-prompt-tokens=0" >> "$GITHUB_OUTPUT"
+          echo "usage-completion-tokens=0" >> "$GITHUB_OUTPUT"
+        fi
