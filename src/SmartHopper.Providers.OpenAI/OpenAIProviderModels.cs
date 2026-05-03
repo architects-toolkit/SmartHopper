@@ -549,7 +549,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9805,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o", "gpt-4o-latest" },
+                    Aliases = new List<string> { "gpt-4o-latest", "gpt-4o" },
                 },
 
 
@@ -583,16 +583,6 @@ namespace SmartHopper.Providers.OpenAI
 
                 // Released before May 2024 or unknown release date
 
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-image-2",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 70,
-                },
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -828,15 +818,6 @@ namespace SmartHopper.Providers.OpenAI
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9690,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-image-1.5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 65,
                 },
 
                 new AIModelCapabilities
@@ -1080,6 +1061,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -25,
                     ContextLimit = 128000,
+                    Aliases = new List<string> { "chatgpt-4o" },
                 },
 
                 new AIModelCapabilities
@@ -1092,6 +1074,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -30,
                     ContextLimit = 200000,
+                    Aliases = new List<string> { "codex-mini" },
                 },
 
                 new AIModelCapabilities

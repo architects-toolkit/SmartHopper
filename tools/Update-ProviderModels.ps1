@@ -1101,6 +1101,9 @@ if ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provi
             if ($m.Aliases) { foreach ($a in @($m.Aliases)) { [void]$current.Add($a) } }
 
             foreach ($implied in $impliedAliases) {
+                # Never add an alias that is identical to the model name itself
+                if ([string]::Equals($implied, $m.Model, 'OrdinalIgnoreCase')) { continue }
+
                 $hasImplied = $current | Where-Object { [string]::Equals($_, $implied, 'OrdinalIgnoreCase') }
                 if ([System.Object]::ReferenceEquals($m, $winner)) {
                     if (-not $hasImplied) { [void]$current.Add($implied) }
