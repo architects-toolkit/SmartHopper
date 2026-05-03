@@ -20,6 +20,10 @@ inputs:
   api-key:
     description: 'OpenRouter API key (used as the single source of truth for all providers)'
     required: true
+  provider-api-key:
+    description: 'Optional native API key for the target provider. When supplied, the provider''s own /models endpoint is queried as a secondary authoritative source (alias merging, deprecation flags). OpenRouter remains the metadata source of truth.'
+    required: false
+    default: ''
   update-file:
     description: 'When true, the script rewrites the source file: auto-inserts new models with capabilities mapped from OpenRouter metadata, updates existing model capabilities/ContextLimit, and marks disappeared or expiring models as Deprecated = true'
     required: false
@@ -53,10 +57,14 @@ runs:
       shell: pwsh
       env:
         API_KEY: ${{ inputs.api-key }}
+        PROVIDER_API_KEY: ${{ inputs.provider-api-key }}
       run: |
         $params = @{
           Provider = '${{ inputs.provider }}'
           ApiKey   = $env:API_KEY
+        }
+        if (-not [string]::IsNullOrWhiteSpace($env:PROVIDER_API_KEY)) {
+          $params['ProviderApiKey'] = $env:PROVIDER_API_KEY
         }
         if ('${{ inputs.update-file }}' -eq 'true') {
           $params['UpdateFile'] = $true
