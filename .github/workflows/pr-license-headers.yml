@@ -1,0 +1,61 @@
+name: 📜 Update License Headers
+
+# Description: Automatically applies LGPL license headers via tools/Update-LicenseHeaders.ps1
+# and commits any changes back to the pull request branch.
+#
+# Triggers:
+# - Pull requests targeting any branch
+#
+# Skips committing on protected branches (head ref starting with main* or dev*)
+# and on PRs from forks (cannot push back to fork branches).
+#
+# Permissions:
+# - contents:write - Required to commit changes back to the PR branch
+
+on:
+  pull_request:
+    branches:
+      - '**'
+
+permissions:
+  contents: write
+
+jobs:
+  update-license-headers:
+    name: 📜 Update License Headers
+    runs-on: windows-latest
+    # Skip protected branches and forks
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.head_ref, 'main') &&
+      !startsWith(github.head_ref, 'dev')
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Apply LGPL license headers
+        shell: pwsh
+        run: pwsh -ExecutionPolicy Bypass -File .\tools\Update-LicenseHeaders.ps1
+
+      - name: Commit and push changes
+        shell: pwsh
+        run: |
+          git add -A
+          $diff = git diff --cached --name-only
+          if ([string]::IsNullOrWhiteSpace($diff)) {
+            Write-Host "No license header changes to commit."
+          } else {
+            Write-Host "Committing license header updates..."
+            git commit -m "chore(ci): update license headers"
+            git push origin HEAD:${{ github.head_ref }}
+          }
