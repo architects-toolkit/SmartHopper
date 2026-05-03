@@ -390,6 +390,8 @@ foreach ($item in $response.data) {
     $fullId = $item.id
     if ([string]::IsNullOrWhiteSpace($fullId)) { continue }
 
+    if ($fullId.StartsWith('ft:')) { continue }
+
     if ($isOpenRouterProvider) {
         # OpenRouter provider: keep every model verbatim (full "vendor/model" id).
         $openRouterModels.Add($item)
@@ -444,7 +446,7 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
         # Both OpenAI-compatible APIs and Anthropic return { data: [{ id: ... }] }.
         $providerData = if ($providerResponse.data) { $providerResponse.data } else { @() }
         foreach ($pm in $providerData) {
-            if (-not [string]::IsNullOrWhiteSpace($pm.id)) {
+            if (-not [string]::IsNullOrWhiteSpace($pm.id) -and -not $pm.id.StartsWith('ft:')) {
                 [void]$providerApiModelNames.Add($pm.id)
                 $providerApiLookup[$pm.id] = $pm
             }
@@ -805,10 +807,28 @@ $unchangedModels  = $apiModelNamesList | Where-Object { $_ -in $sourceModelNames
 # ---------------------------------------------------------------------------
 $fileUpdated = $false
 if ($UpdateFile) {
-    # Sort: non-deprecated first, then creation date (most recent first), then output price (cheapest first), then name
+    # Compute term index (Q1=most recent 3 months, Q2=3-6 months, ..., Q8=18-24 months).
+    $now = Get-Date
+    $termStart = for ($i = 0; $i -le 8; $i++) { $now.AddMonths(-3 * $i) }
+
+    function Get-TermIndex($created) {
+        if (-not $created -or $created -eq [DateTime]::MinValue) { return 99 }
+        for ($i = 1; $i -le 8; $i++) {
+            if ($created -ge $termStart[$i]) { return $i }
+        }
+        return 99
+    }
+
+    foreach ($m in $mergedModels.Values) {
+        $m | Add-Member -NotePropertyName 'TermIndex' -NotePropertyValue (Get-TermIndex $m.Created) -Force
+    }
+
+    # Sort: non-deprecated first, then term (most recent first),
+    # then verified first, then output price (cheapest first), then name
     $sorted = $mergedModels.Values | Sort-Object -Property @(
         @{ Expression = { if ($_.Deprecated -eq 'true') { 1 } else { 0 } }; Ascending = $true }
-        @{ Expression = { $_.Created }; Ascending = $false }
+        @{ Expression = { $_.TermIndex }; Ascending = $true }
+        @{ Expression = { if ($_.Verified -eq 'true') { 0 } else { 1 } }; Ascending = $true }
         @{ Expression = { $_.OutputPrice }; Ascending = $true }
         @{ Expression = { $_.Model }; Ascending = $true }
     )
@@ -825,8 +845,35 @@ if ($UpdateFile) {
         $deprecated[$i].Rank = (0 - ($i * 5)).ToString()
     }
 
+    function Get-SectionComment($model) {
+        if ($model.Deprecated -eq 'true') { return '// Deprecated models' }
+
+        $ci  = [System.Globalization.CultureInfo]::GetCultureInfo('en-US')
+        $fmt = 'MMMM yyyy'
+        switch ($model.TermIndex) {
+            1       { return "// Released between $($now.AddMonths(-3).ToString($fmt, $ci)) and $($now.ToString($fmt, $ci))" }
+            2       { return "// Released between $($now.AddMonths(-6).ToString($fmt, $ci)) and $($now.AddMonths(-3).ToString($fmt, $ci))" }
+            3       { return "// Released between $($now.AddMonths(-9).ToString($fmt, $ci)) and $($now.AddMonths(-6).ToString($fmt, $ci))" }
+            4       { return "// Released between $($now.AddMonths(-12).ToString($fmt, $ci)) and $($now.AddMonths(-9).ToString($fmt, $ci))" }
+            5       { return "// Released between $($now.AddMonths(-15).ToString($fmt, $ci)) and $($now.AddMonths(-12).ToString($fmt, $ci))" }
+            6       { return "// Released between $($now.AddMonths(-18).ToString($fmt, $ci)) and $($now.AddMonths(-15).ToString($fmt, $ci))" }
+            7       { return "// Released between $($now.AddMonths(-21).ToString($fmt, $ci)) and $($now.AddMonths(-18).ToString($fmt, $ci))" }
+            8       { return "// Released between $($now.AddMonths(-24).ToString($fmt, $ci)) and $($now.AddMonths(-21).ToString($fmt, $ci))" }
+            default { return "// Released before $($now.AddMonths(-24).ToString($fmt, $ci)) or unknown release date" }
+        }
+    }
+
     $newBlocks = [System.Collections.Generic.List[string]]::new()
+    $currentSection = $null
     foreach ($m in $sorted) {
+        $section = Get-SectionComment $m
+        if ($section -ne $currentSection) {
+            if ($newBlocks.Count -gt 0) {
+                $newBlocks.Add('')
+            }
+            $newBlocks.Add("                $section")
+            $currentSection = $section
+        }
         $newBlocks.Add((Format-ModelBlock -model $m -providerVar $providerVar))
     }
 
