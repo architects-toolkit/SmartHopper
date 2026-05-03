@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -57,7 +57,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 1000,
+                    Rank = 10000,
                     ContextLimit = 1048576,
                 },
 
@@ -68,7 +68,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 995,
+                    Rank = 9995,
                     ContextLimit = 1048576,
                 },
 

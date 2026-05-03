@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -57,7 +57,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 1000,
+                    Rank = 10000,
                     ContextLimit = 1000000,
                 },
 
@@ -68,7 +68,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 995,
+                    Rank = 9995,
                     ContextLimit = 1000000,
                 },
 
@@ -79,7 +79,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 990,
+                    Rank = 9990,
                     ContextLimit = 1000000,
                 },
 
@@ -94,7 +94,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 985,
+                    Rank = 9985,
                     ContextLimit = 200000,
                     Aliases = new List<string> { "claude-opus-4-5" },
                 },
@@ -110,7 +110,7 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 980,
+                    Rank = 9980,
                     ContextLimit = 200000,
                     Aliases = new List<string> { "claude-haiku-4-5" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
@@ -124,7 +124,7 @@ namespace SmartHopper.Providers.Anthropic
                     Default = AICapability.Text2Text | AICapability.Text2Json | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 975,
+                    Rank = 9975,
                     ContextLimit = 200000,
                     Aliases = new List<string> { "claude-sonnet-4-5" },
                 },
