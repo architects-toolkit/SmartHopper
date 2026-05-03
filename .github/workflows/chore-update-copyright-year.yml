@@ -74,7 +74,6 @@ jobs:
           base: dev
           delete-branch: true
           labels: |
-            chore
             automated
 
       - name: Assign PR to Milestone
