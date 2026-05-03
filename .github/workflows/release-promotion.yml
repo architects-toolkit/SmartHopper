@@ -115,6 +115,12 @@ jobs:
                   }
                 }
 
+                // Skip if stable version already exists (milestone still open after release)
+                if (releaseTags.has(base)) {
+                  console.log(`Stabilization path ${base}: stable release ${base} already exists, skipping.`);
+                  continue;
+                }
+
                 if (currentStaged) {
                   versionsToCheck.push(currentStaged);
                 } else {
@@ -170,7 +176,7 @@ jobs:
               per_page: 100
             });
             const frozen = issues.some(i =>
-              i.labels.some(l => l.name.startsWith(`version: ${baseVersion}`))
+              i.labels.some(l => l.name === `version: ${baseVersion}`)
             );
             core.setOutput('frozen', frozen.toString());
             if (frozen) {
