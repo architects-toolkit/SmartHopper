@@ -825,6 +825,7 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-2-2026-04-21",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9685,
@@ -890,6 +891,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9660,
                     Aliases = new List<string> { "omni-moderation-latest", "omni-moderation" },
+                    DiscouragedForTools = new List<string> { "*" },
                 },
 
                 new AIModelCapabilities
