@@ -120,12 +120,13 @@ $ProviderAliasSuffix = @{
 
 # Provider-native /models endpoints. Used only when -ProviderApiKey is supplied.
 # Each entry returns the URL and a script block that builds auth headers.
+# Note: OpenRouter is excluded because it uses the same endpoint as the OpenRouter source of truth.
+# For OpenRouter, deprecation is handled by comparing existing models against the current OpenRouter catalogue.
 $ProviderApis = @{
     'OpenAI'     = @{ Url = 'https://api.openai.com/v1/models';     Headers = { param($k) @{ Authorization = "Bearer $k" } } }
     'MistralAI'  = @{ Url = 'https://api.mistral.ai/v1/models';     Headers = { param($k) @{ Authorization = "Bearer $k" } } }
     'DeepSeek'   = @{ Url = 'https://api.deepseek.com/v1/models';   Headers = { param($k) @{ Authorization = "Bearer $k" } } }
     'Anthropic'  = @{ Url = 'https://api.anthropic.com/v1/models';  Headers = { param($k) @{ 'x-api-key' = $k; 'anthropic-version' = '2023-06-01' } } }
-    'OpenRouter' = @{ Url = 'https://openrouter.ai/api/v1/models';  Headers = { param($k) @{ Authorization = "Bearer $k" } } }
 }
 
 # ---------------------------------------------------------------------------
@@ -951,6 +952,11 @@ if ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provi
 # ---------------------------------------------------------------------------
 # Mark models that no longer appear in the authoritative source as deprecated.
 # Authoritative = provider API when queried, otherwise OpenRouter.
+# 
+# For OpenRouter provider specifically:
+# - OpenRouter API is both source of truth AND authoritative source.
+# - Models present in OpenRouterProviderModels.cs but missing from current OpenRouter catalogue are marked Deprecated = true
+# - This ensures OpenRouter models are deprecated when removed from OpenRouter's available models list
 # ---------------------------------------------------------------------------
 if ($providerApiQueried) {
     $apiModelNames = $providerApiModelNames
