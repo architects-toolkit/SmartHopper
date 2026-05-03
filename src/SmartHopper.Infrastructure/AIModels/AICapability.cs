@@ -49,11 +49,6 @@ namespace SmartHopper.Infrastructure.AIModels
         /// </summary>
         AudioInput = 1 << 2,
 
-        /// <summary>
-        /// Supports accepting structured JSON input.
-        /// </summary>
-        JsonInput = 1 << 3,
-
         // Output capabilities
 
         /// <summary>
@@ -191,11 +186,6 @@ namespace SmartHopper.Infrastructure.AIModels
                 flags.Add("AudioOutput");
             }
 
-            if ((capabilities & AICapability.JsonInput) == AICapability.JsonInput)
-            {
-                flags.Add("JsonInput");
-            }
-
             if ((capabilities & AICapability.JsonOutput) == AICapability.JsonOutput)
             {
                 flags.Add("JsonOutput");
@@ -223,8 +213,7 @@ namespace SmartHopper.Infrastructure.AIModels
         {
             return (capability & AICapability.TextInput) == AICapability.TextInput ||
                    (capability & AICapability.ImageInput) == AICapability.ImageInput ||
-                   (capability & AICapability.AudioInput) == AICapability.AudioInput ||
-                   (capability & AICapability.JsonInput) == AICapability.JsonInput;
+                   (capability & AICapability.AudioInput) == AICapability.AudioInput;
         }
 
         /// <summary>
