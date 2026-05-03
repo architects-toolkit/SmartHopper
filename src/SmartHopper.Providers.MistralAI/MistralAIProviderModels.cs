@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -53,102 +53,381 @@ namespace SmartHopper.Providers.MistralAI
 
             var models = new List<AIModelCapabilities>
             {
+                // Released between February 2026 and May 2026
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistral-small-latest",
+                    Model = "mistral-small-2603",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 90,
+                    Rank = 1000,
                     ContextLimit = 131072,
+                    Aliases = new List<string> { "mistral-small", "mistral-small-latest", "magistral-small-latest", "mistral-vibe-cli-fast" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
-                    Aliases = new List<string> { "mistral-small" },
                 },
+
+
+
+                // Released between November 2025 and February 2026
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistral-medium-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling ,
+                    Model = "ministral-3b-2512",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 995,
+                    ContextLimit = 131072,
+                    Aliases = new List<string> { "ministral-3b-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ministral-8b-2512",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 990,
+                    ContextLimit = 131072,
+                    Aliases = new List<string> { "ministral-8b-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "ministral-14b-2512",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 985,
+                    ContextLimit = 262144,
+                    Aliases = new List<string> { "ministral-14b-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-large-2512",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 980,
+                    ContextLimit = 131072,
+                    Aliases = new List<string> { "mistral-large", "mistral-large-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "devstral-2512",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 975,
+                    ContextLimit = 262144,
+                    Aliases = new List<string> { "devstral-medium-latest", "devstral-latest" },
+                },
+
+
+
+                // Released between May 2025 and August 2025
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "codestral-2508",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 970,
+                    ContextLimit = 256000,
+                    Aliases = new List<string> { "codestral-latest" },
+                },
+
+
+
+                // Released before May 2024 or unknown release date
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-medium-2508",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 80,
+                    Rank = 965,
                     ContextLimit = 131072,
-                    Aliases = new List<string> { "mistral-medium" },
+                    Aliases = new List<string> { "mistral-medium", "mistral-medium-latest", "mistral-vibe-cli-with-tools" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistral-large-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    Model = "codestral-embed",
+                    Capabilities = AICapability.TextInput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 60,
-                    ContextLimit = 131072,
-                    Aliases = new List<string> { "mistral-large" },
+                    Rank = 960,
+                    Aliases = new List<string> { "codestral-embed-2505" },
+                    DiscouragedForTools = new List<string> { "*" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "ministral-8b-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 50,
-                    ContextLimit = 131072,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "ministral-3b-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 30,
-                    ContextLimit = 131072,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "magistral-small-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.ToolReasoningChat,
+                    Model = "labs-leanstral-2603",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 85,
-                    ContextLimit = 40000,
+                    Rank = 955,
+                    ContextLimit = 256000,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "magistral-medium-latest",
+                    Model = "magistral-medium-2509",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 75,
+                    Rank = 950,
                     ContextLimit = 40000,
+                    Aliases = new List<string> { "magistral-medium-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "voxtral-small-latest",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
-                    SupportsStreaming = false,
+                    Model = "mistral-medium-2505",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
                     Verified = false,
-                    Rank = 70,
-                    ContextLimit = 32000,
+                    Rank = 945,
+                    ContextLimit = 128000,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "voxtral-mini-latest",
+                    Model = "mistral-medium-3-5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.Reasoning | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 940,
+                    ContextLimit = 256000,
+                    Aliases = new List<string> { "mistral-medium-3.5", "mistral-medium-3", "mistral-medium-2604", "mistral-medium-c21211-r0-75", "mistral-vibe-cli-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-ocr-2512",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 935,
+                    Aliases = new List<string> { "mistral-ocr-latest" },
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "open-mistral-nemo",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 930,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "open-mistral-nemo-2407", "mistral-tiny-2407", "mistral-tiny-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-2602",
                     Capabilities = AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 60,
+                    Rank = 925,
                     ContextLimit = 32000,
+                    Aliases = new List<string> { "voxtral-mini-latest" },
                 },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-transcribe-realtime-2602",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 920,
+                    Aliases = new List<string> { "voxtral-mini-realtime-2602", "voxtral-mini-realtime-latest" },
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-tts-2603",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.AudioOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 915,
+                    Aliases = new List<string> { "voxtral-mini-tts-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-small-2507",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 910,
+                    ContextLimit = 32000,
+                    Aliases = new List<string> { "voxtral-small-latest" },
+                },
+
+
+
+                // Deprecated models
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-large-2411",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = 0,
+                    ContextLimit = 131072,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "pixtral-large-2411",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -5,
+                    ContextLimit = 131072,
+                    Aliases = new List<string> { "pixtral-large-latest", "mistral-large-pixtral-2411" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "devstral-medium-2507",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -10,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "devstral-small-2507",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -15,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "magistral-small-2509",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -20,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-embed-2312",
+                    Capabilities = AICapability.TextInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -25,
+                    ContextLimit = 8000,
+                    Aliases = new List<string> { "mistral-embed" },
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-moderation-2411",
+                    Capabilities = AICapability.TextInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -30,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "mistral-moderation-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-moderation-2603",
+                    Capabilities = AICapability.TextInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -35,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-ocr-2505",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -40,
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-small-2506",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -45,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-transcribe-2507",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -50,
+                    Aliases = new List<string> { "voxtral-mini-2507" },
+                }
             };
 
             return Task.FromResult(models);
@@ -243,3 +522,4 @@ namespace SmartHopper.Providers.MistralAI
         }
     }
 }
+
