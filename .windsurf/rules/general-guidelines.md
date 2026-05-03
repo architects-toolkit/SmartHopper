@@ -23,7 +23,7 @@ trigger: always_on
 - Use https://developer.rhino3d.com/ as the official Rhino/Grasshopper API reference.
 - Check `/docs` before changing existing architecture; those docs are the local source of truth for module responsibilities and data flows.
 - Use commands appropriate to the current execution environment. Windows-only build/signing flows require Developer PowerShell for Visual Studio; do not assume every assistant or CI runner is on Windows.
-- Never add unit tests that require a running Rhino/Grasshopper license. Keep tests in projects that can run in CI without Rhino runtime activation.
+- Never add unit tests that require Rhino/Grasshopper references. For tests that require Rhino/Grasshopper references, create a testing component in the `SmartHopper.Components.Test` project.
 - Do not commit secrets, signing keys, local provider API keys, or generated private credentials.
 
 ## Context persistence
