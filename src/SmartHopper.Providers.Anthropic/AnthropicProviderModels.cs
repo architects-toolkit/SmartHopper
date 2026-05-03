@@ -66,7 +66,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-opus-4-6",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9995,
@@ -108,7 +108,7 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     Provider = providerName,
                     Model = "claude-haiku-4-5-20251001",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = true,

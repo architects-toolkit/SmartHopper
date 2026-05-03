@@ -549,7 +549,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9805,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o", "gpt-4o-latest" },
+                    Aliases = new List<string> { "gpt-4o-latest", "gpt-4o" },
                 },
 
 
@@ -1061,6 +1061,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -25,
                     ContextLimit = 128000,
+                    Aliases = new List<string> { "chatgpt-4o" },
                 },
 
                 new AIModelCapabilities
@@ -1073,6 +1074,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -30,
                     ContextLimit = 200000,
+                    Aliases = new List<string> { "codex-mini" },
                 },
 
                 new AIModelCapabilities
