@@ -61,5 +61,22 @@ jobs:
           } else {
             Write-Host "Committing license header updates..."
             git commit -m "chore(ci): update license headers"
-            git push origin HEAD:${{ github.head_ref }}
+            # Belt-and-braces against concurrent pushes to the PR branch (the
+            # contributor may push a new commit between checkout and push).
+            # Retry pull --rebase + push up to 3 times before giving up.
+            $ref = "${{ github.head_ref }}"
+            $pushed = $false
+            foreach ($attempt in 1..3) {
+              git pull --rebase --autostash origin $ref
+              if ($LASTEXITCODE -eq 0) {
+                git push origin "HEAD:$ref"
+                if ($LASTEXITCODE -eq 0) { $pushed = $true; break }
+              }
+              Write-Host "Push attempt $attempt failed, retrying..."
+              Start-Sleep -Seconds ($attempt * 2)
+            }
+            if (-not $pushed) {
+              Write-Error "Failed to push license header updates after 3 attempts."
+              exit 1
+            }
           }

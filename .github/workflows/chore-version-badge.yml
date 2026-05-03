@@ -19,6 +19,10 @@ on:
       - dev
       - 'hotfix/**'
       - 'release/**'
+    # Only run when the version source of truth changes. README.md is an output of this
+    # workflow; without this filter every PR merge to main/dev would re-trigger it.
+    paths:
+      - 'Solution.props'
 
 permissions:
   contents: write
