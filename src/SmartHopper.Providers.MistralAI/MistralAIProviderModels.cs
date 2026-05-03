@@ -149,6 +149,18 @@ namespace SmartHopper.Providers.MistralAI
                     Aliases = new List<string> { "codestral-latest" },
                 },
 
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-medium-3-5",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.Reasoning | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 965,
+                    ContextLimit = 256000,
+                    Aliases = new List<string> { "mistral-medium-3.5", "mistral-medium-3", "mistral-medium-2604", "mistral-medium-c21211-r0-75", "mistral-vibe-cli-latest" },
+                },
+
 
 
                 // Released before May 2024 or unknown release date
@@ -160,7 +172,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 965,
+                    Rank = 960,
                     ContextLimit = 131072,
                     Aliases = new List<string> { "mistral-medium", "mistral-medium-latest", "mistral-vibe-cli-with-tools" },
                 },
@@ -172,7 +184,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 960,
+                    Rank = 955,
                     Aliases = new List<string> { "codestral-embed-2505" },
                     DiscouragedForTools = new List<string> { "*" },
                 },
@@ -184,7 +196,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 955,
+                    Rank = 950,
                     ContextLimit = 256000,
                 },
 
@@ -195,7 +207,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 950,
+                    Rank = 945,
                     ContextLimit = 40000,
                     Aliases = new List<string> { "magistral-medium-latest" },
                 },
@@ -207,20 +219,8 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 945,
-                    ContextLimit = 128000,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "mistral-medium-3-5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.Reasoning | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
                     Rank = 940,
-                    ContextLimit = 256000,
-                    Aliases = new List<string> { "mistral-medium-3.5", "mistral-medium-3", "mistral-medium-2604", "mistral-medium-c21211-r0-75", "mistral-vibe-cli-latest" },
+                    ContextLimit = 128000,
                 },
 
                 new AIModelCapabilities
