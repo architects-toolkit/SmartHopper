@@ -1,0 +1,1152 @@
+<#
+.SYNOPSIS
+    Queries OpenRouter as the single source of truth for model metadata,
+    then updates the corresponding *ProviderModels.cs file.
+
+.DESCRIPTION
+    Calls OpenRouter's /api/v1/models endpoint (rich metadata including
+    architecture.input_modalities, architecture.output_modalities,
+    supported_parameters, context_length, and expiration_date).
+
+    For every model returned by OpenRouter that belongs to the requested
+    provider:
+      - If it already exists in the source file → update Capabilities,
+        ContextLimit, and Deprecated based on expiration_date.
+      - If it is missing from the source file → auto-insert a new
+        AIModelCapabilities block with mapped flags.
+
+    Models present in the source file but absent from OpenRouter are marked
+    Deprecated = true.
+
+    When expiration_date is set and closer than one year from now,
+    the model is also marked Deprecated = true.
+
+.PARAMETER Provider
+    Provider name matching the folder under src/SmartHopper.Providers.<Provider>,
+    e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek.
+
+.PARAMETER ApiKey
+    OpenRouter API key. The same key is used for every provider because
+    OpenRouter is the primary source of truth.
+
+.PARAMETER ProviderApiKey
+    Optional. The provider's own API key. When supplied, the provider's
+    official /models endpoint is queried as a secondary source so that
+    models exposed by the provider but not yet listed on OpenRouter are
+    still added to the source file (with conservative default capabilities).
+    A model is only marked Deprecated when it is missing from BOTH OpenRouter
+    and (when queried) the provider's own API.
+
+    When the provider API response includes alias information, aliases are
+    merged into the Aliases list of the corresponding model entry (additive:
+    existing hand-curated aliases are preserved and new ones are appended).
+
+    Alias support by provider API:
+      MistralAI  - "aliases" array returned on each model object.
+      Anthropic  - no alias mapping in list response (alias IDs appear as
+                   separate model entries; no reverse link is exposed).
+      OpenAI     - no alias field in the model object.
+      DeepSeek   - no alias field in the model object.
+
+.PARAMETER TargetFile
+    Optional. Absolute or repo-relative path to the *ProviderModels.cs file.
+    Defaults to src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs.
+
+.PARAMETER UpdateFile
+    When present, the source file is rewritten with new models inserted,
+    existing models updated, and disappeared models marked as deprecated.
+
+.OUTPUTS
+    A JSON string written to stdout with the following shape:
+    {
+      "provider": "OpenAI",
+      "apiUrl": "https://openrouter.ai/api/v1/models",
+      "apiModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "openrouterModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "providerApiModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "sourceModels": [ "gpt-4", "gpt-4o" ],
+      "newModels": [ "gpt-4o-mini" ],
+      "deprecatedModels": [ "gpt-4" ],
+      "unchangedModels": [ "gpt-4o" ],
+      "fileUpdated": true
+    }
+
+.EXAMPLE
+    .\tools\Update-ProviderModels.ps1 -Provider OpenAI -ApiKey $env.OPENROUTER_API_KEY
+
+    .\tools\Update-ProviderModels.ps1 -Provider Anthropic -ApiKey $env.OPENROUTER_API_KEY -UpdateFile
+#>
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)][string] $Provider,
+    [Parameter(Mandatory = $true)][string] $ApiKey,
+    [Parameter(Mandatory = $false)][string] $ProviderApiKey = "",
+    [Parameter(Mandatory = $false)][string] $TargetFile = "",
+    [Parameter(Mandatory = $false)][switch] $UpdateFile
+)
+
+$ErrorActionPreference = 'Stop'
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+$OpenRouterUrl    = 'https://openrouter.ai/api/v1/models'
+$OneYearFromNow   = (Get-Date).AddYears(1)
+
+# OpenRouter prefix used to filter and strip provider-specific models.
+# Note: 'OpenRouter' is special-cased below: every OpenRouter model is kept
+# verbatim (no prefix stripping) because that *is* the OpenRouter catalogue.
+$ProviderPrefixes = @{
+    'OpenAI'     = 'openai/'
+    'Anthropic'  = 'anthropic/'
+    'MistralAI'  = 'mistralai/'
+    'DeepSeek'   = 'deepseek/'
+    'OpenRouter' = ''
+}
+
+# Per-provider regex matching the "version suffix" appended to a base model id.
+# Used to group several provider-API ids that refer to the same logical model:
+#   - dated suffix (immutable release):    -YYYYMMDD or -YYYY-MM-DD
+#   - rolling alias:                       -latest
+# The dated id is treated as canonical; bare and -latest ids become aliases.
+# Set to $null for providers whose ids do not encode aliases this way.
+$ProviderAliasSuffix = @{
+    'OpenAI'     = '-(?:\d{4}-\d{2}-\d{2}|latest)$'
+    'Anthropic'  = '-(?:\d{8}|latest)$'
+    'MistralAI'  = $null   # uses .name field grouping (handled separately)
+    'DeepSeek'   = $null
+    'OpenRouter' = $null
+}
+
+# Provider-native /models endpoints. Used only when -ProviderApiKey is supplied.
+# Each entry returns the URL and a script block that builds auth headers.
+# Note: OpenRouter is excluded because it uses the same endpoint as the OpenRouter source of truth.
+# For OpenRouter, deprecation is handled by comparing existing models against the current OpenRouter catalogue.
+$ProviderApis = @{
+    'OpenAI'     = @{ Url = 'https://api.openai.com/v1/models';     Headers = { param($k) @{ Authorization = "Bearer $k" } } }
+    'MistralAI'  = @{ Url = 'https://api.mistral.ai/v1/models';     Headers = { param($k) @{ Authorization = "Bearer $k" } } }
+    'DeepSeek'   = @{ Url = 'https://api.deepseek.com/v1/models';   Headers = { param($k) @{ Authorization = "Bearer $k" } } }
+    'Anthropic'  = @{ Url = 'https://api.anthropic.com/v1/models';  Headers = { param($k) @{ 'x-api-key' = $k; 'anthropic-version' = '2023-06-01' } } }
+}
+
+# ---------------------------------------------------------------------------
+# Helper: Resolve target file
+# ---------------------------------------------------------------------------
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+if ([string]::IsNullOrWhiteSpace($TargetFile)) {
+    $TargetFile = Join-Path $repoRoot "src/SmartHopper.Providers.$Provider/${Provider}ProviderModels.cs"
+}
+$TargetFile = Resolve-Path $TargetFile -ErrorAction Stop
+
+# ---------------------------------------------------------------------------
+# Helper: Parse a single AIModelCapabilities C# block into a PSObject
+# ---------------------------------------------------------------------------
+function ConvertFrom-ModelBlock($blockText) {
+    $result = [ordered]@{
+        RawBlock            = $blockText
+        Provider            = $null
+        Model               = $null
+        Capabilities        = $null
+        Default             = $null
+        Verified            = $null
+        Deprecated          = $null
+        SupportsStreaming   = $null
+        SupportsPromptCaching = $null
+        Rank                = $null
+        ContextLimit        = $null
+        Aliases             = $null
+        DiscouragedForTools = $null
+        CacheKeyStrategy    = $null
+    }
+
+    $rxProps = @{
+        Provider            = 'Provider\s*=\s*"([^"]*)"'
+        Model               = 'Model\s*=\s*"([^"]*)"'
+        Capabilities        = 'Capabilities\s*=\s*([^,\n]+)'
+        Default             = 'Default\s*=\s*([^,\n]+)'
+        Verified            = 'Verified\s*=\s*(true|false)'
+        Deprecated          = 'Deprecated\s*=\s*(true|false)'
+        SupportsStreaming   = 'SupportsStreaming\s*=\s*(true|false)'
+        SupportsPromptCaching = 'SupportsPromptCaching\s*=\s*(true|false)'
+        Rank                = 'Rank\s*=\s*(\d+)'
+        ContextLimit        = 'ContextLimit\s*=\s*(\d+)'
+        CacheKeyStrategy    = 'CacheKeyStrategy\s*=\s*"([^"]*)"'
+    }
+
+    foreach ($prop in $rxProps.GetEnumerator()) {
+        $m = [regex]::Match($blockText, $prop.Value)
+        if ($m.Success) {
+            $result[$prop.Key] = $m.Groups[1].Value.Trim()
+        }
+    }
+
+    # Aliases
+    $aliasesRx = [regex]::Match($blockText, 'Aliases\s*=\s*new\s+List<string>\s*\{\s*([^}]*)\s*\}')
+    if ($aliasesRx.Success) {
+        $result.Aliases = $aliasesRx.Groups[1].Value -split ',' | ForEach-Object { $_.Trim().Trim('"') } | Where-Object { $_ }
+    }
+
+    # DiscouragedForTools
+    $discRx = [regex]::Match($blockText, 'DiscouragedForTools\s*=\s*new\s+List<string>\s*\{\s*([^}]*)\s*\}')
+    if ($discRx.Success) {
+        $result.DiscouragedForTools = $discRx.Groups[1].Value -split ',' | ForEach-Object { $_.Trim().Trim('"') } | Where-Object { $_ }
+    }
+
+    return [pscustomobject]$result
+}
+
+# ---------------------------------------------------------------------------
+# Helper: Generate a C# AIModelCapabilities block from a merged model object
+# ---------------------------------------------------------------------------
+function Format-ModelBlock($model, $providerVar) {
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add('                new AIModelCapabilities')
+    $lines.Add('                {')
+    $lines.Add("                    Provider = $providerVar,")
+    $lines.Add("                    Model = `"$($model.Model)`",")
+
+    if (-not [string]::IsNullOrWhiteSpace($model.Capabilities)) {
+        $suffix = if ($model.Capabilities -eq 'AICapability.None') { ' // TODO: retrieve capabilities' } else { '' }
+        $lines.Add("                    Capabilities = $($model.Capabilities),$suffix")
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($model.Default) -and $model.Default -ne 'AICapability.None') {
+        $lines.Add("                    Default = $($model.Default),")
+    }
+
+    if ($model.SupportsStreaming -eq 'true')  { $lines.Add('                    SupportsStreaming = true,') }
+    if ($model.SupportsStreaming -eq 'false') { $lines.Add('                    SupportsStreaming = false,') }
+
+    if ($model.SupportsPromptCaching -eq 'true')  { $lines.Add('                    SupportsPromptCaching = true,') }
+    if ($model.SupportsPromptCaching -eq 'false') { $lines.Add('                    SupportsPromptCaching = false,') }
+
+    if ($model.Verified -eq 'true')  { $lines.Add('                    Verified = true,') }
+    if ($model.Verified -eq 'false') { $lines.Add('                    Verified = false,') }
+
+    if ($model.Deprecated -eq 'true') {
+        $lines.Add('                    Deprecated = true,')
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($model.Rank)) {
+        $lines.Add("                    Rank = $($model.Rank),")
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($model.ContextLimit)) {
+        $lines.Add("                    ContextLimit = $($model.ContextLimit),")
+    }
+
+    if ($model.Aliases -and $model.Aliases.Count -gt 0) {
+        $aliasParts = $model.Aliases | ForEach-Object { "`"$_`"" }
+        $lines.Add("                    Aliases = new List<string> { $($aliasParts -join ', ') },")
+    }
+
+    if ($model.DiscouragedForTools -and $model.DiscouragedForTools.Count -gt 0) {
+        $toolParts = $model.DiscouragedForTools | ForEach-Object { "`"$_`"" }
+        $lines.Add("                    DiscouragedForTools = new List<string> { $($toolParts -join ', ') },")
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($model.CacheKeyStrategy)) {
+        $lines.Add("                    CacheKeyStrategy = `"$($model.CacheKeyStrategy)`",")
+    }
+
+    $lines.Add('                },')
+    return ($lines -join "`r`n")
+}
+
+# ---------------------------------------------------------------------------
+# Helper: Map OpenRouter modalities + supported_parameters to AICapability flags
+# ---------------------------------------------------------------------------
+function ConvertTo-CapabilityFlags($openRouterModel) {
+    $caps = [System.Collections.Generic.List[string]]::new()
+
+    $arch = $openRouterModel.architecture
+    $inputModalities  = if ($arch) { $arch.input_modalities } else { $null }
+    $outputModalities = if ($arch) { $arch.output_modalities } else { $null }
+    $supportedParams  = $openRouterModel.supported_parameters
+
+    if ($inputModalities -contains 'text')   { $caps.Add('AICapability.TextInput') }
+    if ($inputModalities -contains 'image')  { $caps.Add('AICapability.ImageInput') }
+    if ($inputModalities -contains 'audio')  { $caps.Add('AICapability.AudioInput') }
+    if ($inputModalities -contains 'video')  { $caps.Add('AICapability.VideoInput') }
+
+    if ($outputModalities -contains 'text')  { $caps.Add('AICapability.TextOutput') }
+    if ($outputModalities -contains 'image') { $caps.Add('AICapability.ImageOutput') }
+    if ($outputModalities -contains 'audio') { $caps.Add('AICapability.AudioOutput') }
+    if ($outputModalities -contains 'video') { $caps.Add('AICapability.VideoOutput') }
+
+    if ($supportedParams -contains 'tools' -or
+        $supportedParams -contains 'tool_choice' -or
+        $supportedParams -contains 'parallel_tool_calls') {
+        $caps.Add('AICapability.FunctionCalling')
+    }
+
+    if ($supportedParams -contains 'response_format' -or
+        $supportedParams -contains 'structured_outputs') {
+        $caps.Add('AICapability.JsonOutput')
+    }
+
+    if ($supportedParams -contains 'reasoning' -or
+        $supportedParams -contains 'reasoning_effort' -or
+        $supportedParams -contains 'include_reasoning') {
+        $caps.Add('AICapability.Reasoning')
+    }
+
+    # Embed output is indicated by embedding-specific endpoints or model naming patterns
+    # OpenRouter: embedding models typically have 'embed' in supported_parameters or model id
+    # MistralAI: embed models are identified by their dedicated embedding endpoint
+    if ($supportedParams -contains 'embeddings' -or
+        $openRouterModel.id -match 'embed' -or
+        $openRouterModel.description -match 'embed') {
+        $caps.Add('AICapability.EmbedOutput')
+    }
+
+    if ($caps.Count -eq 0) {
+        return 'AICapability.None'
+    }
+    return ($caps -join ' | ')
+}
+
+# ---------------------------------------------------------------------------
+# 1. Read and parse the existing C# file
+# ---------------------------------------------------------------------------
+$sourceContent = Get-Content -Raw -LiteralPath $TargetFile
+
+# Extract the provider variable name used inside RetrieveModels()
+$providerVarRx = [regex]::Match($sourceContent, 'var\s+(\w+)\s*=\s*this\.\w+\.Name\.ToLowerInvariant\(\)\s*;')
+$providerVar = if ($providerVarRx.Success) { $providerVarRx.Groups[1].Value } else { 'provider' }
+
+# Find the RetrieveModels() model list boundaries using brace counting
+$startMarkerRx = [regex]::new('var\s+models\s*=\s*new\s+List<AIModelCapabilities>\s*\n\s*\{\s*\n')
+$startMatch = $startMarkerRx.Match($sourceContent)
+if (-not $startMatch.Success) {
+    Write-Error "Could not find model list start in $TargetFile"
+    exit 5
+}
+
+$startIndex = $startMatch.Index + $startMatch.Length
+$searchContent = $sourceContent.Substring($startIndex)
+
+$depth = 1   # already inside the List<...> { initializer
+$inString = $false
+$stringChar = $null
+$endOffset = -1
+
+for ($i = 0; $i -lt $searchContent.Length; $i++) {
+    $ch = $searchContent[$i]
+
+    if ($inString) {
+        if ($ch -eq $stringChar -and ($i -eq 0 -or $searchContent[$i - 1] -ne '\')) {
+            $inString = $false
+        }
+        continue
+    }
+
+    if ($ch -eq '"' -or $ch -eq "'") {
+        $inString = $true
+        $stringChar = $ch
+        continue
+    }
+
+    if ($ch -eq '{') { $depth++ }
+    elseif ($ch -eq '}') {
+        $depth--
+        if ($depth -eq 0) {
+            # check for trailing semicolon
+            $j = $i + 1
+            while ($j -lt $searchContent.Length -and [char]::IsWhiteSpace($searchContent[$j])) { $j++ }
+            if ($j -lt $searchContent.Length -and $searchContent[$j] -eq ';') {
+                $endOffset = $j
+                break
+            }
+        }
+    }
+}
+
+if ($endOffset -lt 0) {
+    Write-Error "Could not find model list end in $TargetFile"
+    exit 6
+}
+
+$beforeList = $sourceContent.Substring(0, $startIndex)
+$listContent = $searchContent.Substring(0, $endOffset + 1)
+$afterList  = $searchContent.Substring($endOffset + 1)
+
+# Extract existing model blocks
+$blockRx = [regex]::new('new\s+AIModelCapabilities\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\},?', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+$blockMatches = $blockRx.Matches($listContent)
+
+$existingModels = @{ }
+foreach ($bm in $blockMatches) {
+    $parsed = ConvertFrom-ModelBlock -blockText $bm.Value
+    if ($parsed.Model) {
+        $existingModels[$parsed.Model] = $parsed
+    }
+}
+
+Write-Host "[$Provider] Parsed $($existingModels.Count) existing model block(s)."
+
+# ---------------------------------------------------------------------------
+# 2. Query OpenRouter
+# ---------------------------------------------------------------------------
+$headers = @{ Authorization = "Bearer $ApiKey" }
+
+try {
+    $response = Invoke-RestMethod -Uri $OpenRouterUrl -Headers $headers -Method GET -TimeoutSec 60
+}
+catch {
+    Write-Error "[$Provider] OpenRouter request failed: $($_.Exception.Message)"
+    exit 7
+}
+
+if (-not $ProviderPrefixes.ContainsKey($Provider)) {
+    Write-Error "Unknown provider '$Provider'. No OpenRouter prefix mapping."
+    exit 8
+}
+$prefix = $ProviderPrefixes[$Provider]
+$isOpenRouterProvider = ($Provider -eq 'OpenRouter')
+
+# Helper: derive the model name stored in the source file from an OpenRouter id.
+function Get-ModelName($fullId) {
+    if ($isOpenRouterProvider) { return $fullId }
+    return $fullId.Substring($prefix.Length)
+}
+
+$openRouterModels = [System.Collections.Generic.List[psobject]]::new()
+foreach ($item in $response.data) {
+    $fullId = $item.id
+    if ([string]::IsNullOrWhiteSpace($fullId)) { continue }
+
+    if ($fullId.StartsWith('ft:')) { continue }
+
+    if ($isOpenRouterProvider) {
+        # OpenRouter provider: keep every model verbatim (full "vendor/model" id).
+        $openRouterModels.Add($item)
+    }
+    elseif ($fullId.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        # Strip provider prefix: "openai/gpt-4o" -> "gpt-4o".
+        if (-not [string]::IsNullOrWhiteSpace($fullId.Substring($prefix.Length))) {
+            $openRouterModels.Add($item)
+        }
+    }
+}
+
+Write-Host "[$Provider] OpenRouter returned $($openRouterModels.Count) model(s) for prefix '$prefix'."
+
+# Helper: Normalize model name for cross-reference matching.
+# Anthropic uses hyphens in their API (claude-opus-4-7) while OpenRouter uses dots (claude-opus-4.7).
+function Get-NormalizedModelName($modelName) {
+    return $modelName -replace '\.', '-'
+}
+
+# Resolve the OpenRouter entry for a model id, trying (in order):
+#   1. exact id
+#   2. dot/hyphen normalized id
+#   3. each provided alias (exact + normalized)
+# OpenRouter typically ships the bare form (e.g. "gpt-4o-mini",
+# "claude-haiku-4.5") while our canonical is the dated form
+# ("gpt-4o-mini-2024-07-18", "claude-haiku-4-5-20251001"). Without this
+# fallback the canonical loses its Created/OutputPrice metadata and falls
+# to the bottom of the sort.
+function Resolve-OpenRouterEntry($modelId, $aliases) {
+    if ([string]::IsNullOrWhiteSpace($modelId)) { return $null }
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    [void]$candidates.Add($modelId)
+    [void]$candidates.Add((Get-NormalizedModelName $modelId))
+    if ($aliases) {
+        foreach ($a in $aliases) {
+            if ([string]::IsNullOrWhiteSpace($a)) { continue }
+            [void]$candidates.Add($a)
+            [void]$candidates.Add((Get-NormalizedModelName $a))
+        }
+    }
+
+    # Collect all distinct OpenRouter matches across the candidate set, then
+    # pick the most recent (tiebreak: highest output price). This matters when
+    # several aliases each map to a different OpenRouter entry — the canonical
+    # should reflect the newest release, not whichever alias was checked first.
+    $hits = [System.Collections.Generic.List[object]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($key in $candidates) {
+        if (-not $openRouterLookup.ContainsKey($key)) { continue }
+        $orm = $openRouterLookup[$key]
+        $ormId = if ($orm.id) { [string]$orm.id } else { $key }
+        if ($seen.Add($ormId)) { [void]$hits.Add($orm) }
+    }
+
+    if ($hits.Count -eq 0) { return $null }
+    if ($hits.Count -eq 1) { return $hits[0] }
+
+    return $hits | Sort-Object -Property `
+        @{ Expression = { if ($_.created) { [long]$_.created } else { 0 } }; Descending = $true },
+        @{ Expression = {
+            $p = 0.0
+            if ($_.pricing.completion)    { $p += [double]$_.pricing.completion }
+            if ($_.pricing.image_output)  { $p += [double]$_.pricing.image_output }
+            elseif ($_.pricing.image)     { $p += [double]$_.pricing.image }
+            if ($_.pricing.audio_output)  { $p += [double]$_.pricing.audio_output }
+            elseif ($_.pricing.audio)     { $p += [double]$_.pricing.audio }
+            $p
+        }; Descending = $true } |
+        Select-Object -First 1
+}
+
+# Build quick lookup by stored model name (original + normalized for cross-reference matching)
+$openRouterLookup = @{ }
+foreach ($orm in $openRouterModels) {
+    $name = Get-ModelName $orm.id
+    $openRouterLookup[$name] = $orm
+    # Also add normalized key so provider-API hyphenated ids match OpenRouter dotted ids
+    $normalized = Get-NormalizedModelName $name
+    if ($normalized -ne $name) {
+        $openRouterLookup[$normalized] = $orm
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 3. Merge OpenRouter data with existing source models
+# ---------------------------------------------------------------------------
+$mergedModels = [ordered]@{ }
+
+# -- Seed with existing models (preserve properties we don't derive from OpenRouter)
+foreach ($kvp in $existingModels.GetEnumerator()) {
+    $mergedModels[$kvp.Key] = $kvp.Value
+}
+
+# ---------------------------------------------------------------------------
+# 2b. Optional primary source: provider's own /models API
+#
+# When -ProviderApiKey is supplied, the provider's own API becomes the
+# authoritative list of live models. OpenRouter is then only used to enrich
+# brand-new models (capabilities, context limit, deprecation hint) that are
+# not yet present in the source file. Models already in the source file are
+# preserved as-is.
+# ---------------------------------------------------------------------------
+$providerApiModelNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+# Full provider API objects keyed by model id, for alias extraction.
+$providerApiLookup = @{}
+$providerApiQueried = $false
+
+if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.ContainsKey($Provider)) {
+    $api = $ProviderApis[$Provider]
+    try {
+        $providerHeaders = & $api.Headers $ProviderApiKey
+        $providerResponse = Invoke-RestMethod -Uri $api.Url -Headers $providerHeaders -Method GET -TimeoutSec 60
+        $providerApiQueried = $true
+
+        # Both OpenAI-compatible APIs and Anthropic return { data: [{ id: ... }] }.
+        $providerData = if ($providerResponse.data) { $providerResponse.data } else { @() }
+        foreach ($pm in $providerData) {
+            if (-not [string]::IsNullOrWhiteSpace($pm.id) -and -not $pm.id.StartsWith('ft:')) {
+                [void]$providerApiModelNames.Add($pm.id)
+                $providerApiLookup[$pm.id] = $pm
+            }
+        }
+
+        Write-Host "[$Provider] Provider API returned $($providerApiModelNames.Count) model(s)."
+    }
+    catch {
+        Write-Warning "[$Provider] Provider API request failed: $($_.Exception.Message). Falling back to OpenRouter only."
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Build provider-API alias + deprecation maps.
+#
+# Grouping strategy per provider:
+#   MistralAI  - Group by the "name" field (authoritative canonical). Every
+#                API entry whose .name == N belongs to the same logical model;
+#                the canonical id is N itself. The per-entry "aliases" array
+#                is merged in as a supplement (it is sometimes incomplete).
+#                "deprecation" != null on any group member marks the canonical
+#                as deprecated.
+#   OpenAI/Anthropic - No "aliases" field in the API; instead, dated suffixes
+#                in the id encode the alias relationship. Group by stripping
+#                the suffix (-YYYY-MM-DD / -YYYYMMDD / -latest) to get a base
+#                key. The dated id is canonical (immutable release); the bare
+#                id and -latest variant become aliases. Driven by
+#                $ProviderAliasSuffix table above.
+#   Other       - Use the per-entry "aliases" array when present (DeepSeek
+#                currently doesn't expose aliases, so the map is empty).
+# ---------------------------------------------------------------------------
+$apiAliasesByCanonical   = @{}
+$apiCanonicalByAlias     = [System.Collections.Generic.Dictionary[string,string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+$apiDeprecatedCanonicals = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+if ($providerApiQueried) {
+    if ($Provider -eq 'MistralAI') {
+        $groups = @{}
+        foreach ($pmId in $providerApiModelNames) {
+            $pm = $providerApiLookup[$pmId]
+            $grpKey = if (-not [string]::IsNullOrWhiteSpace($pm.name)) { $pm.name } else { $pmId }
+            if (-not $groups.ContainsKey($grpKey)) {
+                $groups[$grpKey] = [System.Collections.Generic.List[string]]::new()
+            }
+            [void]$groups[$grpKey].Add($pmId)
+        }
+
+        foreach ($kvp in $groups.GetEnumerator()) {
+            $canonical = $kvp.Key
+            $aliasSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $aliasList = [System.Collections.Generic.List[string]]::new()
+
+            foreach ($id in $kvp.Value) {
+                if (-not [string]::Equals($id, $canonical, 'OrdinalIgnoreCase') -and $aliasSet.Add($id)) {
+                    [void]$aliasList.Add($id)
+                }
+                $pm = $providerApiLookup[$id]
+                if ($pm.aliases) {
+                    foreach ($a in $pm.aliases) {
+                        if ([string]::IsNullOrWhiteSpace($a)) { continue }
+                        if ([string]::Equals($a, $canonical, 'OrdinalIgnoreCase')) { continue }
+                        if ($aliasSet.Add($a)) { [void]$aliasList.Add($a) }
+                    }
+                }
+                if ($null -ne $pm.deprecation) {
+                    [void]$apiDeprecatedCanonicals.Add($canonical)
+                }
+            }
+
+            $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
+        }
+    }
+    elseif ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provider]) {
+        # Suffix-based grouping (OpenAI, Anthropic):
+        #   baseKey   = id with -YYYY-MM-DD / -YYYYMMDD / -latest stripped
+        #   canonical = dated variant (highest date wins on ties); else -latest;
+        #               else the bare id (group has no dated release at all)
+        $suffixRx = [regex]::new($ProviderAliasSuffix[$Provider])
+        $dateRx   = [regex]::new('-(\d{8}|\d{4}-\d{2}-\d{2})$')
+        $latestRx = [regex]::new('-latest$')
+
+        $groups = @{}
+        foreach ($pmId in $providerApiModelNames) {
+            $baseKey = $suffixRx.Replace($pmId, '')
+            if (-not $groups.ContainsKey($baseKey)) {
+                $groups[$baseKey] = [System.Collections.Generic.List[string]]::new()
+            }
+            [void]$groups[$baseKey].Add($pmId)
+        }
+
+        foreach ($kvp in $groups.GetEnumerator()) {
+            $baseKey = $kvp.Key
+            $ids     = @($kvp.Value)
+
+            # Skip groups that contain only the bare baseKey itself: nothing
+            # to alias (no dated/-latest variant present). Singleton groups
+            # whose sole id is dated are NOT skipped, because the bare baseKey
+            # is still an implicit server-side rolling alias we must record.
+            if ($ids.Count -eq 1 -and [string]::Equals($ids[0], $baseKey, 'OrdinalIgnoreCase')) {
+                continue
+            }
+
+            # Only the bare baseKey and -latest variant are rolling aliases.
+            # Different dated releases are distinct immutable models and must
+            # remain standalone (NOT folded into one group's alias list).
+            #
+            # Canonical = most recent dated id in the group; the rolling
+            # alias slots (bare baseKey, -latest) attach to it.
+            $dated = @($ids | Where-Object { $dateRx.IsMatch($_) })
+            if ($dated.Count -gt 0) {
+                # Compare on the captured date string. Both YYYYMMDD and
+                # YYYY-MM-DD sort correctly lexicographically.
+                $canonical = $dated | Sort-Object -Property @{
+                    Expression = { $dateRx.Match($_).Groups[1].Value }
+                } -Descending | Select-Object -First 1
+            }
+            else {
+                $latest = @($ids | Where-Object { $latestRx.IsMatch($_) })
+                if ($latest.Count -gt 0) { $canonical = $latest[0] }
+                else                     { $canonical = $baseKey }
+            }
+
+            # Aliases: only the bare baseKey and the -latest variant, when
+            # present in the group (or implicit for the bare baseKey).
+            $aliasList = [System.Collections.Generic.List[string]]::new()
+            foreach ($id in $ids) {
+                if ([string]::Equals($id, $canonical, 'OrdinalIgnoreCase')) { continue }
+                $isBare   = [string]::Equals($id, $baseKey, 'OrdinalIgnoreCase')
+                $isLatest = $latestRx.IsMatch($id)
+                if ($isBare -or $isLatest) { [void]$aliasList.Add($id) }
+            }
+
+            # Always include the bare baseKey as an alias when it's not the
+            # canonical, even if the API didn't list it as a separate entry.
+            # This keeps the user-facing rolling alias (e.g. "claude-haiku-4-5")
+            # alive on the canonical dated id.
+            if (-not [string]::Equals($baseKey, $canonical, 'OrdinalIgnoreCase') -and
+                -not ($aliasList | Where-Object { [string]::Equals($_, $baseKey, 'OrdinalIgnoreCase') })) {
+                [void]$aliasList.Add($baseKey)
+            }
+
+            if ($aliasList.Count -gt 0) {
+                $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
+            }
+        }
+    }
+    else {
+        foreach ($pmId in $providerApiModelNames) {
+            $pm = $providerApiLookup[$pmId]
+            if ($pm.aliases -and $pm.aliases.Count -gt 0) {
+                $apiAliasesByCanonical[$pmId] = @($pm.aliases | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+            }
+        }
+    }
+
+    # Reverse map: alias -> canonical.
+    foreach ($kvp in $apiAliasesByCanonical.GetEnumerator()) {
+        foreach ($a in $kvp.Value) {
+            if ([string]::Equals($a, $kvp.Key, 'OrdinalIgnoreCase')) { continue }
+            if (-not $apiCanonicalByAlias.ContainsKey($a)) {
+                $apiCanonicalByAlias[$a] = $kvp.Key
+            }
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Helper: Extract enrichment data from an OpenRouter model entry
+# ---------------------------------------------------------------------------
+function Get-OpenRouterEnrichment($orm) {
+    if (-not $orm) { return $null }
+
+    $deprecated = $false
+    if ($orm.expiration_date) {
+        try {
+            $exp = [DateTime]::Parse($orm.expiration_date.ToString())
+            if ($exp -lt $OneYearFromNow) { $deprecated = $true }
+        } catch { }
+    }
+
+    $ctx = $orm.context_length
+    if (-not $ctx -and $orm.top_provider) { $ctx = $orm.top_provider.context_length }
+
+    return [pscustomobject]@{
+        Capabilities = ConvertTo-CapabilityFlags -openRouterModel $orm
+        ContextLimit = if ($null -ne $ctx) { $ctx.ToString() } else { $null }
+        Deprecated   = $deprecated
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Collapse existing source entries keyed by an alias into their canonical id
+# (built in $apiCanonicalByAlias above). Ensures each logical model has a
+# single entry after the seed.
+# ---------------------------------------------------------------------------
+if ($providerApiQueried) {
+    if ($apiCanonicalByAlias.Count -gt 0) {
+        $rekeyed = [ordered]@{}
+        foreach ($kvp in $mergedModels.GetEnumerator()) {
+            $key = $kvp.Key
+            $val = $kvp.Value
+            $canonical = if ($apiCanonicalByAlias.ContainsKey($key)) { $apiCanonicalByAlias[$key] } else { $key }
+
+            if ($rekeyed.Contains($canonical)) {
+                $existing = $rekeyed[$canonical]
+                $aliases = [System.Collections.Generic.List[string]]::new()
+                if ($existing.Aliases) { foreach ($a in @($existing.Aliases)) { [void]$aliases.Add($a) } }
+
+                if ([string]::Equals($key, $canonical, 'OrdinalIgnoreCase')) {
+                    # Canonical entry wins: replace data, absorb aliased entry's
+                    # old key + aliases into the canonical's Aliases list.
+                    if ($val.Aliases) {
+                        foreach ($a in @($val.Aliases)) { if (-not $aliases.Contains($a)) { [void]$aliases.Add($a) } }
+                    }
+                    if (-not [string]::Equals($existing.Model, $canonical, 'OrdinalIgnoreCase') -and -not $aliases.Contains($existing.Model)) {
+                        [void]$aliases.Add($existing.Model)
+                    }
+                    $val.Model = $canonical
+                    $val.Aliases = if ($aliases.Count -gt 0) { $aliases.ToArray() } else { $null }
+                    $rekeyed[$canonical] = $val
+                }
+                else {
+                    # $val is aliased-in: keep existing canonical data, just
+                    # record this key (+ its aliases) under the canonical's Aliases.
+                    if (-not $aliases.Contains($key)) { [void]$aliases.Add($key) }
+                    if ($val.Aliases) {
+                        foreach ($a in @($val.Aliases)) {
+                            if (-not $aliases.Contains($a) -and -not [string]::Equals($a, $canonical, 'OrdinalIgnoreCase')) {
+                                [void]$aliases.Add($a)
+                            }
+                        }
+                    }
+                    $existing.Aliases = $aliases.ToArray()
+                }
+            }
+            else {
+                if (-not [string]::Equals($key, $canonical, 'OrdinalIgnoreCase')) {
+                    # Rekey: preserve old key as alias, update Model field.
+                    $aliases = [System.Collections.Generic.List[string]]::new()
+                    if ($val.Aliases) {
+                        foreach ($a in @($val.Aliases)) {
+                            if (-not [string]::Equals($a, $canonical, 'OrdinalIgnoreCase')) { [void]$aliases.Add($a) }
+                        }
+                    }
+                    if (-not $aliases.Contains($key)) { [void]$aliases.Add($key) }
+                    $val.Aliases = $aliases.ToArray()
+                    $val.Model = $canonical
+                }
+                $rekeyed[$canonical] = $val
+            }
+        }
+        $mergedModels = $rekeyed
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 3. Merge logic
+# ---------------------------------------------------------------------------
+if ($providerApiQueried) {
+    # ---- Provider API is the source of truth ----
+    # Existing source models are preserved verbatim; only their Deprecated flag
+    # is toggled based on whether the provider API still lists them.
+    # Brand-new provider-API models are seeded with defaults and (when matched)
+    # enriched from OpenRouter.
+    foreach ($pmId in $providerApiModelNames) {
+        # Skip API ids that are aliases of another canonical (avoids duplicate entries).
+        if ($apiCanonicalByAlias.ContainsKey($pmId)) { continue }
+
+        $apiAliases = if ($apiAliasesByCanonical.ContainsKey($pmId)) { @($apiAliasesByCanonical[$pmId]) } else { @() }
+        $isApiDeprecated = $apiDeprecatedCanonicals.Contains($pmId)
+
+        if ($mergedModels.Contains($pmId)) {
+            # Preserve all hand-curated data but update aliases from provider API
+            # (additive merge: keep existing aliases, add any new ones from the API)
+            # and propagate provider deprecation flag.
+            $existing = $mergedModels[$pmId]
+            $currentAliases = [System.Collections.Generic.List[string]]::new()
+            if ($existing.Aliases) {
+                foreach ($a in @($existing.Aliases)) { [void]$currentAliases.Add($a) }
+            }
+            foreach ($a in $apiAliases) {
+                if (-not $currentAliases.Contains($a)) { [void]$currentAliases.Add($a) }
+            }
+            # Drop stale aliases that are themselves provider-API canonicals
+            # (i.e. listed as a top-level model and NOT registered as our alias).
+            # This corrects historical entries where a different dated release
+            # was previously folded in as an alias.
+            $cleaned = [System.Collections.Generic.List[string]]::new()
+            foreach ($a in $currentAliases) {
+                $isOtherCanonical = ($providerApiModelNames -contains $a) -and (
+                    -not $apiCanonicalByAlias.ContainsKey($a) -or
+                    -not [string]::Equals($apiCanonicalByAlias[$a], $pmId, 'OrdinalIgnoreCase')
+                )
+                if (-not $isOtherCanonical) { [void]$cleaned.Add($a) }
+            }
+            $existing.Aliases = if ($cleaned.Count -gt 0) { $cleaned.ToArray() } else { $null }
+            if ($isApiDeprecated) { $existing.Deprecated = 'true' }
+            continue
+        }
+
+        $ormLookup = Resolve-OpenRouterEntry $pmId $apiAliases
+        $enrichment = Get-OpenRouterEnrichment -orm $ormLookup
+
+        $caps = if ($enrichment -and -not [string]::IsNullOrWhiteSpace($enrichment.Capabilities) -and $enrichment.Capabilities -ne 'AICapability.None') {
+            $enrichment.Capabilities
+        } else {
+            'AICapability.None'
+        }
+
+        $deprecated = if ($isApiDeprecated -or ($enrichment -and $enrichment.Deprecated)) { 'true' } else { $null }
+        $ctx        = if ($enrichment) { $enrichment.ContextLimit } else { $null }
+
+        $mergedModels[$pmId] = [pscustomobject][ordered]@{
+            Provider              = $null   # filled by Format-ModelBlock
+            Model                 = $pmId
+            Capabilities          = $caps
+            Verified              = 'false'
+            Deprecated            = $deprecated
+            SupportsStreaming     = 'true'
+            SupportsPromptCaching = $null
+            Rank                  = '50'
+            ContextLimit          = $ctx
+            Aliases               = if ($apiAliases.Count -gt 0) { $apiAliases } else { $null }
+            DiscouragedForTools   = $null
+            CacheKeyStrategy      = $null
+        }
+    }
+}
+else {
+    # ---- OpenRouter-only mode (legacy behaviour) ----
+    # OpenRouter is the source of truth: capabilities and context limits are
+    # refreshed for every model and brand-new entries are added.
+    foreach ($orm in $openRouterModels) {
+        $modelName  = Get-ModelName $orm.id
+        $enrichment = Get-OpenRouterEnrichment -orm $orm
+
+        if ($mergedModels.Contains($modelName)) {
+            $existing = $mergedModels[$modelName]
+            $existing.Capabilities = $enrichment.Capabilities
+            if ($null -ne $enrichment.ContextLimit) { $existing.ContextLimit = $enrichment.ContextLimit }
+            if ($enrichment.Deprecated -or $existing.Deprecated -eq 'true') { $existing.Deprecated = 'true' }
+        }
+        else {
+            $mergedModels[$modelName] = [pscustomobject][ordered]@{
+                Provider              = $null
+                Model                 = $modelName
+                Capabilities          = $enrichment.Capabilities
+                Verified              = 'false'
+                Deprecated            = if ($enrichment.Deprecated) { 'true' } else { $null }
+                SupportsStreaming     = $null
+                SupportsPromptCaching = $null
+                Rank                  = '50'
+                ContextLimit          = $enrichment.ContextLimit
+                Aliases               = $null
+                DiscouragedForTools   = $null
+                CacheKeyStrategy      = $null
+            }
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Normalize Aliases: remove self-references and duplicates (case-insensitive).
+# ---------------------------------------------------------------------------
+foreach ($m in $mergedModels.Values) {
+    if (-not $m.Aliases) { continue }
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $clean = [System.Collections.Generic.List[string]]::new()
+    foreach ($a in @($m.Aliases)) {
+        if ([string]::IsNullOrWhiteSpace($a)) { continue }
+        if ([string]::Equals($a, $m.Model, 'OrdinalIgnoreCase')) { continue }
+        if ($seen.Add($a)) { [void]$clean.Add($a) }
+    }
+    $m.Aliases = if ($clean.Count -gt 0) { $clean.ToArray() } else { $null }
+}
+
+# ---------------------------------------------------------------------------
+# Sibling capability inheritance.
+#
+# Different dated releases that share a baseKey (e.g. gpt-4o-mini-transcribe-
+# 2025-03-20 vs gpt-4o-mini-transcribe-2025-12-15) are distinct models, but
+# OpenRouter only documents the bare alias. Older/peripheral dated entries
+# therefore land with Capabilities = AICapability.None. Inherit caps and
+# context from a sibling that has real data.
+# ---------------------------------------------------------------------------
+if ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provider]) {
+    $suffixRxInherit = [regex]::new($ProviderAliasSuffix[$Provider])
+
+    $byBase = @{}
+    foreach ($m in $mergedModels.Values) {
+        $bk = $suffixRxInherit.Replace($m.Model, '')
+        if (-not $byBase.ContainsKey($bk)) {
+            $byBase[$bk] = [System.Collections.Generic.List[object]]::new()
+        }
+        [void]$byBase[$bk].Add($m)
+    }
+
+    foreach ($kvp in $byBase.GetEnumerator()) {
+        $siblings = $kvp.Value
+        if ($siblings.Count -le 1) { continue }
+
+        # Donor: any sibling with real (non-None/non-empty) capabilities.
+        $donor = $siblings | Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_.Capabilities) -and
+            $_.Capabilities -ne 'AICapability.None'
+        } | Select-Object -First 1
+        if (-not $donor) { continue }
+
+        foreach ($m in $siblings) {
+            if ([System.Object]::ReferenceEquals($m, $donor)) { continue }
+            if ([string]::IsNullOrWhiteSpace($m.Capabilities) -or $m.Capabilities -eq 'AICapability.None') {
+                $m.Capabilities = $donor.Capabilities
+            }
+            if ($null -eq $m.ContextLimit -and $null -ne $donor.ContextLimit) {
+                $m.ContextLimit = $donor.ContextLimit
+            }
+            if ([string]::IsNullOrWhiteSpace($m.SupportsStreaming) -and -not [string]::IsNullOrWhiteSpace($donor.SupportsStreaming)) {
+                $m.SupportsStreaming = $donor.SupportsStreaming
+            }
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Mark models that no longer appear in the authoritative source as deprecated.
+# Authoritative = provider API when queried, otherwise OpenRouter.
+# 
+# For OpenRouter provider specifically:
+# - OpenRouter API is both source of truth AND authoritative source.
+# - Models present in OpenRouterProviderModels.cs but missing from current OpenRouter catalogue are marked Deprecated = true
+# - This ensures OpenRouter models are deprecated when removed from OpenRouter's available models list
+# ---------------------------------------------------------------------------
+if ($providerApiQueried) {
+    $apiModelNames = $providerApiModelNames
+}
+else {
+    $apiModelNames = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]($openRouterModels | ForEach-Object { Get-ModelName $_.id }),
+        [System.StringComparer]::OrdinalIgnoreCase)
+}
+
+foreach ($kvp in $mergedModels.GetEnumerator()) {
+    if (-not $apiModelNames.Contains($kvp.Key)) {
+        $kvp.Value.Deprecated = 'true'
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Compute sorting keys (Created, OutputPrice) for every merged model
+# ---------------------------------------------------------------------------
+foreach ($m in $mergedModels.Values) {
+    $orm = Resolve-OpenRouterEntry $m.Model $m.Aliases
+    if ($orm) {
+        # Created: OpenRouter returns Unix epoch seconds
+        if ($orm.created) {
+            $createdDt = [DateTimeOffset]::FromUnixTimeSeconds([long]$orm.created).DateTime
+            $m | Add-Member -NotePropertyName 'Created' -NotePropertyValue $createdDt -Force
+        }
+        else {
+            $m | Add-Member -NotePropertyName 'Created' -NotePropertyValue ([DateTime]::MinValue) -Force
+        }
+
+        # Output pricing: sum of applicable output prices (completion, image, audio_output)
+        $prices = [System.Collections.Generic.List[decimal]]::new()
+        if ($orm.pricing.completion) { $prices.Add([decimal]$orm.pricing.completion) }
+
+        $imgPrice = if ($null -ne $orm.pricing.image_output) { $orm.pricing.image_output }
+                    elseif ($null -ne $orm.pricing.image) { $orm.pricing.image }
+                    else { $null }
+        if ($null -ne $imgPrice) { $prices.Add([decimal]$imgPrice) }
+
+        $audioPrice = if ($null -ne $orm.pricing.audio_output) { $orm.pricing.audio_output }
+                      elseif ($null -ne $orm.pricing.audio) { $orm.pricing.audio }
+                      else { $null }
+        if ($null -ne $audioPrice) { $prices.Add([decimal]$audioPrice) }
+
+        $sumPrice = if ($prices.Count -gt 0) { ($prices | Measure-Object -Sum).Sum } else { [decimal]::MaxValue }
+        $m | Add-Member -NotePropertyName 'OutputPrice' -NotePropertyValue $sumPrice -Force
+    }
+    else {
+        # No OpenRouter data → push to bottom of sort
+        $m | Add-Member -NotePropertyName 'Created' -NotePropertyValue ([DateTime]::MinValue) -Force
+        $m | Add-Member -NotePropertyName 'OutputPrice' -NotePropertyValue ([decimal]::MaxValue) -Force
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 4. Diff for reporting
+# ---------------------------------------------------------------------------
+$allModelNames = $mergedModels.Keys | Sort-Object
+$apiModelNamesList = $apiModelNames | Sort-Object
+$sourceModelNamesList = $existingModels.Keys | Sort-Object
+
+$newModels        = $apiModelNamesList | Where-Object { $_ -notin $sourceModelNamesList }
+$deprecatedModels = $allModelNames     | Where-Object { $mergedModels[$_].Deprecated -eq 'true' -and ($_ -in $sourceModelNamesList) }
+$unchangedModels  = $apiModelNamesList | Where-Object { $_ -in $sourceModelNamesList -and $mergedModels[$_].Deprecated -ne 'true' }
+
+# ---------------------------------------------------------------------------
+# 5. Optional file update
+# ---------------------------------------------------------------------------
+$fileUpdated = $false
+if ($UpdateFile) {
+    # Compute term index (Q1=most recent 3 months, Q2=3-6 months, ..., Q8=18-24 months).
+    $now = Get-Date
+    $termStart = for ($i = 0; $i -le 8; $i++) { $now.AddMonths(-3 * $i) }
+
+    function Get-TermIndex($created) {
+        if (-not $created -or $created -eq [DateTime]::MinValue) { return 99 }
+        for ($i = 1; $i -le 8; $i++) {
+            if ($created -ge $termStart[$i]) { return $i }
+        }
+        return 99
+    }
+
+    foreach ($m in $mergedModels.Values) {
+        $m | Add-Member -NotePropertyName 'TermIndex' -NotePropertyValue (Get-TermIndex $m.Created) -Force
+    }
+
+    # Sort: non-deprecated first, then term (most recent first),
+    # then verified first, then output price (cheapest first), then name
+    $sorted = $mergedModels.Values | Sort-Object -Property @(
+        @{ Expression = { if ($_.Deprecated -eq 'true') { 1 } else { 0 } }; Ascending = $true }
+        @{ Expression = { $_.TermIndex }; Ascending = $true }
+        @{ Expression = { if ($_.Verified -eq 'true') { 0 } else { 1 } }; Ascending = $true }
+        @{ Expression = { $_.OutputPrice }; Ascending = $true }
+        @{ Expression = { $_.Model }; Ascending = $true }
+    )
+
+    # Assign ranks: non-deprecated models get descending ranks starting at 10000, in steps of 5
+    $nonDeprecated = $sorted | Where-Object { $_.Deprecated -ne 'true' }
+    for ($i = 0; $i -lt $nonDeprecated.Count; $i++) {
+        $nonDeprecated[$i].Rank = (10000 - ($i * 5)).ToString()
+    }
+
+    # Deprecated models get low ranks starting at 0, in steps of 5
+    $deprecated = $sorted | Where-Object { $_.Deprecated -eq 'true' }
+    for ($i = 0; $i -lt $deprecated.Count; $i++) {
+        $deprecated[$i].Rank = (0 - ($i * 5)).ToString()
+    }
+
+    function Get-SectionComment($model) {
+        if ($model.Deprecated -eq 'true') { return '// Deprecated models' }
+
+        $ci  = [System.Globalization.CultureInfo]::GetCultureInfo('en-US')
+        $fmt = 'MMMM yyyy'
+        switch ($model.TermIndex) {
+            1       { return "// Released between $($now.AddMonths(-3).ToString($fmt, $ci)) and $($now.ToString($fmt, $ci))" }
+            2       { return "// Released between $($now.AddMonths(-6).ToString($fmt, $ci)) and $($now.AddMonths(-3).ToString($fmt, $ci))" }
+            3       { return "// Released between $($now.AddMonths(-9).ToString($fmt, $ci)) and $($now.AddMonths(-6).ToString($fmt, $ci))" }
+            4       { return "// Released between $($now.AddMonths(-12).ToString($fmt, $ci)) and $($now.AddMonths(-9).ToString($fmt, $ci))" }
+            5       { return "// Released between $($now.AddMonths(-15).ToString($fmt, $ci)) and $($now.AddMonths(-12).ToString($fmt, $ci))" }
+            6       { return "// Released between $($now.AddMonths(-18).ToString($fmt, $ci)) and $($now.AddMonths(-15).ToString($fmt, $ci))" }
+            7       { return "// Released between $($now.AddMonths(-21).ToString($fmt, $ci)) and $($now.AddMonths(-18).ToString($fmt, $ci))" }
+            8       { return "// Released between $($now.AddMonths(-24).ToString($fmt, $ci)) and $($now.AddMonths(-21).ToString($fmt, $ci))" }
+            default { return "// Released before $($now.AddMonths(-24).ToString($fmt, $ci)) or unknown release date" }
+        }
+    }
+
+    $newBlocks = [System.Collections.Generic.List[string]]::new()
+    $currentSection = $null
+    foreach ($m in $sorted) {
+        $section = Get-SectionComment $m
+        if ($section -ne $currentSection) {
+            if ($newBlocks.Count -gt 0) {
+                $newBlocks.Add('')
+            }
+            $newBlocks.Add("                $section")
+            $currentSection = $section
+        }
+        $newBlocks.Add((Format-ModelBlock -model $m -providerVar $providerVar))
+    }
+
+    # Remove the trailing comma from the last block so the list initializer ends
+    # with "};" instead of "},\r\n};" – avoids brace-scanner mismatches on re-runs.
+    if ($newBlocks.Count -gt 0) {
+        $last = $newBlocks[$newBlocks.Count - 1]
+        $newBlocks[$newBlocks.Count - 1] = $last -replace ',\s*$', ''
+    }
+
+    $newListContent = ($newBlocks -join "`r`n`r`n")
+    $newFileContent = $beforeList + $newListContent + "`r`n            };" + $afterList
+
+    # Ensure trailing newline
+    if (-not $newFileContent.EndsWith("`r`n")) { $newFileContent += "`r`n" }
+
+    [System.IO.File]::WriteAllText($TargetFile, $newFileContent)
+    $fileUpdated = $true
+    Write-Host "[$Provider] Wrote $($sorted.Count) model(s) to $TargetFile."
+}
+
+# ---------------------------------------------------------------------------
+# 6. JSON report
+# ---------------------------------------------------------------------------
+$openRouterModelNamesList  = @($openRouterModels | ForEach-Object { Get-ModelName $_.id } | Sort-Object)
+$providerApiModelNamesList = @($providerApiModelNames | Sort-Object)
+
+$report = [ordered]@{
+    provider           = $Provider
+    apiUrl             = $OpenRouterUrl
+    providerApiQueried = $providerApiQueried
+    providerApiUrl     = if ($providerApiQueried) { $ProviderApis[$Provider].Url } else { $null }
+    apiModels          = @($apiModelNamesList)
+    openrouterModels   = $openRouterModelNamesList
+    providerApiModels  = if ($providerApiQueried) { $providerApiModelNamesList } else { $null }
+    sourceModels       = @($sourceModelNamesList)
+    newModels          = @($newModels)
+    deprecatedModels   = @($deprecatedModels)
+    unchangedModels    = @($unchangedModels)
+    fileUpdated        = $fileUpdated
+}
+
+Write-Output ($report | ConvertTo-Json -Depth 10)
+

@@ -60,6 +60,11 @@ namespace SmartHopper.Infrastructure.AIModels
         /// </summary>
         JsonInput = 1 << 3,
 
+        /// <summary>
+        /// Supports accepting video input (video understanding or analysis).
+        /// </summary>
+        VideoInput = 1 << 3,
+
         // Output capabilities
 
         /// <summary>
@@ -99,6 +104,16 @@ namespace SmartHopper.Infrastructure.AIModels
         /// Enhanced reasoning capabilities (e.g., long deliberation or thinking).
         /// </summary>
         Reasoning = 1 << 9,
+
+        /// <summary>
+        /// Can generate video as output.
+        /// </summary>
+        VideoOutput = 1 << 10,
+
+        /// <summary>
+        /// Can produce embedding vectors as output (for similarity search, clustering, etc.).
+        /// </summary>
+        EmbedOutput = 1 << 11,
 
         // Composite capabilities for default definition
 
@@ -218,14 +233,30 @@ namespace SmartHopper.Infrastructure.AIModels
                 flags.Add("AudioInput");
             }
 
+            if ((capabilities & AICapability.VideoInput) == AICapability.VideoInput)
+            {
+                flags.Add("VideoInput");
+            }
+
             if ((capabilities & AICapability.AudioOutput) == AICapability.AudioOutput)
             {
                 flags.Add("AudioOutput");
             }
 
+<<<<<<< HEAD
             if ((capabilities & AICapability.JsonInput) == AICapability.JsonInput)
             {
                 flags.Add("JsonInput");
+=======
+            if ((capabilities & AICapability.VideoOutput) == AICapability.VideoOutput)
+            {
+                flags.Add("VideoOutput");
+            }
+
+            if ((capabilities & AICapability.EmbedOutput) == AICapability.EmbedOutput)
+            {
+                flags.Add("EmbedOutput");
+>>>>>>> b0b0f096 (refactor: add VideoInput, VideoOutput, and EmbedOutput capability flags to AICapability enum and update helper methods)
             }
 
             if ((capabilities & AICapability.JsonOutput) == AICapability.JsonOutput)
@@ -256,8 +287,12 @@ namespace SmartHopper.Infrastructure.AIModels
             return (capability & AICapability.TextInput) == AICapability.TextInput ||
                    (capability & AICapability.ImageInput) == AICapability.ImageInput ||
                    (capability & AICapability.AudioInput) == AICapability.AudioInput ||
+<<<<<<< HEAD
                    (capability & AICapability.SpeechInput) == AICapability.SpeechInput ||
                    (capability & AICapability.JsonInput) == AICapability.JsonInput;
+=======
+                   (capability & AICapability.VideoInput) == AICapability.VideoInput;
+>>>>>>> b0b0f096 (refactor: add VideoInput, VideoOutput, and EmbedOutput capability flags to AICapability enum and update helper methods)
         }
 
         /// <summary>
@@ -270,8 +305,14 @@ namespace SmartHopper.Infrastructure.AIModels
             return (capability & AICapability.TextOutput) == AICapability.TextOutput ||
                    (capability & AICapability.ImageOutput) == AICapability.ImageOutput ||
                    (capability & AICapability.AudioOutput) == AICapability.AudioOutput ||
+<<<<<<< HEAD
                    (capability & AICapability.SpeechOutput) == AICapability.SpeechOutput ||
                    (capability & AICapability.JsonOutput) == AICapability.JsonOutput;
+=======
+                   (capability & AICapability.JsonOutput) == AICapability.JsonOutput ||
+                   (capability & AICapability.VideoOutput) == AICapability.VideoOutput ||
+                   (capability & AICapability.EmbedOutput) == AICapability.EmbedOutput;
+>>>>>>> b0b0f096 (refactor: add VideoInput, VideoOutput, and EmbedOutput capability flags to AICapability enum and update helper methods)
         }
 
         /// <summary>
