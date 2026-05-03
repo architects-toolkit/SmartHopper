@@ -963,7 +963,7 @@ if ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provi
 # ---------------------------------------------------------------------------
 # Mark models that no longer appear in the authoritative source as deprecated.
 # Authoritative = provider API when queried, otherwise OpenRouter.
-# 
+#
 # For OpenRouter provider specifically:
 # - OpenRouter API is both source of truth AND authoritative source.
 # - Models present in OpenRouterProviderModels.cs but missing from current OpenRouter catalogue are marked Deprecated = true
