@@ -426,6 +426,33 @@ function Get-NormalizedModelName($modelName) {
     return $modelName -replace '\.', '-'
 }
 
+# Resolve the OpenRouter entry for a model id, trying (in order):
+#   1. exact id
+#   2. dot/hyphen normalized id
+#   3. each provided alias (exact + normalized)
+# OpenRouter typically ships the bare form (e.g. "gpt-4o-mini",
+# "claude-haiku-4.5") while our canonical is the dated form
+# ("gpt-4o-mini-2024-07-18", "claude-haiku-4-5-20251001"). Without this
+# fallback the canonical loses its Created/OutputPrice metadata and falls
+# to the bottom of the sort.
+function Resolve-OpenRouterEntry($modelId, $aliases) {
+    if ([string]::IsNullOrWhiteSpace($modelId)) { return $null }
+    $candidates = [System.Collections.Generic.List[string]]::new()
+    [void]$candidates.Add($modelId)
+    [void]$candidates.Add((Get-NormalizedModelName $modelId))
+    if ($aliases) {
+        foreach ($a in $aliases) {
+            if ([string]::IsNullOrWhiteSpace($a)) { continue }
+            [void]$candidates.Add($a)
+            [void]$candidates.Add((Get-NormalizedModelName $a))
+        }
+    }
+    foreach ($key in $candidates) {
+        if ($openRouterLookup.ContainsKey($key)) { return $openRouterLookup[$key] }
+    }
+    return $null
+}
+
 # Build quick lookup by stored model name (original + normalized for cross-reference matching)
 $openRouterLookup = @{ }
 foreach ($orm in $openRouterModels) {
@@ -575,7 +602,12 @@ if ($providerApiQueried) {
                 continue
             }
 
-            # Pick canonical: highest dated id wins; else -latest; else bare id.
+            # Only the bare baseKey and -latest variant are rolling aliases.
+            # Different dated releases are distinct immutable models and must
+            # remain standalone (NOT folded into one group's alias list).
+            #
+            # Canonical = most recent dated id in the group; the rolling
+            # alias slots (bare baseKey, -latest) attach to it.
             $dated = @($ids | Where-Object { $dateRx.IsMatch($_) })
             if ($dated.Count -gt 0) {
                 # Compare on the captured date string. Both YYYYMMDD and
@@ -590,11 +622,14 @@ if ($providerApiQueried) {
                 else                     { $canonical = $baseKey }
             }
 
+            # Aliases: only the bare baseKey and the -latest variant, when
+            # present in the group (or implicit for the bare baseKey).
             $aliasList = [System.Collections.Generic.List[string]]::new()
             foreach ($id in $ids) {
-                if (-not [string]::Equals($id, $canonical, 'OrdinalIgnoreCase')) {
-                    [void]$aliasList.Add($id)
-                }
+                if ([string]::Equals($id, $canonical, 'OrdinalIgnoreCase')) { continue }
+                $isBare   = [string]::Equals($id, $baseKey, 'OrdinalIgnoreCase')
+                $isLatest = $latestRx.IsMatch($id)
+                if ($isBare -or $isLatest) { [void]$aliasList.Add($id) }
             }
 
             # Always include the bare baseKey as an alias when it's not the
@@ -606,7 +641,9 @@ if ($providerApiQueried) {
                 [void]$aliasList.Add($baseKey)
             }
 
-            $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
+            if ($aliasList.Count -gt 0) {
+                $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
+            }
         }
     }
     else {
@@ -739,21 +776,31 @@ if ($providerApiQueried) {
             # (additive merge: keep existing aliases, add any new ones from the API)
             # and propagate provider deprecation flag.
             $existing = $mergedModels[$pmId]
-            if ($apiAliases.Count -gt 0) {
-                $currentAliases = [System.Collections.Generic.List[string]]::new()
-                if ($existing.Aliases) {
-                    foreach ($a in @($existing.Aliases)) { [void]$currentAliases.Add($a) }
-                }
-                foreach ($a in $apiAliases) {
-                    if (-not $currentAliases.Contains($a)) { [void]$currentAliases.Add($a) }
-                }
-                $existing.Aliases = $currentAliases.ToArray()
+            $currentAliases = [System.Collections.Generic.List[string]]::new()
+            if ($existing.Aliases) {
+                foreach ($a in @($existing.Aliases)) { [void]$currentAliases.Add($a) }
             }
+            foreach ($a in $apiAliases) {
+                if (-not $currentAliases.Contains($a)) { [void]$currentAliases.Add($a) }
+            }
+            # Drop stale aliases that are themselves provider-API canonicals
+            # (i.e. listed as a top-level model and NOT registered as our alias).
+            # This corrects historical entries where a different dated release
+            # was previously folded in as an alias.
+            $cleaned = [System.Collections.Generic.List[string]]::new()
+            foreach ($a in $currentAliases) {
+                $isOtherCanonical = ($providerApiModelNames -contains $a) -and (
+                    -not $apiCanonicalByAlias.ContainsKey($a) -or
+                    -not [string]::Equals($apiCanonicalByAlias[$a], $pmId, 'OrdinalIgnoreCase')
+                )
+                if (-not $isOtherCanonical) { [void]$cleaned.Add($a) }
+            }
+            $existing.Aliases = if ($cleaned.Count -gt 0) { $cleaned.ToArray() } else { $null }
             if ($isApiDeprecated) { $existing.Deprecated = 'true' }
             continue
         }
 
-        $ormLookup = if ($openRouterLookup.ContainsKey($pmId)) { $openRouterLookup[$pmId] } else { $openRouterLookup[(Get-NormalizedModelName $pmId)] }
+        $ormLookup = Resolve-OpenRouterEntry $pmId $apiAliases
         $enrichment = Get-OpenRouterEnrichment -orm $ormLookup
 
         $caps = if ($enrichment -and -not [string]::IsNullOrWhiteSpace($enrichment.Capabilities) -and $enrichment.Capabilities -ne 'AICapability.None') {
@@ -830,6 +877,53 @@ foreach ($m in $mergedModels.Values) {
 }
 
 # ---------------------------------------------------------------------------
+# Sibling capability inheritance.
+#
+# Different dated releases that share a baseKey (e.g. gpt-4o-mini-transcribe-
+# 2025-03-20 vs gpt-4o-mini-transcribe-2025-12-15) are distinct models, but
+# OpenRouter only documents the bare alias. Older/peripheral dated entries
+# therefore land with Capabilities = AICapability.None. Inherit caps and
+# context from a sibling that has real data.
+# ---------------------------------------------------------------------------
+if ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provider]) {
+    $suffixRxInherit = [regex]::new($ProviderAliasSuffix[$Provider])
+
+    $byBase = @{}
+    foreach ($m in $mergedModels.Values) {
+        $bk = $suffixRxInherit.Replace($m.Model, '')
+        if (-not $byBase.ContainsKey($bk)) {
+            $byBase[$bk] = [System.Collections.Generic.List[object]]::new()
+        }
+        [void]$byBase[$bk].Add($m)
+    }
+
+    foreach ($kvp in $byBase.GetEnumerator()) {
+        $siblings = $kvp.Value
+        if ($siblings.Count -le 1) { continue }
+
+        # Donor: any sibling with real (non-None/non-empty) capabilities.
+        $donor = $siblings | Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_.Capabilities) -and
+            $_.Capabilities -ne 'AICapability.None'
+        } | Select-Object -First 1
+        if (-not $donor) { continue }
+
+        foreach ($m in $siblings) {
+            if ([System.Object]::ReferenceEquals($m, $donor)) { continue }
+            if ([string]::IsNullOrWhiteSpace($m.Capabilities) -or $m.Capabilities -eq 'AICapability.None') {
+                $m.Capabilities = $donor.Capabilities
+            }
+            if ($null -eq $m.ContextLimit -and $null -ne $donor.ContextLimit) {
+                $m.ContextLimit = $donor.ContextLimit
+            }
+            if ([string]::IsNullOrWhiteSpace($m.SupportsStreaming) -and -not [string]::IsNullOrWhiteSpace($donor.SupportsStreaming)) {
+                $m.SupportsStreaming = $donor.SupportsStreaming
+            }
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Mark models that no longer appear in the authoritative source as deprecated.
 # Authoritative = provider API when queried, otherwise OpenRouter.
 # ---------------------------------------------------------------------------
@@ -852,7 +946,7 @@ foreach ($kvp in $mergedModels.GetEnumerator()) {
 # Compute sorting keys (Created, OutputPrice) for every merged model
 # ---------------------------------------------------------------------------
 foreach ($m in $mergedModels.Values) {
-    $orm = if ($openRouterLookup.ContainsKey($m.Model)) { $openRouterLookup[$m.Model] } else { $openRouterLookup[(Get-NormalizedModelName $m.Model)] }
+    $orm = Resolve-OpenRouterEntry $m.Model $m.Aliases
     if ($orm) {
         # Created: OpenRouter returns Unix epoch seconds
         if ($orm.created) {
