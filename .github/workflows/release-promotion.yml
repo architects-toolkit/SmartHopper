@@ -77,14 +77,14 @@ jobs:
               versionsToCheck = [specificVersion];
             } else {
               // Discover active stabilization paths via open no-suffix milestones
-              const [openMilestones, { data: releases }] = await Promise.all([
+              const [openMilestones, releases] = await Promise.all([
                 github.paginate(github.rest.issues.listMilestones, {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   state: 'open',
                   per_page: 100
                 }),
-                github.rest.repos.listReleases({
+                github.paginate(github.rest.repos.listReleases, {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   per_page: 100
@@ -115,6 +115,12 @@ jobs:
                   }
                 }
 
+                // Skip if stable version already exists (milestone still open after release)
+                if (releaseTags.has(base)) {
+                  console.log(`Stabilization path ${base}: stable release ${base} already exists, skipping.`);
+                  continue;
+                }
+
                 if (currentStaged) {
                   versionsToCheck.push(currentStaged);
                 } else {
@@ -131,6 +137,9 @@ jobs:
     needs: determine-versions-to-check
     if: needs.determine-versions-to-check.outputs.has-versions == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: "promotion-${{ matrix.version }}"
+      cancel-in-progress: false
     strategy:
       matrix:
         version: ${{ fromJson(needs.determine-versions-to-check.outputs.versions) }}
@@ -149,6 +158,33 @@ jobs:
           days-lookback: '30'
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check for promotion freeze
+        id: check-freeze
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ matrix.version }}';
+            const match = version.match(/^(\d+\.\d+\.\d+)/);
+            const baseVersion = match ? match[1] : version;
+            
+            // Check if any open issue has both a "promotion: freeze" label and a version label for this base version
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'promotion: freeze',
+              state: 'open',
+              per_page: 100
+            });
+            const frozen = issues.some(i =>
+              i.labels.some(l => l.name === `version: ${baseVersion}`)
+            );
+            core.setOutput('frozen', frozen.toString());
+            if (frozen) {
+              console.log(`\u26d4 Promotion frozen for ${baseVersion} \u2014 found open issue with 'promotion: freeze' label`);
+            } else {
+              console.log(`\u2705 No promotion freeze for ${baseVersion}`);
+            }
+
       - name: Determine if promotion needed
         id: should-promote
         shell: pwsh
@@ -157,6 +193,7 @@ jobs:
           $forcePromote = "${{ github.event.inputs.force-promote }}" -eq "true"
           $blockingReason = "${{ steps.check-issues.outputs.blocking-reason }}"
           $version = "${{ matrix.version }}"
+          $frozen = "${{ steps.check-freeze.outputs.frozen }}" -eq "true"
 
           Write-Host "=== Promotion Decision for $version ==="
           Write-Host ""
@@ -168,8 +205,16 @@ jobs:
           if (-not $canPromote) {
             Write-Host "  • Blocking reason: $blockingReason"
           }
+          Write-Host "  • Promotion frozen: $frozen"
           Write-Host "  • Force promote: $forcePromote"
           Write-Host ""
+
+          if ($frozen -and -not $forcePromote) {
+            Write-Host "\u26d4 PROMOTION FROZEN - A 'promotion: freeze' label is active for this version"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "should-promote=false"
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "reason=promotion_frozen"
+            return
+          }
 
           if ($forcePromote) {
             Write-Host "⚠️ FORCE PROMOTION ENABLED - Bypassing all validation checks"
@@ -303,6 +348,7 @@ jobs:
           echo "| **Version Label Issues** | ${{ steps.check-issues.outputs.has-issues == 'false' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.issue-count }} open issue(s) with label |"
           echo "| **Release Age** | ${{ steps.check-issues.outputs.release-old-enough == 'true' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.release-age-days }} days (min: 30) |"
           echo "| **Last Closed Issue** | ${{ steps.check-issues.outputs.last-closed-old-enough == 'true' && '✅ Pass' || '❌ Fail' }} | ${{ steps.check-issues.outputs.last-closed-age-days }} days since last close |"
+          echo "| **Promotion Freeze** | ${{ steps.check-freeze.outputs.frozen == 'false' && '✅ Pass' || '⛔ Frozen' }} | freeze label active: ${{ steps.check-freeze.outputs.frozen }} |"
           echo ""
           echo "### Decision"
           echo ""
@@ -324,3 +370,53 @@ jobs:
             echo ""
             echo "Version ${{ matrix.version }} cannot be promoted at this time."
           fi
+
+      - name: Create or update promotion-blocked issue
+        if: |
+          steps.should-promote.outputs.should-promote == 'false' &&
+          steps.check-issues.outputs.release-old-enough == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const version = '${{ matrix.version }}';
+            const reason = '${{ steps.should-promote.outputs.reason }}';
+            const title = `\u26d4 Promotion blocked: ${version}`;
+            
+            // Check if issue already exists
+            const existing = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open "${title}" in:title`
+            });
+            
+            if (existing.data.total_count === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: `## Promotion Blocked\n\n` +
+                      `**Version:** \`${version}\`\n` +
+                      `**Reason:** ${reason}\n` +
+                      `**Release age:** ${{ steps.check-issues.outputs.release-age-days }} days\n` +
+                      `**Open issues:** ${{ steps.check-issues.outputs.issue-count }}\n` +
+                      `**Last closed issue age:** ${{ steps.check-issues.outputs.last-closed-age-days }} days\n\n` +
+                      `This issue was auto-created because the release is past the 30-day window but cannot be promoted.\n\n` +
+                      `### What to do\n` +
+                      `- Resolve the blocking condition (close open issues, wait for cooldown, etc.)\n` +
+                      `- Or add a \`promotion: freeze\` label to intentionally pause promotion\n` +
+                      `- Promotion will proceed automatically on the next daily run once conditions are met\n` +
+                      `- This issue will NOT be auto-closed \u2014 close it manually once resolved`,
+                labels: ['automation', 'promotion: blocked']
+              });
+              console.log(`Created promotion-blocked issue for ${version}`);
+            } else {
+              // Update the existing issue body with latest stats
+              const issue = existing.data.items[0];
+              const updateBody = issue.body + `\n\n---\n**Update (${new Date().toISOString().split('T')[0]}):** Still blocked. Reason: ${reason}. Release age: ${{ steps.check-issues.outputs.release-age-days }}d. Open issues: ${{ steps.check-issues.outputs.issue-count }}.`;
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: updateBody
+              });
+              console.log(`Updated existing promotion-blocked issue #${issue.number} for ${version}`);
+            }

@@ -75,7 +75,8 @@ runs:
           
           let processedVersion = fullVersion;
           const lastDotIndex = processedVersion.lastIndexOf('.');
-          if (lastDotIndex > processedVersion.indexOf('-')) {
+          const dashIndex = processedVersion.indexOf('-');
+          if (dashIndex !== -1 && lastDotIndex > dashIndex) {
             // Only remove if the dot is after the dash (part of build number)
             processedVersion = processedVersion.substring(0, lastDotIndex);
           }

@@ -62,7 +62,7 @@ Template:
 - Add/adjust unit tests at the base level; keep child tests green.
 - Preserve logs and error messages; avoid weakening diagnostics.
 
-# Commit Behavior
+# Commit behavior
 - Default: targeted change only.
 - If user confirms refactor: implement minimal viable parent extraction + child wiring, backed by tests.
 - If user declines: proceed with user's instructions, whether targeted changes or suggest a deeper-reasoned new architectural approach.

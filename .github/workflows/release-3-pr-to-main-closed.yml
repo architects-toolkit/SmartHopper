@@ -106,17 +106,34 @@ jobs:
               }
             }
 
+      - name: Generate AI Release Notes
+        id: ai_release_notes
+        uses: ./.github/actions/documentation/generate-release-notes
+        with:
+          version: ${{ steps.release_info.outputs.version }}
+          major: ${{ steps.release_info.outputs.major }}
+          minor: ${{ steps.release_info.outputs.minor }}
+          patch: ${{ steps.release_info.outputs.patch }}
+          suffix: ${{ steps.release_info.outputs.suffix }}
+          mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.release_info.outputs.version }}
-          name: "SmartHopper ${{ steps.release_info.outputs.version }}: <add an engaging title here>"
+          name: ${{ steps.ai_release_notes.outputs.title }}
           body: |
-            ${{ github.event.pull_request.body }}
+            ${{ steps.ai_release_notes.outputs.body }}
+            
+            ---
+            
+            <details><summary>Auto-generated release notes</summary>
             
             ${{ steps.issues.outputs.changelog }}
+            
+            </details>
           draft: true
           prerelease: ${{ env.IS_PRERELEASE }}
           target_commitish: ${{ steps.target-branch.outputs.branch }}
