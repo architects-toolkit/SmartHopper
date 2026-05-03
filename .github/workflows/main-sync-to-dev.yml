@@ -1,14 +1,31 @@
-name: 🔁 Sync main to dev* branches
+name: 🔁 Sync main to dev branches
 
-# Description: On changes to the `main` branch, automatically open a PR from
-# `main` into every `dev-*` and the `dev` branch so promotional/long-lived branches stay in
-# sync with CI/workflow/hash updates that land directly on `main`.
+# Description: On changes to the `main` branch, automatically open (or reuse)
+# a PR from `main` into the `dev` branch and, when the diff only touches
+# infrastructure paths, also into every `dev-*` stabilization branch.
 #
-# Behavior:
-# - Discovers all branches named `dev` or matching `dev-*`.
-# - For each target, reuses an existing open PR (head=main, base=<target>) if
-#   one exists; otherwise creates a new one.
-# - Skips targets that are already up-to-date with `main` (no diff).
+# Rationale:
+# - `dev`: always kept in sync with `main` (direct commits to `main` are
+#   workflow/hash tweaks that should flow into ongoing development).
+# - `dev-*` (stabilization branches): frozen release lines. They must NOT
+#   receive new features, but they SHOULD receive:
+#     * any changes under `.github/`, `.windsurf/`, `.githooks/`, `hashes/`
+#       (CI, rules, git hooks, provider hashes — kept consistent across
+#       release lines);
+#     * *modifications* (never additions/renames/removals) to existing
+#       `src/SmartHopper.Providers.*/*ProviderModels.cs` files, so model
+#       verification flips, deprecations, and provider-side model list
+#       updates propagate into frozen lines.
+#   If the diff contains any file outside that allow-list, or a new/renamed/
+#   removed `*ProviderModels.cs` file, the PR to that `dev-*` is skipped
+#   (use `patch-propagate.yml` for targeted backports instead).
+#
+# Behavior per target:
+# - Compares `<target>...main`; skips entirely if no effective file diff.
+# - For `dev-*`, additionally requires all changed files to be within the
+#   allow-listed infra paths.
+# - Reuses an existing open PR (head=main, base=<target>) when present.
+# - Otherwise creates a new PR.
 
 on:
   push:
@@ -27,7 +44,7 @@ jobs:
       targets: ${{ steps.discover.outputs.targets }}
       count: ${{ steps.discover.outputs.count }}
     steps:
-      - name: Discover dev* branches
+      - name: Discover dev and dev-* branches
         id: discover
         uses: actions/github-script@v7
         with:
@@ -42,7 +59,7 @@ jobs:
               .filter(n => n === 'dev' || n.startsWith('dev-'));
             core.setOutput('targets', JSON.stringify(targets));
             core.setOutput('count', targets.length.toString());
-            console.log(`Discovered ${targets.length} dev* branch(es): ${JSON.stringify(targets)}`);
+            console.log(`Discovered ${targets.length} target branch(es): ${JSON.stringify(targets)}`);
 
   sync:
     needs: discover
@@ -64,15 +81,53 @@ jobs:
             const head = 'main';
             const { owner, repo } = context.repo;
 
-            // Skip if branches are identical / already merged.
+            // For `dev-*` (stabilization) branches, restrict to infra-only paths
+            // plus modifications to existing provider model registries.
+            const isStabilization = base !== 'dev' && base.startsWith('dev-');
+            const ALLOWED_PREFIXES = ['.github/', '.windsurf/', '.githooks/', 'hashes/'];
+            // Matches: src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs
+            const PROVIDER_MODELS_RE = /^src\/SmartHopper\.Providers\.[^/]+\/[^/]*ProviderModels\.cs$/;
+            const isAllowedStabilizationFile = (file) => {
+              const p = file.filename;
+              if (ALLOWED_PREFIXES.some(prefix => p.startsWith(prefix))) return true;
+              if (PROVIDER_MODELS_RE.test(p) && file.status === 'modified') return true;
+              return false;
+            };
+
+            // Paginate full file list across the compare.
+            const files = await github.paginate(
+              github.rest.repos.compareCommitsWithBasehead,
+              { owner, repo, basehead: `${base}...${head}`, per_page: 100 },
+              (response) => response.data.files || []
+            );
             const cmp = await github.rest.repos.compareCommitsWithBasehead({
-              owner, repo,
-              basehead: `${base}...${head}`,
+              owner, repo, basehead: `${base}...${head}`,
             });
-            console.log(`Compare ${base}...${head}: status=${cmp.data.status}, ahead_by=${cmp.data.ahead_by}`);
-            if (cmp.data.ahead_by === 0) {
-              core.info(`No commits from ${head} to merge into ${base}; skipping.`);
+            console.log(
+              `Compare ${base}...${head}: status=${cmp.data.status}, ` +
+              `ahead_by=${cmp.data.ahead_by}, behind_by=${cmp.data.behind_by}, files=${files.length}`
+            );
+            if (cmp.data.ahead_by === 0 || files.length === 0) {
+              core.info(`No effective diff between \`${head}\` and \`${base}\`; skipping.`);
               return;
+            }
+
+            if (isStabilization) {
+              const outside = files
+                .filter(f => !isAllowedStabilizationFile(f))
+                .map(f => `${f.filename} [${f.status}]`);
+              if (outside.length > 0) {
+                core.warning(
+                  `Skipping \`${base}\`: diff contains paths that must not flow into ` +
+                  `stabilization branches (allow-list: ${ALLOWED_PREFIXES.join(', ')} and ` +
+                  `*modifications* to existing src/SmartHopper.Providers.*/*ProviderModels.cs). ` +
+                  `Use \`patch-propagate.yml\` for targeted backports.\n` +
+                  `Offending files (first 10): ${outside.slice(0, 10).join(', ')}` +
+                  (outside.length > 10 ? ` … (+${outside.length - 10} more)` : '')
+                );
+                return;
+              }
+              core.info(`All ${files.length} changed file(s) are within the stabilization allow-list for \`${base}\`.`);
             }
 
             // Look for an existing open PR to reuse.
