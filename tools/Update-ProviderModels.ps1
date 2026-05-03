@@ -447,10 +447,35 @@ function Resolve-OpenRouterEntry($modelId, $aliases) {
             [void]$candidates.Add((Get-NormalizedModelName $a))
         }
     }
+
+    # Collect all distinct OpenRouter matches across the candidate set, then
+    # pick the most recent (tiebreak: highest output price). This matters when
+    # several aliases each map to a different OpenRouter entry — the canonical
+    # should reflect the newest release, not whichever alias was checked first.
+    $hits = [System.Collections.Generic.List[object]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($key in $candidates) {
-        if ($openRouterLookup.ContainsKey($key)) { return $openRouterLookup[$key] }
+        if (-not $openRouterLookup.ContainsKey($key)) { continue }
+        $orm = $openRouterLookup[$key]
+        $ormId = if ($orm.id) { [string]$orm.id } else { $key }
+        if ($seen.Add($ormId)) { [void]$hits.Add($orm) }
     }
-    return $null
+
+    if ($hits.Count -eq 0) { return $null }
+    if ($hits.Count -eq 1) { return $hits[0] }
+
+    return $hits | Sort-Object -Property `
+        @{ Expression = { if ($_.created) { [long]$_.created } else { 0 } }; Descending = $true },
+        @{ Expression = {
+            $p = 0.0
+            if ($_.pricing.completion)    { $p += [double]$_.pricing.completion }
+            if ($_.pricing.image_output)  { $p += [double]$_.pricing.image_output }
+            elseif ($_.pricing.image)     { $p += [double]$_.pricing.image }
+            if ($_.pricing.audio_output)  { $p += [double]$_.pricing.audio_output }
+            elseif ($_.pricing.audio)     { $p += [double]$_.pricing.audio }
+            $p
+        }; Descending = $true } |
+        Select-Object -First 1
 }
 
 # Build quick lookup by stored model name (original + normalized for cross-reference matching)
