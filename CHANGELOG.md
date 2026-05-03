@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - chore(rules): clarified Windsurf rules and workflows to reduce overlap, stale platform assumptions, and ambiguous SmartHopper architecture guidance.
+- ci(pr-build-hash-validation): the `validate-no-manual-hash-edits` job now only blocks a PR when a changed file under `hashes/` differs from its counterpart on `main` (the source of truth). PRs that carry a hash commit verbatim from main (e.g., via branch update/rebase) are allowed.
 
 ## [1.4.2-alpha] - 2026-03-14
 
