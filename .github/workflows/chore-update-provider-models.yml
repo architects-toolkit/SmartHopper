@@ -1,0 +1,136 @@
+name: 🔄 Update Provider Models
+
+# Description: Scheduled CI that queries OpenRouter's unified /models endpoint as the
+# single source of truth, then updates each provider's *ProviderModels.cs file.
+# Auto-inserts new models with capabilities mapped from OpenRouter metadata
+# (architecture.modalities, supported_parameters, context_length), marks models
+# with expiration_date < 1 year as deprecated, and flags disappeared models.
+#
+# Triggers:
+#   - workflow_dispatch: manual run with optional provider filter
+#   - schedule: every Sunday 5:00 UTC
+
+on:
+  schedule:
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      provider_filter:
+        description: 'Comma-separated provider(s) to process (empty = all)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  fetch-and-update:
+    name: ${{ matrix.provider }}
+    runs-on: windows-latest
+    concurrency:
+      group: provider-models-${{ matrix.provider }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: OpenAI
+          - provider: MistralAI
+          - provider: Anthropic
+          - provider: OpenRouter
+          - provider: DeepSeek
+    steps:
+      - name: Skip if secret is absent or filtered out
+        id: check
+        shell: bash
+        env:
+          API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          FILTER: ${{ github.event.inputs.provider_filter || '' }}
+        run: |
+          if [ -z "$API_KEY" ]; then
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            echo "Secret OPENROUTER_API_KEY is not configured. Skipping ${{ matrix.provider }}."
+          elif [ -n "$FILTER" ]; then
+            normalized="${FILTER// /}"
+            if [[ ",${normalized}," != *",${{ matrix.provider }},"* ]]; then
+              echo "skipped=true" >> "$GITHUB_OUTPUT"
+              echo "Provider ${{ matrix.provider }} not in filter '$FILTER'. Skipping."
+            else
+              echo "skipped=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout main
+        if: steps.check.outputs.skipped == 'false'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+
+      - name: Fetch and compare models for ${{ matrix.provider }}
+        if: steps.check.outputs.skipped == 'false'
+        id: models
+        uses: ./.github/actions/ai/fetch-models
+        with:
+          provider: ${{ matrix.provider }}
+          api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          provider-api-key: ${{ (matrix.provider == 'OpenAI' && secrets.OPENAI_API_KEY) || (matrix.provider == 'MistralAI' && secrets.MISTRAL_API_KEY) || (matrix.provider == 'Anthropic' && secrets.ANTHROPIC_API_KEY) || (matrix.provider == 'DeepSeek' && secrets.DEEPSEEK_API_KEY) || '' }}
+          update-file: true
+
+      - name: Emit step summary
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.success == 'true'
+        shell: pwsh
+        run: |
+          $reportJson = '${{ steps.models.outputs.report }}'
+          $report = $reportJson | ConvertFrom-Json
+          Write-Output "## ${{ matrix.provider }} model scan" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- API models: $($report.apiModels.Count)" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- Source models: $($report.sourceModels.Count)" >> $env:GITHUB_STEP_SUMMARY
+          if ($report.newModels.Count -gt 0) {
+            Write-Output "- **New models:** ``$($report.newModels -join ', ')``" >> $env:GITHUB_STEP_SUMMARY
+          }
+          if ($report.deprecatedModels.Count -gt 0) {
+            Write-Output "- **Deprecated models:** ``$($report.deprecatedModels -join ', ')``" >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Emit no-changes summary
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.success == 'true' && steps.models.outputs.changed == 'false'
+        shell: pwsh
+        run: |
+          Write-Output "## ${{ matrix.provider }} model scan" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- API models: $($env:MODEL_COUNT)" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **No changes** detected in source file; no PR created." >> $env:GITHUB_STEP_SUMMARY
+        env:
+          MODEL_COUNT: ${{ steps.models.outputs.count }}
+
+      - name: Create Pull Request
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(models): update ${{ matrix.provider }} model list [ci skip]"
+          title: "chore(models): auto-add new and deprecate stale ${{ matrix.provider }} models"
+          body: |
+            Auto-generated PR from `.github/workflows/chore-update-provider-models.yml`.
+
+            ### Scan results for `${{ matrix.provider }}`
+            ````json
+            ${{ steps.models.outputs.report }}
+            ````
+
+            **Actions taken:**
+            - New models discovered via OpenRouter are auto-inserted with capabilities mapped from `architecture.modalities` and `supported_parameters`.
+            - Disappeared models (or models with `expiration_date` < 1 year) are marked `Deprecated = true`.
+            - Existing model `Capabilities` and `ContextLimit` are refreshed from OpenRouter metadata.
+            - `Rank` values are auto-computed from OpenRouter data: newer models rank higher, and within the same creation period cheaper output pricing ranks higher.
+
+            **Requires manual review:**
+            - Verify `Default` and `Verified` flags for newly added models.
+          branch: "chore/update-models-${{ matrix.provider }}"
+          base: main
+          delete-branch: true
+          labels: |
+            automated

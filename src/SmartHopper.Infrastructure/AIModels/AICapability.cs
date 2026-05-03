@@ -50,9 +50,9 @@ namespace SmartHopper.Infrastructure.AIModels
         AudioInput = 1 << 2,
 
         /// <summary>
-        /// Supports accepting structured JSON input.
+        /// Supports accepting video input (video understanding or analysis).
         /// </summary>
-        JsonInput = 1 << 3,
+        VideoInput = 1 << 3,
 
         // Output capabilities
 
@@ -87,6 +87,16 @@ namespace SmartHopper.Infrastructure.AIModels
         /// Enhanced reasoning capabilities (e.g., long deliberation or thinking).
         /// </summary>
         Reasoning = 1 << 9,
+
+        /// <summary>
+        /// Can generate video as output.
+        /// </summary>
+        VideoOutput = 1 << 10,
+
+        /// <summary>
+        /// Can produce embedding vectors as output (for similarity search, clustering, etc.).
+        /// </summary>
+        EmbedOutput = 1 << 11,
 
         // Composite capabilities for default definition
 
@@ -186,14 +196,24 @@ namespace SmartHopper.Infrastructure.AIModels
                 flags.Add("AudioInput");
             }
 
+            if ((capabilities & AICapability.VideoInput) == AICapability.VideoInput)
+            {
+                flags.Add("VideoInput");
+            }
+
             if ((capabilities & AICapability.AudioOutput) == AICapability.AudioOutput)
             {
                 flags.Add("AudioOutput");
             }
 
-            if ((capabilities & AICapability.JsonInput) == AICapability.JsonInput)
+            if ((capabilities & AICapability.VideoOutput) == AICapability.VideoOutput)
             {
-                flags.Add("JsonInput");
+                flags.Add("VideoOutput");
+            }
+
+            if ((capabilities & AICapability.EmbedOutput) == AICapability.EmbedOutput)
+            {
+                flags.Add("EmbedOutput");
             }
 
             if ((capabilities & AICapability.JsonOutput) == AICapability.JsonOutput)
@@ -224,7 +244,7 @@ namespace SmartHopper.Infrastructure.AIModels
             return (capability & AICapability.TextInput) == AICapability.TextInput ||
                    (capability & AICapability.ImageInput) == AICapability.ImageInput ||
                    (capability & AICapability.AudioInput) == AICapability.AudioInput ||
-                   (capability & AICapability.JsonInput) == AICapability.JsonInput;
+                   (capability & AICapability.VideoInput) == AICapability.VideoInput;
         }
 
         /// <summary>
@@ -237,7 +257,9 @@ namespace SmartHopper.Infrastructure.AIModels
             return (capability & AICapability.TextOutput) == AICapability.TextOutput ||
                    (capability & AICapability.ImageOutput) == AICapability.ImageOutput ||
                    (capability & AICapability.AudioOutput) == AICapability.AudioOutput ||
-                   (capability & AICapability.JsonOutput) == AICapability.JsonOutput;
+                   (capability & AICapability.JsonOutput) == AICapability.JsonOutput ||
+                   (capability & AICapability.VideoOutput) == AICapability.VideoOutput ||
+                   (capability & AICapability.EmbedOutput) == AICapability.EmbedOutput;
         }
 
         /// <summary>
