@@ -1,0 +1,116 @@
+name: 🔁 Sync main to dev* branches
+
+# Description: On changes to the `main` branch, automatically open a PR from
+# `main` into every `dev-*` and the `dev` branch so promotional/long-lived branches stay in
+# sync with CI/workflow/hash updates that land directly on `main`.
+#
+# Behavior:
+# - Discovers all branches named `dev` or matching `dev-*`.
+# - For each target, reuses an existing open PR (head=main, base=<target>) if
+#   one exists; otherwise creates a new one.
+# - Skips targets that are already up-to-date with `main` (no diff).
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.discover.outputs.targets }}
+      count: ${{ steps.discover.outputs.count }}
+    steps:
+      - name: Discover dev* branches
+        id: discover
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            const targets = branches
+              .map(b => b.name)
+              .filter(n => n === 'dev' || n.startsWith('dev-'));
+            core.setOutput('targets', JSON.stringify(targets));
+            core.setOutput('count', targets.length.toString());
+            console.log(`Discovered ${targets.length} dev* branch(es): ${JSON.stringify(targets)}`);
+
+  sync:
+    needs: discover
+    if: needs.discover.outputs.count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.discover.outputs.targets) }}
+    concurrency:
+      group: "main-sync-${{ matrix.target }}"
+      cancel-in-progress: false
+    steps:
+      - name: Ensure or reuse PR main → ${{ matrix.target }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const base = '${{ matrix.target }}';
+            const head = 'main';
+            const { owner, repo } = context.repo;
+
+            // Skip if branches are identical / already merged.
+            const cmp = await github.rest.repos.compareCommitsWithBasehead({
+              owner, repo,
+              basehead: `${base}...${head}`,
+            });
+            console.log(`Compare ${base}...${head}: status=${cmp.data.status}, ahead_by=${cmp.data.ahead_by}`);
+            if (cmp.data.ahead_by === 0) {
+              core.info(`No commits from ${head} to merge into ${base}; skipping.`);
+              return;
+            }
+
+            // Look for an existing open PR to reuse.
+            const existing = await github.rest.pulls.list({
+              owner, repo,
+              state: 'open',
+              head: `${owner}:${head}`,
+              base,
+              per_page: 1,
+            });
+            if (existing.data.length > 0) {
+              const pr = existing.data[0];
+              core.info(`Reusing existing open PR #${pr.number}: ${pr.html_url}`);
+              core.summary.addRaw(`- ♻️ Reused PR [#${pr.number}](${pr.html_url}) → \`${base}\`\n`);
+              await core.summary.write();
+              return;
+            }
+
+            // Otherwise create a new PR.
+            const title = `chore: sync main → ${base}`;
+            const body = [
+              `Automated sync of direct commits to \`main\` (e.g., workflow or hash updates) into \`${base}\`.`,
+              '',
+              `- Source: \`${head}\``,
+              `- Target: \`${base}\``,
+              `- Commits ahead: ${cmp.data.ahead_by}`,
+              '',
+              'This PR is kept open and reused on subsequent `main` updates.',
+            ].join('\n');
+
+            try {
+              const created = await github.rest.pulls.create({
+                owner, repo, head, base, title, body,
+                maintainer_can_modify: true,
+              });
+              core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
+              core.summary.addRaw(`- ✅ Created PR [#${created.data.number}](${created.data.html_url}) → \`${base}\`\n`);
+              await core.summary.write();
+            } catch (err) {
+              core.setFailed(`Failed to create PR main → ${base}: ${err.message}`);
+            }

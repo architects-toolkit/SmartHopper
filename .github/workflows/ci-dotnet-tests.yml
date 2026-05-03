@@ -32,6 +32,10 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Job 1: Windows-only prep step - generates SNK, updates InternalsVisibleTo in csproj files
   # This ensures the public key is embedded in source files before cross-platform compilation
