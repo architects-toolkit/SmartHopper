@@ -875,7 +875,7 @@ else {
                 Capabilities          = $enrichment.Capabilities
                 Verified              = 'false'
                 Deprecated            = if ($enrichment.Deprecated) { 'true' } else { $null }
-                SupportsStreaming     = 'true'
+                SupportsStreaming     = $null
                 SupportsPromptCaching = $null
                 Rank                  = '50'
                 ContextLimit          = $enrichment.ContextLimit
