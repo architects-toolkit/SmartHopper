@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -47,16 +47,35 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
+                // Released between February 2026 and May 2026
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "deepseek-reasoner",
+                    Model = "deepseek-v4-flash",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.ToolReasoningChat,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
-                    Rank = 80,
-                    ContextLimit = 64000,
+                    Verified = false,
+                    Rank = 1000,
+                    ContextLimit = 1048576,
                 },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4-pro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 995,
+                    ContextLimit = 1048576,
+                },
+
+
+
+                // Deprecated models
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -64,9 +83,22 @@ namespace SmartHopper.Providers.DeepSeek
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     Default = AICapability.Text2Text | AICapability.ToolChat,
                     SupportsStreaming = true,
-                    Rank = 90,
+                    Deprecated = true,
+                    Rank = 0,
                     ContextLimit = 60000,
                 },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-reasoner",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.ToolReasoningChat,
+                    SupportsStreaming = true,
+                    Deprecated = true,
+                    Rank = -5,
+                    ContextLimit = 64000,
+                }
             };
 
             return Task.FromResult(models);
