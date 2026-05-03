@@ -1,0 +1,92 @@
+# Reusable action that delegates to tools/Update-ProviderModels.ps1.
+# OpenRouter is used as the single source of truth; the script queries
+# OpenRouter's /models endpoint, filters by provider prefix, and updates
+# the *ProviderModels.cs file with full capabilities mapped from metadata.
+#
+# Usage:
+#   - uses: ./.github/actions/ai/fetch-models
+#     with:
+#       provider: OpenAI
+#       api-key: ${{ secrets.OPENROUTER_API_KEY }}
+#       update-file: true
+
+name: 'Fetch AI Provider Models'
+description: 'Fetch model metadata from OpenRouter and update *ProviderModels.cs via the centralized Update-ProviderModels.ps1 tool'
+
+inputs:
+  provider:
+    description: 'Provider identifier (e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek)'
+    required: true
+  api-key:
+    description: 'OpenRouter API key (used as the single source of truth for all providers)'
+    required: true
+  update-file:
+    description: 'When true, the script rewrites the source file: auto-inserts new models with capabilities mapped from OpenRouter metadata, updates existing model capabilities/ContextLimit, and marks disappeared or expiring models as Deprecated = true'
+    required: false
+    default: 'false'
+
+outputs:
+  models:
+    description: 'JSON array of model ID strings returned by the API'
+    value: ${{ steps.run.outputs.models }}
+  count:
+    description: 'Number of distinct models returned'
+    value: ${{ steps.run.outputs.count }}
+  success:
+    description: 'Whether the operation succeeded'
+    value: ${{ steps.run.outputs.success }}
+  error:
+    description: 'Error message if the call failed'
+    value: ${{ steps.run.outputs.error }}
+  report:
+    description: 'Full JSON report emitted by Update-ProviderModels.ps1'
+    value: ${{ steps.run.outputs.report }}
+  changed:
+    description: 'Whether the source file was modified'
+    value: ${{ steps.run.outputs.changed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Update-ProviderModels.ps1
+      id: run
+      shell: pwsh
+      env:
+        API_KEY: ${{ inputs.api-key }}
+      run: |
+        $params = @{
+          Provider = '${{ inputs.provider }}'
+          ApiKey   = $env:API_KEY
+        }
+        if ('${{ inputs.update-file }}' -eq 'true') {
+          $params['UpdateFile'] = $true
+        }
+
+        try {
+          $reportJson = & .\tools\Update-ProviderModels.ps1 @params
+          $report = $reportJson | ConvertFrom-Json
+
+          $modelsJson = ($report.apiModels | ConvertTo-Json -Compress)
+          if ($modelsJson -eq 'null') { $modelsJson = '[]' }
+
+          "success=true"   >> $env:GITHUB_OUTPUT
+          "error="         >> $env:GITHUB_OUTPUT
+          "changed=$($report.fileUpdated)" >> $env:GITHUB_OUTPUT
+          "count=$($report.apiModels.Count)" >> $env:GITHUB_OUTPUT
+
+          "models<<EOF_MODELS" >> $env:GITHUB_OUTPUT
+          "$modelsJson" >> $env:GITHUB_OUTPUT
+          "EOF_MODELS" >> $env:GITHUB_OUTPUT
+
+          "report<<EOF_REPORT" >> $env:GITHUB_OUTPUT
+          "$reportJson" >> $env:GITHUB_OUTPUT
+          "EOF_REPORT" >> $env:GITHUB_OUTPUT
+        }
+        catch {
+          "success=false" >> $env:GITHUB_OUTPUT
+          "error=$($_.Exception.Message)" >> $env:GITHUB_OUTPUT
+          "changed=false" >> $env:GITHUB_OUTPUT
+          "count=0" >> $env:GITHUB_OUTPUT
+          "models=[]" >> $env:GITHUB_OUTPUT
+          "report={}" >> $env:GITHUB_OUTPUT
+        }
