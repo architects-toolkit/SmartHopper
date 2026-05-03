@@ -917,7 +917,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "text-embedding-3-large",
-                    Capabilities = AICapability.TextInput | AICapability.Embedding,
+                    Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9645,
@@ -927,7 +927,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "text-embedding-3-small",
-                    Capabilities = AICapability.TextInput | AICapability.Embedding,
+                    Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9640,
@@ -1146,7 +1146,7 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "text-embedding-ada-002",
-                    Capabilities = AICapability.TextInput | AICapability.Embedding,
+                    Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
