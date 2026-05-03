@@ -10,9 +10,9 @@ AI tools that return JSON should attach a metadata envelope under the reserved r
 ## Pattern
 
 1. Build a root `JObject`.
-2. Place the payload at a predictable key such as `result`, `list`, `image`, `components`, or a documented domain-specific key.
+2. Place the payload at a predictable key such as `result`, `list`, `json`, `description`, `image`, `components`, or another documented domain-specific key.
 3. Attach `ToolResultEnvelope` with `WithEnvelope(...)` or the extension helpers.
-4. Add the wrapped payload to the interaction stream with `AIBody.AddInteractionToolResult(...)` or return it through `AIReturn`.
+4. Add the wrapped payload to the interaction stream with `AIBodyBuilder.AddToolResult(...)`/the current body-builder API, or return it through `AIReturn` when the caller wraps it.
 
 ## Envelope content
 
@@ -23,7 +23,7 @@ Include useful metadata when available:
 - Tool-call identifier.
 - Content type.
 - Payload path.
-- Schema reference or compatibility metadata for structured outputs.
+- Schema reference or compatibility keys for structured outputs.
 
 ## Compatibility
 
