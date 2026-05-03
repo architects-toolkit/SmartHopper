@@ -1048,10 +1048,10 @@ if ($UpdateFile) {
         @{ Expression = { $_.Model }; Ascending = $true }
     )
 
-    # Assign ranks: non-deprecated models get descending ranks starting at 1000, in steps of 5
+    # Assign ranks: non-deprecated models get descending ranks starting at 10000, in steps of 5
     $nonDeprecated = $sorted | Where-Object { $_.Deprecated -ne 'true' }
     for ($i = 0; $i -lt $nonDeprecated.Count; $i++) {
-        $nonDeprecated[$i].Rank = (1000 - ($i * 5)).ToString()
+        $nonDeprecated[$i].Rank = (10000 - ($i * 5)).ToString()
     }
 
     # Deprecated models get low ranks starting at 0, in steps of 5
