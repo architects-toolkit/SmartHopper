@@ -212,7 +212,7 @@ jobs:
                       `**SHAs:** \`${shas}\`\n` +
                       `**Source branch:** \`${{ inputs.source-branch }}\`\n\n` +
                       `Please review the workflow run and resolve any draft PRs with conflict markers.`,
-                labels: ['automation', 'needs-attention']
+                labels: ['automated', 'needs-attention']
               });
               console.log('Created needs-attention issue for failed propagation');
             } else {
