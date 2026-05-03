@@ -191,7 +191,8 @@ function Format-ModelBlock($model, $providerVar) {
     $lines.Add("                    Model = `"$($model.Model)`",")
 
     if (-not [string]::IsNullOrWhiteSpace($model.Capabilities)) {
-        $lines.Add("                    Capabilities = $($model.Capabilities),")
+        $suffix = if ($model.Capabilities -eq 'AICapability.None') { ' // TODO: retrieve capabilities' } else { '' }
+        $lines.Add("                    Capabilities = $($model.Capabilities),$suffix")
     }
 
     if (-not [string]::IsNullOrWhiteSpace($model.Default) -and $model.Default -ne 'AICapability.None') {
@@ -457,28 +458,78 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
 }
 
 # ---------------------------------------------------------------------------
-# Helper: Extract aliases from a provider API model object.
+# Build provider-API alias + deprecation maps.
 #
-# Alias support by provider:
-#   MistralAI  - returns an "aliases" array directly on each model object.
-#   Anthropic  - alias IDs appear as separate entries in the list; the API
-#                offers no reverse mapping in the list response.
-#   OpenAI     - no alias field in the model object.
-#   DeepSeek   - no alias field in the model object.
+# Grouping strategy per provider:
+#   MistralAI  - Group by the "name" field (authoritative canonical). Every
+#                API entry whose .name == N belongs to the same logical model;
+#                the canonical id is N itself. The per-entry "aliases" array
+#                is merged in as a supplement (it is sometimes incomplete).
+#                "deprecation" != null on any group member marks the canonical
+#                as deprecated.
+#   Other     - Use the per-entry "aliases" array when present (OpenAI /
+#                Anthropic / DeepSeek currently don't expose aliases, so the
+#                map is typically empty).
 # ---------------------------------------------------------------------------
-function Get-ProviderApiAliases($pm) {
-    if (-not $pm) { return @() }
+$apiAliasesByCanonical   = @{}
+$apiCanonicalByAlias     = [System.Collections.Generic.Dictionary[string,string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+$apiDeprecatedCanonicals = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    switch ($Provider) {
-        'MistralAI' {
-            # MistralAI model object: { "aliases": ["mistral-large", ...] }
+if ($providerApiQueried) {
+    if ($Provider -eq 'MistralAI') {
+        $groups = @{}
+        foreach ($pmId in $providerApiModelNames) {
+            $pm = $providerApiLookup[$pmId]
+            $grpKey = if (-not [string]::IsNullOrWhiteSpace($pm.name)) { $pm.name } else { $pmId }
+            if (-not $groups.ContainsKey($grpKey)) {
+                $groups[$grpKey] = [System.Collections.Generic.List[string]]::new()
+            }
+            [void]$groups[$grpKey].Add($pmId)
+        }
+
+        foreach ($kvp in $groups.GetEnumerator()) {
+            $canonical = $kvp.Key
+            $aliasSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $aliasList = [System.Collections.Generic.List[string]]::new()
+
+            foreach ($id in $kvp.Value) {
+                if (-not [string]::Equals($id, $canonical, 'OrdinalIgnoreCase') -and $aliasSet.Add($id)) {
+                    [void]$aliasList.Add($id)
+                }
+                $pm = $providerApiLookup[$id]
+                if ($pm.aliases) {
+                    foreach ($a in $pm.aliases) {
+                        if ([string]::IsNullOrWhiteSpace($a)) { continue }
+                        if ([string]::Equals($a, $canonical, 'OrdinalIgnoreCase')) { continue }
+                        if ($aliasSet.Add($a)) { [void]$aliasList.Add($a) }
+                    }
+                }
+                if ($null -ne $pm.deprecation) {
+                    [void]$apiDeprecatedCanonicals.Add($canonical)
+                }
+            }
+
+            $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
+        }
+    }
+    else {
+        foreach ($pmId in $providerApiModelNames) {
+            $pm = $providerApiLookup[$pmId]
             if ($pm.aliases -and $pm.aliases.Count -gt 0) {
-                return @($pm.aliases | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+                $apiAliasesByCanonical[$pmId] = @($pm.aliases | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
             }
         }
-        # OpenAI, Anthropic, DeepSeek, OpenRouter: no alias field in list response.
     }
-    return @()
+
+    # Reverse map: alias -> canonical.
+    foreach ($kvp in $apiAliasesByCanonical.GetEnumerator()) {
+        foreach ($a in $kvp.Value) {
+            if ([string]::Equals($a, $kvp.Key, 'OrdinalIgnoreCase')) { continue }
+            if (-not $apiCanonicalByAlias.ContainsKey($a)) {
+                $apiCanonicalByAlias[$a] = $kvp.Key
+            }
+        }
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -506,24 +557,11 @@ function Get-OpenRouterEnrichment($orm) {
 }
 
 # ---------------------------------------------------------------------------
-# Build alias map from provider API and collapse existing source entries that
-# are keyed by an alias into their canonical (primary) model id. The canonical
-# id is the one the provider's own API uses as the primary model name; alias
-# ids are secondary names the API also accepts (and often returns as separate
-# entries in the /models list). Ensures each model has a single entry.
+# Collapse existing source entries keyed by an alias into their canonical id
+# (built in $apiCanonicalByAlias above). Ensures each logical model has a
+# single entry after the seed.
 # ---------------------------------------------------------------------------
-$apiCanonicalByAlias = [System.Collections.Generic.Dictionary[string,string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 if ($providerApiQueried) {
-    foreach ($pmId in $providerApiModelNames) {
-        $aliases = Get-ProviderApiAliases -pm $providerApiLookup[$pmId]
-        foreach ($a in $aliases) {
-            if ([string]::Equals($a, $pmId, 'OrdinalIgnoreCase')) { continue }
-            if (-not $apiCanonicalByAlias.ContainsKey($a)) {
-                $apiCanonicalByAlias[$a] = $pmId
-            }
-        }
-    }
-
     if ($apiCanonicalByAlias.Count -gt 0) {
         $rekeyed = [ordered]@{}
         foreach ($kvp in $mergedModels.GetEnumerator()) {
@@ -596,13 +634,15 @@ if ($providerApiQueried) {
         # Skip API ids that are aliases of another canonical (avoids duplicate entries).
         if ($apiCanonicalByAlias.ContainsKey($pmId)) { continue }
 
-        $apiAliases = Get-ProviderApiAliases -pm $providerApiLookup[$pmId]
+        $apiAliases = if ($apiAliasesByCanonical.ContainsKey($pmId)) { @($apiAliasesByCanonical[$pmId]) } else { @() }
+        $isApiDeprecated = $apiDeprecatedCanonicals.Contains($pmId)
 
         if ($mergedModels.Contains($pmId)) {
             # Preserve all hand-curated data but update aliases from provider API
-            # (additive merge: keep existing aliases, add any new ones from the API).
+            # (additive merge: keep existing aliases, add any new ones from the API)
+            # and propagate provider deprecation flag.
+            $existing = $mergedModels[$pmId]
             if ($apiAliases.Count -gt 0) {
-                $existing = $mergedModels[$pmId]
                 $currentAliases = [System.Collections.Generic.List[string]]::new()
                 if ($existing.Aliases) {
                     foreach ($a in @($existing.Aliases)) { [void]$currentAliases.Add($a) }
@@ -612,6 +652,7 @@ if ($providerApiQueried) {
                 }
                 $existing.Aliases = $currentAliases.ToArray()
             }
+            if ($isApiDeprecated) { $existing.Deprecated = 'true' }
             continue
         }
 
@@ -623,7 +664,7 @@ if ($providerApiQueried) {
             'AICapability.None'
         }
 
-        $deprecated = if ($enrichment -and $enrichment.Deprecated) { 'true' } else { $null }
+        $deprecated = if ($isApiDeprecated -or ($enrichment -and $enrichment.Deprecated)) { 'true' } else { $null }
         $ctx        = if ($enrichment) { $enrichment.ContextLimit } else { $null }
 
         $mergedModels[$pmId] = [pscustomobject][ordered]@{
