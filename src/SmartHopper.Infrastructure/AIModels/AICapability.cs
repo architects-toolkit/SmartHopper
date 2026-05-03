@@ -103,12 +103,12 @@ namespace SmartHopper.Infrastructure.AIModels
         /// <summary>
         /// Can generate video as output.
         /// </summary>
-        VideoOutput = 1 << 10,
+        VideoOutput = 1 << 12,
 
         /// <summary>
         /// Can produce embedding vectors as output (for similarity search, clustering, etc.).
         /// </summary>
-        EmbedOutput = 1 << 11,
+        EmbedOutput = 1 << 13,
 
         // Composite capabilities for default definition
 
