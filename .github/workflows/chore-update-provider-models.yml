@@ -133,4 +133,4 @@ jobs:
           base: main
           delete-branch: true
           labels: |
-            automation
+            automated

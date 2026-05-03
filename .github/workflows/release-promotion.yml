@@ -405,7 +405,7 @@ jobs:
                       `- Or add a \`promotion: freeze\` label to intentionally pause promotion\n` +
                       `- Promotion will proceed automatically on the next daily run once conditions are met\n` +
                       `- This issue will NOT be auto-closed \u2014 close it manually once resolved`,
-                labels: ['automation', 'promotion: blocked']
+                labels: ['automated', 'promotion: blocked']
               });
               console.log(`Created promotion-blocked issue for ${version}`);
             } else {
