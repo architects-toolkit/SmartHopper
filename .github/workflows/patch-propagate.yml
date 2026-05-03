@@ -122,7 +122,7 @@ jobs:
           json=$(echo "$raw" \
             | tr ',' '\n' \
             | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
-            | grep -v '^$' \
+            | awk 'NF' \
             | jq -R . | jq -sc .)
           count=$(echo "$json" | jq 'length')
           echo "targets=$json" >> "$GITHUB_OUTPUT"
@@ -170,16 +170,23 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### 🍒 Patch → \`${{ matrix.target }}\`"
+            echo "### 🍒 Patch → `${{ matrix.target }}`"
             echo ""
             echo "- **Status:** ${{ steps.cp.outputs.status || 'failed' }}"
-            echo "- **Branch:** \`${{ steps.cp.outputs.branch-name }}\`"
+            echo "- **Branch:** `${{ steps.cp.outputs.branch-name }}`"
             echo "- **Conflicts:** ${{ steps.cp.outputs.has-conflicts || 'n/a' }}"
             if [ -n "${{ steps.cp.outputs.pr-url }}" ]; then
               echo "- **PR:** [#${{ steps.cp.outputs.pr-number }}](${{ steps.cp.outputs.pr-url }})"
             fi
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on unresolved conflicts
+        if: steps.cp.outputs.has-conflicts == 'true'
+        shell: bash
+        run: |
+          echo "::error::Cherry-pick to ${{ matrix.target }} had conflicts. PR created with conflict markers for manual resolution."
+          exit 1
 
   summary:
     needs: [resolve, propagate]

@@ -146,6 +146,7 @@ Many thanks to the following contributors to this release:
 - **All providers** (`OpenAI`, `Anthropic`, `MistralAI`, `DeepSeek`, `OpenRouter`): `Encode()` now performs per-property resolution — each parameter (Temperature, MaxTokens, TopP, Seed, and provider-specific extras) reads from `request.Parameters` first, falling back to global provider settings. Previously all providers read exclusively from global settings.
 - **`AIRequestBase`**: Added `AIRequestParameters Parameters { get; set; }` property.
 - chore(rules): clarified Windsurf rules and workflows to reduce overlap, stale platform assumptions, and ambiguous SmartHopper architecture guidance.
+- ci(pr-build-hash-validation): the `validate-no-manual-hash-edits` job now only blocks a PR when a changed file under `hashes/` differs from its counterpart on `main` (the source of truth). PRs that carry a hash commit verbatim from main (e.g., via branch update/rebase) are allowed.
 
 ### Removed
 
