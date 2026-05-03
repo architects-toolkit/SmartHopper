@@ -559,6 +559,7 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
 #                is merged in as a supplement (it is sometimes incomplete).
 #                "deprecation" != null on any group member marks the canonical
 #                as deprecated.
+<<<<<<< HEAD
 #   OpenAI/Anthropic - No "aliases" field in the API; instead, dated suffixes
 #                in the id encode the alias relationship. Group by stripping
 #                the suffix (-YYYY-MM-DD / -YYYYMMDD / -latest) to get a base
@@ -567,6 +568,11 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
 #                $ProviderAliasSuffix table above.
 #   Other       - Use the per-entry "aliases" array when present (DeepSeek
 #                currently doesn't expose aliases, so the map is empty).
+=======
+#   Other     - Use the per-entry "aliases" array when present (OpenAI /
+#                Anthropic / DeepSeek currently don't expose aliases, so the
+#                map is typically empty).
+>>>>>>> 8418e069 (refactor: remove JsonInput capability and add wildcard support for DiscouragedForTools)
 # ---------------------------------------------------------------------------
 $apiAliasesByCanonical   = @{}
 $apiCanonicalByAlias     = [System.Collections.Generic.Dictionary[string,string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -609,6 +615,7 @@ if ($providerApiQueried) {
             $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
         }
     }
+<<<<<<< HEAD
     elseif ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provider]) {
         # Suffix-based grouping (OpenAI, Anthropic):
         #   baseKey   = id with -YYYY-MM-DD / -YYYYMMDD / -latest stripped
@@ -683,6 +690,8 @@ if ($providerApiQueried) {
             }
         }
     }
+=======
+>>>>>>> 8418e069 (refactor: remove JsonInput capability and add wildcard support for DiscouragedForTools)
     else {
         foreach ($pmId in $providerApiModelNames) {
             $pm = $providerApiLookup[$pmId]
@@ -813,6 +822,7 @@ if ($providerApiQueried) {
             # (additive merge: keep existing aliases, add any new ones from the API)
             # and propagate provider deprecation flag.
             $existing = $mergedModels[$pmId]
+<<<<<<< HEAD
             $currentAliases = [System.Collections.Generic.List[string]]::new()
             if ($existing.Aliases) {
                 foreach ($a in @($existing.Aliases)) { [void]$currentAliases.Add($a) }
@@ -833,6 +843,18 @@ if ($providerApiQueried) {
                 if (-not $isOtherCanonical) { [void]$cleaned.Add($a) }
             }
             $existing.Aliases = if ($cleaned.Count -gt 0) { $cleaned.ToArray() } else { $null }
+=======
+            if ($apiAliases.Count -gt 0) {
+                $currentAliases = [System.Collections.Generic.List[string]]::new()
+                if ($existing.Aliases) {
+                    foreach ($a in @($existing.Aliases)) { [void]$currentAliases.Add($a) }
+                }
+                foreach ($a in $apiAliases) {
+                    if (-not $currentAliases.Contains($a)) { [void]$currentAliases.Add($a) }
+                }
+                $existing.Aliases = $currentAliases.ToArray()
+            }
+>>>>>>> 8418e069 (refactor: remove JsonInput capability and add wildcard support for DiscouragedForTools)
             if ($isApiDeprecated) { $existing.Deprecated = 'true' }
             continue
         }

@@ -55,6 +55,7 @@ namespace SmartHopper.Infrastructure.AIModels
         /// </summary>
         AudioInput = SpeechInput | (1 << 2),
 
+<<<<<<< HEAD
         /// <summary>
         /// Supports accepting structured JSON input.
         /// </summary>
@@ -65,6 +66,8 @@ namespace SmartHopper.Infrastructure.AIModels
         /// </summary>
         VideoInput = 1 << 3,
 
+=======
+>>>>>>> 8418e069 (refactor: remove JsonInput capability and add wildcard support for DiscouragedForTools)
         // Output capabilities
 
         /// <summary>
@@ -244,6 +247,7 @@ namespace SmartHopper.Infrastructure.AIModels
             }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             if ((capabilities & AICapability.JsonInput) == AICapability.JsonInput)
             {
                 flags.Add("JsonInput");
@@ -259,6 +263,8 @@ namespace SmartHopper.Infrastructure.AIModels
 >>>>>>> b0b0f096 (refactor: add VideoInput, VideoOutput, and EmbedOutput capability flags to AICapability enum and update helper methods)
             }
 
+=======
+>>>>>>> 8418e069 (refactor: remove JsonInput capability and add wildcard support for DiscouragedForTools)
             if ((capabilities & AICapability.JsonOutput) == AICapability.JsonOutput)
             {
                 flags.Add("JsonOutput");
@@ -286,6 +292,7 @@ namespace SmartHopper.Infrastructure.AIModels
         {
             return (capability & AICapability.TextInput) == AICapability.TextInput ||
                    (capability & AICapability.ImageInput) == AICapability.ImageInput ||
+<<<<<<< HEAD
                    (capability & AICapability.AudioInput) == AICapability.AudioInput ||
 <<<<<<< HEAD
                    (capability & AICapability.SpeechInput) == AICapability.SpeechInput ||
@@ -293,6 +300,9 @@ namespace SmartHopper.Infrastructure.AIModels
 =======
                    (capability & AICapability.VideoInput) == AICapability.VideoInput;
 >>>>>>> b0b0f096 (refactor: add VideoInput, VideoOutput, and EmbedOutput capability flags to AICapability enum and update helper methods)
+=======
+                   (capability & AICapability.AudioInput) == AICapability.AudioInput;
+>>>>>>> 8418e069 (refactor: remove JsonInput capability and add wildcard support for DiscouragedForTools)
         }
 
         /// <summary>

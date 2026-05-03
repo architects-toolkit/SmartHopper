@@ -93,6 +93,7 @@ namespace SmartHopper.Infrastructure.AIModels
         /// <summary>
         /// List of AI tool names for which this model is discouraged.
         /// When a component uses any of these tools, a "not recommended" badge will be displayed.
+        /// Use "*" to discourage this model for all tools.
         /// </summary>
         public List<string> DiscouragedForTools { get; set; } = new List<string>();
 
@@ -122,6 +123,7 @@ namespace SmartHopper.Infrastructure.AIModels
 
         /// <summary>
         /// Checks if this model is discouraged for any of the specified tools.
+        /// A wildcard entry "*" in <see cref="DiscouragedForTools"/> matches all tools.
         /// </summary>
         /// <param name="toolNames">List of tool names to check against.</param>
         /// <returns>True if any of the specified tools are in the discouraged list.</returns>
@@ -133,6 +135,7 @@ namespace SmartHopper.Infrastructure.AIModels
             }
 
             return toolNames.Any(t => this.DiscouragedForTools.Any(d =>
+                d == "*" ||
                 string.Equals(d, t, StringComparison.OrdinalIgnoreCase)));
         }
     }
