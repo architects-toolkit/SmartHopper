@@ -7,7 +7,7 @@ auto_execution_mode: 1
 
 1. **Inventory the codebase**
    - Scan `src/` projects and namespaces.
-   - Github workflows and other code not in `src/` are out of scope in the documentation.
+   - GitHub workflows and other code outside `src/` are out of scope unless the user explicitly asks for workflow documentation.
 
 2. **Map core abstractions**
    - List interfaces, base classes, public APIs, and extension points.
@@ -34,7 +34,7 @@ auto_execution_mode: 1
      ```
 
 5. **Add diagrams (Mermaid)**
-   - Provide graphs when relevant to help undestand relationships, dependencies and flows.
+   - Provide graphs when relevant to explain relationships, dependencies, and flows.
      ```
      ```mermaid
      graph TD
@@ -46,7 +46,7 @@ auto_execution_mode: 1
      ```
 
 6. **Component docs**
-   - For each main component, create/update `docs/components/<name>.md` with:
+   - For each main component, create/update `docs/Components/<category>/<name>.md` with:
      - Purpose
      - Public APIs (signatures)
      - Dependencies

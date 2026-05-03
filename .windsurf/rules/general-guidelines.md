@@ -4,36 +4,36 @@ trigger: always_on
 
 # General guidelines
 
-1. Follow established best practices (e.g. SOLID, naming conventions, error handling, tests), unless explicitly asked not to.
-2. Decision matrix (in priority order):
-   1. Meet the user’s requirements
-   2. Follow best practices
-   3. Avoid patching symptoms, identify root causes and fix them instead
-   4. Maximize security (see OWASP Top 10)
-   5. Improve performance
-   6. Ease future maintenance
-3. When you get stuck in a maze of reasoning, you should stop, give the user a full summary of what you've found, and ask for help.
-4. Conduct a brief threat review on all external inputs and secrets; reference OWASP/T12 checklist.
-5. In your post-edit summary, include:
-   - Alternative solutions considered, highlighting the rationale for the chosen approach
-   - Best practices applied
-   - Suggestions for future improvements
-6. Persist rich context into the Memory DB:
-   1. Capture key docs & code snippets (with URLs & summaries)
-   2. Document high-level architecture & module roles
-   3. Record project conventions (standards, naming, structure, configs)
-   4. Log public APIs/interfaces (signatures, purpose, usage)
-   5. Archive design decisions (alternatives, rationale, commit refs)
-   6. List 3rd‑party deps & integration patterns
-   7. Store user preferences & recurring workflows
-   8. Maintain consistency of memories: dedupe, refresh stale entries, remove obsolete
+1. Follow established best practices (SOLID, clear naming, error handling, tests, and security) unless the user explicitly asks otherwise.
+2. Use this decision priority:
+   1. Meet the user requirements.
+   2. Follow the documented SmartHopper architecture.
+   3. Fix root causes instead of patching symptoms.
+   4. Protect security and privacy, especially external inputs and secrets.
+   5. Preserve performance and responsiveness in Rhino/Grasshopper.
+   6. Keep future maintenance simple.
+3. If implementation options become ambiguous or contradictory, stop, summarize the concrete evidence, and ask the user to choose a direction.
+4. Conduct a brief threat review for changes that touch external inputs, provider calls, secrets, file/network access, or AI tool execution.
+5. In post-edit summaries, include alternatives considered, why the chosen approach fits, best practices applied, and follow-up improvement suggestions when useful.
 
-# Project specific guidelines
+## Project-specific guidelines
 
-- Use native Grasshopper types & methods when possible.
-- Refer to https://developer.rhino3d.com/ as the official documentation.
-- Check /docs folder for local documentation on existing code.
-- Use English only.
-- Prefer copy/pasting, renaming, and removing files via PowerShell commands.
-- You are running on Windows - use windows commands in terminal, prefered PowerShell commands.
-- Never add unit tests that require Rhino or Grasshopper references. There is a license conflict that doesn't allow testing these functions unless Rhino is running and license is verified.
+- Use English only in code, documentation, rules, and user-facing text.
+- Prefer native Grasshopper/Rhino types and APIs when working with canvas, data-tree, or geometry logic.
+- Use https://developer.rhino3d.com/ as the official Rhino/Grasshopper API reference.
+- Check `/docs` before changing existing architecture; those docs are the local source of truth for module responsibilities and data flows.
+- Use commands appropriate to the current execution environment. Windows-only build/signing flows require Developer PowerShell for Visual Studio; do not assume every assistant or CI runner is on Windows.
+- Never add unit tests that require a running Rhino/Grasshopper license. Keep tests in projects that can run in CI without Rhino runtime activation.
+- Do not commit secrets, signing keys, local provider API keys, or generated private credentials.
+
+## Context persistence
+
+Persist durable project knowledge when it is general enough to help future work:
+
+1. High-level architecture and module responsibilities.
+2. Stable public APIs, extension points, and contracts.
+3. Project conventions, naming, workflows, and configuration rules.
+4. Design decisions with rationale and alternatives.
+5. Third-party dependencies and integration patterns.
+
+Dedupe or refresh stale knowledge instead of creating conflicting entries.

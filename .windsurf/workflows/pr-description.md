@@ -14,4 +14,4 @@ The aim is to return the title and the description for a PR, following the rules
 
 5. Return the PR title in a codeblock as plain text
 
-6. Return the PR description in a seperate codeblock in markdown format
+6. Return the PR description in a separate code block in Markdown format.

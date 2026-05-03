@@ -8,7 +8,7 @@ description: Add a new git branch based on the description provided by the user
 
 The user should provide a description of the purpose of the new branch. If no description is provided, ask for it and stop the workflow.
 
-Check that current branch is `dev`. If not, switch to `dev` before continuing.
+Check that the current branch is `dev`. If not, switch to `dev` before continuing.
 
 ## Branch Naming Convention
 
@@ -67,7 +67,7 @@ Where:
 
 1. Ensure there are no changes pending to commit. Stop the execution if so and ask the user to commit them.
 
-2. Ensure we are in `dev` branch and it is synced with remote.
+2. Ensure the current branch is `dev` and synced with remote.
 
    git checkout dev
    git pull public dev
