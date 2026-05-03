@@ -15,6 +15,7 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- ci(main-sync-to-dev): new workflow `.github/workflows/main-sync-to-dev.yml` that, on pushes to `main` (or manual dispatch), auto-opens a PR from `main` into every `dev` / `dev-*` branch to keep promotional branches in sync with direct-to-main commits (workflows, hashes). Reuses an existing open PR (head=`main`, base=`dev*`) per target when present instead of creating duplicates, and skips targets already up-to-date.
 - Community model verification flow:
   - New issue template `.github/ISSUE_TEMPLATE/model-verification.yml` with tests grouped by location ("Components on the Grasshopper canvas" — `AITextGenerate`, `AITextListGenerate`, `AIImgToText`, `AIImgGenerate`, audio — and "Chat interface" — streaming, ToolChat/FunctionCalling, Reasoning, multi-turn `ConversationSession`), each test specifying the **exact prompt** to use and the expected behavior. The template also embeds a copy-paste codeblock (with a `/verify-confirm` header and a hidden `<!-- model-verification-confirm -->` marker) for additional verifiers to use as their certification comment.
   - New workflow `.github/workflows/model-verification.yml` that triggers only when an issue comment starts with `/verify-confirm` (and contains the template marker) or `/verify-force`, tallies distinct GitHub users (issue author + valid `/verify-confirm` commenters), and opens a PR promoting the model to `Verified = true` once two distinct users have certified it. `/verify-force` is restricted to `OWNER`/`MEMBER`/`COLLABORATOR`.
