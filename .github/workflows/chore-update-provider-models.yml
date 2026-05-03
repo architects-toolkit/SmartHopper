@@ -51,9 +51,14 @@ jobs:
           if [ -z "$API_KEY" ]; then
             echo "skipped=true" >> "$GITHUB_OUTPUT"
             echo "Secret OPENROUTER_API_KEY is not configured. Skipping ${{ matrix.provider }}."
-          elif [ -n "$FILTER" ] && [[ ",${FILTER}," != *",${{ matrix.provider }},"* ]]; then
-            echo "skipped=true" >> "$GITHUB_OUTPUT"
-            echo "Provider ${{ matrix.provider }} not in filter '$FILTER'. Skipping."
+          elif [ -n "$FILTER" ]; then
+            normalized="${FILTER// /}"
+            if [[ ",${normalized}," != *",${{ matrix.provider }},"* ]]; then
+              echo "skipped=true" >> "$GITHUB_OUTPUT"
+              echo "Provider ${{ matrix.provider }} not in filter '$FILTER'. Skipping."
+            else
+              echo "skipped=false" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
