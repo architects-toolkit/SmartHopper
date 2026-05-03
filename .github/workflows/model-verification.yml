@@ -217,7 +217,6 @@ jobs:
           base: dev
           delete-branch: true
           labels: |
-            chore
             automated
             model-verification
 
