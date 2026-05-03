@@ -267,10 +267,12 @@ function ConvertTo-CapabilityFlags($openRouterModel) {
     if ($inputModalities -contains 'text')   { $caps.Add('AICapability.TextInput') }
     if ($inputModalities -contains 'image')  { $caps.Add('AICapability.ImageInput') }
     if ($inputModalities -contains 'audio')  { $caps.Add('AICapability.AudioInput') }
+    if ($inputModalities -contains 'video')  { $caps.Add('AICapability.VideoInput') }
 
     if ($outputModalities -contains 'text')  { $caps.Add('AICapability.TextOutput') }
     if ($outputModalities -contains 'image') { $caps.Add('AICapability.ImageOutput') }
     if ($outputModalities -contains 'audio') { $caps.Add('AICapability.AudioOutput') }
+    if ($outputModalities -contains 'video') { $caps.Add('AICapability.VideoOutput') }
 
     if ($supportedParams -contains 'tools' -or
         $supportedParams -contains 'tool_choice' -or
@@ -287,6 +289,15 @@ function ConvertTo-CapabilityFlags($openRouterModel) {
         $supportedParams -contains 'reasoning_effort' -or
         $supportedParams -contains 'include_reasoning') {
         $caps.Add('AICapability.Reasoning')
+    }
+
+    # Embed output is indicated by embedding-specific endpoints or model naming patterns
+    # OpenRouter: embedding models typically have 'embed' in supported_parameters or model id
+    # MistralAI: embed models are identified by their dedicated embedding endpoint
+    if ($supportedParams -contains 'embeddings' -or
+        $openRouterModel.id -match 'embed' -or
+        $openRouterModel.description -match 'embed') {
+        $caps.Add('AICapability.EmbedOutput')
     }
 
     if ($caps.Count -eq 0) {
