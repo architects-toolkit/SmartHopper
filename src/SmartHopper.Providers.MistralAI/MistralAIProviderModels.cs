@@ -215,7 +215,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-embed-2312",
-                    Capabilities = AICapability.InputText | AICapability.EmbedOutput,
+                    Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9940,

@@ -97,7 +97,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Rank = 9985,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-opus-4-5" },
+                    Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest" },
                 },
 
 
@@ -114,7 +114,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = true,
                     Rank = 9980,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-haiku-4-5" },
+                    Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
 
@@ -127,7 +127,7 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = true,
                     Rank = 9975,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-sonnet-4-5" },
+                    Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest" },
                 },
 
 
@@ -144,7 +144,7 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-opus-4-1" },
+                    Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest" },
                 },
 
                 new AIModelCapabilities
@@ -157,7 +157,7 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -5,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-sonnet-4" },
+                    Aliases = new List<string> { "claude-sonnet-4", "claude-sonnet-4-latest", "claude-sonnet-4-0", "claude-sonnet-4-0-latest" },
                 },
 
                 new AIModelCapabilities
@@ -170,33 +170,7 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -10,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-opus-4" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "claude-3-5-haiku-20241022",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -15,
-                    ContextLimit = 200000,
-                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "claude-3-5-haiku-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -20,
-                    ContextLimit = 200000,
-                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
+                    Aliases = new List<string> { "claude-opus-4", "claude-opus-4-latest", "claude-opus-4-0", "claude-opus-4-0-latest" },
                 },
 
                 new AIModelCapabilities
@@ -207,20 +181,23 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -25,
+                    Rank = -15,
                     ContextLimit = 200000,
+                    Aliases = new List<string> { "claude-3-7-sonnet", "claude-3-7-sonnet-latest" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-3-7-sonnet-latest",
+                    Model = "claude-3-5-haiku-20241022",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -30,
+                    Rank = -20,
                     ContextLimit = 200000,
+                    Aliases = new List<string> { "claude-3-5-haiku", "claude-3-5-haiku-latest" },
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
 
                 new AIModelCapabilities
@@ -231,33 +208,10 @@ namespace SmartHopper.Providers.Anthropic
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -35,
+                    Rank = -25,
                     ContextLimit = 200000,
+                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "claude-opus-4-0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -40,
-                    ContextLimit = 200000,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "claude-sonnet-4-0",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -45,
-                    ContextLimit = 200000,
                 }
             };
 
