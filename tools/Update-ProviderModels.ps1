@@ -292,9 +292,9 @@ function ConvertTo-CapabilityFlags($openRouterModel) {
     }
 
     # Embed output is indicated by embedding-specific endpoints or model naming patterns
-    # OpenRouter: embedding models typically have 'embed' in supported_parameters or model id
-    # MistralAI: embed models are identified by their dedicated embedding endpoint
-    if ($supportedParams -contains 'embeddings' -or
+    # OpenRouter: embedding models expose 'embeddings' in output_modalities per the API spec
+    if ($outputModalities -contains 'embeddings' -or
+        $supportedParams -contains 'embeddings' -or
         $openRouterModel.id -match 'embed' -or
         $openRouterModel.description -match 'embed') {
         $caps.Add('AICapability.EmbedOutput')
