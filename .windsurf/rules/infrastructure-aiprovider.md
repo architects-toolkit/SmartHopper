@@ -22,9 +22,9 @@ description: Information about the Provider Manager (AIProvider)
 
 - **Model Management**
   - AIProviderModels: Base for provider model operations (`IAIProviderModels` is in `AIModels`).
-    - RetrieveAvailable() [all models, and single model with wildcard resolution], RetrieveDefault().
+    - Retrieves provider model metadata and concrete API-ready model names.
     - GetModel(requestedModel) chooses user-requested or provider default.
-  - Initialization path registers capabilities/defaults with `ModelManager` and resolves defaults (supports wildcard patterns and concrete names).
+  - Initialization path registers capabilities/defaults with `ModelManager`.
 
 - **Discovery, Registration & Trust**
   - ProviderManager (ProviderManager.cs)
@@ -48,12 +48,13 @@ description: Information about the Provider Manager (AIProvider)
 - **Typical Usage**
   1. External provider DLL supplies IAIProviderFactory to create IAIProvider and IAIProviderSettings.
   2. ProviderManager discovers, verifies, loads, and registers them.
-  3. App asks provider for model via `Models.GetModel()` and capabilities via `Models.RetrieveCapabilities()`.
+  3. App asks provider for a model via `provider.SelectModel(requiredCapability, requestedModel)`.
   4. AI requests flow through provider hooks; encoding/decoding and tools are normalized.
 
 - **Best Practices**
   - Keep InitializeProviderAsync() non-blocking; register capabilities before resolving defaults.
   - Use GetSettingDescriptors() to describe required keys and mark secrets.
-  - Prefer concrete model names for API calls; support wildcard fallback.
-  - `CallApi()` shouldn't be overriden by AIProvider implementations, use base class. Override PreCall and PostCall if needed.
+  - Use concrete model names for API calls and model metadata. No wildcard resolution.
+  - Do not call `ModelManager.SelectBestModel()` directly from requests or components; go through `IAIProvider.SelectModel(...)`.
+  - `CallApi()` should not be overridden by AIProvider implementations; use the base class. Override PreCall and PostCall if needed.
   - Keep `Decode()` resilient to provider payload variations; include tool calls and metrics where applicable.
