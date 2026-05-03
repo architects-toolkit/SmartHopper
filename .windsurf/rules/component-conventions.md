@@ -17,5 +17,6 @@ globs: **/SmartHopper.Components/*.cs
 - Do not manually reimplement async state, debouncing, persistent output storage, provider selection, model capability checks, metrics, or runtime-message plumbing if a base class already provides it.
 - Register inputs/outputs through the relevant base-class methods (`RegisterInputParams`, `RegisterOutputParams`, or `RegisterAdditional*Params`).
 - Provide stable `ComponentGuid`, `Icon`, `Exposure`, name, nickname, description, category, and subcategory. Never change a released component GUID.
+- When creating a new component, provide it with a zeroed GUID (`00000000-0000-0000-0000-000000000000`).
 - Choose `RunOnlyOnInputChanges` intentionally and document unusual run semantics in the component description.
 - Use `DataTreeProcessor`/processing topologies for data-tree mechanics instead of manual path fan-out in component code.
