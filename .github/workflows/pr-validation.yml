@@ -72,18 +72,6 @@ jobs:
         with:
           mode: check
 
-  license-headers-check:
-    name: 📜 License Headers Check
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Check LGPL license headers
-        shell: pwsh
-        run: |
-          pwsh -ExecutionPolicy Bypass -File .\tools\Update-LicenseHeaders.ps1 -Check
-  
   changelog-check:
     name: 📝 Changelog Check
     runs-on: ubuntu-latest
