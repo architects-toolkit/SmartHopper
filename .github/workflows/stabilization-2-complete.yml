@@ -1,0 +1,200 @@
+name: Stabilization 2 - ✅ Complete Path
+
+# Description: Completes a stabilization path when a no-suffix milestone (e.g. "1.4.2") is closed
+# and no staged sub-milestones remain open (meaning the stable release was successfully shipped).
+# Creates a backport PR from main-X.Y.Z to main. Stabilization branches are deleted after the PR merges.
+#
+# Triggers:
+# - milestone.closed when title matches X.Y.Z (no suffix) AND no open sub-milestones exist
+#
+# Permissions:
+# - contents: write - Required to create PRs and delete branches
+# - pull-requests: write - Required to create the backport PR
+
+on:
+  milestone:
+    types: [closed]
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  complete-stabilization-path:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: "stabilization-close-${{ github.event.milestone.title }}"
+      cancel-in-progress: false
+    if: github.event_name == 'milestone'
+    steps:
+      - name: Check if this is a successful completion scenario
+        id: check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = '${{ github.event.milestone.title }}';
+
+            // Only handle stable X.Y.Z milestones (no suffix)
+            if (!/^\d+\.\d+\.\d+$/.test(title)) {
+              console.log(`Milestone '${title}' is not a stable X.Y.Z version. Skipping.`);
+              core.setOutput('should-complete', 'false');
+              return;
+            }
+
+            // Check that NO sub-milestones are still open
+            const allMilestones = await github.paginate(
+              github.rest.issues.listMilestones,
+              { owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 }
+            );
+
+            const openSubMilestones = allMilestones.filter(m => m.title.startsWith(`${title}-`));
+
+            if (openSubMilestones.length > 0) {
+              console.log(`Found ${openSubMilestones.length} open sub-milestone(s): ${openSubMilestones.map(m => m.title).join(', ')}`);
+              console.log('This is a cancellation — handled by stabilization-1-cancel.yml. Skipping.');
+              core.setOutput('should-complete', 'false');
+            } else {
+              console.log('No open sub-milestones. This is a successful completion. Proceeding.');
+              core.setOutput('should-complete', 'true');
+            }
+
+      - name: Check stabilization branches exist
+        if: steps.check.outputs.should-complete == 'true'
+        id: check-branches
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const version = '${{ github.event.milestone.title }}';
+            const mainBranch = `main-${version}`;
+
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: mainBranch
+              });
+              console.log(`Branch ${mainBranch} exists.`);
+              core.setOutput('main-branch', mainBranch);
+              core.setOutput('branches-exist', 'true');
+            } catch (e) {
+              console.log(`Branch ${mainBranch} does not exist. No backport PR needed.`);
+              core.setOutput('branches-exist', 'false');
+            }
+
+      - name: Checkout repository
+        if: steps.check.outputs.should-complete == 'true' && steps.check-branches.outputs.branches-exist == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create backport PR main-X.Y.Z → main
+        if: steps.check.outputs.should-complete == 'true' && steps.check-branches.outputs.branches-exist == 'true'
+        id: create-pr
+        run: |
+          VERSION="${{ github.event.milestone.title }}"
+          MAIN_BRANCH="main-${VERSION}"
+
+          # Check if a backport PR already exists
+          EXISTING=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --base main \
+            --head "$MAIN_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            echo "Backport PR #${EXISTING} already exists. Skipping creation."
+            echo "pr_number=$EXISTING" >> $GITHUB_OUTPUT
+          else
+            PR_NUMBER=$(gh pr create \
+              --repo ${{ github.repository }} \
+              --base main \
+              --head "$MAIN_BRANCH" \
+              --title "chore: backport stable ${VERSION} to main" \
+              --body $'This PR backports the stable release **'"${VERSION}"$'** from \`'"${MAIN_BRANCH}"$'\` to \`main\`.\n\nThis requires manual approval. After merging, the stabilization branches will be deleted automatically.' \
+              2>&1 | tail -1 | grep -oE '[0-9]+$' || echo "")
+
+            if [ -n "$PR_NUMBER" ]; then
+              echo "✅ Created backport PR #${PR_NUMBER}"
+              echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            else
+              PR_NUMBER=$(gh pr list --base main --head "$MAIN_BRANCH" --json number --jq '.[0].number')
+              echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: steps.check.outputs.should-complete == 'true'
+        run: |
+          echo "## ✅ Stabilization Path Completed"
+          echo ""
+          echo "- **Version:** ${{ github.event.milestone.title }}"
+          if [ "${{ steps.check-branches.outputs.branches-exist }}" == "true" ]; then
+            echo "- **Backport PR:** #${{ steps.create-pr.outputs.pr_number }} (main-${{ github.event.milestone.title }} → main)"
+            echo "- **Action required:** Approve and merge the backport PR"
+            echo "- **After merge:** Delete branches dev-${{ github.event.milestone.title }} and main-${{ github.event.milestone.title }} manually or via branch auto-deletion settings"
+          else
+            echo "- **Note:** Stabilization branches not found — no backport PR created"
+          fi
+
+  # Delete stabilization branches after the backport PR is merged into main
+  cleanup-on-pr-merge:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'main-') &&
+      github.event.pull_request.base.ref == 'main'
+    permissions:
+      contents: write
+    steps:
+      - name: Extract version from branch name
+        id: extract-version
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          VERSION="${BRANCH#main-}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Validate version format
+        id: validate
+        run: |
+          VERSION="${{ steps.extract-version.outputs.version }}"
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "Version '$VERSION' is valid semver format"
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "::warning::Version '$VERSION' does not match X.Y.Z format — skipping branch cleanup"
+          fi
+
+      - name: Delete stabilization branches
+        if: steps.validate.outputs.valid == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const version = '${{ steps.extract-version.outputs.version }}';
+            const branches = [`dev-${version}`, `main-${version}`];
+
+            for (const branch of branches) {
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `heads/${branch}`
+                });
+                console.log(`✅ Deleted branch: ${branch}`);
+              } catch (e) {
+                console.log(`Branch ${branch} not found or already deleted: ${e.message}`);
+              }
+            }

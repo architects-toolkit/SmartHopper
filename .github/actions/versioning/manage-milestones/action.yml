@@ -1,5 +1,5 @@
 name: Manage Release Milestones
-description: Creates next-stage milestones and manages active milestones for release versions
+description: Creates next-stage milestones for release versions
 
 inputs:
   released-version:
@@ -13,9 +13,6 @@ outputs:
   created-milestones:
     description: 'JSON array of created milestone titles'
     value: ${{ steps.manage.outputs.created-milestones }}
-  closed-milestones:
-    description: 'JSON array of closed milestone titles'
-    value: ${{ steps.manage.outputs.closed-milestones }}
 
 runs:
   using: composite
@@ -77,48 +74,6 @@ runs:
             return suffix.split('.')[0].toLowerCase();
           }
           
-          // Close older milestones of the same stage within the same major version
-          async function closeOlderMilestones(stage, majorVersion) {
-            const allMilestones = await github.paginate(
-              github.rest.issues.listMilestones,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'open',
-                per_page: 100
-              }
-            );
-            
-            // Filter for same stage AND same major version
-            const sameStageMilestones = allMilestones.filter(m => {
-              const mParsed = parseVersion(m.title);
-              return mParsed && getStage(mParsed.suffix) === stage && mParsed.major === majorVersion;
-            });
-            
-            sameStageMilestones.sort((a, b) => {
-              const aParsed = parseVersion(a.title);
-              const bParsed = parseVersion(b.title);
-              
-              if (aParsed.minor !== bParsed.minor) return bParsed.minor - aParsed.minor;
-              return bParsed.patch - aParsed.patch;
-            });
-            
-            const closedTitles = [];
-            for (let i = 1; i < sameStageMilestones.length; i++) {
-              const oldMilestone = sameStageMilestones[i];
-              console.log(`Closing older ${stage} milestone (major ${majorVersion}): ${oldMilestone.title}`);
-              
-              await github.rest.issues.updateMilestone({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                milestone_number: oldMilestone.number,
-                state: 'closed'
-              });
-              closedTitles.push(oldMilestone.title);
-            }
-            return closedTitles;
-          }
-          
           const releasedVersion = '${{ inputs.released-version }}';
           console.log(`Processing released version: ${releasedVersion}`);
           
@@ -126,12 +81,10 @@ runs:
           if (!parsed) {
             console.log('Release tag is not a valid semantic version, skipping.');
             core.setOutput('created-milestones', JSON.stringify([]));
-            core.setOutput('closed-milestones', JSON.stringify([]));
             return;
           }
           
           const createdMilestones = [];
-          const closedMilestones = [];
           
           // Extract stage from suffix
           const stage = getStage(parsed.suffix);
@@ -148,10 +101,6 @@ runs:
             const betaVersionStr = formatVersion(betaVersion);
             const betaResult = await createMilestone(betaVersionStr, `Auto-created milestone for ${betaVersionStr} (stability path from ${releasedVersion})`);
             if (betaResult.created) createdMilestones.push(betaVersionStr);
-            
-            // Close older beta milestones within same major version
-            const closedBetas = await closeOlderMilestones('beta', parsed.major);
-            closedMilestones.push(...closedBetas);
             
             // Create next minor alpha milestone
             const nextMinorAlpha = {
@@ -175,10 +124,6 @@ runs:
             const rcVersionStr = formatVersion(rcVersion);
             const rcResult = await createMilestone(rcVersionStr, `Auto-created milestone for ${rcVersionStr} (stability path from ${releasedVersion})`);
             if (rcResult.created) createdMilestones.push(rcVersionStr);
-            
-            // Close older rc milestones within same major version
-            const closedRcs = await closeOlderMilestones('rc', parsed.major);
-            closedMilestones.push(...closedRcs);
           }
           // RC releases create stable milestone
           else if (stage === 'rc') {
@@ -191,14 +136,8 @@ runs:
             const stableVersionStr = formatVersion(stableVersion);
             const stableResult = await createMilestone(stableVersionStr, `Auto-created milestone for ${stableVersionStr} (stability path from ${releasedVersion})`);
             if (stableResult.created) createdMilestones.push(stableVersionStr);
-            
-            // Close older stable milestones within same major version
-            const closedStables = await closeOlderMilestones('stable', parsed.major);
-            closedMilestones.push(...closedStables);
           }
           
           console.log(`Created milestones: ${JSON.stringify(createdMilestones)}`);
-          console.log(`Closed milestones: ${JSON.stringify(closedMilestones)}`);
           
           core.setOutput('created-milestones', JSON.stringify(createdMilestones));
-          core.setOutput('closed-milestones', JSON.stringify(closedMilestones));

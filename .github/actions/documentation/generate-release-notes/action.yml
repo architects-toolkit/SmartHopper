@@ -1,0 +1,212 @@
+# Release notes generation action for SmartHopper.
+# Contains the domain logic for generating user-friendly release notes
+# from the CHANGELOG.md using the Mistral AI Chat Completions API.
+#
+# The prompts in this action are derived from .windsurf/workflows/release-notes.md
+# and should be kept in sync with that file when the release notes format changes.
+
+name: 'Generate Release Notes'
+description: 'Generate AI-powered release notes from CHANGELOG.md using Mistral AI'
+
+inputs:
+  version:
+    description: 'Full version string (e.g., 1.4.2-alpha)'
+    required: true
+  major:
+    description: 'Major version component'
+    required: true
+  minor:
+    description: 'Minor version component'
+    required: true
+  patch:
+    description: 'Patch version component'
+    required: true
+  suffix:
+    description: 'Version suffix (e.g., alpha)'
+    required: false
+    default: ''
+  mistral-api-key:
+    description: 'Mistral AI API key (passed through to mistral-chat)'
+    required: true
+  model:
+    description: 'Mistral model name'
+    required: false
+    default: 'mistral-medium-latest'
+  changelog-path:
+    description: 'Path to the CHANGELOG.md file'
+    required: false
+    default: 'CHANGELOG.md'
+
+outputs:
+  title:
+    description: 'Generated release title'
+    value: ${{ steps.parse_response.outputs.title }}
+  body:
+    description: 'Generated release notes body'
+    value: ${{ steps.parse_response.outputs.body }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Extract changelog section
+      id: extract_changelog
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        CHANGELOG_PATH: ${{ inputs.changelog-path }}
+      run: |
+        # Extract content between ## [$VERSION] and the next ## [ heading
+        SECTION=$(sed -n "/^## \[$VERSION\]/,/^## \[/p" "$CHANGELOG_PATH" | sed '$d')
+
+        if [ -z "$SECTION" ]; then
+          echo "::warning::Could not find changelog section for version $VERSION"
+          echo "fallback=true" >> "$GITHUB_OUTPUT"
+          SECTION="No changelog section found for version $VERSION."
+        else
+          echo "fallback=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        {
+          echo "changelog_section<<EOF_CHANGELOG"
+          echo "$SECTION"
+          echo "EOF_CHANGELOG"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Determine release type
+      id: release_type
+      shell: bash
+      env:
+        PATCH: ${{ inputs.patch }}
+      run: |
+        if [ "$PATCH" != "0" ]; then
+          echo "type=patch" >> "$GITHUB_OUTPUT"
+        else
+          echo "type=major-minor" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Build system prompt
+      id: build_prompt
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        SUFFIX: ${{ inputs.suffix }}
+        RELEASE_TYPE: ${{ steps.release_type.outputs.type }}
+      run: |
+        if [ "$RELEASE_TYPE" = "major-minor" ]; then
+          # Determine stage language for Important Notes section
+          if [ -n "$SUFFIX" ]; then
+            STAGE_LINE="- This is an ${SUFFIX} release with some features still unstable or subject to change"
+          else
+            STAGE_LINE="- This is a stable release"
+          fi
+
+          SYSTEM_PROMPT="You are a release notes writer for SmartHopper, a Grasshopper plugin for AI-assisted design in Rhino.
+
+        Given a changelog section, generate:
+        1. A release title on the FIRST LINE in this exact format: SmartHopper ${VERSION}: <Engaging Short Title>
+           Examples: \"SmartHopper 0.3.0-alpha: Powerful AI tools and enhanced security\"
+        2. Then a blank line, followed by release notes in markdown:
+
+        <Brief sentence summarizing the release focusing on user-facing changes>
+
+        ## <emoji> Feature/Change 1
+        <Brief user-facing description>
+
+        ## <emoji> Feature/Change 2
+        <Repeat as needed>
+
+        ## Technical Requirements
+        - Rhino 8.24 or above is required
+        - Windows 10/11 or macOS
+        - Valid API keys for MistralAI, OpenAI, DeepSeek, Anthropic or OpenRouter
+
+        ## Important Notes
+        ${STAGE_LINE}
+        - API keys are required, and usage costs apply based on your provider
+        - Documentation is currently under development
+
+        ## We Value Your Feedback!
+        Help shape SmartHopper's future by:
+        - Sharing your experiences with the new features
+        - Suggesting improvements via our discussion (https://github.com/architects-toolkit/SmartHopper/discussions)
+        - Telling us what AI capabilities would help your workflow most
+
+        We hope you enjoy these new features and improvements!
+        Happy designing!
+
+        RULES:
+        - Focus on user-facing changes only. Omit internal refactors, CI changes, and developer tooling.
+        - Summarize and group related changes into coherent themes. Do not copy-paste the changelog.
+        - Use emojis for section headers.
+        - The FIRST LINE must be the title only. Then blank line. Then the body."
+        else
+          # Patch release prompt
+          SYSTEM_PROMPT="You are a release notes writer for SmartHopper, a Grasshopper plugin for AI-assisted design in Rhino.
+
+        Given a changelog section for a patch release, generate:
+        1. A release title on the FIRST LINE: SmartHopper ${VERSION}: <Short Description> [Patch]
+        2. Then a blank line, followed by release notes:
+
+        <Brief sentence summarizing the patch>
+
+        ## Detailed list of changes
+        - <Summarized change 1>
+        - <Summarized change 2>
+        - Fixed issue [#N](link) (preserve issue links from the changelog)
+
+        RULES:
+        - Summarize the changelog, do not copy-paste it literally.
+        - Preserve issue links from the original changelog.
+        - The FIRST LINE must be the title only. Then blank line. Then the body."
+        fi
+
+        {
+          echo "system_prompt<<EOF_SYSTEM_PROMPT"
+          echo "$SYSTEM_PROMPT"
+          echo "EOF_SYSTEM_PROMPT"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Call Mistral AI
+      id: ai_call
+      uses: ./.github/actions/ai/mistral-chat
+      with:
+        api-key: ${{ inputs.mistral-api-key }}
+        model: ${{ inputs.model }}
+        system-prompt: ${{ steps.build_prompt.outputs.system_prompt }}
+        user-prompt: |
+          Generate release notes for version ${{ inputs.version }} from this changelog:
+
+          ${{ steps.extract_changelog.outputs.changelog_section }}
+
+    - name: Parse title and body from AI response
+      id: parse_response
+      shell: bash
+      env:
+        AI_RESPONSE: ${{ steps.ai_call.outputs.response }}
+        AI_SUCCESS: ${{ steps.ai_call.outputs.success }}
+        VERSION: ${{ inputs.version }}
+        CHANGELOG_SECTION: ${{ steps.extract_changelog.outputs.changelog_section }}
+      run: |
+        if [ "$AI_SUCCESS" = "true" ] && [ -n "$AI_RESPONSE" ]; then
+          # First line is the title, rest is the body
+          TITLE=$(echo "$AI_RESPONSE" | head -n 1)
+          BODY=$(echo "$AI_RESPONSE" | tail -n +3)
+
+          echo "::notice::AI release notes generated successfully"
+        else
+          echo "::warning::AI generation failed or returned empty, using fallback"
+          TITLE="SmartHopper $VERSION: <add an engaging title here>"
+          BODY="$CHANGELOG_SECTION"
+        fi
+
+        {
+          echo "title<<EOF_TITLE"
+          echo "$TITLE"
+          echo "EOF_TITLE"
+        } >> "$GITHUB_OUTPUT"
+
+        {
+          echo "body<<EOF_BODY"
+          echo "$BODY"
+          echo "EOF_BODY"
+        } >> "$GITHUB_OUTPUT"

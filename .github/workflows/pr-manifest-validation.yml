@@ -14,6 +14,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'main-*'
     paths:
       - 'yak-package/manifest.yml'
       - 'Solution.props'
@@ -36,26 +37,15 @@ jobs:
 
       - name: Determine expected manifest text
         id: expected
+        uses: ./.github/actions/versioning/update-manifest-text
+        with:
+          version: ${{ steps.version.outputs.version }}
+
+      - name: Write expected text to file
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          SUFFIX="${{ steps.version.outputs.suffix }}"
-          
-          if [[ "$VERSION" =~ -dev || "$VERSION" =~ -alpha ]]; then
-            EXPECTED_TEXT="NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
-            RELEASE_TYPE="alpha"
-          elif [[ "$VERSION" =~ -beta ]]; then
-            EXPECTED_TEXT="NOTE: This is a beta release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
-            RELEASE_TYPE="beta"
-          else
-            EXPECTED_TEXT="Please report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>"
-            RELEASE_TYPE="stable"
-          fi
-          
-          echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
-          echo "Expected release type: $RELEASE_TYPE"
-          
-          # Write expected text to file for comparison
-          echo "$EXPECTED_TEXT" > expected.txt
+          echo "${{ steps.expected.outputs.manifest-text }}" > expected.txt
+          echo "release_type=${{ steps.expected.outputs.release-type }}" >> $GITHUB_OUTPUT
+          echo "Expected release type: ${{ steps.expected.outputs.release-type }}"
 
       - name: Extract actual manifest text
         run: |
@@ -78,10 +68,10 @@ jobs:
           echo "Actual text: $ACTUAL"
           
           if [ "$EXPECTED" = "$ACTUAL" ]; then
-            echo "✅ Manifest text matches version type: ${{ steps.expected.outputs.release_type }}"
+            echo "✅ Manifest text matches version type: ${{ steps.expected.outputs.release-type }}"
             echo "match=true" >> $GITHUB_OUTPUT
           else
-            echo "❌ Manifest text does not match version type: ${{ steps.expected.outputs.release_type }}"
+            echo "❌ Manifest text does not match version type: ${{ steps.expected.outputs.release-type }}"
             echo "match=false" >> $GITHUB_OUTPUT
           fi
 
@@ -91,7 +81,7 @@ jobs:
           echo "::error::Manifest text does not match the version type!"
           echo ""
           echo "Version: ${{ steps.version.outputs.version }}"
-          echo "Expected type: ${{ steps.expected.outputs.release_type }}"
+          echo "Expected type: ${{ steps.expected.outputs.release-type }}"
           echo ""
           echo "Expected text:"
           cat expected.txt

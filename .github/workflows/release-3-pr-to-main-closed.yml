@@ -3,9 +3,10 @@ name: 🏁 3 Create Release on Release PR Close
 # Description: This workflow automatically creates a GitHub Release when a release PR is closed.
 # It extracts the milestone title as the version number and compiles release notes from
 # all issues and pull requests associated with the milestone.
+# Supports both main (regular releases) and main-X.Y.Z (stabilization path releases).
 #
 # Triggers:
-# - Automatically when a milestone is closed
+# - Automatically when a PR to main or main-* is closed
 #
 # Permissions:
 # - contents:write - Required to create GitHub releases
@@ -17,6 +18,7 @@ on:
     types: [ closed ]
     branches:
       - main
+      - 'main-*'
   workflow_dispatch:
 
 jobs:
@@ -29,22 +31,30 @@ jobs:
       pull-requests: read
 
     steps:
+      - name: Determine target branch
+        id: target-branch
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          # Use the actual base branch (main or main-X.Y.Z)
+          echo "branch=${BASE_REF:-main}" >> $GITHUB_OUTPUT
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main # Checkout the main branch
+          ref: ${{ steps.target-branch.outputs.branch }}
 
       - name: Get Release Version
         id: release_info
         uses: ./.github/actions/versioning/get-version
         with:
-          branch: main
+          branch: ${{ steps.target-branch.outputs.branch }}
 
       - name: Generate Release Notes
         id: issues
         uses: actions/github-script@v7
         env:
           RELEASE_VERSION: ${{ steps.release_info.outputs.version }}
+          TARGET_BRANCH: ${{ steps.target-branch.outputs.branch }}
         with:
           script: |
             // Generate release notes for the new release version
@@ -52,7 +62,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: process.env.RELEASE_VERSION,
-              target_commitish: 'main'
+              target_commitish: process.env.TARGET_BRANCH
             });
 
             await core.setOutput('changelog', releaseNotes.data.body);
@@ -67,17 +77,63 @@ jobs:
             echo "IS_PRERELEASE=false" >> $GITHUB_ENV
           fi
 
+      - name: Check if Release Exists and is Not Prerelease
+        id: check_release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_VERSION: ${{ steps.release_info.outputs.version }}
+        with:
+          script: |
+            const version = process.env.RELEASE_VERSION;
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: version
+              });
+
+              // Release exists
+              if (release.data.prerelease === false) {
+                core.setFailed(`Release ${version} already exists and is not a pre-release. Editing stable releases is not allowed.`);
+              } else {
+                core.info(`Release ${version} exists but is a pre-release. Proceeding with update.`);
+              }
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`Release ${version} does not exist. Proceeding with creation.`);
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Generate AI Release Notes
+        id: ai_release_notes
+        uses: ./.github/actions/documentation/generate-release-notes
+        with:
+          version: ${{ steps.release_info.outputs.version }}
+          major: ${{ steps.release_info.outputs.major }}
+          minor: ${{ steps.release_info.outputs.minor }}
+          patch: ${{ steps.release_info.outputs.patch }}
+          suffix: ${{ steps.release_info.outputs.suffix }}
+          mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.release_info.outputs.version }}
-          name: "SmartHopper ${{ steps.release_info.outputs.version }}: <add an engaging title here>"
+          name: ${{ steps.ai_release_notes.outputs.title }}
           body: |
-            ${{ github.event.pull_request.body }}
+            ${{ steps.ai_release_notes.outputs.body }}
+            
+            ---
+            
+            <details><summary>Auto-generated release notes</summary>
             
             ${{ steps.issues.outputs.changelog }}
+            
+            </details>
           draft: true
           prerelease: ${{ env.IS_PRERELEASE }}
-          target_commitish: main
+          target_commitish: ${{ steps.target-branch.outputs.branch }}

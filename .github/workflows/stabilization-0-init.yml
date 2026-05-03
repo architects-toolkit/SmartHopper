@@ -1,0 +1,201 @@
+name: Stabilization 0 - 🌿 Init Path
+
+# Description: Initializes a stabilization path when a no-suffix milestone (e.g. "1.4.2") is created.
+# Creates dedicated dev-X.Y.Z and main-X.Y.Z branches from the latest matching prerelease tag.
+#
+# Triggers:
+# - milestone.created when title matches X.Y.Z (no suffix)
+#
+# Permissions:
+# - Requires STABILITY_PAT_TOKEN secret with repo scope to create branches containing workflow files
+# - GITHUB_TOKEN cannot create branches with .github/workflows/ files (security restriction)
+
+on:
+  milestone:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  init-stabilization-path:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'milestone' && !contains(github.event.milestone.title, '-') && github.event.milestone.title != '' }}
+    steps:
+      - name: Validate milestone title format
+        id: validate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '${{ github.event.milestone.title }}';
+            const isStableVersion = /^\d+\.\d+\.\d+$/.test(title);
+            if (!isStableVersion) {
+              console.log(`Milestone '${title}' is not a stable X.Y.Z version. Skipping.`);
+              core.setOutput('is-stabilization', 'false');
+            } else {
+              console.log(`Milestone '${title}' is a stabilization milestone. Proceeding.`);
+              core.setOutput('is-stabilization', 'true');
+            }
+
+      - name: Checkout repository
+        if: steps.validate.outputs.is-stabilization == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.STABILITY_PAT_TOKEN }}
+
+      - name: Set up Git user
+        if: steps.validate.outputs.is-stabilization == 'true'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "action@github.com"
+
+      - name: Find latest prerelease tag for this version
+        if: steps.validate.outputs.is-stabilization == 'true'
+        id: find-tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ github.event.milestone.title }}';
+            console.log(`Looking for latest prerelease tag matching ${version}-*`);
+
+            const tags = await github.paginate(github.rest.repos.listTags, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+
+            // Filter tags starting with version- (e.g. 1.4.2-alpha, 1.4.2-beta)
+            const stagePriority = { rc: 3, beta: 2, alpha: 1 };
+            const matchingTags = tags
+              .map(t => t.name)
+              .filter(name => name.startsWith(`${version}-`))
+              .sort((a, b) => {
+                const aStage = Object.keys(stagePriority).find(s => a.includes(`-${s}`)) || '';
+                const bStage = Object.keys(stagePriority).find(s => b.includes(`-${s}`)) || '';
+                return (stagePriority[bStage] || 0) - (stagePriority[aStage] || 0);
+              });
+
+            if (matchingTags.length > 0) {
+              console.log(`Found matching tags: ${matchingTags.join(', ')}`);
+              console.log(`Using tag: ${matchingTags[0]}`);
+              core.setOutput('tag', matchingTags[0]);
+              core.setOutput('source', matchingTags[0]);
+            } else {
+              console.log(`No prerelease tags found for ${version}. Falling back to main branch.`);
+              core.setOutput('tag', '');
+              core.setOutput('source', 'main');
+            }
+
+      - name: Get SHA for source ref
+        if: steps.validate.outputs.is-stabilization == 'true'
+        id: get-sha
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.STABILITY_PAT_TOKEN }}
+          script: |
+            const tag = '${{ steps.find-tag.outputs.tag }}';
+            let sha;
+            
+            if (tag) {
+              const tagRef = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${tag}`
+              });
+              
+              // Dereference annotated tags to get the commit SHA
+              if (tagRef.data.object.type === 'tag') {
+                const tagObj = await github.rest.git.getTag({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_sha: tagRef.data.object.sha
+                });
+                sha = tagObj.data.object.sha;
+                console.log(`Tag ${tag} is annotated, dereferenced to commit SHA: ${sha}`);
+              } else {
+                sha = tagRef.data.object.sha;
+                console.log(`Tag ${tag} is lightweight, points to SHA: ${sha}`);
+              }
+            } else {
+              // Get SHA from main branch
+              const branchRef = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/main'
+              });
+              sha = branchRef.data.object.sha;
+              console.log(`Branch main points to SHA: ${sha}`);
+            }
+            
+            core.setOutput('sha', sha);
+
+      - name: Create stabilization branches
+        if: steps.validate.outputs.is-stabilization == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.STABILITY_PAT_TOKEN }}
+          script: |
+            const version = '${{ github.event.milestone.title }}';
+            const source = '${{ steps.find-tag.outputs.source }}';
+            const sha = '${{ steps.get-sha.outputs.sha }}';
+            
+            console.log(`Creating stabilization branches for ${version} from ${source} (SHA: ${sha})`);
+            
+            // Create dev-X.Y.Z branch
+            const devBranch = `dev-${version}`;
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${devBranch}`
+              });
+              console.log(`Branch ${devBranch} already exists, skipping.`);
+            } catch (error) {
+              if (error.status === 404) {
+                await github.rest.git.createRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `refs/heads/${devBranch}`,
+                  sha: sha
+                });
+                console.log(`✅ Created ${devBranch} from ${source}`);
+              } else {
+                throw error;
+              }
+            }
+            
+            // Create main-X.Y.Z branch
+            const mainBranch = `main-${version}`;
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${mainBranch}`
+              });
+              console.log(`Branch ${mainBranch} already exists, skipping.`);
+            } catch (error) {
+              if (error.status === 404) {
+                await github.rest.git.createRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `refs/heads/${mainBranch}`,
+                  sha: sha
+                });
+                console.log(`✅ Created ${mainBranch} from ${source}`);
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Summary
+        if: steps.validate.outputs.is-stabilization == 'true'
+        run: |
+          echo "## 🌿 Stabilization Path Initialized"
+          echo ""
+          echo "- **Version:** ${{ github.event.milestone.title }}"
+          echo "- **Source:** ${{ steps.find-tag.outputs.source }}"
+          echo "- **dev branch:** dev-${{ github.event.milestone.title }}"
+          echo "- **main branch:** main-${{ github.event.milestone.title }}"
+          echo ""
+          echo "Next: wait for \`release-promotion.yml\` to detect and promote the current staged release."

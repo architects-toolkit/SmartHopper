@@ -50,6 +50,16 @@ getStage("beta")          // Returns: "beta"
 getStage(null)            // Returns: "stable"
 ```
 
+#### `getNextStage(stage)` *(move-milestone-items only)*
+
+Returns the next stage in the stabilization promotion sequence:
+
+```javascript
+getNextStage("alpha")  // Returns: "beta"
+getNextStage("beta")   // Returns: "rc"
+getNextStage("rc")     // Returns: null  (→ stable, no suffix)
+```
+
 ### Regex Pattern
 
 All actions use this consistent regex for version parsing:
@@ -100,7 +110,13 @@ Formats version components back into a semantic version string.
 
 #### `manage-milestones`
 
-Creates next-stage milestones and manages active milestones for release versions.
+Creates next-stage milestones for released versions. Does **not** close older milestones — milestone lifecycle is managed by `release-promotion.yml`.
+
+| Released stage | Creates |
+|---|---|
+| alpha | `X.Y.Z-beta` + next minor `X.Y+1.0-alpha` |
+| beta | `X.Y.Z-rc` |
+| rc | `X.Y.Z` (stable, no suffix) |
 
 **Shared Utilities:**
 
@@ -110,21 +126,23 @@ Creates next-stage milestones and manages active milestones for release versions
 
 #### `move-milestone-items`
 
-Moves open issues and PRs from closed milestones to target milestones.
+Moves open issues and PRs from a closed milestone to a target milestone.
+
+**Stabilization-aware routing:** When closing `X.Y.Z-stage` and an open parent `X.Y.Z` (no-suffix) milestone exists, items are routed to `X.Y.Z-{nextStage}` (same series) instead of the next minor alpha.
+
+| Scenario | Target |
+|---|---|
+| Closed `X.Y.Z-stage`, parent `X.Y.Z` open | `X.Y.Z-{nextStage}` |
+| Closed `X.Y.Z-stage`, no parent milestone | `X.Y+1.0-alpha` (reuse or create) |
+| Closed stable `X.Y.Z` | `X.Y+1.0-alpha` (reuse or create) |
 
 **Shared Utilities:**
 
 - `parseVersion()` - Parses version strings
 - `formatVersion()` - Formats version objects
 - `getStage()` - Extracts stage from suffix
+- `getNextStage()` - Returns next stabilization stage
 
-### Version Promotion
-
-#### `promote-version`
-
-Promotes a version from one stage to the next (alpha→beta→rc→stable).
-
-**Uses:** `parse-version` action for consistent parsing
 
 ### Version Retrieval and Updates
 
@@ -215,14 +233,16 @@ Extracts release stage from suffix.
 
 ### Actions Using Shared Utilities
 
-- **manage-milestones** - Uses all three functions
-- **move-milestone-items** - Uses all three functions
+- **manage-milestones** - Uses `parseVersion`, `formatVersion`, `getStage`
+- **move-milestone-items** - Uses `parseVersion`, `formatVersion`, `getStage`, `getNextStage`
+
+> `getNextStage` is only in `move-milestone-items` (stabilization path routing). It is not needed in `manage-milestones`.
 
 ### Maintenance
 
 When updating shared utilities:
 
-1. Update the function in `manage-milestones/action.yml`
+1. Update the function in `manage-milestones/action.yml` (if applicable)
 2. Update the function in `move-milestone-items/action.yml`
 3. Update the reference documentation in this README
-4. Ensure both implementations remain identical
+4. Ensure implementations remain consistent (note: `getNextStage` is only in `move-milestone-items`)

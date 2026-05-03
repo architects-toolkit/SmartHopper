@@ -45,62 +45,22 @@ jobs:
         id: version
         uses: ./.github/actions/versioning/get-version
 
-      - name: Determine required manifest text
-        id: manifest_text
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          SUFFIX="${{ steps.version.outputs.suffix }}"
-          
-          if [[ "$VERSION" =~ -dev || "$VERSION" =~ -alpha ]]; then
-            TEXT="NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
-            TYPE="alpha"
-          elif [[ "$VERSION" =~ -beta ]]; then
-            TEXT="NOTE: This is a beta release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
-            TYPE="beta"
-          else
-            TEXT="Please report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>"
-            TYPE="stable"
-          fi
-          
-          echo "type=$TYPE" >> $GITHUB_OUTPUT
-          echo "text=$TEXT" >> $GITHUB_OUTPUT
-          echo "Release type: $TYPE"
-
       - name: Update manifest.yml note text
-        env:
-          MANIFEST_TEXT: ${{ steps.manifest_text.outputs.text }}
-        run: |
-          # Define the three possible texts as regex patterns for matching
-          ALPHA_PATTERN="NOTE: This is an alpha release and you might find bugs :/ Please, report them at"
-          BETA_PATTERN="NOTE: This is a beta release and you might find bugs :/ Please, report them at"
-          STABLE_PATTERN="Please report any issues at"
-          
-          # Escape the new text for sed
-          ESCAPED_TEXT=$(echo "$MANIFEST_TEXT" | sed 's/[&/\]/\\&/g')
-          
-          # Replace whichever pattern is currently in the file
-          if grep -q "$ALPHA_PATTERN" yak-package/manifest.yml; then
-            echo "Replacing alpha text with: $MANIFEST_TEXT"
-            sed -i "s|.*NOTE: This is an alpha release.*|  $ESCAPED_TEXT|" yak-package/manifest.yml
-          elif grep -q "$BETA_PATTERN" yak-package/manifest.yml; then
-            echo "Replacing beta text with: $MANIFEST_TEXT"
-            sed -i "s|.*NOTE: This is a beta release.*|  $ESCAPED_TEXT|" yak-package/manifest.yml
-          elif grep -q "$STABLE_PATTERN" yak-package/manifest.yml; then
-            echo "Replacing stable text with: $MANIFEST_TEXT"
-            sed -i "s|.*Please report any issues at.*|  $ESCAPED_TEXT|" yak-package/manifest.yml
-          else
-            echo "::warning::Could not find existing note text to replace"
-          fi
+        id: update_manifest
+        uses: ./.github/actions/versioning/update-manifest-text
+        with:
+          version: ${{ steps.version.outputs.version }}
+          update-file: 'true'
 
       - name: Check for changes
         id: check_changes
         run: |
-          if git diff --quiet yak-package/manifest.yml; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No changes needed - manifest already up to date"
-          else
+          if [ "${{ steps.update_manifest.outputs.file-updated }}" = "true" ] || ! git diff --quiet yak-package/manifest.yml; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Manifest text updated"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes needed - manifest already up to date"
           fi
 
       - name: Commit and push changes
@@ -109,5 +69,5 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add yak-package/manifest.yml
-          git commit -m "chore: update manifest text to ${{ steps.manifest_text.outputs.type }} version [skip ci]"
+          git commit -m "chore: update manifest text to ${{ steps.manifest_text.outputs.release-type }} version [skip ci]"
           git push

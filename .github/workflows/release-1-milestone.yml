@@ -25,14 +25,53 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: "release-${{ inputs.milestone-title }}"
+  cancel-in-progress: false
+
 jobs:
   release-preparation:
     runs-on: ubuntu-latest
     steps:
+      - name: Detect stabilization branch
+        id: detect-branch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const milestoneTitle = '${{ inputs.milestone-title }}';
+
+            // Extract base version (strip suffix if present, e.g. "1.4.2-beta" → "1.4.2")
+            const match = milestoneTitle.match(/^(\d+\.\d+\.\d+)/);
+            if (!match) {
+              console.log(`Cannot parse base version from '${milestoneTitle}'. Using default dev branch.`);
+              core.setOutput('base-branch', 'dev');
+              core.setOutput('is-stabilization', 'false');
+              return;
+            }
+            const baseVersion = match[1];
+            const devBranch = `dev-${baseVersion}`;
+
+            // Check if the stabilization dev branch exists
+            try {
+              await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: devBranch
+              });
+              console.log(`Stabilization branch '${devBranch}' found. Using stabilization path.`);
+              core.setOutput('base-branch', devBranch);
+              core.setOutput('is-stabilization', 'true');
+            } catch (e) {
+              console.log(`No stabilization branch '${devBranch}' found. Using default dev branch.`);
+              core.setOutput('base-branch', 'dev');
+              core.setOutput('is-stabilization', 'false');
+            }
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: dev
+          ref: ${{ steps.detect-branch.outputs.base-branch }}
 
       - name: Set up Git user
         run: |
@@ -67,6 +106,12 @@ jobs:
         uses: ./.github/actions/versioning/update-version
         with:
           new-version: ${{ inputs.milestone-title }}
+
+      - name: Update manifest text for release version
+        uses: ./.github/actions/versioning/update-manifest-text
+        with:
+          version: ${{ inputs.milestone-title }}
+          update-file: 'true'
 
       - name: Include missing issues in changelog
         uses: ./.github/actions/documentation/update-changelog-issues
@@ -104,21 +149,22 @@ jobs:
       
       - name: Commit and push changes
         run: |
-          git add Solution.props CHANGELOG.md README.md src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj src/
+          git add Solution.props CHANGELOG.md README.md yak-package/manifest.yml src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj src/
           git commit -m "chore: prepare release ${{ inputs.milestone-title }} with version update and code style fixes"
           git push origin release/${{ inputs.milestone-title }}
 
       - name: Create Pull Request
         id: create-pr
         run: |
+          BASE_BRANCH="${{ steps.detect-branch.outputs.base-branch }}"
           gh pr create \
-            --base dev \
+            --base "$BASE_BRANCH" \
             --head release/${{ inputs.milestone-title }} \
             --title "chore: prepare release ${{ inputs.milestone-title }} with version update and code style fixes" \
             --body $'This PR prepares the release for version ${{ inputs.milestone-title }} with version update and code style fixes:\n\n- Updated version in Solution.props\n- Updated changelog with closed-solved issues\n- Updated README badges'
           
           # Capture PR number
-          PR_NUMBER=$(gh pr list --base dev --head release/${{ inputs.milestone-title }} --json number --jq '.[0].number')
+          PR_NUMBER=$(gh pr list --base "$BASE_BRANCH" --head release/${{ inputs.milestone-title }} --json number --jq '.[0].number')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
