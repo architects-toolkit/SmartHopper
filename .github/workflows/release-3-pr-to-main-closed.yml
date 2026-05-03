@@ -21,6 +21,10 @@ on:
       - 'main-*'
   workflow_dispatch:
 
+concurrency:
+  group: release-pr-main-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   create-release:
     if: ${{ github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch' }}
@@ -77,17 +81,63 @@ jobs:
             echo "IS_PRERELEASE=false" >> $GITHUB_ENV
           fi
 
+      - name: Check if Release Exists and is Not Prerelease
+        id: check_release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_VERSION: ${{ steps.release_info.outputs.version }}
+        with:
+          script: |
+            const version = process.env.RELEASE_VERSION;
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: version
+              });
+
+              // Release exists
+              if (release.data.prerelease === false) {
+                core.setFailed(`Release ${version} already exists and is not a pre-release. Editing stable releases is not allowed.`);
+              } else {
+                core.info(`Release ${version} exists but is a pre-release. Proceeding with update.`);
+              }
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`Release ${version} does not exist. Proceeding with creation.`);
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Generate AI Release Notes
+        id: ai_release_notes
+        uses: ./.github/actions/documentation/generate-release-notes
+        with:
+          version: ${{ steps.release_info.outputs.version }}
+          major: ${{ steps.release_info.outputs.major }}
+          minor: ${{ steps.release_info.outputs.minor }}
+          patch: ${{ steps.release_info.outputs.patch }}
+          suffix: ${{ steps.release_info.outputs.suffix }}
+          mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.release_info.outputs.version }}
-          name: "SmartHopper ${{ steps.release_info.outputs.version }}: <add an engaging title here>"
+          name: ${{ steps.ai_release_notes.outputs.title }}
           body: |
-            ${{ github.event.pull_request.body }}
+            ${{ steps.ai_release_notes.outputs.body }}
+            
+            ---
+            
+            <details><summary>Auto-generated release notes</summary>
             
             ${{ steps.issues.outputs.changelog }}
+            
+            </details>
           draft: true
           prerelease: ${{ env.IS_PRERELEASE }}
           target_commitish: ${{ steps.target-branch.outputs.branch }}

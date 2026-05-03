@@ -39,6 +39,10 @@ permissions:
   id-token: write
   pull-requests: write
 
+concurrency:
+  group: release-build-${{ github.event.release.tag_name || inputs.version || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   # Job 1: Windows-only prep step - generates SNK, updates InternalsVisibleTo in csproj files
   # This ensures the public key is embedded in source files before cross-platform compilation
@@ -167,6 +171,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        ref: ${{ needs.prep.outputs.version }}
     
     - name: Download pre-processed source
       uses: actions/download-artifact@v4
@@ -214,6 +219,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        ref: ${{ needs.prep.outputs.version }}
     
     - name: Download pre-processed source
       uses: actions/download-artifact@v4
@@ -440,6 +446,7 @@ jobs:
       with:
         pr-number: ${{ steps.hash-pr.outputs.hash_pr_number }}
         token: ${{ secrets.GITHUB_TOKEN }}
+        version: ${{ needs.prep.outputs.version }}
 
     - name: Auto-merge Hash PR
       if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''
@@ -447,7 +454,7 @@ jobs:
       run: |
         $prNumber = "${{ steps.hash-pr.outputs.hash_pr_number }}"
         if ($prNumber) {
-          gh pr merge $prNumber --auto --squash --delete-branch
+          gh pr merge $prNumber --auto --squash
         }
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

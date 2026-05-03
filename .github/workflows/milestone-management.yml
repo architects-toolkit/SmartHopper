@@ -20,6 +20,10 @@ permissions:
   pull-requests: write
   contents: read
 
+concurrency:
+  group: milestone-mgmt-${{ github.event.milestone.number || github.event.release.tag_name || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   create-next-stage-milestone:
     if: github.event_name == 'release'
