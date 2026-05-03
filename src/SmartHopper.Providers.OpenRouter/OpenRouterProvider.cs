@@ -142,11 +142,15 @@ namespace SmartHopper.Providers.OpenRouter
             }
 
             // Parameters
-            int maxTokens = this.GetSetting<int>("MaxTokens");
-            double temperature;
+            var p = request.Parameters;
 
-            // Temperature stored as string in settings to align with other providers
-            if (!double.TryParse(this.GetSetting<string>("Temperature"), out temperature))
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            double temperature;
+            if (p?.Temperature.HasValue == true)
+            {
+                temperature = p.Temperature.Value;
+            }
+            else if (!double.TryParse(this.GetSetting<string>("Temperature"), out temperature))
             {
                 temperature = 0.5;
             }
@@ -188,10 +192,16 @@ namespace SmartHopper.Providers.OpenRouter
                 }
             }
 
-            // Provider selection settings
-            bool allowFallbacks = this.GetSetting<bool>("AllowFallbacks"); // default true
-            string sort = this.GetSetting<string>("Sort") ?? "price";      // default price
-            string dataCollection = this.GetSetting<string>("DataCollection") ?? "deny"; // default deny
+            // Provider selection settings: extras take precedence over global settings
+            bool allowFallbacks = (p?.Extras != null && p.Extras.TryGetValue("allow_fallback", out var afToken))
+                ? afToken?.Value<bool>() ?? this.GetSetting<bool>("AllowFallbacks")
+                : this.GetSetting<bool>("AllowFallbacks");
+            string sort = (p?.Extras != null && p.Extras.TryGetValue("sort", out var sortToken))
+                ? sortToken?.ToString() ?? this.GetSetting<string>("Sort") ?? "price"
+                : this.GetSetting<string>("Sort") ?? "price";
+            string dataCollection = (p?.Extras != null && p.Extras.TryGetValue("data_collection", out var dcToken))
+                ? dcToken?.ToString() ?? this.GetSetting<string>("DataCollection") ?? "deny"
+                : this.GetSetting<string>("DataCollection") ?? "deny";
 
             var body = new JObject
             {
@@ -206,6 +216,33 @@ namespace SmartHopper.Providers.OpenRouter
                     ["data_collection"] = dataCollection,
                 },
             };
+
+            // Apply seed, top_p, and other optional parameters from extras only
+            if (p?.Extras != null)
+            {
+                if (p.Extras.TryGetValue("seed", out var seedToken) && seedToken != null)
+                    body["seed"] = seedToken.Value<int?>();
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                    body["top_p"] = topPToken.Value<double?>();
+                if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
+                    body["top_k"] = topKToken.Value<int?>();
+                if (p.Extras.TryGetValue("frequency_penalty", out var freqPenaltyToken) && freqPenaltyToken != null)
+                    body["frequency_penalty"] = freqPenaltyToken.Value<double?>();
+                if (p.Extras.TryGetValue("presence_penalty", out var presPenaltyToken) && presPenaltyToken != null)
+                    body["presence_penalty"] = presPenaltyToken.Value<double?>();
+                if (p.Extras.TryGetValue("repetition_penalty", out var repPenaltyToken) && repPenaltyToken != null)
+                    body["repetition_penalty"] = repPenaltyToken.Value<double?>();
+                if (p.Extras.TryGetValue("min_p", out var minPToken) && minPToken != null)
+                    body["min_p"] = minPToken.Value<double?>();
+                if (p.Extras.TryGetValue("top_a", out var topAToken) && topAToken != null)
+                    body["top_a"] = topAToken.Value<double?>();
+                if (p.Extras.TryGetValue("logprobs", out var logprobsToken) && logprobsToken != null)
+                    body["logprobs"] = logprobsToken.Value<bool?>();
+                if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
+                    body["top_logprobs"] = topLogprobsToken.Value<int?>();
+                if (p.Extras.TryGetValue("enable_caching", out var enableCachingToken) && enableCachingToken?.Value<bool>() == true)
+                    body["cache_control"] = new JObject { ["type"] = "ephemeral" };
+            }
 
             // Add tools if requested
             if (!string.IsNullOrWhiteSpace(request.Body.ToolFilter))
@@ -476,7 +513,13 @@ namespace SmartHopper.Providers.OpenRouter
                 var usage = response["usage"] as JObject;
                 if (usage != null)
                 {
-                    metrics.InputTokensPrompt = usage["prompt_tokens"]?.Value<int>() ?? 0;
+                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>() ?? 0;
+
+                    // Extract cached tokens from nested prompt_tokens_details object
+                    var promptDetails = usage["prompt_tokens_details"] as JObject;
+                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
+                    metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
+
                     metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? 0;
                 }
 
@@ -903,6 +946,65 @@ namespace SmartHopper.Providers.OpenRouter
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return new[]
+            {
+                // General parameters (shared across providers)
+                new AIExtraDescriptor("seed", "Seed",
+                    "Reproducibility seed for deterministic sampling. Use the same seed to get similar outputs. Leave empty for random.",
+                    typeof(int), null),
+                new AIExtraDescriptor("top_p", "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double), null),
+                new AIExtraDescriptor("top_k", "Top K",
+                    "Only sample from the top K options for each token. Lower values make output more focused.",
+                    typeof(int), null),
+                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double), null),
+                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double), null),
+
+                // OpenRouter-specific parameters
+                new AIExtraDescriptor("repetition_penalty", "Repetition Penalty",
+                    "Alternative penalty for repeated tokens (0.0–2.0). Higher values reduce repetition more strongly.",
+                    typeof(double), null),
+                new AIExtraDescriptor("min_p", "Min P",
+                    "Minimum probability for token sampling (0.0–1.0). Tokens below this threshold are ignored.",
+                    typeof(double), null),
+                new AIExtraDescriptor("top_a", "Top A",
+                    "Alternative nucleus sampling method. Threshold based on probability of most likely token.",
+                    typeof(double), null),
+                new AIExtraDescriptor("logprobs", "Log Probabilities",
+                    "Return log probabilities of output tokens. Useful for analyzing model confidence.",
+                    typeof(bool), null),
+                new AIExtraDescriptor("top_logprobs", "Top Logprobs",
+                    "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
+                    typeof(int), null),
+
+                // Provider selection settings
+                new AIExtraDescriptor("allow_fallback", "Allow Fallback",
+                    "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
+                    typeof(bool), null),
+                new AIExtraDescriptor("sort", "Sort",
+                    "Provider routing sort order: 'price' (cheapest), 'throughput' (fastest), or 'latency' (lowest latency).",
+                    typeof(string), "price",
+                    new[] { "price", "throughput", "latency" }),
+                new AIExtraDescriptor("data_collection", "Data Collection",
+                    "Whether to allow provider to collect data from requests: 'allow' or 'deny'.",
+                    typeof(string), "deny",
+                    new[] { "allow", "deny" }),
+
+                // OpenRouter prompt caching parameters
+                new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
+                    "Adds cache_control to the request body, enabling prompt caching for supported providers routed through OpenRouter.",
+                    typeof(bool), null),
+            };
         }
     }
 }

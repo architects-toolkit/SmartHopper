@@ -805,7 +805,6 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-1-mini",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
-                    Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9695,

@@ -861,5 +861,11 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             this._injectedSettings = settings ?? new Dictionary<string, object>();
         }
+
+        /// <inheritdoc/>
+        public virtual IEnumerable<AIExtraDescriptor> GetExtraDescriptors()
+        {
+            return Array.Empty<AIExtraDescriptor>();
+        }
     }
 }

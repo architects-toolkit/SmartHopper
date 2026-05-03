@@ -68,6 +68,9 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum topic.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Title", "T", "Title of the forum topic.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("URL", "U", "URL of the forum topic.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Post Count", "P", "Number of posts included in the summary.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -84,6 +87,9 @@ namespace SmartHopper.Components.Knowledge
             private bool hasWork;
 
             private GH_Structure<GH_String> resultSummaries;
+            private GH_Structure<GH_String> resultTitles;
+            private GH_Structure<GH_String> resultUrls;
+            private GH_Structure<GH_String> resultPostCounts;
 
             public AIMcNeelForumTopicSummarizeWorker(
                 AIMcNeelForumTopicSummarizeComponent parent,
@@ -212,9 +218,25 @@ namespace SmartHopper.Components.Knowledge
                         token).ConfigureAwait(false);
 
                     this.resultSummaries = new GH_Structure<GH_String>();
+                    this.resultTitles = new GH_Structure<GH_String>();
+                    this.resultUrls = new GH_Structure<GH_String>();
+                    this.resultPostCounts = new GH_Structure<GH_String>();
+
                     if (resultTrees.TryGetValue("Summary", out var summaryTree))
                     {
                         this.resultSummaries = summaryTree;
+                    }
+                    if (resultTrees.TryGetValue("Title", out var titleTree))
+                    {
+                        this.resultTitles = titleTree;
+                    }
+                    if (resultTrees.TryGetValue("Url", out var urlTree))
+                    {
+                        this.resultUrls = urlTree;
+                    }
+                    if (resultTrees.TryGetValue("PostCount", out var postCountTree))
+                    {
+                        this.resultPostCounts = postCountTree;
                     }
                 }
                 catch (Exception ex)
@@ -227,6 +249,9 @@ namespace SmartHopper.Components.Knowledge
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 this.parent.SetPersistentOutput("Summary", this.resultSummaries ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Title", this.resultTitles ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("URL", this.resultUrls ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("Post Count", this.resultPostCounts ?? new GH_Structure<GH_String>(), DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
                 message = hasAnySummary ? "Topic(s) summarized" : "No summary available";

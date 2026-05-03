@@ -32,5 +32,10 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
         /// Gets or sets the debounce time in milliseconds for input stabilization
         /// </summary>
         public int DebounceTime { get; set; } = 1500;
+
+        /// <summary>
+        /// Gets or sets the minimum interval in seconds between batch status poll requests
+        /// </summary>
+        public int BatchPollIntervalSeconds { get; set; } = 20;
     }
 }

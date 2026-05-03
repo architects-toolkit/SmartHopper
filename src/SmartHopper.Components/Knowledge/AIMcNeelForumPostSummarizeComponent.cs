@@ -68,6 +68,7 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Summary", "S", "AI-generated summary of the forum post.", GH_ParamAccess.tree);
+            pManager.AddTextParameter("URL", "U", "URL of the post.", GH_ParamAccess.tree);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -84,6 +85,7 @@ namespace SmartHopper.Components.Knowledge
             private bool hasWork;
 
             private GH_Structure<GH_String> resultSummaries;
+            private GH_Structure<GH_String> resultUrls;
 
             public AIMcNeelForumPostSummarizeWorker(
                 AIMcNeelForumPostSummarizeComponent parent,
@@ -136,6 +138,7 @@ namespace SmartHopper.Components.Knowledge
                             var outputs = new Dictionary<string, List<GH_String>>
                             {
                                 { "Summary", new List<GH_String>() },
+                                { "Url", new List<GH_String>() },
                             };
 
                             foreach (var kvp in branchInputs)
@@ -192,9 +195,11 @@ namespace SmartHopper.Components.Knowledge
                                 {
                                     // Backward compatibility: single summary at root
                                     var singleSummary = toolResult["summary"]?.ToString() ?? string.Empty;
+                                    var singleUrl = toolResult["url"]?.ToString() ?? string.Empty;
                                     if (!string.IsNullOrWhiteSpace(singleSummary))
                                     {
                                         outputs["Summary"].Add(new GH_String(singleSummary));
+                                        outputs["Url"].Add(new GH_String(singleUrl));
                                     }
 
                                     continue;
@@ -203,9 +208,11 @@ namespace SmartHopper.Components.Knowledge
                                 foreach (var item in summariesArray.OfType<JObject>())
                                 {
                                     var summaryValue = item["summary"]?.ToString() ?? string.Empty;
+                                    var urlValue = item["url"]?.ToString() ?? string.Empty;
                                     if (!string.IsNullOrWhiteSpace(summaryValue))
                                     {
                                         outputs["Summary"].Add(new GH_String(summaryValue));
+                                        outputs["Url"].Add(new GH_String(urlValue));
                                     }
                                 }
                             }
@@ -217,10 +224,15 @@ namespace SmartHopper.Components.Knowledge
 
                     // Map result trees back to strongly-typed structures
                     this.resultSummaries = new GH_Structure<GH_String>();
+                    this.resultUrls = new GH_Structure<GH_String>();
 
                     if (resultTrees.TryGetValue("Summary", out var summaryTree))
                     {
                         this.resultSummaries = summaryTree;
+                    }
+                    if (resultTrees.TryGetValue("Url", out var urlTree))
+                    {
+                        this.resultUrls = urlTree;
                     }
                 }
                 catch (Exception ex)
@@ -233,6 +245,7 @@ namespace SmartHopper.Components.Knowledge
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 this.parent.SetPersistentOutput("Summary", this.resultSummaries ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetPersistentOutput("URL", this.resultUrls ?? new GH_Structure<GH_String>(), DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
                 message = hasAnySummary ? "Post(s) summarized" : "No summary available";

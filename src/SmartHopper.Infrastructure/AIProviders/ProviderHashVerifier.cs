@@ -133,7 +133,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         {
             var now = DateTime.UtcNow;
             var expiredKeys = new List<string>();
-            
+
             foreach (var kvp in ManifestCache)
             {
                 if (now - kvp.Value.fetched >= CacheExpiration)
@@ -141,7 +141,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     expiredKeys.Add(kvp.Key);
                 }
             }
-            
+
             foreach (var key in expiredKeys)
             {
                 ManifestCache.TryRemove(key, out _);
@@ -164,7 +164,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             {
                 CleanupExpiredCacheEntries();
             }
-            
+
             // Check cache first (fast path) - thread-safe lookup
             if (ManifestCache.TryGetValue(version, out var cached))
             {
@@ -173,6 +173,7 @@ namespace SmartHopper.Infrastructure.AIProviders
                     Debug.WriteLine($"[ProviderHashVerifier] ReadHashManifest: Using cached manifest for version {version}");
                     return cached.manifest;
                 }
+
                 // Expired - remove it (thread-safe)
                 ManifestCache.TryRemove(version, out _);
             }
@@ -185,7 +186,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
 
             var manifest = await FetchPublicHashesFromInternetAsync(version).ConfigureAwait(false);
-            
+
             if (manifest != null)
             {
                 // Cache the result for future use (thread-safe)

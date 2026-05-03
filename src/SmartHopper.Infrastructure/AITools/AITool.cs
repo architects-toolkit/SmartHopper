@@ -18,6 +18,7 @@
 
 using System;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
@@ -60,6 +61,14 @@ namespace SmartHopper.Infrastructure.AITools
         public AICapability RequiredCapabilities { get; }
 
         /// <summary>
+        /// Gets the optional function that builds a provider-level <see cref="AIRequestCall"/> from
+        /// tool parameters without executing it. Used during batch collection to build requests
+        /// for aggregated submission. <c>null</c> means the tool does not support batch mode
+        /// and will always be executed synchronously.
+        /// </summary>
+        public Func<AIToolCall, AIRequestCall> BuildRequest { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AITool"/> class.
         /// Creates a new AI tool.
         /// </summary>
@@ -69,7 +78,8 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="parametersSchema">JSON schema describing the tool's parameters.</param>
         /// <param name="execute">Function to execute the tool with given parameters.</param>
         /// <param name="requiredCapabilities">Array of capabilities required by this tool (optional, defaults to no requirements).</param>
-        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIReturn>> execute, AICapability requiredCapabilities = AICapability.None)
+        /// <param name="buildRequest">Optional function to build an <see cref="AIRequestCall"/> without executing it, for batch mode support. Null means sync-only.</param>
+        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIReturn>> execute, AICapability requiredCapabilities = AICapability.None, Func<AIToolCall, AIRequestCall> buildRequest = null)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));
@@ -77,6 +87,7 @@ namespace SmartHopper.Infrastructure.AITools
             this.ParametersSchema = parametersSchema ?? throw new ArgumentNullException(nameof(parametersSchema));
             this.Execute = execute ?? throw new ArgumentNullException(nameof(execute));
             this.RequiredCapabilities = requiredCapabilities;
+            this.BuildRequest = buildRequest;
         }
     }
 }

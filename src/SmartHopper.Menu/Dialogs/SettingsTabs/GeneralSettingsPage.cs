@@ -30,6 +30,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
     {
         private readonly DropDown _defaultProviderComboBox;
         private readonly NumericStepper _debounceControl;
+        private readonly NumericStepper _batchPollIntervalControl;
         private readonly IAIProvider[] _providers;
 
         /// <summary>
@@ -49,7 +50,12 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Increment = 100,
             };
 
-            // Populate provider dropdown
+            this._batchPollIntervalControl = new NumericStepper
+            {
+                MinValue = 10,
+                MaxValue = 1800,
+                Increment = 5,
+            };
             foreach (var provider in this._providers)
             {
                 this._defaultProviderComboBox.Items.Add(new ListItem { Text = provider.Name });
@@ -103,6 +109,31 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Width = 500,  // Max width for better text wrapping
             });
 
+            // Add spacing
+            layout.Add(new Panel { Height = 10 });
+
+            // Batch poll interval section
+            var batchPollRowLayout = new TableLayout
+            {
+                Spacing = new Size(10, 0),
+            };
+
+            batchPollRowLayout.Rows.Add(new TableRow(
+                new TableCell(new Label { Text = "Batch Poll Interval (s):", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
+                new TableCell(this._batchPollIntervalControl, true)
+            ));
+
+            layout.Add(batchPollRowLayout);
+
+            layout.Add(new Label
+            {
+                Text = "Minimum interval between batch status poll requests. Applies to all providers that support batch processing.",
+                TextColor = Colors.Gray,
+                Font = new Font(SystemFont.Default, 10),
+                Wrap = WrapMode.Word,
+                Width = 500,
+            });
+
             // Add end spacing
             layout.Add(new Panel { Height = 10 });
 
@@ -134,6 +165,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Set debounce time
             this._debounceControl.Value = settings.DebounceTime;
+
+            // Set batch poll interval
+            this._batchPollIntervalControl.Value = settings.BatchPollIntervalSeconds;
         }
 
         /// <summary>
@@ -150,6 +184,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             // Save debounce time
             settings.DebounceTime = (int)this._debounceControl.Value;
+
+            // Save batch poll interval
+            settings.BatchPollIntervalSeconds = (int)this._batchPollIntervalControl.Value;
         }
     }
 }
