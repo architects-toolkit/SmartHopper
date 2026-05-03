@@ -100,7 +100,6 @@ jobs:
           base: ${{ github.ref_name }}
           delete-branch: true
           labels: |
-            chore
             automated
 
       - name: Assign PR to Milestone
