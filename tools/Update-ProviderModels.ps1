@@ -309,7 +309,10 @@ function ConvertTo-CapabilityFlags($openRouterModel) {
 # ---------------------------------------------------------------------------
 # 1. Read and parse the existing C# file
 # ---------------------------------------------------------------------------
-$sourceContent = Get-Content -Raw -LiteralPath $TargetFile
+# Read as UTF-8 text (handles BOM correctly), matching Update-LicenseHeaders.ps1
+$sourceContent = [System.IO.File]::ReadAllText($TargetFile, [System.Text.Encoding]::UTF8)
+# Normalize: strip BOM if present so regexes don't see \uFEFF
+$sourceContent = $sourceContent -replace '^[\uFEFF]', ''
 
 # Extract the provider variable name used inside RetrieveModels()
 $providerVarRx = [regex]::Match($sourceContent, 'var\s+(\w+)\s*=\s*this\.\w+\.Name\.ToLowerInvariant\(\)\s*;')
@@ -669,13 +672,13 @@ if ($providerApiQueried) {
                 if ($isBare -or $isLatest) { [void]$aliasList.Add($id) }
             }
 
-            # Always include the bare baseKey as an alias when it's not the
-            # canonical, even if the API didn't list it as a separate entry.
-            # This keeps the user-facing rolling alias (e.g. "claude-haiku-4-5")
-            # alive on the canonical dated id.
-            if (-not [string]::Equals($baseKey, $canonical, 'OrdinalIgnoreCase') -and
-                -not ($aliasList | Where-Object { [string]::Equals($_, $baseKey, 'OrdinalIgnoreCase') })) {
-                [void]$aliasList.Add($baseKey)
+            # Always include bare baseKey and baseKey-latest as aliases on the canonical
+            # dated id, regardless of whether the API listed them as separate entries.
+            foreach ($implied in @($baseKey, "$baseKey-latest")) {
+                if (-not [string]::Equals($implied, $canonical, 'OrdinalIgnoreCase') -and
+                    -not ($aliasList | Where-Object { [string]::Equals($_, $implied, 'OrdinalIgnoreCase') })) {
+                    [void]$aliasList.Add($implied)
+                }
             }
 
             if ($aliasList.Count -gt 0) {
@@ -699,6 +702,62 @@ if ($providerApiQueried) {
             if (-not $apiCanonicalByAlias.ContainsKey($a)) {
                 $apiCanonicalByAlias[$a] = $kvp.Key
             }
+        }
+    }
+
+    # Supplement: source-file -latest models that the provider API no longer lists
+    # as standalone entries but belong to a dated canonical family.
+    # E.g. "claude-3-5-haiku-latest" is in the source but not in the API response;
+    # we still want to fold it into "claude-3-5-haiku-20241022".
+    if ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provider]) {
+        $suffixRxSupplement = [regex]::new($ProviderAliasSuffix[$Provider])
+        $latestRxSupplement = [regex]::new('-latest$')
+        $dateRxSupplement   = [regex]::new('-(\d{8}|\d{4}-\d{2}-\d{2})$')
+
+        foreach ($srcKey in @($existingModels.Keys)) {
+            if (-not $latestRxSupplement.IsMatch($srcKey)) { continue }
+            if ($apiCanonicalByAlias.ContainsKey($srcKey)) { continue }
+
+            $baseKey = $suffixRxSupplement.Replace($srcKey, '')
+
+            # Find all dated members of the same family in the provider API
+            $datedSiblings = @($providerApiModelNames | Where-Object {
+                $dateRxSupplement.IsMatch($_) -and
+                [string]::Equals($suffixRxSupplement.Replace($_, ''), $baseKey, 'OrdinalIgnoreCase')
+            })
+
+            if ($datedSiblings.Count -eq 0) { continue }
+
+            # Pick the most recent dated sibling as canonical
+            $datedCanonical = $datedSiblings | Sort-Object -Property @{
+                Expression = { $dateRxSupplement.Match($_).Groups[1].Value }
+            } -Descending | Select-Object -First 1
+
+            # Skip if the -latest id is itself the canonical (shouldn't happen, but guard)
+            if ([string]::Equals($srcKey, $datedCanonical, 'OrdinalIgnoreCase')) { continue }
+
+            $apiCanonicalByAlias[$srcKey] = $datedCanonical
+
+            # Register the bare baseKey too if not already mapped
+            if (-not $apiCanonicalByAlias.ContainsKey($baseKey) -and
+                -not [string]::Equals($baseKey, $datedCanonical, 'OrdinalIgnoreCase')) {
+                $apiCanonicalByAlias[$baseKey] = $datedCanonical
+            }
+
+            # Ensure the dated canonical has the -latest (and bare) in its alias list
+            if (-not $apiAliasesByCanonical.ContainsKey($datedCanonical)) {
+                $apiAliasesByCanonical[$datedCanonical] = @()
+            }
+            $existingAliases = [System.Collections.Generic.List[string]]::new()
+            foreach ($a in @($apiAliasesByCanonical[$datedCanonical])) { [void]$existingAliases.Add($a) }
+            if (-not ($existingAliases | Where-Object { [string]::Equals($_, $srcKey, 'OrdinalIgnoreCase') })) {
+                [void]$existingAliases.Add($srcKey)
+            }
+            if (-not ($existingAliases | Where-Object { [string]::Equals($_, $baseKey, 'OrdinalIgnoreCase') }) -and
+                -not [string]::Equals($baseKey, $datedCanonical, 'OrdinalIgnoreCase')) {
+                [void]$existingAliases.Add($baseKey)
+            }
+            $apiAliasesByCanonical[$datedCanonical] = $existingAliases.ToArray()
         }
     }
 }
@@ -985,6 +1044,81 @@ foreach ($kvp in $mergedModels.GetEnumerator()) {
 }
 
 # ---------------------------------------------------------------------------
+# Reassign generic alias (bare baseKey) to latest non-deprecated family member
+# ---------------------------------------------------------------------------
+if ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provider]) {
+    $suffixRxAlias = [regex]::new($ProviderAliasSuffix[$Provider])
+    $byBaseAlias = @{}
+    foreach ($m in $mergedModels.Values) {
+        $bk = $suffixRxAlias.Replace($m.Model, '')
+        if (-not $byBaseAlias.ContainsKey($bk)) {
+            $byBaseAlias[$bk] = [System.Collections.Generic.List[object]]::new()
+        }
+        [void]$byBaseAlias[$bk].Add($m)
+    }
+
+    foreach ($kvp in $byBaseAlias.GetEnumerator()) {
+        $siblings = @($kvp.Value)
+        $baseKey = $kvp.Key
+
+        # Skip if the only member is the bare baseKey itself (no dated variant present)
+        if ($siblings.Count -eq 1 -and [string]::Equals($siblings[0].Model, $baseKey, 'OrdinalIgnoreCase')) { continue }
+
+        # Latest non-deprecated: sort by model-ID date string first (most reliable),
+        # then by OpenRouter epoch as tiebreaker (Created not yet computed at this stage).
+        $dateRxSort  = [regex]::new('-(\d{8}|\d{4}-\d{2}-\d{2})$')
+        $getDateKey  = { param($m)
+            $dm = $dateRxSort.Match($m.Model)
+            if ($dm.Success) { $dm.Groups[1].Value } else { '' }
+        }
+        $getCreatedEpoch = { param($m)
+            $orm = Resolve-OpenRouterEntry $m.Model $m.Aliases
+            if ($orm -and $orm.created) { [long]$orm.created } else { [long]0 }
+        }
+
+        $candidates = $siblings |
+            Where-Object { $_.Deprecated -ne 'true' } |
+            Sort-Object -Property @(
+                @{ Expression = { & $getDateKey $_ };  Descending = $true }
+                @{ Expression = { & $getCreatedEpoch $_ }; Descending = $true }
+            )
+
+        # Winner = most recent non-deprecated; fallback = most recent deprecated
+        $winner = if ($candidates) {
+            $candidates | Select-Object -First 1
+        } else {
+            $siblings | Sort-Object -Property @(
+                @{ Expression = { & $getDateKey $_ };  Descending = $true }
+                @{ Expression = { & $getCreatedEpoch $_ }; Descending = $true }
+            ) | Select-Object -First 1
+        }
+
+        # Implied rolling aliases for this family
+        $impliedAliases = @($baseKey, "$baseKey-latest")
+
+        foreach ($m in $siblings) {
+            $current = [System.Collections.Generic.List[string]]::new()
+            if ($m.Aliases) { foreach ($a in @($m.Aliases)) { [void]$current.Add($a) } }
+
+            foreach ($implied in $impliedAliases) {
+                $hasImplied = $current | Where-Object { [string]::Equals($_, $implied, 'OrdinalIgnoreCase') }
+                if ([System.Object]::ReferenceEquals($m, $winner)) {
+                    if (-not $hasImplied) { [void]$current.Add($implied) }
+                } else {
+                    if ($hasImplied) {
+                        $current = [System.Collections.Generic.List[string]](
+                            $current | Where-Object { -not [string]::Equals($_, $implied, 'OrdinalIgnoreCase') }
+                        )
+                    }
+                }
+            }
+
+            $m.Aliases = if ($current.Count -gt 0) { $current.ToArray() } else { $null }
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Compute sorting keys (Created, OutputPrice) for every merged model
 # ---------------------------------------------------------------------------
 foreach ($m in $mergedModels.Values) {
@@ -1119,10 +1253,7 @@ if ($UpdateFile) {
     $newListContent = ($newBlocks -join "`r`n`r`n")
     $newFileContent = $beforeList + $newListContent + "`r`n            };" + $afterList
 
-    # Ensure trailing newline
-    if (-not $newFileContent.EndsWith("`r`n")) { $newFileContent += "`r`n" }
-
-    [System.IO.File]::WriteAllText($TargetFile, $newFileContent)
+    [System.IO.File]::WriteAllText($TargetFile, $newFileContent, [System.Text.Encoding]::UTF8)
     $fileUpdated = $true
     Write-Host "[$Provider] Wrote $($sorted.Count) model(s) to $TargetFile."
 }
