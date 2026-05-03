@@ -104,6 +104,20 @@ $ProviderPrefixes = @{
     'OpenRouter' = ''
 }
 
+# Per-provider regex matching the "version suffix" appended to a base model id.
+# Used to group several provider-API ids that refer to the same logical model:
+#   - dated suffix (immutable release):    -YYYYMMDD or -YYYY-MM-DD
+#   - rolling alias:                       -latest
+# The dated id is treated as canonical; bare and -latest ids become aliases.
+# Set to $null for providers whose ids do not encode aliases this way.
+$ProviderAliasSuffix = @{
+    'OpenAI'     = '-(?:\d{4}-\d{2}-\d{2}|latest)$'
+    'Anthropic'  = '-(?:\d{8}|latest)$'
+    'MistralAI'  = $null   # uses .name field grouping (handled separately)
+    'DeepSeek'   = $null
+    'OpenRouter' = $null
+}
+
 # Provider-native /models endpoints. Used only when -ProviderApiKey is supplied.
 # Each entry returns the URL and a script block that builds auth headers.
 $ProviderApis = @{
@@ -406,10 +420,22 @@ foreach ($item in $response.data) {
 
 Write-Host "[$Provider] OpenRouter returned $($openRouterModels.Count) model(s) for prefix '$prefix'."
 
-# Build quick lookup by stored model name
+# Helper: Normalize model name for cross-reference matching.
+# Anthropic uses hyphens in their API (claude-opus-4-7) while OpenRouter uses dots (claude-opus-4.7).
+function Get-NormalizedModelName($modelName) {
+    return $modelName -replace '\.', '-'
+}
+
+# Build quick lookup by stored model name (original + normalized for cross-reference matching)
 $openRouterLookup = @{ }
 foreach ($orm in $openRouterModels) {
-    $openRouterLookup[(Get-ModelName $orm.id)] = $orm
+    $name = Get-ModelName $orm.id
+    $openRouterLookup[$name] = $orm
+    # Also add normalized key so provider-API hyphenated ids match OpenRouter dotted ids
+    $normalized = Get-NormalizedModelName $name
+    if ($normalized -ne $name) {
+        $openRouterLookup[$normalized] = $orm
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -469,9 +495,14 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
 #                is merged in as a supplement (it is sometimes incomplete).
 #                "deprecation" != null on any group member marks the canonical
 #                as deprecated.
-#   Other     - Use the per-entry "aliases" array when present (OpenAI /
-#                Anthropic / DeepSeek currently don't expose aliases, so the
-#                map is typically empty).
+#   OpenAI/Anthropic - No "aliases" field in the API; instead, dated suffixes
+#                in the id encode the alias relationship. Group by stripping
+#                the suffix (-YYYY-MM-DD / -YYYYMMDD / -latest) to get a base
+#                key. The dated id is canonical (immutable release); the bare
+#                id and -latest variant become aliases. Driven by
+#                $ProviderAliasSuffix table above.
+#   Other       - Use the per-entry "aliases" array when present (DeepSeek
+#                currently doesn't expose aliases, so the map is empty).
 # ---------------------------------------------------------------------------
 $apiAliasesByCanonical   = @{}
 $apiCanonicalByAlias     = [System.Collections.Generic.Dictionary[string,string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -509,6 +540,70 @@ if ($providerApiQueried) {
                 if ($null -ne $pm.deprecation) {
                     [void]$apiDeprecatedCanonicals.Add($canonical)
                 }
+            }
+
+            $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
+        }
+    }
+    elseif ($ProviderAliasSuffix.ContainsKey($Provider) -and $ProviderAliasSuffix[$Provider]) {
+        # Suffix-based grouping (OpenAI, Anthropic):
+        #   baseKey   = id with -YYYY-MM-DD / -YYYYMMDD / -latest stripped
+        #   canonical = dated variant (highest date wins on ties); else -latest;
+        #               else the bare id (group has no dated release at all)
+        $suffixRx = [regex]::new($ProviderAliasSuffix[$Provider])
+        $dateRx   = [regex]::new('-(\d{8}|\d{4}-\d{2}-\d{2})$')
+        $latestRx = [regex]::new('-latest$')
+
+        $groups = @{}
+        foreach ($pmId in $providerApiModelNames) {
+            $baseKey = $suffixRx.Replace($pmId, '')
+            if (-not $groups.ContainsKey($baseKey)) {
+                $groups[$baseKey] = [System.Collections.Generic.List[string]]::new()
+            }
+            [void]$groups[$baseKey].Add($pmId)
+        }
+
+        foreach ($kvp in $groups.GetEnumerator()) {
+            $baseKey = $kvp.Key
+            $ids     = @($kvp.Value)
+
+            # Skip groups that contain only the bare baseKey itself: nothing
+            # to alias (no dated/-latest variant present). Singleton groups
+            # whose sole id is dated are NOT skipped, because the bare baseKey
+            # is still an implicit server-side rolling alias we must record.
+            if ($ids.Count -eq 1 -and [string]::Equals($ids[0], $baseKey, 'OrdinalIgnoreCase')) {
+                continue
+            }
+
+            # Pick canonical: highest dated id wins; else -latest; else bare id.
+            $dated = @($ids | Where-Object { $dateRx.IsMatch($_) })
+            if ($dated.Count -gt 0) {
+                # Compare on the captured date string. Both YYYYMMDD and
+                # YYYY-MM-DD sort correctly lexicographically.
+                $canonical = $dated | Sort-Object -Property @{
+                    Expression = { $dateRx.Match($_).Groups[1].Value }
+                } -Descending | Select-Object -First 1
+            }
+            else {
+                $latest = @($ids | Where-Object { $latestRx.IsMatch($_) })
+                if ($latest.Count -gt 0) { $canonical = $latest[0] }
+                else                     { $canonical = $baseKey }
+            }
+
+            $aliasList = [System.Collections.Generic.List[string]]::new()
+            foreach ($id in $ids) {
+                if (-not [string]::Equals($id, $canonical, 'OrdinalIgnoreCase')) {
+                    [void]$aliasList.Add($id)
+                }
+            }
+
+            # Always include the bare baseKey as an alias when it's not the
+            # canonical, even if the API didn't list it as a separate entry.
+            # This keeps the user-facing rolling alias (e.g. "claude-haiku-4-5")
+            # alive on the canonical dated id.
+            if (-not [string]::Equals($baseKey, $canonical, 'OrdinalIgnoreCase') -and
+                -not ($aliasList | Where-Object { [string]::Equals($_, $baseKey, 'OrdinalIgnoreCase') })) {
+                [void]$aliasList.Add($baseKey)
             }
 
             $apiAliasesByCanonical[$canonical] = $aliasList.ToArray()
@@ -658,7 +753,8 @@ if ($providerApiQueried) {
             continue
         }
 
-        $enrichment = Get-OpenRouterEnrichment -orm $openRouterLookup[$pmId]
+        $ormLookup = if ($openRouterLookup.ContainsKey($pmId)) { $openRouterLookup[$pmId] } else { $openRouterLookup[(Get-NormalizedModelName $pmId)] }
+        $enrichment = Get-OpenRouterEnrichment -orm $ormLookup
 
         $caps = if ($enrichment -and -not [string]::IsNullOrWhiteSpace($enrichment.Capabilities) -and $enrichment.Capabilities -ne 'AICapability.None') {
             $enrichment.Capabilities
@@ -756,7 +852,7 @@ foreach ($kvp in $mergedModels.GetEnumerator()) {
 # Compute sorting keys (Created, OutputPrice) for every merged model
 # ---------------------------------------------------------------------------
 foreach ($m in $mergedModels.Values) {
-    $orm = $openRouterLookup[$m.Model]
+    $orm = if ($openRouterLookup.ContainsKey($m.Model)) { $openRouterLookup[$m.Model] } else { $openRouterLookup[(Get-NormalizedModelName $m.Model)] }
     if ($orm) {
         # Created: OpenRouter returns Unix epoch seconds
         if ($orm.created) {
