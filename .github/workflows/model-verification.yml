@@ -39,6 +39,10 @@ permissions:
   pull-requests: write
   issues: write
 
+concurrency:
+  group: model-verify-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
 jobs:
   evaluate:
     if: >-
