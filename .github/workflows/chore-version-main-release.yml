@@ -14,6 +14,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   remove-release-date:
     name: 🔄 Remove Release Version Date
@@ -72,7 +76,6 @@ jobs:
           base: ${{ github.event.pull_request.head.ref }}
           delete-branch: true
           labels: |
-            chore
             automated
 
       - name: Assign PR to Milestone

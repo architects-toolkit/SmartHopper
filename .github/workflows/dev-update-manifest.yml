@@ -28,6 +28,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   update-manifest:
     name: 📋 Update Manifest Text for Dev Version
@@ -70,4 +74,11 @@ jobs:
           git config --local user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
           git add yak-package/manifest.yml
           git commit -m "chore: update manifest text to ${{ steps.update_manifest.outputs.release-type }} version [skip ci]"
-          git push
+          # Belt-and-braces against external commits landing between fetch and push.
+          # Retry pull --rebase + push up to 3 times in case of a near-simultaneous push.
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin dev && \
+              git push origin HEAD:dev && break
+            echo "Push attempt $attempt failed, retrying..."
+            sleep $((attempt * 2))
+          done

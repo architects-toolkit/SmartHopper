@@ -18,6 +18,10 @@ on:
 permissions:
   issues: write
 
+concurrency:
+  group: issue-labels-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
   update-issue-labels:
     runs-on: ubuntu-latest

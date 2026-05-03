@@ -21,6 +21,10 @@ on:
       - 'main-*'
   workflow_dispatch:
 
+concurrency:
+  group: release-pr-main-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   create-release:
     if: ${{ github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch' }}

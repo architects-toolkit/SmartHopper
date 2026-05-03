@@ -52,151 +52,107 @@ namespace SmartHopper.Providers.OpenAI
 
             var models = new List<AIModelCapabilities>
             {
+                // Released between February 2026 and May 2026
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.5",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ReasoningChat,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 90,
-                    ContextLimit = 400000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5-nano",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 70,
-                    ContextLimit = 400000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
-                    SupportsStreaming = true,
-                    Verified = true,
-                    Rank = 80,
-                    ContextLimit = 400000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5",
+                    Model = "gpt-5.4-nano-2026-03-17",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 70,
+                    Rank = 10000,
                     ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5.4-nano", "gpt-5.4-nano-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.4",
+                    Model = "gpt-5.4-mini-2026-03-17",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 95,
+                    Rank = 9995,
                     ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5.4-mini", "gpt-5.4-mini-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.4-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.ToolChat | AICapability.Text2Json | AICapability.ToolReasoningChat,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 100,
-                    ContextLimit = 400000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5.4-nano",
+                    Model = "gpt-5.3-chat-latest",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 80,
+                    Rank = 9990,
                     ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5.3-chat" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "codex-mini-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Model = "gpt-5.3-codex",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Deprecated = true,
-                    Rank = 60,
-                    ContextLimit = 200000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5-codex",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 70,
+                    Rank = 9985,
                     ContextLimit = 400000,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.2-chat-latest",
+                    Model = "gpt-5.4-2026-03-05",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 80,
-                    ContextLimit = 128000,
+                    Rank = 9980,
+                    ContextLimit = 1050000,
+                    Aliases = new List<string> { "gpt-5.4", "gpt-5.4-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.2",
+                    Model = "gpt-5.5-2026-04-23",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 90,
-                    ContextLimit = 400000,
+                    Rank = 9975,
+                    ContextLimit = 1050000,
+                    Aliases = new List<string> { "gpt-5.5", "gpt-5.5-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.1",
+                    Model = "gpt-5.4-pro-2026-03-05",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 80,
-                    ContextLimit = 400000,
+                    Rank = 9970,
+                    ContextLimit = 1050000,
+                    Aliases = new List<string> { "gpt-5.4-pro", "gpt-5.4-pro-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.1-chat-latest",
+                    Model = "gpt-5.5-pro-2026-04-23",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 70,
-                    ContextLimit = 128000,
+                    Rank = 9965,
+                    ContextLimit = 1050000,
+                    Aliases = new List<string> { "gpt-5.5-pro", "gpt-5.5-pro-latest" },
                 },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5.1-codex",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 75,
-                    ContextLimit = 400000,
-                },
+
+
+
+                // Released between November 2025 and February 2026
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -204,103 +160,179 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 75,
+                    Rank = 9960,
                     ContextLimit = 400000,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-4.1",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 75,
-                    ContextLimit = 1047576,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4.1-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 85,
-                    ContextLimit = 1047576,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4.1-nano",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 65,
-                    ContextLimit = 1047576,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4-turbo",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 40,
-                    ContextLimit = 128000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = 40,
-                    ContextLimit = 8192,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-3.5-turbo",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    Model = "gpt-audio-mini-2025-12-15",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
                     Verified = false,
-                    Deprecated = true,
-                    Rank = 40,
-                    ContextLimit = 16385,
+                    Rank = 9955,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-audio-mini", "gpt-audio-mini-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "o4-mini",
+                    Model = "gpt-5.1-2025-11-13",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 70,
-                    ContextLimit = 200000,
+                    Rank = 9950,
+                    ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5.1", "gpt-5.1-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "o3",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Model = "gpt-5.1-chat-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Deprecated = true,
-                    Rank = 40,
-                    ContextLimit = 200000,
+                    Rank = 9945,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-5.1-chat" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "o3-mini",
+                    Model = "gpt-5.1-codex",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Deprecated = true,
-                    Rank = 50,
-                    ContextLimit = 200000,
+                    Rank = 9940,
+                    ContextLimit = 400000,
                 },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.1-codex-max",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9935,
+                    ContextLimit = 400000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.2-2025-12-11",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9930,
+                    ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5.2", "gpt-5.2-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.2-chat-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9925,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-5.2-chat" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.2-codex",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9920,
+                    ContextLimit = 400000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-audio-2025-08-28",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9915,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-audio", "gpt-audio-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.2-pro-2025-12-11",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9910,
+                    ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5.2-pro", "gpt-5.2-pro-latest" },
+                },
+
+
+
+                // Released between August 2025 and November 2025
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-mini-2025-08-07",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = true,
+                    Rank = 9905,
+                    ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5-mini", "gpt-5-mini-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-nano-2025-08-07",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9900,
+                    ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5-nano", "gpt-5-nano-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o4-mini-deep-research-2025-06-26",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9895,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "o4-mini-deep-research", "o4-mini-deep-research-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-2025-08-07",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9890,
+                    ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5", "gpt-5-latest" },
+                },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -308,42 +340,249 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 40,
+                    Rank = 9885,
                     ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-5-chat" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-4o-mini",
+                    Model = "gpt-5-codex",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9880,
+                    ContextLimit = 400000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o3-deep-research-2025-06-26",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9875,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "o3-deep-research", "o3-deep-research-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-audio-preview-2025-06-03",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9870,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4o-audio-preview", "gpt-4o-audio-preview-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-pro-2025-10-06",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9865,
+                    ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5-pro", "gpt-5-pro-latest" },
+                },
+
+
+
+                // Released between May 2025 and August 2025
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o3-pro-2025-06-10",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9860,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "o3-pro", "o3-pro-latest" },
+                },
+
+
+
+                // Released between February 2025 and May 2025
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4.1-nano-2025-04-14",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9855,
+                    ContextLimit = 1047576,
+                    Aliases = new List<string> { "gpt-4.1-nano", "gpt-4.1-nano-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-search-preview-2025-03-11",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9850,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4o-mini-search-preview", "gpt-4o-mini-search-preview-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4.1-mini-2025-04-14",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9845,
+                    ContextLimit = 1047576,
+                    Aliases = new List<string> { "gpt-4.1-mini", "gpt-4.1-mini-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o4-mini-2025-04-16",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9840,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "o4-mini", "o4-mini-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4.1-2025-04-14",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9835,
+                    ContextLimit = 1047576,
+                    Aliases = new List<string> { "gpt-4.1", "gpt-4.1-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o3-2025-04-16",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9830,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "o3", "o3-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-search-preview-2025-03-11",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9825,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4o-search-preview", "gpt-4o-search-preview-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o1-pro-2025-03-19",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9820,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "o1-pro", "o1-pro-latest" },
+                },
+
+
+
+                // Released between November 2024 and February 2025
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o3-mini-2025-01-31",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9815,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "o3-mini", "o3-mini-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "o1-2024-12-17",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9810,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "o1", "o1-latest" },
+                },
+
+
+
+                // Released between August 2024 and November 2024
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-2024-08-06",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9805,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4o", "gpt-4o-latest" },
+                },
+
+
+
+                // Released between May 2024 and August 2024
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-2024-07-18",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 30,
+                    Rank = 9800,
                     ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4o-mini", "gpt-4o-mini-latest" },
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-4o",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    Model = "gpt-4o-2024-05-13",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 30,
-                    ContextLimit = 128000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "chatgpt-4o-latest",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = 30,
+                    Rank = 9795,
                     ContextLimit = 128000,
                 },
 
-                // Image
+
+
+                // Released before May 2024 or unknown release date
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -362,27 +601,205 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.Text2Image,
                     SupportsStreaming = false,
                     Verified = true,
-                    Rank = 80,
+                    Rank = 9790,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "dall-e-2",
-                    Capabilities = AICapability.TextInput | AICapability.ImageOutput,
-                    SupportsStreaming = false,
+                    Model = "gpt-3.5-turbo-instruct",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
                     Verified = false,
-                    Deprecated = true,
-                    Rank = 60,
+                    Rank = 9785,
+                    ContextLimit = 4095,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-image-1-mini",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Model = "gpt-3.5-turbo-16k",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9780,
+                    ContextLimit = 16385,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "chatgpt-image-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput,
+                    Verified = false,
+                    Rank = 9775,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "chatgpt-image" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-audio-preview-2024-12-17",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 70,
+                    Rank = 9770,
+                    ContextLimit = 128000,
                 },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-audio-preview-2024-12-17",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9765,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4o-mini-audio-preview", "gpt-4o-mini-audio-preview-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-realtime-preview-2024-12-17",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9760,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4o-mini-realtime-preview", "gpt-4o-mini-realtime-preview-latest" },
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-transcribe-2025-03-20",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9755,
+                    ContextLimit = 16000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-transcribe-2025-12-15",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9750,
+                    ContextLimit = 16000,
+                    Aliases = new List<string> { "gpt-4o-mini-transcribe", "gpt-4o-mini-transcribe-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-tts-2025-03-20",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9745,
+                    ContextLimit = 2000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-mini-tts-2025-12-15",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9740,
+                    ContextLimit = 2000,
+                    Aliases = new List<string> { "gpt-4o-mini-tts", "gpt-4o-mini-tts-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-realtime-preview-2024-12-17",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9735,
+                    ContextLimit = 128000,
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-realtime-preview-2025-06-03",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9730,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4o-realtime-preview", "gpt-4o-realtime-preview-latest" },
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-transcribe",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9725,
+                    ContextLimit = 16000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4o-transcribe-diarize",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9720,
+                    ContextLimit = 16000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5-search-api-2025-10-14",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9715,
+                    ContextLimit = 400000,
+                    Aliases = new List<string> { "gpt-5-search-api", "gpt-5-search-api-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-audio-1.5",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9710,
+                    ContextLimit = 128000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-audio-mini-2025-10-06",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9705,
+                    ContextLimit = 128000,
+                },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -390,7 +807,27 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 60,
+                    Rank = 9700,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-1-mini",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9695,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-1.5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9690,
                 },
                 new AIModelCapabilities
                 {
@@ -402,83 +839,162 @@ namespace SmartHopper.Providers.OpenAI
                     Rank = 65,
                 },
 
-                // Speech/TTS
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-4o-mini-tts",
-                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
-                    Default = AICapability.Text2Speech,
+                    Model = "gpt-image-2-2026-04-21",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Deprecated = true,
-                    Rank = 60,
+                    Rank = 9685,
+                    Aliases = new List<string> { "gpt-image-2", "gpt-image-2-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-realtime-1.5",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9680,
+                    ContextLimit = 128000,
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-realtime-2025-08-28",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9675,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-realtime", "gpt-realtime-latest" },
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-realtime-mini-2025-10-06",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9670,
+                    ContextLimit = 128000,
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-realtime-mini-2025-12-15",
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9665,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-realtime-mini", "gpt-realtime-mini-latest" },
+                    DiscouragedForTools = new List<string> { "*" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "omni-moderation-2024-09-26",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9660,
+                    Aliases = new List<string> { "omni-moderation-latest", "omni-moderation" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "sora-2",
+                    Capabilities = AICapability.TextInput | AICapability.VideoOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9655,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "sora-2-pro",
+                    Capabilities = AICapability.TextInput | AICapability.VideoOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9650,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "text-embedding-3-large",
+                    Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9645,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "text-embedding-3-small",
+                    Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9640,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "tts-1",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 9635,
                     ContextLimit = 2000,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-4o-mini-transcribe",
-                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
-                    Default = AICapability.Speech2Text,
+                    Model = "tts-1-1106",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 70,
-                    ContextLimit = 16000,
+                    Rank = 9630,
+                    ContextLimit = 2000,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-4o-transcribe",
-                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
-                    Default = AICapability.Speech2Text,
+                    Model = "tts-1-hd",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 60,
-                    ContextLimit = 16000,
+                    Rank = 9625,
+                    ContextLimit = 2000,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-audio-mini",
-                    Capabilities = AICapability.TextInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.SpeechOutput | AICapability.FunctionCalling,
+                    Model = "tts-1-hd-1106",
+                    Capabilities = AICapability.TextInput | AICapability.AudioOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 60,
-                    ContextLimit = 128000,
+                    Rank = 9620,
+                    ContextLimit = 2000,
                 },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-audio",
-                    Capabilities = AICapability.TextInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.SpeechOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 40,
-                    ContextLimit = 128000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4o-mini-audio-preview",
-                    Capabilities = AICapability.TextInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.SpeechOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = 45,
-                    ContextLimit = 128000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4o-audio-preview",
-                    Capabilities = AICapability.TextInput | AICapability.SpeechInput | AICapability.TextOutput | AICapability.SpeechOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = 40,
-                    ContextLimit = 128000,
-                },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -487,27 +1003,174 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 40,
+                    Rank = 9615,
                 },
+
+
+
+                // Deprecated models
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "tts-1",
-                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
-                    Default = AICapability.Text2Speech,
-                    SupportsStreaming = false,
+                    Model = "gpt-4o-2024-11-20",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
                     Verified = false,
-                    Rank = 50,
+                    Deprecated = true,
+                    Rank = 0,
+                    ContextLimit = 128000,
                 },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "tts-1-hd",
-                    Capabilities = AICapability.TextInput | AICapability.SpeechOutput,
+                    Model = "gpt-3.5-turbo",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 60,
+                    Deprecated = true,
+                    Rank = -5,
+                    ContextLimit = 16385,
                 },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4-turbo-2024-04-09",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -10,
+                    ContextLimit = 128000,
+                    Aliases = new List<string> { "gpt-4-turbo", "gpt-4-turbo-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -15,
+                    ContextLimit = 8192,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "babbage-002",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -20,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "chatgpt-4o-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -25,
+                    ContextLimit = 128000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "codex-mini-latest",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -30,
+                    ContextLimit = 200000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "dall-e-2",
+                    Capabilities = AICapability.TextInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -35,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "davinci-002",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -40,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-3.5-turbo-0125",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -45,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-3.5-turbo-1106",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -50,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-3.5-turbo-instruct-0914",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -55,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4-0613",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -60,
+                    ContextLimit = 8192,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "text-embedding-ada-002",
+                    Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -65,
+                }
             };
 
             return Task.FromResult(models);

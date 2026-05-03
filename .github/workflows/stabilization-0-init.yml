@@ -17,6 +17,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: stabilization-init-${{ github.event.milestone.number }}
+  cancel-in-progress: false
+
 jobs:
   init-stabilization-path:
     runs-on: ubuntu-latest

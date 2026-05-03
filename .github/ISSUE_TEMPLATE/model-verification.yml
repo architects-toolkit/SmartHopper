@@ -1,0 +1,168 @@
+name: ✅ Model Verification Report
+description: Certify that an AI model works end-to-end in SmartHopper so it can be promoted to Verified=true.
+title: "[verify] <provider>/<model>"
+labels: ["model-verification", "status: needs triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## How model verification works
+
+        Models declared in each `*ProviderModels.cs` file are flagged with `Verified = true/false`.
+        A model is promoted to `Verified = true` once **two distinct users** have submitted a
+        successful verification report for the same `provider/model` pair.
+
+        - The author of this issue counts as the **first verifier** if the required tests are checked below.
+        - Other users certify the same model by posting a comment that **starts with `/verify-confirm`**
+          and copies the codeblock shown below (one comment per user).
+        - Organization members and collaborators may post a comment that **starts with `/verify-force`**
+          to immediately promote the model regardless of the user count.
+
+        Please only check tests that are **declared in the model's `Capabilities`** in the corresponding
+        `*ProviderModels.cs` file. Tests for capabilities the model does not advertise should be left
+        unchecked.
+
+        ### Comment template for additional verifiers
+
+        Copy the codeblock below into a new comment, tick the boxes for the tests you successfully ran,
+        and submit. **Do not remove the `/verify-confirm` line or the HTML marker** — the workflow
+        will ignore comments that don't match this exact preamble.
+
+        ````markdown
+        /verify-confirm
+        <!-- model-verification-confirm -->
+
+        - [ ] **C1** — `AITextGenerate` (Text2Text)
+        - [ ] **C2** — `AITextListGenerate` (Text2Json)
+        - [ ] **C3** — `AIImgToText` (Image2Text)
+        - [ ] **C4** — `AIImgGenerate` (Text2Image)
+        - [ ] **C5** — Audio component (Speech2Text / Text2Speech)
+        - [ ] **B1** — Streaming in WebChat
+        - [ ] **B2** — ToolChat / FunctionCalling in WebChat
+        - [ ] **B3** — Reasoning in WebChat
+        - [ ] **B4** — Multi-turn `ConversationSession` in WebChat
+
+        I personally ran the ticked tests against this provider/model on SmartHopper <version> on <OS>.
+        ````
+
+        > Replace `<version>` and `<OS>` with the actual values you used.
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      description: Which provider does this model belong to? Must match the folder name under `src/SmartHopper.Providers.*`.
+      options:
+        - Anthropic
+        - DeepSeek
+        - MistralAI
+        - OpenAI
+        - OpenRouter
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model name
+      description: Exact `Model` string as declared in the provider's `*ProviderModels.cs` (e.g. `gpt-5-mini`, `claude-haiku-4-5`, `mistralai/mistral-medium-3.1`).
+      placeholder: e.g. mistral-medium-latest
+    validations:
+      required: true
+
+  - type: input
+    id: smarthopper-version
+    attributes:
+      label: SmartHopper Version
+      placeholder: e.g. 1.4.2-beta
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Windows
+        - macOS
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: tests-canvas
+    attributes:
+      label: "Tests — Components on the Grasshopper canvas"
+      description: |
+        Place each component on the canvas, feed it the **exact prompt below**, run it, and tick the box only if the output is coherent with the prompt. Skip tests for capabilities the model does not declare.
+      options:
+        - label: |
+            **C1 — `AITextGenerate` (Text2Text).**
+            Prompt: `List three structural advantages of triangulated trusses, one sentence each.`
+            Verify the output is three coherent sentences about trusses.
+        - label: |
+            **C2 — `AITextListGenerate` (Text2Json).**
+            Prompt: `Give me five common Grasshopper component categories.`
+            Verify the output is a list of exactly five plausible category names.
+        - label: |
+            **C3 — `AIImgToText` (Image2Text).**
+            Feed any image you control. Prompt: `Describe what you see in one sentence.`
+            Verify the description matches the contents of the image.
+        - label: |
+            **C4 — `AIImgGenerate` (Text2Image).**
+            Prompt: `A red cube on a white background, isometric, flat shading.`
+            Verify a valid image is produced and roughly matches the prompt.
+        - label: |
+            **C5 — Audio components (Speech2Text / Text2Speech).**
+            For audio-capable models only. Run an audio component with a short clip / short sentence and verify the transcription or synthesized speech is correct.
+  - type: checkboxes
+    id: tests-chat
+    attributes:
+      label: "Tests — Chat interface (`AIChat` / WebChat)"
+      description: |
+        Open the WebChat (the AIChat component) configured for this provider/model, type the **exact prompt below**, and tick the box only if the behavior described is observed.
+      options:
+        - label: |
+            **B1 — Streaming.** For streaming-capable models only.
+            In chat, type: `Write a three-sentence haiku about Rhino 3D.`
+            Verify tokens appear progressively in the UI rather than in a single block.
+        - label: |
+            **B2 — ToolChat (FunctionCalling).**
+            In chat, type: `Use gh_report to summarize the current canvas.`
+            Verify the model invokes the `gh_report` tool and the chat shows its output.
+        - label: |
+            **B3 — Reasoning / ReasoningChat.** For reasoning-capable models only.
+            In chat, type: `If I have 17 components and each must connect to two distinct others without forming any cycle, what is the minimum total number of connections? Show your reasoning step by step.`
+            Verify a coherent step-by-step reasoning is shown and the final answer is correct (16).
+        - label: |
+            **B4 — Multi-turn `ConversationSession`.**
+            In the same chat, run at least three user turns including one tool call (e.g. ask for a `gh_report`, then a follow-up question, then another tool call).
+            Verify the conversation completes without errors and the chat shows aggregated turn metrics.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: |
+        Paste short logs, screenshots, or a Grasshopper file snippet that demonstrates the tests above.
+        At minimum, include the model's reported `tokens_in`/`tokens_out` for one successful call.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes / observations
+      description: Anything reviewers should know — quirks, partial failures, recommended `Default` capability flags, suggested `Rank`, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I confirm that I personally ran the tests above against the specified `provider/model` on the specified SmartHopper version.
+          required: true
