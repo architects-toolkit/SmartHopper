@@ -128,6 +128,4 @@ jobs:
           base: main
           delete-branch: true
           labels: |
-            chore
-            automated
-            models
+            automation
