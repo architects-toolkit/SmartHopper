@@ -96,17 +96,29 @@ jobs:
 
             const body = issue.body || '';
 
-            // Parse provider (dropdown rendered as plain text under "### Provider")
-            const providerMatch = body.match(/###\s*Provider\s*\r?\n\s*([A-Za-z0-9_\-]+)/);
-            const modelMatch = body.match(/###\s*Model name\s*\r?\n\s*([^\r\n]+?)\s*$/m);
-            if (!providerMatch || !modelMatch) {
-              core.warning('Could not parse provider or model from issue body.');
+            // Parse Provider / Model (dropdown rendered as plain text under "### Provider / Model")
+            const providerModelMatch = body.match(/###\s*Provider \/ Model\s*\r?\n\s*([A-Za-z0-9_\-]+)\s*\/\s*([^\r\n]+?)\s*$/m);
+            const versionMatch = body.match(/###\s*SmartHopper Version\s*\r?\n\s*([^\r\n]+?)\s*$/m);
+            if (!providerModelMatch) {
+              core.warning('Could not parse provider and model from issue body.');
               core.setOutput('should_promote', 'false');
               return;
             }
-            const provider = providerMatch[1].trim();
-            const model = modelMatch[1].trim();
-            core.info(`Parsed provider='${provider}', model='${model}'`);
+            const provider = providerModelMatch[1].trim();
+            const model = providerModelMatch[2].trim();
+            const version = versionMatch ? versionMatch[1].trim() : 'unknown';
+            core.info(`Parsed provider='${provider}', model='${model}', version='${version}'`);
+
+            // Check if title needs updating (it starts as just "[model verification]")
+            if (issue.title === "[model verification]") {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                title: `[model verification] ${provider} / ${model} (v${version})`
+              });
+              core.info(`Updated issue title to include model and version`);
+            }
 
             // The "I confirm" checkbox must be checked for the author to count.
             const authorConfirms = /-\s*\[x\][^\n]*I confirm that I personally ran/i.test(body);

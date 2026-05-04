@@ -81,7 +81,6 @@ namespace SmartHopper.Providers.DeepSeek
                     Provider = provider,
                     Model = "deepseek-chat",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    Default = AICapability.Text2Text | AICapability.ToolChat,
                     SupportsStreaming = true,
                     Deprecated = true,
                     Rank = 0,
