@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AIModels;
@@ -112,7 +113,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Deprecated = true,
                     Rank = -5,
                     ContextLimit = 64000,
-                }
+                },
             };
 
             return Task.FromResult(models);

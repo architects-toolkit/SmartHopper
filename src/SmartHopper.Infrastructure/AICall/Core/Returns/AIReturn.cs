@@ -73,8 +73,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         {
             get
             {
-                var metrics = this.Body.Metrics ?? new AIMetrics();
-                return metrics;
+                return this.Body.Metrics;
             }
         }
 
@@ -126,15 +125,18 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                     }
                 }
 
-                // 4) Add this return's validation messages dynamically (do not store)
-                var (isValid, errors) = this.IsValid();
-                if (!isValid && errors != null)
+                // 4) Add this return's validation messages dynamically (do not store), but only if validation is not skipped
+                if (!(this.SkipRequestValidation && this.SkipMetricsValidation))
                 {
-                    foreach (var m in errors)
+                    var (isValid, errors) = this.IsValid();
+                    if (!isValid && errors != null)
                     {
-                        if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                        foreach (var m in errors)
                         {
-                            combined.Add(m);
+                            if (!string.IsNullOrEmpty(m?.Message) && seen.Add(m.Message))
+                            {
+                                combined.Add(m);
+                            }
                         }
                     }
                 }
@@ -203,7 +205,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
                 }
             }
 
-            if (this.Body == null && !this.Messages.Any())
+            if (this.Body == AIBody.Empty && !this.PrivateStructuredMessages.Any())
             {
                 errors.Add(new SHRuntimeMessage(SHRuntimeMessageSeverity.Error, SHRuntimeMessageOrigin.Return, SHMessageCode.ReturnInvalid, "Either body or messages must be set"));
             }

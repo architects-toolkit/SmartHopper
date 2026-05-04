@@ -167,8 +167,8 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             Assert.Equal("xml", result.DetectedFormat);
         }
 
-        [Fact(DisplayName = "ConvertAsync_MalformedXml_ReturnsFailureOrFallback")]
-        public async Task ConvertAsync_MalformedXml_ReturnsFailureOrFallback()
+        [Fact(DisplayName = "ConvertAsync_MalformedXml_ReturnsNonNull")]
+        public async Task ConvertAsync_MalformedXml_ReturnsNonNull()
         {
             var converter = new XmlConverter();
             var filePath = Path.Combine(this._tempDir, "malformed.xml");
@@ -204,7 +204,11 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             }
         }
 
-        [Fact(DisplayName = "ConvertAsync_SimpleCsv_ReturnsMarkdownTable")]
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_SimpleCsv_ReturnsMarkdownTable [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_SimpleCsv_ReturnsMarkdownTable [Core]")]
+#endif
         public async Task ConvertAsync_SimpleCsv_ReturnsMarkdownTable()
         {
             var converter = new CsvConverter();
@@ -216,11 +220,153 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             Assert.Equal("csv", result.DetectedFormat);
         }
 
-        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure")]
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Core]")]
+#endif
         public async Task ConvertAsync_MissingFile_ReturnsFailure()
         {
             var converter = new CsvConverter();
             var result = await converter.ConvertAsync("/nonexistent/file.csv", null);
+            Assert.False(result.IsSuccess);
+        }
+    }
+
+    public class HtmlConverterTests : IDisposable
+    {
+        private readonly string _tempDir;
+
+        public HtmlConverterTests()
+        {
+            this._tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(this._tempDir);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(this._tempDir))
+            {
+                Directory.Delete(this._tempDir, true);
+            }
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_SimpleHtml_ReturnsMarkdown [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_SimpleHtml_ReturnsMarkdown [Core]")]
+#endif
+        public async Task ConvertAsync_SimpleHtml_ReturnsMarkdown()
+        {
+            var converter = new HtmlConverter();
+            var filePath = Path.Combine(this._tempDir, "test.html");
+            File.WriteAllText(filePath, "<html><body><h1>Title</h1><p>Paragraph</p></body></html>");
+            var result = await converter.ConvertAsync(filePath, null);
+            Assert.True(result.IsSuccess);
+            Assert.Equal("html", result.DetectedFormat);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Core]")]
+#endif
+        public async Task ConvertAsync_MissingFile_ReturnsFailure()
+        {
+            var converter = new HtmlConverter();
+            var result = await converter.ConvertAsync("/nonexistent/file.html", null);
+            Assert.False(result.IsSuccess);
+        }
+    }
+
+    public class EmlConverterTests : IDisposable
+    {
+        private readonly string _tempDir;
+
+        public EmlConverterTests()
+        {
+            this._tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(this._tempDir);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(this._tempDir))
+            {
+                Directory.Delete(this._tempDir, true);
+            }
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_SimpleEmail_ReturnsContent [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_SimpleEmail_ReturnsContent [Core]")]
+#endif
+        public async Task ConvertAsync_SimpleEmail_ReturnsContent()
+        {
+            var converter = new EmlConverter();
+            var filePath = Path.Combine(this._tempDir, "test.eml");
+            File.WriteAllText(filePath, "From: test@example.com\nTo: user@example.com\nSubject: Test\n\nEmail body content.");
+            var result = await converter.ConvertAsync(filePath, null);
+            Assert.True(result.IsSuccess);
+            Assert.Equal("eml", result.DetectedFormat);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Core]")]
+#endif
+        public async Task ConvertAsync_MissingFile_ReturnsFailure()
+        {
+            var converter = new EmlConverter();
+            var result = await converter.ConvertAsync("/nonexistent/file.eml", null);
+            Assert.False(result.IsSuccess);
+        }
+    }
+
+    public class RtfConverterTests : IDisposable
+    {
+        private readonly string _tempDir;
+
+        public RtfConverterTests()
+        {
+            this._tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(this._tempDir);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(this._tempDir))
+            {
+                Directory.Delete(this._tempDir, true);
+            }
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_SimpleRtf_ReturnsContent [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_SimpleRtf_ReturnsContent [Core]")]
+#endif
+        public async Task ConvertAsync_SimpleRtf_ReturnsContent()
+        {
+            var converter = new RtfConverter();
+            var filePath = Path.Combine(this._tempDir, "test.rtf");
+            File.WriteAllText(filePath, "{\\rtf1\\b Bold Text}");
+            var result = await converter.ConvertAsync(filePath, null);
+            Assert.True(result.IsSuccess);
+            Assert.Equal("rtf", result.DetectedFormat);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Core]")]
+#endif
+        public async Task ConvertAsync_MissingFile_ReturnsFailure()
+        {
+            var converter = new RtfConverter();
+            var result = await converter.ConvertAsync("/nonexistent/file.rtf", null);
             Assert.False(result.IsSuccess);
         }
     }
