@@ -1,0 +1,81 @@
+name: 🔄 Update Model Verification Template
+
+# Description: Keeps the model dropdown in the model-verification issue template
+# in sync with the *ProviderModels.cs source files. Runs the
+# Update-ModelVerificationTemplate.ps1 script whenever provider model
+# definitions change on the default branch, and opens a PR with the result.
+#
+# Triggers:
+#   - push to main touching any *ProviderModels.cs file
+#   - workflow_dispatch for manual runs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/SmartHopper.Providers.*/[A-Z]*ProviderModels.cs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-template:
+    name: Update issue template dropdown
+    runs-on: windows-latest
+    concurrency:
+      group: update-model-verification-template
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+
+      - name: Run Update-ModelVerificationTemplate.ps1
+        id: update
+        shell: pwsh
+        run: |
+          pwsh -ExecutionPolicy Bypass -File .\tools\Update-ModelVerificationTemplate.ps1
+          $code = $LASTEXITCODE
+          if ($code -eq 0) {
+            "changed=true" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } elseif ($code -eq 1) {
+            "changed=false" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } else {
+            throw "Update-ModelVerificationTemplate.ps1 failed with exit code $code"
+          }
+
+      - name: Emit step summary
+        if: always()
+        shell: pwsh
+        run: |
+          $changed = '${{ steps.update.outputs.changed }}'
+          if ($changed -eq 'true') {
+            Write-Output "## Model verification template updated" >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "The dropdown options in ``model-verification.yml`` were refreshed from ``*ProviderModels.cs``." >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            Write-Output "## No changes needed" >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "The dropdown options in ``model-verification.yml`` are already up to date." >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Create Pull Request
+        if: steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(templates): update model-verification dropdown options [ci skip]"
+          title: "chore(templates): sync model-verification template with ProviderModels"
+          body: |
+            Auto-generated PR from `.github/workflows/chore-update-model-verification-template.yml`.
+
+            The model dropdown in `.github/ISSUE_TEMPLATE/model-verification.yml` has been
+            refreshed to reflect the current non-deprecated models declared in each
+            `*ProviderModels.cs` file.
+          branch: "chore/update-model-verification-template"
+          base: main
+          delete-branch: true
+          labels: |
+            automated
