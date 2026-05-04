@@ -23,7 +23,7 @@
 
 .PARAMETER Provider
     Provider name matching the folder under src/SmartHopper.Providers.<Provider>,
-    e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek.
+    e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek, Gemini.
 
 .PARAMETER ApiKey
     OpenRouter API key. The same key is used for every provider because
@@ -101,6 +101,7 @@ $ProviderPrefixes = @{
     'Anthropic'  = 'anthropic/'
     'MistralAI'  = 'mistralai/'
     'DeepSeek'   = 'deepseek/'
+    'Gemini'     = 'google/'
     'OpenRouter' = ''
 }
 
@@ -115,6 +116,7 @@ $ProviderAliasSuffix = @{
     'Anthropic'  = '-(?:\d{8}|latest)$'
     'MistralAI'  = $null   # uses .name field grouping (handled separately)
     'DeepSeek'   = $null
+    'Gemini'     = $null
     'OpenRouter' = $null
 }
 
@@ -127,6 +129,7 @@ $ProviderApis = @{
     'MistralAI'  = @{ Url = 'https://api.mistral.ai/v1/models';     Headers = { param($k) @{ Authorization = "Bearer $k" } } }
     'DeepSeek'   = @{ Url = 'https://api.deepseek.com/v1/models';   Headers = { param($k) @{ Authorization = "Bearer $k" } } }
     'Anthropic'  = @{ Url = 'https://api.anthropic.com/v1/models';  Headers = { param($k) @{ 'x-api-key' = $k; 'anthropic-version' = '2023-06-01' } } }
+    'Gemini'     = @{ Url = 'https://generativelanguage.googleapis.com/v1beta/models'; Headers = { param($k) @{ 'x-goog-api-key' = $k } } }
 }
 
 # ---------------------------------------------------------------------------
@@ -409,9 +412,15 @@ $prefix = $ProviderPrefixes[$Provider]
 $isOpenRouterProvider = ($Provider -eq 'OpenRouter')
 
 # Helper: derive the model name stored in the source file from an OpenRouter id.
+# For non-OpenRouter providers, also strips OpenRouter pricing-tier suffixes
+# (e.g. ":free", ":extended") which are OpenRouter-specific tags.
 function Get-ModelName($fullId) {
     if ($isOpenRouterProvider) { return $fullId }
-    return $fullId.Substring($prefix.Length)
+    $name = $fullId.Substring($prefix.Length)
+    # Strip pricing-tier suffix: "gemma-4-26b-a4b-it:free" -> "gemma-4-26b-a4b-it"
+    $colonIdx = $name.IndexOf(':')
+    if ($colonIdx -ge 0) { $name = $name.Substring(0, $colonIdx) }
+    return $name
 }
 
 $openRouterModels = [System.Collections.Generic.List[psobject]]::new()
@@ -434,6 +443,27 @@ foreach ($item in $response.data) {
 }
 
 Write-Host "[$Provider] OpenRouter returned $($openRouterModels.Count) model(s) for prefix '$prefix'."
+
+# For non-OpenRouter providers, deduplicate models that differ only by
+# OpenRouter pricing-tier suffix (e.g. "model:free" vs "model").
+# Keep the entry without a suffix when both exist (it carries richer pricing metadata).
+if (-not $isOpenRouterProvider) {
+    $dedup = [ordered]@{}
+    foreach ($orm in $openRouterModels) {
+        $name = Get-ModelName $orm.id
+        $rawPart = $orm.id.Substring($prefix.Length)
+        $hasSuffix = $rawPart.Contains(':')
+        if ($dedup.Contains($name)) {
+            # Replace only if current entry has no tier suffix (canonical)
+            if (-not $hasSuffix) { $dedup[$name] = $orm }
+        }
+        else {
+            $dedup[$name] = $orm
+        }
+    }
+    $openRouterModels = [System.Collections.Generic.List[psobject]]@($dedup.Values)
+    Write-Host "[$Provider] After tier-suffix deduplication: $($openRouterModels.Count) model(s)."
+}
 
 # Helper: Normalize model name for cross-reference matching.
 # Anthropic uses hyphens in their API (claude-opus-4-7) while OpenRouter uses dots (claude-opus-4.7).
@@ -536,12 +566,28 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
         $providerResponse = Invoke-RestMethod -Uri $api.Url -Headers $providerHeaders -Method GET -TimeoutSec 60
         $providerApiQueried = $true
 
-        # Both OpenAI-compatible APIs and Anthropic return { data: [{ id: ... }] }.
-        $providerData = if ($providerResponse.data) { $providerResponse.data } else { @() }
-        foreach ($pm in $providerData) {
-            if (-not [string]::IsNullOrWhiteSpace($pm.id) -and -not $pm.id.StartsWith('ft:')) {
-                [void]$providerApiModelNames.Add($pm.id)
-                $providerApiLookup[$pm.id] = $pm
+        # Most providers return { data: [{ id: ... }] }.
+        # Gemini returns { models: [{ name: "models/<id>" }] } instead.
+        if ($Provider -eq 'Gemini') {
+            $providerData = if ($providerResponse.models) { $providerResponse.models } else { @() }
+            foreach ($pm in $providerData) {
+                $rawName = $pm.name
+                if ([string]::IsNullOrWhiteSpace($rawName)) { continue }
+                # Strip the "models/" prefix that Google's API returns.
+                if ($rawName.StartsWith('models/', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $rawName = $rawName.Substring('models/'.Length)
+                }
+                [void]$providerApiModelNames.Add($rawName)
+                $providerApiLookup[$rawName] = $pm
+            }
+        }
+        else {
+            $providerData = if ($providerResponse.data) { $providerResponse.data } else { @() }
+            foreach ($pm in $providerData) {
+                if (-not [string]::IsNullOrWhiteSpace($pm.id) -and -not $pm.id.StartsWith('ft:')) {
+                    [void]$providerApiModelNames.Add($pm.id)
+                    $providerApiLookup[$pm.id] = $pm
+                }
             }
         }
 
