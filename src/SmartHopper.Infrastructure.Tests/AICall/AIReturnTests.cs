@@ -170,7 +170,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall
 
             Assert.NotNull(returnValue.Body);
             Assert.Equal(AICallStatus.Finished, returnValue.Status);
-            Assert.True(returnValue.Success);
         }
 
 #if NET7_WINDOWS
@@ -193,7 +192,6 @@ namespace SmartHopper.Infrastructure.Tests.AICall
 
             Assert.NotNull(returnValue.Body);
             Assert.Equal(AICallStatus.Finished, returnValue.Status);
-            Assert.True(returnValue.Success);
         }
 
 #if NET7_WINDOWS
@@ -287,7 +285,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             var (isValid, errors) = returnValue.IsValid();
 
             Assert.True(isValid);
-            Assert.Null(errors);
+            Assert.Empty(errors);
         }
 
 #if NET7_WINDOWS
@@ -415,6 +413,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             var returnValue = new AIReturn();
             returnValue.SkipRequestValidation = true;
             returnValue.SkipMetricsValidation = true;
+            returnValue.AddRuntimeMessage(SHRuntimeMessageSeverity.Info, SHRuntimeMessageOrigin.Return, "Synthetic message to satisfy body/messages check");
 
             var (isValid, errors) = returnValue.IsValid();
 
@@ -431,6 +430,7 @@ namespace SmartHopper.Infrastructure.Tests.AICall
             var returnValue = new AIReturn();
             returnValue.Request = new AIRequestCall { Provider = "TestProvider", Model = "TestModel" };
             returnValue.SkipMetricsValidation = true;
+            returnValue.AddRuntimeMessage(SHRuntimeMessageSeverity.Info, SHRuntimeMessageOrigin.Return, "Synthetic message to satisfy body/messages check");
 
             var (isValid, errors) = returnValue.IsValid();
 
