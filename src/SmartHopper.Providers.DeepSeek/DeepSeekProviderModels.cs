@@ -59,6 +59,13 @@ namespace SmartHopper.Providers.DeepSeek
                     Verified = false,
                     Rank = 10000,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000014m,
+                        Completion = 0.00000028m,
+                        InputCacheRead = 0.0000000028m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -70,6 +77,13 @@ namespace SmartHopper.Providers.DeepSeek
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000000435m,
+                        Completion = 0.00000087m,
+                        InputCacheRead = 0.000000003625m,
+                    },
                 },
 
 
@@ -85,6 +99,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 60000,
+                    Created = new DateTime(2024, 12, 26),
                 },
 
                 new AIModelCapabilities

@@ -65,6 +65,13 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = true,
                     Rank = 10000,
                     ContextLimit = 131072,
+                    Created = new DateTime(2026, 3, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000015m,
+                        Completion = 0.0000006m,
+                        InputCacheRead = 0.000000015m,
+                    },
                     Aliases = new List<string> { "mistral-small", "mistral-small-latest", "magistral-small-latest", "mistral-vibe-cli-fast" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
@@ -82,6 +89,13 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 131072,
+                    Created = new DateTime(2025, 12, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001m,
+                        Completion = 0.0000001m,
+                        InputCacheRead = 0.00000001m,
+                    },
                     Aliases = new List<string> { "ministral-3b-latest" },
                 },
 
@@ -94,6 +108,13 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = false,
                     Rank = 9990,
                     ContextLimit = 131072,
+                    Created = new DateTime(2025, 12, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000015m,
+                        Completion = 0.00000015m,
+                        InputCacheRead = 0.000000015m,
+                    },
                     Aliases = new List<string> { "ministral-8b-latest" },
                 },
 
@@ -106,6 +127,13 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = false,
                     Rank = 9985,
                     ContextLimit = 262144,
+                    Created = new DateTime(2025, 12, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000002m,
+                        Completion = 0.0000002m,
+                        InputCacheRead = 0.00000002m,
+                    },
                     Aliases = new List<string> { "ministral-14b-latest" },
                 },
 
@@ -118,6 +146,13 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = false,
                     Rank = 9980,
                     ContextLimit = 131072,
+                    Created = new DateTime(2025, 12, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000005m,
+                        Completion = 0.0000015m,
+                        InputCacheRead = 0.00000005m,
+                    },
                     Aliases = new List<string> { "mistral-large", "mistral-large-latest" },
                 },
 
@@ -130,6 +165,13 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = false,
                     Rank = 9975,
                     ContextLimit = 262144,
+                    Created = new DateTime(2025, 12, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000004m,
+                        Completion = 0.000002m,
+                        InputCacheRead = 0.00000004m,
+                    },
                     Aliases = new List<string> { "devstral-medium-latest", "devstral-latest" },
                 },
 
@@ -146,6 +188,13 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = false,
                     Rank = 9970,
                     ContextLimit = 256000,
+                    Created = new DateTime(2025, 8, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000003m,
+                        Completion = 0.0000009m,
+                        InputCacheRead = 0.00000003m,
+                    },
                     Aliases = new List<string> { "codestral-latest" },
                 },
 
@@ -158,7 +207,14 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = false,
                     Rank = 9965,
                     ContextLimit = 256000,
-                    Aliases = new List<string> { "mistral-medium-3.5", "mistral-medium-3", "mistral-medium-2604", "mistral-medium-c21211-r0-75", "mistral-vibe-cli-latest" },
+                    Created = new DateTime(2025, 5, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000015m,
+                        Completion = 0.0000075m,
+                        InputCacheRead = 0.00000004m,
+                    },
+                    Aliases = new List<string> { "mistral-medium-3", "mistral-medium-3.5", "mistral-medium-2604", "mistral-medium-c21211-r0-75", "mistral-vibe-cli-latest" },
                 },
 
 
@@ -318,6 +374,13 @@ namespace SmartHopper.Providers.MistralAI
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 131072,
+                    Created = new DateTime(2024, 11, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000006m,
+                        InputCacheRead = 0.0000002m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -330,6 +393,13 @@ namespace SmartHopper.Providers.MistralAI
                     Deprecated = true,
                     Rank = -5,
                     ContextLimit = 131072,
+                    Created = new DateTime(2024, 11, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000006m,
+                        InputCacheRead = 0.0000002m,
+                    },
                     Aliases = new List<string> { "pixtral-large-latest", "mistral-large-pixtral-2411" },
                 },
 

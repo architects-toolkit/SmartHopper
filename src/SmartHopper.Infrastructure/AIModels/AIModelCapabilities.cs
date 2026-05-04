@@ -91,6 +91,18 @@ namespace SmartHopper.Infrastructure.AIModels
         public int? ContextLimit { get; set; }
 
         /// <summary>
+        /// Gets or sets the date the model was published by its provider, as reported
+        /// by the authoritative source (OpenRouter). When null the creation date is unknown.
+        /// </summary>
+        public DateTime? Created { get; set; }
+
+        /// <summary>
+        /// Gets or sets the pricing information for this model in USD per unit.
+        /// When null no pricing is published by the source of truth.
+        /// </summary>
+        public AIModelPricing Pricing { get; set; }
+
+        /// <summary>
         /// List of AI tool names for which this model is discouraged.
         /// When a component uses any of these tools, a "not recommended" badge will be displayed.
         /// Use "*" to discourage this model for all tools.

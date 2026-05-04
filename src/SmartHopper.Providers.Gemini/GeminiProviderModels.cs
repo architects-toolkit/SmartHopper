@@ -59,6 +59,7 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 10000,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 3, 30),
                 },
 
                 new AIModelCapabilities
@@ -69,6 +70,7 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 3, 30),
                 },
 
                 new AIModelCapabilities
@@ -79,6 +81,12 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9990,
                     ContextLimit = 262144,
+                    Created = new DateTime(2026, 4, 3),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000006m,
+                        Completion = 0.00000033m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -89,6 +97,12 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9985,
                     ContextLimit = 262144,
+                    Created = new DateTime(2026, 4, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000013m,
+                        Completion = 0.00000038m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -99,6 +113,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9980,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 3, 3),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000025m,
+                        Completion = 0.0000015m,
+                        Image = 0.00000025m,
+                        Audio = 0.0000005m,
+                        InputCacheRead = 0.000000025m,
+                        InputCacheWrite = 0.00000008333333333333334m,
+                        InternalReasoning = 0.0000015m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -111,6 +137,13 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9975,
                     ContextLimit = 65536,
+                    Created = new DateTime(2026, 2, 26),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000005m,
+                        Completion = 0.000003m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -122,6 +155,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9970,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 2, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000012m,
+                        Image = 0.000002m,
+                        Audio = 0.000002m,
+                        InputCacheRead = 0.0000002m,
+                        InputCacheWrite = 0.000000375m,
+                        InternalReasoning = 0.000012m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -132,6 +177,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9965,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 2, 25),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000012m,
+                        Image = 0.000002m,
+                        Audio = 0.000002m,
+                        InputCacheRead = 0.0000002m,
+                        InputCacheWrite = 0.000000375m,
+                        InternalReasoning = 0.000012m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
 
@@ -146,6 +203,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9960,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2025, 12, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000005m,
+                        Completion = 0.000003m,
+                        Image = 0.0000005m,
+                        Audio = 0.000001m,
+                        InputCacheRead = 0.00000005m,
+                        InputCacheWrite = 0.00000008333333333333334m,
+                        InternalReasoning = 0.000003m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -158,6 +227,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9955,
                     ContextLimit = 65536,
+                    Created = new DateTime(2025, 11, 20),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000012m,
+                        Image = 0.000002m,
+                        Audio = 0.000002m,
+                        InputCacheRead = 0.0000002m,
+                        InputCacheWrite = 0.000000375m,
+                        InternalReasoning = 0.000012m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
 
@@ -174,6 +255,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = true,
                     Rank = 9950,
                     ContextLimit = 32768,
+                    Created = new DateTime(2025, 10, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000003m,
+                        Completion = 0.0000025m,
+                        Image = 0.0000003m,
+                        Audio = 0.000001m,
+                        InputCacheRead = 0.00000003m,
+                        InputCacheWrite = 0.00000008333333333333334m,
+                        InternalReasoning = 0.0000025m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -184,6 +277,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9945,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2025, 9, 25),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001m,
+                        Completion = 0.0000004m,
+                        Image = 0.0000001m,
+                        Audio = 0.0000003m,
+                        InputCacheRead = 0.00000001m,
+                        InputCacheWrite = 0.00000008333333333333334m,
+                        InternalReasoning = 0.0000004m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
 
@@ -199,6 +304,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = true,
                     Rank = 9940,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2025, 7, 22),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001m,
+                        Completion = 0.0000004m,
+                        Image = 0.0000001m,
+                        Audio = 0.0000003m,
+                        InputCacheRead = 0.00000001m,
+                        InputCacheWrite = 0.00000008333333333333334m,
+                        InternalReasoning = 0.0000004m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -211,6 +328,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = true,
                     Rank = 9935,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2025, 6, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000003m,
+                        Completion = 0.0000025m,
+                        Image = 0.0000003m,
+                        Audio = 0.000001m,
+                        InputCacheRead = 0.00000003m,
+                        InputCacheWrite = 0.00000008333333333333334m,
+                        InternalReasoning = 0.0000025m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -222,6 +351,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = true,
                     Rank = 9930,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2025, 6, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        Image = 0.00000125m,
+                        Audio = 0.00000125m,
+                        InputCacheRead = 0.000000125m,
+                        InputCacheWrite = 0.000000375m,
+                        InternalReasoning = 0.00001m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -232,6 +373,7 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9925,
                     ContextLimit = 8192,
+                    Created = new DateTime(2025, 7, 9),
                 },
 
                 new AIModelCapabilities
@@ -242,6 +384,12 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9920,
                     ContextLimit = 32768,
+                    Created = new DateTime(2025, 5, 20),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000006m,
+                        Completion = 0.00000012m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -252,6 +400,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9915,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2025, 6, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        Image = 0.00000125m,
+                        Audio = 0.00000125m,
+                        InputCacheRead = 0.000000125m,
+                        InputCacheWrite = 0.000000375m,
+                        InternalReasoning = 0.00001m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -262,6 +422,18 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9910,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2025, 5, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        Image = 0.00000125m,
+                        Audio = 0.00000125m,
+                        InputCacheRead = 0.000000125m,
+                        InputCacheWrite = 0.000000375m,
+                        InternalReasoning = 0.00001m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
 
@@ -276,6 +448,12 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9905,
                     ContextLimit = 131072,
+                    Created = new DateTime(2025, 3, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000004m,
+                        Completion = 0.00000008m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -286,6 +464,12 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9900,
                     ContextLimit = 131072,
+                    Created = new DateTime(2025, 3, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000004m,
+                        Completion = 0.00000013m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -296,6 +480,12 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9895,
                     ContextLimit = 131072,
+                    Created = new DateTime(2025, 3, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000008m,
+                        Completion = 0.00000016m,
+                    },
                 },
 
 
@@ -310,6 +500,12 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Rank = 9890,
                     ContextLimit = 8192,
+                    Created = new DateTime(2024, 7, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000065m,
+                        Completion = 0.00000065m,
+                    },
                 },
 
 
@@ -325,6 +521,16 @@ namespace SmartHopper.Providers.Gemini
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2025, 2, 25),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000000075m,
+                        Completion = 0.0000003m,
+                        Image = 0.000000075m,
+                        Audio = 0.000000075m,
+                        InternalReasoning = 0.0000003m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -335,7 +541,19 @@ namespace SmartHopper.Providers.Gemini
                     Verified = false,
                     Deprecated = true,
                     Rank = -5,
-                    ContextLimit = 1048576,
+                    ContextLimit = 1000000,
+                    Created = new DateTime(2025, 2, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001m,
+                        Completion = 0.0000004m,
+                        Image = 0.0000001m,
+                        Audio = 0.0000007m,
+                        InputCacheRead = 0.000000025m,
+                        InputCacheWrite = 0.00000008333333333333334m,
+                        InternalReasoning = 0.0000004m,
+                        WebSearch = 0.014m,
+                    },
                 },
 
                 new AIModelCapabilities

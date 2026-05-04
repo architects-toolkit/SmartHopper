@@ -63,6 +63,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 10000,
                     ContextLimit = 400000,
+                    Created = new DateTime(2026, 3, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000002m,
+                        Completion = 0.00000125m,
+                        InputCacheRead = 0.00000002m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.4-nano", "gpt-5.4-nano-latest" },
                 },
 
@@ -75,6 +83,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 400000,
+                    Created = new DateTime(2026, 3, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000075m,
+                        Completion = 0.0000045m,
+                        InputCacheRead = 0.000000075m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.4-mini", "gpt-5.4-mini-latest" },
                 },
 
@@ -87,6 +103,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9990,
                     ContextLimit = 400000,
+                    Created = new DateTime(2026, 3, 3),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000175m,
+                        Completion = 0.000014m,
+                        InputCacheRead = 0.000000175m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.3-chat" },
                 },
 
@@ -99,6 +123,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9985,
                     ContextLimit = 400000,
+                    Created = new DateTime(2026, 2, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000175m,
+                        Completion = 0.000014m,
+                        InputCacheRead = 0.000000175m,
+                        WebSearch = 0.01m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -110,6 +142,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9980,
                     ContextLimit = 1050000,
+                    Created = new DateTime(2026, 3, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000025m,
+                        Completion = 0.000015m,
+                        InputCacheRead = 0.00000025m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.4", "gpt-5.4-latest" },
                 },
 
@@ -122,6 +162,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9975,
                     ContextLimit = 1050000,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.00003m,
+                        InputCacheRead = 0.0000005m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.5", "gpt-5.5-latest" },
                 },
 
@@ -134,6 +182,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9970,
                     ContextLimit = 1050000,
+                    Created = new DateTime(2026, 3, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00003m,
+                        Completion = 0.00018m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.4-pro", "gpt-5.4-pro-latest" },
                 },
 
@@ -146,6 +201,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9965,
                     ContextLimit = 1050000,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00003m,
+                        Completion = 0.00018m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.5-pro", "gpt-5.5-pro-latest" },
                 },
 
@@ -162,6 +224,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9960,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 11, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000025m,
+                        Completion = 0.000002m,
+                        InputCacheRead = 0.00000003m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -173,6 +242,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9955,
                     ContextLimit = 128000,
+                    Created = new DateTime(2026, 1, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000006m,
+                        Completion = 0.0000024m,
+                        Audio = 0.0000006m,
+                    },
                     Aliases = new List<string> { "gpt-audio-mini", "gpt-audio-mini-latest" },
                 },
 
@@ -185,6 +261,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9950,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 11, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.00000013m,
+                    },
                     Aliases = new List<string> { "gpt-5.1", "gpt-5.1-latest" },
                 },
 
@@ -197,6 +280,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9945,
                     ContextLimit = 128000,
+                    Created = new DateTime(2025, 11, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.000000125m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.1-chat" },
                 },
 
@@ -209,6 +300,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9940,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 11, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.000000125m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -220,6 +318,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9935,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 12, 4),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.000000125m,
+                        WebSearch = 0.01m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -231,6 +337,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9930,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 12, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000175m,
+                        Completion = 0.000014m,
+                        InputCacheRead = 0.000000175m,
+                    },
                     Aliases = new List<string> { "gpt-5.2", "gpt-5.2-latest" },
                 },
 
@@ -243,6 +356,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9925,
                     ContextLimit = 128000,
+                    Created = new DateTime(2025, 12, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000175m,
+                        Completion = 0.000014m,
+                        InputCacheRead = 0.000000175m,
+                    },
                     Aliases = new List<string> { "gpt-5.2-chat" },
                 },
 
@@ -255,6 +375,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9920,
                     ContextLimit = 400000,
+                    Created = new DateTime(2026, 1, 14),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000175m,
+                        Completion = 0.000014m,
+                        InputCacheRead = 0.000000175m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -266,6 +393,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9915,
                     ContextLimit = 128000,
+                    Created = new DateTime(2026, 1, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000025m,
+                        Completion = 0.00001m,
+                        Audio = 0.000032m,
+                    },
                     Aliases = new List<string> { "gpt-audio", "gpt-audio-latest" },
                 },
 
@@ -278,6 +412,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9910,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 12, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000021m,
+                        Completion = 0.000168m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5.2-pro", "gpt-5.2-pro-latest" },
                 },
 
@@ -294,6 +435,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = true,
                     Rank = 9905,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000025m,
+                        Completion = 0.000002m,
+                        InputCacheRead = 0.000000025m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5-mini", "gpt-5-mini-latest" },
                 },
 
@@ -306,6 +455,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9900,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000005m,
+                        Completion = 0.0000004m,
+                        InputCacheRead = 0.00000001m,
+                    },
                     Aliases = new List<string> { "gpt-5-nano", "gpt-5-nano-latest" },
                 },
 
@@ -318,6 +474,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9895,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 10, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000008m,
+                        InputCacheRead = 0.0000005m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "o4-mini-deep-research", "o4-mini-deep-research-latest" },
                 },
 
@@ -330,6 +494,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9890,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.000000125m,
+                    },
                     Aliases = new List<string> { "gpt-5", "gpt-5-latest" },
                 },
 
@@ -342,6 +513,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9885,
                     ContextLimit = 128000,
+                    Created = new DateTime(2025, 8, 7),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.000000125m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5-chat" },
                 },
 
@@ -354,6 +533,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9880,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 9, 23),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000125m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.000000125m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -365,6 +551,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9875,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 10, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00001m,
+                        Completion = 0.00004m,
+                        InputCacheRead = 0.0000025m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "o3-deep-research", "o3-deep-research-latest" },
                 },
 
@@ -377,6 +571,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9870,
                     ContextLimit = 128000,
+                    Created = new DateTime(2025, 8, 15),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000025m,
+                        Completion = 0.00001m,
+                        Audio = 0.00004m,
+                    },
                     Aliases = new List<string> { "gpt-4o-audio-preview", "gpt-4o-audio-preview-latest" },
                 },
 
@@ -389,6 +590,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9865,
                     ContextLimit = 400000,
+                    Created = new DateTime(2025, 10, 6),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000015m,
+                        Completion = 0.00012m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-5-pro", "gpt-5-pro-latest" },
                 },
 
@@ -405,6 +613,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9860,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 6, 10),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00002m,
+                        Completion = 0.00008m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "o3-pro", "o3-pro-latest" },
                 },
 
@@ -421,6 +636,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9855,
                     ContextLimit = 1047576,
+                    Created = new DateTime(2025, 4, 14),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001m,
+                        Completion = 0.0000004m,
+                        InputCacheRead = 0.000000025m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-4.1-nano", "gpt-4.1-nano-latest" },
                 },
 
@@ -433,6 +656,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9850,
                     ContextLimit = 128000,
+                    Created = new DateTime(2025, 3, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000015m,
+                        Completion = 0.0000006m,
+                        WebSearch = 0.0275m,
+                    },
                     Aliases = new List<string> { "gpt-4o-mini-search-preview", "gpt-4o-mini-search-preview-latest" },
                 },
 
@@ -445,6 +675,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9845,
                     ContextLimit = 1047576,
+                    Created = new DateTime(2025, 4, 14),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000004m,
+                        Completion = 0.0000016m,
+                        InputCacheRead = 0.0000001m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "gpt-4.1-mini", "gpt-4.1-mini-latest" },
                 },
 
@@ -457,6 +695,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9840,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 4, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000011m,
+                        Completion = 0.0000044m,
+                        InputCacheRead = 0.000000275m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "o4-mini", "o4-mini-latest" },
                 },
 
@@ -469,6 +715,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9835,
                     ContextLimit = 1047576,
+                    Created = new DateTime(2025, 4, 14),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000008m,
+                        InputCacheRead = 0.0000005m,
+                    },
                     Aliases = new List<string> { "gpt-4.1", "gpt-4.1-latest" },
                 },
 
@@ -481,6 +734,14 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9830,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 4, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000008m,
+                        InputCacheRead = 0.0000005m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "o3", "o3-latest" },
                 },
 
@@ -493,6 +754,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9825,
                     ContextLimit = 128000,
+                    Created = new DateTime(2025, 3, 12),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000025m,
+                        Completion = 0.00001m,
+                        WebSearch = 0.035m,
+                    },
                     Aliases = new List<string> { "gpt-4o-search-preview", "gpt-4o-search-preview-latest" },
                 },
 
@@ -505,6 +773,12 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9820,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 3, 19),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00015m,
+                        Completion = 0.0006m,
+                    },
                     Aliases = new List<string> { "o1-pro", "o1-pro-latest" },
                 },
 
@@ -521,6 +795,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9815,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 1, 31),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000011m,
+                        Completion = 0.0000044m,
+                        InputCacheRead = 0.00000055m,
+                    },
                     Aliases = new List<string> { "o3-mini", "o3-mini-latest" },
                 },
 
@@ -533,6 +814,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9810,
                     ContextLimit = 200000,
+                    Created = new DateTime(2024, 12, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000015m,
+                        Completion = 0.00006m,
+                        InputCacheRead = 0.0000075m,
+                    },
                     Aliases = new List<string> { "o1", "o1-latest" },
                 },
 
@@ -549,6 +837,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9805,
                     ContextLimit = 128000,
+                    Created = new DateTime(2024, 8, 6),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000025m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.00000125m,
+                    },
                     Aliases = new List<string> { "gpt-4o-latest", "gpt-4o" },
                 },
 
@@ -565,6 +860,13 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9800,
                     ContextLimit = 128000,
+                    Created = new DateTime(2024, 7, 18),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000015m,
+                        Completion = 0.0000006m,
+                        InputCacheRead = 0.000000075m,
+                    },
                     Aliases = new List<string> { "gpt-4o-mini", "gpt-4o-mini-latest" },
                 },
 
@@ -577,6 +879,12 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9795,
                     ContextLimit = 128000,
+                    Created = new DateTime(2024, 5, 13),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000015m,
+                    },
                 },
 
 
@@ -603,6 +911,12 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9785,
                     ContextLimit = 4095,
+                    Created = new DateTime(2023, 9, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000015m,
+                        Completion = 0.000002m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -614,6 +928,12 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9780,
                     ContextLimit = 16385,
+                    Created = new DateTime(2023, 8, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000003m,
+                        Completion = 0.000004m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -1003,6 +1323,13 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 128000,
+                    Created = new DateTime(2024, 11, 20),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000025m,
+                        Completion = 0.00001m,
+                        InputCacheRead = 0.00000125m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -1015,6 +1342,12 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -5,
                     ContextLimit = 16385,
+                    Created = new DateTime(2023, 5, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000005m,
+                        Completion = 0.0000015m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -1027,6 +1360,12 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -10,
                     ContextLimit = 128000,
+                    Created = new DateTime(2024, 4, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00001m,
+                        Completion = 0.00003m,
+                    },
                     Aliases = new List<string> { "gpt-4-turbo", "gpt-4-turbo-latest" },
                 },
 
@@ -1040,6 +1379,12 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -15,
                     ContextLimit = 8192,
+                    Created = new DateTime(2023, 5, 28),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00003m,
+                        Completion = 0.00006m,
+                    },
                 },
 
                 new AIModelCapabilities
