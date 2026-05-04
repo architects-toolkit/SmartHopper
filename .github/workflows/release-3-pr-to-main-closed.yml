@@ -141,3 +141,37 @@ jobs:
           draft: true
           prerelease: ${{ env.IS_PRERELEASE }}
           target_commitish: ${{ steps.target-branch.outputs.branch }}
+
+      - name: Update Issue Template Version Dropdown
+        id: update_template
+        shell: pwsh
+        run: |
+          # The softprops action above doesn't fetch tags immediately into the local workspace,
+          # but the new tag exists remotely. We fetch it first.
+          git fetch --tags
+          pwsh -ExecutionPolicy Bypass -File .\tools\Update-VersionVerificationTemplate.ps1 -MinMajor 1
+          $code = $LASTEXITCODE
+          if ($code -eq 0) {
+            "changed=true" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } elseif ($code -eq 1) {
+            "changed=false" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } else {
+            throw "Update-VersionVerificationTemplate.ps1 failed with exit code $code"
+          }
+
+      - name: Create Pull Request for Template Update
+        if: steps.update_template.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification template [ci skip]"
+          title: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification dropdown"
+          body: |
+            Auto-generated PR from `.github/workflows/release-3-pr-to-main-closed.yml`.
+            
+            Adds the newly released version `${{ steps.release_info.outputs.version }}` to the version dropdown in the model verification issue template.
+          branch: "chore/update-version-dropdown-${{ steps.release_info.outputs.version }}"
+          base: ${{ steps.target-branch.outputs.branch }}
+          delete-branch: true
+          labels: |
+            automated
