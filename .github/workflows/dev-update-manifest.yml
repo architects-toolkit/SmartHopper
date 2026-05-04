@@ -59,7 +59,7 @@ jobs:
       - name: Check for changes
         id: check_changes
         run: |
-          if [ "${{ steps.update_manifest.outputs.file-updated }}" = "true" ] || ! git diff --quiet yak-package/manifest.yml; then
+          if ! git diff --quiet yak-package/manifest.yml; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Manifest text updated"
           else
@@ -68,7 +68,7 @@ jobs:
           fi
 
       - name: Commit and push changes
-        if: steps.check_changes.outputs.changed == 'true'
+        if: success() && steps.check_changes.outputs.changed == 'true'
         run: |
           git config --local user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
           git config --local user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
