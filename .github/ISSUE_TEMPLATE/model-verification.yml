@@ -55,7 +55,7 @@ body:
     id: provider-model
     attributes:
       label: Provider / Model
-      description: Select the provider/model pair. Use type-to-filter to search. Only non-deprecated models are listed. This list is auto-updated from `*ProviderModels.cs`.
+      description: Select the provider/model pair. Only non-deprecated models are listed. This list is auto-updated from registered models in SmartHopper providers.
       options:
         # AUTO-GENERATED-MODEL-OPTIONS-START — updated by tools/Update-ModelVerificationTemplate.ps1
         - Anthropic / claude-sonnet-4-6
