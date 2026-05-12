@@ -79,10 +79,12 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string] $Provider,
-    [Parameter(Mandatory = $true)][string] $ApiKey,
+    [Parameter(Mandatory = $false)][string] $ApiKey = "",
     [Parameter(Mandatory = $false)][string] $ProviderApiKey = "",
     [Parameter(Mandatory = $false)][string] $TargetFile = "",
-    [Parameter(Mandatory = $false)][switch] $UpdateFile
+    [Parameter(Mandatory = $false)][switch] $UpdateFile,
+    [Parameter(Mandatory = $false)][switch] $FailOnValidationErrors,
+    [Parameter(Mandatory = $false)][switch] $ValidateOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -116,6 +118,19 @@ $ProviderAliasSuffix = @{
     'MistralAI'  = $null   # uses .name field grouping (handled separately)
     'DeepSeek'   = $null
     'OpenRouter' = $null
+}
+
+$CompositeDefaultCapabilities = [ordered]@{
+    Text2Text          = @('TextInput', 'TextOutput')
+    ToolChat          = @('TextInput', 'TextOutput', 'FunctionCalling')
+    ReasoningChat     = @('TextInput', 'TextOutput', 'Reasoning')
+    ToolReasoningChat = @('TextInput', 'TextOutput', 'Reasoning', 'FunctionCalling')
+    Text2Json         = @('TextInput', 'JsonOutput')
+    Text2Image        = @('TextInput', 'ImageOutput')
+    Text2Speech       = @('TextInput', 'AudioOutput')
+    Speech2Text       = @('AudioInput', 'TextOutput')
+    Image2Text        = @('ImageInput', 'TextOutput')
+    Image2Image       = @('ImageInput', 'ImageOutput')
 }
 
 # Provider-native /models endpoints. Used only when -ProviderApiKey is supplied.
@@ -306,6 +321,72 @@ function ConvertTo-CapabilityFlags($openRouterModel) {
     return ($caps -join ' | ')
 }
 
+function Test-CapabilityExpressionContains($expression, $capabilityName) {
+    return -not [string]::IsNullOrWhiteSpace($expression) -and $expression -match "(^|[^A-Za-z0-9_])AICapability\.$([regex]::Escape($capabilityName))([^A-Za-z0-9_]|$)"
+}
+
+function Test-CapabilityExpressionHasAll($expression, $capabilityNames) {
+    foreach ($capabilityName in $capabilityNames) {
+        if (-not (Test-CapabilityExpressionContains $expression $capabilityName)) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Test-RealtimeModelName($modelName) {
+    return -not [string]::IsNullOrWhiteSpace($modelName) -and $modelName -match '(?i)realtime'
+}
+
+function Test-ProviderModelValidation($models) {
+    $validationErrors = [System.Collections.Generic.List[string]]::new()
+    $missingDefaultCapabilities = [System.Collections.Generic.List[string]]::new()
+    $pendingCapabilityModels = [System.Collections.Generic.List[string]]::new()
+    $realtimeModels = [System.Collections.Generic.List[string]]::new()
+
+    $nonDeprecatedModelsForValidation = @($models | Where-Object { $_.Deprecated -ne 'true' })
+
+    foreach ($composite in $CompositeDefaultCapabilities.GetEnumerator()) {
+        $capableModels = @($nonDeprecatedModelsForValidation | Where-Object {
+            Test-CapabilityExpressionHasAll $_.Capabilities $composite.Value
+        })
+
+        if ($capableModels.Count -eq 0) { continue }
+
+        $defaultModels = @($nonDeprecatedModelsForValidation | Where-Object {
+            Test-CapabilityExpressionContains $_.Default $composite.Key
+        })
+
+        if ($defaultModels.Count -eq 0) {
+            [void]$missingDefaultCapabilities.Add($composite.Key)
+            [void]$validationErrors.Add("Missing default for AICapability.$($composite.Key) while $($capableModels.Count) non-deprecated model(s) support $($composite.Value -join ', ').")
+        }
+    }
+
+    foreach ($m in $models) {
+        if ($m.Deprecated -ne 'true' -and (
+            [string]::IsNullOrWhiteSpace($m.Capabilities) -or
+            $m.Capabilities -eq 'AICapability.None' -or
+            $m.RawBlock -match '//\s*TODO:\s*retrieve capabilities')) {
+            [void]$pendingCapabilityModels.Add($m.Model)
+            [void]$validationErrors.Add("Model '$($m.Model)' is non-deprecated but has pending capability definition.")
+        }
+
+        if (Test-RealtimeModelName $m.Model) {
+            [void]$realtimeModels.Add($m.Model)
+            [void]$validationErrors.Add("Realtime model '$($m.Model)' is present in the provider model list.")
+        }
+    }
+
+    return [ordered]@{
+        success                    = ($validationErrors.Count -eq 0)
+        errors                     = @($validationErrors)
+        missingDefaultCapabilities = @($missingDefaultCapabilities)
+        pendingCapabilityModels    = @($pendingCapabilityModels)
+        realtimeModels             = @($realtimeModels)
+    }
+}
+
 # ---------------------------------------------------------------------------
 # 1. Read and parse the existing C# file
 # ---------------------------------------------------------------------------
@@ -388,6 +469,34 @@ foreach ($bm in $blockMatches) {
 
 Write-Host "[$Provider] Parsed $($existingModels.Count) existing model block(s)."
 
+if ($ValidateOnly) {
+    $validation = Test-ProviderModelValidation @($existingModels.Values)
+    $report = [ordered]@{
+        provider           = $Provider
+        apiUrl             = $null
+        providerApiQueried = $false
+        providerApiUrl     = $null
+        apiModels          = @()
+        openrouterModels   = @()
+        providerApiModels  = $null
+        sourceModels       = @($existingModels.Keys | Sort-Object)
+        newModels          = @()
+        deprecatedModels   = @()
+        unchangedModels    = @()
+        fileUpdated        = $false
+        validation          = $validation
+    }
+
+    Write-Output ($report | ConvertTo-Json -Depth 10)
+
+    if ($FailOnValidationErrors -and -not $validation.success) {
+        Write-Error "[$Provider] Provider model validation failed: $($validation.errors -join ' | ')"
+        exit 9
+    }
+
+    exit 0
+}
+
 # ---------------------------------------------------------------------------
 # 2. Query OpenRouter
 # ---------------------------------------------------------------------------
@@ -414,12 +523,18 @@ function Get-ModelName($fullId) {
     return $fullId.Substring($prefix.Length)
 }
 
+function Get-LogicalModelKey($modelName) {
+    if ([string]::IsNullOrWhiteSpace($modelName)) { return $modelName }
+    return ([string]$modelName).ToLowerInvariant() -replace '(?<=\d)[\.-](?=\d)', '.'
+}
+
 $openRouterModels = [System.Collections.Generic.List[psobject]]::new()
 foreach ($item in $response.data) {
     $fullId = $item.id
     if ([string]::IsNullOrWhiteSpace($fullId)) { continue }
 
     if ($fullId.StartsWith('ft:')) { continue }
+    if (Test-RealtimeModelName $fullId) { continue }
 
     if ($isOpenRouterProvider) {
         # OpenRouter provider: keep every model verbatim (full "vendor/model" id).
@@ -540,6 +655,7 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
         $providerData = if ($providerResponse.data) { $providerResponse.data } else { @() }
         foreach ($pm in $providerData) {
             if (-not [string]::IsNullOrWhiteSpace($pm.id) -and -not $pm.id.StartsWith('ft:')) {
+                if (Test-RealtimeModelName $pm.id) { continue }
                 [void]$providerApiModelNames.Add($pm.id)
                 $providerApiLookup[$pm.id] = $pm
             }
@@ -623,7 +739,7 @@ if ($providerApiQueried) {
 
         $groups = @{}
         foreach ($pmId in $providerApiModelNames) {
-            $baseKey = $suffixRx.Replace($pmId, '')
+            $baseKey = Get-LogicalModelKey ($suffixRx.Replace($pmId, ''))
             if (-not $groups.ContainsKey($baseKey)) {
                 $groups[$baseKey] = [System.Collections.Generic.List[string]]::new()
             }
@@ -695,6 +811,28 @@ if ($providerApiQueried) {
         }
     }
 
+    foreach ($srcKey in @($existingModels.Keys)) {
+        $logicalSourceKey = Get-LogicalModelKey $srcKey
+        $canonicalVersionPeer = $providerApiModelNames | Where-Object {
+            -not [string]::Equals($_, $srcKey, 'OrdinalIgnoreCase') -and
+            [string]::Equals((Get-LogicalModelKey $_), $logicalSourceKey, 'OrdinalIgnoreCase')
+        } | Select-Object -First 1
+
+        if (-not $canonicalVersionPeer) { continue }
+
+        $apiCanonicalByAlias[$srcKey] = $canonicalVersionPeer
+        if (-not $apiAliasesByCanonical.ContainsKey($canonicalVersionPeer)) {
+            $apiAliasesByCanonical[$canonicalVersionPeer] = @()
+        }
+
+        $versionAliases = [System.Collections.Generic.List[string]]::new()
+        foreach ($a in @($apiAliasesByCanonical[$canonicalVersionPeer])) { [void]$versionAliases.Add($a) }
+        if (-not ($versionAliases | Where-Object { [string]::Equals($_, $srcKey, 'OrdinalIgnoreCase') })) {
+            [void]$versionAliases.Add($srcKey)
+        }
+        $apiAliasesByCanonical[$canonicalVersionPeer] = $versionAliases.ToArray()
+    }
+
     # Reverse map: alias -> canonical.
     foreach ($kvp in $apiAliasesByCanonical.GetEnumerator()) {
         foreach ($a in $kvp.Value) {
@@ -719,11 +857,12 @@ if ($providerApiQueried) {
             if ($apiCanonicalByAlias.ContainsKey($srcKey)) { continue }
 
             $baseKey = $suffixRxSupplement.Replace($srcKey, '')
+            $logicalBaseKey = Get-LogicalModelKey $baseKey
 
             # Find all dated members of the same family in the provider API
             $datedSiblings = @($providerApiModelNames | Where-Object {
                 $dateRxSupplement.IsMatch($_) -and
-                [string]::Equals($suffixRxSupplement.Replace($_, ''), $baseKey, 'OrdinalIgnoreCase')
+                [string]::Equals((Get-LogicalModelKey ($suffixRxSupplement.Replace($_, ''))), $logicalBaseKey, 'OrdinalIgnoreCase')
             })
 
             if ($datedSiblings.Count -eq 0) { continue }
@@ -1043,6 +1182,12 @@ foreach ($kvp in $mergedModels.GetEnumerator()) {
     }
 }
 
+foreach ($key in @($mergedModels.Keys)) {
+    if (Test-RealtimeModelName $key) {
+        [void]$mergedModels.Remove($key)
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Reassign generic alias (bare baseKey) to latest non-deprecated family member
 # ---------------------------------------------------------------------------
@@ -1171,6 +1316,8 @@ $newModels        = $apiModelNamesList | Where-Object { $_ -notin $sourceModelNa
 $deprecatedModels = $allModelNames     | Where-Object { $mergedModels[$_].Deprecated -eq 'true' -and ($_ -in $sourceModelNamesList) }
 $unchangedModels  = $apiModelNamesList | Where-Object { $_ -in $sourceModelNamesList -and $mergedModels[$_].Deprecated -ne 'true' }
 
+$validation = Test-ProviderModelValidation @($mergedModels.Values)
+
 # ---------------------------------------------------------------------------
 # 5. Optional file update
 # ---------------------------------------------------------------------------
@@ -1280,7 +1427,13 @@ $report = [ordered]@{
     deprecatedModels   = @($deprecatedModels)
     unchangedModels    = @($unchangedModels)
     fileUpdated        = $fileUpdated
+    validation          = $validation
 }
 
 Write-Output ($report | ConvertTo-Json -Depth 10)
+
+if ($FailOnValidationErrors -and -not $validation.success) {
+    Write-Error "[$Provider] Provider model validation failed: $($validation.errors -join ' | ')"
+    exit 9
+}
 

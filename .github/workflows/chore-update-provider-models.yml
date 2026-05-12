@@ -79,6 +79,7 @@ jobs:
           api-key: ${{ secrets.OPENROUTER_API_KEY }}
           provider-api-key: ${{ (matrix.provider == 'OpenAI' && secrets.OPENAI_API_KEY) || (matrix.provider == 'MistralAI' && secrets.MISTRAL_API_KEY) || (matrix.provider == 'Anthropic' && secrets.ANTHROPIC_API_KEY) || (matrix.provider == 'DeepSeek' && secrets.DEEPSEEK_API_KEY) || '' }}
           update-file: true
+          fail-on-validation-errors: true
 
       - name: Emit step summary
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.success == 'true'
@@ -128,7 +129,7 @@ jobs:
             - `Rank` values are auto-computed from OpenRouter data: newer models rank higher, and within the same creation period cheaper output pricing ranks higher.
 
             **Requires manual review:**
-            - Verify `Default` and `Verified` flags for newly added models.
+            - Verify `Verified` flags for newly added models.
           branch: "chore/update-models-${{ matrix.provider }}"
           base: main
           delete-branch: true
