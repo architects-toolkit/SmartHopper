@@ -125,6 +125,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""imageDescriptionPrompt"": {
                             ""type"": ""string"",
                             ""description"": ""Custom prompt for AI image description. If omitted, a built-in detailed description prompt is used.""
+                        },
+                        ""HTMLreadabilityMode"": {
+                            ""type"": ""string"",
+                            ""enum"": [""auto"", ""smartreader"", ""heuristic"", ""off""],
+                            ""description"": ""HTML main-content extraction strategy (applies to .html/.htm and HTML parts of EPUB/EML). 'auto' (default): SmartReader with heuristic fallback. 'smartreader': force SmartReader. 'heuristic': force the magic-html-inspired extractor. 'off': skip extraction."",
+                            ""default"": ""auto""
+                        },
+                        ""includeLinks"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Keep hyperlinks in the Markdown output for HTML sources. Default: true."",
+                            ""default"": true
+                        },
+                        ""includeImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Keep inline image references in the Markdown output for HTML sources. Default: true."",
+                            ""default"": true
                         }
                     },
                     ""required"": [""filePath""]
@@ -166,7 +182,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     RemoveHeadersFooters = args["removeHeadersFooters"]?.Value<bool>() ?? true,
                     ExtractImages = (args["extractImages"]?.Value<bool>() ?? false) || describeImages,
                     DetectHeadings = true,
-                    MaxContentLength = 0
+                    MaxContentLength = 0,
+                    HtmlReadabilityMode = ReadabilityModeExtensions.FromString(args["HTMLreadabilityMode"]?.ToString()),
+                    IncludeLinks = args["includeLinks"]?.Value<bool>() ?? true,
+                    IncludeImages = args["includeImages"]?.Value<bool>() ?? true,
                 };
 
                 // Convert the file
@@ -384,5 +403,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             return sb.ToString().Trim();
         }
+
     }
 }

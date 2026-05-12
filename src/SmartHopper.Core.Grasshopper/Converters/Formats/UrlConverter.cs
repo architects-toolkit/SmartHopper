@@ -145,12 +145,16 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     var html = await httpClient.GetStringAsync(uri).ConfigureAwait(false);
                     Debug.WriteLine($"[UrlConverter] Fetched HTML from {url}. Length: {html.Length}");
 
+                    // Pass the fetched URL as base URL so relative links/images become absolute.
+                    var htmlOptions = options?.Clone() ?? new FileConversionOptions();
+                    htmlOptions.BaseUrl = uri.ToString();
+
                     // Save HTML to temp file for HtmlConverter
                     var tempFile = Path.GetTempFileName();
                     try
                     {
                         await File.WriteAllTextAsync(tempFile, html).ConfigureAwait(false);
-                        var htmlResult = await this.htmlConverter.ConvertAsync(tempFile, options).ConfigureAwait(false);
+                        var htmlResult = await this.htmlConverter.ConvertAsync(tempFile, htmlOptions).ConfigureAwait(false);
                         textContent = htmlResult.MarkdownContent;
                         result.Metadata = htmlResult.Metadata;
                         result.Warnings = htmlResult.Warnings;
