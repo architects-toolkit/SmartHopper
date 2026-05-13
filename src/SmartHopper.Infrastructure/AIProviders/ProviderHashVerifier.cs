@@ -70,7 +70,7 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// <summary>
     /// Verifies provider DLL integrity using SHA-256 hashes from public repository.
     /// </summary>
-    internal class ProviderHashVerifier
+    public class ProviderHashVerifier
     {
         private const string HashBaseUrl = "https://architects-toolkit.github.io/SmartHopper/hashes";
         private static readonly HttpClient HttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };

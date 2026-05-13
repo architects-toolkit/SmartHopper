@@ -158,6 +158,30 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
                         unknownMessage));
                     Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unknown - adding warning");
                 }
+
+                // Surface community/unsigned warnings on every component using this provider.
+                if (trustHost.IsProviderCommunity(this.Provider))
+                {
+                    var communityMessage = $"Provider '{this.Provider}' is a community provider, not signed by SmartHopper. " +
+                        "Use it only if you trust its source — community providers run with full plugin privileges.";
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.UnknownProvider,
+                        communityMessage));
+                    Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is community - adding warning");
+                }
+                else if (trustHost.IsProviderUnsigned(this.Provider))
+                {
+                    var unsignedMessage = $"Provider '{this.Provider}' is unsigned. " +
+                        "Use it only if you trust its source.";
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.UnknownProvider,
+                        unsignedMessage));
+                    Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unsigned - adding warning");
+                }
             }
 
             if (this.ProviderInstance == null)

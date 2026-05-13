@@ -52,6 +52,11 @@ namespace SmartHopper.ProviderSdk.Hosting
         /// Returns true when the provider was classified as community / non-official.
         /// </summary>
         bool IsProviderCommunity(string providerName);
+
+        /// <summary>
+        /// Returns true when the provider was loaded without any strong-name signature.
+        /// </summary>
+        bool IsProviderUnsigned(string providerName);
     }
 
     /// <summary>
@@ -75,5 +80,8 @@ namespace SmartHopper.ProviderSdk.Hosting
 
         /// <inheritdoc />
         public bool IsProviderCommunity(string providerName) => false;
+
+        /// <inheritdoc />
+        public bool IsProviderUnsigned(string providerName) => false;
     }
 }
