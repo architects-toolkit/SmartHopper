@@ -45,11 +45,11 @@ jobs:
 
           for file in "${changed_files[@]}"; do
             case "$file" in
-              src/SmartHopper.Infrastructure/AIModels/AICapability.cs|tools/Update-ProviderModels.ps1)
+              tools/Update-ProviderModels.ps1)
                 should_run=true
                 break
                 ;;
-              src/SmartHopper.Providers.*/*ProviderModels.cs)
+              src/SmartHopper.Infrastructure/AIModels/AICapability.cs|src/SmartHopper.Providers.*/*ProviderModels.cs)
                 if python3 - "$BASE_REF" "$file" <<'PY'
           import subprocess
           import sys
