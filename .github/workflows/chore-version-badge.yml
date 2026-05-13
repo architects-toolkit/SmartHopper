@@ -17,6 +17,8 @@ on:
     branches:
       - main
       - dev
+      - 'main-*'
+      - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
     # Only run when the version source of truth changes. README.md is an output of this

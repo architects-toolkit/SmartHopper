@@ -20,6 +20,8 @@ on:
     branches:
       - main
       - dev
+      - 'main-*'
+      - 'dev-*'
       - 'release/**'
       - 'hotfix/**'
 
