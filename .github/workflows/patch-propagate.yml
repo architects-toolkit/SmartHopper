@@ -67,6 +67,7 @@ on:
         default: ''
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
   issues: write
@@ -180,6 +181,16 @@ jobs:
             fi
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch required PR checks
+        if: steps.cp.outputs.status == 'created' && steps.cp.outputs.pr-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.cp.outputs.branch-name }}
+          pr-number: ${{ steps.cp.outputs.pr-number }}
+          base-ref: ${{ matrix.target }}
+          pr-title: ${{ steps.cp.outputs.pr-title }}
 
       - name: Fail on unresolved conflicts
         if: steps.cp.outputs.has-conflicts == 'true'

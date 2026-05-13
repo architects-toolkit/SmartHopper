@@ -21,6 +21,7 @@ on:
         default: ''
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -109,10 +110,11 @@ jobs:
 
       - name: Create Pull Request
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true'
+        id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore(models): update ${{ matrix.provider }} model list [ci skip]"
+          commit-message: "chore(models): update ${{ matrix.provider }} model list"
           title: "chore(models): auto-add new and deprecate stale ${{ matrix.provider }} models"
           body: |
             Auto-generated PR from `.github/workflows/chore-update-provider-models.yml`.
@@ -135,3 +137,13 @@ jobs:
           delete-branch: true
           labels: |
             automated
+
+      - name: Dispatch required PR checks
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/update-models-${{ matrix.provider }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: main
+          pr-title: "chore(models): auto-add new and deprecate stale ${{ matrix.provider }} models"
