@@ -1,6 +1,6 @@
 # SmartHopper - AI-Powered Tools and Assistant for Grasshopper3D
 
-[![Version](https://img.shields.io/badge/version-2.0.0--dev.260512-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0--dev.260513-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#installation)
@@ -35,6 +35,7 @@ SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered co
   - ![DeepSeek](src/SmartHopper.Providers.DeepSeek/Resources/deepseek_icon.png) [DeepSeek](https://deepseek.com/)
   - ![Anthropic](src/SmartHopper.Providers.Anthropic/Resources/anthropic_icon.png) [Anthropic](https://anthropic.com/)
   - ![OpenRouter](src/SmartHopper.Providers.OpenRouter/Resources/openrouter_icon.png) [OpenRouter](https://openrouter.ai/)
+  - ![Gemini](src/SmartHopper.Providers.Gemini/Resources/gemini_icon.png) [Google Gemini](https://ai.google.dev/)
 
 - Open Source — and it will always be.
 
