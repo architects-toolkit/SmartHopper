@@ -7,9 +7,7 @@ param(
 )
  
 Set-Location (Resolve-Path $Root)
-
-$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-
+ 
 $csHeader = @'
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
@@ -185,7 +183,7 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.cs | ForEach-Object {
         }
 
         if (-not $Check) {
-            [System.IO.File]::WriteAllText($path, $normalized, $utf8NoBom)
+            [System.IO.File]::WriteAllText($path, $normalized, [System.Text.Encoding]::UTF8)
             if ($isDifferent) {
                 Write-Host "Header normalized: $path"
             }
@@ -223,7 +221,7 @@ Get-ChildItem -Path "..\src" -Recurse -Filter *.csproj | ForEach-Object {
         }
 
         if (-not $Check) {
-            [System.IO.File]::WriteAllText($path, $normalized, $utf8NoBom)
+            [System.IO.File]::WriteAllText($path, $normalized, [System.Text.Encoding]::UTF8)
             if ($isDifferent) {
                 Write-Host "Header normalized: $path"
             }
