@@ -165,3 +165,24 @@ jobs:
           else
             echo "PR title format is valid! ✅"
           fi
+
+  required-check:
+    name: 📦 Pull Request Validation
+    needs: [version-check, code-style-check, changelog-check, title-check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required workflow jobs
+        shell: bash
+        run: |
+          for result in \
+            "${{ needs.version-check.result }}" \
+            "${{ needs.code-style-check.result }}" \
+            "${{ needs.changelog-check.result }}" \
+            "${{ needs.title-check.result }}"
+          do
+            if [[ "$result" != "success" ]]; then
+              echo "::error::A required PR validation job finished with $result"
+              exit 1
+            fi
+          done

@@ -173,3 +173,25 @@ jobs:
           }
 
           exit 1
+
+  required-check:
+    name: ✅ Check Provider Models
+    needs: [paths-filter, validate-provider-models]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required workflow jobs
+        shell: bash
+        run: |
+          paths_filter="${{ needs.paths-filter.result }}"
+          validate_provider_models="${{ needs.validate-provider-models.result }}"
+
+          if [[ "$paths_filter" != "success" ]]; then
+            echo "::error::Paths filter finished with $paths_filter"
+            exit 1
+          fi
+
+          if [[ "$validate_provider_models" != "success" && "$validate_provider_models" != "skipped" ]]; then
+            echo "::error::Provider model validation finished with $validate_provider_models"
+            exit 1
+          fi

@@ -211,3 +211,17 @@ jobs:
         Write-Host "Result:         $result"
         Write-Host "Reason:         $reason"
         Write-Host ""
+
+  required-check:
+    name: 🔍 PR Version Validation
+    needs: validate-version
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - name: Verify required workflow jobs
+      shell: bash
+      run: |
+        if [[ "${{ needs.validate-version.result }}" != "success" ]]; then
+          echo "::error::Version validation finished with ${{ needs.validate-version.result }}"
+          exit 1
+        fi

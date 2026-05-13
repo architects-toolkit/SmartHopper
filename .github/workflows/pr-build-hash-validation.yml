@@ -290,3 +290,27 @@ jobs:
         } else {
           Write-Host "##[notice] ✅ VALIDATION PASSED: Build successful and no hash conflicts"
         }
+
+  required-check:
+    name: 🔍 PR Build & Hash Validation
+    needs: [validate-no-manual-hash-edits, prep, validate-build-and-hash]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - name: Verify required workflow jobs
+      shell: bash
+      run: |
+        if [[ "${{ needs.validate-no-manual-hash-edits.result }}" != "success" ]]; then
+          echo "::error::Manual hash edit validation finished with ${{ needs.validate-no-manual-hash-edits.result }}"
+          exit 1
+        fi
+
+        if [[ "${{ needs.prep.result }}" != "success" ]]; then
+          echo "::error::Prep finished with ${{ needs.prep.result }}"
+          exit 1
+        fi
+
+        if [[ "${{ needs.validate-build-and-hash.result }}" != "success" ]]; then
+          echo "::error::Build/hash validation matrix finished with ${{ needs.validate-build-and-hash.result }}"
+          exit 1
+        fi
