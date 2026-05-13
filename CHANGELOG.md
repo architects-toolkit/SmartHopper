@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **DEV.md provider model sync automation**: added `tools/Update-DevProviderModels.ps1` and a GitHub workflow that validates provider model documentation on PRs and opens sync PRs after protected-branch provider registry updates.
+- **Component-name aliasing for AI-emitted GhJSON** (`SmartHopper.Core.Grasshopper.Utils.Canvas.ComponentNameAliases`): a small loose-name resolver that maps common informal component names emitted by LLMs (e.g. "csharp", "slider", "python", "py", "pt", "ln", "crv", "xy", "rect") to canonical Grasshopper names ("C# Script", "Number Slider", "Python 3 Script", "Point", "Line", "Curve", "XY Plane", "Rectangle"). Applied transparently in `gh_put` (before `GhJsonGrasshopper.Put`) and `_gh_generate` (when assembling the document), reducing self-healing retry loops when the AI emits informal names. Alias list adapted from `brookstalley/cordyceps` (MIT) with attribution preserved in the source header.
 
 #### 📋 List I/O components
 

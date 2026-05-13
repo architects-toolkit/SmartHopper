@@ -27,6 +27,7 @@ using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Constants;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -152,7 +153,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     var component = new GhJsonComponent
                     {
-                        Name = name,
+                        Name = ComponentNameAliases.Resolve(name),
                         InstanceGuid = instanceGuid,
                         Pivot = position.HasValue ? new GhJsonPivot(position.Value.X, position.Value.Y) : null,
                     };

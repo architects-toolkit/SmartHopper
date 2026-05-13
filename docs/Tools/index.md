@@ -60,7 +60,7 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 | Tool | Description |
 |------|-------------|
 | gh_get | Reads the Grasshopper file and returns GhJSON structure with optional filters |
-| gh_put | Places components from GhJSON onto the canvas |
+| gh_put | Places components from GhJSON onto the canvas. Informal LLM-emitted component names ("csharp", "slider", "py") are pre-resolved to canonical Grasshopper names by `SmartHopper.Core.Grasshopper.Utils.Canvas.ComponentNameAliases` before placement. |
 | gh_move | Moves components to new positions |
 | gh_merge | Merges multiple GhJSON definitions |
 | gh_group | Creates component groups |
