@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommonDrawing = System.Drawing;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
@@ -33,11 +34,11 @@ using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
-using CommonDrawing = System.Drawing;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Text
 {

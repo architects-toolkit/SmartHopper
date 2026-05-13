@@ -24,8 +24,8 @@ using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.Utilities;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.Utilities;
 
 namespace SmartHopper.Components.Output
 {

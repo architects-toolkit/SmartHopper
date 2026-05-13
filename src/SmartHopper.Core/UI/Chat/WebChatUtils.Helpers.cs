@@ -19,10 +19,10 @@
 using System;
 using System.Threading.Tasks;
 using Eto.Forms;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
 
 namespace SmartHopper.Core.UI.Chat
 {

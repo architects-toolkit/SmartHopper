@@ -24,8 +24,11 @@ Providers implement API-specific logic while conforming to a common contract so 
 
 ## Security
 
-- Signature verification before load, trusted providers tracked in settings.
-- Secrets stored using OS secure mechanisms; no hardcoded keys.
+- **Cryptographic classification** — providers are classified as `Official`, `OfficialTampered`, `Community`, or `Invalid` based purely on strong-name token, Authenticode signature (Windows), and SHA-256 manifest. Names and provider ids never affect classification.
+- **Trust gates** — community providers are blocked unless `AllowCommunityProviders=true`. The global `BlockNonOfficialProviders=true` switch overrides everything to allow Official providers only.
+- **Per-provider trust** — first-time discovery of an allowed community provider triggers a trust prompt. Trust is invalidated automatically if the file's SHA-256 changes.
+- **Visible warnings** — every AI component using a community/unsigned/unverified provider receives a runtime warning message in Grasshopper.
+- **Secrets** — stored using OS secure mechanisms (DPAPI on Windows, Keychain on macOS); no hardcoded keys. Provider code is scoped to its own keys via `IProviderSettingsStore`.
 
 ## Extensibility
 
@@ -35,6 +38,7 @@ Providers implement API-specific logic while conforming to a common contract so 
 
 ## Detailed docs
 
+- [Provider SDK (community-facing)](./ProviderSdk.md)
 - [ProviderManager](./ProviderManager.md)
 - [IAIProvider](./IAIProvider.md)
 - [AIProvider](./AIProvider.md)

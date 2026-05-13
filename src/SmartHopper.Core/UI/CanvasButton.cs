@@ -32,11 +32,13 @@ using Grasshopper;
 using Grasshopper.GUI.Canvas;
 using Rhino;
 using SmartHopper.Core.UI.Chat;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.UI
 {

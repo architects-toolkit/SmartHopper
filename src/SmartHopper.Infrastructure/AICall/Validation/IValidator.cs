@@ -20,8 +20,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {

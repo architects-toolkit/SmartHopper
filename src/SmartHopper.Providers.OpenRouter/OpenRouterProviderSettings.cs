@@ -23,6 +23,8 @@ using System.Linq;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Providers.OpenRouter
 {

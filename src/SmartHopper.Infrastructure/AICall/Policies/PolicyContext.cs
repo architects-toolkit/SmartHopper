@@ -17,11 +17,11 @@
  */
 
 using System.Collections.Generic;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Policies
 {

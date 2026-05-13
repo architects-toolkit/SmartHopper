@@ -49,8 +49,9 @@ using SmartHopper.Core.ComponentBase.State;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Diagnostics;
 using SmartHopper.Core.IO;
-using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Core.ComponentBase
 {

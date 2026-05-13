@@ -29,20 +29,22 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Batch;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.JsonSchemas;
-using SmartHopper.Infrastructure.AICall.Metrics;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
-using SmartHopper.Infrastructure.Streaming;
-using SmartHopper.Infrastructure.Utilities;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.JsonSchemas;
+using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Streaming;
+using SmartHopper.ProviderSdk.Utilities;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Providers.Anthropic
 {
@@ -1246,7 +1248,7 @@ namespace SmartHopper.Providers.Anthropic
                 return false;
             }
 
-            var caps = ModelManager.Instance.GetCapabilities("Anthropic", model);
+            var caps = AIModelCapabilityRegistry.Instance.GetCapabilities("Anthropic", model);
             return caps?.HasCapability(AICapability.Text2Json) == true;
         }
 

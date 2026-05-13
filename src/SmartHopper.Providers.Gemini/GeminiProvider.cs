@@ -28,14 +28,15 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Providers.Gemini.Properties;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Providers.Gemini
 {

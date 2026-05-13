@@ -20,8 +20,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using SmartHopper.Core.Models;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
 
 namespace SmartHopper.Core.Types
 {

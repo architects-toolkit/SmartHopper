@@ -19,10 +19,10 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Validation;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {

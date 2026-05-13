@@ -30,12 +30,13 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AICall.Utilities;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.Utilities;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -210,7 +211,7 @@ namespace SmartHopper.Components.Knowledge
                                     outputs["Format"].Add(new GH_String(format));
 
                                     // Extract and collect any messages from tool result
-                                    var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                                    var toolMessages = ToolCallResultRuntimeMessageExtensions.ExtractMessages(toolResult);
                                     foreach (var m in toolMessages) this.CollectMessage(m);
                                 }
                             }

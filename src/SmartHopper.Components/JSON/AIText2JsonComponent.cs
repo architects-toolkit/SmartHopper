@@ -31,12 +31,13 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
-using SmartHopper.Infrastructure.Utilities;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Utilities;
 
 namespace SmartHopper.Components.JSON
 {

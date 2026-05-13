@@ -29,6 +29,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Components.AI
 {
