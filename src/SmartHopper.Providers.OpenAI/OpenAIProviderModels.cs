@@ -118,6 +118,7 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-5.5-2026-04-23",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9975,
@@ -169,6 +170,7 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-audio-mini-2025-12-15",
                     Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
+                    Default = AICapability.Text2Speech | AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9955,
@@ -616,10 +618,11 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "chat-latest",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9775,
+                    ContextLimit = 128000,
                     Aliases = new List<string> { "chat" },
                 },
 
@@ -655,19 +658,6 @@ namespace SmartHopper.Providers.OpenAI
                     Rank = 9760,
                     ContextLimit = 128000,
                     Aliases = new List<string> { "gpt-4o-mini-audio-preview", "gpt-4o-mini-audio-preview-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4o-mini-realtime-preview-2024-12-17",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9755,
-                    ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o-mini-realtime-preview", "gpt-4o-mini-realtime-preview-latest" },
-                    DiscouragedForTools = new List<string> { "*" },
                 },
 
                 new AIModelCapabilities
@@ -714,31 +704,6 @@ namespace SmartHopper.Providers.OpenAI
                     Rank = 9735,
                     ContextLimit = 2000,
                     Aliases = new List<string> { "gpt-4o-mini-tts", "gpt-4o-mini-tts-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4o-realtime-preview-2024-12-17",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9730,
-                    ContextLimit = 128000,
-                    DiscouragedForTools = new List<string> { "*" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4o-realtime-preview-2025-06-03",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9725,
-                    ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o-realtime-preview", "gpt-4o-realtime-preview-latest" },
-                    DiscouragedForTools = new List<string> { "*" },
                 },
 
                 new AIModelCapabilities
@@ -832,90 +797,11 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-2-2026-04-21",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Image2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9680,
                     Aliases = new List<string> { "gpt-image-2", "gpt-image-2-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-realtime-1.5",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9675,
-                    ContextLimit = 128000,
-                    DiscouragedForTools = new List<string> { "*" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-realtime-2",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9670,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-realtime-2025-08-28",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9665,
-                    ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-realtime", "gpt-realtime-latest" },
-                    DiscouragedForTools = new List<string> { "*" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-realtime-mini-2025-10-06",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9660,
-                    ContextLimit = 128000,
-                    DiscouragedForTools = new List<string> { "*" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-realtime-mini-2025-12-15",
-                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.TextOutput | AICapability.AudioOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9655,
-                    ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-realtime-mini", "gpt-realtime-mini-latest" },
-                    DiscouragedForTools = new List<string> { "*" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-realtime-translate",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9650,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-realtime-whisper",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9645,
                 },
 
                 new AIModelCapabilities
