@@ -22,7 +22,6 @@ permissions:
 
 jobs:
   paths-filter:
-    if: github.event_name == 'workflow_dispatch'
     name: Paths Filter
     runs-on: ubuntu-latest
     outputs:
@@ -47,7 +46,7 @@ jobs:
   validate-provider-models:
     name: Validate provider model defaults
     needs: paths-filter
-    if: always() && (github.event_name == 'pull_request' || needs.paths-filter.outputs.should_run == 'true')
+    if: needs.paths-filter.outputs.should_run == 'true'
     runs-on: windows-latest
     strategy:
       fail-fast: false
