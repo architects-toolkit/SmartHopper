@@ -20,11 +20,12 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Utilities;
-using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Utilities;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
@@ -101,7 +102,7 @@ namespace SmartHopper.Infrastructure.AICall.Validation
             }
 
             // Step 3: Check capability support
-            var modelManager = ModelManager.Instance;
+            var modelManager = AIModelCapabilityRegistry.Instance;
             var supportsCapability = modelManager.ValidateCapabilities(this._providerName, effectiveModel, capability);
 
             if (supportsCapability)

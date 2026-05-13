@@ -21,8 +21,8 @@ namespace SmartHopper.Infrastructure.Tests
     using System.Collections.Generic;
     using System.Reflection;
     using System.Threading.Tasks;
-    using SmartHopper.Infrastructure.AICall.Core.Returns;
     using SmartHopper.Infrastructure.AITools;
+    using SmartHopper.ProviderSdk.AICall.Core.Returns;
     using Xunit;
 
     /// <summary>

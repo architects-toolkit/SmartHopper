@@ -18,9 +18,9 @@
 
 using System;
 using System.Collections.Generic;
-using SmartHopper.Infrastructure.AICall.Batch;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.ProviderSdk.AICall.Batch;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Metrics;
 
 namespace SmartHopper.Core.ComponentBase.Cores
 {

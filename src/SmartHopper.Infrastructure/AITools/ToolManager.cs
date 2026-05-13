@@ -22,10 +22,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AITools
 {
@@ -117,7 +117,7 @@ namespace SmartHopper.Infrastructure.AITools
                 try
                 {
                     var results = result?.Body?.Interactions?
-                        .OfType<SmartHopper.Infrastructure.AICall.Core.Interactions.AIInteractionToolResult>()
+                        .OfType<SmartHopper.ProviderSdk.AICall.Core.Interactions.AIInteractionToolResult>()
                         .ToList();
                     if (results != null && results.Count > 0)
                     {

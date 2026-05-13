@@ -18,10 +18,10 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
-using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Infrastructure.AICall.Execution
 {

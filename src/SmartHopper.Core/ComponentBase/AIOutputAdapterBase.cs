@@ -31,12 +31,12 @@ using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Validation;
-using SmartHopper.Infrastructure.AIModels;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AIModels;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Core.ComponentBase
 {
@@ -409,7 +409,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             var allInteractions = new List<IAIInteraction>();
-            var allMetrics = new List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>();
+            var allMetrics = new List<SmartHopper.ProviderSdk.AICall.Metrics.AIMetrics>();
 
             foreach (var path in primarySentinelTree.Paths)
             {
@@ -494,7 +494,7 @@ namespace SmartHopper.Core.ComponentBase
             // Aggregate metrics and publish a synthetic AIReturn snapshot — same as ProcessBatchResults<T>.
             if (allInteractions.Count > 0)
             {
-                var aggregatedMetrics = new SmartHopper.Infrastructure.AICall.Metrics.AIMetrics
+                var aggregatedMetrics = new SmartHopper.ProviderSdk.AICall.Metrics.AIMetrics
                 {
                     Provider = providerName,
                     Model = this.GetModel(),
@@ -507,7 +507,7 @@ namespace SmartHopper.Core.ComponentBase
                 this.PersistedMetrics = aggregatedMetrics;
 
                 var batchReturn = new AIReturn();
-                var batchRequest = new SmartHopper.Infrastructure.AICall.Core.Requests.AIRequestCall();
+                var batchRequest = new SmartHopper.ProviderSdk.AICall.Core.Requests.AIRequestCall();
                 batchRequest.Initialize(
                     aggregatedMetrics.Provider,
                     aggregatedMetrics.Model,

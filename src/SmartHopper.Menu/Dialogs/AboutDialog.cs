@@ -25,6 +25,7 @@ using Eto.Forms;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Properties;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Menu.Dialogs
 {

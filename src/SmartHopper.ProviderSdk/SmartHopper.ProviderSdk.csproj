@@ -1,0 +1,61 @@
+<!--
+  SmartHopper Provider SDK
+  Copyright (C) 2024-2026 Marc Roca Musach + SmartHopper Community
+
+  SPDX-License-Identifier: MIT
+
+  This project (the SmartHopper Provider SDK) is licensed under the MIT License
+  so that community providers can link to it without inheriting the LGPLv3
+  obligations of the SmartHopper host. See LICENSE in this folder for the full
+  MIT license text. The SmartHopper host remains LGPLv3.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net7.0-windows;net7.0</TargetFrameworks>
+    <NoWarn>NU1701;NETSDK1086;SA1124;SA1200</NoWarn>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Title>SmartHopper Provider SDK</Title>
+    <Description>Stable, MIT-licensed SDK for building SmartHopper AI provider plugins (e.g. SmartHopper.Providers.OpenAI). Provides the contracts, base classes, request/response DTOs, model capability types, and host-injected abstractions a provider needs to talk to its API and describe its models.</Description>
+    <PackageId>SmartHopper.ProviderSdk</PackageId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>smarthopper;grasshopper;rhino;ai;provider;sdk</PackageTags>
+    <RepositoryUrl>https://github.com/architects-toolkit/SmartHopper</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OutputPath>$(SolutionDir)bin/$(SolutionVersion)/$(Configuration)</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))">
+    <UseWindowsForms>true</UseWindowsForms>
+    <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" ExcludeAssets="all" GeneratePathProperty="true" />
+    <Reference Include="$(PkgMicrosoft_NETFramework_ReferenceAssemblies_net48)\build\.NETFramework\v4.8\System.Windows.Forms.dll" Private="False" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.11" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EditorConfigFiles Remove="..\..\.editorconfig" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\.editorconfig" />
+  </ItemGroup>
+
+</Project>

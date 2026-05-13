@@ -28,16 +28,17 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.JsonSchemas;
-using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
-using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Requests;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+using SmartHopper.ProviderSdk.AICall.JsonSchemas;
+using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
+using SmartHopper.ProviderSdk.Streaming;
 
 namespace SmartHopper.Providers.OpenRouter
 {
@@ -538,7 +539,7 @@ namespace SmartHopper.Providers.OpenRouter
                     reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
 
                 // Extract metrics (tokens, model, finish reason) if present
-                var metrics = new Infrastructure.AICall.Metrics.AIMetrics
+                var metrics = new ProviderSdk.AICall.Metrics.AIMetrics
                 {
                     Provider = this.Name,
                     Model = response["model"]?.ToString(),

@@ -17,6 +17,7 @@
  */
 
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.ProviderSdk.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase.Contracts
 {

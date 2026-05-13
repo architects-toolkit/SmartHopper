@@ -33,12 +33,14 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.AIProviders;
-using SmartHopper.Infrastructure.Diagnostics;
+using SmartHopper.ProviderSdk.AICall.Core.Base;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Metrics;
+using SmartHopper.ProviderSdk.AICall.Utilities;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -610,7 +612,7 @@ namespace SmartHopper.Components.Knowledge
                                     }
                                 }
 
-                                var localMessages = RuntimeMessageUtility.ExtractMessages(localResult);
+                                var localMessages = ToolCallResultRuntimeMessageExtensions.ExtractMessages(localResult);
                                 foreach (var m in localMessages)
                                 {
                                     this.CollectMessage(m);

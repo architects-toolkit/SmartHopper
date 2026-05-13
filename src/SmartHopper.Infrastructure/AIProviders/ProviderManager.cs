@@ -33,6 +33,10 @@ using Rhino;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Utils;
+using SmartHopper.ProviderSdk.AIProviders;
+using SmartHopper.ProviderSdk.Hosting;
+using SmartHopper.ProviderSdk.Settings;
+using SmartHopper.ProviderSdk.Utils;
 
 namespace SmartHopper.Infrastructure.AIProviders
 {

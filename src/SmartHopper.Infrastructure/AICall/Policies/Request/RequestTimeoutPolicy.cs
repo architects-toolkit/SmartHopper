@@ -17,9 +17,10 @@
  */
 
 using System.Threading.Tasks;
-using SmartHopper.Infrastructure.AICall.Core;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.Settings;
+using SmartHopper.ProviderSdk.AICall.Core;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.Settings;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {
