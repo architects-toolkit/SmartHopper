@@ -28,6 +28,10 @@ inputs:
     description: 'When true, the script rewrites the source file: auto-inserts new models with capabilities mapped from OpenRouter metadata, updates existing model capabilities/ContextLimit, and marks disappeared or expiring models as Deprecated = true'
     required: false
     default: 'false'
+  fail-on-validation-errors:
+    description: 'When true, fail if updated provider models are missing required defaults, contain pending capabilities, or contain realtime models'
+    required: false
+    default: 'false'
 
 outputs:
   models:
@@ -69,6 +73,9 @@ runs:
         if ('${{ inputs.update-file }}' -eq 'true') {
           $params['UpdateFile'] = $true
         }
+        if ('${{ inputs.fail-on-validation-errors }}' -eq 'true') {
+          $params['FailOnValidationErrors'] = $true
+        }
 
         try {
           $reportJson = & .\tools\Update-ProviderModels.ps1 @params
@@ -97,4 +104,5 @@ runs:
           "count=0" >> $env:GITHUB_OUTPUT
           "models=[]" >> $env:GITHUB_OUTPUT
           "report={}" >> $env:GITHUB_OUTPUT
+          exit 1
         }
