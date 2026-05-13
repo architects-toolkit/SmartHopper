@@ -54,7 +54,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Provider = provider,
                     Model = "deepseek-v4-flash",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ToolReasoningChat,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ToolReasoningChat | AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 10000,
@@ -74,126 +74,6 @@ namespace SmartHopper.Providers.DeepSeek
 
 
 
-                // Released between November 2025 and February 2026
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-v3.2",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9990,
-                    ContextLimit = 131072,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-v3.2-speciale",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9985,
-                    ContextLimit = 163840,
-                },
-
-
-
-                // Released between August 2025 and November 2025
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-v3.2-exp",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9980,
-                    ContextLimit = 163840,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-chat-v3.1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9975,
-                    ContextLimit = 32768,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-v3.1-terminus",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9970,
-                    ContextLimit = 163840,
-                },
-
-
-
-                // Released between May 2025 and August 2025
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-r1-0528",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9965,
-                    ContextLimit = 163840,
-                },
-
-
-
-                // Released between February 2025 and May 2025
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-chat-v3-0324",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    Verified = false,
-                    Rank = 9960,
-                    ContextLimit = 163840,
-                },
-
-
-
-                // Released between November 2024 and February 2025
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-r1-distill-qwen-32b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9955,
-                    ContextLimit = 32768,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-r1-distill-llama-70b",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9950,
-                    ContextLimit = 131072,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-r1",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9945,
-                    ContextLimit = 64000,
-                },
-
-
-
                 // Deprecated models
 
                 new AIModelCapabilities
@@ -204,7 +84,7 @@ namespace SmartHopper.Providers.DeepSeek
                     SupportsStreaming = true,
                     Deprecated = true,
                     Rank = 0,
-                    ContextLimit = 163840,
+                    ContextLimit = 60000,
                 },
 
                 new AIModelCapabilities
