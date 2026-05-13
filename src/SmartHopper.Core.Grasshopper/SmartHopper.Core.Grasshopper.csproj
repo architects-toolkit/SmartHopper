@@ -75,8 +75,8 @@
       <Project>{D4C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E1}</Project>
       <Name>SmartHopper.Core</Name>
     </ProjectReference>
-    <PackageReference Include="GhJSON.Core" Version="1.0.0" />
-    <PackageReference Include="GhJSON.Grasshopper" Version="1.0.0" />
+    <PackageReference Include="GhJSON.Core" Version="1.1.0" />
+    <PackageReference Include="GhJSON.Grasshopper" Version="1.1.0" />
   </ItemGroup>
 
   <!-- For Windows only builds -->
