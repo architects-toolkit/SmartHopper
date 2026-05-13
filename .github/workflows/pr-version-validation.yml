@@ -12,6 +12,20 @@ on:
       - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -37,7 +51,7 @@ jobs:
     - name: Checkout Target Branch Solution.props
       shell: bash
       run: |
-        TARGET_BRANCH="${{ github.base_ref }}"
+        TARGET_BRANCH="${{ github.event.inputs.base_ref || github.base_ref }}"
         echo "Target branch: $TARGET_BRANCH"
         git fetch origin "$TARGET_BRANCH"
         git checkout "origin/$TARGET_BRANCH" -- Solution.props

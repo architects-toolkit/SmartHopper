@@ -2,18 +2,52 @@ name: ✅ Check Provider Models
 
 on:
   pull_request:
-    paths:
-      - 'src/SmartHopper.Providers.*/*ProviderModels.cs'
-      - 'src/SmartHopper.Infrastructure/AIModels/AICapability.cs'
-      - 'tools/Update-ProviderModels.ps1'
-      - '.github/workflows/check-provider-models.yml'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  paths-filter:
+    if: github.event_name == 'workflow_dispatch'
+    name: Paths Filter
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.filter.outputs.provider_models }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event.inputs.base_ref || github.event.pull_request.base.ref || 'main' }}
+          ref: ${{ github.ref }}
+          filters: |
+            provider_models:
+              - 'src/SmartHopper.Providers.*/*ProviderModels.cs'
+              - 'src/SmartHopper.Infrastructure/AIModels/AICapability.cs'
+              - 'tools/Update-ProviderModels.ps1'
+              - '.github/workflows/check-provider-models.yml'
+
   validate-provider-models:
     name: Validate provider model defaults
+    needs: paths-filter
+    if: always() && (github.event_name == 'pull_request' || needs.paths-filter.outputs.should_run == 'true')
     runs-on: windows-latest
     strategy:
       fail-fast: false
