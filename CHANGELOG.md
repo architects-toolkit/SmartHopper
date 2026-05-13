@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`SmartHopper.ProviderSdk` package** — new MIT-licensed assembly that exposes the provider-facing surface (contracts, base classes, request/response DTOs, model capabilities, settings descriptors, streaming, tool DTOs, version attributes) so community providers can build against it without cloning SmartHopper. See [docs/Providers/ProviderSdk.md](docs/Providers/ProviderSdk.md).
+- **Host abstractions** — `IProviderTrustHost`, `IProviderRegistryHost`, `IPolicyPipelineHost`, `IContextProviderHost`, `IToolRegistryHost`, `IProviderSettingsStore`, `IProviderLogger`, `IProviderHttpClientFactory`, `IProviderDiagnostics`, and the `ProviderSdkHost` composition root in the SDK; `SmartHopperProviderTrustHost` adapter in Infrastructure wires `ProviderManager` into the SDK.
+- **Per-provider `AssemblyLoadContext`** (`ProviderAssemblyLoader`) — loads provider-private DLLs in isolation while delegating SDK/Infrastructure/`Newtonsoft.Json`/`System.Drawing.Common` to the default ALC. Rejects providers whose `IAIProviderFactory` type identity does not match the host.
+- **SDK SemVer metadata** — `SmartHopperProviderSdkVersionAttribute`, `BuiltAgainstSdkAttribute`, `MinHostSdkAttribute`, `SmartHopperProviderIdAttribute`, and `SdkCompatibility.Check` enforce `BuiltAgainstSdk.MAJOR == HostSdk.MAJOR` and `HostSdk >= MinHostSdk` at load time.
+- **`ProviderClassifier`** — cryptographic classification (strong-name + Authenticode + SHA-256 manifest) producing `Official`, `OfficialTampered`, `Community`, or `Invalid`. File names and provider ids no longer affect classification.
+- **Trust settings** — `AllowCommunityProviders` and `BlockNonOfficialProviders` toggles in `SmartHopperSettings`. Structured `TrustedProviderRecords` schema with classification, hash-at-decision, signer thumbprint, and strong-name token; legacy `TrustedProviders` boolean map is migrated automatically on first load.
+- **`ProviderManager` warning APIs** — `IsProviderCommunity`, `IsProviderUnsigned`, `GetProviderClassification`, `GetProviderTrustRecord`, plus existing mismatched/unknown/unavailable accessors.
+- **AI component badges** — `AIRequestCall` validation now emits runtime warning messages when the selected provider is community/unsigned, in addition to the existing mismatched/unavailable/unknown warnings.
+- **User-local provider directory** — `%AppData%/SmartHopper/Providers` is scanned in addition to the app-local directory. App-local providers win on duplicate-id conflicts.
+- **Initialization isolation** — `InitializeProviderAsync` runs under a 30-second per-provider timeout so a hanging provider cannot block discovery.
+
+### Changed
+
+- Provider-facing types moved from `SmartHopper.Infrastructure.*` to `SmartHopper.ProviderSdk.*` namespaces. All callers in the repo updated accordingly.
+- `ProviderManager.LoadProviderAssemblyAsync` now consults `ProviderClassifier` and applies policy decisions based on classification + the new trust settings before falling through to the existing hash/trust flow.
+- Duplicate provider ids: subsequent registrations of an id already held by an `Official` provider are rejected. Other duplicates replace the previously registered instance.
+- Provider integrity warnings (mismatched, unavailable, unknown, community, unsigned) are now surfaced via the existing `AIRuntimeMessage` pipeline on every AI component that selects the affected provider.
+
+### Removed
+
+- `InternalsVisibleTo` entries for `SmartHopper.Providers.*` in `SmartHopper.Infrastructure.csproj`. Built-in providers now compile only against the public SDK surface.
+
+### Security
+
+- Provider classification is now purely cryptographic; spoofed names cannot reach `Official` without matching strong-name, Authenticode, or hash manifest signals.
+- `BlockNonOfficialProviders=true` is a hard gate that blocks any non-Official provider regardless of per-provider trust or `AllowCommunityProviders`.
+- Community/unsigned providers are blocked at load time unless `AllowCommunityProviders=true` AND a per-provider trust prompt has been accepted; trust is invalidated automatically if a community provider's SHA-256 changes.
+- Trusting a community provider grants full process privileges and is documented as a deliberate user decision.
+
 ### ⚠️ BREAKING CHANGES
 
 - **Renamed AI Tools** (old → new):
