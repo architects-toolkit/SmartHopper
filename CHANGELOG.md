@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **DEV.md provider model sync automation**: added `tools/Update-DevProviderModels.ps1` and a GitHub workflow that validates provider model documentation on PRs and opens sync PRs after protected-branch provider registry updates.
+
 #### 📋 List I/O components
 
 - **Typed list adapters** (8 new components) that collapse / expand JSON arrays per branch:
