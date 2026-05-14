@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -36,7 +36,7 @@ namespace SmartHopper.Components.AI
     /// Stateless component that assembles an <see cref="AIRequestParameters"/> from
     /// cross-provider universal inputs and an optional Extras JSON object from
     /// <see cref="AIExtraSettingsComponent"/>.
-    /// 
+    ///
     /// Defers processing until plugin infrastructure is fully initialized to handle
     /// race conditions when files are opened directly from Windows Explorer.
     /// </summary>

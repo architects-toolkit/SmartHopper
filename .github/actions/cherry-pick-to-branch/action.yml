@@ -46,6 +46,9 @@ outputs:
   branch-name:
     description: 'Name of the patch branch pushed.'
     value: ${{ steps.cherry-pick.outputs.branch-name }}
+  pr-title:
+    description: 'Title of the PR created (empty if skipped).'
+    value: ${{ steps.open-pr.outputs.pr-title }}
   has-conflicts:
     description: 'true if any cherry-pick required conflict markers to be committed.'
     value: ${{ steps.cherry-pick.outputs.has-conflicts }}
@@ -181,6 +184,7 @@ runs:
         first_sha=$(echo "$shas" | awk '{print $1}')
         first_subject=$(git log -1 --pretty=%s "$first_sha")
         title="$prefix $first_subject → $target"
+        echo "pr-title=$title" >> "$GITHUB_OUTPUT"
 
         commit_list=""
         for sha in $shas; do
