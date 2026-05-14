@@ -41,7 +41,7 @@ Many thanks to the following contributors to this release:
 - **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):
   - **OpenAI**: added `gpt-5.5` (Rank 90, Default `Text2Text | ReasoningChat`) and `gpt-image-2` (new image flagship, Default `Text2Image | Image2Image`).
   - **Anthropic**: kept first-party Claude API IDs, retained existing defaults, and added `ToolChat`/`Image2Text` defaults to `claude-sonnet-4-6`.
-  - **DeepSeek**: added `deepseek-v4-pro` (Rank 100) and `deepseek-v4-flash` (Rank 95, Default `Text2Text | ToolChat | ToolReasoningChat`, with `Reasoning` capability).
+  - **DeepSeek**: kept first-party API model IDs `deepseek-v4-pro`, `deepseek-v4-flash`, `deepseek-chat`, and `deepseek-reasoner`; did not add OpenRouter-only release IDs to the DeepSeek provider list. `deepseek-v4-flash` remains the default for text, tool, reasoning, tool-reasoning, and JSON chat.
   - **MistralAI**: added dated aliases `mistral-medium-3-1-25-08`, `mistral-small-3-2-25-06`, `magistral-medium-1-2-25-09`, `magistral-small-1-2-25-09`, `voxtral-mini-transcribe-26-02`, and new `devstral-2-25-12` code-agent model. Kept `*-latest` aliases (Mistral repoints them automatically).
   - **OpenRouter**: added `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `deepseek/deepseek-v4-flash`, `mistralai/mistral-small-4`.
 
@@ -71,6 +71,7 @@ Many thanks to the following contributors to this release:
 
 ### Fixed
 
+- **CI automation**: Normalized license-header rewrites to UTF-8 without BOM and added no-PAT workflow dispatching so bot-authored PR updates still run the required PR checks.
 - **`AIImgToTextComponent`**: Fixed MistralAI (and other providers) receiving a placeholder string (`"Image [img-3] Page 13 (image/jpeg)"`) instead of actual base64 data when a `GH_ExtractedImage` was connected to the Image input. Changed input from `AddTextParameter` to `AddGenericParameter` and added explicit `GH_ExtractedImage` detection in the worker to extract `Base64Data` and `MimeType` directly, instead of relying on Grasshopper's string cast which calls `ToString()`.
 
 ### Added

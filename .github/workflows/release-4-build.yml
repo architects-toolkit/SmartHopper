@@ -33,6 +33,7 @@ on:
     types: [published]
 
 permissions:
+  actions: write
   contents: write
   issues: write
   pages: write
@@ -447,6 +448,16 @@ jobs:
         pr-number: ${{ steps.hash-pr.outputs.hash_pr_number }}
         token: ${{ secrets.GITHUB_TOKEN }}
         version: ${{ needs.prep.outputs.version }}
+
+    - name: Dispatch required PR checks for hash PR
+      if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''
+      uses: ./.github/actions/dispatch-required-pr-checks
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        ref: hash-update/${{ needs.prep.outputs.version }}-${{ github.run_number }}
+        pr-number: ${{ steps.hash-pr.outputs.hash_pr_number }}
+        base-ref: main
+        pr-title: "chore: add provider hash manifest for ${{ needs.prep.outputs.version }}"
 
     - name: Auto-merge Hash PR
       if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''

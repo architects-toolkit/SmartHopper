@@ -31,6 +31,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -152,6 +153,7 @@ jobs:
       # --- dev: direct main → dev PR ---------------------------------------
       - name: Ensure or reuse PR main → ${{ matrix.target }}
         if: steps.plan.outputs.mode == 'direct-pr'
+        id: direct-pr
         uses: actions/github-script@v7
         with:
           script: |
@@ -166,6 +168,8 @@ jobs:
             if (existing.data.length > 0) {
               const pr = existing.data[0];
               core.info(`Reusing existing open PR #${pr.number}: ${pr.html_url}`);
+              core.setOutput('pr-number', String(pr.number));
+              core.setOutput('pr-title', pr.title);
               core.summary.addRaw(`- ♻️ Reused PR [#${pr.number}](${pr.html_url}) → \`${base}\`\n`);
               await core.summary.write();
               return;
@@ -186,8 +190,20 @@ jobs:
               body, maintainer_can_modify: true,
             });
             core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
+            core.setOutput('pr-number', String(created.data.number));
+            core.setOutput('pr-title', `chore: sync main → ${base}`);
             core.summary.addRaw(`- ✅ Created PR [#${created.data.number}](${created.data.html_url}) → \`${base}\`\n`);
             await core.summary.write();
+
+      - name: Dispatch required PR checks for direct sync PR
+        if: steps.plan.outputs.mode == 'direct-pr' && steps.direct-pr.outputs.pr-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+          pr-number: ${{ steps.direct-pr.outputs.pr-number }}
+          base-ref: ${{ matrix.target }}
+          pr-title: ${{ steps.direct-pr.outputs.pr-title }}
 
       # --- dev-*: cherry-pick allow-listed files to a sync branch ----------
       - name: Checkout repository
@@ -265,6 +281,7 @@ jobs:
 
       - name: Ensure or reuse PR ${{ steps.apply.outputs.sync-branch }} → ${{ matrix.target }}
         if: steps.plan.outputs.mode == 'cherry-pick' && steps.apply.outputs.has-changes == 'true'
+        id: cherry-pick-pr
         uses: actions/github-script@v7
         env:
           SYNC_BRANCH: ${{ steps.apply.outputs.sync-branch }}
@@ -283,6 +300,8 @@ jobs:
             if (existing.data.length > 0) {
               const pr = existing.data[0];
               core.info(`Reusing existing open PR #${pr.number}: ${pr.html_url}`);
+              core.setOutput('pr-number', String(pr.number));
+              core.setOutput('pr-title', pr.title);
               core.summary.addRaw(`- ♻️ Reused PR [#${pr.number}](${pr.html_url}) → \`${base}\` (${process.env.ALLOWED_COUNT} file(s), ${process.env.SKIPPED_COUNT} skipped)\n`);
               await core.summary.write();
               return;
@@ -306,5 +325,17 @@ jobs:
               body, maintainer_can_modify: true,
             });
             core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
+            core.setOutput('pr-number', String(created.data.number));
+            core.setOutput('pr-title', `chore: sync main → ${base} (infra + provider models)`);
             core.summary.addRaw(`- ✅ Created PR [#${created.data.number}](${created.data.html_url}) → \`${base}\` (${process.env.ALLOWED_COUNT} file(s), ${process.env.SKIPPED_COUNT} skipped)\n`);
             await core.summary.write();
+
+      - name: Dispatch required PR checks for cherry-pick sync PR
+        if: steps.plan.outputs.mode == 'cherry-pick' && steps.apply.outputs.has-changes == 'true' && steps.cherry-pick-pr.outputs.pr-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.apply.outputs.sync-branch }}
+          pr-number: ${{ steps.cherry-pick-pr.outputs.pr-number }}
+          base-ref: ${{ matrix.target }}
+          pr-title: ${{ steps.cherry-pick-pr.outputs.pr-title }}
