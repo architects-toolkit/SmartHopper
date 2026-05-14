@@ -3,6 +3,7 @@
 This index lists the available documentation for SmartHopper. It will be updated as new docs are added.
 
 - [Architecture overview](Architecture.md)
+- [Architecture deep dives](Architecture/) — focused design docs (e.g. [MCP server](Architecture/mcp-server.md))
 
 ## Main parts
 
