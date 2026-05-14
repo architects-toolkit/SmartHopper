@@ -24,6 +24,7 @@ on:
       - 'hotfix/**'
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -335,3 +336,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true' && steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ env.CONTRIB_BRANCH }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: ${{ env.TARGET_BRANCH }}
+          pr-title: "docs: update contributors section for ${{ env.TARGET_BRANCH }}"

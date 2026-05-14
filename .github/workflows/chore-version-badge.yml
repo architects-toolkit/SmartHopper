@@ -25,6 +25,7 @@ on:
       - 'Solution.props'
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -111,3 +112,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.update-badge.outputs.badges-changed == 'true' && steps.check-changes.outputs.has_changes == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: docs/update-version-badge-${{ github.ref_name }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: ${{ github.ref_name }}
+          pr-title: "docs: update version badge for ${{ github.ref_name }} to ${{ steps.update-badge.outputs.version }}"

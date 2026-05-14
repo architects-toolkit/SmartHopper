@@ -27,6 +27,20 @@ on:
       - 'dev-*'
       - hotfix/**
       - release/**
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -130,3 +144,22 @@ jobs:
           # with a true net7.0 (non-Windows) target. Core.Tests and Core.Grasshopper.Tests
           # depend on WindowsDesktop/WinForms APIs that are not available on macOS net7.0.
           dotnet test src/SmartHopper.Infrastructure.Tests/SmartHopper.Infrastructure.Tests.csproj --no-build --configuration Release --framework net7.0 --results-directory TestResults --verbosity normal
+
+  required-check:
+    name: 🧪 .NET CI
+    needs: [prep, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required workflow jobs
+        shell: bash
+        run: |
+          if [[ "${{ needs.prep.result }}" != "success" ]]; then
+            echo "::error::Prep finished with ${{ needs.prep.result }}"
+            exit 1
+          fi
+
+          if [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "::error::Build/test matrix finished with ${{ needs.build.result }}"
+            exit 1
+          fi

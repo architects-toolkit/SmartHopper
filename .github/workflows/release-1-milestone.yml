@@ -13,6 +13,7 @@ name: 🏁 1 Prepare Release Branch
 # - pull-requests:write - Required to create pull requests
 
 permissions:
+  actions: write
   contents: write
   issues: read
   pull-requests: write
@@ -175,3 +176,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: release/${{ inputs.milestone-title }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: ${{ steps.detect-branch.outputs.base-branch }}
+          pr-title: "chore: prepare release ${{ inputs.milestone-title }} with version update and code style fixes"

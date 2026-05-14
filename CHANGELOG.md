@@ -71,6 +71,7 @@ Many thanks to the following contributors to this release:
 
 ### Fixed
 
+- **CI automation**: Normalized license-header rewrites to UTF-8 without BOM and added no-PAT workflow dispatching so bot-authored PR updates still run the required PR checks.
 - **`AIImgToTextComponent`**: Fixed MistralAI (and other providers) receiving a placeholder string (`"Image [img-3] Page 13 (image/jpeg)"`) instead of actual base64 data when a `GH_ExtractedImage` was connected to the Image input. Changed input from `AddTextParameter` to `AddGenericParameter` and added explicit `GH_ExtractedImage` detection in the worker to extract `Base64Data` and `MimeType` directly, instead of relying on Grasshopper's string cast which calls `ToString()`.
 
 ### Added
