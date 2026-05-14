@@ -35,6 +35,7 @@ on:
         required: true
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
   issues: write
@@ -230,7 +231,16 @@ jobs:
           delete-branch: true
           labels: |
             automated
-            model-verification
+
+      - name: Dispatch required PR checks
+        if: steps.tally.outputs.should_promote == 'true' && steps.promote.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/verify-${{ steps.tally.outputs.provider }}-${{ steps.tally.outputs.model }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: dev
+          pr-title: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
 
       - name: Comment outcome on issue
         if: steps.tally.outputs.should_promote == 'true'

@@ -24,6 +24,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -181,3 +182,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.anonymize.outputs.changes_made == 'true' && steps.create-branch.outputs.changes_pushed == 'true' && steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.set-branches.outputs.anon_branch }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: ${{ steps.set-branches.outputs.target_branch }}
+          pr-title: "chore: anonymize SmartHopperPublicKey for ${{ steps.set-branches.outputs.target_branch }}"
