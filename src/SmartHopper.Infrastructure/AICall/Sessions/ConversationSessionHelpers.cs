@@ -34,13 +34,13 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Metrics;
     using SmartHopper.Infrastructure.AICall.Tools;
     using SmartHopper.Infrastructure.AICall.Utilities;
+    using SmartHopper.Infrastructure.Diagnostics;
 
     /// <summary>
     /// Helper methods supporting <see cref="ConversationSession"/> orchestration logic.
     /// </summary>
     public sealed partial class ConversationSession
     {
-
         private static bool IsContextExceededError(Exception ex)
         {
             if (ex == null)
@@ -62,14 +62,17 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             try
             {
                 // Check error messages (if any)
-                var msg = ret.Messages?.FirstOrDefault(m => m?.Severity == AIRuntimeMessageSeverity.Error)?.Message;
+                var msg = ret.Messages?.FirstOrDefault(m => m?.Severity == SHRuntimeMessageSeverity.Error)?.Message;
                 if (!string.IsNullOrEmpty(msg) && ConversationSession.IsContextExceededError(msg))
                 {
                     return true;
                 }
 
                 // Check error interactions
-                var errInteraction = ret.Body?.Interactions?.OfType<AIInteractionError>()?.LastOrDefault();
+                var errInteraction = ret.Body?.Interactions?
+                    .OfType<AIInteractionRuntimeMessage>()
+                    .Where(d => d.Severity == SHRuntimeMessageSeverity.Error)
+                    .LastOrDefault();
                 if (errInteraction != null && ConversationSession.IsContextExceededError(errInteraction.Content))
                 {
                     return true;
@@ -204,6 +207,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
 
             var toolRq = new AIToolCall();
             toolRq.FromToolCallInteraction(tc, this.Request.Provider, this.Request.Model);
+            toolRq.CancellationToken = ct;
 
             // Measure tool execution time
             var stopwatch = Stopwatch.StartNew();
@@ -503,12 +507,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyDelta: new={(newInteractions?.Count ?? 0)}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Debug.WriteLine($"[ConversationSession] NotifyDelta: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
                     var summary = BuildInteractionSummaryForLog(newInteractions, maxItems: 5, textPreview: 50);
-                    this.DebugAppendEvent($"Delta: new={(newInteractions?.Count ?? 0)} | {summary}");
+                    this.DebugAppendEvent($"Delta: new={newInteractions?.Count ?? 0} | {summary}");
                 }
                 catch { }
 #endif
@@ -537,12 +541,12 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             var newInteractions = ret.Body.GetNewInteractions();
             try
             {
-                Debug.WriteLine($"[ConversationSession] NotifyInteractionCompleted: new={(newInteractions?.Count ?? 0)}, total={ret.Body?.Interactions?.Count ?? 0}");
+                Debug.WriteLine($"[ConversationSession] NotifyInteractionCompleted: new={newInteractions?.Count ?? 0}, total={ret.Body?.Interactions?.Count ?? 0}");
 #if DEBUG
                 try
                 {
                     var summary = BuildInteractionSummaryForLog(newInteractions, maxItems: 5, textPreview: 50);
-                    this.DebugAppendEvent($"Partial: new={(newInteractions?.Count ?? 0)} | {summary}");
+                    this.DebugAppendEvent($"Partial: new={newInteractions?.Count ?? 0} | {summary}");
                 }
                 catch { }
 #endif
@@ -577,7 +581,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                     }
 
                     var summary = BuildInteractionSummaryForLog(interactions, maxItems: 5, textPreview: 50);
-                    this.DebugAppendEvent($"Final: total={(ret?.Body?.Interactions?.Count ?? 0)} | {summary}");
+                    this.DebugAppendEvent($"Final: total={ret?.Body?.Interactions?.Count ?? 0} | {summary}");
                 }
                 catch { }
 #endif
@@ -618,7 +622,14 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private void NotifyStart(AIRequestCall request)
         {
 #if DEBUG
-            try { this.DebugResetEventLog(); this.DebugAppendEvent($"Start: provider={request?.Provider}, model={request?.Model}, endpoint={request?.Endpoint}"); } catch { }
+            try
+            {
+                this.DebugResetEventLog();
+                this.DebugAppendEvent($"Start: provider={request?.Provider}, model={request?.Model}, endpoint={request?.Endpoint}");
+            }
+            catch
+            {
+            }
 #endif
             this.Observer?.OnStart(request);
         }
@@ -791,11 +802,11 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                             break;
 
                         case AIInteractionToolResult res:
-                            token = $"ToolResult:{res?.Name ?? ""}#{res?.Id ?? ""}";
+                            token = $"ToolResult:{res?.Name ?? string.Empty}#{res?.Id ?? string.Empty}";
                             break;
 
                         case AIInteractionToolCall call:
-                            token = $"ToolCall:{call?.Name ?? ""}#{call?.Id ?? ""}";
+                            token = $"ToolCall:{call?.Name ?? string.Empty}#{call?.Id ?? string.Empty}";
                             break;
 
                         default:
@@ -826,7 +837,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 var dupGroups = toolCalls
                     .GroupBy(tc => tc?.Id ?? string.Empty)
                     .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
-                    .Select(g => $"{g.Key} x{g.Count()} [{string.Join(",", g.Select(t => t?.Name ?? ""))}]");
+                    .Select(g => $"{g.Key} x{g.Count()} [{string.Join(",", g.Select(t => t?.Name ?? string.Empty))}]");
 
                 var dupSummary = dupGroups.Any() ? string.Join("; ", dupGroups) : "none";
                 Debug.WriteLine($"[ConversationSession.Debug] {phase}: tool_calls total={total}, duplicates={dupSummary}");
@@ -838,6 +849,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         }
 
 #endif
+
         /// <summary>
         /// Creates a standardized provider error return.
         /// </summary>
@@ -869,7 +881,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             {
                 foreach (var errInteraction in errorInteractions)
                 {
-                    if (errInteraction is AIInteractionError)
+                    if (errInteraction is AIInteractionRuntimeMessage diag && diag.Severity == SHRuntimeMessageSeverity.Error)
                     {
                         this.Observer?.OnInteractionCompleted(errInteraction);
                     }
@@ -914,9 +926,9 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 }
 
                 sb.AppendLine($"Last updated: {DateTime.Now:yyyy-MM-dd HH:mm:ss zzz}");
-                sb.AppendLine($"Provider: {this.Request?.Provider ?? ""}");
-                sb.AppendLine($"Model: {this.Request?.Model ?? ""}");
-                sb.AppendLine($"Endpoint: {this.Request?.Endpoint ?? ""}");
+                sb.AppendLine($"Provider: {this.Request?.Provider ?? string.Empty}");
+                sb.AppendLine($"Model: {this.Request?.Model ?? string.Empty}");
+                sb.AppendLine($"Endpoint: {this.Request?.Endpoint ?? string.Empty}");
                 sb.AppendLine();
 
                 // Aggregate metrics block (session-level)
@@ -1014,7 +1026,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 return;
             }
 
-            language = string.IsNullOrWhiteSpace(language) ? "" : language.Trim();
+            language = string.IsNullOrWhiteSpace(language) ? string.Empty : language.Trim();
             sb.AppendLine($"```{language}");
             sb.AppendLine(content ?? string.Empty);
             sb.AppendLine("```");

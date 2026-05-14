@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -40,9 +40,18 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("626E8B3E-6E36-45E7-89D3-58C149828C27");
 
-        protected override Bitmap Icon => Resources.mcneeltopicsummarize;
+        protected override Bitmap Icon => Resources.ladybugtopicsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AILadybugTopicSumm",
+            "ladybug_forum_topic_summarize",
+            "Ladybug Forum Topic",
+            "Ladybug Summary",
+            "Ladybug Tools Summary",
+        };
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "ladybug_forum_topic_summarize" };
@@ -51,11 +60,10 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "AI LadybugForum Topic Summarize",
                   "AILadybugTopicSumm",
-                  "Generate a concise summary of a Ladybug Tools Discourse forum topic by ID using the configured AI provider.",
+                  "Generate a concise summary of a Ladybug Tools Discourse forum topic (all posts) by topic ID using the configured AI provider.",
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -74,7 +82,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AILadybugForumTopicSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AILadybugForumTopicSummarizeWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AILadybugForumTopicSummarizeWorker : AsyncWorkerBase
@@ -171,7 +179,7 @@ namespace SmartHopper.Components.Knowledge
                                         parameters["instructions"] = this.instructions;
                                     }
 
-                                    var toolResult = await this.parent.CallAiToolAsync("ladybug_forum_topic_summarize", parameters).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAIToolAsync("ladybug_forum_topic_summarize", parameters, token).ConfigureAwait(false);
 
                                     if (toolResult == null)
                                     {
@@ -193,6 +201,7 @@ namespace SmartHopper.Components.Knowledge
                                                 }
                                             }
                                         }
+
                                         continue;
                                     }
 
@@ -224,14 +233,17 @@ namespace SmartHopper.Components.Knowledge
                     {
                         this.resultSummaries = summaryTree;
                     }
+
                     if (resultTrees.TryGetValue("Title", out var titleTree))
                     {
                         this.resultTitles = titleTree;
                     }
+
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;
                     }
+
                     if (resultTrees.TryGetValue("PostCount", out var postCountTree))
                     {
                         this.resultPostCounts = postCountTree;

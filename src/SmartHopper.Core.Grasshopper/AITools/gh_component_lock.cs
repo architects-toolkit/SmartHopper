@@ -39,6 +39,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_component_toggle_lock";
+
         /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
@@ -181,7 +182,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             };
 
             // Delegate to the general method
-            return await this.GhToggleLockAsync(modifiedToolCall);
+            return await this.GhToggleLockAsync(modifiedToolCall).ConfigureAwait(false);
         }
     }
 }

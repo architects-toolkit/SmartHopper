@@ -39,8 +39,8 @@ jobs:
 
       - name: Set up Git user
         run: |
-          git config user.name "github-actions"
-          git config user.email "action@github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Extract version from branch name
         id: extract-version
@@ -299,8 +299,8 @@ jobs:
           echo "Updated README.md badges"
           
           # Commit and push changes
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+          git config --local user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
           git add Solution.props README.md
           git commit -m "chore: bump version to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} to avoid collision with hotfix ${{ steps.extract-version.outputs.version }}"
           git push origin $DEV_UPDATE_BRANCH

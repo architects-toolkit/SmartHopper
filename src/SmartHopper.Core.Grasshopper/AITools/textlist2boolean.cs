@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -62,8 +63,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// User prompt for the AI tool provided by this class. Use <question> and <list> placeholders.
         /// </summary>
         private readonly string userPrompt =
-            $"This is my question: \"<question>\"\n\n" +
-            $"Answer to the previous question with the following list:\n<list>\n\n";
+            "LIST TO EVALUATE:\n\n---\n\n<list>\n\n---\n\n" +
+            "QUESTION TO ANSWER:\n\n---\n\n\"<question>\"\n\n---\n\n" +
+            "Answer TRUE or FALSE based on the list above, nothing else.";
 
         /// <summary>
         /// Get all tools provided by this class.
@@ -73,26 +75,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Evaluates a list based on a natural language question",
+                description: "Evaluates a list based on a natural language question with optional fallback value",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""list"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Array of strings to evaluate (e.g., ['apple', 'banana', 'orange'])"" },
-                        ""question"": { ""type"": ""string"", ""description"": ""The natural language question to answer about the list"" }
+                        ""question"": { ""type"": ""string"", ""description"": ""The natural language question to answer about the list"" },
+                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
                     },
                     ""required"": [""list"", ""question""]
                 }",
-                execute: this.EvaluateList,
+                execute: this.TextList2Boolean,
                 requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>
-        /// Tool wrapper for the EvaluateList function.
+        /// Tool wrapper for the TextList2Boolean function.
         /// </summary>
         /// <param name="toolCall">The tool call containing provider/model context and arguments.</param>
         /// <returns>The tool execution result envelope.</returns>
-        private async Task<AIReturn> EvaluateList(AIToolCall toolCall)
+        private async Task<AIReturn> TextList2Boolean(AIToolCall toolCall)
         {
             // Prepare the output
             var output = new AIReturn()
@@ -102,7 +105,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[ListTools] Running EvaluateList tool");
+                Debug.WriteLine("[ListTools] Running TextList2Boolean tool");
 
                 // Extract parameters
                 string providerName = toolCall.Provider;
@@ -111,6 +114,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 string? question = args["question"]?.ToString();
+
+                // Parse fallback as boolean using centralized helper
+                string? fallbackStr = args["fallback"]?.ToString();
+                bool? fallback = StringConverter.StringToBoolean(fallbackStr);
                 string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
 
                 if (args["list"] == null || string.IsNullOrEmpty(question))
@@ -118,6 +125,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     output.CreateError("Missing required parameters");
                     return output;
                 }
+
+                Debug.WriteLine($"[ListTools.TextList2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
 
                 // Normalize list input
                 var items = NormalizeListInput(toolInfo);
@@ -159,19 +168,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
+                Debug.WriteLine($"[ListTools.TextList2Boolean] AI response: '{response}'");
 
-                // Parse the boolean from the response
-                var parsedResult = AIResponseParser.ParseBooleanFromResponse(response);
-
-                if (parsedResult == null)
-                {
-                    output.CreateError($"The AI returned an invalid response:\n{result}");
-                    return output;
-                }
-
-                // Success case
-                var toolResult = new JObject();
-                toolResult.Add("result", parsedResult.Value);
+                // Centralized parse + fallback resolution (shared with batch path).
+                var toolResult = BooleanResultResolver.BuildToolResult(response, fallback);
+                Debug.WriteLine($"[ListTools.TextList2Boolean] Resolved: {toolResult}");
 
                 var toolBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
@@ -182,7 +183,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ListTools] Error in EvaluateListToolWrapper: {ex.Message}");
+                Debug.WriteLine($"[ListTools] Error in TextList2Boolean: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;
@@ -197,14 +198,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private static List<string> NormalizeListInput(AIInteractionToolCall toolCall)
         {
             var args = toolCall.Arguments ?? new JObject();
-            var token = args["list"];
-            if (token is JArray array)
-            {
-                return array.Select(t => t.ToString()).ToList();
-            }
-
-            var raw = token?.ToString();
-            return AIResponseParser.ParseStringArrayFromResponse(raw);
+            return StringListResultResolver.ParseOrEmpty(args["list"]);
         }
     }
 }

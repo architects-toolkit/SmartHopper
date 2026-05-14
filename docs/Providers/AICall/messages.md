@@ -83,6 +83,25 @@ return output;
 - Streaming: `StreamingDisabledProvider`, `StreamingUnsupportedModel`.
 - Tools/validation: `ToolValidationError`, `BodyInvalid`, `ReturnInvalid`.
 - Network/auth: `NetworkTimeout`, `AuthenticationMissing`, `AuthorizationFailed`, `RateLimited`.
+- Batch processing: `BatchItemError`, `BatchItemCanceled`, `BatchItemExpired`.
+
+### Batch processing messages
+
+Batch operations (via `IAIBatchProvider`) surface item-level results through a unified `IReadOnlyList<AIRuntimeMessage>` on `AIBatchStatus.Messages`:
+
+| Code | Severity | Origin | When emitted |
+|------|----------|--------|--------------|
+| `BatchItemError` | Error | Provider | Item returned an error (invalid request, server error, etc.) |
+| `BatchItemCanceled` | Error | Provider | Item was canceled before processing (user/system cancellation) |
+| `BatchItemExpired` | Warning | Provider | Item expired before being sent to model (24h batch limit exceeded) |
+
+Providers emitting batch messages:
+
+- **Anthropic**: Emits all three codes based on `result.type` (`errored`, `canceled`, `expired`)
+- **OpenAI**: Emits `BatchItemError` for non-2xx HTTP responses
+- **MistralAI**: Emits `BatchItemError` for non-2xx HTTP responses
+
+All batch messages flow through `ProcessBatchResults()` in `AIStatefulAsyncComponentBase`, which surfaces them via `AIReturn.AddRuntimeMessage()` → `SurfaceMessagesFromReturn()`, mapping severity to Grasshopper runtime message levels (Error → GH Error, Warning → GH Warning).
 
 ### Emission guidance
 

@@ -52,7 +52,19 @@ namespace SmartHopper.Components.AI
         public override Guid ComponentGuid => new Guid("8872AB8F-A76E-4FBB-96B8-1C3838D2C51B");
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override Bitmap Icon => Resources.settingsextra;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "Extra Settings",
+            "AI Extra Settings",
+            "Advanced Settings",
+            "Provider Settings",
+            "Custom Settings",
+        };
 
         /// <summary>Initializes a new instance of <see cref="AIExtraSettingsComponent"/>.</summary>
         public AIExtraSettingsComponent()
@@ -60,9 +72,10 @@ namespace SmartHopper.Components.AI
                 "AI Extra Settings",
                 "AIExtras",
                 "Generates provider-specific AI settings (service tier, reasoning effort, etc.) as a JSON extras object.\nConnect output to the Extras input of AI Settings component.\nRight-click to select provider.",
-                "SmartHopper", "AI")
+                "SmartHopper",
+                "AI")
         {
-            _retryStopwatch.Start();
+            this._retryStopwatch.Start();
         }
 
         /// <summary>
@@ -88,8 +101,8 @@ namespace SmartHopper.Components.AI
         public override void RemovedFromDocument(GH_Document document)
         {
             // Cancel any pending retry operations
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource?.Dispose();
+            this._cancellationTokenSource?.Cancel();
+            this._cancellationTokenSource?.Dispose();
             base.RemovedFromDocument(document);
         }
 
@@ -109,25 +122,26 @@ namespace SmartHopper.Components.AI
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Check if infrastructure is ready
-            _infrastructureReady = IsInfrastructureReady();
+            this._infrastructureReady = this.IsInfrastructureReady();
 
-            if (!_infrastructureReady)
+            if (!this._infrastructureReady)
             {
                 // Check if we've exceeded the retry duration
-                if (_retryStopwatch.Elapsed.TotalSeconds > MaxRetryDurationSeconds)
+                if (this._retryStopwatch.Elapsed.TotalSeconds > MaxRetryDurationSeconds)
                 {
                     // Max retry duration exceeded - show error and stop trying
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    this.AddRuntimeMessage(
+                        GH_RuntimeMessageLevel.Error,
                         "Plugin infrastructure failed to initialize within 60 seconds. Please restart Rhino and try again.");
                     DA.SetData("Extras", "{}");
                     return;
                 }
 
                 // Schedule retry only if not already scheduled
-                if (!_retryScheduled)
+                if (!this._retryScheduled)
                 {
-                    _retryScheduled = true;
-                    ScheduleRetry();
+                    this._retryScheduled = true;
+                    this.ScheduleRetry();
                 }
 
                 // Return empty extras while waiting
@@ -138,9 +152,9 @@ namespace SmartHopper.Components.AI
             var effectiveProvider = this.GetActualAIProviderName();
 
             // Rebuild inputs if provider changed
-            if (effectiveProvider != _builtForProvider)
+            if (effectiveProvider != this._builtForProvider)
             {
-                RebuildInputParams(effectiveProvider);
+                this.RebuildInputParams(effectiveProvider);
 
                 // Expire solution to trigger recompute with new parameter structure.
                 // DA was created for the old structure, so we must not continue using it.
@@ -229,13 +243,13 @@ namespace SmartHopper.Components.AI
         /// </summary>
         protected override void OnProviderChanged()
         {
-            RebuildInputParams(GetActualAIProviderName());
+            this.RebuildInputParams(this.GetActualAIProviderName());
         }
 
         internal void RebuildInputParams(string providerName)
         {
             // Guard: don't attempt to rebuild if infrastructure isn't ready
-            if (!IsInfrastructureReady())
+            if (!this.IsInfrastructureReady())
             {
                 Debug.WriteLine("[AIExtraSettingsComponent] Skipping RebuildInputParams - infrastructure not ready");
                 return;
@@ -264,14 +278,14 @@ namespace SmartHopper.Components.AI
                 var d = descriptors[i];
                 if (existingNames.Contains(d.Key)) continue;
 
-                var param = CreateParamFromDescriptor(d);
+                var param = this.CreateParamFromDescriptor(d);
                 if (param != null)
                 {
                     this.Params.RegisterInputParam(param, i);
                 }
             }
 
-            _builtForProvider = providerName;
+            this._builtForProvider = providerName;
             this.Params.OnParametersChanged();
         }
 
@@ -281,10 +295,10 @@ namespace SmartHopper.Components.AI
         private void ScheduleRetry()
         {
             // Use Task.Delay with cancellation support and explicit scheduler
-            System.Threading.Tasks.Task.Delay(2000, _cancellationTokenSource.Token)
+            System.Threading.Tasks.Task.Delay(2000, this._cancellationTokenSource.Token)
                 .ContinueWith(_ =>
                 {
-                    if (_cancellationTokenSource.Token.IsCancellationRequested)
+                    if (this._cancellationTokenSource.Token.IsCancellationRequested)
                     {
                         return;
                     }
@@ -298,21 +312,21 @@ namespace SmartHopper.Components.AI
                                 // Only expire if the component is still in the document
                                 if (this.OnPingDocument() != null && !this.Locked)
                                 {
-                                    _retryScheduled = false;
+                                    this._retryScheduled = false;
                                     this.ExpireSolution(true);
                                 }
                             }
                             catch (Exception ex)
                             {
                                 Debug.WriteLine($"[AIExtraSettingsComponent] Error during solution expiration: {ex.Message}");
-                                _retryScheduled = false;
+                                this._retryScheduled = false;
                             }
                         });
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[AIExtraSettingsComponent] Error during retry scheduling: {ex.Message}");
-                        _retryScheduled = false;
+                        this._retryScheduled = false;
                     }
                 }, System.Threading.Tasks.TaskScheduler.Default);
         }

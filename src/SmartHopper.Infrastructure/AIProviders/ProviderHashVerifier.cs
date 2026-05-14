@@ -79,9 +79,13 @@ namespace SmartHopper.Infrastructure.AIProviders
     public sealed class ProviderVerificationResult
     {
         public bool Success { get; set; }
+
         public ProviderVerificationStatus Status { get; set; }
+
         public string LocalHash { get; set; }
+
         public string PublicHash { get; set; }
+
         public string ErrorMessage { get; set; }
     }
 
@@ -107,7 +111,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             using (var stream = File.OpenRead(filePath))
             {
                 byte[] hash = sha256.ComputeHash(stream);
-                return BitConverter.ToString(hash).Replace("-", "").ToLower();
+                return BitConverter.ToString(hash).Replace("-", string.Empty).ToLower();
             }
         }
 

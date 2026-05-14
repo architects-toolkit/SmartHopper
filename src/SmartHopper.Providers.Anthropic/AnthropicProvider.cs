@@ -30,6 +30,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Batch;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -38,7 +39,9 @@ using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Streaming;
+using SmartHopper.Infrastructure.Utilities;
 using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Providers.Anthropic
@@ -71,7 +74,6 @@ namespace SmartHopper.Providers.Anthropic
         /// </summary>
         public override bool IsEnabled => true;
 
-
         /// <summary>
         /// Helper to retrieve the configured API key for this provider.
         /// Exposed to nested streaming adapter to avoid protected access issues.
@@ -81,7 +83,6 @@ namespace SmartHopper.Providers.Anthropic
         {
             return this.GetSetting<string>("ApiKey");
         }
-
 
         /// <summary>
         /// Gets the provider's icon.
@@ -172,7 +173,7 @@ namespace SmartHopper.Providers.Anthropic
                 var message = new JObject
                 {
                     ["role"] = role,
-                    ["content"] = new JArray { contentBlock }
+                    ["content"] = new JArray { contentBlock, },
                 };
 
                 return message.ToString();
@@ -225,9 +226,20 @@ namespace SmartHopper.Providers.Anthropic
             }
 
             // Add in order: text, tool_use, others
-            foreach (var block in textBlocks) sorted.Add(block);
-            foreach (var block in toolUseBlocks) sorted.Add(block);
-            foreach (var block in otherBlocks) sorted.Add(block);
+            foreach (var block in textBlocks)
+            {
+                sorted.Add(block);
+            }
+
+            foreach (var block in toolUseBlocks)
+            {
+                sorted.Add(block);
+            }
+
+            foreach (var block in otherBlocks)
+            {
+                sorted.Add(block);
+            }
 
 #if DEBUG
             if (textBlocks.Count > 0 && toolUseBlocks.Count > 0)
@@ -275,7 +287,7 @@ namespace SmartHopper.Providers.Anthropic
             }
 
             // UI-only diagnostics must not be sent to providers
-            if (interaction is AIInteractionError)
+            if (interaction is AIInteractionRuntimeMessage)
             {
                 return null;
             }
@@ -384,7 +396,10 @@ namespace SmartHopper.Providers.Anthropic
                         if (string.Equals(ttype, "text", StringComparison.OrdinalIgnoreCase))
                         {
                             var t = o["text"]?.ToString();
-                            if (!string.IsNullOrEmpty(t)) parts.Add(t);
+                            if (!string.IsNullOrEmpty(t))
+                            {
+                                parts.Add(t);
+                            }
                         }
                         else
                         {
@@ -437,7 +452,10 @@ namespace SmartHopper.Providers.Anthropic
                 int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
                 Debug.WriteLine($"[Anthropic] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #endif
 
             // Collect system texts for top-level "system" field
@@ -492,7 +510,7 @@ namespace SmartHopper.Providers.Anthropic
                             messages.Add(new JObject
                             {
                                 ["role"] = currentRole,
-                                ["content"] = sortedContent
+                                ["content"] = sortedContent,
                             });
                         }
 
@@ -538,7 +556,10 @@ namespace SmartHopper.Providers.Anthropic
                     Debug.WriteLine($"  [{idx}] role={role}, blocks=[{string.Join(", ", blockTypes ?? new List<string>())}]");
                 }
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #endif
 
             var requestBody = new JObject
@@ -550,20 +571,42 @@ namespace SmartHopper.Providers.Anthropic
             };
 
             // Apply optional parameters from extras only
+            // Note: effort goes inside output_config, container goes at top level
+            JObject outputConfig = null;
             if (p?.Extras != null)
             {
                 if (p.Extras.TryGetValue("seed", out var seedToken) && seedToken != null)
+                {
                     requestBody["seed"] = seedToken.Value<int?>();
+                }
+
                 if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                {
                     requestBody["top_p"] = topPToken.Value<double?>();
+                }
+
                 if (p.Extras.TryGetValue("top_k", out var topKToken) && topKToken != null)
+                {
                     requestBody["top_k"] = topKToken.Value<int?>();
-                if (p.Extras.TryGetValue("effort", out var effortToken) && effortToken != null)
-                    requestBody["effort"] = effortToken;
-                if (p.Extras.TryGetValue("container", out var containerToken) && containerToken != null)
-                    requestBody["container"] = containerToken;
+                }
+
                 if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
+                {
                     requestBody["service_tier"] = stToken;
+                }
+
+                // container is a top-level parameter (not inside output_config)
+                if (p.Extras.TryGetValue("container", out var containerToken) && containerToken != null)
+                {
+                    requestBody["container"] = containerToken;
+                }
+
+                // effort goes inside output_config
+                if (p.Extras.TryGetValue("effort", out var effortToken) && effortToken != null)
+                {
+                    outputConfig ??= new JObject();
+                    outputConfig["effort"] = effortToken;
+                }
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -572,6 +615,10 @@ namespace SmartHopper.Providers.Anthropic
                 try
                 {
                     var schemaObj = JObject.Parse(jsonSchema);
+
+                    // Anthropic requires additionalProperties=false on all object schemas in structured output mode
+                    InjectAdditionalPropertiesFalse(schemaObj);
+
                     var svc = JsonSchemaService.Instance;
                     var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
                     svc.SetCurrentWrapperInfo(wrapperInfo);
@@ -582,11 +629,23 @@ namespace SmartHopper.Providers.Anthropic
 
                     if (supportsStructuredOutputs)
                     {
-                        requestBody["output_format"] = new JObject
+                        // Merge with existing outputConfig if it has effort
+                        if (outputConfig == null)
+                        {
+                            outputConfig = new JObject();
+                        }
+
+                        outputConfig["format"] = new JObject
                         {
                             ["type"] = "json_schema",
                             ["schema"] = wrappedSchema,
                         };
+                        requestBody["output_config"] = outputConfig;
+                    }
+                    else if (outputConfig != null)
+                    {
+                        // No structured output, but we still have effort to add
+                        requestBody["output_config"] = outputConfig;
                     }
                 }
                 catch (Exception ex)
@@ -598,6 +657,12 @@ namespace SmartHopper.Providers.Anthropic
             else
             {
                 JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+
+                // If we have effort but no JSON schema, still need to add output_config
+                if (outputConfig != null)
+                {
+                    requestBody["output_config"] = outputConfig;
+                }
             }
 
             // After collecting both conversation system texts and optional schema instruction,
@@ -632,9 +697,17 @@ namespace SmartHopper.Providers.Anthropic
                         var toolsAnthropic = new JArray();
                         foreach (var t in toolsOpenAI.OfType<JObject>())
                         {
-                            if (!string.Equals(t["type"]?.ToString(), "function", StringComparison.OrdinalIgnoreCase)) continue;
+                            if (!string.Equals(t["type"]?.ToString(), "function", StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+
                             var fn = t["function"] as JObject;
-                            if (fn == null) continue;
+                            if (fn == null)
+                            {
+                                continue;
+                            }
+
                             var toolObj = new JObject
                             {
                                 ["name"] = fn["name"],
@@ -647,7 +720,22 @@ namespace SmartHopper.Providers.Anthropic
                         if (toolsAnthropic.Count > 0)
                         {
                             requestBody["tools"] = toolsAnthropic;
-                            requestBody["tool_choice"] = new JObject { ["type"] = "auto" };
+
+                            // Handle forced tool call: Anthropic uses tool_choice with type and name
+                            if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
+                            {
+                                requestBody["tool_choice"] = new JObject
+                                {
+                                    ["type"] = "tool",
+                                    ["name"] = request.ForceToolName,
+                                };
+                                Debug.WriteLine($"[Anthropic] Forcing tool call: {request.ForceToolName}");
+                            }
+                            else
+                            {
+                                // Use string value for auto (not wrapped in JObject) per Anthropic docs
+                                requestBody["tool_choice"] = "auto";
+                            }
                         }
                     }
                 }
@@ -663,7 +751,10 @@ namespace SmartHopper.Providers.Anthropic
                 Debug.WriteLine($"[Anthropic] Request body:");
                 Debug.WriteLine(requestBody.ToString(Formatting.Indented));
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #endif
 
             return requestBody.ToString();
@@ -681,6 +772,18 @@ namespace SmartHopper.Providers.Anthropic
 
             try
             {
+                // Handle provider error responses (e.g. batch items with status_code 4xx/5xx)
+                // Format: {"type": "error", "error": {"type": "...", "message": "..."}}
+                if (response["error"] is JObject errorObj)
+                {
+                    var msg = errorObj["message"]?.ToString()
+                              ?? errorObj["type"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[Anthropic] Decode: provider error in response body: {msg}");
+                    interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = msg });
+                    return interactions;
+                }
+
                 // Anthropic message response has top-level 'content' array and 'role': 'assistant'
                 var content = response["content"] as JArray;
                 string contentText = string.Empty;
@@ -696,7 +799,10 @@ namespace SmartHopper.Providers.Anthropic
                         if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
                         {
                             var t = block["text"]?.ToString();
-                            if (!string.IsNullOrEmpty(t)) textParts.Add(t);
+                            if (!string.IsNullOrEmpty(t))
+                            {
+                                textParts.Add(t);
+                            }
                         }
                         else if (string.Equals(type, "tool_use", StringComparison.OrdinalIgnoreCase))
                         {
@@ -792,7 +898,11 @@ namespace SmartHopper.Providers.Anthropic
         private AIMetrics DecodeMetrics(JObject response)
         {
             var m = new AIMetrics();
-            if (response == null) return m;
+            if (response == null)
+            {
+                return m;
+            }
+
             try
             {
                 if (response["usage"] is JObject usage)
@@ -820,7 +930,8 @@ namespace SmartHopper.Providers.Anthropic
         {
             private readonly AnthropicProvider provider;
 
-            public AnthropicStreamingAdapter(AnthropicProvider provider) : base(provider)
+            public AnthropicStreamingAdapter(AnthropicProvider provider)
+                : base(provider)
             {
                 this.provider = provider;
             }
@@ -910,8 +1021,17 @@ namespace SmartHopper.Providers.Anthropic
                 if (!responseMsg.IsSuccessStatusCode)
                 {
                     var content = await responseMsg.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)responseMsg.StatusCode, responseMsg.ReasonPhrase, content, this.Provider.Name);
                     var err = new AIReturn();
-                    err.CreateProviderError($"HTTP {(int)responseMsg.StatusCode}: {content}", request);
+                    if (isNetworkLike)
+                    {
+                        err.CreateNetworkError(message, request);
+                    }
+                    else
+                    {
+                        err.CreateProviderError(message, request);
+                    }
+
                     yield return err;
                     yield break;
                 }
@@ -929,8 +1049,8 @@ namespace SmartHopper.Providers.Anthropic
                 AIInteractionToolCall? currentToolCall = null;
                 var toolArgsBuffer = new StringBuilder();
 
-                // Determine idle timeout from request (fallback to 60s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                // Determine idle timeout from request; fall back to shared default if invalid.
+                var idleTimeout = TimeSpan.FromSeconds((double)(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : TimeoutDefaults.DefaultTimeoutSeconds));
                 await foreach (var data in this.ReadSseDataAsync(
                     responseMsg,
                     idleTimeout,
@@ -1130,6 +1250,39 @@ namespace SmartHopper.Providers.Anthropic
             return caps?.HasCapability(AICapability.Text2Json) == true;
         }
 
+        /// <summary>
+        /// Recursively adds additionalProperties=false to all object-type schemas in a JSON schema.
+        /// Anthropic requires this for structured output mode with output_config.format.schema.
+        /// </summary>
+        private static void InjectAdditionalPropertiesFalse(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                var type = obj["type"]?.ToString();
+                if (type == "object")
+                {
+                    // Only add if not already present
+                    if (!obj.ContainsKey("additionalProperties"))
+                    {
+                        obj["additionalProperties"] = false;
+                    }
+                }
+
+                // Recurse into all properties
+                foreach (var property in obj.Properties().ToList())
+                {
+                    InjectAdditionalPropertiesFalse(property.Value);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var item in arr)
+                {
+                    InjectAdditionalPropertiesFalse(item);
+                }
+            }
+        }
+
         #region IAIBatchProvider
 
         /// <inheritdoc/>
@@ -1147,7 +1300,11 @@ namespace SmartHopper.Providers.Anthropic
             {
                 var preparedRequest = this.PreCall(request);
                 var encodedBody = this.Encode(preparedRequest);
-                if (firstEncodedBody == null) firstEncodedBody = encodedBody;
+                if (firstEncodedBody == null)
+                {
+                    firstEncodedBody = encodedBody;
+                }
+
                 var paramsObj = JObject.Parse(encodedBody);
                 requestsArray.Add(new JObject
                 {
@@ -1160,7 +1317,7 @@ namespace SmartHopper.Providers.Anthropic
             var batchRequest = new JObject { ["requests"] = requestsArray };
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
             client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
 
@@ -1190,7 +1347,7 @@ namespace SmartHopper.Providers.Anthropic
             if (submission == null) throw new ArgumentNullException(nameof(submission));
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
             client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
 
@@ -1200,8 +1357,7 @@ namespace SmartHopper.Providers.Anthropic
 
             if (!response.IsSuccessStatusCode)
             {
-                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                    $"HTTP {(int)response.StatusCode}: {content}");
+                return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, $"HTTP {(int)response.StatusCode}: {content}");
             }
 
             var json = JObject.Parse(content);
@@ -1231,53 +1387,24 @@ namespace SmartHopper.Providers.Anthropic
                         return new AIBatchStatus(submission.BatchId, AIBatchState.Cancelled);
                     }
 
-                    var resultsUrl = json["results_url"]?.ToString();
-                    if (string.IsNullOrEmpty(resultsUrl))
+                    // Delegate download + parse to the interface methods
+                    IReadOnlyList<string> files;
+                    try
                     {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            "Batch ended but results_url is missing");
+                        files = await this.DownloadBatchResultsAsync(submission, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, $"Failed to download batch results: {ex.Message}");
                     }
 
-                    // Download results JSONL from results_url
-                    var resultsResponse = await client.GetAsync(resultsUrl, cancellationToken).ConfigureAwait(false);
-                    var resultsContent = await resultsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-                    if (!resultsResponse.IsSuccessStatusCode)
+                    var parsed = this.ParseBatchResultsFiles(files, submission.BatchId);
+                    if ((parsed.Results?.Count ?? 0) == 0 && (parsed.Messages?.Count ?? 0) == 0)
                     {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            $"Failed to download results ({(int)resultsResponse.StatusCode}): {resultsContent}");
+                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed, "No results found in batch output");
                     }
 
-                    // Each result line: {"custom_id": "sh-...", "result": {"type": "succeeded", "message": {...}}}
-                    var resultsDict = new Dictionary<string, JObject>();
-
-                    foreach (var line in resultsContent.Split('\n'))
-                    {
-                        var trimmed = line.Trim();
-                        if (string.IsNullOrEmpty(trimmed)) continue;
-                        try
-                        {
-                            var resultLine = JObject.Parse(trimmed);
-                            var lineCustomId = resultLine["custom_id"]?.ToString();
-                            if (string.IsNullOrEmpty(lineCustomId)) continue;
-                            var resultObj = resultLine["result"] as JObject;
-                            var resultType = resultObj?["type"]?.ToString();
-                            if (string.Equals(resultType, "succeeded", StringComparison.OrdinalIgnoreCase))
-                            {
-                                var messageResult = resultObj["message"] as JObject;
-                                if (messageResult != null) resultsDict[lineCustomId] = messageResult;
-                            }
-                        }
-                        catch { /* skip malformed lines */ }
-                    }
-
-                    if (resultsDict.Count == 0)
-                    {
-                        return new AIBatchStatus(submission.BatchId, AIBatchState.Failed,
-                            "No successful results found in batch output");
-                    }
-
-                    return new AIBatchStatus(submission.BatchId, (IReadOnlyDictionary<string, JObject>)new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(resultsDict));
+                    return parsed;
                 }
 
                 default:
@@ -1291,7 +1418,7 @@ namespace SmartHopper.Providers.Anthropic
             if (submission == null) throw new ArgumentNullException(nameof(submission));
 
             var apiKey = this.GetApiKey();
-            using var client = new HttpClient();
+            using var client = this.CreateBatchHttpClient();
             client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
             client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
 
@@ -1309,6 +1436,143 @@ namespace SmartHopper.Providers.Anthropic
             }
         }
 
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<string>> DownloadBatchResultsAsync(AIBatchSubmission submission, CancellationToken cancellationToken = default)
+        {
+            if (submission == null) throw new ArgumentNullException(nameof(submission));
+
+            var apiKey = this.GetApiKey();
+            using var client = this.CreateBatchHttpClient();
+            client.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+
+            // Re-fetch batch status to obtain results_url.
+            var statusUrl = this.BuildFullUrl($"/messages/batches/{submission.BatchId}");
+            var statusResponse = await client.GetAsync(statusUrl, cancellationToken).ConfigureAwait(false);
+            var statusContent = await statusResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!statusResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"HTTP {(int)statusResponse.StatusCode}: {statusContent}");
+            }
+
+            var statusJson = JObject.Parse(statusContent);
+            var resultsUrl = statusJson["results_url"]?.ToString();
+            if (string.IsNullOrEmpty(resultsUrl))
+            {
+                throw new InvalidOperationException("Batch ended but results_url is missing");
+            }
+
+            var resultsResponse = await client.GetAsync(resultsUrl, cancellationToken).ConfigureAwait(false);
+            var resultsContent = await resultsResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!resultsResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException($"Failed to download results ({(int)resultsResponse.StatusCode}): {resultsContent}");
+            }
+
+            return string.IsNullOrWhiteSpace(resultsContent)
+                ? Array.Empty<string>()
+                : new[] { resultsContent };
+        }
+
+        /// <inheritdoc/>
+        public AIBatchStatus ParseBatchResultsFiles(IReadOnlyList<string> fileContents, string batchId = null)
+        {
+            if (fileContents == null || fileContents.Count == 0)
+            {
+                return new AIBatchStatus(batchId, AIBatchState.Failed, "No file contents provided");
+            }
+
+            var merged = new Dictionary<string, JObject>();
+            var messages = new List<SHRuntimeMessage>();
+
+            foreach (var content in fileContents)
+            {
+                AIBatchStatusMerge.MergeInto(this.ParseSingleBatchResultFile(content, batchId), merged, messages);
+            }
+
+            return new AIBatchStatus(
+                batchId,
+                new System.Collections.ObjectModel.ReadOnlyDictionary<string, JObject>(merged),
+                messages.Count > 0 ? messages.AsReadOnly() : null);
+        }
+
+        /// <summary>
+        /// Parses a single Anthropic batch results JSONL file. Each line:
+        /// <c>{"custom_id":"sh-...", "result":{"type":"succeeded|errored|canceled|expired", "message"?, "error"?}}</c>.
+        /// Stop reasons (e.g., "max_tokens") are extracted from successful responses and surfaced as warnings.
+        /// </summary>
+        private AIBatchStatus ParseSingleBatchResultFile(string content, string batchId)
+        {
+            var results = new Dictionary<string, JObject>();
+            var messages = new List<SHRuntimeMessage>();
+
+            foreach (var resultLine in JsonFormatHelper.ParseJsonLines(content))
+            {
+                var lineCustomId = resultLine["custom_id"]?.ToString();
+                if (string.IsNullOrEmpty(lineCustomId))
+                {
+                    continue;
+                }
+
+                var resultObj = resultLine["result"] as JObject;
+                var resultType = resultObj?["type"]?.ToString();
+
+                if (string.Equals(resultType, "succeeded", StringComparison.OrdinalIgnoreCase))
+                {
+                    var messageResult = resultObj["message"] as JObject;
+                    if (messageResult != null)
+                    {
+                        results[lineCustomId] = messageResult;
+
+                        // Extract stop_reason and surface as warning for non-end reasons
+                        var stopReason = messageResult["stop_reason"]?.ToString();
+                        if (!string.IsNullOrEmpty(stopReason) && stopReason != "end_turn")
+                        {
+                            messages.Add(new SHRuntimeMessage(
+                                SHRuntimeMessageSeverity.Warning,
+                                SHRuntimeMessageOrigin.Provider,
+                                SHMessageCode.BatchItemFinishReason,
+                                $"Batch item {lineCustomId}: completed with stop_reason='{stopReason}'"));
+                        }
+                    }
+                }
+                else if (string.Equals(resultType, "errored", StringComparison.OrdinalIgnoreCase))
+                {
+                    var errorMsg = resultObj?["error"]?.ToString();
+                    if (resultObj?["error"] is JObject errorObj)
+                    {
+                        errorMsg = errorObj["error"] is JObject innerError
+                            ? innerError["message"]?.ToString()
+                            : errorObj["message"]?.ToString() ?? errorObj.ToString();
+                    }
+
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.BatchItemError,
+                        $"Batch item {lineCustomId}: {errorMsg ?? "Unknown error"}"));
+                }
+                else if (string.Equals(resultType, "canceled", StringComparison.OrdinalIgnoreCase))
+                {
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.BatchItemCanceled,
+                        $"Batch item {lineCustomId}: Request was canceled before it could be processed"));
+                }
+                else if (string.Equals(resultType, "expired", StringComparison.OrdinalIgnoreCase))
+                {
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Provider,
+                        SHMessageCode.BatchItemExpired,
+                        $"Batch item {lineCustomId}: Request expired before it could be sent to the model (batch exceeded 24-hour limit)"));
+                }
+            }
+
+            return new AIBatchStatus(batchId, results, messages);
+        }
+
         #endregion
 
         /// <inheritdoc/>
@@ -1317,33 +1581,54 @@ namespace SmartHopper.Providers.Anthropic
             return new[]
             {
                 // General parameters (shared across providers)
-                new AIExtraDescriptor("seed", "Seed",
+                new AIExtraDescriptor(
+                    "seed",
+                    "Seed",
                     "Reproducibility seed for deterministic sampling. Use the same seed to get similar outputs. Leave empty for random.",
-                    typeof(int), null),
-                new AIExtraDescriptor("top_p", "Top P",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "top_p",
+                    "Top P",
                     "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
-                    typeof(double), null),
-                new AIExtraDescriptor("top_k", "Top K",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "top_k",
+                    "Top K",
                     "Only sample from the top K options for each token. Lower values make output more focused.",
-                    typeof(int), null),
+                    typeof(int),
+                    null),
 
                 // Anthropic-specific parameters
-                new AIExtraDescriptor("effort", "Effort",
+                new AIExtraDescriptor(
+                    "effort",
+                    "Effort",
                     "The amount of effort to use in the output. 'low' is fastest, 'high' is most thorough.",
-                    typeof(string), "medium",
+                    typeof(string),
+                    "medium",
                     new[] { "low", "medium", "high" }),
-                new AIExtraDescriptor("container", "Container",
+                new AIExtraDescriptor(
+                    "container",
+                    "Container",
                     "Container type for the response format. Anthropic-specific.",
-                    typeof(string), null),
-                new AIExtraDescriptor("service_tier", "Service Tier",
-                    "Service tier for request processing. 'auto' or 'default'.",
-                    typeof(string), "auto",
-                    new[] { "auto", "default" }),
+                    typeof(string),
+                    null),
+                new AIExtraDescriptor(
+                    "service_tier",
+                    "Service Tier",
+                    "Service tier for request processing. 'auto' uses Priority Tier when available, 'standard_only' uses only standard tier.",
+                    typeof(string),
+                    "auto",
+                    new[] { "auto", "standard_only" }),
 
                 // Anthropic prompt caching parameters
-                new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
+                new AIExtraDescriptor(
+                    "enable_caching",
+                    "Enable Prompt Caching",
                     "Automatically caches the longest stable prompt prefix (>1024 tokens for Sonnet, >4096 tokens for Opus and Haiku). Reduces latency and cost on repeated calls sharing the same context. Highly recommended for batch processing.",
-                    typeof(bool), null),
+                    typeof(bool),
+                    null),
             };
         }
     }

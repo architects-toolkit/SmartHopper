@@ -17,7 +17,7 @@ A non-breaking, standardized metadata wrapper for AI tool results. It stores mac
 
 - version: string. Envelope semver (e.g., "1.0").
 - tool: string. Tool name (e.g., "text_generate", "list_generate", "img_generate").
-- provider: string. Provider name (e.g., "OpenAI", "MistralAI", "DeepSeek").
+- provider: string. Provider name (e.g., "OpenAI", "MistralAI", "DeepSeek", "Gemini").
 - model: string. Model used.
 - toolCallId: string. Correlates to the tool call, when available.
 - contentType: enum ToolResultContentType. One of: Unknown, Text, List, Object, Image, Binary.

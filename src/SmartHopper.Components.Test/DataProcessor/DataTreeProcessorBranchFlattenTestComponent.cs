@@ -38,13 +38,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorBranchFlattenTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("E9642177-D368-4E9D-9BD6-E84C46D0958F");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
         public DataTreeProcessorBranchFlattenTestComponent()
-            : base("Test DataTreeProcessor (BranchFlatten)", "TEST-DTP-FLATTEN",
-                  "Tests DataTreeProcessor with BranchFlatten topology where all branches are flattened and processed together.",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test DataTreeProcessor (BranchFlatten)",
+                "TEST-DTP-FLATTEN",
+                "Tests DataTreeProcessor with BranchFlatten topology where all branches are flattened and processed together.",
+                "SmartHopper",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -60,7 +65,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -74,7 +79,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorBranchFlattenTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -115,7 +120,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                     async Task<Dictionary<string, List<GH_Integer>>> Func(Dictionary<string, List<GH_Integer>> branches)
                     {
                         await Task.Yield();
-                        _functionCallCount++;
+                        this._functionCallCount++;
 
                         var aList = branches.ContainsKey("A") ? branches["A"] : null;
                         if (aList == null || aList.Count == 0)
@@ -133,49 +138,49 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Sum", out var sumTree) && sumTree != null)
-                        _resultTree = sumTree;
+                    if (result != null && result.Outputs.TryGetValue("Sum", out var sumTree) && sumTree != null)
+                        this._resultTree = sumTree;
                     else
-                        _resultTree = new GH_Structure<GH_Integer>();
+                        this._resultTree = new GH_Structure<GH_Integer>();
 
                     // BranchFlatten should:
                     // 1. Call function only ONCE with all items flattened: [1,2,3,4]
                     // 2. Result sum = 1+2+3+4 = 10
                     // 3. Output placed in single branch {0}
                     bool ok =
-                        _functionCallCount == 1 &&
-                        _resultTree != null &&
-                        _resultTree.PathCount == 1 &&
-                        _resultTree.get_Branch(path0) != null &&
-                        _resultTree.get_Branch(path0).Count == 1 &&
-                        _resultTree.get_Branch(path0)[0] is GH_Integer gi && gi.Value == 10;
+                        this._functionCallCount == 1 &&
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 1 &&
+                        this._resultTree.get_Branch(path0) != null &&
+                        this._resultTree.get_Branch(path0).Count == 1 &&
+                        this._resultTree.get_Branch(path0)[0] is GH_Integer gi && gi.Value == 10;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"BranchFlatten topology. Input: {{{path0}}}=[1,2], {{{path1}}}=[3,4]."));
-                    _messages.Add(new GH_String($"Function called {_functionCallCount} time(s) (expected 1)."));
-                    _messages.Add(new GH_String($"Expected flattened sum [10] at {{{path0}}}."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"BranchFlatten topology. Input: {{{path0}}}=[1,2], {{{path1}}}=[3,4]."));
+                    this._messages.Add(new GH_String($"Function called {this._functionCallCount} time(s) (expected 1)."));
+                    this._messages.Add(new GH_String($"Expected flattened sum [10] at {{{path0}}}."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (OperationCanceledException)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String("Operation was cancelled."));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String("Operation was cancelled."));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Processed BranchFlatten topology successfully" : "Processing failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Processed BranchFlatten topology successfully" : "Processing failed";
             }
         }
     }

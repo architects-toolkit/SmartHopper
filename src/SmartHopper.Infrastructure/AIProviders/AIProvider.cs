@@ -24,9 +24,12 @@ using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -34,6 +37,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Streaming;
 using SmartHopper.Infrastructure.Utils;
@@ -44,9 +48,34 @@ namespace SmartHopper.Infrastructure.AIProviders
     /// Base class for AI providers, encapsulating common logic.
     /// </summary>
     /// <typeparam name="T">The type of the derived provider class.</typeparam>
-    public abstract class AIProvider<T> : AIProvider where T : AIProvider<T>
+    public abstract class AIProvider<T> : AIProvider
+        where T : AIProvider<T>
     {
-        private static readonly Lazy<T> InstanceValue = new(() => Activator.CreateInstance(typeof(T), true) as T);
+        private static readonly Lazy<T> InstanceValue = new (() =>
+        {
+            try
+            {
+                var instance = Activator.CreateInstance(typeof(T), nonPublic: true) as T;
+                if (instance == null)
+                {
+                    throw new InvalidOperationException($"Failed to create instance of {typeof(T).FullName}. Activator.CreateInstance returned null.");
+                }
+
+                return instance;
+            }
+            catch (TargetInvocationException tie) when (tie.InnerException != null)
+            {
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Constructor threw exception: {tie.InnerException.GetType().Name}: {tie.InnerException.Message}");
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Stack trace: {tie.InnerException.StackTrace}");
+                throw tie.InnerException;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Failed to create instance: {ex.GetType().Name}: {ex.Message}");
+                Debug.WriteLine($"[AIProvider<{typeof(T).Name}>] Stack trace: {ex.StackTrace}");
+                throw;
+            }
+        });
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProvider{T}"/> class.
@@ -96,7 +125,6 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Gets the singleton instance of the provider.
         /// </summary>
         public static T Instance => InstanceValue.Value;
-
     }
 
     /// <summary>
@@ -335,7 +363,7 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <inheritdoc/>
-        public async Task<IAIReturn> Call(AIRequestCall request)
+        public async Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default)
         {
             // Start stopwatch
             var stopwatch = new Stopwatch();
@@ -345,7 +373,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             request = this.PreCall(request);
 
             // Validate request before calling the API (structured messages)
-            (bool isValid, List<AIRuntimeMessage> messages) = request.IsValid();
+            (bool isValid, List<SHRuntimeMessage> messages) = request.IsValid();
             if (!isValid)
             {
                 stopwatch.Stop();
@@ -363,7 +391,7 @@ namespace SmartHopper.Infrastructure.AIProviders
             }
 
             // Execute CallApi
-            var response = await this.CallApi(request);
+            var response = await this.CallApi(request, cancellationToken).ConfigureAwait(false);
 
             // For backoffice/admin-style calls, return raw without chat decoding or timestamping
             if (request?.RequestKind == AIRequestKind.Backoffice)
@@ -599,6 +627,37 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Creates an HttpClient configured for batch operations with the specified timeout.
+        /// The timeout should be resolved by RequestTimeoutPolicy before calling this method.
+        /// If no timeout is provided, falls back to <see cref="TimeoutDefaults.DefaultTimeoutSeconds"/>.
+        /// </summary>
+        /// <param name="requestTimeoutSeconds">Optional per-request timeout in seconds. If not provided, defaults to <see cref="TimeoutDefaults.DefaultTimeoutSeconds"/>.</param>
+        /// <returns>A new HttpClient with appropriate timeout configured.</returns>
+        protected HttpClient CreateBatchHttpClient(int? requestTimeoutSeconds = null)
+        {
+            var client = new HttpClient();
+
+            // Use provided timeout or shared default.
+            // Actual timeout resolution from settings is handled by RequestTimeoutPolicy upstream.
+            int timeoutSeconds = requestTimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
+
+            // Clamp to shared bounds
+            timeoutSeconds = Math.Max(TimeoutDefaults.MinTimeoutSeconds, Math.Min(timeoutSeconds, TimeoutDefaults.MaxTimeoutSeconds));
+
+            try
+            {
+                client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                Debug.WriteLine($"[{this.Name}] Batch HttpClient timeout set to {timeoutSeconds}s");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[{this.Name}] Warning: could not set batch HttpClient timeout: {ex.Message}");
+            }
+
+            return client;
+        }
+
+        /// <summary>
         /// Common tool formatting for function definitions.
         /// </summary>
         /// <param name="toolFilter">The filter to apply to tool categories.</param>
@@ -651,11 +710,71 @@ namespace SmartHopper.Infrastructure.AIProviders
         }
 
         /// <summary>
+        /// Builds a descriptive error message for a non-success HTTP response and classifies whether
+        /// it should be surfaced as a network-style error (transient/connectivity) or as a provider error
+        /// (client-side misuse such as auth/payload).
+        /// </summary>
+        /// <param name="statusCode">HTTP status code.</param>
+        /// <param name="reasonPhrase">HTTP reason phrase or status enum name.</param>
+        /// <param name="content">Raw response body for context.</param>
+        /// <param name="providerName">Provider name to embed in the message.</param>
+        /// <returns>Tuple of (enriched message, isNetworkLike). Network-like covers 5xx, 408 and 429.</returns>
+        public static (string Message, bool IsNetworkLike) ClassifyHttpError(int statusCode, string reasonPhrase, string content, string providerName)
+        {
+            string message;
+            bool isNetworkLike;
+            switch (statusCode)
+            {
+                case 401:
+                case 403:
+                    message = $"HTTP {statusCode}: Authentication failed for {providerName}. Check your API key. Response: {content}";
+                    isNetworkLike = false;
+                    break;
+                case 408:
+                    message = $"HTTP 408 Request Timeout: The request to {providerName} took too long. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 413:
+                    message = $"HTTP 413 Payload Too Large: The request to {providerName} exceeds size limits. Try reducing input length or batch size. Response: {content}";
+                    isNetworkLike = false;
+                    break;
+                case 429:
+                    message = $"HTTP 429 Too Many Requests: Rate limit exceeded for {providerName}. Please retry after a delay. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 500:
+                    message = $"HTTP 500 Internal Server Error: {providerName} encountered an internal error. Retry after a brief delay. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 502:
+                    message = $"HTTP 502 Bad Gateway: {providerName} gateway error. The upstream server returned an invalid response. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 503:
+                    message = $"HTTP 503 Service Unavailable: The {providerName} API is at capacity. If using Flex tier, try again later or switch to Standard tier. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                case 504:
+                    message = $"HTTP 504 Gateway Timeout: {providerName} upstream timeout. The server took too long to respond. Try increasing the HTTP request timeout in SmartHopper settings. Response: {content}";
+                    isNetworkLike = true;
+                    break;
+                default:
+                    message = $"HTTP {statusCode} {reasonPhrase}: {content}";
+                    // Treat any unspecified 5xx as network-like; everything else as provider error.
+                    isNetworkLike = statusCode >= 500 && statusCode < 600;
+                    break;
+            }
+
+            return (message, isNetworkLike);
+        }
+
+        /// <summary>
         /// Makes an HTTP request to the specified endpoint with authentication.
         /// </summary>
         /// <param name="request">The request to make.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
         /// <returns>The HTTP response content as a type T.</returns>
-        private async Task<IAIReturn> CallApi(AIRequestCall request)
+        private async Task<IAIReturn> CallApi(AIRequestCall request, CancellationToken cancellationToken = default)
         {
             string endpoint = request.Endpoint;
             string httpMethod = request.HttpMethod;
@@ -675,10 +794,11 @@ namespace SmartHopper.Infrastructure.AIProviders
 
             using (var httpClient = new HttpClient())
             {
-                // Apply per-request timeout (policy should normalize, but clamp defensively)
+                // Apply timeout from request (should be resolved by RequestTimeoutPolicy).
+                // If somehow still null, fall back to the shared default so all layers stay aligned.
                 try
                 {
-                    var seconds = request?.TimeoutSeconds ?? 120;
+                    int seconds = request?.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds;
                     httpClient.Timeout = TimeSpan.FromSeconds(seconds);
                 }
                 catch (Exception ex)
@@ -715,9 +835,19 @@ namespace SmartHopper.Infrastructure.AIProviders
                     httpClient.DefaultRequestHeaders.Remove("x-api-key");
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-api-key", apiKey);
                 }
+                else if (auth == "x-goog-api-key")
+                {
+                    if (string.IsNullOrWhiteSpace(apiKey))
+                    {
+                        throw new InvalidOperationException($"{this.Name} API key is not configured or is invalid.");
+                    }
+
+                    httpClient.DefaultRequestHeaders.Remove("x-goog-api-key");
+                    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-goog-api-key", apiKey);
+                }
                 else
                 {
-                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key'.");
+                    throw new NotSupportedException($"Authentication method '{authentication}' is not supported. Supported: 'none', 'bearer', 'x-api-key', 'x-goog-api-key'.");
                 }
 
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -732,34 +862,50 @@ namespace SmartHopper.Infrastructure.AIProviders
                     switch (httpMethod.ToUpper(CultureInfo.InvariantCulture))
                     {
                         case "GET":
-                            response = await httpClient.GetAsync(fullUri).ConfigureAwait(false);
+                            response = await httpClient.GetAsync(fullUri, cancellationToken).ConfigureAwait(false);
                             break;
                         case "POST":
                             var postContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PostAsync(fullUri, postContent).ConfigureAwait(false);
+                            response = await httpClient.PostAsync(fullUri, postContent, cancellationToken).ConfigureAwait(false);
                             break;
                         case "DELETE":
-                            response = await httpClient.DeleteAsync(fullUri).ConfigureAwait(false);
+                            response = await httpClient.DeleteAsync(fullUri, cancellationToken).ConfigureAwait(false);
                             break;
                         case "PATCH":
                             var patchContent = !string.IsNullOrEmpty(requestBody)
                                 ? new StringContent(requestBody, Encoding.UTF8, contentType)
                                 : null;
-                            response = await httpClient.PatchAsync(fullUri, patchContent).ConfigureAwait(false);
+                            response = await httpClient.PatchAsync(fullUri, patchContent, cancellationToken).ConfigureAwait(false);
                             break;
                         default:
                             throw new NotSupportedException($"HTTP method '{httpMethod}' is not supported. Supported methods: GET, POST, DELETE, PATCH");
                     }
 
-                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                     Debug.WriteLine($"[{this.Name}] Call - Response status: {response.StatusCode}");
 
                     if (!response.IsSuccessStatusCode)
                     {
                         Debug.WriteLine($"[{this.Name}] Call - Error response: {content}");
-                        throw new Exception($"Error from {this.Name} API: {response.StatusCode} - {content}");
+
+                        // Create AIReturn with structured error instead of throwing
+                        var errorReturn = new AIReturn();
+                        var (errorMessage, isNetworkLike) = ClassifyHttpError((int)response.StatusCode, response.StatusCode.ToString(), content, this.Name);
+
+                        if (isNetworkLike)
+                        {
+                            errorReturn.CreateNetworkError(errorMessage, request);
+                        }
+                        else
+                        {
+                            errorReturn.CreateProviderError(errorMessage, request);
+                        }
+
+                        errorReturn.Status = AICallStatus.Finished;
+
+                        return errorReturn;
                     }
 
                     // Prepare the AIReturn
@@ -792,6 +938,14 @@ namespace SmartHopper.Infrastructure.AIProviders
                         request: request);
 
                     return aiReturn;
+                }
+                catch (TaskCanceledException ex)
+                {
+                    Debug.WriteLine($"[{this.Name}] Call - TaskCanceledException (Timeout): {ex.Message}");
+                    var errorReturn = new AIReturn();
+                    errorReturn.CreateProviderError($"HTTP Request Timeout: The request to {this.Name} took too long (exceeded {request?.TimeoutSeconds ?? 600} seconds). Try increasing the HTTP timeout in Settings.", request);
+                    errorReturn.Status = AICallStatus.Finished;
+                    return errorReturn;
                 }
                 catch (Exception ex)
                 {

@@ -28,7 +28,11 @@ namespace SmartHopper.Providers.OpenAI
 
         public (JObject wrapped, SchemaWrapperInfo info) Wrap(JObject schema)
         {
-            if (schema is null) throw new ArgumentNullException(nameof(schema));
+            if (schema is null)
+            {
+                throw new ArgumentNullException(nameof(schema));
+            }
+
             var schemaType = schema["type"]?.ToString();
 
             // OpenAI requires object-root schemas for structured outputs

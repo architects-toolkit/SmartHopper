@@ -15,7 +15,7 @@ description: 'Fetch model metadata from OpenRouter and update *ProviderModels.cs
 
 inputs:
   provider:
-    description: 'Provider identifier (e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek)'
+    description: 'Provider identifier (e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek, Gemini)'
     required: true
   api-key:
     description: 'OpenRouter API key (used as the single source of truth for all providers)'

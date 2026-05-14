@@ -1,6 +1,6 @@
 # File-to-Markdown Conversion
 
-SmartHopper provides native file-to-Markdown conversion through the `FileToMdComponent` and `file_to_md` AI tool, enabling you to extract and process content from various document formats directly in Grasshopper.
+SmartHopper provides native file-to-Markdown conversion through the `File2MdComponent` and `file2md` AI tool, enabling you to extract and process content from various document formats directly in Grasshopper.
 
 ## Supported Formats
 
@@ -19,11 +19,11 @@ SmartHopper provides native file-to-Markdown conversion through the `FileToMdCom
 | **XML** | `.xml` | Built-in | Pretty-printed fenced code block |
 | **Plain Text** | `.txt` | Built-in | Pass-through with line normalization |
 
-## Using the FileToMd Component
+## Using the File2Md Component
 
 ### Basic Usage
 
-1. Add the **FileToMd** component from the **SmartHopper → Knowledge** panel
+1. Add the **File2Md** component from the **SmartHopper → Knowledge** panel
 2. Connect a file path (absolute path) to the **File Path** input
 3. The component outputs:
    - **Markdown**: Converted Markdown content
@@ -34,7 +34,7 @@ SmartHopper provides native file-to-Markdown conversion through the `FileToMdCom
 ```
 File Path: C:\Documents\report.pdf
 ↓
-[FileToMd]
+[File2Md]
 ↓
 Markdown: "# Annual Report\n\nThis document presents..."
 Format: "pdf"
@@ -50,16 +50,16 @@ The component supports tree inputs, allowing you to convert multiple files in pa
 {1;0}: C:\docs\file3.xlsx
 ```
 
-## Using the file_to_md AI Tool
+## Using the file2md AI Tool
 
-The `file_to_md` tool is automatically available in AI Chat conversations. Simply mention a file path and the AI can invoke the tool to read and process the file.
+The `file2md` tool is automatically available in AI Chat conversations. Simply mention a file path and the AI can invoke the tool to read and process the file.
 
 ### Example Chat Interaction
 
 ```
 User: Read the file at C:\reports\Q4-2025.pdf and summarize the key findings
 
-AI: [Calls file_to_md tool with filePath: "C:\reports\Q4-2025.pdf"]
+AI: [Calls file2md tool with filePath: "C:\reports\Q4-2025.pdf"]
     [Receives Markdown content]
     Based on the Q4 2025 report, the key findings are:
     1. Revenue increased by 15%...
@@ -74,7 +74,7 @@ AI: [Calls file_to_md tool with filePath: "C:\reports\Q4-2025.pdf"]
 
 ## Image Extraction
 
-When `extractImages: true` is passed to the `file_to_md` tool, embedded images are extracted as base64 data and returned alongside the Markdown content.
+When `extractImages: true` is passed to the `file2md` tool, embedded images are extracted as base64 data and returned alongside the Markdown content.
 
 ### Supported Formats
 
@@ -214,7 +214,7 @@ public class MyConverter : IFileConverter
 }
 ```
 
-2. Register in `file_to_md.cs`:
+2. Register in `file2md.cs`:
 ```csharp
 registry.Register(new MyConverter());
 ```
@@ -268,4 +268,4 @@ No Python or external runtime dependencies required.
 ## Related Components
 
 - **Web Page Read**: For fetching and converting web pages (URLs)
-- **AI Chat**: Uses `file_to_md` tool automatically when you mention file paths
+- **AI Chat**: Uses `file2md` tool automatically when you mention file paths

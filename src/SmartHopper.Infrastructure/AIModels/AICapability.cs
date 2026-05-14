@@ -45,9 +45,15 @@ namespace SmartHopper.Infrastructure.AIModels
         ImageInput = 1 << 1,
 
         /// <summary>
-        /// Supports accepting audio input (speech or other audio signals).
+        /// Supports accepting speech input (voice, speech-to-text).
         /// </summary>
-        AudioInput = 1 << 2,
+        SpeechInput = 1 << 10,
+
+        /// <summary>
+        /// Supports accepting audio input (music, sound effects, general audio signals).
+        /// Inherits SpeechInput - models with AudioInput can also handle speech input.
+        /// </summary>
+        AudioInput = SpeechInput | (1 << 2),
 
         /// <summary>
         /// Supports accepting video input (video understanding or analysis).
@@ -67,9 +73,15 @@ namespace SmartHopper.Infrastructure.AIModels
         ImageOutput = 1 << 5,
 
         /// <summary>
-        /// Can produce audio as output (e.g., text-to-speech).
+        /// Can produce speech as output (text-to-speech).
         /// </summary>
-        AudioOutput = 1 << 6,
+        SpeechOutput = 1 << 11,
+
+        /// <summary>
+        /// Can produce audio as output (music, sound effects, general audio).
+        /// Inherits SpeechOutput - models with AudioOutput can also handle speech output.
+        /// </summary>
+        AudioOutput = SpeechOutput | (1 << 6),
 
         /// <summary>
         /// Can produce structured JSON output.
@@ -131,14 +143,24 @@ namespace SmartHopper.Infrastructure.AIModels
         Text2Image = TextInput | ImageOutput,
 
         /// <summary>
-        /// Text-in to audio-out (text-to-speech).
+        /// Text-in to speech-out (text-to-speech).
         /// </summary>
-        Text2Speech = TextInput | AudioOutput,
+        Text2Speech = TextInput | SpeechOutput,
 
         /// <summary>
-        /// Audio-in to text-out (automatic speech recognition).
+        /// Speech-in to text-out (automatic speech recognition).
         /// </summary>
-        Speech2Text = AudioInput | TextOutput,
+        Speech2Text = SpeechInput | TextOutput,
+
+        /// <summary>
+        /// Audio-in to text-out (general audio understanding).
+        /// </summary>
+        Audio2Text = AudioInput | TextOutput,
+
+        /// <summary>
+        /// Text-in to audio-out (general audio generation).
+        /// </summary>
+        Text2Audio = TextInput | AudioOutput,
 
         /// <summary>
         /// Image-in to text-out (image description or understanding, vision capabilities).
@@ -189,6 +211,16 @@ namespace SmartHopper.Infrastructure.AIModels
             if ((capabilities & AICapability.ImageOutput) == AICapability.ImageOutput)
             {
                 flags.Add("ImageOutput");
+            }
+
+            if ((capabilities & AICapability.SpeechInput) == AICapability.SpeechInput)
+            {
+                flags.Add("SpeechInput");
+            }
+
+            if ((capabilities & AICapability.SpeechOutput) == AICapability.SpeechOutput)
+            {
+                flags.Add("SpeechOutput");
             }
 
             if ((capabilities & AICapability.AudioInput) == AICapability.AudioInput)
@@ -244,6 +276,7 @@ namespace SmartHopper.Infrastructure.AIModels
             return (capability & AICapability.TextInput) == AICapability.TextInput ||
                    (capability & AICapability.ImageInput) == AICapability.ImageInput ||
                    (capability & AICapability.AudioInput) == AICapability.AudioInput ||
+                   (capability & AICapability.SpeechInput) == AICapability.SpeechInput ||
                    (capability & AICapability.VideoInput) == AICapability.VideoInput;
         }
 
@@ -257,6 +290,7 @@ namespace SmartHopper.Infrastructure.AIModels
             return (capability & AICapability.TextOutput) == AICapability.TextOutput ||
                    (capability & AICapability.ImageOutput) == AICapability.ImageOutput ||
                    (capability & AICapability.AudioOutput) == AICapability.AudioOutput ||
+                   (capability & AICapability.SpeechOutput) == AICapability.SpeechOutput ||
                    (capability & AICapability.JsonOutput) == AICapability.JsonOutput ||
                    (capability & AICapability.VideoOutput) == AICapability.VideoOutput ||
                    (capability & AICapability.EmbedOutput) == AICapability.EmbedOutput;

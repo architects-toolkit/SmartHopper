@@ -55,11 +55,11 @@ The `description` key contains the AI-generated text. The `__envelope` metadata 
 
 ### Describe an extracted document image
 
-When used after `file_to_md` with `extractImages: true`, pass each image's `base64Data` and `mimeType`:
+When used after `file2md` with `extractImages: true`, pass each image's `base64Data` and `mimeType`:
 
 ```json
 {
-  "imageBase64": "<base64 data from file_to_md images array>",
+  "imageBase64": "<base64 data from file2md images array>",
   "mimeType": "image/jpeg",
   "prompt": "Summarize what this diagram shows."
 }
@@ -68,5 +68,5 @@ When used after `file_to_md` with `extractImages: true`, pass each image's `base
 ## Related
 
 - [ToolResultEnvelope.md](./ToolResultEnvelope.md) — envelope metadata convention
-- `file_to_md` `describeImages` parameter calls `img_to_text` automatically for each extracted image — see `describeImages`, `imageMode`, and `imageDescriptionPrompt` parameters on the `file_to_md` tool
+- `file2md` `describeImages` parameter calls `img_to_text` automatically for each extracted image — see `describeImages`, `imageMode`, and `imageDescriptionPrompt` parameters on the `file2md` tool
 - `AIImgToTextComponent` — standalone Grasshopper component that wraps this tool for direct canvas use

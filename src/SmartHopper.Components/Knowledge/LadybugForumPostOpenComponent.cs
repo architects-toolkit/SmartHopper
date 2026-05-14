@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -25,6 +25,7 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -35,15 +36,15 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("C4D5E6F7-A8B9-4C0D-1E2F-3A4B5C6D7E8F");
 
-        protected override Bitmap Icon => Resources.mcneelpostopen;
+        protected override Bitmap Icon => Resources.ladybugpostopen;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public LadybugForumPostOpenComponent()
             : base(
                   "LadybugForum Post Open",
                   "LadybugPostOpen",
-                  "Open the Ladybug Tools Discourse webpage for a forum post JSON in the default browser.",
+                  "Open a Ladybug Tools Discourse forum post in the default web browser by its numeric ID.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -144,7 +145,7 @@ namespace SmartHopper.Components.Knowledge
 
                     if (string.IsNullOrWhiteSpace(postUrl))
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not determine post URL from JSON.");
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Could not determine post URL from JSON.");
                         this.resultUrl = string.Empty;
                         return;
                     }
@@ -163,18 +164,18 @@ namespace SmartHopper.Components.Knowledge
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[LadybugForumPostOpenWorker] Error opening browser: {ex.Message}");
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                         this.resultUrl = string.Empty;
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[LadybugForumPostOpenWorker] Error parsing JSON: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                     this.resultUrl = string.Empty;
                 }
 
-                await Task.CompletedTask;
+                await Task.CompletedTask.ConfigureAwait(false);
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)

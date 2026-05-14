@@ -13,7 +13,7 @@
     verified), and 2 on error (model/provider not found).
 
 .PARAMETER Provider
-    Provider folder name, e.g. OpenAI, Anthropic, MistralAI, DeepSeek, OpenRouter.
+    Provider folder name, e.g. OpenAI, Anthropic, MistralAI, DeepSeek, OpenRouter, Gemini.
 
 .PARAMETER Model
     Exact model identifier, e.g. "mistral-medium-latest".

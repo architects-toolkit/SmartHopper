@@ -40,6 +40,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Sessions;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Core.UI.Chat
@@ -76,7 +77,6 @@ namespace SmartHopper.Core.UI.Chat
 
         // ConversationSession manages all history and requests
         // WebChatDialog is now a pure UI consumer
-
         private bool _isDomUpdating;
         private readonly Queue<Action> _domUpdateQueue = new Queue<Action>();
         private readonly Dictionary<string, Action> _keyedDomUpdateLatest = new Dictionary<string, Action>(StringComparer.Ordinal);
@@ -106,6 +106,17 @@ namespace SmartHopper.Core.UI.Chat
 
         // Greeting behavior: when true, the dialog will request a greeting from ConversationSession on init
         private readonly bool _generateGreeting;
+
+        /// <summary>
+        /// Minimum diagnostic severity to surface in the chat UI. Runtime-message interactions
+        /// (<see cref="AIInteractionRuntimeMessage"/>) whose severity is below this threshold,
+        /// or whose <see cref="AIInteractionRuntimeMessage.Surfaceable"/> flag is false, should be
+        /// hidden from rendering. Defaults to <see cref="SHRuntimeMessageSeverity.Info"/> so Debug
+        /// entries are hidden while Info/Warning/Error remain visible.
+        /// Note: the filtering is prepared here but not yet wired into the render path — consumers
+        /// (observer/renderer) will read this value in a follow-up to implement the actual filter.
+        /// </summary>
+        private SHRuntimeMessageSeverity _minimumSurfaceSeverity = SHRuntimeMessageSeverity.Info;
 
         [Conditional("DEBUG")]
         private static void DebugLog(string message)
@@ -150,6 +161,9 @@ namespace SmartHopper.Core.UI.Chat
                 // defer DOM work to keep Rhino/Eto responsive.
                 this.LocationChanged += (_, __) => this.MarkMoveResizeInteraction();
                 this.SizeChanged += (_, __) => this.MarkMoveResizeInteraction();
+
+                // Cancel ongoing AI calls when dialog closes
+                this.Closing += (_, e) => this.OnDialogClosing();
 
                 // Initialize web view and optionally start greeting
                 _ = this.InitializeWebViewAsync();
@@ -831,7 +845,9 @@ namespace SmartHopper.Core.UI.Chat
         {
             try
             {
-                var snapshot = this._currentSession != null ? this._currentSession.GetHistoryReturn() : new AIReturn();
+                var snapshot = this._currentSession != null
+                    ? this._currentSession.GetHistoryReturn()
+                    : new AIReturn { SkipRequestValidation = true, SkipMetricsValidation = true };
                 this.ChatUpdated?.Invoke(this, snapshot);
             }
             catch (Exception ex)
@@ -947,7 +963,8 @@ namespace SmartHopper.Core.UI.Chat
         /// Gets the last AI return received from the chat dialog.
         /// </summary>
         /// <returns>The most recent AIReturn produced by the current conversation session; a new empty AIReturn if none.</returns>
-        public AIReturn GetLastReturn() => this._currentSession?.LastReturn ?? new AIReturn();
+        public AIReturn GetLastReturn() => this._currentSession?.LastReturn
+            ?? new AIReturn { SkipRequestValidation = true, SkipMetricsValidation = true };
 
         /// <summary>
         /// Gets the combined metrics from interactions in the conversation.
@@ -1091,8 +1108,8 @@ namespace SmartHopper.Core.UI.Chat
                 // In that case, ConversationSession already handles fallback internally via OnFinal
                 bool hasValidationError = lastStreamReturn?.Messages?.Any(m =>
                     m != null &&
-                    m.Severity == AIRuntimeMessageSeverity.Error &&
-                    m.Origin == AIRuntimeMessageOrigin.Validation) ?? false;
+                    m.Severity == SHRuntimeMessageSeverity.Error &&
+                    m.Origin == SHRuntimeMessageOrigin.Validation) ?? false;
 
                 // If we got a validation error with no content, fall back to non-streaming
                 bool hasContent = lastStreamReturn?.Body?.Interactions?.Any(i =>
@@ -1336,6 +1353,22 @@ namespace SmartHopper.Core.UI.Chat
             catch (Exception ex)
             {
                 DebugLog($"[WebChatDialog] Error requesting cancellation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles dialog closing by cancelling any ongoing AI interactions.
+        /// </summary>
+        private void OnDialogClosing()
+        {
+            try
+            {
+                DebugLog("[WebChatDialog] Dialog closing, cancelling ongoing AI calls");
+                this.CancelChat();
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"[WebChatDialog] Error during dialog closing: {ex.Message}");
             }
         }
 

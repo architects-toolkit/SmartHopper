@@ -12,7 +12,10 @@ name: 🚫 Block Dev Release to Main
 
 on:
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+      - 'hotfix/**'
+      - 'release/**'
     paths:
       - 'Solution.props'
 

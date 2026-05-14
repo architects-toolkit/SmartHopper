@@ -22,6 +22,7 @@ using System.IO;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Components.Properties;
+using SmartHopper.Core.Types;
 
 namespace SmartHopper.Components.Img
 {
@@ -58,10 +59,11 @@ namespace SmartHopper.Components.Img
         /// </summary>
         public ImageViewerComponent()
             : base(
-                  "Image Viewer",
-                  "ImgView",
-                  "Display bitmap images on the canvas and save them to disk.",
-                  "SmartHopper", "Img")
+                "Image Viewer",
+                "ImgView",
+                "Display bitmap images on the canvas and save them to disk.",
+                "SmartHopper",
+                "Img")
         {
         }
 
@@ -79,7 +81,7 @@ namespace SmartHopper.Components.Img
         /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Image", "I", "Bitmap image to display", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Image", "I", "VersatileImage to display", GH_ParamAccess.item);
             pManager.AddTextParameter("File Path", "F", "File path to save the image.\nAdd one of the compatible extensions to the file name: .png, .jpg, .bmp, .gif or .tiff", GH_ParamAccess.item, string.Empty);
             pManager.AddBooleanParameter("Save?", "S", "Trigger to save the image to the specified file path", GH_ParamAccess.item, false);
 
@@ -116,8 +118,21 @@ namespace SmartHopper.Components.Img
             // Extract bitmap from input
             if (imageGoo != null)
             {
+                // Try to get bitmap from GH_VersatileImage
+                if (imageGoo is GH_VersatileImage versatileImage && versatileImage.Value != null)
+                {
+                    try
+                    {
+                        bitmap = versatileImage.Value.ToBitmap();
+                    }
+                    catch (Exception ex)
+                    {
+                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to convert VersatileImage to Bitmap: {ex.Message}");
+                    }
+                }
+
                 // Try to get bitmap from GH_ObjectWrapper
-                if (imageGoo is GH_ObjectWrapper wrapper && wrapper.Value is Bitmap bmp)
+                else if (imageGoo is GH_ObjectWrapper wrapper && wrapper.Value is Bitmap bmp)
                 {
                     bitmap = bmp;
                 }
@@ -283,7 +298,7 @@ namespace SmartHopper.Components.Img
             var directory = Path.GetDirectoryName(targetPath) ?? string.Empty;
             var fileName = Path.GetFileNameWithoutExtension(targetPath);
             var extension = Path.GetExtension(targetPath);
-            var randomPart = Path.GetRandomFileName().Replace(".", "");
+            var randomPart = Path.GetRandomFileName().Replace(".", string.Empty);
             var tempFileName = $"{fileName}_temp_{randomPart}{extension}";
             return Path.Combine(directory, tempFileName);
         }

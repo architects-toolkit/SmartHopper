@@ -244,7 +244,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse AI response and validate with retry loop
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                var responseJson = AIResponseParser.SanitizeAndParseJson(response);
+                var responseJson = AIResponseParser.ParseJsonFromResponse(response);
 
                 var newScriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                 var newInputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -291,7 +291,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     // Parse corrected response
                     response = correctionResult.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                    responseJson = AIResponseParser.SanitizeAndParseJson(response);
+                    responseJson = AIResponseParser.ParseJsonFromResponse(response);
 
                     newScriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                     newInputs = responseJson["inputs"] as JArray ?? new JArray();

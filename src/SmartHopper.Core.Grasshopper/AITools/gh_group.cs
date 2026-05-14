@@ -42,6 +42,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_group";
+
         /// <summary>
         /// Returns the gh_group AI tool.
         /// </summary>

@@ -355,8 +355,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         }
 
         // Sorts a layer based on barycenter relative to nodes in adjacent layer
-        private static void SortLayerByBarycenter(List<NodeGridComponent> currentLayer,
-            List<NodeGridComponent> adjacentLayer, bool useParents)
+        private static void SortLayerByBarycenter(List<NodeGridComponent> currentLayer, List<NodeGridComponent> adjacentLayer, bool useParents)
         {
             currentLayer.Sort((a, b) =>
             {
@@ -367,8 +366,7 @@ namespace SmartHopper.Core.Grasshopper.Graph
         }
 
         // Calculates average Y position of connections to adjacent layer
-        private static float CalculateBarycenter(NodeGridComponent node,
-            List<NodeGridComponent> adjacentLayer, bool useParents)
+        private static float CalculateBarycenter(NodeGridComponent node, List<NodeGridComponent> adjacentLayer, bool useParents)
         {
             var connected = useParents ? node.Parents.Keys : node.Children.Keys;
             var positions = new List<float>();
@@ -466,7 +464,6 @@ namespace SmartHopper.Core.Grasshopper.Graph
 
                 Debug.WriteLine($"[Sugiyama05_MultiLayerSweep] Changing pivot for {grid.Count(n => n.Pivot.Y != oldY[n.ComponentId])} nodes");
             }
-
             while (changed);
 
             return grid;

@@ -23,7 +23,7 @@
 
 .PARAMETER Provider
     Provider name matching the folder under src/SmartHopper.Providers.<Provider>,
-    e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek.
+    e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek, Gemini.
 
 .PARAMETER ApiKey
     OpenRouter API key. The same key is used for every provider because
@@ -101,6 +101,7 @@ $ProviderPrefixes = @{
     'Anthropic'  = 'anthropic/'
     'MistralAI'  = 'mistralai/'
     'DeepSeek'   = 'deepseek/'
+    'Gemini'     = 'google/'
     'OpenRouter' = ''
 }
 
@@ -115,6 +116,7 @@ $ProviderAliasSuffix = @{
     'Anthropic'  = '-(?:\d{8}|latest)$'
     'MistralAI'  = $null   # uses .name field grouping (handled separately)
     'DeepSeek'   = $null
+    'Gemini'     = $null
     'OpenRouter' = $null
 }
 
@@ -127,6 +129,7 @@ $ProviderApis = @{
     'MistralAI'  = @{ Url = 'https://api.mistral.ai/v1/models';     Headers = { param($k) @{ Authorization = "Bearer $k" } } }
     'DeepSeek'   = @{ Url = 'https://api.deepseek.com/v1/models';   Headers = { param($k) @{ Authorization = "Bearer $k" } } }
     'Anthropic'  = @{ Url = 'https://api.anthropic.com/v1/models';  Headers = { param($k) @{ 'x-api-key' = $k; 'anthropic-version' = '2023-06-01' } } }
+    'Gemini'     = @{ Url = 'https://generativelanguage.googleapis.com/v1beta/models'; Headers = { param($k) @{ 'x-goog-api-key' = $k } } }
 }
 
 # ---------------------------------------------------------------------------
@@ -154,6 +157,8 @@ function ConvertFrom-ModelBlock($blockText) {
         SupportsPromptCaching = $null
         Rank                = $null
         ContextLimit        = $null
+        Created             = $null
+        Pricing             = $null
         Aliases             = $null
         DiscouragedForTools = $null
         CacheKeyStrategy    = $null
@@ -178,6 +183,29 @@ function ConvertFrom-ModelBlock($blockText) {
         if ($m.Success) {
             $result[$prop.Key] = $m.Groups[1].Value.Trim()
         }
+    }
+
+    # Created = new DateTime(YYYY, M, D[, H, M, S])
+    $createdRx = [regex]::Match($blockText, 'Created\s*=\s*new\s+DateTime\s*\(\s*([^)]+?)\s*\)')
+    if ($createdRx.Success) {
+        $parts = $createdRx.Groups[1].Value -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+        if ($parts.Count -ge 3) {
+            try {
+                $y = [int]$parts[0]; $mo = [int]$parts[1]; $d = [int]$parts[2]
+                $result.Created = [DateTime]::new($y, $mo, $d)
+            } catch { }
+        }
+    }
+
+    # Pricing = new AIModelPricing { ... }
+    $pricingRx = [regex]::Match($blockText, 'Pricing\s*=\s*new\s+AIModelPricing\s*\{\s*([^}]*)\s*\}')
+    if ($pricingRx.Success) {
+        $priceBody = $pricingRx.Groups[1].Value
+        $pricing = [ordered]@{}
+        foreach ($pm in [regex]::Matches($priceBody, '(\w+)\s*=\s*([0-9]*\.?[0-9]+(?:[eE][-+]?\d+)?)m?')) {
+            $pricing[$pm.Groups[1].Value] = $pm.Groups[2].Value
+        }
+        if ($pricing.Count -gt 0) { $result.Pricing = [pscustomobject]$pricing }
     }
 
     # Aliases
@@ -233,6 +261,34 @@ function Format-ModelBlock($model, $providerVar) {
 
     if (-not [string]::IsNullOrWhiteSpace($model.ContextLimit)) {
         $lines.Add("                    ContextLimit = $($model.ContextLimit),")
+    }
+
+    if ($model.Created) {
+        $dt = $null
+        if ($model.Created -is [DateTime]) { $dt = $model.Created }
+        else { try { $dt = [DateTime]::Parse([string]$model.Created) } catch { } }
+        if ($dt -and $dt -ne [DateTime]::MinValue) {
+            $lines.Add("                    Created = new DateTime($($dt.Year), $($dt.Month), $($dt.Day)),")
+        }
+    }
+
+    if ($model.Pricing) {
+        $priceProps = [System.Collections.Generic.List[string]]::new()
+        foreach ($p in @('Prompt','Completion','Request','Image','ImageOutput','ImageToken','Audio','AudioOutput','InputAudioCache','InputCacheRead','InputCacheWrite','InternalReasoning','WebSearch','Discount')) {
+            $v = $model.Pricing.$p
+            if ($null -ne $v -and -not [string]::IsNullOrWhiteSpace([string]$v)) {
+                $num = [string]$v
+                # Strip trailing 'm' if present; normalize
+                $num = $num.TrimEnd('m','M')
+                [void]$priceProps.Add("                        $p = ${num}m,")
+            }
+        }
+        if ($priceProps.Count -gt 0) {
+            $lines.Add('                    Pricing = new AIModelPricing')
+            $lines.Add('                    {')
+            foreach ($pp in $priceProps) { $lines.Add($pp) }
+            $lines.Add('                    },')
+        }
     }
 
     if ($model.Aliases -and $model.Aliases.Count -gt 0) {
@@ -409,9 +465,15 @@ $prefix = $ProviderPrefixes[$Provider]
 $isOpenRouterProvider = ($Provider -eq 'OpenRouter')
 
 # Helper: derive the model name stored in the source file from an OpenRouter id.
+# For non-OpenRouter providers, also strips OpenRouter pricing-tier suffixes
+# (e.g. ":free", ":extended") which are OpenRouter-specific tags.
 function Get-ModelName($fullId) {
     if ($isOpenRouterProvider) { return $fullId }
-    return $fullId.Substring($prefix.Length)
+    $name = $fullId.Substring($prefix.Length)
+    # Strip pricing-tier suffix: "gemma-4-26b-a4b-it:free" -> "gemma-4-26b-a4b-it"
+    $colonIdx = $name.IndexOf(':')
+    if ($colonIdx -ge 0) { $name = $name.Substring(0, $colonIdx) }
+    return $name
 }
 
 $openRouterModels = [System.Collections.Generic.List[psobject]]::new()
@@ -434,6 +496,27 @@ foreach ($item in $response.data) {
 }
 
 Write-Host "[$Provider] OpenRouter returned $($openRouterModels.Count) model(s) for prefix '$prefix'."
+
+# For non-OpenRouter providers, deduplicate models that differ only by
+# OpenRouter pricing-tier suffix (e.g. "model:free" vs "model").
+# Keep the entry without a suffix when both exist (it carries richer pricing metadata).
+if (-not $isOpenRouterProvider) {
+    $dedup = [ordered]@{}
+    foreach ($orm in $openRouterModels) {
+        $name = Get-ModelName $orm.id
+        $rawPart = $orm.id.Substring($prefix.Length)
+        $hasSuffix = $rawPart.Contains(':')
+        if ($dedup.Contains($name)) {
+            # Replace only if current entry has no tier suffix (canonical)
+            if (-not $hasSuffix) { $dedup[$name] = $orm }
+        }
+        else {
+            $dedup[$name] = $orm
+        }
+    }
+    $openRouterModels = [System.Collections.Generic.List[psobject]]@($dedup.Values)
+    Write-Host "[$Provider] After tier-suffix deduplication: $($openRouterModels.Count) model(s)."
+}
 
 # Helper: Normalize model name for cross-reference matching.
 # Anthropic uses hyphens in their API (claude-opus-4-7) while OpenRouter uses dots (claude-opus-4.7).
@@ -536,12 +619,28 @@ if (-not [string]::IsNullOrWhiteSpace($ProviderApiKey) -and $ProviderApis.Contai
         $providerResponse = Invoke-RestMethod -Uri $api.Url -Headers $providerHeaders -Method GET -TimeoutSec 60
         $providerApiQueried = $true
 
-        # Both OpenAI-compatible APIs and Anthropic return { data: [{ id: ... }] }.
-        $providerData = if ($providerResponse.data) { $providerResponse.data } else { @() }
-        foreach ($pm in $providerData) {
-            if (-not [string]::IsNullOrWhiteSpace($pm.id) -and -not $pm.id.StartsWith('ft:')) {
-                [void]$providerApiModelNames.Add($pm.id)
-                $providerApiLookup[$pm.id] = $pm
+        # Most providers return { data: [{ id: ... }] }.
+        # Gemini returns { models: [{ name: "models/<id>" }] } instead.
+        if ($Provider -eq 'Gemini') {
+            $providerData = if ($providerResponse.models) { $providerResponse.models } else { @() }
+            foreach ($pm in $providerData) {
+                $rawName = $pm.name
+                if ([string]::IsNullOrWhiteSpace($rawName)) { continue }
+                # Strip the "models/" prefix that Google's API returns.
+                if ($rawName.StartsWith('models/', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $rawName = $rawName.Substring('models/'.Length)
+                }
+                [void]$providerApiModelNames.Add($rawName)
+                $providerApiLookup[$rawName] = $pm
+            }
+        }
+        else {
+            $providerData = if ($providerResponse.data) { $providerResponse.data } else { @() }
+            foreach ($pm in $providerData) {
+                if (-not [string]::IsNullOrWhiteSpace($pm.id) -and -not $pm.id.StartsWith('ft:')) {
+                    [void]$providerApiModelNames.Add($pm.id)
+                    $providerApiLookup[$pm.id] = $pm
+                }
             }
         }
 
@@ -763,6 +862,31 @@ if ($providerApiQueried) {
 }
 
 # ---------------------------------------------------------------------------
+# Helper: Merge API-derived pricing into an existing pricing object per-field.
+# Preserves any hand-curated fields that the API did not publish; overwrites
+# only the fields the API did publish. Returns a new pscustomobject.
+# ---------------------------------------------------------------------------
+function Merge-Pricing($existing, $incoming) {
+    if (-not $existing) { return $incoming }
+    if (-not $incoming) { return $existing }
+
+    $merged = [ordered]@{}
+    $fields = @('Prompt','Completion','Request','Image','ImageOutput','ImageToken','Audio','AudioOutput','InputAudioCache','InputCacheRead','InputCacheWrite','InternalReasoning','WebSearch','Discount')
+    foreach ($f in $fields) {
+        $iv = $incoming.$f
+        $ev = $existing.$f
+        if ($null -ne $iv -and -not [string]::IsNullOrWhiteSpace([string]$iv)) {
+            $merged[$f] = $iv
+        }
+        elseif ($null -ne $ev -and -not [string]::IsNullOrWhiteSpace([string]$ev)) {
+            $merged[$f] = $ev
+        }
+    }
+    if ($merged.Count -eq 0) { return $null }
+    return [pscustomobject]$merged
+}
+
+# ---------------------------------------------------------------------------
 # Helper: Extract enrichment data from an OpenRouter model entry
 # ---------------------------------------------------------------------------
 function Get-OpenRouterEnrichment($orm) {
@@ -779,10 +903,50 @@ function Get-OpenRouterEnrichment($orm) {
     $ctx = $orm.context_length
     if (-not $ctx -and $orm.top_provider) { $ctx = $orm.top_provider.context_length }
 
+    # Created: Unix epoch seconds
+    $created = $null
+    if ($orm.created) {
+        try { $created = [DateTimeOffset]::FromUnixTimeSeconds([long]$orm.created).UtcDateTime } catch { }
+    }
+
+    # Pricing: map OpenRouter snake_case fields to our PascalCase properties.
+    $pricing = $null
+    if ($orm.pricing) {
+        $map = @{
+            prompt              = 'Prompt'
+            completion          = 'Completion'
+            request             = 'Request'
+            image               = 'Image'
+            image_output        = 'ImageOutput'
+            image_token         = 'ImageToken'
+            audio               = 'Audio'
+            audio_output        = 'AudioOutput'
+            input_audio_cache   = 'InputAudioCache'
+            input_cache_read    = 'InputCacheRead'
+            input_cache_write   = 'InputCacheWrite'
+            internal_reasoning  = 'InternalReasoning'
+            web_search          = 'WebSearch'
+            discount            = 'Discount'
+        }
+        $priceObj = [ordered]@{}
+        foreach ($kvp in $map.GetEnumerator()) {
+            $raw = $orm.pricing.$($kvp.Key)
+            if ($null -eq $raw) { continue }
+            $s = [string]$raw
+            if ([string]::IsNullOrWhiteSpace($s)) { continue }
+            # Skip zero to keep emitted blocks small (field is optional).
+            try { if ([decimal]$s -eq [decimal]0) { continue } } catch { continue }
+            $priceObj[$kvp.Value] = $s
+        }
+        if ($priceObj.Count -gt 0) { $pricing = [pscustomobject]$priceObj }
+    }
+
     return [pscustomobject]@{
         Capabilities = ConvertTo-CapabilityFlags -openRouterModel $orm
         ContextLimit = if ($null -ne $ctx) { $ctx.ToString() } else { $null }
         Deprecated   = $deprecated
+        Created      = $created
+        Pricing      = $pricing
     }
 }
 
@@ -868,7 +1032,20 @@ if ($providerApiQueried) {
         $isApiDeprecated = $apiDeprecatedCanonicals.Contains($pmId)
 
         if ($mergedModels.Contains($pmId)) {
-            # Preserve all hand-curated data but update aliases from provider API
+            # Refresh Created/Pricing from OpenRouter when available (always
+        # re-derived, since these are published metadata, not hand-curated).
+        $ormRefresh = Resolve-OpenRouterEntry $pmId $apiAliases
+        $enrichRefresh = Get-OpenRouterEnrichment -orm $ormRefresh
+        if ($enrichRefresh) {
+            if ($enrichRefresh.Created) { $mergedModels[$pmId] | Add-Member -NotePropertyName 'Created' -NotePropertyValue $enrichRefresh.Created -Force }
+            if ($enrichRefresh.Pricing) {
+                $existingPricing = $mergedModels[$pmId].Pricing
+                $mergedPricing = Merge-Pricing $existingPricing $enrichRefresh.Pricing
+                $mergedModels[$pmId] | Add-Member -NotePropertyName 'Pricing' -NotePropertyValue $mergedPricing -Force
+            }
+        }
+
+        # Preserve all hand-curated data but update aliases from provider API
             # (additive merge: keep existing aliases, add any new ones from the API)
             # and propagate provider deprecation flag.
             $existing = $mergedModels[$pmId]
@@ -918,6 +1095,8 @@ if ($providerApiQueried) {
             SupportsPromptCaching = $null
             Rank                  = '50'
             ContextLimit          = $ctx
+            Created               = if ($enrichment) { $enrichment.Created } else { $null }
+            Pricing               = if ($enrichment) { $enrichment.Pricing } else { $null }
             Aliases               = if ($apiAliases.Count -gt 0) { $apiAliases } else { $null }
             DiscouragedForTools   = $null
             CacheKeyStrategy      = $null
@@ -934,9 +1113,18 @@ else {
 
         if ($mergedModels.Contains($modelName)) {
             $existing = $mergedModels[$modelName]
-            $existing.Capabilities = $enrichment.Capabilities
+            # Only overwrite Capabilities when OpenRouter returned a real value.
+            # Preserve hand-curated flags when the API reports None.
+            if (-not [string]::IsNullOrWhiteSpace($enrichment.Capabilities) -and $enrichment.Capabilities -ne 'AICapability.None') {
+                $existing.Capabilities = $enrichment.Capabilities
+            }
             if ($null -ne $enrichment.ContextLimit) { $existing.ContextLimit = $enrichment.ContextLimit }
             if ($enrichment.Deprecated -or $existing.Deprecated -eq 'true') { $existing.Deprecated = 'true' }
+            if ($enrichment.Created) { $existing | Add-Member -NotePropertyName 'Created' -NotePropertyValue $enrichment.Created -Force }
+            if ($enrichment.Pricing) {
+                $mergedPricing = Merge-Pricing $existing.Pricing $enrichment.Pricing
+                $existing | Add-Member -NotePropertyName 'Pricing' -NotePropertyValue $mergedPricing -Force
+            }
         }
         else {
             $mergedModels[$modelName] = [pscustomobject][ordered]@{
@@ -949,6 +1137,8 @@ else {
                 SupportsPromptCaching = $null
                 Rank                  = '50'
                 ContextLimit          = $enrichment.ContextLimit
+                Created               = $enrichment.Created
+                Pricing               = $enrichment.Pricing
                 Aliases               = $null
                 DiscouragedForTools   = $null
                 CacheKeyStrategy      = $null

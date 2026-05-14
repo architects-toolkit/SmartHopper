@@ -208,27 +208,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 requiredCapabilities: this.toolCapabilityRequirements);
         }
 
-        private async Task<AIReturn> AddInputParameterAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_parameter_add_input", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> AddInputParameterAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_add_input", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var name = args["name"]?.ToString() ?? throw new ArgumentException("Missing name");
             var typeHint = args["typeHint"]?.ToString() ?? "object";
             var access = args["access"]?.ToString() ?? "item";
-            var description = args["description"]?.ToString() ?? "";
+            var description = args["description"]?.ToString() ?? string.Empty;
             var optional = args["optional"]?.ToObject<bool>() ?? true;
             ScriptModifier.AddInputParameter(scriptComp, name, typeHint, access, description, optional);
             return $"Added input '{name}' ({typeHint}, {access})";
         }));
 
-        private async Task<AIReturn> AddOutputParameterAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_parameter_add_output", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> AddOutputParameterAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_add_output", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var name = args["name"]?.ToString() ?? throw new ArgumentException("Missing name");
             var typeHint = args["typeHint"]?.ToString() ?? "object";
-            var description = args["description"]?.ToString() ?? "";
+            var description = args["description"]?.ToString() ?? string.Empty;
             ScriptModifier.AddOutputParameter(scriptComp, name, typeHint, description);
             return $"Added output '{name}' ({typeHint})";
         }));
 
-        private async Task<AIReturn> RemoveInputParameterAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_parameter_remove_input", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> RemoveInputParameterAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_remove_input", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var index = args["index"]?.ToObject<int>() ?? throw new ArgumentException("Missing index");
             if (index < 0 || index >= comp.Params.Input.Count) throw new ArgumentException($"Index {index} out of range");
@@ -237,7 +237,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return $"Removed input '{paramName}' at index {index}";
         }));
 
-        private async Task<AIReturn> RemoveOutputParameterAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_parameter_remove_output", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> RemoveOutputParameterAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_remove_output", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var index = args["index"]?.ToObject<int>() ?? throw new ArgumentException("Missing index");
             if (index < 0 || index >= comp.Params.Output.Count) throw new ArgumentException($"Index {index} out of range");
@@ -246,7 +246,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return $"Removed output '{paramName}' at index {index}";
         }));
 
-        private async Task<AIReturn> SetInputTypeHintAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_parameter_set_type_input", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> SetInputTypeHintAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_set_type_input", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var index = args["index"]?.ToObject<int>() ?? throw new ArgumentException("Missing index");
             var typeHint = args["typeHint"]?.ToString() ?? throw new ArgumentException("Missing typeHint");
@@ -256,7 +256,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return $"Set type hint '{typeHint}' for input '{paramName}'";
         }));
 
-        private async Task<AIReturn> SetOutputTypeHintAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_parameter_set_type_output", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> SetOutputTypeHintAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_set_type_output", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var index = args["index"]?.ToObject<int>() ?? throw new ArgumentException("Missing index");
             var typeHint = args["typeHint"]?.ToString() ?? throw new ArgumentException("Missing typeHint");
@@ -266,7 +266,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return $"Set type hint '{typeHint}' for output '{paramName}'";
         }));
 
-        private async Task<AIReturn> SetInputAccessAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_parameter_set_access", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> SetInputAccessAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_set_access", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var index = args["index"]?.ToObject<int>() ?? throw new ArgumentException("Missing index");
             var access = args["access"]?.ToString() ?? throw new ArgumentException("Missing access");
@@ -283,14 +283,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return $"Set access '{access}' for input '{paramName}'";
         }));
 
-        private async Task<AIReturn> ToggleStandardOutputAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_toggle_std_output", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> ToggleStandardOutputAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_toggle_std_output", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var show = args["show"]?.ToObject<bool>() ?? throw new ArgumentException("Missing show");
             ScriptModifier.SetShowStandardOutput(scriptComp, show);
             return $"{(show ? "Showed" : "Hid")} standard output parameter";
         }));
 
-        private async Task<AIReturn> SetPrincipalInputAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_set_principal_input", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> SetPrincipalInputAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_set_principal_input", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var index = args["index"]?.ToObject<int>() ?? throw new ArgumentException("Missing index");
             if (index < 0 || index >= comp.Params.Input.Count) throw new ArgumentException($"Index {index} out of range");
@@ -299,7 +299,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return $"Set principal input to '{paramName}' at index {index}";
         }));
 
-        private async Task<AIReturn> SetInputOptionalAsync(AIToolCall toolCall) => await ExecuteScriptModification(toolCall, "script_parameter_set_optional", args => ExecuteScriptOp(args, (scriptComp, comp) =>
+        private async Task<AIReturn> SetInputOptionalAsync(AIToolCall toolCall) => await this.ExecuteScriptModification(toolCall, "script_parameter_set_optional", args => this.ExecuteScriptOp(args, (scriptComp, comp) =>
         {
             var index = args["index"]?.ToObject<int>() ?? throw new ArgumentException("Missing index");
             var optional = args["optional"]?.ToObject<bool>() ?? throw new ArgumentException("Missing optional");

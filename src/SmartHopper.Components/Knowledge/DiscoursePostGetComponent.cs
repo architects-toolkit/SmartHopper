@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -43,7 +44,7 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("8D2C5A1E-3B4F-4C5D-8A9E-0F1A2B3C4D5E");
 
-        protected override Bitmap Icon => Resources.mcneelpostget;
+        protected override Bitmap Icon => Resources.discoursepostget;
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
@@ -55,7 +56,6 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -71,7 +71,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new DiscoursePostGetWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new DiscoursePostGetWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class DiscoursePostGetWorker : AsyncWorkerBase
@@ -161,26 +161,25 @@ namespace SmartHopper.Components.Knowledge
 
                                     var toolCallInteraction = new AIInteractionToolCall
                                     {
-                                        Name = "discourse_post_get",
+                                        Name = "discourse_forum_post_get",
                                         Arguments = parameters,
                                         Agent = AIAgent.Assistant,
                                     };
 
                                     var toolCall = new AIToolCall
                                     {
-                                        Endpoint = "discourse_post_get",
+                                        Endpoint = "discourse_forum_post_get",
                                     };
 
                                     toolCall.FromToolCallInteraction(toolCallInteraction);
                                     toolCall.SkipMetricsValidation = true;
 
                                     AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                                    var toolResult = toolResultInteraction?.Result;
+                                    var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
-                                    if (toolResult == null)
+                                    if (toolResult.Result == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'discourse_post_get' returned no result.");
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'discourse_forum_post_get' returned no result.", SHRuntimeMessageOrigin.Tool);
                                         continue;
                                     }
 
@@ -205,7 +204,7 @@ namespace SmartHopper.Components.Knowledge
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[DiscoursePostGetWorker] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 

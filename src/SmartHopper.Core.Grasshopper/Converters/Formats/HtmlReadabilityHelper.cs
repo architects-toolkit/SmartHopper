@@ -41,7 +41,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
     /// Helper class for HTML readability extraction inspired by magic-html.
     /// Implements content scoring and boilerplate removal.
     /// </summary>
-    internal static class HtmlReadabilityHelper
+    public static class HtmlReadabilityHelper
     {
         private static readonly string[] BoilerplateClassPatterns = new[]
         {

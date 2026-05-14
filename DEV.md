@@ -37,19 +37,36 @@ This document aggregates development-facing information.
 | AI Script Generate (AIScriptGenerate)<br><sub>Create or edit Grasshopper script components using AI. Supports create mode (from prompts) and edit mode (from selected components).</sub> | Script | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List To Boolean (AIList2Boolean)<br><sub>Return a boolean from a list of elements using AI analysis</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI List Filter (AIListFilter)<br><sub>Process items in lists (reorder, shuffle, filter, etc.) based on AI-driven rules</sub> | List | ⚪ | 🟡 | 🟠 | 🟢 |
-| Web To Markdown (WebToMd)<br><sub>Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
-| File To Markdown (FileToMd)<br><sub>Convert local files (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) to Markdown</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Web To Markdown (Web2Md)<br><sub>Convert web pages (URLs) to Markdown with specialized handlers for Wikipedia, GitHub, Discourse, Stack Exchange</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| File To Markdown (File2Md)<br><sub>Convert local files (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) to Markdown</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Discourse Search (DiscourseSearch)<br><sub>Search any Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Discourse Post Get (DiscoursePostGet)<br><sub>Retrieve a Discourse forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Discourse Post Open (DiscoursePostOpen)<br><sub>Open a Discourse forum post URL in the default browser</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Discourse Post Deconstruct (DiscoursePostDeconstruct)<br><sub>Deconstruct Discourse forum post JSON into individual fields</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Discourse Post Summarize (AIDiscoursePostSummarize)<br><sub>Generate AI summary of a Discourse forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Discourse Topic Summarize (AIDiscourseTopicSummarize)<br><sub>Generate AI summary of a Discourse forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Search (McNeelForumSearch)<br><sub>Search McNeel Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Post Get (McNeelForumPostGet)<br><sub>Retrieve a McNeel Discourse forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | McNeel Forum Post Open (McNeelForumPostOpen)<br><sub>Open a McNeel forum post URL in the default browser</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
-| McNeel Forum Deconstruct Post (McNeelForumDeconstructPost)<br><sub>Deconstruct forum post JSON into individual fields</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI McNeel Forum Post Summarize (AIMcNeelForumPostSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | AI McNeel Forum Topic Summarize (AIMcNeelForumTopicSummarize)<br><sub>Generate AI summary of a McNeel Discourse forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Ladybug Forum Search (LadybugForumSearch)<br><sub>Search Ladybug Tools Discourse forum with configurable limit</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Ladybug Forum Post Get (LadybugForumPostGet)<br><sub>Retrieve a Ladybug forum post by ID</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| Ladybug Forum Post Open (LadybugForumPostOpen)<br><sub>Open a Ladybug forum post URL in the default browser</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Ladybug Forum Post Summarize (AILadybugForumPostSummarize)<br><sub>Generate AI summary of a Ladybug forum post</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
+| AI Ladybug Forum Topic Summarize (AILadybugForumTopicSummarize)<br><sub>Generate AI summary of a Ladybug forum topic</sub> | Knowledge | ⚪ | 🟡 | 🟠 | 🟢 |
 | Deconstruct Metrics (DeconstructMetrics)<br><sub>Break down the usage metrics into individual values</sub> | Misc | ⚪ | 🟡 | 🟠 | 🟢 |
-| AI JSON Generate (AIJsonGenerate)<br><sub>Generate an AI response in strict JSON output</sub> | JSON | ⚪ | - | - | - |
-| JSON Schema (JsonSchema)<br><sub>Set a JSON schema for the AI component</sub> | JSON | ⚪ | - | - | - |
-| JSON Object (JsonObject)<br><sub>Set a JSON object for the definition of the JSON Schema</sub> | JSON | ⚪ | - | - | - |
-| JSON Array (JsonArray)<br><sub>Set a JSON array for the definition of the JSON Schema</sub> | JSON | ⚪ | - | - | - |
+| AI Text To JSON (AIText2Json)<br><sub>Generate structured JSON from a prompt using AI with JSON Schema validation</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Schema (JsonSchema)<br><sub>Build a JSON Schema from property definitions with nested object/array support via dot-notation</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Schema Property (JsonSchemaProp)<br><sub>Build scalar property definitions for JSON Schema using individual inputs</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Schema Property Object (JsonSchemaPropObj)<br><sub>Build object property definitions with sub-properties for JSON Schema</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Schema Property Array (JsonSchemaPropArr)<br><sub>Build array property definitions with configurable item type for JSON Schema</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Object (JsonObject)<br><sub>Create a JSON object from key-value pairs with auto-coerced values</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Array (JsonArray)<br><sub>Create a JSON array from a list of items with auto-coerced values</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Array To Text List (JsonArray2Text)<br><sub>Parse a JSON array string into a Grasshopper text list</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON To Text (Json2Text)<br><sub>Serialize a JSON value to a string with optional pretty-print</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Get Value (JsonGetValue)<br><sub>Extract a nested value from JSON using dot-notation path</sub> | JSON | ⚪ | 🟡 | - | - |
+| JSON Merge (JsonMerge)<br><sub>Merge multiple JSON objects via shallow merge (last-wins)</sub> | JSON | ⚪ | 🟡 | - | - |
 
 ### AI Tools
 
@@ -64,7 +81,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `list_filter` | DataProcessing | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2textlist` | DataProcessing | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
 | `img2text` | ImageProcessing | Describes or analyzes an image using a vision model | ⚪ | 🟡 | 🟠 | 🟢 |
-| `json_generate` | DataProcessing | Generate an AI response in strict JSON output | ⚪ | - | - | - |
+| `text2json` | DataProcessing | Generates structured JSON from a prompt conforming to a provided JSON Schema | ⚪ | 🟡 | - | - |
 | `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
 | `script_review` | Script | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -75,11 +92,21 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic (canvas, ghjson, scripting, etc.) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `web2md` | Knowledge | Convert web pages (URLs) to Markdown with metadata and warnings | ⚪ | 🟡 | 🟠 | 🟢 |
 | `file2md` | Knowledge | Convert local files to Markdown (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_search` | Knowledge | Search any Discourse forum with configurable limit (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_post_get` | Knowledge | Retrieve a Discourse forum post by ID (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_topic_get` | Knowledge | Retrieve all posts in a Discourse forum topic by ID (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum post (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum topic (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_search` | Knowledge | Search McNeel Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_post_get` | Knowledge | Retrieve filtered McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_post_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_post_get` | Knowledge | Retrieve a McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_topic_get` | Knowledge | Retrieve all posts in a McNeel Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_post_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
 | `mcneel_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_search` | Knowledge | Search Ladybug Tools Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_post_get` | Knowledge | Retrieve a Ladybug forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_topic_get` | Knowledge | Retrieve all posts in a Ladybug forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Ladybug forum post | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Ladybug forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_categories` | Components | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_list_components` | Components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_get` | Components | Retrieve Grasshopper components as GhJSON with optional filters (attr, category, type, guid, connectionDepth, metadata, runtimeData) | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -138,13 +165,18 @@ Is there something missing? Do you have a suggestion? Please open a discussion i
 
 SmartHopper currently supports the following AI providers and features:
 
-| Provider | Status | API Registration | Streaming | Reasoning exposed by API | Live reasoning streaming in UI | Temperature config | Tool calling | JSON output | Image generation |
-|----------|:------:|------------------|:--------:|:------------------------:|:-------------------------------:|:------------------:|:-----------:|:-----------:|:----------------:|
-| OpenAI | ✅ Supported | [OpenAI Platform](https://platform.openai.com/) | Yes | Yes (o‑series & gpt‑5 structured content) | Yes | Yes (non o‑series & non gpt‑5) | Yes | Yes | Yes (DALL‑E) |
-| MistralAI | ✅ Supported | [Le Plateforme](https://console.mistral.ai/) | Yes | Yes (thinking blocks) | Yes | Yes | Yes | Yes | No |
-| DeepSeek | ✅ Supported | [DeepSeek Platform](https://platform.deepseek.com/) | Yes | Yes (reasoning_content) | Yes | Yes | Yes | Yes | No |
-| Anthropic | ✅ Supported | [Claude Console](https://platform.claude.com/) | Yes | No | No | Yes | Yes | Yes | No |
-| OpenRouter | ✅ Supported | [OpenRouter](https://openrouter.ai/) | No | No (varies by routed model) | No | Varies | Varies | Varies | Varies |
+| Provider | Status | API Registration | Streaming | Reasoning exposed by API | Live reasoning streaming in UI | Temperature config | Tool calling | JSON output | Image generation | Batch processing |
+|---|:---:|---|:---:|---|:---:|---|:---:|:---:|:---:|:---:|
+| OpenAI | ✅ Supported | OpenAI Platform | Yes | Yes (o-series & gpt-5 structured content) | Yes | Yes (non o-series & non gpt-5) | Yes | Yes | Yes (DALL-E) | ✅ Yes |
+| MistralAI | ✅ Supported | Le Plateforme | Yes | Yes (thinking blocks) | Yes | Yes | Yes | Yes | No | ✅ Yes |
+| DeepSeek | ✅ Supported | DeepSeek Platform | Yes | Yes (reasoning_content) | Yes | Yes | Yes | Yes | No | ❌ No |
+| Anthropic | ✅ Supported | Claude Console | Yes | No | No | Yes | Yes | Yes | No | ✅ Yes |
+| OpenRouter | ✅ Supported | OpenRouter | No | No (varies by routed model) | No | Varies | Varies | Varies | Varies | ❌ No |
+| Gemini | 🟠 Testing | Google AI Studio | Yes | Yes (thinking_level) | Yes | Yes | Yes | Yes | ✅ Yes | ✅ Yes |
+| Ollama | ⚪ Planned | Local Ollama server | Planned | Planned | Planned | Planned | Planned | Planned | No | Planned |
+| LocalAI | ⚪ Planned | LocalAI server | Planned | Planned | Planned | Planned | Planned | Planned | Planned | Planned |
+| Black Forest Labs | ⚪ Planned | Black Forest Labs API | Planned | No | No | Planned | No | No | Planned | Planned |
+| Stable Diffusion | ⚪ Planned | Local/API Stable Diffusion endpoint | Planned | No | No | Planned | No | No | Planned | Planned |
 
 Notes:
 - “Temperature config” indicates whether the provider/model family supports a temperature parameter in SmartHopper. For OpenAI o‑series and gpt‑5, temperature is omitted by design; other OpenAI models support it.
@@ -155,46 +187,62 @@ Do you want more providers? Please open a discussion in the [Ideas](https://gith
 
 ## 🧠 Default Models by Provider
 
-The following table summarizes the models explicitly registered as defaults in each provider’s model registry. Source files:
+The following table summarizes the models explicitly registered as defaults or verified in each provider model registry. Source files:
 
-- `src/SmartHopper.Providers.OpenAI/OpenAIProviderModels.cs`
-- `src/SmartHopper.Providers.MistralAI/MistralAIProviderModels.cs`
-- `src/SmartHopper.Providers.DeepSeek/DeepSeekProviderModels.cs`
 - `src/SmartHopper.Providers.Anthropic/AnthropicProviderModels.cs`
+- `src/SmartHopper.Providers.DeepSeek/DeepSeekProviderModels.cs`
+- `src/SmartHopper.Providers.Gemini/GeminiProviderModels.cs`
+- `src/SmartHopper.Providers.MistralAI/MistralAIProviderModels.cs`
+- `src/SmartHopper.Providers.OpenAI/OpenAIProviderModels.cs`
 - `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
 
 Notes:
-- “Default For” lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
-- “Capabilities” lists the core capability flags registered for the model.
-- “Verified” reflects the `Verified` flag in the registry; “Deprecated” reflects the `Deprecated` flag (none of the current defaults are flagged deprecated).
+- "Default For" lists the feature areas the model is set as default for (e.g., `Text2Text`, `ToolChat`).
+- "Capabilities" lists the core capability flags registered for the model.
+- "Verified" reflects the `Verified` flag in the registry; "Deprecated" reflects the `Deprecated` flag (none of the current documented models are flagged deprecated).
 
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
 |---|---|:---:|:---:|:---:|---|---|
-| Anthropic | `claude-haiku-4-5` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, Reasoning |
-| Anthropic | `claude-sonnet-4-5` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| Anthropic | `claude-opus-4-5` | - | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
-| DeepSeek | `deepseek-chat` | - | ✅ | - | Text2Text, ToolChat | TextInput, TextOutput, JsonOutput, FunctionCalling |
-| DeepSeek | `deepseek-reasoner` | - | ✅ | - | ToolReasoningChat | TextInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| MistralAI | `mistral-small` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `mistral-medium` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `mistral-large-latest` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `magistral-small-latest` | - | ✅ | - | ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| MistralAI | `magistral-medium-latest` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `gpt-5-nano` | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `gpt-5-mini` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, ToolReasoningChat | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `gpt-5.1` | - | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| Anthropic | `claude-sonnet-4-6` | - | ✅ | - | Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
+| DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ToolReasoningChat | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
+| Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
+| Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `dall-e-3` | ⭐ | - | - | Text2Image | TextInput, ImageOutput |
-| OpenAI | `gpt-image-1-mini` | - | - | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
-| OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
+| OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
+| OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text, Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 
 ### Discouraged models for script tools
 
-Some models are still supported but **not recommended** for script‑oriented tools due to quality and stability trade‑offs. These models are marked with `DiscouragedForTools` in the provider registries and surface in the UI as a "Not Recommended" badge when used with those tools.
+Some models are still supported but **not recommended** for script-oriented tools due to quality and stability trade-offs. These models are marked with `DiscouragedForTools` in the provider registries and surface in the UI as a "Not Recommended" badge when used with those tools.
 
-- **MistralAI**
-  - `mistral-small-latest`/`mistral-small` → discouraged for: `script_generate`, `script_edit`
 - **Anthropic**
-  - `claude-haiku-4-5`/`claude-haiku-4-5-20251001`/`claude-3-5-haiku-latest`/`claude-3-5-haiku-20241022`/`claude-3-haiku-20240307` → discouraged for: `script_generate`, `script_edit`
+  - `claude-haiku-4-5-20251001`/`claude-haiku-4-5`/`claude-haiku-4-5-latest` -> discouraged for: `script_generate`, `script_edit`
+  - `claude-3-5-haiku-20241022`/`claude-3-5-haiku`/`claude-3-5-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
+  - `claude-3-haiku-20240307`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
+- **MistralAI**
+  - `mistral-small-2603`/`mistral-small`/`mistral-small-latest`/`magistral-small-latest`/`mistral-vibe-cli-fast` -> discouraged for: `script_generate`, `script_edit`
+  - `mistral-ocr-2512`/`mistral-ocr-latest` -> discouraged for: any tool
+  - `voxtral-mini-transcribe-realtime-2602`/`voxtral-mini-realtime-2602`/`voxtral-mini-realtime-latest` -> discouraged for: any tool
+  - `mistral-ocr-2505` -> discouraged for: any tool
+- **OpenAI**
+  - `gpt-4o-mini-realtime-preview-2024-12-17`/`gpt-4o-mini-realtime-preview`/`gpt-4o-mini-realtime-preview-latest` -> discouraged for: any tool
+  - `gpt-4o-realtime-preview-2024-12-17` -> discouraged for: any tool
+  - `gpt-4o-realtime-preview-2025-06-03`/`gpt-4o-realtime-preview`/`gpt-4o-realtime-preview-latest` -> discouraged for: any tool
+  - `gpt-realtime-1.5` -> discouraged for: any tool
+  - `gpt-realtime-2025-08-28`/`gpt-realtime`/`gpt-realtime-latest` -> discouraged for: any tool
+  - `gpt-realtime-mini-2025-10-06` -> discouraged for: any tool
+  - `gpt-realtime-mini-2025-12-15`/`gpt-realtime-mini`/`gpt-realtime-mini-latest` -> discouraged for: any tool
+  - `omni-moderation-2024-09-26`/`omni-moderation-latest`/`omni-moderation` -> discouraged for: any tool
 
 ## 🔢 Supported Data Types
 

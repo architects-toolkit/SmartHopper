@@ -170,7 +170,7 @@ namespace SmartHopper.Infrastructure.Tests
 
             // Act
             AIContextManager.UnregisterProvider((string)null);
-            AIContextManager.UnregisterProvider("");
+            AIContextManager.UnregisterProvider(string.Empty);
             AIContextManager.UnregisterProvider("nonexistent");
 
             // Assert

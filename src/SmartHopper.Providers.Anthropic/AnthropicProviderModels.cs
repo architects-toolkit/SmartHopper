@@ -60,6 +60,15 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Rank = 10000,
                     ContextLimit = 1000000,
+                    Created = new DateTime(2026, 2, 17),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000003m,
+                        Completion = 0.000015m,
+                        InputCacheRead = 0.0000003m,
+                        InputCacheWrite = 0.00000375m,
+                        WebSearch = 0.01m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -71,6 +80,15 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 1000000,
+                    Created = new DateTime(2026, 2, 4),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000025m,
+                        InputCacheRead = 0.0000005m,
+                        InputCacheWrite = 0.00000625m,
+                        WebSearch = 0.01m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -82,6 +100,15 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Rank = 9990,
                     ContextLimit = 1000000,
+                    Created = new DateTime(2026, 4, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000025m,
+                        InputCacheRead = 0.0000005m,
+                        InputCacheWrite = 0.00000625m,
+                        WebSearch = 0.01m,
+                    },
                 },
 
 
@@ -97,6 +124,15 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = false,
                     Rank = 9985,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 11, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000005m,
+                        Completion = 0.000025m,
+                        InputCacheRead = 0.0000005m,
+                        InputCacheWrite = 0.00000625m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest" },
                 },
 
@@ -114,6 +150,15 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = true,
                     Rank = 9980,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 10, 15),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000001m,
+                        Completion = 0.000005m,
+                        InputCacheRead = 0.0000001m,
+                        InputCacheWrite = 0.00000125m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
@@ -127,6 +172,15 @@ namespace SmartHopper.Providers.Anthropic
                     Verified = true,
                     Rank = 9975,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 9, 29),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000003m,
+                        Completion = 0.000015m,
+                        InputCacheRead = 0.0000003m,
+                        InputCacheWrite = 0.00000375m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest" },
                 },
 
@@ -144,6 +198,15 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 8, 5),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000015m,
+                        Completion = 0.000075m,
+                        InputCacheRead = 0.0000015m,
+                        InputCacheWrite = 0.00001875m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest" },
                 },
 
@@ -157,6 +220,15 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -5,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 5, 22),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000003m,
+                        Completion = 0.000015m,
+                        InputCacheRead = 0.0000003m,
+                        InputCacheWrite = 0.00000375m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "claude-sonnet-4", "claude-sonnet-4-latest", "claude-sonnet-4-0", "claude-sonnet-4-0-latest" },
                 },
 
@@ -170,6 +242,15 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -10,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 5, 22),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000015m,
+                        Completion = 0.000075m,
+                        InputCacheRead = 0.0000015m,
+                        InputCacheWrite = 0.00001875m,
+                        WebSearch = 0.01m,
+                    },
                     Aliases = new List<string> { "claude-opus-4", "claude-opus-4-latest", "claude-opus-4-0", "claude-opus-4-0-latest" },
                 },
 
@@ -183,6 +264,7 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -15,
                     ContextLimit = 200000,
+                    Created = new DateTime(2025, 2, 24),
                     Aliases = new List<string> { "claude-3-7-sonnet", "claude-3-7-sonnet-latest" },
                 },
 
@@ -196,6 +278,7 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -20,
                     ContextLimit = 200000,
+                    Created = new DateTime(2024, 11, 4),
                     Aliases = new List<string> { "claude-3-5-haiku", "claude-3-5-haiku-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
@@ -210,6 +293,7 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -25,
                     ContextLimit = 200000,
+                    Created = new DateTime(2024, 3, 13),
                     Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 }
@@ -251,7 +335,10 @@ namespace SmartHopper.Providers.Anthropic
                 {
                     var id = item["id"]?.ToString();
                     var model = id;
-                    if (!string.IsNullOrWhiteSpace(model)) models.Add(model);
+                    if (!string.IsNullOrWhiteSpace(model))
+                    {
+                        models.Add(model);
+                    }
                 }
 
                 return models

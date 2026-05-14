@@ -511,5 +511,57 @@ namespace SmartHopper.Infrastructure.Tests
             Assert.Equal("PrimaryModel", resolved!.Model);
         }
 
+        /// <summary>
+        /// Tests that Image2Text capability validation works correctly.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ValidateCapabilities_Image2Text_ReturnsCorrectStatus [Windows]")]
+#else
+        [Fact(DisplayName = "ValidateCapabilities_Image2Text_ReturnsCorrectStatus [Core]")]
+#endif
+        public void ValidateCapabilities_Image2Text_ReturnsCorrectStatus()
+        {
+            // Arrange
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "TestProvider";
+
+            // Register model with Image2Text capability
+            manager.RegisterCapabilities(provider, "vision-model", AICapability.Text2Text | AICapability.Image2Text);
+
+            // Register model without Image2Text capability
+            manager.RegisterCapabilities(provider, "text-only-model", AICapability.Text2Text);
+
+            // Act & Assert
+            Assert.True(manager.ValidateCapabilities(provider, "vision-model", AICapability.Image2Text));
+            Assert.False(manager.ValidateCapabilities(provider, "text-only-model", AICapability.Image2Text));
+            Assert.True(manager.ValidateCapabilities(provider, "vision-model", AICapability.Text2Text | AICapability.Image2Text));
+        }
+
+        /// <summary>
+        /// Tests that Text2Image capability validation works correctly.
+        /// </summary>
+#if NET7_WINDOWS
+        [Fact(DisplayName = "ValidateCapabilities_Text2Image_ReturnsCorrectStatus [Windows]")]
+#else
+        [Fact(DisplayName = "ValidateCapabilities_Text2Image_ReturnsCorrectStatus [Core]")]
+#endif
+        public void ValidateCapabilities_Text2Image_ReturnsCorrectStatus()
+        {
+            // Arrange
+            ResetManager();
+            var manager = ModelManager.Instance;
+            const string provider = "TestProvider";
+
+            // Register model with Text2Image capability
+            manager.RegisterCapabilities(provider, "image-gen-model", AICapability.Text2Image);
+
+            // Register model without Text2Image capability
+            manager.RegisterCapabilities(provider, "text-only-model", AICapability.Text2Text);
+
+            // Act & Assert
+            Assert.True(manager.ValidateCapabilities(provider, "image-gen-model", AICapability.Text2Image));
+            Assert.False(manager.ValidateCapabilities(provider, "text-only-model", AICapability.Text2Image));
+        }
     }
 }

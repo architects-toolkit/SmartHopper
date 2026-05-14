@@ -19,7 +19,6 @@
 // Purpose: Central constants and keys for component persistence (versioned schema)
 // This file defines keys and version numbers used by the persistence service to
 // read and write component outputs in a robust, forward-compatible way.
-
 using System;
 
 namespace SmartHopper.Core.IO
@@ -49,11 +48,5 @@ namespace SmartHopper.Core.IO
         /// Build the writer/reader key for an output parameter GUID.
         /// </summary>
         public static string KeyForOutputV2(Guid paramGuid) => OutKeyPrefixV2 + paramGuid.ToString("N");
-
-        /// <summary>
-        /// Feature flag: allow attempting legacy (v1) restore using GH internals.
-        /// Disabled by default to avoid crashes from malformed legacy chunks. Set to true only for migration.
-        /// </summary>
-        public const bool EnableLegacyRestore = false;
     }
 }

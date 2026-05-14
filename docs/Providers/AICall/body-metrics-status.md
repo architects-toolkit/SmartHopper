@@ -51,7 +51,6 @@ Covers `AIBody`, `AIMetrics`, `AICallStatus`, and `AIReturn`.
   - `CreateToolError(string rawMessage, IAIRequest? request = null)` adds structured error with Tool origin
 - `SetBody(...)` overloads update `Body` directly
 - `AddRuntimeMessage(severity, origin, text)` adds structured messages without affecting Success flag directly
-- `AIReturnExtensions.ToJObject(...)` maps selected fields from `AIReturn`, `Request`, `Metrics` via reflection; default mapping includes `messages` instead of legacy `error`
 
 Policy notes:
 
@@ -62,4 +61,3 @@ Policy notes:
 - Tools: filter with `AIBody.ToolFilter` to avoid unintended tool loading; validate tool args before execution
 - JSON schema: ensure `JsonOutputSchema` is trusted/user-controlled (avoid TOCTOU injections)
 - Context: avoid leaking sensitive data when enabling `ContextFilter`
-- Reflection in `ToJObject(...)`: prefer caching mappings in hot paths

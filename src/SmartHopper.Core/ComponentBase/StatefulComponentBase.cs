@@ -43,8 +43,13 @@ using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
+using SmartHopper.Core.ComponentBase.State;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Diagnostics;
 using SmartHopper.Core.IO;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Core.ComponentBase
@@ -64,8 +69,10 @@ namespace SmartHopper.Core.ComponentBase
 
         /// <summary>
         /// Storage for persistent output values that survive state transitions.
+        /// Access from derived classes through <see cref="GetPersistentOutput{T}"/>
+        /// and <see cref="HasPersistentOutput"/>.
         /// </summary>
-        protected readonly Dictionary<string, object> persistentOutputs;
+        private readonly Dictionary<string, object> persistentOutputs;
 
         /// <summary>
         /// Storage for persistent output type information.
@@ -160,9 +167,10 @@ namespace SmartHopper.Core.ComponentBase
             // Initialize the centralized state manager
             this.StateManager = new ComponentStateManager(this.GetType().Name);
 
-            // Subscribe to state manager events
+            // Subscribe to state manager events. StateChanged is the single source of
+            // truth for component-level reactions (message + per-state hooks);
+            // StateEntered is intentionally not used to avoid duplicate Message writes.
             this.StateManager.StateChanged += this.OnStateManagerStateChanged;
-            this.StateManager.StateEntered += this.OnStateManagerStateEntered;
         }
 
         #endregion
@@ -188,9 +196,19 @@ namespace SmartHopper.Core.ComponentBase
                 this.ClearPersistentRuntimeMessages();
             }
 
-            // Handle specific state transitions
+            // Handle specific state transitions. Each branch invokes the matching
+            // virtual hook so derived classes can react symmetrically to every
+            // state, not just NeedsRun/Processing.
             switch (newState)
             {
+                case ComponentState.Completed:
+                    this.OnEnteringCompleted();
+                    break;
+
+                case ComponentState.Waiting:
+                    this.OnEnteringWaiting();
+                    break;
+
                 case ComponentState.Processing:
                     if (oldState != ComponentState.Processing)
                     {
@@ -202,9 +220,11 @@ namespace SmartHopper.Core.ComponentBase
                         this.ScheduleProcessingSafetyCheck();
                     }
 
+                    this.OnEnteringProcessing();
                     break;
 
                 case ComponentState.NeedsRun:
+                    this.OnEnteringNeedsRun();
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.OnDisplayExpired(true);
@@ -212,10 +232,15 @@ namespace SmartHopper.Core.ComponentBase
                     break;
 
                 case ComponentState.Cancelled:
+                    this.OnEnteringCancelled();
                     Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
                         this.OnDisplayExpired(true);
                     });
+                    break;
+
+                case ComponentState.Error:
+                    this.OnEnteringError();
                     break;
             }
 
@@ -230,22 +255,13 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Handles entering a new state from the ComponentStateManager.
-        /// </summary>
-        /// <param name="newState">The state being entered.</param>
-        private void OnStateManagerStateEntered(ComponentState newState)
-        {
-            this.Message = this.GetStateMessage();
-        }
-
-        /// <summary>
         /// Schedules a safety check for Processing state to handle boolean toggle edge cases.
         /// </summary>
         private void ScheduleProcessingSafetyCheck()
         {
             _ = Task.Run(async () =>
             {
-                await Task.Delay(this.GetDebounceTime());
+                await Task.Delay(this.GetDebounceTime()).ConfigureAwait(false);
 
                 if (this.StateManager.CurrentState == ComponentState.Processing && this.Workers.Count == 0)
                 {
@@ -269,7 +285,7 @@ namespace SmartHopper.Core.ComponentBase
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             this.RegisterAdditionalInputParams(pManager);
-            pManager.AddBooleanParameter("Run?", "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter(WellKnownInputs.Run, "R", "Set this parameter to true to run the component.", GH_ParamAccess.item, false);
         }
 
         /// <summary>
@@ -341,7 +357,7 @@ namespace SmartHopper.Core.ComponentBase
 
             // Read Run parameter
             bool runInput = false;
-            DA.GetData("Run?", ref runInput);
+            DA.GetData(WellKnownInputs.Run, ref runInput);
             this.run = runInput;
 
             // Note: GH_Button drives volatile data and may not affect PersistentData hashes.
@@ -421,8 +437,8 @@ namespace SmartHopper.Core.ComponentBase
                 return;
             }
 
-            // Get changed inputs from StateManager
-            var changedInputs = this.StateManager.GetChangedInputs();
+            // Get changed inputs using virtual method to allow subclasses to inject virtual inputs
+            var changedInputs = this.InputsChanged();
 
             // When configured to always run, a Run=true pulse should trigger Processing
             // even if the Run? input is driven by volatile data (e.g. GH_Button).
@@ -434,14 +450,14 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // If only Run parameter changed to false, stay in current state
-            if (changedInputs.Count == 1 && changedInputs[0] == "Run?" && !this.run)
+            if (changedInputs.Count == 1 && changedInputs[0] == WellKnownInputs.Run && !this.run)
             {
                 Debug.WriteLine($"[{this.GetType().Name}] Only Run changed to false, staying in current state");
                 return;
             }
 
             // If only Run parameter changed to true
-            if (changedInputs.Count == 1 && changedInputs[0] == "Run?" && this.run)
+            if (changedInputs.Count == 1 && changedInputs[0] == WellKnownInputs.Run && this.run)
             {
                 Debug.WriteLine($"[{this.GetType().Name}] Only Run changed to true");
 
@@ -462,6 +478,16 @@ namespace SmartHopper.Core.ComponentBase
             // If other inputs changed
             if (changedInputs.Count > 0)
             {
+                // Special case: AI provider changed - always force to NeedsRun
+                // regardless of Run parameter value, so user explicitly triggers recalculation
+                if (changedInputs.Contains(WellKnownInputs.AIProvider))
+                {
+                    Debug.WriteLine($"[{this.GetType().Name}] AI Provider changed, forcing transition to NeedsRun");
+                    this.StateManager.CancelDebounce(); // Cancel any pending timer
+                    this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
+                    return;
+                }
+
                 if (!this.run)
                 {
                     Debug.WriteLine($"[{this.GetType().Name}] Inputs changed, starting debounce to NeedsRun");
@@ -476,7 +502,7 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Finalizes processing by committing hashes and transitioning to Completed.
+        /// Finalizes processing by committing hashes and transitioning to Completed or Error.
         /// </summary>
         protected override void OnWorkerCompleted()
         {
@@ -486,8 +512,24 @@ namespace SmartHopper.Core.ComponentBase
             // Cancel any pending debounce
             this.StateManager.CancelDebounce();
 
-            // Transition to Completed
-            this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
+            // If any errors were recorded during execution, transition to Error instead of Completed
+            if (this.RuntimeMessageLevel == GH_RuntimeMessageLevel.Error)
+            {
+                // Promote volatile worker messages to the persistent keyed dictionary so they
+                // survive the next SolveInstance cycle triggered by the Error state transition.
+                int idx = 0;
+                foreach (var worker in this.Workers)
+                {
+                    worker.PromoteCollectedToPersistent((level, msg) =>
+                        this.SetPersistentRuntimeMessage($"worker_msg_{idx++}", level, msg, false));
+                }
+
+                this.StateManager.RequestTransition(ComponentState.Error, TransitionReason.Error);
+            }
+            else
+            {
+                this.StateManager.RequestTransition(ComponentState.Completed, TransitionReason.ProcessingComplete);
+            }
 
             base.OnWorkerCompleted();
             Debug.WriteLine("[StatefulComponentBase] Worker completed, expiring solution");
@@ -497,7 +539,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Ensures the state machine does not remain stuck in Processing when the underlying tasks are canceled.
         /// </summary>
-        protected override void OnTasksCanceled()
+        protected override void OnTasksCancelDetected()
         {
             if (this.StateManager.CurrentState == ComponentState.Processing)
             {
@@ -513,7 +555,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Completed state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateCompleted(IGH_DataAccess DA)
+        protected virtual void OnStateCompleted(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateCompleted");
 
@@ -530,7 +572,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Waiting state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateWaiting(IGH_DataAccess DA)
+        protected virtual void OnStateWaiting(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateWaiting");
 
@@ -546,12 +588,12 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the NeedsRun state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateNeedsRun(IGH_DataAccess DA)
+        protected virtual void OnStateNeedsRun(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateNeedsRun");
 
             bool runInput = false;
-            DA.GetData("Run?", ref runInput);
+            DA.GetData(WellKnownInputs.Run, ref runInput);
 
             if (runInput)
             {
@@ -569,7 +611,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Processing state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateProcessing(IGH_DataAccess DA)
+        protected virtual void OnStateProcessing(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateProcessing");
 
@@ -578,10 +620,59 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
+        /// Called when the component transitions into <see cref="ComponentState.Completed"/>.
+        /// Override to react to successful run completion (e.g. emit a "done" badge).
+        /// </summary>
+        protected virtual void OnEnteringCompleted()
+        {
+        }
+
+        /// <summary>
+        /// Called when the component transitions into <see cref="ComponentState.Waiting"/>.
+        /// Override to refresh idle visuals.
+        /// </summary>
+        protected virtual void OnEnteringWaiting()
+        {
+        }
+
+        /// <summary>
+        /// Called when the component transitions into <see cref="ComponentState.NeedsRun"/>.
+        /// Use this to clear stale data from a previous run so it does not persist into the next run.
+        /// </summary>
+        protected virtual void OnEnteringNeedsRun()
+        {
+        }
+
+        /// <summary>
+        /// Called when the component transitions into <see cref="ComponentState.Processing"/>.
+        /// Runs after async-state reset and progress reset; override to seed
+        /// processing-specific UI or telemetry.
+        /// </summary>
+        protected virtual void OnEnteringProcessing()
+        {
+        }
+
+        /// <summary>
+        /// Called when the component transitions into <see cref="ComponentState.Cancelled"/>.
+        /// Override to release transient resources held while running.
+        /// </summary>
+        protected virtual void OnEnteringCancelled()
+        {
+        }
+
+        /// <summary>
+        /// Called when the component transitions into <see cref="ComponentState.Error"/>.
+        /// Override to react to fatal errors (e.g. write a structured log entry).
+        /// </summary>
+        protected virtual void OnEnteringError()
+        {
+        }
+
+        /// <summary>
         /// Handles the Cancelled state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateCancelled(IGH_DataAccess DA)
+        protected virtual void OnStateCancelled(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateCancelled");
 
@@ -589,13 +680,25 @@ namespace SmartHopper.Core.ComponentBase
             this.SetPersistentRuntimeMessage("cancelled", GH_RuntimeMessageLevel.Error, "The execution was manually cancelled", false);
 
             bool runInput = false;
-            DA.GetData("Run?", ref runInput);
+            DA.GetData(WellKnownInputs.Run, ref runInput);
 
-            // Check for changes using StateManager
-            var changedInputs = this.StateManager.GetChangedInputs();
+            // Use the virtual InputsChanged() so derived classes (e.g. AIProviderComponentBase)
+            // that inject synthetic entries like "AIProvider" are also honoured while in the
+            // Cancelled state. Reading StateManager.GetChangedInputs() directly here would
+            // silently drop those injections and is the bug this method previously exhibited.
+            var changedInputs = this.InputsChanged();
+
+            // If a provider change arrived while cancelled, force a re-run request regardless of Run.
+            if (changedInputs.Contains(WellKnownInputs.AIProvider))
+            {
+                Debug.WriteLine($"[{this.GetType().Name}] OnStateCancelled: AI Provider changed, transitioning to NeedsRun");
+                this.StateManager.CancelDebounce();
+                this.StateManager.RequestTransition(ComponentState.NeedsRun, TransitionReason.InputChanged);
+                return;
+            }
 
             // If Run changed to true and no other inputs changed, transition to Processing
-            if (changedInputs.Count == 1 && changedInputs[0] == "Run?" && runInput)
+            if (changedInputs.Count == 1 && changedInputs[0] == WellKnownInputs.Run && runInput)
             {
                 this.StateManager.RequestTransition(ComponentState.Processing, TransitionReason.RunEnabled);
             }
@@ -605,7 +708,7 @@ namespace SmartHopper.Core.ComponentBase
         /// Handles the Error state.
         /// </summary>
         /// <param name="DA">The data access object.</param>
-        private void OnStateError(IGH_DataAccess DA)
+        protected virtual void OnStateError(IGH_DataAccess DA)
         {
             Debug.WriteLine($"[{this.GetType().Name}] OnStateError");
             this.ApplyPersistentRuntimeMessages();
@@ -702,7 +805,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <summary>
         /// Applies stored runtime messages to the component.
         /// </summary>
-        private void ApplyPersistentRuntimeMessages()
+        protected void ApplyPersistentRuntimeMessages()
         {
             Debug.WriteLine($"[{this.GetType().Name}] Applying {this.runtimeMessages.Count} runtime messages");
             foreach (var (level, message) in this.runtimeMessages.Values)
@@ -783,7 +886,22 @@ namespace SmartHopper.Core.ComponentBase
                 },
                 token).ConfigureAwait(false);
 
-            return result;
+            // Surface any tree matching messages as persistent runtime messages
+            foreach (var message in result.Messages)
+            {
+                if (!message.Surfaceable)
+                {
+                    continue;
+                }
+
+                this.SetPersistentRuntimeMessage(
+                    $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
+                    message.ToGrasshopperLevel(),
+                    message.Message,
+                    transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
+            }
+
+            return result.Outputs;
         }
 
         /// <summary>
@@ -814,6 +932,64 @@ namespace SmartHopper.Core.ComponentBase
                 },
                 token).ConfigureAwait(false);
 
+            // Surface any tree matching messages as persistent runtime messages
+            foreach (var message in result.Messages)
+            {
+                if (!message.Surfaceable)
+                {
+                    continue;
+                }
+
+                this.SetPersistentRuntimeMessage(
+                    $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
+                    message.ToGrasshopperLevel(),
+                    message.Message,
+                    transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
+            }
+
+            return result.Outputs;
+        }
+
+        /// <summary>
+        /// Heterogeneous overload for IGH_Goo input and output.
+        /// Returns the full ProcessingResult so workers can access both Outputs and Messages.
+        /// </summary>
+        protected async Task<DataTreeProcessor.ProcessingResult<IGH_Goo>> RunProcessingAsync(
+            Dictionary<string, GH_Structure<IGH_Goo>> trees,
+            Func<Dictionary<string, List<IGH_Goo>>, Task<Dictionary<string, List<IGH_Goo>>>> function,
+            DataTree.ProcessingOptions options,
+            CancellationToken token = default)
+        {
+            var (dataCount, iterationCount) = DataTree.DataTreeProcessor.CalculateProcessingMetrics(trees, options);
+
+            this.SetDataCount(dataCount);
+            this.InitializeProgress(iterationCount);
+
+            var result = await DataTree.DataTreeProcessor.RunAsync(
+                trees,
+                function,
+                options,
+                progressCallback: (current, total) =>
+                {
+                    this.UpdateProgress(current);
+                },
+                token).ConfigureAwait(false);
+
+            // Surface any tree matching messages as persistent runtime messages
+            foreach (var message in result.Messages)
+            {
+                if (!message.Surfaceable)
+                {
+                    continue;
+                }
+
+                this.SetPersistentRuntimeMessage(
+                    $"tree_processing_{message.Code}_{message.Message.GetHashCode()}",
+                    message.ToGrasshopperLevel(),
+                    message.Message,
+                    transitionToError: message.Severity == SHRuntimeMessageSeverity.Error);
+            }
+
             return result;
         }
 
@@ -839,13 +1015,13 @@ namespace SmartHopper.Core.ComponentBase
                 var hashes = this.StateManager.GetCommittedHashes();
                 foreach (var kvp in hashes)
                 {
-                    writer.SetInt32($"InputHash_{kvp.Key}", kvp.Value);
+                    writer.SetInt32($"{PersistenceKeys.InputHashPrefix}{kvp.Key}", kvp.Value);
                 }
 
                 var branchCounts = this.StateManager.GetCommittedBranchCounts();
                 foreach (var kvp in branchCounts)
                 {
-                    writer.SetInt32($"InputBranchCount_{kvp.Key}", kvp.Value);
+                    writer.SetInt32($"{PersistenceKeys.InputBranchCountPrefix}{kvp.Key}", kvp.Value);
                 }
 
                 // Build GUID-keyed structure dictionary for v2 persistence
@@ -924,14 +1100,14 @@ namespace SmartHopper.Core.ComponentBase
                 foreach (var item in reader.Items)
                 {
                     var key = item.Name;
-                    if (key.StartsWith("InputHash_"))
+                    if (key.StartsWith(PersistenceKeys.InputHashPrefix))
                     {
-                        string paramName = key.Substring("InputHash_".Length);
+                        string paramName = key.Substring(PersistenceKeys.InputHashPrefix.Length);
                         hashes[paramName] = reader.GetInt32(key);
                     }
-                    else if (key.StartsWith("InputBranchCount_"))
+                    else if (key.StartsWith(PersistenceKeys.InputBranchCountPrefix))
                     {
-                        string paramName = key.Substring("InputBranchCount_".Length);
+                        string paramName = key.Substring(PersistenceKeys.InputBranchCountPrefix.Length);
                         branchCounts[paramName] = reader.GetInt32(key);
                     }
                 }
@@ -956,11 +1132,10 @@ namespace SmartHopper.Core.ComponentBase
                         }
                     }
                 }
-                else if (PersistenceConstants.EnableLegacyRestore)
-                {
-                    // Legacy fallback
-                    this.RestoreLegacyOutputs(reader);
-                }
+                // Legacy (pre-V2) restore was retired in the ComponentBase deep refactor.
+                // Files saved with the V2 schema (i.e. anything from the public release line)
+                // restore through ReadOutputsV2 above. Pre-V2 alpha files lose persistent
+                // outputs on first open; users must re-run those components once.
 
                 Debug.WriteLine($"[StatefulComponentBase] [Read] Restored with {this.persistentOutputs.Count} outputs");
 
@@ -970,62 +1145,6 @@ namespace SmartHopper.Core.ComponentBase
             {
                 // End restoration - suppression stays active for first solve
                 this.StateManager.EndRestoration();
-            }
-        }
-
-        /// <summary>
-        /// Restores legacy output format from older files.
-        /// </summary>
-        /// <param name="reader">The reader.</param>
-        private void RestoreLegacyOutputs(GH_IReader reader)
-        {
-            foreach (var item in reader.Items)
-            {
-                string key = item.Name;
-                if (!key.StartsWith("Value_"))
-                {
-                    continue;
-                }
-
-                string paramName = key.Substring("Value_".Length);
-
-                try
-                {
-                    string typeName = reader.GetString($"Type_{paramName}");
-                    if (string.IsNullOrWhiteSpace(typeName))
-                    {
-                        continue;
-                    }
-
-                    Type type = Type.GetType(typeName);
-                    if (type == null)
-                    {
-                        continue;
-                    }
-
-                    byte[] chunkBytes = reader.GetByteArray($"Value_{paramName}");
-                    if (chunkBytes == null || chunkBytes.Length == 0)
-                    {
-                        continue;
-                    }
-
-                    var chunk = new GH_LooseChunk($"Value_{paramName}");
-                    chunk.Deserialize_Binary(chunkBytes);
-
-                    var instance = Activator.CreateInstance(type);
-                    var readMethod = type.GetMethod("Read");
-                    if (instance == null || readMethod == null)
-                    {
-                        continue;
-                    }
-
-                    readMethod.Invoke(instance, new object[] { chunk });
-                    this.persistentOutputs[paramName] = instance;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[StatefulComponentBase] [Read] Legacy restore failed for '{paramName}': {ex.Message}");
-                }
             }
         }
 
@@ -1276,6 +1395,17 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             return defaultValue;
+        }
+
+        /// <summary>
+        /// Returns whether persistent storage currently holds a value for
+        /// <paramref name="paramName"/>.
+        /// </summary>
+        /// <param name="paramName">The persistent output name.</param>
+        /// <returns><c>true</c> if a value is stored under that name.</returns>
+        protected bool HasPersistentOutput(string paramName)
+        {
+            return this.persistentOutputs.ContainsKey(paramName);
         }
 
         /// <summary>

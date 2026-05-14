@@ -16,6 +16,8 @@ on:
     branches:
       - main
       - dev
+      - 'main-*'
+      - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
     paths:
@@ -24,6 +26,8 @@ on:
     branches:
       - main
       - dev
+      - 'main-*'
+      - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
     paths:

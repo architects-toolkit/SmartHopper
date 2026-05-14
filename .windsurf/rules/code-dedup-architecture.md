@@ -27,6 +27,7 @@ Detect and prevent duplicated logic; prefer reusable abstractions in parent/base
 - Propose moving the common logic to:
   - Core domain → `SmartHopper.Core/`
   - GH types/utilities → `SmartHopper.Core.Grasshopper/`
+  - Type converters → `SmartHopper.Core.Grasshopper/Converters/`
   - Component plumbing → `SmartHopper.Components/` base classes
   - Managers/settings/orchestration → `SmartHopper.Infrastructure/`
   - Provider-specific → `SmartHopper.Providers.<Name>/`

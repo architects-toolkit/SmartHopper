@@ -25,6 +25,7 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Requests
 {
@@ -50,7 +51,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <summary>
         /// Internal storage for structured messages.
         /// </summary>
-        private List<AIRuntimeMessage> PrivateMessages { get; set; } = new List<AIRuntimeMessage>();
+        private List<SHRuntimeMessage> PrivateMessages { get; set; } = new List<SHRuntimeMessage>();
 
         /// <inheritdoc/>
         public virtual string? Provider { get; set; }
@@ -91,9 +92,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
         /// <summary>
         /// Per-request timeout in seconds applied to provider HTTP calls and tool execution wrappers.
-        /// Values <= 0 mean "use default". Normalized by RequestTimeoutPolicy.
+        /// When null, the timeout is resolved from settings by RequestTimeoutPolicy.
+        /// When set, this value takes precedence over settings.
+        /// Normalized by RequestTimeoutPolicy to be within valid bounds.
         /// </summary>
-        public virtual int TimeoutSeconds { get; set; } = 120;
+        public virtual int? TimeoutSeconds { get; set; }
 
         /// <summary>
         /// When true, skips AIMetrics.IsValid() checks for this request's results.
@@ -102,13 +105,39 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// </summary>
         public bool SkipMetricsValidation { get; set; }
 
+        /// <summary>
+        /// Backing field for ForceToolCall. When true, user explicitly wants to force a tool call.
+        /// </summary>
+        private bool forceToolCallExplicit;
+
+        /// <summary>
+        /// When true, forces the provider to make a tool call (via tool_choice: required or equivalent).
+        /// The specific tool name to force can be specified in <see cref="ForceToolName"/>.
+        /// If <see cref="ForceToolName"/> is set, this property automatically returns true.
+        /// If <see cref="ForceToolName"/> is not set but this property is true, the provider will force
+        /// using any available tool without specifying which one.
+        /// Providers translate this to their API-specific format (e.g., tool_choice for OpenAI/Mistral, function_calling_config for Gemini).
+        /// </summary>
+        public virtual bool ForceToolCall
+        {
+            get => this.forceToolCallExplicit || !string.IsNullOrEmpty(this.ForceToolName);
+            set => this.forceToolCallExplicit = value;
+        }
+
+        /// <summary>
+        /// When set, specifies the exact tool name to force. Setting this property automatically
+        /// enables <see cref="ForceToolCall"/>. Can be null or empty when <see cref="ForceToolCall"/>
+        /// is explicitly set to true to force using any tool without specifying which one.
+        /// </summary>
+        public virtual string ForceToolName { get; set; }
+
         /// <inheritdoc/>
-        public List<AIRuntimeMessage> Messages
+        public List<SHRuntimeMessage> Messages
         {
             get
             {
                 // Build combined list without mutating private storage to keep it always up-to-date and deduplicated
-                var combined = new List<AIRuntimeMessage>();
+                var combined = new List<SHRuntimeMessage>();
                 var seen = new HashSet<string>(StringComparer.Ordinal);
 
                 // 1) Messages explicitly added to request
@@ -137,7 +166,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 }
 
                 // 3) Sort by severity: Error > Warning > Info
-                int Rank(AIRuntimeMessageSeverity s) => s == AIRuntimeMessageSeverity.Error ? 3 : (s == AIRuntimeMessageSeverity.Warning ? 2 : 1);
+                int Rank(SHRuntimeMessageSeverity s) => s == SHRuntimeMessageSeverity.Error ? 3 : (s == SHRuntimeMessageSeverity.Warning ? 2 : 1);
                 combined.Sort((a, b) => Rank(b.Severity).CompareTo(Rank(a.Severity)));
 
                 return combined;
@@ -145,14 +174,14 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
             set
             {
-                this.PrivateMessages = value ?? new List<AIRuntimeMessage>();
+                this.PrivateMessages = value ?? new List<SHRuntimeMessage>();
             }
         }
 
         /// <inheritdoc/>
-        public virtual (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        public virtual (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
         {
-            var messages = new List<AIRuntimeMessage>();
+            var messages = new List<SHRuntimeMessage>();
 
             // Consider any request-level messages already attached (e.g., from policies)
             if (this.PrivateMessages != null && this.PrivateMessages.Count > 0)
@@ -166,20 +195,20 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             {
                 if (this.Body != null && !this.Body.AreTurnIdsValid())
                 {
-                    messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.BodyInvalid,
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.BodyInvalid,
                         "Request body contains interactions without TurnId. Ensure TurnId is set (e.g., via AIBodyBuilder.WithTurnId(...)) before building the body."));
                 }
             }
             catch
             {
                 // Defensive: validation should never throw
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.BodyInvalid,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Failed to validate TurnId invariants for the request body."));
             }
 
@@ -194,10 +223,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     var settings = ProviderManager.Instance.GetProviderSettings(provider);
                     if (settings != null && settings.EnableStreaming == false)
                     {
-                        messages.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Error,
-                            AIRuntimeMessageOrigin.Validation,
-                            AIMessageCode.StreamingDisabledProvider,
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Error,
+                            SHRuntimeMessageOrigin.Validation,
+                            SHMessageCode.StreamingDisabledProvider,
                             $"Streaming requested but provider '{provider}' has streaming disabled in settings."));
                     }
 
@@ -207,23 +236,23 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                         var supports = ModelManager.Instance.ModelSupportsStreaming(provider, modelUsed);
                         if (!supports)
                         {
-                            messages.Add(new AIRuntimeMessage(
-                                AIRuntimeMessageSeverity.Error,
-                                AIRuntimeMessageOrigin.Validation,
-                                AIMessageCode.StreamingUnsupportedModel,
+                            messages.Add(new SHRuntimeMessage(
+                                SHRuntimeMessageSeverity.Error,
+                                SHRuntimeMessageOrigin.Validation,
+                                SHMessageCode.StreamingUnsupportedModel,
                                 $"Streaming requested but the selected model '{modelUsed}' on provider '{provider}' does not support streaming."));
                         }
                     }
                 }
             }
 
-            var hasErrors = messages.Count(m => m.Severity == AIRuntimeMessageSeverity.Error) > 0;
+            var hasErrors = messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);
 
             return (!hasErrors, messages);
         }
 
         /// <inheritdoc/>
-        public virtual Task<AIReturn> Exec()
+        public virtual Task<AIReturn> Exec(System.Threading.CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException("Exec() must be implemented in a derived class.");
         }
@@ -238,6 +267,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             this.Endpoint = endpoint ?? string.Empty;
             this.Body = body ?? AIBody.Empty;
             this.Capability = capability;
+
+            // Auto-initialize Parameters if not already set
+            if (this.Parameters == null)
+            {
+                this.Parameters = AIRequestParameters.FromModel(model);
+            }
         }
 
         /// <summary>

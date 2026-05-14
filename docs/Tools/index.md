@@ -44,6 +44,7 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 | text2text | Generates text based on a prompt with optional instructions |
 | text2boolean | Evaluates text against criteria and returns boolean assessments |
 | text2textlist | Generates a list of items based on a prompt, count, and type (text/number/integer/boolean) |
+| text2json | Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema |
 | list_filter | Filters list items based on criteria |
 | textlist2boolean | Evaluates list items against criteria and returns boolean results |
 

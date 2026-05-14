@@ -71,8 +71,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             };
             providerRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Default AI Provider:", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(this._defaultProviderComboBox, true)
-            ));
+                new TableCell(this._defaultProviderComboBox, true)));
             layout.Add(providerRowLayout);
 
             layout.Add(new Label
@@ -95,8 +94,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             debounceRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Debounce Time (ms):", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(this._debounceControl, true)
-            ));
+                new TableCell(this._debounceControl, true)));
 
             layout.Add(debounceRowLayout);
 
@@ -120,8 +118,7 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             batchPollRowLayout.Rows.Add(new TableRow(
                 new TableCell(new Label { Text = "Batch Poll Interval (s):", VerticalAlignment = VerticalAlignment.Center, Width = 150 }, false),
-                new TableCell(this._batchPollIntervalControl, true)
-            ));
+                new TableCell(this._batchPollIntervalControl, true)));
 
             layout.Add(batchPollRowLayout);
 

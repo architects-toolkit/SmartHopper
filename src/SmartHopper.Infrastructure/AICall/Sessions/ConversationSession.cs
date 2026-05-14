@@ -33,6 +33,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
     using SmartHopper.Infrastructure.AICall.Metrics;
     using SmartHopper.Infrastructure.AICall.Policies;
     using SmartHopper.Infrastructure.AICall.Utilities;
+    using SmartHopper.Infrastructure.Diagnostics;
     using SmartHopper.Infrastructure.Settings;
     using SmartHopper.Infrastructure.Streaming;
 
@@ -55,18 +56,24 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         private sealed class StreamProcessingResult
         {
             public AIInteractionText? AccumulatedText { get; set; }
+
             public AIReturn? LastDelta { get; set; }
+
             public AIReturn? LastToolCallsDelta { get; set; }
+
             public List<AIReturn> Deltas { get; } = new List<AIReturn>();
+
             public double ElapsedSeconds { get; set; }
+
             public bool HasError { get; set; }
+
             public string? ErrorMessage { get; set; }
         }
 
         /// <summary>
         /// The cancellation token source for this session.
         /// </summary>
-        private readonly CancellationTokenSource cts = new();
+        private readonly CancellationTokenSource cts = new ();
 
         /// <summary>
         /// Executor abstraction for provider and tool calls.
@@ -136,7 +143,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
 
             var errorMessages = validation.Errors?
-                .Where(m => m.Severity == AIRuntimeMessageSeverity.Error)
+                .Where(m => m.Severity == SHRuntimeMessageSeverity.Error)
                 .Select(m => m.Message)
                 .ToList();
 
@@ -771,7 +778,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
                 // must be applied explicitly to keep context up-to-date on every provider call.
                 await PolicyPipeline.Default.ApplyRequestPoliciesAsync(this.Request).ConfigureAwait(false);
 
-                await foreach (var rawDelta in adapter.StreamAsync(this.Request, streamingOptions, ct))
+                await foreach (var rawDelta in adapter.StreamAsync(this.Request, streamingOptions, ct).ConfigureAwait(false))
                 {
                     if (rawDelta == null)
                     {
@@ -993,7 +1000,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
         public async Task<AIReturn> RunToStableResult(SessionOptions options, CancellationToken cancellationToken = default)
         {
             AIReturn last = null;
-            await foreach (var ret in this.TurnLoopAsync(options, streamingOptions: null, yieldDeltas: false, cancellationToken))
+            await foreach (var ret in this.TurnLoopAsync(options, streamingOptions: null, yieldDeltas: false, cancellationToken).ConfigureAwait(false))
             {
                 last = ret;
             }
@@ -1007,7 +1014,7 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             StreamingOptions streamingOptions,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            await foreach (var ret in this.TurnLoopAsync(options, streamingOptions, yieldDeltas: true, cancellationToken))
+            await foreach (var ret in this.TurnLoopAsync(options, streamingOptions, yieldDeltas: true, cancellationToken).ConfigureAwait(false))
             {
                 yield return ret;
             }

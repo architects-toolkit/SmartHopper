@@ -40,10 +40,6 @@ namespace SmartHopper.Core.Grasshopper.Converters
             return structure;
         }
 
-
-
-
-
         public static int GHIntegerToInt(GH_Integer ghInteger)
         {
             return ghInteger?.Value ?? 0;
@@ -52,9 +48,8 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public static List<int> GHIntegerToInt(GH_Structure<GH_Integer> structure)
         {
             if (structure == null) return new List<int>();
-            return structure.AllData(true).Select(gh => GHIntegerToInt(gh as GH_Integer)).ToList();
+            return structure.AllData(true)
+                .Select(gh => GHIntegerToInt(gh as GH_Integer)).ToList();
         }
-
-
     }
 }

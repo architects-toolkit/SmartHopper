@@ -21,6 +21,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Validation;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Response
 {
@@ -56,8 +57,8 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Response
             catch (Exception ex)
             {
                 response.AddRuntimeMessage(
-                    AIRuntimeMessageSeverity.Warning,
-                    AIRuntimeMessageOrigin.Validation,
+                    SHRuntimeMessageSeverity.Warning,
+                    SHRuntimeMessageOrigin.Validation,
                     $"Schema response validation failed: {ex.Message}");
             }
         }

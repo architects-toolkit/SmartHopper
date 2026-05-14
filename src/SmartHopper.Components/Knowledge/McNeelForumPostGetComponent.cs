@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -42,7 +43,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelpostget;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public McNeelForumPostGetComponent()
             : base(
@@ -52,7 +53,6 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -67,7 +67,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new McNeelForumGetPostWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new McNeelForumGetPostWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class McNeelForumGetPostWorker : AsyncWorkerBase
@@ -162,12 +162,11 @@ namespace SmartHopper.Components.Knowledge
                                     toolCall.SkipMetricsValidation = true;
 
                                     AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                                    var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                                    var toolResult = toolResultInteraction?.Result;
+                                    var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
-                                    if (toolResult == null)
+                                    if (toolResult.Result == null)
                                     {
-                                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'mcneel_forum_post_get' returned no result.");
+                                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'mcneel_forum_post_get' returned no result.", SHRuntimeMessageOrigin.Tool);
                                         continue;
                                     }
 
@@ -192,7 +191,7 @@ namespace SmartHopper.Components.Knowledge
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIMcNeelForumGetPostWorker] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 

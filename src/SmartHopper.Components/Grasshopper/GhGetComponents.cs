@@ -18,15 +18,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Models;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 
 namespace SmartHopper.Components.Grasshopper
@@ -36,16 +43,15 @@ namespace SmartHopper.Components.Grasshopper
     /// Supports optional filtering by runtime messages (errors, warnings, and remarks), component states (selected, enabled, disabled), preview capability (previewcapable, notpreviewcapable), preview state (previewon, previewoff), and classification by object type via Type filter (params, components, startnodes, endnodes, middlenodes, isolatednodes).
     /// Optionally includes document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies).
     /// </summary>
-    public class GhGetComponents : SelectingComponentBase
+    public class GhGetComponents : SelectingStatefulComponentBase
     {
-        private List<string> lastComponentNames = new List<string>();
-        private List<string> lastComponentGuids = new List<string>();
-        private string lastJsonOutput = "";
-
         public GhGetComponents()
-            : base("Get GhJSON", "GhGet",
-                  "Convert Grasshopper components to GhJSON format, with optional filters",
-                  "SmartHopper", "Grasshopper")
+            : base(
+                "Get GhJSON",
+                "GhGet",
+                "Convert Grasshopper components to GhJSON format, with optional filters",
+                "SmartHopper",
+                "Grasshopper")
         {
         }
 
@@ -53,61 +59,90 @@ namespace SmartHopper.Components.Grasshopper
 
         protected override Bitmap Icon => Resources.ghget;
 
-        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'startnodes', 'endnodes', 'middlenodes', 'isolatednodes'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
-            pManager.AddTextParameter("Category Filter", "C", "Optional list of category filters by Grasshopper category or subcategory (e.g. 'Maths', 'Params', 'Script'). Use '+name' to include and '-name' to exclude.", GH_ParamAccess.list, "");
-            pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, "");
+            pManager.AddTextParameter("Type filter", "T", "Optional list of classification tokens with include/exclude syntax: 'params', 'components', 'startnodes', 'endnodes', 'middlenodes', 'isolatednodes'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, string.Empty);
+            pManager.AddTextParameter("Category Filter", "C", "Optional list of category filters by Grasshopper category or subcategory (e.g. 'Maths', 'Params', 'Script'). Use '+name' to include and '-name' to exclude.", GH_ParamAccess.list, string.Empty);
+            pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, string.Empty);
             pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
             pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Run?", "R", "Run this component?", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Include Runtime Data", "Dt", "Include runtime/volatile data (actual values flowing through outputs). This is token-expansive!", GH_ParamAccess.item, false);
         }
 
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "List of names", GH_ParamAccess.list);
             pManager.AddTextParameter("Guids", "G", "List of guids", GH_ParamAccess.list);
             pManager.AddTextParameter("JSON", "J", "Details in JSON format", GH_ParamAccess.item);
         }
 
-        protected override void SolveInstance(IGH_DataAccess DA)
+        protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            // get input run
-            object runObject = null;
-            if (!DA.GetData(5, ref runObject)) return;
+            return new GhGetWorker(this, this.AddRuntimeMessage);
+        }
 
+        private sealed class GhGetWorker : AsyncWorkerBase
+        {
+            private readonly GhGetComponents parent;
+
+            public GhGetWorker(GhGetComponents parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                : base(parent, addRuntimeMessage)
+            {
+                this.parent = parent;
+            }
+
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
+            {
+                dataCount = 1;
+            }
+
+            public override Task DoWorkAsync(CancellationToken token)
+            {
+                return Task.CompletedTask;
+            }
+
+            public override void SetOutput(IGH_DataAccess DA, out string message)
+            {
+                message = "GhGet processing complete";
+            }
+        }
+
+        protected override void OnStateCompleted(IGH_DataAccess DA)
+        {
+            base.OnStateCompleted(DA);
+
+            var componentNames = this.GetPersistentOutput<List<string>>("Names", new List<string>());
+            var componentGuids = this.GetPersistentOutput<List<string>>("Guids", new List<string>());
+            var json = this.GetPersistentOutput<string>("JSON", string.Empty);
+
+            DA.SetDataList(0, componentNames);
+            DA.SetDataList(1, componentGuids);
+            DA.SetData(2, json);
+        }
+
+        protected override void OnStateWaiting(IGH_DataAccess DA)
+        {
+            base.OnStateWaiting(DA);
+
+            var componentNames = this.GetPersistentOutput<List<string>>("Names", new List<string>());
+            var componentGuids = this.GetPersistentOutput<List<string>>("Guids", new List<string>());
+            var json = this.GetPersistentOutput<string>("JSON", string.Empty);
+
+            DA.SetDataList(0, componentNames);
+            DA.SetDataList(1, componentGuids);
+            DA.SetData(2, json);
+        }
+
+        protected override void OnStateProcessing(IGH_DataAccess DA)
+        {
             int connectionDepth = 0;
             DA.GetData(3, ref connectionDepth);
 
             bool includeMetadata = false;
             DA.GetData(4, ref includeMetadata);
 
-            if (!(runObject is GH_Boolean run))
-            {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Run must be a boolean");
-                return;
-            }
-
-            if (!run.Value)
-            {
-                if (this.lastComponentNames.Count > 0)
-                {
-                    DA.SetDataList(0, this.lastComponentNames);
-                    DA.SetDataList(1, this.lastComponentGuids);
-                    DA.SetData(2, this.lastJsonOutput);
-                }
-                else
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute the component");
-                }
-
-                return;
-            }
-
-            // Clear previous results when starting a new run
-            this.lastComponentNames.Clear();
-            this.lastComponentGuids.Clear();
-            this.lastJsonOutput = string.Empty;
+            bool includeRuntimeData = false;
+            DA.GetData(5, ref includeRuntimeData);
 
             try
             {
@@ -125,10 +160,9 @@ namespace SmartHopper.Components.Grasshopper
                     ["connectionDepth"] = connectionDepth,
                     ["includeMetadata"] = includeMetadata,
                     ["guidFilter"] = JArray.FromObject(this.SelectedObjects.Select(o => o.InstanceGuid.ToString())),
-                    ["includeRuntimeData"] = true,
+                    ["includeRuntimeData"] = includeRuntimeData,
                 };
 
-                // Create AIToolCall and execute
                 var toolCallInteraction = new AIInteractionToolCall
                 {
                     Name = "gh_get",
@@ -141,29 +175,28 @@ namespace SmartHopper.Components.Grasshopper
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 
-                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
-                var toolResultInteraction = aiResult.Body.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                var toolResult = toolResultInteraction?.Result;
-                if (toolResult == null)
+                var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
+                if (toolResult.Result == null)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");
+                    this.SetPersistentRuntimeMessage("gh_get_error", GH_RuntimeMessageLevel.Error, "Tool 'gh_get' did not return a valid result");
                     return;
                 }
 
                 var componentNames = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();
                 var componentGuids = toolResult["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var json = toolResult["ghjson"]?.ToString() ?? string.Empty;
-                this.lastComponentNames = componentNames;
-                this.lastComponentGuids = componentGuids;
-                this.lastJsonOutput = json;
+
+                this.SetPersistentOutput("Names", componentNames, DA);
+                this.SetPersistentOutput("Guids", componentGuids, DA);
+                this.SetPersistentOutput("JSON", json, DA);
+
                 DA.SetDataList(0, componentNames);
                 DA.SetDataList(1, componentGuids);
                 DA.SetData(2, json);
-                return;
             }
             catch (Exception ex)
             {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                this.SetPersistentRuntimeMessage("gh_get_exception", GH_RuntimeMessageLevel.Error, ex.Message);
             }
         }
     }

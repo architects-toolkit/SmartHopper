@@ -25,6 +25,7 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -37,13 +38,13 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelpostopen;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public McNeelForumPostOpenComponent()
             : base(
                   "McNeelForum Post Open",
                   "McNeelPostOpen",
-                  "Open the McNeel Discourse webpage for a forum post JSON in the default browser.",
+                  "Open a McNeel Discourse forum post in the default web browser by its numeric ID.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -144,7 +145,7 @@ namespace SmartHopper.Components.Knowledge
 
                     if (string.IsNullOrWhiteSpace(postUrl))
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not determine post URL from JSON.");
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Could not determine post URL from JSON.");
                         this.resultUrl = string.Empty;
                         return;
                     }
@@ -163,18 +164,18 @@ namespace SmartHopper.Components.Knowledge
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[McNeelForumPostOpenWorker] Error opening browser: {ex.Message}");
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                         this.resultUrl = string.Empty;
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[McNeelForumPostOpenWorker] Error parsing JSON: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                     this.resultUrl = string.Empty;
                 }
 
-                await Task.CompletedTask;
+                await Task.CompletedTask.ConfigureAwait(false);
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)

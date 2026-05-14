@@ -31,9 +31,9 @@ using SmartHopper.Infrastructure.AICall.Execution;
 using SmartHopper.Infrastructure.AICall.Policies;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Settings;
 using SmartHopper.Infrastructure.Streaming;
-
 
 namespace SmartHopper.Infrastructure.AICall.Core.Requests
 {
@@ -94,9 +94,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         }
 
         /// <inheritdoc/>
-        public override (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        public override (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
         {
-            var messages = new List<AIRuntimeMessage>();
+            var messages = new List<SHRuntimeMessage>();
 
             var (baseValid, baseErrors) = base.IsValid();
             if (!baseValid)
@@ -106,10 +106,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
             if (string.IsNullOrEmpty(this.Provider))
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.ProviderMissing,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.ProviderMissing,
                     "Provider is required"));
             }
             else
@@ -119,13 +119,14 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
                 if (ProviderManager.Instance.IsProviderMismatched(this.Provider))
                 {
-                    messages.Add(new AIRuntimeMessage(
-                        effectiveMode == ProviderIntegrityCheckMode.Soft ? AIRuntimeMessageSeverity.Warning : AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.UnknownProvider,
-                        $"Provider '{this.Provider}' failed SHA-256 integrity verification. " +
+                    var integrityMessage = $"Provider '{this.Provider}' failed SHA-256 integrity verification. " +
                         "The provider's hash does not match the official published hash. " +
-                        "This could indicate file corruption or tampering, and your data could be compromised."));
+                        "This could indicate file corruption or tampering, and your data could be compromised.";
+                    messages.Add(new SHRuntimeMessage(
+                        effectiveMode == ProviderIntegrityCheckMode.Soft ? SHRuntimeMessageSeverity.Warning : SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.UnknownProvider,
+                        integrityMessage));
                     Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unverified - adding warning");
                 }
 
@@ -133,12 +134,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 if (ProviderManager.Instance.IsProviderUnavailable(this.Provider))
                 {
                     // Hash repository was unavailable - add warning
-                    messages.Add(new AIRuntimeMessage(
-                        effectiveMode == ProviderIntegrityCheckMode.Strict ? AIRuntimeMessageSeverity.Error : AIRuntimeMessageSeverity.Warning,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.UnknownProvider,
-                        $"Provider '{this.Provider}' could not be verified - hash check unavailable due to network issues. " +
-                        "Enable this provider only if you trust its source."));
+                    var unavailableMessage = $"Provider '{this.Provider}' could not be verified - hash check unavailable due to network issues. " +
+                        "Use this provider only if you trust its source.";
+                    messages.Add(new SHRuntimeMessage(
+                        effectiveMode == ProviderIntegrityCheckMode.Strict ? SHRuntimeMessageSeverity.Error : SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.UnknownProvider,
+                        unavailableMessage));
                     Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' hash verification unavailable - adding warning");
                 }
 
@@ -146,32 +148,33 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 if (ProviderManager.Instance.IsProviderUnknown(this.Provider))
                 {
                     // Provider not found in official hash manifest - add warning
-                    messages.Add(new AIRuntimeMessage(
-                        effectiveMode == ProviderIntegrityCheckMode.Soft ? AIRuntimeMessageSeverity.Warning : AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.UnknownProvider,
-                        $"Provider '{this.Provider}' is not known - it may be a custom or third-party provider. " +
+                    var unknownMessage = $"Provider '{this.Provider}' is not known - it may be a custom or third-party provider. " +
                         "Enable this provider only if you trust its source. " +
-                        "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in SmartHopper settings to block unknown providers."));
+                        "Change 'Integrity Check Mode' to 'Hard' or 'Strict' in SmartHopper settings to block unknown providers.";
+                    messages.Add(new SHRuntimeMessage(
+                        effectiveMode == ProviderIntegrityCheckMode.Soft ? SHRuntimeMessageSeverity.Warning : SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.UnknownProvider,
+                        unknownMessage));
                     Debug.WriteLine($"[AIRequestCall] Provider '{this.Provider}' is unknown - adding warning");
                 }
             }
 
             if (this.ProviderInstance == null)
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.UnknownProvider,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.UnknownProvider,
                     $"Unknown provider '{this.Provider}'"));
             }
 
             if (string.IsNullOrEmpty(this.Endpoint))
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
-                    AIMessageCode.BodyInvalid,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Endpoint is required"));
             }
 
@@ -183,10 +186,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 var resolvedModel = this.Model; // Triggers provider-scoped selection
                 if (string.IsNullOrEmpty(resolvedModel))
                 {
-                    messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.NoCapableModel,
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.NoCapableModel,
                         $"No capable model found for provider '{this.Provider}' with capability {effectiveCapability.ToString()}"));
                 }
 
@@ -199,29 +202,29 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     var requestedCaps = ModelManager.Instance.GetCapabilities(this.Provider, requestedModel);
                     if (requestedCaps == null)
                     {
-                        messages.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Info,
-                            AIRuntimeMessageOrigin.Validation,
-                            AIMessageCode.UnknownModel,
-                            $"Requested model '{requestedModel}' is not registered for provider '{this.Provider}'."));
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Info,
+                            SHRuntimeMessageOrigin.Validation,
+                            SHMessageCode.UnknownModel,
+                            $"Requested model '{requestedModel}' is not registered for '{this.Provider}'. Proceeding with the model, but capability validation cannot be performed."));
                     }
                     else if (!requestedCaps.HasCapability(effectiveCapability))
                     {
                         // If a fallback was selected, surface the replacement
                         if (!string.IsNullOrWhiteSpace(resolvedModel) && !string.Equals(resolvedModel, requestedModel, StringComparison.Ordinal))
                         {
-                            messages.Add(new AIRuntimeMessage(
-                                AIRuntimeMessageSeverity.Info,
-                                AIRuntimeMessageOrigin.Validation,
-                                AIMessageCode.CapabilityMismatch,
+                            messages.Add(new SHRuntimeMessage(
+                                SHRuntimeMessageSeverity.Info,
+                                SHRuntimeMessageOrigin.Validation,
+                                SHMessageCode.CapabilityMismatch,
                                 $"Requested model '{requestedModel}' does not support {effectiveCapability.ToString()}; selected '{resolvedModel}' instead."));
                         }
                         else
                         {
-                            messages.Add(new AIRuntimeMessage(
-                                AIRuntimeMessageSeverity.Warning,
-                                AIRuntimeMessageOrigin.Validation,
-                                AIMessageCode.CapabilityMismatch,
+                            messages.Add(new SHRuntimeMessage(
+                                SHRuntimeMessageSeverity.Warning,
+                                SHRuntimeMessageOrigin.Validation,
+                                SHMessageCode.CapabilityMismatch,
                                 $"Requested model '{requestedModel}' does not support {effectiveCapability.ToString()}"));
                         }
                     }
@@ -229,35 +232,49 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
                 if (this.Body == null)
                 {
-                    messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
-                        AIMessageCode.BodyInvalid,
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.BodyInvalid,
                         "Body is required"));
                 }
                 else
                 {
                     if (this.Body.InteractionsCount == 0)
                     {
-                        messages.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Error,
-                            AIRuntimeMessageOrigin.Validation,
-                            AIMessageCode.BodyInvalid,
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Error,
+                            SHRuntimeMessageOrigin.Validation,
+                            SHMessageCode.BodyInvalid,
                             "At least one interaction is required"));
                     }
 
                     if (effectiveCapability.HasFlag(AICapability.JsonOutput) && string.IsNullOrEmpty(this.Body.JsonOutputSchema))
                     {
-                        messages.Add(new AIRuntimeMessage(
-                            AIRuntimeMessageSeverity.Error,
-                            AIRuntimeMessageOrigin.Validation,
-                            AIMessageCode.BodyInvalid,
+                        messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Error,
+                            SHRuntimeMessageOrigin.Validation,
+                            SHMessageCode.BodyInvalid,
                             "JsonOutput capability requires a non-empty JsonOutputSchema"));
                     }
                 }
             }
 
-            var hasErrors = messages.Count(m => m.Severity == AIRuntimeMessageSeverity.Error) > 0;
+            // Validate ForceToolCall requirements
+            if (this.ForceToolCall)
+            {
+                var effectiveCapability = this.GetEffectiveCapabilities(out _);
+                if (!effectiveCapability.HasFlag(AICapability.FunctionCalling))
+                {
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.BodyInvalid,
+                        "ForceToolCall requires FunctionCalling capability"));
+                }
+            }
+
+            var hasErrors = messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);
 
             return (!hasErrors, messages);
         }
@@ -265,10 +282,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <summary>
         /// Executes a single provider turn without streaming (backward compatibility).
         /// </summary>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
         /// <returns>The result of the provider call in <see cref="AIReturn"/> format.</returns>
-        public override async Task<AIReturn> Exec()
+        public override async Task<AIReturn> Exec(System.Threading.CancellationToken cancellationToken = default)
         {
-            return await this.Exec(stream: false).ConfigureAwait(false);
+            return await this.Exec(stream: false, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -276,8 +294,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// Conversation orchestration (multi-turn, tools, streaming) is handled by ConversationSession.
         /// </summary>
         /// <param name="stream">If true, uses streaming mode via provider's streaming adapter.</param>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
         /// <returns>The result of the provider call in <see cref="AIReturn"/> format.</returns>
-        public async Task<AIReturn> Exec(bool stream = false)
+        public async Task<AIReturn> Exec(bool stream = false, System.Threading.CancellationToken cancellationToken = default)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -286,6 +305,8 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Always-on: run request policies before validation/provider call
                 await PolicyPipeline.Default.ApplyRequestPoliciesAsync(this).ConfigureAwait(false);
 
@@ -311,12 +332,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 if (stream)
                 {
                     // Use streaming mode
-                    result = await this.ExecStreamingInternal().ConfigureAwait(false);
+                    result = await this.ExecStreamingInternal(cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
                     // Use non-streaming mode
-                    result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
+                    result = await this.ProviderInstance.Call(this, cancellationToken).ConfigureAwait(false);
                 }
 
                 // Provider returned null result
@@ -329,7 +350,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                 }
 
                 // If provider produced no body and no error messages, standardize it
-                if (result.Body == null && !result.Messages.Any(m => m.Severity == AIRuntimeMessageSeverity.Error))
+                if (result.Body == null && !result.Messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error))
                 {
                     result.CreateProviderError("Provider returned no response", this);
                 }
@@ -355,6 +376,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                     // logging only
                 }
 
+                stopwatch.Stop();
                 return air;
             }
             catch (OperationCanceledException)
@@ -405,8 +427,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// <summary>
         /// Internal implementation for streaming execution using the provider's streaming adapter.
         /// </summary>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
         /// <returns>Aggregated AIReturn from the streaming results.</returns>
-        private async Task<AIReturn> ExecStreamingInternal()
+        private async Task<AIReturn> ExecStreamingInternal(System.Threading.CancellationToken cancellationToken = default)
         {
             // Get the streaming adapter from the provider
             var executor = new DefaultProviderExecutor();
@@ -416,7 +439,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
             {
                 // Provider doesn't support streaming, fall back to regular execution
                 Debug.WriteLine($"[AIRequest.ExecStreamingInternal] No streaming adapter for provider '{this.Provider}', falling back to non-streaming");
-                var result = await this.ProviderInstance.Call(this).ConfigureAwait(false);
+                var result = await this.ProviderInstance.Call(this, cancellationToken).ConfigureAwait(false);
                 return (AIReturn)result;
             }
 
@@ -432,7 +455,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
 
             try
             {
-                await foreach (var delta in adapter.StreamAsync(this, streamingOptions, CancellationToken.None))
+                await foreach (var delta in adapter.StreamAsync(this, streamingOptions, cancellationToken).ConfigureAwait(false))
                 {
                     // Aggregate the streaming deltas into the final return
                     if (delta != null)
@@ -455,6 +478,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
                         }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("[AIRequest.ExecStreamingInternal] Streaming cancelled");
+                finalReturn.CreateProviderError("Streaming cancelled", this);
             }
             catch (Exception ex)
             {
@@ -509,23 +537,23 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// Returns the effective capabilities and a list of informational notes describing adjustments.
         /// </summary>
         /// <param name="notes">Output list populated with informational messages about inferred capabilities.</param>
-        private AICapability GetEffectiveCapabilities(out List<AIRuntimeMessage> notes)
+        private AICapability GetEffectiveCapabilities(out List<SHRuntimeMessage> notes)
         {
-            notes = new List<AIRuntimeMessage>();
+            notes = new List<SHRuntimeMessage>();
             var effective = this.capability;
 
             // If body requires JSON output but capability lacks it, add it (informational)
             if (this.Body?.RequiresJsonOutput == true && !effective.HasFlag(AICapability.JsonOutput))
             {
                 effective |= AICapability.JsonOutput;
-                notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, "Body requires JSON output but Capability lacks JsonOutput - treating request as JsonOutput"));
+                notes.Add(new SHRuntimeMessage(SHRuntimeMessageSeverity.Info, SHRuntimeMessageOrigin.Validation, SHMessageCode.BodyInvalid, "Body requires JSON output but Capability lacks JsonOutput - treating request as JsonOutput"));
             }
 
             // If tools are requested but capability lacks FunctionCalling, add it (informational)
             if (!string.IsNullOrEmpty(this.Body?.ToolFilter) && this.Body?.ToolFilter != "-*" && !effective.HasFlag(AICapability.FunctionCalling))
             {
                 effective |= AICapability.FunctionCalling;
-                notes.Add(new AIRuntimeMessage(AIRuntimeMessageSeverity.Info, AIRuntimeMessageOrigin.Validation, "Tool filter provided but Capability lacks FunctionCalling - treating request as requiring FunctionCalling"));
+                notes.Add(new SHRuntimeMessage(SHRuntimeMessageSeverity.Info, SHRuntimeMessageOrigin.Validation, SHMessageCode.BodyInvalid, "Tool filter provided but Capability lacks FunctionCalling - treating request as requiring FunctionCalling"));
             }
 
             return effective;

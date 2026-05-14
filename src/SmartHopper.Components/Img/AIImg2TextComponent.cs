@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -28,8 +29,15 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.Types;
+using SmartHopper.Core.Models;
+using SmartHopper.Core.Types;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Img
 {
@@ -53,6 +61,28 @@ namespace SmartHopper.Components.Img
         /// Gets the exposure level of this component in the ribbon.
         /// </summary>
         public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIImg2Txt",
+            "AIImgToText",
+            "Image to Text",
+            "img2text",
+            "Vision AI",
+            "Image Analysis",
+            "Image Description",
+            "Describe Image",
+            "Analyze Image",
+            "Image Caption",
+            "Caption Image",
+            "Image Reader",
+            "AI Vision",
+            "Computer Vision",
+            "Image Understanding",
+            "OCR AI",
+            "Image to Words",
+            "Picture Description",
+        };
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "img2text" };
@@ -84,7 +114,7 @@ namespace SmartHopper.Components.Img
         /// <param name="pManager">The parameter manager to register inputs with.</param>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Image", "I", "Image to describe. Accepts: (1) GH_ExtractedImage from file extraction components, (2) absolute file path to an image file (.png, .jpg, .gif, .bmp, .webp, .tiff), (3) public HTTP/HTTPS URL, or (4) raw base64-encoded image data.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Image", "I", "Image to describe. Accepts: (1) VersatileImage format from file extraction components, (2) absolute file path to an image file (.png, .jpg, .gif, .bmp, .webp, .tiff), (3) public HTTP/HTTPS URL, or (4) raw base64-encoded image data.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Prompt", "P", "Custom description prompt for the AI. Leave empty to use the built-in prompt: 'Describe this image in detail.'", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
@@ -96,6 +126,32 @@ namespace SmartHopper.Components.Img
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Description", "D", "AI-generated text description of the image.", GH_ParamAccess.tree);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
+        {
+            var sentinel = this.GetSentinelTree("Description");
+            if (results == null || sentinel == null) return;
+
+            // ProcessBatchResults automatically persists outputs and sets metrics
+            this.ProcessBatchResults<GH_String>(
+                "Description",
+                sentinel,
+                results,
+                (customId, resultBody) =>
+                {
+                    var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
+                    if (provider == null) return new GH_String(string.Empty);
+
+                    var interactions = provider.Decode(resultBody);
+                    var lastText = interactions
+                        ?.OfType<AIInteractionText>()
+                        .LastOrDefault(i => i.Agent == AIAgent.Assistant);
+
+                    return new GH_String(lastText?.Content ?? string.Empty);
+                },
+                messages);
         }
 
         /// <summary>
@@ -218,13 +274,51 @@ namespace SmartHopper.Components.Img
                                 var imgParams = new JObject();
                                 bool hasImage = false;
 
-                                if (item is GH_ExtractedImage extractedImage && extractedImage.Value != null)
+                                if (item is GH_VersatileImage versatileImage && versatileImage.Value != null)
                                 {
-                                    string b64 = extractedImage.Value.Base64Data;
-                                    if (!string.IsNullOrWhiteSpace(b64))
+                                    var source = versatileImage.Value;
+                                    if (source.Kind == VersatileImageKind.Base64 && !string.IsNullOrWhiteSpace(source.RawValue))
                                     {
-                                        imgParams["imageBase64"] = b64;
-                                        imgParams["mimeType"] = extractedImage.Value.MimeType ?? "image/png";
+                                        imgParams["imageBase64"] = source.RawValue;
+                                        imgParams["mimeType"] = "image/png";
+                                        hasImage = true;
+                                    }
+                                    else if (source.Kind == VersatileImageKind.Url && !string.IsNullOrWhiteSpace(source.RawValue))
+                                    {
+                                        imgParams["imageUrl"] = source.RawValue;
+                                        hasImage = true;
+                                    }
+                                    else if (source.Kind == VersatileImageKind.LocalFile && !string.IsNullOrWhiteSpace(source.RawValue))
+                                    {
+                                        try
+                                        {
+                                            if (!File.Exists(source.RawValue))
+                                            {
+                                                this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Image file not found: {source.RawValue}");
+                                            }
+                                            else
+                                            {
+                                                var bytes = File.ReadAllBytes(source.RawValue);
+                                                imgParams["imageBase64"] = Convert.ToBase64String(bytes);
+                                                imgParams["mimeType"] = GetMimeType(source.RawValue);
+                                                hasImage = true;
+                                            }
+                                        }
+                                        catch (UnauthorizedAccessException ex)
+                                        {
+                                            this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Unable to access image file '{source.RawValue}': {ex.Message}");
+                                        }
+                                        catch (IOException ex)
+                                        {
+                                            this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Failed to read image file '{source.RawValue}': {ex.Message}");
+                                        }
+                                    }
+                                    else if (source.Kind == VersatileImageKind.Bitmap && source.Bitmap != null)
+                                    {
+                                        using var ms = new MemoryStream();
+                                        source.Bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                                        imgParams["imageBase64"] = Convert.ToBase64String(ms.ToArray());
+                                        imgParams["mimeType"] = "image/png";
                                         hasImage = true;
                                     }
                                 }
@@ -280,18 +374,26 @@ namespace SmartHopper.Components.Img
 
                                 try
                                 {
-                                    var toolResult = await this.parent.CallAiToolAsync("img2text", imgParams).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAIToolAsync("img2text", imgParams, token).ConfigureAwait(false);
 
-                                    if (toolResult != null)
-                                    {
-                                        string description = toolResult["description"]?.ToString() ?? string.Empty;
-                                        outputs["Description"].Add(new GH_String(description));
-                                    }
-                                    else
+                                    if (toolResult == null)
                                     {
                                         this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"img2text returned no result.");
                                         outputs["Description"].Add(new GH_String(string.Empty));
+                                        continue;
                                     }
+
+                                    // In batch mode, CallAIToolAsync returns a sentinel placeholder under "result".
+                                    // Forward it so ReconstructOutputTree can replace it after the batch completes.
+                                    var sentinel = toolResult["result"]?.ToString();
+                                    if (BatchSentinel.Is(sentinel))
+                                    {
+                                        outputs["Description"].Add(new GH_String(sentinel));
+                                        continue;
+                                    }
+
+                                    string description = toolResult["description"]?.ToString() ?? string.Empty;
+                                    outputs["Description"].Add(new GH_String(description));
                                 }
                                 catch (Exception ex)
                                 {
@@ -308,6 +410,17 @@ namespace SmartHopper.Components.Img
                     if (resultTrees.TryGetValue("Description", out var descTree))
                     {
                         this.resultDescriptions = descTree;
+                    }
+
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Description", resultTrees, token).ConfigureAwait(false);
+                    if (batchSubmitted)
+                    {
+                        this.resultDescriptions = null;
+                    }
+                    else
+                    {
+                        // Non-batch: persist output and emit metrics via FinishResults
+                        this.parent.FinishResults("Description", this.resultDescriptions ?? new GH_Structure<GH_String>());
                     }
                 }
                 catch (OperationCanceledException)
@@ -327,7 +440,9 @@ namespace SmartHopper.Components.Img
             /// <param name="errorMessage">Output error message, or null on success.</param>
             public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
             {
-                this.parent.SetPersistentOutput("Description", this.resultDescriptions ?? new GH_Structure<GH_String>(), DA);
+                // Outputs and metrics are handled by FinishResults (non-batch) or
+                // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
+                // replays them to the canvas on the next solve.
                 errorMessage = null;
             }
         }

@@ -62,7 +62,9 @@ namespace SmartHopper.Menu.Dialogs
             using (var stream = ConfigAssembly.GetManifestResourceStream(IconResourceName))
             {
                 if (stream != null)
+                {
                     this.Icon = new Icon(stream);
+                }
             }
 
             this.Title = "SmartHopper Settings";

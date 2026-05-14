@@ -36,6 +36,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -216,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse AI response and validate with retry loop
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                var responseJson = AIResponseParser.SanitizeAndParseJson(response);
+                var responseJson = AIResponseParser.ParseJsonFromResponse(response);
 
                 var language = responseJson["language"]?.ToString() ?? "python";
                 var scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
@@ -234,6 +235,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Validate script code for non-Rhino geometry patterns and retry if needed
                 var validationResult = ScriptCodeValidator.Validate(scriptCode, language);
                 var retryCount = 0;
+                var accumulatedMessages = new List<SHRuntimeMessage>();
 
                 while (!validationResult.IsValid && retryCount < MaxValidationRetries)
                 {
@@ -259,6 +261,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     var correctionResult = await correctionRequest.Exec().ConfigureAwait(false);
 
+                    // Accumulate messages from correction attempt even if it fails
+                    if (correctionResult.Messages != null)
+                    {
+                        accumulatedMessages.AddRange(correctionResult.Messages);
+                    }
+
                     if (!correctionResult.Success)
                     {
                         Debug.WriteLine($"[script_generate] Correction request failed, using original script");
@@ -267,7 +275,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     // Parse corrected response
                     response = correctionResult.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                    responseJson = AIResponseParser.SanitizeAndParseJson(response);
+                    responseJson = AIResponseParser.ParseJsonFromResponse(response);
 
                     scriptCode = responseJson["script"]?.ToString() ?? string.Empty;
                     inputs = responseJson["inputs"] as JArray ?? new JArray();
@@ -318,8 +326,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["message"] = "Script component GhJSON generated successfully. Use gh_put to place it on the canvas.",
                 };
 
+                // Combine original result messages with accumulated correction messages
+                var combinedMessages = new List<SHRuntimeMessage>(result.Messages ?? new List<SHRuntimeMessage>());
+                combinedMessages.AddRange(accumulatedMessages);
+
                 var outBuilder = AIBodyBuilder.Create();
-                outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name, result.Metrics, result.Messages);
+                outBuilder.AddToolResult(toolResult, toolInfo.Id, toolInfo.Name, result.Metrics, combinedMessages);
                 output.CreateSuccess(outBuilder.Build(), toolCall);
                 return output;
             }

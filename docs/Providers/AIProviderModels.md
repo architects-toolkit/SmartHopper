@@ -26,4 +26,4 @@ Expose model lists, capabilities, and defaults to the provider during initializa
 
 - Implementations should fetch concrete models and metadata from provider APIs. Registration is handled centrally by `ModelManager`.
 - For `RetrieveApiModels()`, prefer simple, resilient parsing (e.g., extract `id` or `name` from `data[]`). Handle exceptions internally and return `[]`.
-- Example providers with dynamic lists: `OpenAIProviderModels`, `MistralAIProviderModels`.
+- Example providers with dynamic lists: `OpenAIProviderModels`, `MistralAIProviderModels`, `GeminiProviderModels`.

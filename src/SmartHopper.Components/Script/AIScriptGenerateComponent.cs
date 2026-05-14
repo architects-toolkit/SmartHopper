@@ -30,6 +30,9 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Script
 {
@@ -50,6 +53,25 @@ namespace SmartHopper.Components.Script
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AI Script Generate",
+            "AI Script Generator",
+            "AI Script Create",
+            "AI Script Creator",
+            "AI Script Edit",
+            "AI Script Editor",
+            "AIScriptGen",
+            "script_generate",
+            "script_edit",
+            "Script Generate",
+            "Generate Script",
+            "Create Script",
+            "Script Create",
+            "Edit Script",
+            "Script Edit",
+        };
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "script_generate", "script_edit", "gh_get" };
@@ -208,14 +230,14 @@ namespace SmartHopper.Components.Script
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[AIScriptGenerateWorker] Error: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
             /// <summary>
             /// Stores the result from a tool call into the output trees.
             /// </summary>
-            private void StoreResult(GH_Path path, JObject toolResult, bool isEdit)
+            private void StoreResult(GH_Path path, ToolCallResult toolResult, bool isEdit)
             {
                 if (toolResult == null)
                 {
@@ -223,18 +245,13 @@ namespace SmartHopper.Components.Script
                     return;
                 }
 
-                // Check for errors
-                var hasErrors = toolResult["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
+                // Extract and collect messages from tool result (errors, warnings, etc.)
+                var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                foreach (var m in toolMessages) this.CollectMessage(m);
+
+                var hasErrors = toolMessages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);
                 if (hasErrors)
                 {
-                    foreach (var text in ((JArray)toolResult["messages"])
-                        .Where(msg => msg["severity"]?.ToString() == "Error")
-                        .Select(msg => msg["message"]?.ToString())
-                        .Where(text => !string.IsNullOrWhiteSpace(text)))
-                    {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, text);
-                    }
-
                     this.resultInfo.Append(new GH_String("Tool failed. See runtime errors."), path);
                     return;
                 }
@@ -266,7 +283,7 @@ namespace SmartHopper.Components.Script
             /// <summary>
             /// Generates a new script component using script_generate tool.
             /// </summary>
-            private async Task<JObject> GenerateNewScriptAsync(string prompt, CancellationToken token)
+            private async Task<ToolCallResult> GenerateNewScriptAsync(string prompt, CancellationToken token)
             {
                 Debug.WriteLine("[AIScriptGenerateWorker] Create mode: calling script_generate");
 
@@ -276,13 +293,13 @@ namespace SmartHopper.Components.Script
                     ["contextFilter"] = "-*",
                 };
 
-                return await this.parent.CallAiToolAsync("script_generate", parameters).ConfigureAwait(false);
+                return await this.parent.CallAIToolAsync("script_generate", parameters, token).ConfigureAwait(false);
             }
 
             /// <summary>
             /// Edits an existing script component using gh_get + script_edit tools.
             /// </summary>
-            private async Task<JObject> EditExistingScriptAsync(string guid, string prompt, CancellationToken token)
+            private async Task<ToolCallResult> EditExistingScriptAsync(string guid, string prompt, CancellationToken token)
             {
                 Debug.WriteLine($"[AIScriptGenerateWorker] Edit mode: getting GhJSON for {guid}");
 
@@ -293,32 +310,18 @@ namespace SmartHopper.Components.Script
                     ["contextFilter"] = "-*",
                 };
 
-                var getResult = await this.parent.CallAiToolAsync("gh_get", getParams).ConfigureAwait(false);
+                var getResult = await this.parent.CallAIToolAsync("gh_get", getParams, token).ConfigureAwait(false);
 
                 if (getResult == null)
                 {
-                    return new JObject
-                    {
-                        ["messages"] = new JArray(new JObject
-                        {
-                            ["severity"] = "Error",
-                            ["message"] = $"gh_get returned no result for {guid}",
-                        }),
-                    };
+                    return ToolCallResult.FromError($"gh_get returned no result for {guid}");
                 }
 
                 // gh_get returns GhJSON in the "ghjson" field
                 var existingGhJson = getResult["ghjson"]?.ToString();
                 if (string.IsNullOrWhiteSpace(existingGhJson))
                 {
-                    return new JObject
-                    {
-                        ["messages"] = new JArray(new JObject
-                        {
-                            ["severity"] = "Error",
-                            ["message"] = $"Could not retrieve GhJSON for component {guid}",
-                        }),
-                    };
+                    return ToolCallResult.FromError($"Could not retrieve GhJSON for component {guid}");
                 }
 
                 Debug.WriteLine($"[AIScriptGenerateWorker] Retrieved GhJSON, length: {existingGhJson.Length}");
@@ -331,7 +334,7 @@ namespace SmartHopper.Components.Script
                     ["contextFilter"] = "-*",
                 };
 
-                return await this.parent.CallAiToolAsync("script_edit", editParams).ConfigureAwait(false);
+                return await this.parent.CallAIToolAsync("script_edit", editParams, token).ConfigureAwait(false);
             }
 
             /// <inheritdoc/>

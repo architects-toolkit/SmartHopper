@@ -31,6 +31,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Types;
 
 namespace SmartHopper.Components.Img
 {
@@ -56,6 +57,28 @@ namespace SmartHopper.Components.Img
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AI Image Generate",
+            "AIImgGen",
+            "AIImageGen",
+            "AIImgGenerate",
+            "AIImageGenerate",
+            "text2img",
+            "Image Generate",
+            "Generate Image",
+            "Create Image",
+            "AI Picture",
+            "Picture Generate",
+            "Image AI",
+            "AI Art",
+            "AI Drawing",
+            "DALL-E",
+            "Image Synthesis",
+            "Text to Image",
+            "Prompt to Image",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2img" };
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
@@ -72,10 +95,11 @@ namespace SmartHopper.Components.Img
         /// </summary>
         public AIText2ImgComponent()
             : base(
-                  "AI Text To Image",
-                  "AIText2Img",
-                  "Generate images using AI based on text prompts.",
-                  "SmartHopper", "Img")
+                "AI Text To Image",
+                "AIText2Img",
+                "Generate images using AI based on text prompts.",
+                "SmartHopper",
+                "Img")
         {
         }
 
@@ -97,7 +121,7 @@ namespace SmartHopper.Components.Img
         /// <param name="pManager">The parameter manager to register outputs with.</param>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Image", "I", "Generated image as bitmap", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Image", "I", "Generated image as VersatileImage format", GH_ParamAccess.tree);
             pManager.AddTextParameter("Revised Prompt", "RP", "AI-revised prompt used for generation", GH_ParamAccess.tree);
         }
 
@@ -108,7 +132,7 @@ namespace SmartHopper.Components.Img
         /// <returns>The async worker instance.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIText2ImgWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2ImgWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         /// <summary>
@@ -277,7 +301,7 @@ namespace SmartHopper.Components.Img
 
                                 if (string.IsNullOrEmpty(prompt))
                                 {
-                                    outputs["Image"].Add(new GH_String(string.Empty));
+                                    outputs["Image"].Add(new GH_VersatileImage());
                                     outputs["RevisedPrompt"].Add(new GH_String(string.Empty));
                                     continue;
                                 }
@@ -293,11 +317,11 @@ namespace SmartHopper.Components.Img
                                         ["style"] = style,
                                     };
 
-                                    var toolResult = await this.parent.CallAiToolAsync(
-                                        "text2img", parameters)
+                                    var toolResult = await this.parent.CallAIToolAsync(
+                                        "text2img", parameters, token)
                                         .ConfigureAwait(false);
 
-                                    // Treat missing 'success' as true (CallAiToolAsync returns direct result without 'success' on success)
+                                    // Treat missing 'success' as true (CallAIToolAsync returns direct result without 'success' on success)
                                     // Check for errors in messages array
                                     var hasErrors = toolResult?["messages"] is JArray messages && messages.Any(m => m["severity"]?.ToString() == "Error");
                                     if (toolResult != null && ((toolResult["success"]?.Value<bool?>() ?? true) && !hasErrors))
@@ -313,42 +337,40 @@ namespace SmartHopper.Components.Img
                                         {
                                             try
                                             {
-                                                Bitmap bitmap;
+                                                VersatileImage imageSource;
 
                                                 // Check if it's a URL or base64 data
                                                 if (imageResult.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || imageResult.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                                                 {
-                                                    // Download from URL
-                                                    using var httpClient = new HttpClient();
-                                                    var imageData = await httpClient.GetByteArrayAsync(imageResult).ConfigureAwait(false);
-                                                    using var stream = new MemoryStream(imageData);
-                                                    bitmap = new Bitmap(stream);
+                                                    // Store as URL
+                                                    imageSource = VersatileImage.FromString(imageResult);
                                                 }
                                                 else
                                                 {
-                                                    // Convert from base64
+                                                    // Convert from base64 to bitmap and store as Bitmap
                                                     var base64Data = imageResult.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
                                                         ? imageResult.Substring(imageResult.IndexOf(",", StringComparison.Ordinal) + 1)
                                                         : imageResult;
                                                     var imageBytes = Convert.FromBase64String(base64Data);
                                                     using var stream = new MemoryStream(imageBytes);
-                                                    bitmap = new Bitmap(stream);
+                                                    var bitmap = new Bitmap(stream);
+                                                    imageSource = VersatileImage.FromBitmap(bitmap);
                                                 }
 
-                                                // Wrap the bitmap in a Grasshopper-compatible image object
-                                                outputs["Image"].Add(new GH_ObjectWrapper(bitmap));
+                                                // Wrap in GH_VersatileImage for output
+                                                outputs["Image"].Add(new GH_VersatileImage(imageSource));
                                                 outputs["RevisedPrompt"].Add(new GH_String(revisedPrompt));
                                             }
                                             catch (Exception processEx)
                                             {
                                                 this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to process image: {processEx.Message}");
-                                                outputs["Image"].Add(new GH_ObjectWrapper(null));
+                                                outputs["Image"].Add(new GH_VersatileImage());
                                                 outputs["RevisedPrompt"].Add(new GH_String(revisedPrompt));
                                             }
                                         }
                                         else
                                         {
-                                            outputs["Image"].Add(new GH_ObjectWrapper(null));
+                                            outputs["Image"].Add(new GH_VersatileImage());
                                             outputs["RevisedPrompt"].Add(new GH_String(revisedPrompt));
                                         }
                                     }
@@ -376,14 +398,14 @@ namespace SmartHopper.Components.Img
                                             this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Image generation failed: Unknown error occurred");
                                         }
 
-                                        outputs["Image"].Add(new GH_ObjectWrapper(null));
+                                        outputs["Image"].Add(new GH_VersatileImage());
                                         outputs["RevisedPrompt"].Add(new GH_String(string.Empty));
                                     }
                                 }
                                 catch (Exception ex)
                                 {
                                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Error processing item: {ex.Message}");
-                                    outputs["Image"].Add(new GH_ObjectWrapper(null));
+                                    outputs["Image"].Add(new GH_VersatileImage());
                                     outputs["RevisedPrompt"].Add(new GH_String(string.Empty));
                                 }
                             }

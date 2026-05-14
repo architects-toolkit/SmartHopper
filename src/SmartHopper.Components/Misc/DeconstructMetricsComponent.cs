@@ -26,13 +26,16 @@ namespace SmartHopper.Components.Misc
     public class DeconstructMetricsComponent : GH_Component
     {
         public DeconstructMetricsComponent()
-            : base("Deconstruct SmartHopper Metrics", "DMetrics",
-                   "Deconstructs SmartHopper usage metrics into individual values",
-                   "SmartHopper", "Utils")
+            : base(
+                "Deconstruct SmartHopper Metrics",
+                "DMetrics",
+                "Deconstructs SmartHopper usage metrics into individual values",
+                "SmartHopper",
+                "Utils")
         {
         }
 
-        public override Guid ComponentGuid => new("B8FE17D7-F146-4C94-9673-D2FA04BF7B9F");
+        public override Guid ComponentGuid => new ("B8FE17D7-F146-4C94-9673-D2FA04BF7B9F");
 
         /// <summary>
         /// Gets the component's icon.

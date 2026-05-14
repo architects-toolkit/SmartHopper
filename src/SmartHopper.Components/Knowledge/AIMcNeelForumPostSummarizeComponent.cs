@@ -43,7 +43,17 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneelpostsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIMcNeelPostSumm",
+            "mcneel_forum_post_summarize",
+            "McNeel Forum Post",
+            "Post Summarize",
+            "Forum Post Summary",
+            "McNeel Post Summary",
+        };
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "mcneel_forum_post_summarize" };
@@ -56,7 +66,6 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -73,7 +82,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIMcNeelForumPostSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIMcNeelForumPostSummarizeWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIMcNeelForumPostSummarizeWorker : AsyncWorkerBase
@@ -163,7 +172,7 @@ namespace SmartHopper.Components.Knowledge
                                     parameters["instructions"] = this.instructions;
                                 }
 
-                                var toolResult = await this.parent.CallAiToolAsync("mcneel_forum_post_summarize", parameters).ConfigureAwait(false);
+                                var toolResult = await this.parent.CallAIToolAsync("mcneel_forum_post_summarize", parameters, token).ConfigureAwait(false);
 
                                 if (toolResult == null)
                                 {
@@ -230,6 +239,7 @@ namespace SmartHopper.Components.Knowledge
                     {
                         this.resultSummaries = summaryTree;
                     }
+
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;

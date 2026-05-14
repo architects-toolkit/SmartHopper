@@ -11,7 +11,11 @@ name: 🔄 Update Model Verification Template
 
 on:
   push:
-    branches: [main]
+    branches:
+      - dev
+      - main
+      - 'hotfix/**'
+      - 'release/**'
     paths:
       - 'src/SmartHopper.Providers.*/[A-Z]*ProviderModels.cs'
   workflow_dispatch:
