@@ -19,10 +19,19 @@ on:
       - dev
       - 'hotfix/**'
       - 'release/**'
+    # Only run when the version source of truth changes. README.md is an output of this
+    # workflow; without this filter every PR merge to main/dev would re-trigger it.
+    paths:
+      - 'Solution.props'
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   paths-check:
@@ -103,3 +112,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.update-badge.outputs.badges-changed == 'true' && steps.check-changes.outputs.has_changes == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: docs/update-version-badge-${{ github.ref_name }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: ${{ github.ref_name }}
+          pr-title: "docs: update version badge for ${{ github.ref_name }} to ${{ steps.update-badge.outputs.version }}"

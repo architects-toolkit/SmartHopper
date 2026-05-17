@@ -1,0 +1,121 @@
+name: 'Update Manifest Text'
+description: 'Determines and optionally updates manifest.yml text based on version type (alpha/beta/rc/stable)'
+
+inputs:
+  version:
+    description: 'Version string to determine manifest text from'
+    required: true
+  manifest-path:
+    description: 'Path to manifest.yml file (relative to workspace)'
+    required: false
+    default: 'yak-package/manifest.yml'
+  update-file:
+    description: 'Whether to actually update the manifest file (true) or just output the text (false)'
+    required: false
+    default: 'false'
+
+outputs:
+  release-type:
+    description: 'Detected release type (alpha, beta, rc, stable)'
+    value: ${{ steps.determine.outputs.type }}
+  manifest-text:
+    description: 'The manifest text that should be used'
+    value: ${{ steps.determine.outputs.text }}
+  file-updated:
+    description: 'Whether the manifest file was actually modified'
+    value: ${{ steps.update.outputs.updated || 'false' }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Determine manifest text from version
+      id: determine
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        
+        # Determine text and type based on version suffix
+        if [[ "$VERSION" =~ -dev || "$VERSION" =~ -alpha ]]; then
+          TEXT="NOTE: This is an alpha release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
+          TYPE="alpha"
+        elif [[ "$VERSION" =~ -beta ]]; then
+          TEXT="NOTE: This is a beta release and you might find bugs :/ Please, report them at <https://github.com/architects-toolkit/SmartHopper/issues>"
+          TYPE="beta"
+        elif [[ "$VERSION" =~ -rc ]]; then
+          TEXT="NOTE: This is a release candidate. Please test thoroughly and report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>"
+          TYPE="rc"
+        else
+          TEXT="Please report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>"
+          TYPE="stable"
+        fi
+        
+        echo "type=$TYPE" >> $GITHUB_OUTPUT
+        echo "text=$TEXT" >> $GITHUB_OUTPUT
+        echo "Release type: $TYPE"
+        echo "Manifest text: $TEXT"
+
+    - name: Update manifest file (if enabled)
+      id: update
+      if: inputs.update-file == 'true'
+      shell: bash
+      run: |
+        MANIFEST_PATH="${{ inputs.manifest-path }}"
+        TEXT="${{ steps.determine.outputs.text }}"
+        TYPE="${{ steps.determine.outputs.type }}"
+        
+        # Check if manifest exists
+        if [ ! -f "$MANIFEST_PATH" ]; then
+          echo "::warning::Manifest file not found at $MANIFEST_PATH"
+          echo "updated=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        # Escape the new text for sed
+        ESCAPED_TEXT=$(echo "$TEXT" | sed 's/[&/\]/\\&/g')
+        
+        # Define patterns to match
+        ALPHA_PATTERN="NOTE: This is an alpha release"
+        BETA_PATTERN="NOTE: This is a beta release"
+        RC_PATTERN="NOTE: This is a release candidate"
+        STABLE_PATTERN="Please report any issues at"
+        
+        # Track if any replacement was made
+        REPLACED=false
+        
+        # Create a backup before modification to detect no-ops
+        cp "$MANIFEST_PATH" "$MANIFEST_PATH.bak"
+        
+        if grep -q "$ALPHA_PATTERN" "$MANIFEST_PATH"; then
+          echo "Replacing alpha text with $TYPE text"
+          sed -i "s|.*$ALPHA_PATTERN.*|  $ESCAPED_TEXT|" "$MANIFEST_PATH"
+          REPLACED=true
+        elif grep -q "$BETA_PATTERN" "$MANIFEST_PATH"; then
+          echo "Replacing beta text with $TYPE text"
+          sed -i "s|.*$BETA_PATTERN.*|  $ESCAPED_TEXT|" "$MANIFEST_PATH"
+          REPLACED=true
+        elif grep -q "$RC_PATTERN" "$MANIFEST_PATH"; then
+          echo "Replacing rc text with $TYPE text"
+          sed -i "s|.*$RC_PATTERN.*|  $ESCAPED_TEXT|" "$MANIFEST_PATH"
+          REPLACED=true
+        elif grep -q "$STABLE_PATTERN" "$MANIFEST_PATH"; then
+          echo "Replacing stable text with $TYPE text"
+          sed -i "s|.*$STABLE_PATTERN.*|  $ESCAPED_TEXT|" "$MANIFEST_PATH"
+          REPLACED=true
+        else
+          echo "::warning::Could not find existing note text to replace in $MANIFEST_PATH"
+          echo "Current content around description:"
+          grep -A 10 "description:" "$MANIFEST_PATH" || true
+        fi
+        
+        # Only report updated if the file content actually changed
+        if [ "$REPLACED" = true ] && ! cmp -s "$MANIFEST_PATH.bak" "$MANIFEST_PATH"; then
+          echo "updated=true" >> $GITHUB_OUTPUT
+          echo "Manifest successfully updated"
+        else
+          if [ "$REPLACED" = true ]; then
+            echo "No actual changes made (text already matches)"
+          fi
+          echo "updated=false" >> $GITHUB_OUTPUT
+        fi
+        
+        rm -f "$MANIFEST_PATH.bak"

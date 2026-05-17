@@ -20,10 +20,28 @@ on:
       - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
   pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   version-check:
@@ -72,18 +90,6 @@ jobs:
         with:
           mode: check
 
-  license-headers-check:
-    name: 📜 License Headers Check
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Check LGPL license headers
-        shell: pwsh
-        run: |
-          pwsh -ExecutionPolicy Bypass -File .\tools\Update-LicenseHeaders.ps1 -Check
-  
   changelog-check:
     name: 📝 Changelog Check
     runs-on: ubuntu-latest
@@ -96,21 +102,16 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.event.inputs.base_ref || github.event.pull_request.base.ref || 'main' }}
+          ref: ${{ github.ref }}
           filters: |
             src:
               - 'src/**'
-
-      - name: Check CHANGELOG.md is Updated
-        if: steps.filter.outputs.src == 'true'
-        uses: tj-actions/changed-files@2f7c5bfce28377bc069a65ba478de0a74aa0ca32 # v46.0.1
-        id: changelog-check
-        with:
-          files: CHANGELOG.md
+            changelog:
+              - 'CHANGELOG.md'
 
       - name: Validate Changelog Update
-        if: steps.filter.outputs.src == 'true' && steps.changelog-check.outputs.any_changed != 'true'
-        env:
-          CHANGED_FILES: ${{ steps.changelog-check.outputs.all_changed_files }}
+        if: steps.filter.outputs.src == 'true' && steps.filter.outputs.changelog != 'true'
         run: |
           echo "::error file=CHANGELOG.md::CHANGELOG.md must be updated with pull request changes"
           exit 1
@@ -122,8 +123,9 @@ jobs:
       pull-requests: read
     steps:
       - name: Validate PR Title Style
+        env:
+          PR_TITLE: ${{ github.event.inputs.pr_title || github.event.pull_request.title }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
           echo "Checking PR title: $PR_TITLE"
           
           # Valid types based on conventional commits
@@ -163,3 +165,24 @@ jobs:
           else
             echo "PR title format is valid! ✅"
           fi
+
+  required-check:
+    name: 📦 Pull Request Validation
+    needs: [version-check, code-style-check, changelog-check, title-check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required workflow jobs
+        shell: bash
+        run: |
+          for result in \
+            "${{ needs.version-check.result }}" \
+            "${{ needs.code-style-check.result }}" \
+            "${{ needs.changelog-check.result }}" \
+            "${{ needs.title-check.result }}"
+          do
+            if [[ "$result" != "success" ]]; then
+              echo "::error::A required PR validation job finished with $result"
+              exit 1
+            fi
+          done

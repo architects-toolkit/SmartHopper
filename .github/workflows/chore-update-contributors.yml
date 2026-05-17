@@ -24,8 +24,13 @@ on:
       - 'hotfix/**'
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   update-contributors:
@@ -313,11 +318,9 @@ jobs:
         id: create-pr
         run: |
           PR_TITLE="docs: update contributors section for ${{ env.TARGET_BRANCH }}"
-          PR_BODY=$(cat << 'EOF'
-          This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release.
-
-          This is an automated PR created by the Update Contributors workflow.
-          EOF)
+          PR_BODY=$(printf '%s\n\n%s' \
+            "This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release." \
+            "This is an automated PR created by the Update Contributors workflow.")
           
           gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY"
           
@@ -333,3 +336,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.identify-contributors.outputs.has_contributors == 'true' && steps.update-changelog.outputs.changelog_updated == 'true' && env.CHANGES_PUSHED == 'true' && steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ env.CONTRIB_BRANCH }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: ${{ env.TARGET_BRANCH }}
+          pr-title: "docs: update contributors section for ${{ env.TARGET_BRANCH }}"

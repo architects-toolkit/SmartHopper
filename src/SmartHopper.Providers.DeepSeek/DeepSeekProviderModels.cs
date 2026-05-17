@@ -47,6 +47,46 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
+                // Released between February 2026 and May 2026
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4-flash",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 10000,
+                    ContextLimit = 1048576,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-v4-pro",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9995,
+                    ContextLimit = 1048576,
+                },
+
+
+
+                // Deprecated models
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "deepseek-chat",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Deprecated = true,
+                    Rank = 0,
+                    ContextLimit = 60000,
+                },
+
                 new AIModelCapabilities
                 {
                     Provider = provider,
@@ -54,19 +94,10 @@ namespace SmartHopper.Providers.DeepSeek
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Default = AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
-                    Rank = 80,
+                    Deprecated = true,
+                    Rank = -5,
                     ContextLimit = 64000,
-                },
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "deepseek-chat",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    Default = AICapability.Text2Text | AICapability.ToolChat,
-                    SupportsStreaming = true,
-                    Rank = 90,
-                    ContextLimit = 60000,
-                },
+                }
             };
 
             return Task.FromResult(models);

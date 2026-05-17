@@ -11,8 +11,13 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   remove-release-date:
@@ -72,7 +77,6 @@ jobs:
           base: ${{ github.event.pull_request.head.ref }}
           delete-branch: true
           labels: |
-            chore
             automated
 
       - name: Assign PR to Milestone
@@ -81,3 +85,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/strip-version-date-${{ github.event.pull_request.head.ref }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: ${{ github.event.pull_request.head.ref }}
+          pr-title: "chore: remove date from version for main release"

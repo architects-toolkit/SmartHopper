@@ -10,4 +10,4 @@ Omit this workflow if current branch is main or dev.
 
 3. Compare the list of commits against the [Unreleased] section in CHANGELOG.md.
 
-4. Suggest the user for missing mentions in CHANGELOG
+4. Suggest missing `CHANGELOG.md` entries to the user.

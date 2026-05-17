@@ -1,0 +1,271 @@
+name: ✅ Model Verification
+
+# Description: Tracks community certifications of AI models in `*ProviderModels.cs`.
+#
+# An issue created from the "Model Verification Report" template represents the FIRST
+# verifier (the issue author). Other users certify the same model by posting a comment
+# whose FIRST non-empty line is exactly `/verify-confirm` AND that contains the marker
+# `<!-- model-verification-confirm -->` (both come from the issue template's copy-paste
+# codeblock). Comments that don't match are ignored.
+#
+# Org members and collaborators may post a comment whose FIRST non-empty line is
+# `/verify-force` to immediately promote the model regardless of the user count.
+#
+# Once at least TWO distinct users have certified (or one valid /verify-force has
+# been posted), this workflow opens a PR that flips `Verified = false` to
+# `Verified = true` for the matching provider/model in
+# `src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs`.
+#
+# Tracking integrity:
+# - Verifiers are GitHub usernames (login). Bots are excluded.
+# - Each user counts at most once.
+# - `/verify-force` requires `author_association` ∈ { OWNER, MEMBER, COLLABORATOR }.
+# - The original author counts as a verifier only if the issue body contains the
+#   "I confirm" checkbox marked.
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  issue_comment:
+    types: [created, edited]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to (re)evaluate"
+        required: true
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: model-verify-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'model-verification')) ||
+      (github.event_name == 'issue_comment' &&
+        contains(github.event.issue.labels.*.name, 'model-verification') &&
+        (startsWith(github.event.comment.body, '/verify-confirm') ||
+         startsWith(github.event.comment.body, '/verify-force')))
+    runs-on: windows-latest
+    outputs:
+      should_promote: ${{ steps.tally.outputs.should_promote }}
+      provider: ${{ steps.tally.outputs.provider }}
+      model: ${{ steps.tally.outputs.model }}
+      issue_number: ${{ steps.tally.outputs.issue_number }}
+      verifiers: ${{ steps.tally.outputs.verifiers }}
+      bypass_user: ${{ steps.tally.outputs.bypass_user }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Tally verifiers
+        id: tally
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.inputs?.issue_number
+              ? Number(context.payload.inputs.issue_number)
+              : context.payload.issue.number;
+
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            });
+
+            const labels = (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name));
+            if (!labels.includes('model-verification')) {
+              core.info('Issue is not labeled model-verification; skipping.');
+              core.setOutput('should_promote', 'false');
+              return;
+            }
+            if (labels.includes('model-verified')) {
+              core.info('Issue already promoted; skipping.');
+              core.setOutput('should_promote', 'false');
+              return;
+            }
+
+            const body = issue.body || '';
+
+            // Parse Provider / Model (dropdown rendered as plain text under "### Provider / Model")
+            const providerModelMatch = body.match(/###\s*Provider \/ Model\s*\r?\n\s*([A-Za-z0-9_\-]+)\s*\/\s*([^\r\n]+?)\s*$/m);
+            const versionMatch = body.match(/###\s*SmartHopper Version\s*\r?\n\s*([^\r\n]+?)\s*$/m);
+            if (!providerModelMatch) {
+              core.warning('Could not parse provider and model from issue body.');
+              core.setOutput('should_promote', 'false');
+              return;
+            }
+            const provider = providerModelMatch[1].trim();
+            const model = providerModelMatch[2].trim();
+            const version = versionMatch ? versionMatch[1].trim() : 'unknown';
+            core.info(`Parsed provider='${provider}', model='${model}', version='${version}'`);
+
+            // Check if title needs updating (it starts as just "[model verification]")
+            if (issue.title === "[model verification]") {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                title: `[model verification] ${provider} / ${model} (v${version})`
+              });
+              core.info(`Updated issue title to include model and version`);
+            }
+
+            // The "I confirm" checkbox must be checked for the author to count.
+            const authorConfirms = /-\s*\[x\][^\n]*I confirm that I personally ran/i.test(body);
+
+            const verifiers = new Set();
+            if (authorConfirms && issue.user && issue.user.type !== 'Bot') {
+              verifiers.add(issue.user.login.toLowerCase());
+            }
+
+            // Iterate comments looking for /verify-confirm and /verify-bypass.
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100,
+              }
+            );
+
+            // A valid /verify-confirm comment must:
+            //   - have `/verify-confirm` as its first non-empty line
+            //   - contain the marker `<!-- model-verification-confirm -->`
+            //     (both ship in the issue template's copy-paste codeblock)
+            // A valid /verify-force comment must have `/verify-force` as its first non-empty line.
+            const firstLine = (text) => {
+              for (const raw of (text || '').split(/\r?\n/)) {
+                const line = raw.trim();
+                if (line.length > 0) return line;
+              }
+              return '';
+            };
+            const CONFIRM_MARKER = '<!-- model-verification-confirm -->';
+
+            let bypassUser = '';
+            const orgRoles = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+            for (const c of comments) {
+              if (!c.user || c.user.type === 'Bot') continue;
+              const text = c.body || '';
+              const head = firstLine(text);
+
+              if (head === '/verify-force' && orgRoles.has(c.author_association)) {
+                bypassUser = c.user.login;
+                continue;
+              }
+              if (head === '/verify-confirm' && text.includes(CONFIRM_MARKER)) {
+                verifiers.add(c.user.login.toLowerCase());
+              }
+            }
+
+            const list = Array.from(verifiers).sort();
+            const shouldPromote = !!bypassUser || list.length >= 2;
+
+            core.setOutput('provider', provider);
+            core.setOutput('model', model);
+            core.setOutput('issue_number', String(issueNumber));
+            core.setOutput('verifiers', list.join(','));
+            core.setOutput('bypass_user', bypassUser);
+            core.setOutput('should_promote', shouldPromote ? 'true' : 'false');
+
+            const summary = [
+              `### Model verification status`,
+              ``,
+              `- Provider: \`${provider}\``,
+              `- Model: \`${model}\``,
+              `- Distinct verifiers (${list.length}): ${list.length ? list.map(u => '`' + u + '`').join(', ') : '_none_'}`,
+              `- Bypass: ${bypassUser ? '`@' + bypassUser + '`' : '_none_'}`,
+              `- Threshold met: **${shouldPromote ? 'YES' : 'NO'}**`,
+            ].join('\n');
+            await core.summary.addRaw(summary).write();
+
+      - name: Promote model in source
+        id: promote
+        if: steps.tally.outputs.should_promote == 'true'
+        shell: pwsh
+        run: |
+          pwsh -ExecutionPolicy Bypass -File .\tools\Update-ModelVerified.ps1 `
+            -Provider '${{ steps.tally.outputs.provider }}' `
+            -Model '${{ steps.tally.outputs.model }}'
+          $code = $LASTEXITCODE
+          if ($code -eq 0) {
+            "changed=true"  | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } elseif ($code -eq 1) {
+            "changed=false" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } else {
+            throw "Update-ModelVerified.ps1 failed with exit code $code"
+          }
+
+      - name: Create Pull Request
+        if: steps.tally.outputs.should_promote == 'true' && steps.promote.outputs.changed == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
+          title: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
+          body: |
+            Promotes `${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}` to `Verified = true`.
+
+            Closes #${{ steps.tally.outputs.issue_number }}
+
+            ### Verification trail
+            - Distinct verifiers: `${{ steps.tally.outputs.verifiers }}`
+            - Bypass: `${{ steps.tally.outputs.bypass_user }}`
+
+            Generated automatically by `.github/workflows/model-verification.yml`.
+          branch: "chore/verify-${{ steps.tally.outputs.provider }}-${{ steps.tally.outputs.model }}"
+          base: dev
+          delete-branch: true
+          labels: |
+            automated
+
+      - name: Dispatch required PR checks
+        if: steps.tally.outputs.should_promote == 'true' && steps.promote.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/verify-${{ steps.tally.outputs.provider }}-${{ steps.tally.outputs.model }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: dev
+          pr-title: "chore(models): verify ${{ steps.tally.outputs.provider }}/${{ steps.tally.outputs.model }}"
+
+      - name: Comment outcome on issue
+        if: steps.tally.outputs.should_promote == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = Number('${{ steps.tally.outputs.issue_number }}');
+            const prNumber = '${{ steps.create-pr.outputs.pull-request-number }}';
+            const verifiers = '${{ steps.tally.outputs.verifiers }}';
+            const bypass = '${{ steps.tally.outputs.bypass_user }}';
+            const changed = '${{ steps.promote.outputs.changed }}' === 'true';
+
+            const body = changed && prNumber
+              ? `✅ Verification threshold reached.\n\n- Verifiers: \`${verifiers}\`\n- Bypass: \`${bypass || '—'}\`\n\nOpened PR #${prNumber} promoting this model to \`Verified = true\`.`
+              : `ℹ️ Verification threshold reached, but the source already declared this model as \`Verified = true\`. Closing as resolved.`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body,
+            });
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['model-verified'],
+            });

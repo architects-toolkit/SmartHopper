@@ -24,8 +24,13 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   anonymize-key:
@@ -125,11 +130,14 @@ jobs:
           
           git add src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj
           
-          # Check if there are changes to commit
-          if (git diff --staged --quiet) {
-            Write-Host "No changes to commit, skipping PR creation"
+          # Check if there are changes to commit (staged)
+          $stagedDiff = git diff --staged
+          if ([string]::IsNullOrWhiteSpace($stagedDiff)) {
+            Write-Host "No staged changes to commit, skipping PR creation"
             echo "changes_pushed=false" >> $env:GITHUB_OUTPUT
           } else {
+            Write-Host "Staged changes detected:"
+            Write-Host $stagedDiff
             git commit -m "chore: anonymize SmartHopperPublicKey"
             git push origin $ANON_BRANCH
             echo "changes_pushed=true" >> $env:GITHUB_OUTPUT
@@ -140,7 +148,18 @@ jobs:
         id: create-pr
         shell: pwsh
         run: |
-          $PR_TITLE = "chore: anonymize SmartHopperPublicKey for ${{ steps.set-branches.outputs.target_branch }}"
+          $TARGET_BRANCH = "${{ steps.set-branches.outputs.target_branch }}"
+          $ANON_BRANCH = "${{ steps.set-branches.outputs.anon_branch }}"
+          
+          # Verify branches actually differ before creating PR
+          $diff = git diff "$TARGET_BRANCH..$ANON_BRANCH"
+          if ([string]::IsNullOrWhiteSpace($diff)) {
+            Write-Host "No differences between $TARGET_BRANCH and $ANON_BRANCH, deleting branch and skipping PR"
+            git push origin --delete $ANON_BRANCH
+            exit 0
+          }
+          
+          $PR_TITLE = "chore: anonymize SmartHopperPublicKey for $TARGET_BRANCH"
           $PR_BODY = @'
           This PR anonymizes the SmartHopperPublicKey in SmartHopper.Infrastructure.csproj to replace any real public key with a harmless placeholder.
 
@@ -163,3 +182,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.anonymize.outputs.changes_made == 'true' && steps.create-branch.outputs.changes_pushed == 'true' && steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.set-branches.outputs.anon_branch }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: ${{ steps.set-branches.outputs.target_branch }}
+          pr-title: "chore: anonymize SmartHopperPublicKey for ${{ steps.set-branches.outputs.target_branch }}"
