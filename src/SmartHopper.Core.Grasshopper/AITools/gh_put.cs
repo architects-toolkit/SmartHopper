@@ -463,11 +463,46 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Select(o => o.Name)
                     .ToList();
 
+                // Build a combined analysis message that surfaces silent failures
+                // (FailedComponents / Warnings) which CanvasPlacer collects when
+                // SkipInvalidComponents is true.
+                var analysisSections = new List<string>();
+                if (!string.IsNullOrWhiteSpace(analysisMsg))
+                {
+                    analysisSections.Add(analysisMsg);
+                }
+
+                if (putResult.FailedComponents != null && putResult.FailedComponents.Count > 0)
+                {
+                    var lines = new List<string> { "Errors:" };
+                    foreach (var failed in putResult.FailedComponents)
+                    {
+                        lines.Add($"- Could not instantiate component '{failed}'. Component is unknown to the active Grasshopper installation.");
+                    }
+
+                    analysisSections.Add(string.Join("\n", lines));
+                }
+
+                if (putResult.Warnings != null && putResult.Warnings.Count > 0)
+                {
+                    var lines = new List<string> { "Warnings:" };
+                    foreach (var w in putResult.Warnings)
+                    {
+                        lines.Add($"- {w}");
+                    }
+
+                    analysisSections.Add(string.Join("\n", lines));
+                }
+
+                var combinedAnalysis = analysisSections.Count > 0
+                    ? string.Join("\n", analysisSections)
+                    : null;
+
                 var toolResult = new JObject
                 {
                     ["components"] = JArray.FromObject(placedNames),
                     ["instanceGuids"] = JArray.FromObject(placedGuids),
-                    ["analysis"] = analysisMsg,
+                    ["analysis"] = combinedAnalysis,
                 };
 
                 var body = AIBodyBuilder.Create()
