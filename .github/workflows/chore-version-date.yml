@@ -4,7 +4,7 @@ name: 🔄 Update Version Date
 #   - chore-version-date.yml (updates version date suffix on dev/release pushes)
 #   - chore-version-badge.yml (updates README badge on version change)
 #   - chore-version-main-release.yml (strips date suffix for main release PRs)
-#   - dev-update-manifest.yml (updates manifest text on dev version change)
+#   (dev-update-manifest.yml was removed — manifest text is now resolved at build time via .manifest.json)
 
 # Description: This workflow automatically updates the date component 
 # when the version includes it. It creates a PR with the updated date

@@ -89,6 +89,12 @@ jobs:
           }
           echo "version=$version" >> $env:GITHUB_OUTPUT
 
+      - name: Update manifest text for version
+        uses: ./.github/actions/versioning/update-manifest-text
+        with:
+          version: ${{ steps.get_version.outputs.version }}
+          update-file: 'true'
+
       - name: Create version label if doesn't exist
         if: inputs.upload_to_yak == 'true'
         uses: ./.github/actions/versioning/create-version-label
