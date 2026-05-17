@@ -447,6 +447,15 @@ namespace SmartHopper.Providers.OpenAI
                     ContextLimit = 1047576,
                     Aliases = new List<string> { "gpt-4.1-mini", "gpt-4.1-mini-latest" },
                 },
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-image-1.5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Rank = 75,
+                },
 
                 new AIModelCapabilities
                 {
