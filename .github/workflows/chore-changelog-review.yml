@@ -23,8 +23,12 @@ name: 📝 AI Changelog Review & Simplification
 
 on:
   pull_request:
-    types: [opened, synchronize]
-    branches: [dev]
+    types: 
+      - opened
+      - synchronize
+    branches: 
+      -'dev'
+      - 'dev-*'
     paths:
       - 'CHANGELOG.md'
   workflow_dispatch:
