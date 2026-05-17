@@ -15,7 +15,8 @@ name: 🔁 Sync main to dev branches
 #
 #   Allow-list for `dev-*`:
 #     * any change (add/modify/rename/delete) under `.github/`, `.windsurf/`,
-#       `.githooks/`, or `hashes/` (CI, rules, git hooks, provider hashes);
+#       `.githooks/`, `hashes/`, or `tools/` (CI, rules, git hooks,
+#       provider hashes, automation scripts);
 #     * *modifications* (not add/rename/delete) to existing
 #       `src/SmartHopper.Providers.*/*ProviderModels.cs` files, so model
 #       verification flips, deprecations, and model-list updates propagate.
@@ -83,7 +84,7 @@ jobs:
             // For `dev-*` (stabilization) branches, restrict to infra-only paths
             // plus modifications to existing provider model registries.
             const isStabilization = base !== 'dev' && base.startsWith('dev-');
-            const ALLOWED_PREFIXES = ['.github/', '.windsurf/', '.githooks/', 'hashes/'];
+            const ALLOWED_PREFIXES = ['.github/', '.windsurf/', '.githooks/', 'hashes/', 'tools/'];
             // Matches: src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs
             const PROVIDER_MODELS_RE = /^src\/SmartHopper\.Providers\.[^/]+\/[^/]*ProviderModels\.cs$/;
             const isAllowedStabilizationFile = (file) => {
@@ -315,7 +316,7 @@ jobs:
               `- Allow-listed files applied: ${process.env.ALLOWED_COUNT}`,
               `- Non-allow-listed files left on \`main\`: ${process.env.SKIPPED_COUNT}`,
               '',
-              'Allow-list for stabilization branches: any change under `.github/`, `.windsurf/`, `.githooks/`, `hashes/`, plus *modifications* to existing `src/SmartHopper.Providers.*/*ProviderModels.cs` files.',
+              'Allow-list for stabilization branches: any change under `.github/`, `.windsurf/`, `.githooks/`, `hashes/`, `tools/`, plus *modifications* to existing `src/SmartHopper.Providers.*/*ProviderModels.cs` files.',
               '',
               'This PR is kept open and its branch is refreshed on subsequent `main` updates.',
             ].join('\n');
