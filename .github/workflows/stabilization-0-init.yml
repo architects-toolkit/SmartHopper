@@ -1,5 +1,13 @@
 name: Stabilization 0 - 🌿 Init Path
 
+# Related workflows (stabilization & hotfix paths):
+#   - stabilization-0-init.yml (creates dev-X.Y.Z and main-X.Y.Z branches)
+#   - stabilization-1-cancel.yml (cancels stabilization path)
+#   - stabilization-2-complete.yml (completes stabilization)
+#   - hotfix-0-new-branch.yml (creates hotfix branch from main)
+#   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
+#   - main-sync-to-dev.yml (syncs main changes to dev and dev-* branches)
+
 # Description: Initializes a stabilization path when a no-suffix milestone (e.g. "1.4.2") is created.
 # Creates dedicated dev-X.Y.Z and main-X.Y.Z branches from the latest matching prerelease tag.
 #
@@ -24,6 +32,7 @@ concurrency:
 jobs:
   init-stabilization-path:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: ${{ github.event_name == 'milestone' && !contains(github.event.milestone.title, '-') && github.event.milestone.title != '' }}
     steps:
       - name: Validate milestone title format

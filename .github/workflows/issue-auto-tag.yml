@@ -1,5 +1,11 @@
 name: 🏷️ Auto-Tag Issues with Version
 
+# Related workflows (issue label management):
+#   - github-issue-labels-close.yml (closes issue when close: label added)
+#   - github-issue-labels-on-close.yml (converts status→close labels on issue close)
+#   - github-labels-sync.yml (syncs label definitions from labels.yml)
+#   - issue-auto-tag.yml (auto-labels new issues based on content)
+
 # Description: Automatically tags newly created issues with the appropriate version label
 # based on the SmartHopper Version field from the bug report template.
 #
@@ -20,6 +26,7 @@ permissions:
 jobs:
   auto-tag-issue:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

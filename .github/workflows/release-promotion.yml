@@ -43,6 +43,7 @@ permissions:
 jobs:
   determine-versions-to-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       versions: ${{ steps.get-versions.outputs.versions }}
       has-versions: ${{ steps.get-versions.outputs.has_versions }}
@@ -137,6 +138,7 @@ jobs:
     needs: determine-versions-to-check
     if: needs.determine-versions-to-check.outputs.has-versions == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: "promotion-${{ matrix.version }}"
       cancel-in-progress: false
