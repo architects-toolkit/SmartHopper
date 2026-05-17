@@ -80,39 +80,42 @@ runs:
         STABLE_PATTERN="Please report any issues at"
         
         # Track if any replacement was made
-        UPDATED=false
+        REPLACED=false
+        
+        # Create a backup before modification to detect no-ops
+        cp "$MANIFEST_PATH" "$MANIFEST_PATH.bak"
         
         if grep -q "$ALPHA_PATTERN" "$MANIFEST_PATH"; then
           echo "Replacing alpha text with $TYPE text"
           sed -i "s|.*$ALPHA_PATTERN.*|  $ESCAPED_TEXT|" "$MANIFEST_PATH"
-          UPDATED=true
+          REPLACED=true
         elif grep -q "$BETA_PATTERN" "$MANIFEST_PATH"; then
           echo "Replacing beta text with $TYPE text"
           sed -i "s|.*$BETA_PATTERN.*|  $ESCAPED_TEXT|" "$MANIFEST_PATH"
-          UPDATED=true
+          REPLACED=true
         elif grep -q "$RC_PATTERN" "$MANIFEST_PATH"; then
           echo "Replacing rc text with $TYPE text"
           sed -i "s|.*$RC_PATTERN.*|  $ESCAPED_TEXT|" "$MANIFEST_PATH"
-          UPDATED=true
+          REPLACED=true
         elif grep -q "$STABLE_PATTERN" "$MANIFEST_PATH"; then
           echo "Replacing stable text with $TYPE text"
           sed -i "s|.*$STABLE_PATTERN.*|  $ESCAPED_TEXT|" "$MANIFEST_PATH"
-          UPDATED=true
+          REPLACED=true
         else
           echo "::warning::Could not find existing note text to replace in $MANIFEST_PATH"
           echo "Current content around description:"
           grep -A 10 "description:" "$MANIFEST_PATH" || true
         fi
         
-        # Verify the change was made
-        if [ "$UPDATED" = true ]; then
-          if grep -qF "$TEXT" "$MANIFEST_PATH"; then
-            echo "updated=true" >> $GITHUB_OUTPUT
-            echo "Manifest successfully updated"
-          else
-            echo "::warning::Update may have failed - text not found in manifest"
-            echo "updated=false" >> $GITHUB_OUTPUT
-          fi
+        # Only report updated if the file content actually changed
+        if [ "$REPLACED" = true ] && ! cmp -s "$MANIFEST_PATH.bak" "$MANIFEST_PATH"; then
+          echo "updated=true" >> $GITHUB_OUTPUT
+          echo "Manifest successfully updated"
         else
+          if [ "$REPLACED" = true ]; then
+            echo "No actual changes made (text already matches)"
+          fi
           echo "updated=false" >> $GITHUB_OUTPUT
         fi
+        
+        rm -f "$MANIFEST_PATH.bak"
