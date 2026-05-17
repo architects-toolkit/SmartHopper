@@ -30,6 +30,7 @@ jobs:
     if: ${{ github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       issues: read
       pull-requests: read
@@ -53,7 +54,15 @@ jobs:
         with:
           branch: ${{ steps.target-branch.outputs.branch }}
 
+      - name: Abort if dev version
+        id: dev_check
+        if: steps.release_info.outputs.stage == 'dev'
+        run: |
+          echo "::notice::Version ${{ steps.release_info.outputs.version }} is a dev build. Skipping release creation."
+          echo "skip=true" >> $GITHUB_OUTPUT
+
       - name: Generate Release Notes
+        if: steps.dev_check.outputs.skip != 'true'
         id: issues
         uses: actions/github-script@v7
         env:
@@ -72,6 +81,7 @@ jobs:
             await core.setOutput('changelog', releaseNotes.data.body);
 
       - name: Check Prerelease Status
+        if: steps.dev_check.outputs.skip != 'true'
         id: prerelease
         run: |
           title="${{ steps.release_info.outputs.version }}"
@@ -82,6 +92,7 @@ jobs:
           fi
 
       - name: Check if Release Exists and is Not Prerelease
+        if: steps.dev_check.outputs.skip != 'true'
         id: check_release
         uses: actions/github-script@v7
         env:
@@ -111,6 +122,7 @@ jobs:
             }
 
       - name: Generate AI Release Notes
+        if: steps.dev_check.outputs.skip != 'true'
         id: ai_release_notes
         uses: ./.github/actions/documentation/generate-release-notes
         with:
@@ -122,6 +134,7 @@ jobs:
           mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
 
       - name: Create Release
+        if: steps.dev_check.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -143,6 +156,7 @@ jobs:
           target_commitish: ${{ steps.target-branch.outputs.branch }}
 
       - name: Update Issue Template Version Dropdown
+        if: steps.dev_check.outputs.skip != 'true'
         id: update_template
         shell: pwsh
         run: |
@@ -160,11 +174,12 @@ jobs:
           }
 
       - name: Create Pull Request for Template Update
-        if: steps.update_template.outputs.changed == 'true'
+        if: steps.dev_check.outputs.skip != 'true' && steps.update_template.outputs.changed == 'true'
+        id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification template [ci skip]"
+          commit-message: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification template"
           title: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification dropdown"
           body: |
             Auto-generated PR from `.github/workflows/release-3-pr-to-main-closed.yml`.
@@ -175,3 +190,13 @@ jobs:
           delete-branch: true
           labels: |
             automated
+
+      - name: Dispatch required PR checks
+        if: steps.dev_check.outputs.skip != 'true' && steps.update_template.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/update-version-dropdown-${{ steps.release_info.outputs.version }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: ${{ steps.target-branch.outputs.branch }}
+          pr-title: "chore(templates): add ${{ steps.release_info.outputs.version }} to model-verification dropdown"

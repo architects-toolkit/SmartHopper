@@ -277,7 +277,11 @@ jobs:
               });
               console.log(`✅ Created milestone: ${nextVersion}`);
             } catch (e) {
-              if (e.message.includes('already exists')) {
+              // GitHub returns 422 with error code "already_exists" when a milestone
+              // with the same title already exists. Older Octokit versions surfaced
+              // this as "already exists" in the message — handle both forms.
+              const msg = e.message || '';
+              if (e.status === 422 && /already[_ ]exists/.test(msg)) {
                 console.log(`ℹ️ Milestone ${nextVersion} already exists`);
               } else {
                 throw e;
