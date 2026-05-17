@@ -1,6 +1,6 @@
-# MCP server (design)
+# MCP server
 
-> Status: **design draft**, not yet implemented. This document proposes how SmartHopper would expose its existing AI tools to external MCP clients (Claude Desktop, Cursor, VS Code, Claude Code, etc.). It is informed by `brookstalley/cordyceps` (MIT) but adapted to SmartHopper's existing architecture and GhJSON-first principle.
+> Status: **phase 1 implemented**. SmartHopper exposes its existing AI tools to external MCP clients (Claude Desktop, Cursor, VS Code, Claude Code, etc.) over a local loopback HTTP/JSON-RPC server. This document describes the resulting architecture; phases 2–5 (resources, prompts, LAN exposure, streaming) remain design-only. It is informed by `brookstalley/cordyceps` (MIT) but adapted to SmartHopper's existing architecture and GhJSON-first principle.
 
 ## 1. Goal and scope
 
@@ -79,46 +79,37 @@ Explicitly **out of scope**:
 
 ## 4. Project layout
 
-A new project `SmartHopper.Mcp` is added under `src/`:
+Phase 1 lands the MCP transport inside the existing `SmartHopper.Infrastructure` project instead of carving out a new standalone project. This keeps the dependency graph flat (only `SmartHopper.Components` already references `SmartHopper.Infrastructure`) and lets future phases peel out into a dedicated `SmartHopper.Mcp` assembly if and when a second host or out-of-process surface is introduced.
 
 ```
-src/SmartHopper.Mcp/
-├── SmartHopper.Mcp.csproj                # net7.0;net7.0-windows
-├── McpServer.cs                          # HttpListener lifecycle, CORS, origin guard
-├── Transport/
-│   ├── JsonRpcDispatcher.cs              # initialize / tools/list / tools/call / resources/*
-│   ├── JsonRpcRequest.cs / Response.cs
-│   └── SseSession.cs                     # optional Streamable HTTP / SSE channel
-├── Tools/
-│   ├── AIToolMcpAdapter.cs               # AITool <-> MCP tool descriptor
-│   └── McpToolDescriptor.cs              # name, description, inputSchema (from AITool.ParametersSchema)
-├── Resources/
-│   ├── ResourceRegistry.cs               # gh://docs/* -> embedded /docs/Tools/*.md
-│   └── EmbeddedKnowledge/                # copied at build time from /docs/Tools, /docs/Architecture
-├── Hosting/
-│   ├── RhinoUiMarshaller.cs              # SemaphoreSlim mutex around GH UI thread
-│   └── McpServerLifecycle.cs             # ref-counted singleton, document-scoped
-└── Settings/
-    └── McpSettings.cs                    # port, bearer token, enabled tools allow-list
+src/SmartHopper.Infrastructure/Mcp/
+├── McpServer.cs                          # HttpListener (127.0.0.1 + [::1]), origin guard, bearer auth
+├── JsonRpcDispatcher.cs                  # initialize / tools/list / tools/call / notifications / ping
+├── AIToolMcpAdapter.cs                   # AITool <-> MCP tool descriptor; executes via AIToolCall
+├── McpToolDescriptor.cs                  # name, description, inputSchema (from AITool.ParametersSchema)
+├── McpToolCallResult.cs                  # success/error wrapper for tools/call
+├── McpServerLifecycle.cs                 # ref-counted singleton per port
+└── McpServerOptions.cs                   # port, bearer token, enabled-tools allow-list, mutating policy
 ```
 
-A new component lives in `SmartHopper.Components`:
+Future phases (resources, prompts, optional Streamable HTTP) will add `Resources/`, `Prompts/`, and `Transport/` subfolders under the same root, or graduate to a dedicated `SmartHopper.Mcp` project if cross-host reuse becomes a requirement.
+
+The user-facing component lives in `SmartHopper.Components`:
 
 ```
 src/SmartHopper.Components/Mcp/
-└── SmartHopperMcpServerComponent.cs      # user-placed component; Inputs: Enable, Port. Outputs: Url, Status, LastCall
+└── SmartHopperMcpServerComponent.cs      # opt-in; Inputs: Enable, Port, BearerToken, ExposeMutatingTools. Outputs: Url, Status
 ```
 
 ### Dependencies
 
-| Reference                                            | From                       | To                          | Reason                                                       |
-|------------------------------------------------------|----------------------------|-----------------------------|--------------------------------------------------------------|
-| `SmartHopper.Mcp` → `SmartHopper.Infrastructure`     | new                        | existing                    | Reach `AIToolManager`, `IAIToolProvider`, `AIToolCall`.      |
-| `SmartHopper.Mcp` → `SmartHopper.Core.Grasshopper`   | new                        | existing                    | Reach UI marshalling helpers.                                |
-| `SmartHopper.Components` → `SmartHopper.Mcp`         | existing                   | new                         | Hosts the user-placed component.                             |
-| `SmartHopper.Mcp` ↛ `ghjson-dotnet`                  | **forbidden**              |                             | Schema work stays inside existing `AITool` implementations.  |
+| Reference                                              | From                       | To                          | Reason                                                       |
+|--------------------------------------------------------|----------------------------|-----------------------------|--------------------------------------------------------------|
+| `SmartHopper.Infrastructure/Mcp` → `Infrastructure.AITools` | existing project           | existing namespace          | Reach `AIToolManager`, `IAIToolProvider`, `AIToolCall`.      |
+| `SmartHopper.Components/Mcp` → `SmartHopper.Infrastructure` | existing                   | existing                    | Component hosts `McpServerLifecycle`.                        |
+| `SmartHopper.Infrastructure/Mcp` ↛ `ghjson-dotnet`     | **forbidden**              |                             | Schema work stays inside existing `AITool` implementations.  |
 
-`SmartHopper.Mcp` only depends on `Newtonsoft.Json` (already in the solution) plus `System.Net.Http` and `System.Net.HttpListener` from the BCL. No additional NuGet dependencies are introduced in phase 1.
+Phase 1 only depends on `Newtonsoft.Json` (already in the solution) plus `System.Net.Http` and `System.Net.HttpListener` from the BCL. No additional NuGet dependencies are introduced.
 
 ## 5. MCP method mapping
 
@@ -139,7 +130,7 @@ src/SmartHopper.Components/Mcp/
 2. `JsonRpcDispatcher` resolves the `AITool` by name. If unknown → JSON-RPC error `-32601`.
 3. The `arguments` object is forwarded as `AIToolCall.Arguments` (it is already JSON; no Grasshopper-specific shaping happens here).
 4. `RhinoUiMarshaller.ExecuteOnUiThreadAsync(() => AIToolCall.Exec())` runs the tool serialized against the UI thread.
-5. `AIReturn.Body` is returned to the client as the JSON-RPC `result.content[0].text` payload (the MCP "text content" envelope). `AIReturn.ErrorMessage`, if set, becomes a JSON-RPC error.
+5. `AIReturn.Body` is returned to the client as the JSON-RPC `result.content[0].text` payload (the MCP "text content" envelope). Structured error messages on the `AIReturn` (origins `Tool`, `Provider`, `Network`) are surfaced as `isError: true` MCP responses; shape/metrics validation messages from the inner pipeline are intentionally suppressed.
 
 This is the entire bridge. There is no GhJSON marshalling here; the existing `AITool.Execute` delegates handle that themselves.
 
@@ -216,8 +207,8 @@ Settings persisted via the existing `SmartHopper.Infrastructure.Settings` surfac
 
 | Phase | Deliverable                                                                                                              | Scope                                                                                          |
 |-------|---------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
-| 0     | **This design doc.**                                                                                                      | No code.                                                                                       |
-| 1     | `SmartHopper.Mcp` project, `SmartHopperMcpServerComponent`, `tools/list`, `tools/call`, read-only tools enabled by default. | Wires existing read-only `AITool`s. Mutating tools off until user opts in.                     |
+| 0     | **This design doc.**                                                                                                      | No code. _Done._                                                                                |
+| 1     | `SmartHopper.Infrastructure/Mcp/*`, `SmartHopperMcpServerComponent`, `tools/list`, `tools/call`, read-only tools by default. | Wires existing read-only `AITool`s. Mutating tools off until user opts in. _Done._             |
 | 2     | `resources/list`, `resources/read`. Embedded `/docs/Tools/*` and `/docs/Architecture/*` as `gh://docs/*` URIs.            | Reuses existing Markdown; no new content authored.                                             |
 | 3     | `prompts/list`, `prompts/get`. Workflow templates for "parametric geometry", "debug GhJSON", "switch provider".          | Templates author-controlled in `/docs/Prompts/*`.                                              |
 | 4     | LAN exposure flag + mandatory bearer token, structured audit log, per-session rate limit.                                | Opt-in only.                                                                                   |
@@ -236,7 +227,7 @@ Each phase is intended to land as a separate PR.
 - Cordyceps' tool implementations are **not** ported. SmartHopper already has equivalent tools and reuses them through `AIToolManager`.
 - Component-name aliasing (Cordyceps' `Core/ComponentRegistry.cs`) is already addressed by [`ComponentNameAliases`](../../src/SmartHopper.Core.Grasshopper/Utils/Canvas/ComponentNameAliases.cs) in the orchestration layer (`feature/2.0.0-text2json`).
 
-Attribution will be added to `THIRD_PARTY_NOTICES.md` and per-file headers when phase 1 code lands.
+Attribution is recorded in `THIRD_PARTY_NOTICES.md` and in per-file headers under `src/SmartHopper.Infrastructure/Mcp/`.
 
 ## 11. Open questions
 
@@ -246,13 +237,13 @@ Attribution will be added to `THIRD_PARTY_NOTICES.md` and per-file headers when 
 4. **Settings UI.** Phase 1 surfaces port / token via component inputs. A central Settings dialog entry is deferred.
 5. **CI coverage.** Phase 1 will add `SmartHopper.Mcp.Tests` (xUnit, no Rhino refs) covering `JsonRpcDispatcher` and `AIToolMcpAdapter`. The HttpListener path stays untested in CI; integration testing happens via a manual Claude Desktop session.
 
-## 12. Decision points the maintainer must confirm before phase 1
+## 12. Decision points (resolved in phase 1)
 
-- [ ] Approve project name `SmartHopper.Mcp` (alternative: `SmartHopper.Mcp.Server`).
-- [ ] Approve default port `26929` (Cordyceps default) vs. a SmartHopper-specific port.
-- [ ] Approve the "mutating tools off by default" policy.
-- [ ] Approve placement of the user-facing component in `SmartHopper.Components/Mcp/`.
-- [ ] Confirm `THIRD_PARTY_NOTICES.md` is the right surface for Cordyceps architectural attribution (currently it only documents the alias map; we would extend it).
+- [x] **Project placement.** Phase 1 ships under `SmartHopper.Infrastructure/Mcp/` rather than a standalone `SmartHopper.Mcp` project, to avoid adding a new project until cross-host reuse is needed. Revisit if/when out-of-process hosting (CLI, sidecar) is required.
+- [x] **Default port `26929`** (Cordyceps default) — kept to ease documentation parity and reduce confusion for users running both servers.
+- [x] **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false`; prefix-based detection (`gh_put`, `gh_move`, `script_*`, …) suppresses mutating tools from `tools/list` and `tools/call`.
+- [x] **Component path** `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
+- [x] **Attribution surface** is `THIRD_PARTY_NOTICES.md` plus per-file headers under `src/SmartHopper.Infrastructure/Mcp/`.
 
 ## 13. References
 
