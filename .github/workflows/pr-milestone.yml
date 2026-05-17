@@ -20,6 +20,7 @@ concurrency:
 jobs:
   assign-pr-to-milestone:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: github.event.pull_request.head.repo.full_name == github.repository
     
     steps:

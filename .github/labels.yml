@@ -195,6 +195,11 @@
   color: "500"
   description: "Issues related to Authenticode, SHA256, etc."
 
+# Stale management
+- name: "stale"
+  color: "CFD3D7"
+  description: "Issue or PR has been inactive and may be closed soon"
+
 # Labels for OS discrimination
 - name: "os: Windows"
   color: "0078D4"

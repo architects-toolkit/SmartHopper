@@ -1,5 +1,14 @@
 name: 📦 PR - Validate GhJSON Dependencies
 
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   - pr-dependency-validation.yml (dependency checks)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
 # Description: This workflow validates that GhJSON dependencies use PackageReference
 # instead of ProjectReference. This ensures the production build uses the published
 # NuGet packages rather than local project references.
@@ -40,6 +49,7 @@ jobs:
   validate-dependencies:
     name: 📦 Check GhJSON References are PackageReference
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     
     steps:
       - name: Checkout code
