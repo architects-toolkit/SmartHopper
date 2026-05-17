@@ -1,0 +1,18 @@
+# Issue auto-labeling configuration for github/issue-labeler@v3
+# Maps issue title/body regex patterns to labels.
+
+"provider: OpenAI":
+  - '(?i)\bOpenAI\b'
+"provider: MistralAI":
+  - '(?i)\bMistral\b'
+"provider: Anthropic":
+  - '(?i)\bAnthropic\b|\bClaude\b'
+"provider: DeepSeek":
+  - '(?i)\bDeepSeek\b'
+"provider: OpenRouter":
+  - '(?i)\bOpenRouter\b'
+
+"os: Windows":
+  - '(?i)\bWindows\b'
+"os: MacOS":
+  - '(?i)\bmacOS\b|\bMac OS\b'

@@ -25,8 +25,9 @@ jobs:
   trailing-whitespace:
     name: 🧹 Trailing Whitespace
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/checkout@v4
 
       - name: Process trailing whitespace
         uses: ./.github/actions/code-style/trailing-whitespace
@@ -45,8 +46,9 @@ jobs:
   using-sorter:
     name: 🔀 Using Sorter
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/checkout@v4
 
       - name: Process using directives
         uses: ./.github/actions/code-style/using-sorter
@@ -65,8 +67,9 @@ jobs:
   namespace-check:
     name: 📂 Namespaces Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/checkout@v4
 
       - name: Run Namespace Fixer
         uses: ./.github/actions/code-style/namespace-fixer
@@ -87,9 +90,18 @@ jobs:
     needs: [trailing-whitespace, using-sorter, namespace-check]
     if: ${{ github.event.inputs.mode == 'fix' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - name: Guard against protected branches
+        run: |
+          REF="${{ github.ref_name }}"
+          if [[ "$REF" == "main" || "$REF" == main-* || "$REF" == "dev" || "$REF" == dev-* || "$REF" == hotfix/* || "$REF" == release/* ]]; then
+            echo "::error::Cannot push code style fixes directly to protected branch '$REF'. Run on a feature branch instead."
+            exit 1
+          fi
+
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
       - name: Configure Git

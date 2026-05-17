@@ -35,6 +35,7 @@ concurrency:
 jobs:
   update-contributors:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -322,10 +323,14 @@ jobs:
             "This PR updates the contributors section in CHANGELOG.md under [Unreleased] to acknowledge new contributors since the last release." \
             "This is an automated PR created by the Update Contributors workflow.")
           
-          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY"
+          gh pr create --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --title "$PR_TITLE" --body "$PR_BODY" 2>&1 || true
           
-          # Capture PR number
+          # Capture PR number (works whether pr was just created or already existed)
           PR_NUMBER=$(gh pr list --base ${{ env.TARGET_BRANCH }} --head ${{ env.CONTRIB_BRANCH }} --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Failed to create or find PR"
+            exit 1
+          fi
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

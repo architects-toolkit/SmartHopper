@@ -1,0 +1,296 @@
+name: 📝 AI Changelog Review & Simplification
+
+# Description: Uses Mistral AI to review and simplify changelog entries.
+# On release/* PRs, compares commits against the [Unreleased] section in
+# CHANGELOG.md, flags missing entries, and simplifies overly technical
+# language into user-focused descriptions.
+#
+# The AI follows the changelog simplification guidelines from
+# .windsurf/workflows/changelog-review.md and the user-provided rules:
+#   - Keep entries to 1-2 lines maximum
+#   - Focus on end-user value, not implementation details
+#   - Preserve all issue references [#123](link)
+#   - Briefly mention CI/CD improvements (one-liner)
+#   - Exclude file paths, workflow names, internal tooling details
+#
+# Triggers:
+#   - pull_request opened/synchronize targeting dev from release/* branches
+#   - workflow_dispatch with optional PR number
+#
+# Permissions:
+#   - contents: read - Required to read CHANGELOG.md and commits
+#   - pull-requests: write - Required to post review comments
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [dev]
+    paths:
+      - 'CHANGELOG.md'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review (optional, uses latest release PR if empty)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review-changelog:
+    name: Review & simplify changelog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only run for release branches or manual dispatch
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine PR context
+        id: context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.pr_number }}" ]; then
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+          else
+            # Find latest open release PR targeting dev
+            PR_NUMBER=$(gh pr list \
+              --repo "${{ github.repository }}" \
+              --base dev \
+              --state open \
+              --json number,headRefName \
+              --jq '[.[] | select(.headRefName | startswith("release/"))][0].number // empty')
+          fi
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::notice::No release PR found to review"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract changelog [Unreleased] section
+        if: steps.context.outputs.skip != 'true'
+        id: changelog
+        run: |
+          # Extract the [Unreleased] section from CHANGELOG.md
+          UNRELEASED=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md)
+
+          if [ -z "$UNRELEASED" ]; then
+            echo "::notice::No [Unreleased] section found or it is empty"
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "empty=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "content<<EOF_CHANGELOG"
+              echo "$UNRELEASED"
+              echo "EOF_CHANGELOG"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get recent commit messages
+        if: steps.context.outputs.skip != 'true'
+        id: commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get commits from the PR
+          COMMITS=$(gh pr view "${{ steps.context.outputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --json commits \
+            --jq '.commits[].messageHeadline' 2>/dev/null || echo "")
+
+          if [ -z "$COMMITS" ]; then
+            # Fallback: get commits between dev and HEAD
+            COMMITS=$(git log dev..HEAD --pretty=format:"%s" 2>/dev/null || echo "")
+          fi
+
+          {
+            echo "messages<<EOF_COMMITS"
+            echo "$COMMITS"
+            echo "EOF_COMMITS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: AI review & simplification
+        if: steps.context.outputs.skip != 'true' && steps.changelog.outputs.empty != 'true'
+        id: ai-review
+        uses: ./.github/actions/ai/mistral-chat
+        with:
+          api-key: ${{ secrets.MISTRAL_API_KEY }}
+          model: mistral-medium-latest
+          temperature: '0.3'
+          max-tokens: '4096'
+          system-prompt: |
+            You are a changelog editor for SmartHopper, a Grasshopper plugin for Rhino 3D.
+            Your job is to review and simplify changelog entries for end users.
+
+            RULES:
+            1. Each entry must be 1-2 lines maximum
+            2. Focus on end-user value, not implementation details
+            3. ALWAYS preserve issue references like [#123](https://github.com/architects-toolkit/SmartHopper/issues/123)
+            4. ALWAYS preserve the contributors section unchanged
+
+            INCLUDE in changelog:
+            - New AI models and capabilities
+            - New components or features
+            - UI/UX changes
+            - Breaking changes that affect saved files
+            - Performance improvements users will notice
+            - Deprecated features or models
+            - GitHub issue references
+
+            BRIEFLY MENTION (one-liner):
+            - CI/CD improvements
+            - Infrastructure stability improvements
+            - Code quality improvements (only if significant)
+
+            EXCLUDE from changelog:
+            - Detailed CI workflow specifications
+            - Concurrency settings and race condition prevention
+            - Per-provider technical minutiae
+            - Internal tooling details
+            - File paths and implementation details
+
+            SIMPLIFICATION EXAMPLES:
+            - Technical CI details → "**CI/CD**: Enhanced workflow automation for model verification and stabilization branch management"
+            - Per-model ranking changes → "**AI model rankings**: Adjusted default models and rankings across providers based on official documentation"
+
+            OUTPUT FORMAT:
+            Respond with a JSON object containing:
+            {
+              "missing_entries": ["list of commits that should be in changelog but aren't"],
+              "simplifications": [
+                {
+                  "original": "the original verbose entry",
+                  "simplified": "the simplified version"
+                }
+              ],
+              "summary": "Brief summary of what was changed and why"
+            }
+
+            If no changes are needed, return: {"missing_entries": [], "simplifications": [], "summary": "Changelog looks good"}
+          user-prompt: |
+            Review this changelog [Unreleased] section and suggest simplifications.
+            Also check if any commits are missing from the changelog.
+
+            ## Current [Unreleased] changelog entries:
+            ${{ steps.changelog.outputs.content }}
+
+            ## Recent commits:
+            ${{ steps.commits.outputs.messages }}
+
+      - name: Post review comment
+        if: steps.context.outputs.skip != 'true' && steps.ai-review.outputs.success == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.context.outputs.pr_number }}', 10);
+            const response = `${{ steps.ai-review.outputs.response }}`;
+            const promptTokens = '${{ steps.ai-review.outputs.usage-prompt-tokens }}';
+            const completionTokens = '${{ steps.ai-review.outputs.usage-completion-tokens }}';
+
+            // Try to parse JSON from the response
+            let review;
+            try {
+              // Extract JSON from possible markdown code blocks
+              const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, response];
+              review = JSON.parse(jsonMatch[1].trim());
+            } catch (e) {
+              // If parsing fails, post raw response
+              review = null;
+            }
+
+            let body = '## 📝 AI Changelog Review\n\n';
+
+            if (review) {
+              if (review.missing_entries && review.missing_entries.length > 0) {
+                body += '### Missing entries\n\n';
+                body += 'The following commits may need changelog entries:\n\n';
+                for (const entry of review.missing_entries) {
+                  body += `- ${entry}\n`;
+                }
+                body += '\n';
+              }
+
+              if (review.simplifications && review.simplifications.length > 0) {
+                body += '### Suggested simplifications\n\n';
+                for (const s of review.simplifications) {
+                  body += '<details>\n';
+                  body += `<summary>Simplify entry</summary>\n\n`;
+                  body += `**Before:**\n${s.original}\n\n`;
+                  body += `**After:**\n${s.simplified}\n\n`;
+                  body += '</details>\n\n';
+                }
+              }
+
+              if (review.summary) {
+                body += `### Summary\n\n${review.summary}\n\n`;
+              }
+
+              if ((!review.missing_entries || review.missing_entries.length === 0) &&
+                  (!review.simplifications || review.simplifications.length === 0)) {
+                body += '✅ Changelog looks good — no missing entries or simplifications needed.\n\n';
+              }
+            } else {
+              body += 'Raw AI response:\n\n' + response + '\n\n';
+            }
+
+            body += `---\n*Tokens used: ${promptTokens} prompt + ${completionTokens} completion*\n`;
+            body += '*Generated by `.github/workflows/chore-changelog-review.yml` using Mistral AI*';
+
+            // Find and update existing bot comment, or create new one
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 }
+            );
+
+            const marker = '## 📝 AI Changelog Review';
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+              core.info(`Updated existing comment #${existing.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body
+              });
+              core.info('Created new review comment');
+            }
+
+      - name: Post notice if AI call failed
+        if: steps.context.outputs.skip != 'true' && steps.ai-review.outputs.success == 'false'
+        run: |
+          echo "::warning::AI changelog review failed: ${{ steps.ai-review.outputs.error }}"
+          echo "## ⚠️ AI Changelog Review Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The Mistral AI API call failed. This is non-blocking." >> "$GITHUB_STEP_SUMMARY"
+          echo "Error: \`${{ steps.ai-review.outputs.error }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary
+        if: always() && steps.context.outputs.skip != 'true'
+        run: |
+          echo "## 📝 Changelog Review" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- PR: #${{ steps.context.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- AI Success: ${{ steps.ai-review.outputs.success || 'skipped' }}" >> "$GITHUB_STEP_SUMMARY"
