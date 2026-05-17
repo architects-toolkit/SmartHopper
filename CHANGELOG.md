@@ -17,111 +17,31 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
-- **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):
-  - **OpenAI**: added `gpt-5.5` (Rank 90, Default `Text2Text | ReasoningChat`) and `gpt-image-2` (new image flagship, Default `Text2Image | Image2Image`).
-  - **Anthropic**: added `claude-opus-4-7` (Rank 90, no `Default` set; existing `claude-sonnet-4-6` and `claude-haiku-4-6` retain capability defaults).
-  - **DeepSeek**: added `deepseek-v4-pro` (Rank 100) and `deepseek-v4-flash` (Rank 95, Default `Text2Text | ToolChat | ToolReasoningChat`, with `Reasoning` capability).
-  - **MistralAI**: added dated aliases `mistral-medium-3-1-25-08`, `mistral-small-3-2-25-06`, `magistral-medium-1-2-25-09`, `magistral-small-1-2-25-09`, `voxtral-mini-transcribe-26-02`, and new `devstral-2-25-12` code-agent model. Kept `*-latest` aliases (Mistral repoints them automatically).
-  - **OpenRouter**: added `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `deepseek/deepseek-v4-flash`, `mistralai/mistral-small-4`.
-
-- ci(main-sync-to-dev): new workflow `.github/workflows/main-sync-to-dev.yml` that, on pushes to `main` (or manual dispatch), auto-opens/reuses a PR from `main` into `dev` and into every `dev-*` stabilization branch. For `dev-*` targets the diff is allow-listed to: any change under `.github/`, `.windsurf/`, `.githooks/`, `hashes/`, plus *modifications* (not additions/renames/removals) to existing `src/SmartHopper.Providers.*/*ProviderModels.cs` files so model verification, deprecations, and provider model-list updates propagate to frozen lines. If any file outside the allow-list lands on `main`, the sync to that `dev-*` is skipped with a warning (use `patch-propagate.yml` for targeted backports). Reuses an existing open PR per target instead of creating duplicates, and skips entirely when there is no effective file diff.
-
-- ci(main-sync-to-dev): new workflow `.github/workflows/main-sync-to-dev.yml` that, on pushes to `main` (or manual dispatch), auto-opens/reuses a PR from `main` into `dev` and into every `dev-*` stabilization branch. For `dev` the PR is a plain `main → dev`. For each `dev-*`, the workflow maintains a `sync/main-to-<dev-*>` branch onto which it **cherry-picks only allow-listed files** from `main` (any change under `.github/`, `.windsurf/`, `.githooks/`, `hashes/`, plus *modifications* — not add/rename/delete — to existing `src/SmartHopper.Providers.*/*ProviderModels.cs`). Non-allow-listed files (feature source, docs, `CHANGELOG.md`, etc.) stay on `main` only, so a mixed commit on `main` still propagates its infra/model parts to stabilization lines; use `patch-propagate.yml` for targeted backports of the rest. Reuses an existing open PR per target instead of creating duplicates, and skips entirely when there is no effective allow-listed diff.
-
-- Community model verification flow:
-  - New issue template `.github/ISSUE_TEMPLATE/model-verification.yml` with tests grouped by location ("Components on the Grasshopper canvas" — `AITextGenerate`, `AITextListGenerate`, `AIImgToText`, `AIImgGenerate`, audio — and "Chat interface" — streaming, ToolChat/FunctionCalling, Reasoning, multi-turn `ConversationSession`), each test specifying the **exact prompt** to use and the expected behavior. The template also embeds a copy-paste codeblock (with a `/verify-confirm` header and a hidden `<!-- model-verification-confirm -->` marker) for additional verifiers to use as their certification comment.
-  - New workflow `.github/workflows/model-verification.yml` that triggers only when an issue comment starts with `/verify-confirm` (and contains the template marker) or `/verify-force`, tallies distinct GitHub users (issue author + valid `/verify-confirm` commenters), and opens a PR promoting the model to `Verified = true` once two distinct users have certified it. `/verify-force` is restricted to `OWNER`/`MEMBER`/`COLLABORATOR`.
-  - New helper `tools/Update-ModelVerified.ps1` that locates the matching `new AIModelCapabilities { Model = "..." }` block in `src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs` and flips `Verified = false` to `Verified = true` (or inserts the flag when missing).
-
-- Automated provider model discovery CI (OpenRouter as single source of truth):
-  - New workflow `.github/workflows/chore-update-provider-models.yml` that runs weekly (Sundays 05:00 UTC) and on `workflow_dispatch`. It queries OpenRouter's unified `/models` endpoint for each supported provider, compares the returned metadata with the static declarations in `*ProviderModels.cs`, and opens a PR that both auto-inserts new models and marks disappeared/expiring models as `Deprecated = true`.
-  - New composite action `.github/actions/ai/fetch-models/action.yml` that invokes `tools/Update-ProviderModels.ps1` with an OpenRouter API key, passing the provider name and `update-file` flag.
-  - New PowerShell tool `tools/Update-ProviderModels.ps1` invoked by the workflow.  Accepts `-Provider`, `-ApiKey` (OpenRouter key), and an optional `-TargetFile`.  It queries OpenRouter, filters by provider prefix, maps `architecture.input_modalities`/`output_modalities` and `supported_parameters` to `AICapability` flags, auto-generates full `AIModelCapabilities` blocks for new models (with `ContextLimit`, `Verified=false`), and marks models with `expiration_date` < 1 year or absent from OpenRouter as `Deprecated = true`.  `Rank` values are auto-computed from OpenRouter `created` timestamp (newer models rank higher) and output pricing (cheapest first, considering `pricing.completion`, `pricing.image`, and `pricing.audio_output`).  Existing model capabilities, context limits, and ranks are refreshed on every run.  Emits a structured JSON report containing `newModels`, `deprecatedModels`, and `unchangedModels`.
+- **New AI models** across all providers (Apr 2026 update):
+  - OpenAI: `gpt-5.5`, `gpt-image-2` (new image flagship)
+  - Anthropic: `claude-opus-4-7`
+  - DeepSeek: `deepseek-v4-pro`, `deepseek-v4-flash`
+  - MistralAI: multiple dated aliases and new `devstral-2-25-12` code-agent model
+  - OpenRouter: mirrored models from native providers
 
 ### Changed
 
-- chore(rules): clarified Windsurf rules and workflows to reduce overlap, stale platform assumptions, and ambiguous SmartHopper architecture guidance.
-- ci(pr-build-hash-validation): the `validate-no-manual-hash-edits` job now only blocks a PR when a changed file under `hashes/` differs from its counterpart on `main` (the source of truth). PRs that carry a hash commit verbatim from main (e.g., via branch update/rebase) are allowed.
-- ci(concurrency): added top-level `concurrency:` to 25 workflows to prevent race conditions and save runner minutes:
-  - Auto-commit / auto-PR workflows grouped per ref with `cancel-in-progress: false` (queue, never interrupt a push-back): `chore-version-date`, `chore-update-contributors`, `chore-version-badge`, `pr-anonymize-public-key`, `dev-update-manifest`, `github-labels-sync`, `chore-version-main-release`, `pr-license-headers`, `stabilization-0-init`.
-  - Entity-scoped workflows grouped per issue/milestone/release/PR with `cancel-in-progress: false`: `model-verification`, `github-issue-labels-on-close`, `github-issue-labels-close`, `milestone-management`, `release-4-build`, `release-2-pr-to-dev-closed`, `release-3-pr-to-main-closed`. `release-5-deploy-pages` uses the standard `pages` group with `cancel-in-progress: true`.
-  - PR validation workflows grouped per PR with `cancel-in-progress: true` so superseded pushes are cancelled: `ci-dotnet-tests`, `pr-validation`, `pr-build-hash-validation`, `pr-version-validation`, `pr-manifest-validation`, `pr-dependency-validation`, `pr-block-dev-to-main`, `pr-milestone`.
-- ci(auto-commit hardening): belt-and-braces against external commits landing between fetch and push.
-  - `dev-update-manifest` now does `git pull --rebase --autostash origin dev` with retry (×3) before pushing to `dev`.
-  - `pr-license-headers` now does `git pull --rebase --autostash` with retry (×3) before pushing back to the PR head branch (handles the contributor pushing a new commit mid-run).
-  - `chore-version-badge` gained a `paths: [Solution.props]` filter on its `push` trigger so it no longer runs on every unrelated push to `main`/`dev`; the version source of truth is the only relevant change.
-  - Auto-PR workflows that follow the delete-and-recreate pattern (`chore-update-contributors`, `pr-anonymize-public-key`) and those built on `peter-evans/create-pull-request` (`chore-version-date`, `chore-version-badge`, `chore-version-main-release`) already reuse existing PRs and were verified as safe; no changes needed.
+- **AI model rankings**: Adjusted default models and rankings across providers based on official documentation
+- **Infrastructure**: Improved AI capability bit ordering and model catalog consistency
+- **CI/CD**: Enhanced workflow automation for model verification, provider discovery, and stabilization branch management
 
-- **Infrastructure**: Migrated critical fixes including provider stability improvements, timeout policy refinements, and streaming adapter fixes
-- **Thread Safety**: `ProviderManager` now uses `ConcurrentDictionary` for all provider collections to improve concurrent access safety
-- **Code Quality**: Applied consistent code style with `this.` qualifiers and `ConfigureAwait()` patterns across Infrastructure and Providers
+## [1.4.2-beta] - 2026-04-15
 
-- **AI model rebalancing**:
-  - **OpenAI**: `gpt-5.4-mini` retains Rank 100 with `Default = ToolChat | Text2Json | ToolReasoningChat`; moved `Default = Text2Image | Image2Image` from `gpt-image-1-mini` to `gpt-image-2`; cleared `Default = Text2Image` from `dall-e-3` (Rank 80 → 70); demoted `gpt-image-1.5` Rank 75 → 65.
-  - **Anthropic**: demoted `claude-opus-4-6` Rank 80 → 75 (superseded by `claude-opus-4-7`).
-  - **DeepSeek**: cleared `Default` from `deepseek-chat` (Rank 90 → 70) and `deepseek-reasoner` (Rank 80 → 60); both aliased to `deepseek-v4-flash` per official docs.
-  - **OpenRouter**: aligned mirrored OpenAI model `Default` flags with the native OpenAI provider entries — `openai/gpt-5.4-mini` and `openai/gpt-5-mini` now use `ToolChat | Text2Json | ToolReasoningChat`; cleared `Default` on `openai/gpt-5.4` to match native (no Default).
+Many thanks to the following contributors to this release:
 
-- **Refactored Timeout Configuration System**:
-  - **AIRequestBase.TimeoutSeconds** is now nullable (`int?`) to allow null/empty values
-  - **RequestTimeoutPolicy** now resolves timeout from settings when null:
-    - Reads `Timeout` from settings (with fallback to `HttpTimeoutSeconds` for backward compatibility)
-    - Uses `TimeoutDefaults.DefaultTimeoutSeconds` (300s) as final fallback
-  - **AISettingsComponent** now has "Timeout" input parameter (before "Extras") for custom timeout override
-    - **Breaking (saved files)**: Inserting `Timeout` before `Extras` shifts the `Extras` parameter index by one. Grasshopper persists wire connections by parameter index, so existing `.ghx`/`.gh` files with a wire into `Extras` will, after upgrade, resolve that wire to the new `Timeout` (integer) input. Because the source value (Extras JSON string) is type-incompatible with `Timeout`, the input is silently ignored and the previously wired provider-specific extras are lost on file load. Reconnect the `Extras` input on `AISettingsComponent` after upgrading.
-  - **AIStatefulAsyncComponentBase** additions:
-    - New `ConfigureRequestTimeout()` helper method - centralizes timeout configuration for both batch and regular paths
-  - **AIProvider** simplified - removed duplicate timeout resolution logic, now relies on RequestTimeoutPolicy
-  - **Renamed HTTP Timeout Setting** (UI label and setting key):
-    - `HTTP Timeout (Regular Calls)` → `Timeout` (setting key: `TimeoutSeconds`, default: 300s)
-    - Old setting keys (`HttpTimeoutSeconds`, `ResponseGenerationTimeoutSeconds`) automatically migrated for backward compatibility
-  - **Timeout resolution priority** (highest to lowest):
-    1. Custom timeout from AI Settings component input
-    2. Settings-based timeout (`TimeoutSeconds`)
-    3. Safe default (300s)
-  - **Unified default across layers**: introduced `SmartHopper.Infrastructure.AICall.Core.TimeoutDefaults` with `DefaultTimeoutSeconds = 300`, `MinTimeoutSeconds = 1`, `MaxTimeoutSeconds = 600`. The following call sites now reference these constants instead of hardcoded literals (previously: 300s policy, 600s provider/batch, 120s tool, 600s streaming idle):
-    - `RequestTimeoutPolicy` (default + bounds)
-    - `AIProvider.Call()` and `AIProvider.CreateBatchHttpClient()` (default + bounds)
-    - `AIToolCall.Exec()` (default + bounds)
-    - Streaming idle-timeout fallbacks in OpenAI, OpenRouter, MistralAI, DeepSeek, Anthropic, and Gemini providers
-    - `ProvidersSettingsPage` Timeout `NumericStepper` Value/Min/Max
-  - Behavior under normal flow is unchanged (policy always resolves first); this aligns the safety-net fallback when the policy pipeline is bypassed and ensures the settings UI bounds match the runtime clamp.
+- [marc-romu](https://github.com/marc-romu)
 
-- Components can now mix different `IGH_Goo` types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values)
-- Foundation laid for future extensibility to support `GH_Integer`, `GH_Number`, `GH_Path`, and other Grasshopper data types
-- Existing `GH_String`-only workers remain compatible and can be migrated individually when needed
-- **`AIText2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
-  - `inputTree` field changed from `Dictionary<string, GH_Structure<GH_String>>` to `Dictionary<string, GH_Structure<IGH_Goo>>`
-  - Fallback input now stored natively as `GH_Boolean` without string conversion round-trip
-  - Uses `GHStructureConverter.ConvertToGooTree()` for type conversions
-  - Accesses results via `ProcessingResult<IGH_Goo>.Outputs` and `ExtractTypedTree<GH_String>()`
+----
 
-- **`AIList2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
-  - Same structural changes as `AIText2BooleanComponent`
-  - Fallback input stored natively as `GH_Boolean`
-- **`AIFile2MdComponent` batch context persistence**: `_fileContexts` (base markdown + image slot metadata per file) is now serialized via `Write`/`Read` so batch results can be reconstructed after a Grasshopper file save/reload. A `_batchContextLost` flag prevents `GatherInput` from resetting `_fileContextsInitialized` while a batch is active, fixing a same-session overwrite bug where each poll tick re-initialized the context to empty before `OnBatchCompleted` could use it.
-- **`AIFile2MdComponent` batch image descriptions**: `OnBatchCompleted` now extracts image descriptions from `AIInteractionText.Content` (the actual batch response type) instead of `AIInteractionToolResult`, which was never produced in batch mode since `BuildDescribeRequest` bypasses the tool execute wrapper.
-- **`AIFile2MdComponent` batch metrics**: Per-slot image decode metrics are now accumulated manually and merged into `AIReturnSnapshot` after `ProcessBatchResults`, since `ProcessBatchResults` only sees the representative sentinel (one per file) and misses all non-first image slots.
-- **`img2text` AI Tool**: Extracted shared `BuildRequestBody` and `ExtractDescription` helpers so `DescribeImageAsync` (execute path) and `BuildDescribeRequest` (batch path) send identical requests and decode using the same logic. `ExtractDescription` reads from `AIInteractionText.Content` directly, making both paths consistent.
-- **`file2md` AI Tool**: `DescribeImageAsync` internal helper now reads `AIInteractionToolResult["description"]` with a clean single-expression return, removing a dead fallback that logged `assistantText.Content` but always returned `[Image could not be described]`.
+### Changed
 
-- **`AIFile2MdComponent`**: Reworked batch wiring so only the AI calls (image descriptions) are batched. File conversion and image extraction now run locally via `file2md` with `describeImages=false`; each image is then described via `CallAiToolAsync("img2text", ...)` which is batch-interceptable. `OnBatchCompleted` reassembles the final markdown from locally-stored per-file context and batch image description results. `UsingAiTools` updated from `file2md` to `img2text`. Format and Images outputs are computed locally and persisted immediately.
-- **`img2text` AI Tool**: Added `BuildRequest` delegate so the tool supports batch mode. The delegate mirrors the existing `DescribeImageAsync` request construction without executing it.
-
-- **`DataTreeProcessor.RunAsync` heterogeneous output support**: Added `RunAsync<T>` overload (delegates to `RunAsync<T, IGH_Goo>`) and `ExtractTypedTree<U>` helper so a single processing call can populate output channels of different concrete `IGH_Goo` types. Matching `RunProcessingAsync<T>` overload added to `StatefulComponentBase`.
-- **`File2MdComponent` / `AIFile2MdComponent`**: Replaced manual `foreach` tree iteration with `RunProcessingAsync<GH_String>` + `ExtractTypedTree<U>`, gaining flat-tree broadcasting and consistent `ItemGraft` path management. `ComponentProcessingOptions` property added to both components.
-
-### Fixed
-
-- `ProviderManager` now exposes `IsInfrastructureReady` flag to signal when provider infrastructure initialization completes
-- All AI providers (Anthropic, DeepSeek, MistralAI, OpenAI, OpenRouter) received stability improvements and extended known list of models
-- (automatically added) Fixes "🍒 Patch propagate needs attention (run #8)" ([#456](https://github.com/architects-toolkit/SmartHopper/issues/456)).
-
-### Deprecated
-
-- **Anthropic**: marked deprecated `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-sonnet-4-5-20250929`, `claude-haiku-4-5`, `claude-haiku-4-5-20251001` (superseded by 4-6 / 4-7 series).
-- **DeepSeek**: `deepseek-chat` and `deepseek-reasoner` flagged `Deprecated = true` (DeepSeek docs state both will be deprecated; they alias `deepseek-v4-flash` non-thinking/thinking modes).
-- **OpenAI**: `gpt-4o-mini-tts` marked deprecated per OpenAI docs.
+- **Infrastructure**: Improved provider stability, thread safety, and timeout handling
+- **CI/CD**: Enhanced milestone management, stabilization workflows, and release automation
 
 ## [1.4.2-alpha] - 2026-03-14
 
