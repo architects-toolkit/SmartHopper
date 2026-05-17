@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2-rc] - 2026-05-17
+
 Many thanks to the following contributors to this release:
 
 - [marc-romu](https://github.com/marc-romu)
@@ -113,6 +115,7 @@ Many thanks to the following contributors to this release:
 
 - `ProviderManager` now exposes `IsInfrastructureReady` flag to signal when provider infrastructure initialization completes
 - All AI providers (Anthropic, DeepSeek, MistralAI, OpenAI, OpenRouter) received stability improvements and extended known list of models
+- (automatically added) Fixes "🍒 Patch propagate needs attention (run #8)" ([#456](https://github.com/architects-toolkit/SmartHopper/issues/456)).
 
 ### Deprecated
 
