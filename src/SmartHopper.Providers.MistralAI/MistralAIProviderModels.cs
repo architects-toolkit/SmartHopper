@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -267,18 +267,6 @@ namespace SmartHopper.Providers.MistralAI
                     Rank = 9920,
                     ContextLimit = 32000,
                     Aliases = new List<string> { "voxtral-mini-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "voxtral-mini-transcribe-realtime-2602",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9915,
-                    Aliases = new List<string> { "voxtral-mini-realtime-2602", "voxtral-mini-realtime-latest" },
-                    DiscouragedForTools = new List<string> { "*" },
                 },
 
                 new AIModelCapabilities
