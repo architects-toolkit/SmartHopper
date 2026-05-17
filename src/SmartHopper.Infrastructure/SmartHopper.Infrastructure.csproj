@@ -95,7 +95,9 @@
     <!-- Built-in providers -->
     <InternalsVisibleTo Include="SmartHopper.Providers.Anthropic, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.DeepSeek, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.LocalAI, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.MistralAI, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.Ollama, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.OpenAI, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.OpenRouter, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.Gemini, PublicKey=$(SmartHopperPublicKey)" />

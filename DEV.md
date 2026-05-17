@@ -173,8 +173,8 @@ SmartHopper currently supports the following AI providers and features:
 | Anthropic | ✅ Supported | Claude Console | Yes | No | No | Yes | Yes | Yes | No | ✅ Yes |
 | OpenRouter | ✅ Supported | OpenRouter | No | No (varies by routed model) | No | Varies | Varies | Varies | Varies | ❌ No |
 | Gemini | 🟠 Testing | Google AI Studio | Yes | Yes (thinking_level) | Yes | Yes | Yes | Yes | ✅ Yes | ✅ Yes |
-| Ollama | ⚪ Planned | Local Ollama server | Planned | Planned | Planned | Planned | Planned | Planned | No | Planned |
-| LocalAI | ⚪ Planned | LocalAI server | Planned | Planned | Planned | Planned | Planned | Planned | Planned | Planned |
+| Ollama | 🟠 Testing | Local Ollama server (OpenAI-compatible) | Yes | Varies by model | Varies | Yes | Yes | Yes | No | ❌ No |
+| LocalAI | 🟠 Testing | LocalAI server (OpenAI-compatible) | Yes | Varies by model | Varies | Yes | Yes | Yes | No | ❌ No |
 | Black Forest Labs | ⚪ Planned | Black Forest Labs API | Planned | No | No | Planned | No | No | Planned | Planned |
 | Stable Diffusion | ⚪ Planned | Local/API Stable Diffusion endpoint | Planned | No | No | Planned | No | No | Planned | Planned |
 
@@ -192,7 +192,9 @@ The following table summarizes the models explicitly registered as defaults or v
 - `src/SmartHopper.Providers.Anthropic/AnthropicProviderModels.cs`
 - `src/SmartHopper.Providers.DeepSeek/DeepSeekProviderModels.cs`
 - `src/SmartHopper.Providers.Gemini/GeminiProviderModels.cs`
+- `src/SmartHopper.Providers.LocalAI/LocalAIProviderModels.cs`
 - `src/SmartHopper.Providers.MistralAI/MistralAIProviderModels.cs`
+- `src/SmartHopper.Providers.Ollama/OllamaProviderModels.cs`
 - `src/SmartHopper.Providers.OpenAI/OpenAIProviderModels.cs`
 - `src/SmartHopper.Providers.OpenRouter/OpenRouterProviderModels.cs`
 
