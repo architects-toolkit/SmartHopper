@@ -48,6 +48,7 @@ namespace SmartHopper.Providers.OpenRouter
         {
             var provider = this.openRouterProvider.Name.ToLowerInvariant();
 
+            // Sample curated models exposed via OpenRouter
             var models = new List<AIModelCapabilities>
             {
                 // Released between February 2026 and May 2026
