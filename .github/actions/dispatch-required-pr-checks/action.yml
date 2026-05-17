@@ -62,5 +62,7 @@ runs:
           fi
 
           echo "Dispatching $workflow for $REF"
-          gh "${args[@]}"
+          if ! gh "${args[@]}" 2>&1; then
+            echo "Warning: Could not dispatch $workflow (may not have workflow_dispatch trigger or needs refresh)"
+          fi
         done
