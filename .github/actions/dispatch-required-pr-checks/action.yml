@@ -33,7 +33,7 @@ runs:
         BASE_REF: ${{ inputs.base-ref }}
         PR_TITLE: ${{ inputs.pr-title }}
       run: |
-        set -euo pipefail
+        set -uo pipefail
 
         workflows=(
           "check-provider-models.yml"
@@ -43,6 +43,8 @@ runs:
           "pr-version-validation.yml"
           "ci-dotnet-tests.yml"
         )
+
+        failed=0
 
         for workflow in "${workflows[@]}"; do
           if [[ ! -f ".github/workflows/$workflow" ]]; then
@@ -62,5 +64,29 @@ runs:
           fi
 
           echo "Dispatching $workflow for $REF"
-          gh "${args[@]}"
+
+          # Retry up to 3 times with backoff to handle transient 422 errors
+          # (GitHub may not have re-indexed workflow files immediately after a push)
+          dispatched=false
+          for attempt in 1 2 3; do
+            if gh "${args[@]}" 2>/tmp/gh_err; then
+              dispatched=true
+              break
+            fi
+            err=$(cat /tmp/gh_err)
+            echo "  Attempt $attempt failed: $err"
+            if [[ $attempt -lt 3 ]]; then
+              echo "  Retrying in $((attempt * 5))s..."
+              sleep $((attempt * 5))
+            fi
+          done
+
+          if [[ "$dispatched" != "true" ]]; then
+            echo "::warning::Failed to dispatch $workflow after 3 attempts"
+            failed=$((failed + 1))
+          fi
         done
+
+        if [[ $failed -gt 0 ]]; then
+          echo "::warning::$failed workflow(s) failed to dispatch"
+        fi
