@@ -36,10 +36,11 @@ jobs:
   anonymize-key:
     name: 🔐 Anonymize Public Key
     runs-on: windows-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
@@ -168,10 +169,15 @@ jobs:
           This is an automated PR created by the Anonymize Public Key workflow.
           '@
 
-          $prUrl = gh pr create --base ${{ steps.set-branches.outputs.target_branch }} --head ${{ steps.set-branches.outputs.anon_branch }} --title "$PR_TITLE" --body "$PR_BODY"
+          gh pr create --base ${{ steps.set-branches.outputs.target_branch }} --head ${{ steps.set-branches.outputs.anon_branch }} --title "$PR_TITLE" --body "$PR_BODY" 2>&1 | Out-Default
+          if ($LASTEXITCODE -ne 0) { Write-Host "gh pr create exited $LASTEXITCODE (PR may already exist)" }
           
-          # Capture PR number
+          # Capture PR number (works whether PR was just created or already existed)
           $PR_NUMBER = gh pr list --base ${{ steps.set-branches.outputs.target_branch }} --head ${{ steps.set-branches.outputs.anon_branch }} --json number --jq '.[0].number'
+          if (-not $PR_NUMBER) {
+            Write-Error "Failed to create or find anonymization PR"
+            exit 1
+          }
           echo "pr_number=$PR_NUMBER" >> $env:GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -192,3 +198,15 @@ jobs:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           base-ref: ${{ steps.set-branches.outputs.target_branch }}
           pr-title: "chore: anonymize SmartHopperPublicKey for ${{ steps.set-branches.outputs.target_branch }}"
+
+      - name: Label PR on failure
+        if: failure() && steps.create-pr.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.create-pr.outputs.pr_number }},
+              labels: ['needs-attention']
+            });
