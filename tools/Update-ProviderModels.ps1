@@ -346,15 +346,25 @@ function Test-ProviderModelValidation($models) {
 
     $nonDeprecatedModelsForValidation = @($models | Where-Object { $_.Deprecated -ne 'true' })
 
+    # Helper: Check if a model is discouraged for all tools
+    function Test-ModelDiscouragedForAllTools($model) {
+        if ($model.DiscouragedForTools -and $model.DiscouragedForTools.Count -gt 0) {
+            return $model.DiscouragedForTools -contains '*'
+        }
+        return $false
+    }
+
     foreach ($composite in $CompositeDefaultCapabilities.GetEnumerator()) {
         $capableModels = @($nonDeprecatedModelsForValidation | Where-Object {
-            Test-CapabilityExpressionHasAll $_.Capabilities $composite.Value
+            Test-CapabilityExpressionHasAll $_.Capabilities $composite.Value -and
+            -not (Test-ModelDiscouragedForAllTools $_)
         })
 
         if ($capableModels.Count -eq 0) { continue }
 
         $defaultModels = @($nonDeprecatedModelsForValidation | Where-Object {
-            Test-CapabilityExpressionContains $_.Default $composite.Key
+            Test-CapabilityExpressionContains $_.Default $composite.Key -and
+            -not (Test-ModelDiscouragedForAllTools $_)
         })
 
         if ($defaultModels.Count -eq 0) {
