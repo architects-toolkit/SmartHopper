@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed ScriptGenerate output not being placed by GhPlace component.
+
 ## [1.4.2-rc] - 2026-05-17
 
 Many thanks to the following contributors to this release:
