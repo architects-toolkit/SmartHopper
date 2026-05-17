@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -109,7 +109,7 @@ namespace SmartHopper.Providers.Anthropic
                     Provider = providerName,
                     Model = "claude-haiku-4-5-20251001",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat,
+                    Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 9980,

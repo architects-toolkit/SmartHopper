@@ -15,6 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   issues: read
   pull-requests: write
@@ -335,6 +336,16 @@ jobs:
           pr-number: ${{ steps.create-dev-pr.outputs.dev_pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Dispatch required PR checks for dev collision PR
+        if: steps.check-dev.outputs.DEV_COLLISION == 'true' && steps.create-dev-pr.outputs.dev_pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/bump-dev-version-for-hotfix-${{ steps.extract-version.outputs.version }}
+          pr-number: ${{ steps.create-dev-pr.outputs.dev_pr_number }}
+          base-ref: dev
+          pr-title: "chore: bump dev version to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} (hotfix collision)"
+
       - name: Create Pull Request to main
         id: create-pr
         run: |
@@ -356,6 +367,16 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks for hotfix PR
+        if: steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.set-branch.outputs.release_branch }}
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          base-ref: main
+          pr-title: "chore: hotfix release ${{ steps.extract-version.outputs.version }}"
 
       - name: Update PR description with collision info
         if: steps.check-milestones.outputs.result != '' || steps.check-dev.outputs.DEV_COLLISION == 'true'
