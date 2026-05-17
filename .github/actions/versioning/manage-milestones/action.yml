@@ -60,7 +60,11 @@ runs:
               console.log(`✅ Created milestone: ${title}`);
               return { title, created: true };
             } catch (error) {
-              if (error.message.includes('already exists')) {
+              // GitHub returns 422 with error code "already_exists" when a milestone
+              // with the same title already exists. Older Octokit versions surfaced
+              // this as "already exists" in the message — handle both forms.
+              const msg = error.message || '';
+              if (error.status === 422 && /already[_ ]exists/.test(msg)) {
                 console.log(`ℹ️ Milestone ${title} already exists`);
                 return { title, created: false };
               }

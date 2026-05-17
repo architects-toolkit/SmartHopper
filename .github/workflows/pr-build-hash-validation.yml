@@ -12,6 +12,20 @@ on:
       - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -40,11 +54,12 @@ jobs:
         echo ""
 
         # Fetch both the PR base branch (for computing changed files) and main (source of truth)
-        git fetch origin ${{ github.base_ref }} --depth=1
+        BASE_REF="${{ github.event.inputs.base_ref || github.base_ref }}"
+        git fetch origin "$BASE_REF" --depth=1
         git fetch origin main --depth=1
 
         # Get the list of changed files in the PR (relative to the PR base branch)
-        changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+        changed_files=$(git diff --name-only "origin/$BASE_REF"...HEAD)
 
         echo "Changed files:"
         echo "$changed_files"
@@ -275,3 +290,27 @@ jobs:
         } else {
           Write-Host "##[notice] ✅ VALIDATION PASSED: Build successful and no hash conflicts"
         }
+
+  required-check:
+    name: 🔍 PR Build & Hash Validation
+    needs: [validate-no-manual-hash-edits, prep, validate-build-and-hash]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - name: Verify required workflow jobs
+      shell: bash
+      run: |
+        if [[ "${{ needs.validate-no-manual-hash-edits.result }}" != "success" ]]; then
+          echo "::error::Manual hash edit validation finished with ${{ needs.validate-no-manual-hash-edits.result }}"
+          exit 1
+        fi
+
+        if [[ "${{ needs.prep.result }}" != "success" ]]; then
+          echo "::error::Prep finished with ${{ needs.prep.result }}"
+          exit 1
+        fi
+
+        if [[ "${{ needs.validate-build-and-hash.result }}" != "success" ]]; then
+          echo "::error::Build/hash validation matrix finished with ${{ needs.validate-build-and-hash.result }}"
+          exit 1
+        fi
