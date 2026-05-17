@@ -126,8 +126,9 @@ jobs:
             --jq '.commits[].messageHeadline' 2>/dev/null || echo "")
 
           if [ -z "$COMMITS" ]; then
-            # Fallback: get commits between dev and HEAD
-            COMMITS=$(git log dev..HEAD --pretty=format:"%s" 2>/dev/null || echo "")
+            # Fallback: query commits via REST API to avoid local ref resolution issues
+            COMMITS=$(gh api repos/${{ github.repository }}/pulls/${{ steps.context.outputs.pr_number }}/commits \
+              --jq '.[].commit.message' 2>/dev/null || echo "")
           fi
 
           {
