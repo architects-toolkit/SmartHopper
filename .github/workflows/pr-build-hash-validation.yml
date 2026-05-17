@@ -6,7 +6,7 @@ name: 🔍 PR Build & Hash Validation
 #   - pr-build-hash-validation.yml (build hash integrity)
 #   - pr-version-validation.yml (version consistency)
 #   - pr-dependency-validation.yml (dependency checks)
-#   - pr-manifest-validation.yml (manifest consistency)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
 #   - ci-dotnet-tests.yml (.NET build and test)
 
 # Description: Validates that PRs to main/dev/hotfix/release branches can build
