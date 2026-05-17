@@ -10,7 +10,9 @@ name: 📋 PR - Validate Manifest Text
 #   - ci-dotnet-tests.yml (.NET build and test)
 
 # Description: This workflow validates that the manifest text in manifest.yml
-# matches the version type (alpha/beta/stable) based on the version in Solution.props.
+# matches the version type (dev/alpha/beta/rc/stable) based on the version in
+# Solution.props. If manifest.yml uses the {{NOTE_TEXT}} placeholder, the check
+# passes because the placeholder is resolved at build time by release-6-upload-yak.yml.
 # It blocks PRs to main if the manifest text doesn't match the version type.
 #
 # Triggers:
@@ -26,6 +28,7 @@ on:
       - 'main-*'
     paths:
       - 'yak-package/manifest.yml'
+      - 'yak-package/.manifest.json'
       - 'Solution.props'
 
 permissions:
@@ -61,47 +64,45 @@ jobs:
           echo "release_type=${{ steps.expected.outputs.release-type }}" >> $GITHUB_OUTPUT
           echo "Expected release type: ${{ steps.expected.outputs.release-type }}"
 
-      - name: Extract actual manifest text
+      - name: Check manifest text
+        id: check
         run: |
-          # Extract the note/description section between the description block markers
-          sed -n '/----/,/----/p' yak-package/manifest.yml | \
-            grep -v -e '----' | \
-            grep -v '^$' | \
-            sed 's/^  //' | \
-            tr '\n' ' ' | \
-            sed 's/  */ /g' | \
-            sed 's/^ *//;s/ *$//' > actual.txt
-
-      - name: Compare manifest text
-        id: compare
-        run: |
-          EXPECTED=$(cat expected.txt)
-          ACTUAL=$(cat actual.txt)
-          
-          echo "Expected text: $EXPECTED"
-          echo "Actual text: $ACTUAL"
-          
-          if [ "$EXPECTED" = "$ACTUAL" ]; then
-            echo "✅ Manifest text matches version type: ${{ steps.expected.outputs.release-type }}"
+          # If manifest uses {{NOTE_TEXT}} placeholder, it will be resolved at
+          # build time by release-6-upload-yak.yml via the update-manifest-text action.
+          if grep -q '{{NOTE_TEXT}}' yak-package/manifest.yml; then
+            echo "Manifest uses {{NOTE_TEXT}} placeholder (resolved at build time)"
             echo "match=true" >> $GITHUB_OUTPUT
           else
-            echo "❌ Manifest text does not match version type: ${{ steps.expected.outputs.release-type }}"
-            echo "match=false" >> $GITHUB_OUTPUT
+            # Extract the note/description section between the description block markers
+            ACTUAL=$(sed -n '/----/,/----/p' yak-package/manifest.yml | \
+              grep -v -e '----' | \
+              grep -v '^$' | \
+              sed 's/^  //' | \
+              tr '\n' ' ' | \
+              sed 's/  */ /g' | \
+              sed 's/^ *//;s/ *$//')
+            EXPECTED=$(cat expected.txt)
+
+            echo "Expected text: $EXPECTED"
+            echo "Actual text: $ACTUAL"
+
+            if [ "$EXPECTED" = "$ACTUAL" ]; then
+              echo "Manifest text matches version type: ${{ steps.expected.outputs.release-type }}"
+              echo "match=true" >> $GITHUB_OUTPUT
+            else
+              echo "Manifest text does not match version type: ${{ steps.expected.outputs.release-type }}"
+              echo "match=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Fail if manifest text doesn't match
-        if: steps.compare.outputs.match == 'false'
+        if: steps.check.outputs.match == 'false'
         run: |
           echo "::error::Manifest text does not match the version type!"
-          echo ""
           echo "Version: ${{ steps.version.outputs.version }}"
           echo "Expected type: ${{ steps.expected.outputs.release-type }}"
-          echo ""
           echo "Expected text:"
           cat expected.txt
-          echo ""
-          echo "Actual text:"
-          cat actual.txt
-          echo ""
-          echo "Please update yak-package/manifest.yml to match the version type."
+          echo "Actual text found in manifest.yml does not match."
+          echo "Either use the {{NOTE_TEXT}} placeholder or set the correct text."
           exit 1
