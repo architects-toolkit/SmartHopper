@@ -340,6 +340,7 @@ function Test-RealtimeModelName($modelName) {
 
 function Test-ProviderModelValidation($models) {
     $validationErrors = [System.Collections.Generic.List[string]]::new()
+    $validationWarnings = [System.Collections.Generic.List[string]]::new()
     $missingDefaultCapabilities = [System.Collections.Generic.List[string]]::new()
     $pendingCapabilityModels = [System.Collections.Generic.List[string]]::new()
     $realtimeModels = [System.Collections.Generic.List[string]]::new()
@@ -369,7 +370,9 @@ function Test-ProviderModelValidation($models) {
 
         if ($defaultModels.Count -eq 0) {
             [void]$missingDefaultCapabilities.Add($composite.Key)
-            [void]$validationErrors.Add("Missing default for AICapability.$($composite.Key) while $($capableModels.Count) non-deprecated model(s) support $($composite.Value -join ', ').")
+            # Missing defaults are warnings, not errors. Some providers may only
+            # serve a subset of capability categories (e.g. image-generation only).
+            [void]$validationWarnings.Add("Missing default for AICapability.$($composite.Key) while $($capableModels.Count) non-deprecated model(s) support $($composite.Value -join ', ').")
         }
     }
 
@@ -391,6 +394,7 @@ function Test-ProviderModelValidation($models) {
     return [ordered]@{
         success                    = ($validationErrors.Count -eq 0)
         errors                     = @($validationErrors)
+        warnings                   = @($validationWarnings)
         missingDefaultCapabilities = @($missingDefaultCapabilities)
         pendingCapabilityModels    = @($pendingCapabilityModels)
         realtimeModels             = @($realtimeModels)
@@ -498,6 +502,12 @@ if ($ValidateOnly) {
     }
 
     Write-Output ($report | ConvertTo-Json -Depth 10)
+
+    if ($validation.warnings.Count -gt 0) {
+        foreach ($validationWarning in $validation.warnings) {
+            Write-Host "::warning title=$Provider provider model validation::$validationWarning"
+        }
+    }
 
     if (-not $validation.success) {
         # Surface each validation issue as a GitHub Actions error annotation so
@@ -1454,6 +1464,12 @@ $report = [ordered]@{
 }
 
 Write-Output ($report | ConvertTo-Json -Depth 10)
+
+if ($validation.warnings.Count -gt 0) {
+    foreach ($validationWarning in $validation.warnings) {
+        Write-Host "::warning title=$Provider provider model validation::$validationWarning"
+    }
+}
 
 if (-not $validation.success) {
     # Surface each validation issue as a GitHub Actions error annotation so the

@@ -1,5 +1,13 @@
 name: 🏁 2 PR Release to Main from Dev
 
+# Related workflows (release pipeline — execute in numbered order):
+#   - release-1-milestone.yml (creates milestone and branches)
+#   - release-2-pr-to-dev-closed.yml (creates PR from dev→main on release merge)
+#   - release-3-pr-to-main-closed.yml (creates GitHub Release on main merge)
+#   - release-4-build.yml (builds platform artifacts on release publish)
+#   - release-5-deploy-pages.yml (deploys documentation pages)
+#   - release-6-upload-yak.yml (uploads to Yak package manager)
+
 # Description: This workflow automatically creates a PR to merge a release branch into main (or main-X.Y.Z for stabilization paths).
 # When the release/* branch is merged to dev or dev-X.Y.Z.
 #
@@ -40,6 +48,7 @@ jobs:
   create-pr-dev-to-main:
     if: ${{ ( github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')) || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: write
       contents: write
@@ -69,10 +78,14 @@ jobs:
             --base "$TARGET_BRANCH" \
             --head "$MAIN_HEAD" \
             --title "$SOURCE_PR_TITLE" \
-            --body "$SOURCE_PR_BODY"
+            --body "$SOURCE_PR_BODY" 2>&1 || true
           
-          # Capture PR number
-          PR_NUMBER=$(gh pr list --base "$TARGET_BRANCH" --head "$MAIN_HEAD" --json number --jq '.[0].number')
+          # Capture PR number (works whether PR was just created or already existed)
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --base "$TARGET_BRANCH" --head "$MAIN_HEAD" --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Failed to create or find PR"
+            exit 1
+          fi
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
       - name: Assign PR to Milestone (on PR closed)
         if: ${{ github.event_name == 'pull_request' && steps.create-pr-event.outputs.pr_number != '' }}
@@ -100,10 +113,14 @@ jobs:
             --base main \
             --head dev \
             --title "${{ github.event.inputs['pr-title'] }}" \
-            --body "${{ github.event.inputs['pr-body'] }}"
+            --body "${{ github.event.inputs['pr-body'] }}" 2>&1 || true
           
-          # Capture PR number (manual dispatch always targets main)
-          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
+          # Capture PR number (works whether PR was just created or already existed)
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --base main --head dev --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Failed to create or find PR"
+            exit 1
+          fi
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
