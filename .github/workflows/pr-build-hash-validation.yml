@@ -1,5 +1,14 @@
 name: 🔍 PR Build & Hash Validation
 
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   - pr-dependency-validation.yml (dependency checks)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
 # Description: Validates that PRs to main/dev/hotfix/release branches can build
 # successfully and generate valid hash manifests without conflicts.
 
@@ -40,6 +49,7 @@ jobs:
   validate-no-manual-hash-edits:
     name: 🚫 Block Manual Hash Edits
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
     - name: Checkout PR Branch
       uses: actions/checkout@v4
@@ -121,6 +131,7 @@ jobs:
   prep:
     needs: validate-no-manual-hash-edits
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -170,6 +181,7 @@ jobs:
           - os: macos-latest
             platform: net7.0
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     steps:
     - name: Checkout PR Branch
       uses: actions/checkout@v4
@@ -296,6 +308,7 @@ jobs:
     needs: [validate-no-manual-hash-edits, prep, validate-build-and-hash]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
     - name: Verify required workflow jobs
       shell: bash

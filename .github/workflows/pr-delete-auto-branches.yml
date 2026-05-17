@@ -39,9 +39,17 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'hash-update/') ||
       startsWith(github.event.pull_request.head.ref, 'patch/')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Delete branch
-        uses: breningham/delete-branch@v1.0.0
-        with:
-          branch_name: ${{ github.event.pull_request.head.ref }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          HTTP_CODE=$(gh api \
+            -X DELETE \
+            "repos/${{ github.repository }}/git/refs/heads/${BRANCH}" \
+            --silent \
+            2>&1) && echo "Deleted branch ${BRANCH}" || {
+            echo "::notice::Branch ${BRANCH} could not be deleted (may already be gone). This is expected."
+          }

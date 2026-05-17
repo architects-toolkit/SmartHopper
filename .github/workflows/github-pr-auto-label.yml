@@ -1,0 +1,31 @@
+name: 🏷️ PR Auto-Label
+
+# Description: Automatically labels pull requests based on the files changed.
+# Uses the actions/labeler action with config in .github/labeler.yml.
+#
+# Triggers:
+#   - pull_request opened or synchronized (new commits pushed)
+#
+# Permissions:
+#   - contents: read  - Required to read file changes
+#   - pull-requests: write - Required to apply labels
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Apply path-based labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          sync-labels: false

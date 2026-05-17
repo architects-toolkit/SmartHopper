@@ -1,5 +1,11 @@
 name: 🔄 Update Provider Models
 
+# Related workflows (provider model management):
+#   - check-provider-models.yml (validates model definitions in PRs)
+#   - chore-update-provider-models.yml (fetches and updates model lists)
+#   - chore-update-model-verification-template.yml (updates issue template)
+#   - model-verification.yml (community model verification process)
+
 # Description: Scheduled CI that queries OpenRouter's unified /models endpoint as the
 # single source of truth, then updates each provider's *ProviderModels.cs file.
 # Auto-inserts new models with capabilities mapped from OpenRouter metadata
@@ -29,6 +35,7 @@ jobs:
   fetch-and-update:
     name: ${{ matrix.provider }}
     runs-on: windows-latest
+    timeout-minutes: 45
     concurrency:
       group: provider-models-${{ matrix.provider }}
       cancel-in-progress: false
@@ -206,6 +213,13 @@ jobs:
           labels: |
             automated
 
+      - name: Assign PR to Milestone
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Dispatch required PR checks
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
         uses: ./.github/actions/dispatch-required-pr-checks
@@ -215,3 +229,15 @@ jobs:
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           base-ref: main
           pr-title: "chore(models): auto-add new and deprecate stale ${{ matrix.provider }} models"
+
+      - name: Label PR on failure
+        if: failure() && steps.create-pr.outputs.pull-request-number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
+              labels: ['needs-attention']
+            });

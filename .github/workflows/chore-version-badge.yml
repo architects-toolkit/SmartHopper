@@ -1,5 +1,11 @@
 name: 🔄 Update Version Badge
 
+# Related workflows (triggered on Solution.props / version changes):
+#   - chore-version-date.yml (updates version date suffix on dev/release pushes)
+#   - chore-version-badge.yml (updates README badge on version change)
+#   - chore-version-main-release.yml (strips date suffix for main release PRs)
+#   (dev-update-manifest.yml was removed — manifest text is now resolved at build time via .manifest.json)
+
 # Description: This workflow automatically updates the version badge in the README.md
 # when the version in Solution.props changes.
 #
@@ -36,6 +42,7 @@ concurrency:
 jobs:
   paths-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version_changed: ${{ steps.filter.outputs.version }}
     steps:
@@ -50,11 +57,12 @@ jobs:
   update-badge:
     needs: paths-check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: >
       startsWith(github.ref, 'refs/heads/release/') ||
       needs.paths-check.outputs.version_changed == 'true'
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
@@ -122,3 +130,15 @@ jobs:
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           base-ref: ${{ github.ref_name }}
           pr-title: "docs: update version badge for ${{ github.ref_name }} to ${{ steps.update-badge.outputs.version }}"
+
+      - name: Label PR on failure
+        if: failure() && steps.create-pr.outputs.pull-request-number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
+              labels: ['needs-attention']
+            });
