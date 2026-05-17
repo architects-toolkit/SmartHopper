@@ -489,8 +489,21 @@ if ($ValidateOnly) {
 
     Write-Output ($report | ConvertTo-Json -Depth 10)
 
+    if (-not $validation.success) {
+        # Surface each validation issue as a GitHub Actions error annotation so
+        # the message is visible in the run log. We deliberately use Write-Host
+        # (not Write-Error) here: Write-Error under $ErrorActionPreference =
+        # 'Stop' throws a terminating exception which propagates out of the
+        # script as an opaque [System.Management.Automation.RuntimeException],
+        # making downstream catch blocks (e.g. the fetch-models action wrapper)
+        # surface a generic "script failed" message instead of the actual
+        # validation details.
+        foreach ($validationError in $validation.errors) {
+            Write-Host "::error title=$Provider provider model validation::$validationError"
+        }
+    }
+
     if ($FailOnValidationErrors -and -not $validation.success) {
-        Write-Error "[$Provider] Provider model validation failed: $($validation.errors -join ' | ')"
         exit 9
     }
 
@@ -1432,8 +1445,17 @@ $report = [ordered]@{
 
 Write-Output ($report | ConvertTo-Json -Depth 10)
 
+if (-not $validation.success) {
+    # Surface each validation issue as a GitHub Actions error annotation so the
+    # message is visible in the run log. See the matching block in the
+    # -ValidateOnly path above for the rationale (Write-Error + EAP=Stop would
+    # throw and obscure the cause).
+    foreach ($validationError in $validation.errors) {
+        Write-Host "::error title=$Provider provider model validation::$validationError"
+    }
+}
+
 if ($FailOnValidationErrors -and -not $validation.success) {
-    Write-Error "[$Provider] Provider model validation failed: $($validation.errors -join ' | ')"
     exit 9
 }
 
