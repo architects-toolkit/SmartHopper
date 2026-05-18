@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
@@ -39,6 +40,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
         /// </summary>
         [GeneratedRegex(@"```(?:json|txt|text)?\s*\n?(.*?)\n?```", RegexOptions.Singleline)]
         private static partial Regex MarkdownCodeBlockRegex();
+
+        /// <summary>
+        /// Regex pattern for removing trailing commas before a closing object or array bracket.
+        /// </summary>
+        [GeneratedRegex(@",(\s*[\]}])")]
+        private static partial Regex TrailingCommaRegex();
 
         /// <summary>
         /// Regex pattern for extracting the first bracketed array from text.
@@ -552,7 +559,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
         /// <summary>
         /// Attempts to extract and parse a JSON object from an AI response that may contain
         /// markdown formatting, HTML tags, or other non-JSON wrapping.
-        /// Uses brace-depth tracking to correctly extract the first complete JSON object.
+        /// Uses a multi-stage recovery pipeline:
+        /// 1. Direct parse
+        /// 2. Strip markdown code-block fences, then parse
+        /// 3. Extract first JSON object by brace-depth tracking, then parse
+        /// 4. Sanitize common AI malformations (control chars, trailing commas, smart quotes,
+        ///    unbalanced containers), then parse each candidate
         /// </summary>
         /// <param name="response">Raw response from the AI.</param>
         /// <returns>Parsed <see cref="JObject"/>.</returns>
@@ -564,17 +576,17 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                 throw new JsonException("AI response is empty.");
             }
 
-            // Try direct parse first
+            // Strategy 1: Try direct parse first
             try
             {
                 return JObject.Parse(response);
             }
             catch (JsonException)
             {
-                // Continue with sanitization attempts
+                // Continue with recovery strategies
             }
 
-            // Try extracting JSON from markdown code blocks
+            // Strategy 2: Try extracting JSON from markdown code blocks
             var codeBlockContent = ExtractFromMarkdownCodeBlock(response);
             if (!string.IsNullOrEmpty(codeBlockContent))
             {
@@ -588,7 +600,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                 }
             }
 
-            // Try extracting the first complete JSON object by tracking brace depth
+            // Strategy 3: Try extracting the first complete JSON object by tracking brace depth
             var jsonCandidate = ExtractFirstJsonObject(response);
             if (!string.IsNullOrEmpty(jsonCandidate))
             {
@@ -598,7 +610,26 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                 }
                 catch (JsonException)
                 {
-                    // Continue
+                    // Continue with sanitization
+                }
+            }
+
+            // Strategy 4: Sanitize common AI malformations and retry each candidate
+            foreach (var candidate in new[] { codeBlockContent, jsonCandidate, response })
+            {
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    continue;
+                }
+
+                var sanitized = SanitizeJsonString(candidate);
+                try
+                {
+                    return JObject.Parse(sanitized);
+                }
+                catch (JsonException)
+                {
+                    // Continue to next candidate
                 }
             }
 
@@ -611,6 +642,149 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             throw new JsonException($"AI response is not valid JSON. Preview: {preview}");
+        }
+
+        /// <summary>
+        /// Sanitizes a JSON-like string produced by an AI, making a best-effort attempt to
+        /// recover from common malformations:
+        /// - Unescaped control characters inside string literals are escaped
+        /// - Smart/curly quotes are normalized to standard quotes
+        /// - Zero-width spaces are stripped
+        /// - Trailing commas before closing brackets are removed
+        /// - Unterminated string literals are closed
+        /// - Unbalanced containers are closed in correct LIFO order
+        /// </summary>
+        /// <param name="json">The potentially malformed JSON string.</param>
+        /// <returns>A sanitized JSON string.</returns>
+        private static string SanitizeJsonString(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+            {
+                return json;
+            }
+
+            var sb = new StringBuilder(json.Length + 16);
+            var containers = new Stack<char>();
+            bool inString = false;
+            bool escape = false;
+
+            for (int i = 0; i < json.Length; i++)
+            {
+                char c = json[i];
+
+                // Normalize smart quotes and BOM/ZWSP outside of string literals.
+                if (!inString)
+                {
+                    switch (c)
+                    {
+                        case '\u201C': // left double quotation mark
+                        case '\u201D': // right double quotation mark
+                            sb.Append('"');
+                            inString = true;
+                            continue;
+                        case '\uFEFF': // BOM / zero-width no-break space
+                        case '\u200B': // zero-width space
+                            continue;
+                    }
+                }
+
+                if (escape)
+                {
+                    sb.Append(c);
+                    escape = false;
+                    continue;
+                }
+
+                if (inString && c == '\\')
+                {
+                    sb.Append(c);
+                    escape = true;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    sb.Append(c);
+                    inString = !inString;
+                    continue;
+                }
+
+                // Smart closing quote inside a string also closes the string.
+                if (inString && (c == '\u201C' || c == '\u201D'))
+                {
+                    sb.Append('"');
+                    inString = false;
+                    continue;
+                }
+
+                if (inString)
+                {
+                    switch (c)
+                    {
+                        case '\n': sb.Append("\\n"); break;
+                        case '\r': sb.Append("\\r"); break;
+                        case '\t': sb.Append("\\t"); break;
+                        case '\b': sb.Append("\\b"); break;
+                        case '\f': sb.Append("\\f"); break;
+                        default:
+                            if (c < 0x20)
+                            {
+                                sb.Append("\\u").Append(((int)c).ToString("X4"));
+                            }
+                            else
+                            {
+                                sb.Append(c);
+                            }
+
+                            break;
+                    }
+                }
+                else
+                {
+                    switch (c)
+                    {
+                        case '{':
+                        case '[':
+                            containers.Push(c);
+                            break;
+                        case '}':
+                            if (containers.Count > 0 && containers.Peek() == '{')
+                            {
+                                containers.Pop();
+                            }
+
+                            break;
+                        case ']':
+                            if (containers.Count > 0 && containers.Peek() == '[')
+                            {
+                                containers.Pop();
+                            }
+
+                            break;
+                    }
+
+                    sb.Append(c);
+                }
+            }
+
+            // Close unterminated string literal.
+            if (inString)
+            {
+                sb.Append('"');
+            }
+
+            // Close unbalanced containers in LIFO order.
+            while (containers.Count > 0)
+            {
+                sb.Append(containers.Pop() == '{' ? '}' : ']');
+            }
+
+            var result = sb.ToString();
+
+            // Remove trailing commas before closing } or ].
+            result = TrailingCommaRegex().Replace(result, "$1");
+
+            return result;
         }
 
         /// <summary>
@@ -630,12 +804,13 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
         }
 
         /// <summary>
-        /// Extracts the first complete JSON object from text by tracking brace depth.
-        /// Correctly handles nested objects and string literals with escape sequences.
+        /// Extracts the first complete JSON container (object or array) from text by tracking
+        /// brace/bracket depth. Correctly handles nested containers and string literals with
+        /// escape sequences.
         /// </summary>
-        /// <param name="text">The text to search for a JSON object.</param>
-        /// <returns>The first complete JSON object string, or null if none found.</returns>
-        private static string ExtractFirstJsonObject(string text)
+        /// <param name="text">The text to search for a JSON container.</param>
+        /// <returns>The first complete JSON container string, or null if none found.</returns>
+        private static string ExtractFirstJsonContainer(string text)
         {
             if (string.IsNullOrEmpty(text))
             {
@@ -644,14 +819,15 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
 
             bool inString = false;
             bool escapeNext = false;
-            int braceDepth = 0;
+            int depth = 0;
             int startIndex = -1;
+            char opener = '\0';
+            char closer = '\0';
 
             for (int i = 0; i < text.Length; i++)
             {
                 char c = text[i];
 
-                // Handle escape sequences within strings
                 if (escapeNext)
                 {
                     escapeNext = false;
@@ -664,33 +840,47 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                     continue;
                 }
 
-                // Toggle string state on unescaped quotes
                 if (c == '"')
                 {
                     inString = !inString;
                     continue;
                 }
 
-                // Skip everything inside strings
                 if (inString)
                 {
                     continue;
                 }
 
-                // Track brace depth to find complete JSON objects
-                if (c == '{')
+                if (depth == 0 && startIndex < 0)
                 {
-                    if (braceDepth == 0)
+                    if (c == '{')
                     {
-                        startIndex = i;
+                        opener = '{';
+                        closer = '}';
+                    }
+                    else if (c == '[')
+                    {
+                        opener = '[';
+                        closer = ']';
+                    }
+                    else
+                    {
+                        continue;
                     }
 
-                    braceDepth++;
+                    startIndex = i;
+                    depth = 1;
+                    continue;
                 }
-                else if (c == '}' && braceDepth > 0)
+
+                if (c == opener)
                 {
-                    braceDepth--;
-                    if (braceDepth == 0 && startIndex >= 0)
+                    depth++;
+                }
+                else if (c == closer && depth > 0)
+                {
+                    depth--;
+                    if (depth == 0)
                     {
                         return text.Substring(startIndex, i - startIndex + 1);
                     }
@@ -698,6 +888,18 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Extracts the first complete JSON object from text.
+        /// Convenience wrapper that filters out array roots.
+        /// </summary>
+        /// <param name="text">The text to search for a JSON object.</param>
+        /// <returns>The first complete JSON object string, or null if none found.</returns>
+        private static string ExtractFirstJsonObject(string text)
+        {
+            var container = ExtractFirstJsonContainer(text);
+            return (container != null && container.Length > 0 && container[0] == '{') ? container : null;
         }
 
         #endregion

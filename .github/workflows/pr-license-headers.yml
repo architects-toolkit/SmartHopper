@@ -1,5 +1,14 @@
 name: 📜 Update License Headers
 
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   - pr-dependency-validation.yml (dependency checks)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
 # Description: Automatically applies LGPL license headers via tools/Update-LicenseHeaders.ps1
 # and commits any changes back to the pull request branch.
 #
@@ -46,6 +55,7 @@ jobs:
   update-license-headers:
     name: 📜 Update License Headers
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -78,7 +88,7 @@ jobs:
 
       - name: Apply LGPL license headers
         shell: pwsh
-        run: pwsh -ExecutionPolicy Bypass -File .\tools\Update-LicenseHeaders.ps1
+        run: '& .\tools\Update-LicenseHeaders.ps1'
 
       - name: Check for changes
         id: check-changes
