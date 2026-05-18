@@ -7,7 +7,7 @@ description: >
 
   ----
 
-  NOTE: This is a release candidate. Please test thoroughly and report any issues at <https://github.com/architects-toolkit/SmartHopper/issues>
+  {{NOTE_TEXT}}
 
   ----
 
