@@ -48,6 +48,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 { "python3", "Python 3 Script" },
                 { "python3script", "Python 3 Script" },
                 { "ironpython", "IronPython 2 Script" },
+                { "vb", "VB Script" },
+                { "vbscript", "VB Script" },
 
                 // Parameter components
                 { "slider", "Number Slider" },
