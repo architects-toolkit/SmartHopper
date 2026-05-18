@@ -22,7 +22,7 @@ name: 📝 AI Changelog Review & Simplification
 
 on:
   pull_request:
-    types: 
+    types:
       - opened
       - synchronize
     branches:
@@ -287,7 +287,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Post review summary comment
-        if: steps.context.outputs.skip != 'true' && steps.ai-review.outputs.success == 'true'
+        if: steps.context.outputs.skip != 'true' && steps.ai-review.outputs.success == 'true' && steps.safe-commit.outputs.method != ''
         uses: actions/github-script@v7
         env:
           CHANGES_MADE: ${{ steps.apply.outputs.changes_made }}
@@ -296,8 +296,8 @@ jobs:
             const prNumber = parseInt('${{ steps.context.outputs.pr_number }}', 10);
             const applied = '${{ steps.apply.outputs.applied }}' === 'true';
             const commitMethod = '${{ steps.safe-commit.outputs.method }}';
-            const promptTokens = '${{ steps.ai-review.outputs.usage-prompt-tokens }}';
-            const completionTokens = '${{ steps.ai-review.outputs.usage-completion-tokens }}';
+            const promptTokens = '${{ steps.ai-review.outputs.usage-prompt-tokens || 0 }}';
+            const completionTokens = '${{ steps.ai-review.outputs.usage-completion-tokens || 0 }}';
 
             let changesMade = [];
             try {
@@ -369,3 +369,6 @@ jobs:
           echo "- AI Success: ${{ steps.ai-review.outputs.success || 'skipped' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Changes applied: ${{ steps.apply.outputs.applied || 'n/a' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit method: ${{ steps.safe-commit.outputs.method || 'n/a' }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.ai-review.outputs.success }}" = "true" ]; then
+            echo "- Token usage: ${{ steps.ai-review.outputs.usage-prompt-tokens || '0' }} prompt + ${{ steps.ai-review.outputs.usage-completion-tokens || '0' }} completion" >> "$GITHUB_STEP_SUMMARY"
+          fi
