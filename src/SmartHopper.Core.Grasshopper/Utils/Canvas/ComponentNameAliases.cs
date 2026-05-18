@@ -32,6 +32,19 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
     public static class ComponentNameAliases
     {
         /// <summary>
+        /// Component type GUIDs for script components whose handlers in GhJSON 1.0.0
+        /// match by name or GUID. When alias resolution changes the name, the handler's
+        /// name check fails; populating ComponentGuid lets the GUID fallback succeed.
+        /// </summary>
+        private static readonly IReadOnlyDictionary<string, Guid> ScriptComponentGuids =
+            new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "C# Script", new Guid("b6ba1144-02d6-4a2d-b53c-ec62e290eeb7") },
+                { "Python 3 Script", new Guid("719467e6-7cf5-4848-99b0-c5dd57e5442c") },
+                { "IronPython 2 Script", new Guid("97aa26ef-88ae-4ba6-98a6-ed6ddeca11d1") },
+                { "VB Script", new Guid("079bd9bd-54a0-41d4-98af-db999015f63d") },
+            };
+        /// <summary>
         /// Case-insensitive dictionary mapping informal names to canonical Grasshopper names.
         /// </summary>
         public static readonly IReadOnlyDictionary<string, string> Aliases =
@@ -215,6 +228,16 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     Debug.WriteLine($"[ComponentNameAliases] Resolved '{component.Name}' -> '{resolved}'");
                     component.Name = resolved;
                     substitutions++;
+
+                    // GhJSON 1.0.0 script handlers match by Name or ComponentGuid.
+                    // Since we changed the name, populate ComponentGuid so the
+                    // handler's GUID fallback succeeds and script code is applied.
+                    if (!component.ComponentGuid.HasValue &&
+                        ((IDictionary<string, Guid>)ScriptComponentGuids).TryGetValue(resolved, out var guid))
+                    {
+                        component.ComponentGuid = guid;
+                        Debug.WriteLine($"[ComponentNameAliases] Set ComponentGuid to {guid} for '{resolved}'");
+                    }
                 }
             }
 

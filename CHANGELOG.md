@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed ScriptGenerate output not being placed by GhPlace component.
 - Fixed `gh_put` failing to instantiate components when AI uses informal names (e.g., "Python" instead of "Python 3 Script").
+- Fixed script code not being applied to placed script components when alias resolution changes the component name (e.g., Python code replaced by default template).
 
 ## [1.4.2-rc] - 2026-05-17
 
