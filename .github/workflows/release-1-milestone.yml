@@ -121,6 +121,7 @@ jobs:
         uses: ./.github/actions/versioning/update-manifest-text
         with:
           version: ${{ inputs.milestone-title }}
+          manifest-path: yak-package/manifest.yml
           update-file: 'true'
 
       - name: Include missing issues in changelog
