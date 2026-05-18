@@ -195,10 +195,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <para>
         /// When a component lacks a <c>ComponentGuid</c> and its name matches a known
         /// alias, the canonical name is looked up in <see cref="ObjectFactory"/> to
-        /// obtain the real GUID. The GUID is set on the component so GhJSON can
-        /// instantiate it, while the original <c>Name</c> is preserved so that
-        /// GhJSON's deserialization handlers (which match by name) still apply
-        /// extensions such as script code.
+        /// obtain the real GUID. Both <c>ComponentGuid</c> and <c>Name</c> are set on
+        /// the component so GhJSON can instantiate it by GUID and match handlers by
+        /// canonical name.
         /// </para>
         /// </summary>
         /// <param name="document">The GhJSON document to resolve (mutated in place).</param>
@@ -234,10 +233,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 IGH_ObjectProxy proxy = ObjectFactory.FindProxy(canonical);
                 if (proxy != null)
                 {
-                    component.ComponentGuid = proxy.Desc.ComponentGuid;
+                    component.ComponentGuid = proxy.Guid;
+                    component.Name = canonical;
                     Debug.WriteLine(
                         $"[ComponentNameAliases] Alias '{component.Name}' -> '{canonical}' "
-                        + $"(GUID {proxy.Desc.ComponentGuid})");
+                        + $"(GUID {proxy.Guid})");
                     resolved++;
                 }
                 else

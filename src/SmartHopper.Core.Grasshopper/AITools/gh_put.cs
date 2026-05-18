@@ -92,8 +92,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Resolve informal AI-emitted component names ("csharp", "slider", ...)
                 // by looking up canonical names in the live Grasshopper component server.
-                // Sets ComponentGuid from the server while preserving the original Name
-                // so that GhJSON's deserialization handlers still match by name.
+                // Sets both ComponentGuid and Name from the server so GhJSON can
+                // instantiate by GUID and match handlers by canonical name.
                 var aliasSubstitutions = ComponentNameAliases.ResolveFromServer(document);
                 if (aliasSubstitutions > 0)
                 {
