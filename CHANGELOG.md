@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Component Name Aliases**: Added `ComponentNameAliases` utility that maps informal AI-emitted component names (e.g., "python", "csharp", "slider") to their canonical Grasshopper names (e.g., "Python 3 Script", "C# Script", "Number Slider") before GhJSON placement.
+- **Component Name Aliases**: Added `ComponentNameAliases` utility that maps informal AI-emitted component names (e.g., "python", "csharp", "slider") to their canonical Grasshopper names (e.g., "Python 3 Script", "C# Script", "Number Slider") before GhJSON placement. Aliases are resolved against the live Grasshopper component server to obtain actual GUIDs, preserving the original name for handler matching.
 
 ### Fixed
 
 - Fixed ScriptGenerate output not being placed by GhPlace component.
 - Fixed `gh_put` failing to instantiate components when AI uses informal names (e.g., "Python" instead of "Python 3 Script").
+- Fixed script code not being applied to placed script components: alias resolution now sets `ComponentGuid` from the live component server while preserving the original name so GhJSON's deserialization handlers still match and apply extensions (e.g., script code).
 
 ## [1.4.2-rc] - 2026-05-17
 

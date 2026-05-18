@@ -90,9 +90,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 GhJson.IsValid(json, out analysisMsg);
                 var document = GhJson.FromJson(json);
 
-                // Normalize informal AI-emitted component names ("csharp", "slider", ...)
-                // to canonical Grasshopper names before GhJSON resolves them.
-                var aliasSubstitutions = ComponentNameAliases.Normalize(document);
+                // Resolve informal AI-emitted component names ("csharp", "slider", ...)
+                // by looking up canonical names in the live Grasshopper component server.
+                // Sets both ComponentGuid and Name from the server so GhJSON can
+                // instantiate by GUID and match handlers by canonical name.
+                var aliasSubstitutions = ComponentNameAliases.ResolveFromServer(document);
                 if (aliasSubstitutions > 0)
                 {
                     Debug.WriteLine($"[gh_put] Resolved {aliasSubstitutions} component-name alias(es).");

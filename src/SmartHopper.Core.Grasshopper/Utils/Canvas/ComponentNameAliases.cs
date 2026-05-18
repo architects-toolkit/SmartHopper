@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using GhJSON.Core.SchemaModels;
+using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
@@ -189,19 +190,26 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
-        /// Normalizes all component names in a GhJSON document by replacing informal
-        /// aliases with their canonical Grasshopper names.
+        /// Resolves informal component aliases in a GhJSON document by looking up
+        /// canonical names in the live Grasshopper component server.
+        /// <para>
+        /// When a component lacks a <c>ComponentGuid</c> and its name matches a known
+        /// alias, the canonical name is looked up in <see cref="ObjectFactory"/> to
+        /// obtain the real GUID. Both <c>ComponentGuid</c> and <c>Name</c> are set on
+        /// the component so GhJSON can instantiate it by GUID and match handlers by
+        /// canonical name.
+        /// </para>
         /// </summary>
-        /// <param name="document">The GhJSON document to normalize (mutated in place).</param>
-        /// <returns>The number of component names that were substituted.</returns>
-        public static int Normalize(GhJsonDocument? document)
+        /// <param name="document">The GhJSON document to resolve (mutated in place).</param>
+        /// <returns>The number of components that were resolved.</returns>
+        public static int ResolveFromServer(GhJsonDocument? document)
         {
             if (document?.Components == null)
             {
                 return 0;
             }
 
-            var substitutions = 0;
+            var resolved = 0;
             foreach (var component in document.Components)
             {
                 if (component == null || string.IsNullOrWhiteSpace(component.Name))
@@ -209,16 +217,42 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     continue;
                 }
 
-                var resolved = Resolve(component.Name);
-                if (!string.Equals(resolved, component.Name, StringComparison.Ordinal))
+                // If a ComponentGuid is already provided, trust it.
+                if (component.ComponentGuid.HasValue)
                 {
-                    Debug.WriteLine($"[ComponentNameAliases] Resolved '{component.Name}' -> '{resolved}'");
-                    component.Name = resolved;
-                    substitutions++;
+                    continue;
+                }
+
+                var canonical = Resolve(component.Name);
+                if (string.Equals(canonical, component.Name, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                // Look up the canonical name in the live Grasshopper component server.
+                IGH_ObjectProxy proxy = ObjectFactory.FindProxy(canonical);
+                if (proxy != null)
+                {
+                    component.ComponentGuid = proxy.Guid;
+                    component.Name = canonical;
+                    Debug.WriteLine(
+                        $"[ComponentNameAliases] Alias '{component.Name}' -> '{canonical}' "
+                        + $"(GUID {proxy.Guid})");
+                    resolved++;
+                }
+                else
+                {
+                    // Component not installed; fall back to setting the canonical
+                    // name so GhJSON can report a meaningful error.
+                    Debug.WriteLine(
+                        $"[ComponentNameAliases] Alias '{component.Name}' -> '{canonical}' "
+                        + "(component not found in server, falling back to name change)");
+                    component.Name = canonical;
+                    resolved++;
                 }
             }
 
-            return substitutions;
+            return resolved;
         }
     }
 }
