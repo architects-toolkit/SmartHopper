@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3-rc] - 2026-05-18
+
 ### Added
 
 - **Component Name Aliases**: Added `ComponentNameAliases` utility that maps informal AI-emitted component names (e.g., "python", "csharp", "slider") to their canonical Grasshopper names (e.g., "Python 3 Script", "C# Script", "Number Slider") before GhJSON placement. Aliases are resolved against the live Grasshopper component server to obtain actual GUIDs, preserving the original name for handler matching.
