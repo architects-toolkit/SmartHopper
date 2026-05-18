@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.Serialization;
 using Grasshopper.Kernel;
@@ -178,6 +179,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string scriptCode = string.Empty;
                 string language = "unknown";
                 var componentData = new JObject();
+                GhJsonComponent? props = null;
 
                 try
                 {
@@ -190,7 +192,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     var componentsList = new List<IGH_ActiveObject> { activeTarget };
                     var document = GhJsonGrasshopper.Serialize(componentsList, SerializationOptions.Default);
-                    var props = document.Components.FirstOrDefault();
+                    props = document.Components.FirstOrDefault();
 
                     if (props != null)
                     {
@@ -223,6 +225,103 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Coded static checks by language
                 var codedIssues = new List<string>();
+
+                // Extract input and output parameter names from component
+                var inputNames = new List<string>();
+                var outputNames = new List<string>();
+
+                if (props?.InputSettings != null)
+                {
+                    foreach (var inParam in props.InputSettings)
+                    {
+                        if (!string.IsNullOrWhiteSpace(inParam.ParameterName))
+                        {
+                            inputNames.Add(inParam.ParameterName);
+                        }
+                    }
+                }
+
+                if (props?.OutputSettings != null)
+                {
+                    foreach (var outParam in props.OutputSettings)
+                    {
+                        if (!string.IsNullOrWhiteSpace(outParam.ParameterName))
+                        {
+                            outputNames.Add(outParam.ParameterName);
+                        }
+                    }
+                }
+
+                // Check input variable usage - inputs should be referenced in the script
+                foreach (var inputName in inputNames)
+                {
+                    // For Python, check if the variable is used (referenced)
+                    if (language == "python" || language == "ironpython")
+                    {
+                        // Check for variable reference (not just definition)
+                        var pattern = $@"\b{Regex.Escape(inputName)}\b";
+                        var matches = Regex.Matches(scriptCode, pattern);
+                        if (matches.Count == 0)
+                        {
+                            codedIssues.Add($"Input parameter '{inputName}' is not used in the script.");
+                        }
+                    }
+                    else if (language == "c#")
+                    {
+                        // In C#, check if the variable is referenced (not just in the RunScript signature)
+                        var escapedName = Regex.Escape(inputName);
+                        var pattern = $@"(?<<!//.*)\b{escapedName}\b";
+                        var matches = Regex.Matches(scriptCode, pattern);
+                        // Should have at least 2 occurrences: declaration and usage
+                        if (matches.Count < 2)
+                        {
+                            codedIssues.Add($"Input parameter '{inputName}' may not be properly used in the script.");
+                        }
+                    }
+                    else if (language == "vb")
+                    {
+                        // VB is case-insensitive, check for the variable
+                        var escapedName = Regex.Escape(inputName);
+                        var pattern = $@"\b{escapedName}\b";
+                        var matches = Regex.Matches(scriptCode, pattern, RegexOptions.IgnoreCase);
+                        if (matches.Count == 0)
+                        {
+                            codedIssues.Add($"Input parameter '{inputName}' is not used in the script.");
+                        }
+                    }
+                }
+
+                // Check output variable assignment - output parameter names must be assigned in the script
+                foreach (var outputName in outputNames)
+                {
+                    bool isAssigned = false;
+
+                    if (language == "python" || language == "ironpython")
+                    {
+                        // Check for assignment: OutputName = ...
+                        var pattern = $@"^\s*{Regex.Escape(outputName)}\s*=";
+                        isAssigned = Regex.IsMatch(scriptCode, pattern, RegexOptions.Multiline);
+                    }
+                    else if (language == "c#")
+                    {
+                        // Check for assignment: OutputName = ... or OutputName = ...;
+                        var escapedName = Regex.Escape(outputName);
+                        var pattern = $@"(?<<!//.*)\b{escapedName}\s*=";
+                        isAssigned = Regex.IsMatch(scriptCode, pattern);
+                    }
+                    else if (language == "vb")
+                    {
+                        // Check for assignment: OutputName = ...
+                        var escapedName = Regex.Escape(outputName);
+                        var pattern = $@"^\s*{escapedName}\s*=";
+                        isAssigned = Regex.IsMatch(scriptCode, pattern, RegexOptions.Multiline | RegexOptions.IgnoreCase);
+                    }
+
+                    if (!isAssigned)
+                    {
+                        codedIssues.Add($"Output parameter '{outputName}' is not assigned in the script. Add '{outputName} = <value>' to output data.");
+                    }
+                }
 
                 // Always check for TODO comments
                 if (scriptCode.Contains("TODO", StringComparison.OrdinalIgnoreCase))
@@ -275,6 +374,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .WithContextFilter(contextFilter)
                     .AddSystem(systemPrompt);
 
+                // Build coded issues summary to pass to AI review
+                string codedIssuesSummary = string.Empty;
+                if (codedIssues.Count > 0)
+                {
+                    codedIssuesSummary = "\n\n## Static Analysis Findings\nThe following issues were detected by automated checks:\n"
+                        + string.Join("\n", codedIssues.Select(i => $"- {i}"))
+                        + "\n\nPlease address these findings in your review.";
+                }
+
                 string userPrompt;
                 if (string.IsNullOrWhiteSpace(question))
                 {
@@ -285,6 +393,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     userPrompt = this.questionReviewPromptTemplate.Replace("<question>", question);
                     userPrompt = userPrompt.Replace("<code>", scriptCode);
                 }
+
+                userPrompt += codedIssuesSummary;
 
                 builder.AddUser(userPrompt);
                 var immutableBody = builder.Build();

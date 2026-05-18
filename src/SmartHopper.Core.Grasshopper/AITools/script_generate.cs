@@ -108,6 +108,63 @@ namespace SmartHopper.Core.Grasshopper.AITools
               - description: Parameter description
               - dataMapping: 'None', 'Flatten', 'Graft'
               - reverse, simplify, invert: Same as inputs
+
+            ## INPUT/OUTPUT Variable Matching
+
+            Grasshopper script components require EXACT variable name matching between parameters and script code:
+
+            **INPUT VARIABLES:**
+            - Each input parameter MUST have a corresponding variable in the script with the SAME name
+            - Example: If input parameter is "Numbers", the script will automatically have access to a variable named "Numbers"
+            - Example: If input parameter is "Point", the script will automatically have access to a variable named "Point"
+            - The variable is automatically available - just use it directly in your code
+
+            **OUTPUT VARIABLES:**
+            - Each output parameter MUST have a corresponding variable in the script with the SAME name
+            - Example: If output parameter is "Total", the script MUST assign a value to a variable named "Total"
+            - Example: If output parameter is "Result", the script MUST have "Result = ..." somewhere
+            - This is how Grasshopper knows what to output in each component output
+
+            **LANGUAGE-SPECIFIC EXAMPLES:**
+
+            Python:
+            ```python
+            # Inputs: Numbers (list), Factor (double)
+            # Outputs: Scaled (list), Sum (double)
+            
+            # Use input variables directly - they are already available
+            scaled = [x * Factor for x in Numbers]  # Uses "Numbers" and "Factor" inputs
+            total = sum(Numbers) * Factor            # Uses "Numbers" and "Factor" inputs
+            
+            # Assign to output variables - this is REQUIRED
+            Scaled = scaled  # Output variable must match parameter name "Scaled"
+            Total = total    # Output variable must match parameter name "Total"
+            ```
+
+            C#:
+            ```csharp
+            // Inputs: Numbers (list), Factor (double)
+            // Outputs: Scaled (list), Sum (double)
+            
+            var scaled = new List<double>();
+            foreach (var x in Numbers) {
+                scaled.Add(x * Factor);  // Uses "Numbers" and "Factor" inputs
+            }
+            
+            double sum = 0;
+            foreach (var n in Numbers) {
+                sum += n * Factor;
+            }
+            
+            Scaled = scaled;  // Output variable must match parameter name "Scaled"
+            Total = sum;      // Output variable must match parameter name "Total"
+            ```
+
+            **IMPORTANT:**
+            - Input variables are automatically available - just read from them
+            - Output variables MUST be assigned - this is how data leaves the script
+            - Always use EXACT parameter names for outputs (e.g., "Total" not "total")
+
             The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
             """;
 
