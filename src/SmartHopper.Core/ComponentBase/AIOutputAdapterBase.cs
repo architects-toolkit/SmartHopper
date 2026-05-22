@@ -311,6 +311,13 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         foreach (var interaction in mergedBody.Interactions)
                         {
+                            // Skip system text interactions: they were already incorporated into the composed system prompt.
+                            // Non-text system interactions (images, tool calls, etc.) are preserved since they were not extracted above.
+                            if (interaction?.Agent == AIAgent.System && interaction is AIInteractionText)
+                            {
+                                continue;
+                            }
+
                             combinedBody.Add(interaction);
                         }
                     }
