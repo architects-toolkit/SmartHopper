@@ -95,7 +95,7 @@ namespace SmartHopper.Components.Test.Providers
                     bodyBuilder.Add(new AIInteractionText
                     {
                         Agent = AIAgent.System,
-                        Content = "You have access to tools."
+                        Content = "You have access to tools.",
                     });
 
                     // Add tool call
@@ -103,14 +103,14 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         Id = "call_weather_123",
                         Name = "get_weather",
-                        Arguments = JObject.Parse("{\"location\": \"San Francisco\"}")
+                        Arguments = JObject.Parse("{\"location\": \"San Francisco\"}"),
                     });
 
                     // Add tool result
                     bodyBuilder.Add(new AIInteractionToolResult
                     {
                         Result = new JObject { ["content"] = "Weather in San Francisco: 70°F, Partly Cloudy" },
-                        Id = "call_weather_123"
+                        Id = "call_weather_123",
                     });
 
                     var call = new AIRequestCall();
