@@ -61,8 +61,6 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("URL", "U", "REQUIRED URL(s) of the webpage(s) to convert.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("HTML Readability", "R", "HTML main-content extraction strategy: auto (default), smartreader, heuristic, or off.", GH_ParamAccess.item, "auto");
-            pManager[pManager.ParamCount - 1].Optional = true;
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -82,7 +80,6 @@ namespace SmartHopper.Components.Knowledge
             private readonly ProcessingOptions processingOptions;
             private Dictionary<string, GH_Structure<GH_String>> inputTrees;
             private bool hasWork;
-            private string htmlReadabilityMode;
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
@@ -101,10 +98,6 @@ namespace SmartHopper.Components.Knowledge
             {
                 var urlTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("URL", out urlTree);
-
-                var readabilityParam = new GH_String("auto");
-                DA.GetData("HTML Readability", ref readabilityParam);
-                this.htmlReadabilityMode = readabilityParam?.Value ?? "auto";
 
                 this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                 {
@@ -158,12 +151,6 @@ namespace SmartHopper.Components.Knowledge
                                     {
                                         ["url"] = url,
                                     };
-
-                                    if (!string.IsNullOrWhiteSpace(this.htmlReadabilityMode) &&
-                                        !string.Equals(this.htmlReadabilityMode, "auto", StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        parameters["HTMLreadabilityMode"] = this.htmlReadabilityMode;
-                                    }
 
                                     var toolCallInteraction = new AIInteractionToolCall
                                     {

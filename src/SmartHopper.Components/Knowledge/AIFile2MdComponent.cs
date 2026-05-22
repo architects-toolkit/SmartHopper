@@ -198,8 +198,6 @@ namespace SmartHopper.Components.Knowledge
             pManager[pManager.ParamCount - 1].Optional = true;
             pManager.AddTextParameter("Image Prompt", "IP", "Custom prompt for AI image description. Overrides the built-in prompt for the selected mode.", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
-            pManager.AddTextParameter("HTML Readability", "R", "HTML main-content extraction strategy for HTML/EPUB/EML content: auto (default), smartreader, heuristic, or off.", GH_ParamAccess.item, "auto");
-            pManager[pManager.ParamCount - 1].Optional = true;
         }
 
         /// <inheritdoc/>
@@ -441,7 +439,6 @@ namespace SmartHopper.Components.Knowledge
 
             private string imageMode;
             private string imagePrompt;
-            private string htmlReadabilityMode;
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
@@ -485,10 +482,6 @@ namespace SmartHopper.Components.Knowledge
                 var imagePromptParam = new GH_String();
                 DA.GetData("Image Prompt", ref imagePromptParam);
                 this.imagePrompt = imagePromptParam?.Value;
-
-                var readabilityParam = new GH_String("auto");
-                DA.GetData("HTML Readability", ref readabilityParam);
-                this.htmlReadabilityMode = readabilityParam?.Value ?? "auto";
 
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
@@ -570,12 +563,6 @@ namespace SmartHopper.Components.Knowledge
                                     ["describeImages"] = false,
                                     ["extractImages"] = true,
                                 };
-
-                                if (!string.IsNullOrWhiteSpace(this.htmlReadabilityMode) &&
-                                    !string.Equals(this.htmlReadabilityMode, "auto", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    localParams["HTMLreadabilityMode"] = this.htmlReadabilityMode;
-                                }
 
                                 var localResult = await this.parent.CallAIToolAsync("file2md", localParams, token).ConfigureAwait(false);
 

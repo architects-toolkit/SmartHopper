@@ -73,8 +73,6 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
-            pManager.AddTextParameter("HTML Readability", "R", "HTML main-content extraction strategy for HTML/EPUB/EML content: auto (default), smartreader, heuristic, or off.", GH_ParamAccess.item, "auto");
-            pManager[pManager.ParamCount - 1].Optional = true;
         }
 
         /// <inheritdoc/>
@@ -105,7 +103,6 @@ namespace SmartHopper.Components.Knowledge
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
             private bool hasWork;
-            private string htmlReadabilityMode;
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
@@ -126,10 +123,6 @@ namespace SmartHopper.Components.Knowledge
             {
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);
-
-                var readabilityParam = new GH_String("auto");
-                DA.GetData("HTML Readability", ref readabilityParam);
-                this.htmlReadabilityMode = readabilityParam?.Value ?? "auto";
 
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
@@ -185,7 +178,7 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                var (markdown, format, images, warnings) = await ConvertFileAsync(ghPath.Value, this.htmlReadabilityMode).ConfigureAwait(false);
+                                var (markdown, format, images, warnings) = await ConvertFileAsync(ghPath.Value).ConfigureAwait(false);
 
                                 outputs["Markdown"].Add(new GH_String(markdown));
                                 outputs["Format"].Add(new GH_String(format));
@@ -230,7 +223,7 @@ namespace SmartHopper.Components.Knowledge
                 errorMessage = null;
             }
 
-            private static async Task<(string markdown, string format, List<VersatileImage> images, List<string> warnings)> ConvertFileAsync(string filePath, string htmlReadabilityMode)
+            private static async Task<(string markdown, string format, List<VersatileImage> images, List<string> warnings)> ConvertFileAsync(string filePath)
             {
                 var parameters = new JObject
                 {
@@ -239,12 +232,6 @@ namespace SmartHopper.Components.Knowledge
                     ["removeHeadersFooters"] = true,
                     ["extractImages"] = true,
                 };
-
-                if (!string.IsNullOrWhiteSpace(htmlReadabilityMode) &&
-                    !string.Equals(htmlReadabilityMode, "auto", StringComparison.OrdinalIgnoreCase))
-                {
-                    parameters["HTMLreadabilityMode"] = htmlReadabilityMode;
-                }
 
                 var toolCallInteraction = new AIInteractionToolCall
                 {
