@@ -27,6 +27,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -85,11 +86,18 @@ namespace SmartHopper.Components.Test.Providers
                     // Create test AIRequestCall with different message types using AIBodyBuilder
                     var bodyBuilder = AIBodyBuilder.Create();
 
-                    // Add Context message (as System)
+                    // Add System message (maps to system in OpenAI)
                     bodyBuilder.Add(new AIInteractionText
                     {
                         Agent = AIAgent.System,
                         Content = "You are a helpful assistant."
+                    });
+
+                    // Add User message (maps to user in OpenAI)
+                    bodyBuilder.Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.User,
+                        Content = "Hello, how are you?"
                     });
 
                     // Add ToolCall message
@@ -109,9 +117,17 @@ namespace SmartHopper.Components.Test.Providers
 
                     var call = new AIRequestCall();
                     call.Body = bodyBuilder.Build();
+                    call.Initialize("OpenAI", "gpt-5.4-mini", call.Body, "/chat/completions", AICapability.Text2Text);
 
                     // Encode using provider
                     var provider = this._parent.GetActualAIProvider();
+                    if (provider == null)
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Provider not found"));
+                        await Task.Yield();
+                        return;
+                    }
                     var encoded = provider.Encode(call);
 
                     // Verify encoding
@@ -123,11 +139,19 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    // Check for required role mappings
+                    // Check for required role mappings (OpenAI uses system, user, assistant, tool)
                     if (!encoded.Contains("\"role\":\"system\""))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing system role (Context message)"));
+                        this._messages.Add(new GH_String("Missing system role (System message)"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    if (!encoded.Contains("\"role\":\"user\""))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing user role (User message)"));
                         await Task.Yield();
                         return;
                     }

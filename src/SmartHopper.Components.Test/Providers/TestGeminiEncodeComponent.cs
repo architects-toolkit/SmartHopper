@@ -28,6 +28,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -88,11 +89,18 @@ namespace SmartHopper.Components.Test.Providers
                     // Create test AIRequestCall with different message types using AIBodyBuilder
                     var bodyBuilder = AIBodyBuilder.Create();
 
-                    // Add Context message (maps to user in Gemini)
+                    // Add System message (maps to system_instruction in Gemini)
                     bodyBuilder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You are a helpful assistant."
+                    });
+
+                    // Add User message (maps to user in Gemini)
+                    bodyBuilder.Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.User,
+                        Content = "Hello, how are you?"
                     });
 
                     // Add ToolCall message (Gemini uses function calls)
@@ -112,6 +120,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     var call = new AIRequestCall();
                     call.Body = bodyBuilder.Build();
+                    call.Initialize("Gemini", "gemini-1.5-flash", call.Body, "/v1beta/models/gemini-1.5-flash:generateContent", AICapability.Text2Text);
 
                     // Encode using provider from parent component
                     var provider = this._parent.GetActualAIProvider();
@@ -127,10 +136,11 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Check for required role mappings (Gemini uses user, model, function)
+                    // System messages go in system_instruction field, not in contents array
                     if (!encoded.Contains("\"role\":\"user\""))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing user role (Context message)"));
+                        this._messages.Add(new GH_String("Missing user role (User message)"));
                         await Task.Yield();
                         return;
                     }
@@ -143,10 +153,11 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!encoded.Contains("\"role\":\"function\""))
+                    // Check for system_instruction field (System messages)
+                    if (!encoded.Contains("system_instruction"))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing function role (ToolResult message)"));
+                        this._messages.Add(new GH_String("Missing system_instruction field (System message)"));
                         await Task.Yield();
                         return;
                     }

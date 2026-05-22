@@ -27,6 +27,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -86,11 +87,18 @@ namespace SmartHopper.Components.Test.Providers
                     // Create test AIRequestCall with different message types using AIBodyBuilder
                     var bodyBuilder = AIBodyBuilder.Create();
 
-                    // Add Context message (maps to user in Anthropic)
+                    // Add System message (maps to system_instruction in Anthropic)
                     bodyBuilder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.System,
                         Content = "You are a helpful assistant."
+                    });
+
+                    // Add User message (maps to user in Anthropic)
+                    bodyBuilder.Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.User,
+                        Content = "Hello, how are you?"
                     });
 
                     // Add ToolCall message
@@ -110,9 +118,17 @@ namespace SmartHopper.Components.Test.Providers
 
                     var call = new AIRequestCall();
                     call.Body = bodyBuilder.Build();
+                    call.Initialize("Anthropic", "claude-haiku-4-5", call.Body, "/v1/messages", AICapability.Text2Text);
 
                     // Encode using provider from parent component
                     var provider = this._parent.GetActualAIProvider();
+                    if (provider == null)
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Provider not found"));
+                        await Task.Yield();
+                        return;
+                    }
                     var encoded = provider.Encode(call);
 
                     // Verify encoding
@@ -125,10 +141,11 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Check for required role mappings (Anthropic uses user, assistant)
+                    // System messages go in system_instruction field, not in messages array
                     if (!encoded.Contains("\"role\":\"user\""))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing user role (Context message)"));
+                        this._messages.Add(new GH_String("Missing user role (User message)"));
                         await Task.Yield();
                         return;
                     }
@@ -137,6 +154,15 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing assistant role (ToolCall message)"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for system_instruction field (System messages)
+                    if (!encoded.Contains("system_instruction"))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing system_instruction field (System message)"));
                         await Task.Yield();
                         return;
                     }

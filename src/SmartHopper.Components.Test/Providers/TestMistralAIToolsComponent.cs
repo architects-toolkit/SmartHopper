@@ -28,6 +28,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -113,9 +114,18 @@ namespace SmartHopper.Components.Test.Providers
 
                     var call = new AIRequestCall();
                     call.Body = bodyBuilder.Build();
+                    call.Initialize("MistralAI", "mistral-small-latest", call.Body, "/chat/completions", AICapability.Text2Text, "*");
 
                     // Encode using provider from parent component
                     var provider = this._parent.GetActualAIProvider();
+                    if (provider == null)
+                    {
+                        this._messages.Add(new GH_String("Provider not found"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
+                        await Task.Yield();
+                        return;
+                    }
                     var encoded = provider.Encode(call);
 
                     // Verify tool encoding

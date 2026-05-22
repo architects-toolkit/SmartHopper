@@ -27,6 +27,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -93,7 +94,7 @@ namespace SmartHopper.Components.Test.Providers
                     bodyBuilder.Add(new AIInteractionText
                     {
                         Agent = AIAgent.System,
-                        Content = "You have access to tools."
+                        Content = "You have access to tools.",
                     });
 
                     // Add tool call
@@ -101,21 +102,30 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         Id = "call_weather_123",
                         Name = "get_weather",
-                        Arguments = JObject.Parse("{\"location\": \"Beijing\"}")
+                        Arguments = JObject.Parse("{\"location\": \"Beijing\"}"),
                     });
 
                     // Add tool result
                     bodyBuilder.Add(new AIInteractionToolResult
                     {
                         Result = new JObject { ["content"] = "Weather in Beijing: 65°F, Clear" },
-                        Id = "call_weather_123"
+                        Id = "call_weather_123",
                     });
 
                     var call = new AIRequestCall();
                     call.Body = bodyBuilder.Build();
+                    call.Initialize("DeepSeek", "deepseek-v4-flash", call.Body, "/chat/completions", AICapability.Text2Text, "*");
 
                     // Encode using provider from parent component
                     var provider = this._parent.GetActualAIProvider();
+                    if (provider == null)
+                    {
+                        this._messages.Add(new GH_String("Provider not found"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
+                        await Task.Yield();
+                        return;
+                    }
                     var encoded = provider.Encode(call);
 
                     // Verify tool encoding
