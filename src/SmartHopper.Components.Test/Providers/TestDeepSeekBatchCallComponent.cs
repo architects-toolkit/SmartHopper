@@ -179,10 +179,8 @@ namespace SmartHopper.Components.Test.Providers
                     this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
-                finally
-                {
-                    await Task.Yield();
-                }
+
+                await Task.Yield();
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)

@@ -162,6 +162,33 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
+                    // Check for function calling encoding (Gemini uses functionCalls)
+                    if (!encoded.Contains("\"function_calls\"") && !encoded.Contains("\"functionCalls\""))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing function_calls in encoding"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for function/tool name in encoded output
+                    if (!encoded.Contains("\"test_function\""))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Function name 'test_function' not found in encoding"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for function role (Gemini uses function for tool results)
+                    if (!encoded.Contains("\"role\":\"function\""))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing function role (ToolResult message)"));
+                        await Task.Yield();
+                        return;
+                    }
+
                     this._success = new GH_Boolean(true);
                     this._messages.Add(new GH_String("Gemini encoding successful"));
                     this._messages.Add(new GH_String($"Encoded message length: {encoded.Length}"));

@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -138,7 +139,65 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!encoded.Contains("\"tool_calls\""))
+                    // Parse JSON and verify tool structure
+                    var encodedJson = JObject.Parse(encoded);
+                    var messages = encodedJson["messages"] as JArray;
+                    if (messages == null)
+                    {
+                        this._messages.Add(new GH_String("Missing messages array"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for tool_calls in assistant message
+                    bool hasToolCalls = false;
+                    bool hasToolName = false;
+                    bool hasToolCallId = false;
+                    var roles = new HashSet<string>();
+
+                    foreach (var message in messages)
+                    {
+                        var role = message["role"]?.ToString();
+                        if (!string.IsNullOrEmpty(role))
+                        {
+                            roles.Add(role);
+                        }
+
+                        // Check for tool_calls array in assistant messages
+                        if (role == "assistant")
+                        {
+                            var toolCalls = message["tool_calls"] as JArray;
+                            if (toolCalls != null && toolCalls.Any())
+                            {
+                                hasToolCalls = true;
+                                foreach (var toolCall in toolCalls)
+                                {
+                                    var functionName = toolCall["function"]?["name"]?.ToString();
+                                    if (functionName == "get_weather")
+                                    {
+                                        hasToolName = true;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Check for tool_call_id in tool messages
+                        if (role == "tool")
+                        {
+                            var toolCallId = message["tool_call_id"]?.ToString();
+                            if (!string.IsNullOrEmpty(toolCallId))
+                            {
+                                hasToolCallId = true;
+                            }
+                        }
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"[TestMistralAITools] Found roles: {string.Join(", ", roles)}");
+                    System.Diagnostics.Debug.WriteLine($"[TestMistralAITools] Tool checks - tool_calls: {hasToolCalls}, tool_name: {hasToolName}, tool_call_id: {hasToolCallId}");
+
+                    if (!hasToolCalls)
                     {
                         this._messages.Add(new GH_String("Missing tool_calls array in encoding"));
                         this._encodingSuccess = new GH_Boolean(false);
@@ -147,16 +206,16 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!encoded.Contains("\"get_weather\""))
+                    if (!hasToolName)
                     {
-                        this._messages.Add(new GH_String("Tool name not found in encoding"));
+                        this._messages.Add(new GH_String("Tool name 'get_weather' not found in encoding"));
                         this._encodingSuccess = new GH_Boolean(false);
                         this._parsingSuccess = new GH_Boolean(false);
                         await Task.Yield();
                         return;
                     }
 
-                    if (!encoded.Contains("\"tool_call_id\""))
+                    if (!hasToolCallId)
                     {
                         this._messages.Add(new GH_String("Missing tool_call_id in tool result"));
                         this._encodingSuccess = new GH_Boolean(false);
@@ -172,8 +231,10 @@ namespace SmartHopper.Components.Test.Providers
                     this._messages.Add(new GH_String("- Tool call ID present in result"));
 
                     // Verify parsing would work (basic structure check)
-                    if (encoded.Contains("\"role\":\"assistant\"") &&
-                        encoded.Contains("\"role\":\"tool\""))
+                    bool hasAssistant = roles.Contains("assistant");
+                    bool hasTool = roles.Contains("tool");
+
+                    if (hasAssistant && hasTool)
                     {
                         parsingSuccess = true;
                         this._messages.Add(new GH_String("Tool result parsing structure valid"));

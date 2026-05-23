@@ -104,11 +104,11 @@ namespace SmartHopper.Components.Test.Providers
 
                     // Get provider from manager
                     var providerManager = SmartHopper.Infrastructure.AIProviders.ProviderManager.Instance;
-                    var provider = providerManager.GetProvider("GoogleGemini");
+                    var provider = providerManager.GetProvider("Gemini");
 
                     if (provider == null)
                     {
-                        this._messages.Add(new GH_String("Google Gemini provider not found"));
+                        this._messages.Add(new GH_String("Gemini provider not found"));
                         this._callSuccess = new GH_Boolean(false);
                         this._metricsValid = new GH_Boolean(false);
                         await Task.Yield();

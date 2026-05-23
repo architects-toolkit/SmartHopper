@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -139,9 +140,100 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!encoded.Contains("\"get_weather\""))
+                    // Parse JSON and verify tool structure
+                    var encodedJson = JObject.Parse(encoded);
+                    var messages = encodedJson["messages"] as JArray;
+                    if (messages == null)
                     {
-                        this._messages.Add(new GH_String("Tool name not found in encoding"));
+                        this._messages.Add(new GH_String("Missing messages array"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Anthropic uses tool_use blocks in content arrays, not tool_calls
+                    bool hasToolUse = false;
+                    bool hasToolName = false;
+                    bool hasToolResultId = false;
+                    var roles = new HashSet<string>();
+
+                    foreach (var message in messages)
+                    {
+                        var role = message["role"]?.ToString();
+                        if (!string.IsNullOrEmpty(role))
+                        {
+                            roles.Add(role);
+                        }
+
+                        // Check for tool_use blocks in assistant messages
+                        if (role == "assistant")
+                        {
+                            var content = message["content"] as JArray;
+                            if (content != null)
+                            {
+                                foreach (var contentItem in content)
+                                {
+                                    var type = contentItem["type"]?.ToString();
+                                    if (type == "tool_use")
+                                    {
+                                        hasToolUse = true;
+                                        var toolName = contentItem["name"]?.ToString();
+                                        if (toolName == "get_weather")
+                                        {
+                                            hasToolName = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Check for tool_result_id in user messages (tool results)
+                        if (role == "user")
+                        {
+                            var content = message["content"] as JArray;
+                            if (content != null)
+                            {
+                                foreach (var contentItem in content)
+                                {
+                                    var type = contentItem["type"]?.ToString();
+                                    if (type == "tool_result")
+                                    {
+                                        var toolUseId = contentItem["tool_use_id"]?.ToString();
+                                        if (!string.IsNullOrEmpty(toolUseId))
+                                        {
+                                            hasToolResultId = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"[TestAnthropicTools] Found roles: {string.Join(", ", roles)}");
+                    System.Diagnostics.Debug.WriteLine($"[TestAnthropicTools] Tool checks - tool_use: {hasToolUse}, tool_name: {hasToolName}, tool_result_id: {hasToolResultId}");
+
+                    if (!hasToolUse)
+                    {
+                        this._messages.Add(new GH_String("Missing tool_use block in encoding"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
+                        await Task.Yield();
+                        return;
+                    }
+
+                    if (!hasToolName)
+                    {
+                        this._messages.Add(new GH_String("Tool name 'get_weather' not found in encoding"));
+                        this._encodingSuccess = new GH_Boolean(false);
+                        this._parsingSuccess = new GH_Boolean(false);
+                        await Task.Yield();
+                        return;
+                    }
+
+                    if (!hasToolResultId)
+                    {
+                        this._messages.Add(new GH_String("Missing tool_use_id in tool result"));
                         this._encodingSuccess = new GH_Boolean(false);
                         this._parsingSuccess = new GH_Boolean(false);
                         await Task.Yield();
@@ -150,11 +242,15 @@ namespace SmartHopper.Components.Test.Providers
 
                     encodingSuccess = true;
                     this._messages.Add(new GH_String("Tool encoding successful"));
+                    this._messages.Add(new GH_String("- Tool use block present"));
                     this._messages.Add(new GH_String("- Tool name 'get_weather' encoded"));
+                    this._messages.Add(new GH_String("- Tool use ID present in result"));
 
                     // Verify parsing would work (basic structure check)
-                    if (encoded.Contains("\"role\":\"assistant\"") &&
-                        encoded.Contains("\"role\":\"user\""))
+                    bool hasAssistant = roles.Contains("assistant");
+                    bool hasUser = roles.Contains("user");
+
+                    if (hasAssistant && hasUser)
                     {
                         parsingSuccess = true;
                         this._messages.Add(new GH_String("Tool result parsing structure valid"));
