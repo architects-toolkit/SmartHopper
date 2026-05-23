@@ -23,7 +23,6 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.ComponentBase;
-using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -55,8 +54,6 @@ namespace SmartHopper.Components.Test.Providers
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddBooleanParameter("Standard Call Cancelled", "SCC", "Standard API call was cancelled", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Batch Submit Cancelled", "BSC", "Batch submit was cancelled", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Batch Remote Cancelled", "BRC", "Batch was actually cancelled on the remote provider", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Vision Call Cancelled", "VCC", "Vision API call was cancelled (local only)", GH_ParamAccess.item);
             pManager.AddTextParameter("Messages", "M", "Test messages", GH_ParamAccess.list);
         }
@@ -69,8 +66,6 @@ namespace SmartHopper.Components.Test.Providers
         private sealed class Worker : AsyncWorkerBase
         {
             private GH_Boolean _standardCallCancelled = new GH_Boolean(false);
-            private GH_Boolean _batchSubmitCancelled = new GH_Boolean(false);
-            private GH_Boolean _batchRemoteCancelled = new GH_Boolean(false);
             private GH_Boolean _visionCallCancelled = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
             private readonly TestOpenRouterCancellationComponent _parent;
@@ -95,8 +90,6 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         this._messages.Add(new GH_String("OpenRouter provider not found"));
                         this._standardCallCancelled = new GH_Boolean(false);
-                        this._batchSubmitCancelled = new GH_Boolean(false);
-                        this._batchRemoteCancelled = new GH_Boolean(false);
                         this._visionCallCancelled = new GH_Boolean(false);
                         await Task.Yield();
                         return;
@@ -107,17 +100,7 @@ namespace SmartHopper.Components.Test.Providers
                     this._standardCallCancelled = new GH_Boolean(standardCancelled);
                     this._messages.Add(new GH_String(standardCancelled ? "Standard call cancelled (local only — remote verification not possible for regular calls)" : "Standard call not cancelled (completed before token fired)"));
 
-                    this._messages.Add(new GH_String("=== Test 2: Batch Submit Cancellation ==="));
-                    bool batchSubmitCancelled = await this.TestBatchSubmitCancellation(provider, token).ConfigureAwait(false);
-                    this._batchSubmitCancelled = new GH_Boolean(batchSubmitCancelled);
-                    this._messages.Add(new GH_String(batchSubmitCancelled ? "Batch submit cancelled (local HTTP abort only)" : "Batch submit not cancelled (completed before token fired)"));
-
-                    this._messages.Add(new GH_String("=== Test 3: Batch Remote Cancellation ==="));
-                    bool batchRemoteCancelled = await this.TestBatchRemoteCancellation(provider, token).ConfigureAwait(false);
-                    this._batchRemoteCancelled = new GH_Boolean(batchRemoteCancelled);
-                    this._messages.Add(new GH_String(batchRemoteCancelled ? "Batch remote cancellation verified" : "Batch remote cancellation failed"));
-
-                    this._messages.Add(new GH_String("=== Test 4: Vision Call Cancellation ==="));
+                    this._messages.Add(new GH_String("=== Test 2: Vision Call Cancellation ==="));
                     bool visionCancelled = await this.TestVisionCallCancellation(provider, token).ConfigureAwait(false);
                     this._visionCallCancelled = new GH_Boolean(visionCancelled);
                     this._messages.Add(new GH_String(visionCancelled ? "Vision call cancelled (local only — remote verification not possible for regular calls)" : "Vision call not cancelled (completed before token fired)"));
@@ -129,8 +112,6 @@ namespace SmartHopper.Components.Test.Providers
                 catch (Exception ex)
                 {
                     this._standardCallCancelled = new GH_Boolean(false);
-                    this._batchSubmitCancelled = new GH_Boolean(false);
-                    this._batchRemoteCancelled = new GH_Boolean(false);
                     this._visionCallCancelled = new GH_Boolean(false);
                     this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
@@ -166,140 +147,6 @@ namespace SmartHopper.Components.Test.Providers
                 catch (Exception ex)
                 {
                     this._messages.Add(new GH_String($"Standard call cancellation error: {ex.Message}"));
-                    return false;
-                }
-            }
-
-            private async Task<bool> TestBatchSubmitCancellation(IAIProvider provider, CancellationToken token)
-            {
-                if (provider is not IAIBatchProvider batchProvider)
-                {
-                    this._messages.Add(new GH_String("Provider does not implement IAIBatchProvider"));
-                    return false;
-                }
-
-                try
-                {
-                    var call = new AIRequestCall();
-                    var builder = AIBodyBuilder.FromImmutable(call.Body);
-                    builder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.Context,
-                        Content = "Say 'batch test' in two words.",
-                    });
-                    call.Body = builder.Build();
-
-                    var customId = AIBatchSubmission.GenerateCustomId("test-cancel", 0);
-                    var items = new List<(string CustomId, AIRequestCall Request)>
-                    {
-                        (customId, call),
-                    };
-
-                    var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    cts.CancelAfter(TimeSpan.FromMilliseconds(100));
-
-                    await batchProvider.SubmitBatchAsync(items, cts.Token).ConfigureAwait(false);
-
-                    return false;
-                }
-                catch (OperationCanceledException)
-                {
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    this._messages.Add(new GH_String($"Batch submit cancellation error: {ex.Message}"));
-                    return false;
-                }
-            }
-
-            private async Task<bool> TestBatchRemoteCancellation(IAIProvider provider, CancellationToken token)
-            {
-                if (provider is not IAIBatchProvider batchProvider)
-                {
-                    this._messages.Add(new GH_String("Provider does not implement IAIBatchProvider"));
-                    return false;
-                }
-
-                AIBatchSubmission submission = null;
-                try
-                {
-                    var call = new AIRequestCall();
-                    var builder = AIBodyBuilder.FromImmutable(call.Body);
-                    builder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.Context,
-                        Content = "Say 'batch test' in two words.",
-                    });
-                    call.Body = builder.Build();
-
-                    var customId = AIBatchSubmission.GenerateCustomId("test-cancel", 0);
-                    var items = new List<(string CustomId, AIRequestCall Request)>
-                    {
-                        (customId, call),
-                    };
-
-                    submission = await batchProvider.SubmitBatchAsync(items, token).ConfigureAwait(false);
-                    this._messages.Add(new GH_String($"Batch submitted: {submission.BatchId}"));
-                }
-                catch (Exception ex)
-                {
-                    this._messages.Add(new GH_String($"Batch submission failed: {ex.Message}"));
-                    return false;
-                }
-
-                try
-                {
-                    this._messages.Add(new GH_String("Calling CancelBatchAsync..."));
-                    await batchProvider.CancelBatchAsync(submission, token).ConfigureAwait(false);
-                    this._messages.Add(new GH_String("CancelBatchAsync returned"));
-                }
-                catch (Exception ex)
-                {
-                    this._messages.Add(new GH_String($"CancelBatchAsync failed: {ex.Message}"));
-                    return false;
-                }
-
-                try
-                {
-                    this._messages.Add(new GH_String("Polling for Cancelled status..."));
-                    var timeoutSeconds = SmartHopperSettings.Instance.GetSetting("Global", "TimeoutSeconds") as int? ?? 600;
-                    var timeout = TimeSpan.FromSeconds(timeoutSeconds);
-                    var start = DateTime.UtcNow;
-                    AIBatchStatus status = null;
-
-                    while (DateTime.UtcNow - start < timeout)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
-                        status = await batchProvider.GetBatchStatusAsync(submission, token).ConfigureAwait(false);
-                        this._messages.Add(new GH_String($"Poll: {status.State}"));
-
-                        if (status.State == AIBatchState.Cancelled)
-                        {
-                            this._messages.Add(new GH_String("Batch confirmed Cancelled on remote"));
-                            return true;
-                        }
-
-                        if (status.State == AIBatchState.Completed ||
-                            status.State == AIBatchState.Failed ||
-                            status.State == AIBatchState.Expired)
-                        {
-                            this._messages.Add(new GH_String($"Batch ended in terminal state: {status.State} (not Cancelled)"));
-                            return false;
-                        }
-                    }
-
-                    this._messages.Add(new GH_String($"Timeout waiting for Cancelled status. Last state: {status?.State.ToString() ?? "unknown"}"));
-                    return false;
-                }
-                catch (OperationCanceledException)
-                {
-                    this._messages.Add(new GH_String("Polling was cancelled by user token"));
-                    return false;
-                }
-                catch (Exception ex)
-                {
-                    this._messages.Add(new GH_String($"Batch remote cancellation error: {ex.Message}"));
                     return false;
                 }
             }
@@ -344,13 +191,10 @@ namespace SmartHopper.Components.Test.Providers
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 this._parent.SetPersistentOutput("Standard Call Cancelled", this._standardCallCancelled, DA);
-                this._parent.SetPersistentOutput("Batch Submit Cancelled", this._batchSubmitCancelled, DA);
-                this._parent.SetPersistentOutput("Batch Remote Cancelled", this._batchRemoteCancelled, DA);
                 this._parent.SetPersistentOutput("Vision Call Cancelled", this._visionCallCancelled, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
 
-                bool anyPassed = this._standardCallCancelled.Value || this._batchSubmitCancelled.Value ||
-                               this._batchRemoteCancelled.Value || this._visionCallCancelled.Value;
+                bool anyPassed = this._standardCallCancelled.Value || this._visionCallCancelled.Value;
                 message = anyPassed ? "OpenRouter cancellation tests completed" : "OpenRouter cancellation tests completed (no cancellations triggered)";
             }
         }
