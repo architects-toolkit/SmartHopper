@@ -31,6 +31,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -100,54 +101,106 @@ namespace SmartHopper.Components.Test.Providers
                     });
                     call.Body = builder.Build();
 
-                    // Set batch parameters
+                    // Build the test request with service_tier=batch
                     call.Parameters = new AIRequestParameters
                     {
-                        Model = "mistral-large",
-                        BatchTier = true
+                        Model = this._parent.GetModel(),
+                        Extras = new Dictionary<string, JToken> { { "service_tier", "batch" } },
                     };
 
-                    // Get provider from manager
-                    var providerManager = SmartHopper.Infrastructure.AIProviders.ProviderManager.Instance;
-                    var provider = providerManager.GetProvider("MistralAI");
-
+                    // Resolve provider and verify it supports batch
+                    var provider = ProviderManager.Instance.GetProvider("MistralAI");
                     if (provider == null)
                     {
                         this._messages.Add(new GH_String("MistralAI provider not found"));
                         this._callSuccess = new GH_Boolean(false);
                         this._metricsValid = new GH_Boolean(false);
-                        await Task.Yield();
                         return;
                     }
 
-                    // Make batch API call
-                    IAIReturn result = null;
-                    try
+                    if (provider is not IAIBatchProvider batchProvider)
                     {
-                        result = await provider.Call(call).ConfigureAwait(false);
+                        this._messages.Add(new GH_String("MistralAI provider does not implement IAIBatchProvider"));
+                        this._callSuccess = new GH_Boolean(false);
+                        this._metricsValid = new GH_Boolean(false);
+                        return;
+                    }
 
-                        if (result != null && result.Body != null && result.Body.InteractionsCount > 0)
+                    // Submit batch job via the true Batch API
+                    var customId = AIBatchSubmission.GenerateCustomId("test-batch", 0);
+                    var items = new List<(string CustomId, AIRequestCall Request)>
+                    {
+                        (customId, call),
+                    };
+
+                    this._messages.Add(new GH_String("Submitting batch job..."));
+                    var submission = await batchProvider.SubmitBatchAsync(items, token).ConfigureAwait(false);
+                    this._messages.Add(new GH_String($"Batch submitted: {submission.BatchId}"));
+
+                    // Poll until completion (timeout: 5 minutes)
+                    AIBatchStatus status = null;
+                    var timeout = TimeSpan.FromMinutes(5);
+                    var start = DateTime.UtcNow;
+                    while (DateTime.UtcNow - start < timeout)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
+                        status = await batchProvider.GetBatchStatusAsync(submission, token).ConfigureAwait(false);
+                        this._messages.Add(new GH_String($"Poll: {status.State}"));
+
+                        if (status.State == AIBatchState.Completed)
+                        {
+                            break;
+                        }
+
+                        if (status.State == AIBatchState.Failed ||
+                            status.State == AIBatchState.Cancelled ||
+                            status.State == AIBatchState.Expired)
+                        {
+                            break;
+                        }
+                    }
+
+                    if (status == null || status.State != AIBatchState.Completed)
+                    {
+                        this._messages.Add(new GH_String($"Batch did not complete successfully: {status?.State.ToString() ?? "unknown"}"));
+                        this._callSuccess = new GH_Boolean(false);
+                        this._metricsValid = new GH_Boolean(false);
+                        return;
+                    }
+
+                    // Decode the batch result body
+                    if (status.Results != null && status.Results.TryGetValue(customId, out var resultBody))
+                    {
+                        var decoded = provider.Decode(resultBody);
+                        if (decoded != null && decoded.Count > 0)
                         {
                             callSuccess = true;
-                            var lastInteraction = result.Body.Interactions.LastOrDefault() as AIInteractionText;
-                            var responseText = lastInteraction?.Content ?? "No text response";
-                            this._messages.Add(new GH_String($"Batch API call successful: {responseText.Substring(0, Math.Min(50, responseText.Length))}..."));
+                            var lastText = decoded.OfType<AIInteractionText>().LastOrDefault();
+                            var responseText = lastText?.Content ?? "No text response";
+                            this._messages.Add(new GH_String($"Batch result: {responseText}"));
+
+                            // Build an AIReturn from decoded interactions for metrics/output
+                            result = new AIReturn();
+                            result.SetBody(decoded);
+                            if (lastText?.Metrics != null)
+                            {
+                                result.Metrics = lastText.Metrics;
+                            }
                         }
                         else
                         {
-                            this._messages.Add(new GH_String("Batch API call returned empty result"));
+                            this._messages.Add(new GH_String("Batch result decoded to empty interactions"));
                         }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        this._messages.Add(new GH_String($"Batch API call failed: {ex.Message}"));
+                        this._messages.Add(new GH_String("Batch completed but custom_id not found in results"));
                     }
 
                     // Validate metrics
                     if (result?.Metrics != null)
                     {
                         metricsValid = true;
-
                         if (result.Metrics.InputTokens <= 0)
                         {
                             metricsValid = false;
@@ -169,24 +222,24 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         this._messages.Add(new GH_String("Metrics not populated"));
                     }
-
-                    if (result != null)
-                    {
-                        this._parent.SetAIReturnSnapshot(result as AIReturn);
-                    }
-
-                    this._callSuccess = new GH_Boolean(callSuccess);
-                    this._metricsValid = new GH_Boolean(metricsValid);
+                }
+                catch (OperationCanceledException)
+                {
+                    this._messages.Add(new GH_String("Batch call was cancelled"));
                 }
                 catch (Exception ex)
                 {
-                    this._callSuccess = new GH_Boolean(false);
-                    this._metricsValid = new GH_Boolean(false);
                     this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
 
-                await Task.Yield();
+                if (result != null)
+                {
+                    this._parent.SetAIReturnSnapshot(result);
+                }
+
+                this._callSuccess = new GH_Boolean(callSuccess);
+                this._metricsValid = new GH_Boolean(metricsValid);
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
