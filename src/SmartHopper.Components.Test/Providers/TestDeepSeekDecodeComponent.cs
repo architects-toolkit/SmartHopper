@@ -484,7 +484,7 @@ namespace SmartHopper.Components.Test.Providers
                 this._parent.SetPersistentOutput("Metrics Success", this._metricsSuccess, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
 
-                bool allPassed = this._textDecodeSuccess.Value && this._toolCallDecodeSuccess.Value && 
+                bool allPassed = this._textDecodeSuccess.Value && this._toolCallDecodeSuccess.Value &&
                                this._errorDecodeSuccess.Value && this._metricsSuccess.Value;
                 message = allPassed ? "DeepSeek decoding tests passed" : "DeepSeek decoding tests failed";
             }
