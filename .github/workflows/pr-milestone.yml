@@ -20,6 +20,7 @@ concurrency:
 jobs:
   assign-pr-to-milestone:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: github.event.pull_request.head.repo.full_name == github.repository
     
     steps:
@@ -79,11 +80,13 @@ jobs:
           
           console.log('Processed version for milestone:', processedVersion);
           
-          // Find milestone with matching title
-          const { data: milestones } = await github.rest.issues.listMilestones({
+          // Find milestone with matching title — paginate to walk through ALL
+          // milestones (default page size is 30, and the repo has more than that).
+          const milestones = await github.paginate(github.rest.issues.listMilestones, {
             owner: context.repo.owner,
             repo: context.repo.repo,
-            state: 'all' // Include both open and closed milestones
+            state: 'all', // Include both open and closed milestones
+            per_page: 100
           });
           
           let targetMilestone = milestones.find(milestone => milestone.title === processedVersion);
@@ -107,9 +110,30 @@ jobs:
               console.log(`Successfully created milestone: ${targetMilestone.title}`);
               
             } catch (error) {
-              console.error('Error creating milestone:', error);
-              core.setFailed(`Failed to create milestone: ${error.message}`);
-              return;
+              // GitHub returns 422 with error code "already_exists" when a milestone
+              // with the same title already exists. This can happen if pagination
+              // missed it or another job created it concurrently — recover by
+              // re-listing and picking up the existing one instead of failing.
+              const msg = error.message || '';
+              if (error.status === 422 && /already[_ ]exists/.test(msg)) {
+                console.log(`ℹ️ Milestone ${processedVersion} already exists — re-listing to find it`);
+                const refreshed = await github.paginate(github.rest.issues.listMilestones, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'all',
+                  per_page: 100
+                });
+                targetMilestone = refreshed.find(m => m.title === processedVersion);
+                if (!targetMilestone) {
+                  core.setFailed(`Milestone ${processedVersion} reported as already_exists but could not be found after re-listing.`);
+                  return;
+                }
+                console.log(`Found existing milestone after re-list: ${targetMilestone.title} (${targetMilestone.state})`);
+              } else {
+                console.error('Error creating milestone:', error);
+                core.setFailed(`Failed to create milestone: ${error.message}`);
+                return;
+              }
             }
           } else {
             console.log(`Found existing milestone: ${targetMilestone.title} (${targetMilestone.state})`);

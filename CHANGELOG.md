@@ -69,9 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### 🆕 New AI Providers and Models
 
 - **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):
-  - **OpenAI**: added `gpt-5.5` (Rank 90, Default `Text2Text | ReasoningChat`) and `gpt-image-2` (new image flagship, Default `Text2Image | Image2Image`).
-  - **Anthropic**: added `claude-opus-4-7` (Rank 90, no `Default` set; existing `claude-sonnet-4-6` and `claude-haiku-4-6` retain capability defaults).
-  - **DeepSeek**: added `deepseek-v4-pro` (Rank 100) and `deepseek-v4-flash` (Rank 95, Default `Text2Text | ToolChat | ToolReasoningChat`, with `Reasoning` capability).
+  - **Anthropic**: kept first-party Claude API IDs, retained existing defaults, and added `ToolChat`/`Image2Text` defaults to `claude-haiku-4-5`.
+  - **OpenAI**: added `gpt-5.4-mini` and `gpt-image-2`, completed default assignments for text, tools, reasoning, JSON, image, and audio capabilities, and excluded realtime endpoint models from the chat model registry.
+  - **DeepSeek**: kept first-party API model IDs `deepseek-v4-pro`, `deepseek-v4-flash`, `deepseek-chat`, and `deepseek-reasoner`; did not add OpenRouter-only release IDs to the DeepSeek provider list. `deepseek-v4-flash` remains the default for text, tool, reasoning, tool-reasoning, and JSON chat.
   - **MistralAI**: added dated aliases `mistral-medium-3-1-25-08`, `mistral-small-3-2-25-06`, `magistral-medium-1-2-25-09`, `magistral-small-1-2-25-09`, `voxtral-mini-transcribe-26-02`, and new `devstral-2-25-12` code-agent model. Kept `*-latest` aliases (Mistral repoints them automatically).
   - **OpenRouter**: added `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `deepseek/deepseek-v4-flash`, `mistralai/mistral-small-4`.
 
@@ -197,6 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`GeminiProvider` image URL fetch**: Replaced obsolete `System.Net.WebClient` (deprecated since .NET 6, `SYSLIB0014`) in `FetchImageFromUrl` with a shared `HttpClient`. Fetch is now bounded by `TimeoutDefaults.DefaultTimeoutSeconds` via a `CancellationTokenSource`, capped at 20 MB (Gemini's `inline_data` limit), and prefers the response `Content-Type` for the MIME type before falling back to the URL extension. Gemini's REST API still requires arbitrary HTTP(S) images to be inlined as base64 (its `file_data.file_uri` only accepts Gemini File API URIs or YouTube), so a download remains unavoidable on this path.
 
+- **CI automation**: Normalized license-header rewrites to UTF-8 without BOM and added no-PAT workflow dispatching so bot-authored PR updates still run the required PR checks.
 - **`AIImgToTextComponent`**: Fixed MistralAI (and other providers) receiving a placeholder string (`"Image [img-3] Page 13 (image/jpeg)"`) instead of actual base64 data when a `GH_ExtractedImage` was connected to the Image input. Changed input from `AddTextParameter` to `AddGenericParameter` and added explicit `GH_ExtractedImage` detection in the worker to extract `Base64Data` and `MimeType` directly, instead of relying on Grasshopper's string cast which calls `ToString()`.
 
 - **`AIFile2MdComponent`**: AI-powered file conversion with image handling modes:

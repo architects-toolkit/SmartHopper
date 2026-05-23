@@ -67,6 +67,7 @@ on:
         default: ''
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
   issues: write
@@ -74,6 +75,7 @@ permissions:
 jobs:
   resolve:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       targets: ${{ inputs.auto-discover == true && steps.discover.outputs.targets || steps.split.outputs.targets }}
       has-targets: ${{ inputs.auto-discover == true && (steps.discover.outputs.count != '0') || steps.split.outputs.has-targets == 'true' }}
@@ -137,6 +139,7 @@ jobs:
     needs: resolve
     if: needs.resolve.outputs.has-targets == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: "patch-${{ matrix.target }}"
       cancel-in-progress: false
@@ -181,6 +184,16 @@ jobs:
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Dispatch required PR checks
+        if: steps.cp.outputs.status == 'created' && steps.cp.outputs.pr-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.cp.outputs.branch-name }}
+          pr-number: ${{ steps.cp.outputs.pr-number }}
+          base-ref: ${{ matrix.target }}
+          pr-title: ${{ steps.cp.outputs.pr-title }}
+
       - name: Fail on unresolved conflicts
         if: steps.cp.outputs.has-conflicts == 'true'
         shell: bash
@@ -192,6 +205,7 @@ jobs:
     needs: [resolve, propagate]
     if: always() && needs.resolve.outputs.has-targets == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Aggregate results and notify on failure
         uses: actions/github-script@v7

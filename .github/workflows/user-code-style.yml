@@ -25,8 +25,9 @@ jobs:
   trailing-whitespace:
     name: 🧹 Trailing Whitespace
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/checkout@v4
 
       - name: Process trailing whitespace
         uses: ./.github/actions/code-style/trailing-whitespace
@@ -45,8 +46,9 @@ jobs:
   using-sorter:
     name: 🔀 Using Sorter
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/checkout@v4
 
       - name: Process using directives
         uses: ./.github/actions/code-style/using-sorter
@@ -65,8 +67,9 @@ jobs:
   namespace-check:
     name: 📂 Namespaces Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - uses: actions/checkout@v4
 
       - name: Run Namespace Fixer
         uses: ./.github/actions/code-style/namespace-fixer
@@ -87,9 +90,10 @@ jobs:
     needs: [trailing-whitespace, using-sorter, namespace-check]
     if: ${{ github.event.inputs.mode == 'fix' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
       - name: Configure Git
@@ -116,12 +120,22 @@ jobs:
           for p in *.patch; do if [ -s "$p" ]; then echo "Applying $p"; git apply --unidiff-zero "$p"; fi; done
       - name: Remove patch files
         run: rm *.patch
-      - name: Commit and Push code style fixes
+      - name: Stage changes
+        run: git add .
+      - name: Commit and push code style fixes
+        id: safe-commit
+        uses: ./.github/actions/utils/safe-commit
+        with:
+          commit-message: 'chore(ci): apply code style fixes'
+          pr-title: 'chore(ci): apply code style fixes'
+          pr-body: 'Automated code style fixes applied by the Fix Code Style workflow.'
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Report result
         run: |
-          git add .
-          if ! git diff --cached --quiet; then
-            git commit -m "chore(ci): apply code style fixes"
-            git push
+          if [ "${{ steps.safe-commit.outputs.method }}" = "pr" ]; then
+            echo "::notice::Changes were pushed via PR ${{ steps.safe-commit.outputs.pr-url }} (branch is protected)"
+          elif [ "${{ steps.safe-commit.outputs.method }}" = "direct" ]; then
+            echo "::notice::Changes committed and pushed directly"
           else
-            echo "No changes to commit"
+            echo "::notice::No changes to commit"
           fi

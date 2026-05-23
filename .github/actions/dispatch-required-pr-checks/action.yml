@@ -1,0 +1,68 @@
+name: Dispatch required PR checks
+description: Dispatches the protected-branch PR check workflows for the current PR branch.
+
+inputs:
+  token:
+    description: GitHub token with actions:write permission.
+    required: true
+  ref:
+    description: Branch or ref to run the checks against.
+    required: true
+  pr-number:
+    description: Pull request number.
+    required: false
+    default: ''
+  base-ref:
+    description: Pull request base branch.
+    required: false
+    default: ''
+  pr-title:
+    description: Pull request title.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Dispatch workflows
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REF: ${{ inputs.ref }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        BASE_REF: ${{ inputs.base-ref }}
+        PR_TITLE: ${{ inputs.pr-title }}
+      run: |
+        set -euo pipefail
+
+        workflows=(
+          "check-provider-models.yml"
+          "pr-license-headers.yml"
+          "pr-validation.yml"
+          "pr-build-hash-validation.yml"
+          "pr-version-validation.yml"
+          "ci-dotnet-tests.yml"
+        )
+
+        for workflow in "${workflows[@]}"; do
+          if [[ ! -f ".github/workflows/$workflow" ]]; then
+            echo "Skipping $workflow because it is not present on $REF"
+            continue
+          fi
+
+          args=(workflow run "$workflow" --ref "$REF")
+          if [[ -n "$PR_NUMBER" ]]; then
+            args+=(-f "pr_number=$PR_NUMBER")
+          fi
+          if [[ -n "$BASE_REF" ]]; then
+            args+=(-f "base_ref=$BASE_REF")
+          fi
+          if [[ -n "$PR_TITLE" ]]; then
+            args+=(-f "pr_title=$PR_TITLE")
+          fi
+
+          echo "Dispatching $workflow for $REF"
+          if ! gh "${args[@]}" 2>&1; then
+            echo "Warning: Could not dispatch $workflow (may not have workflow_dispatch trigger or needs refresh)"
+          fi
+        done

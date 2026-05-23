@@ -1,0 +1,73 @@
+# PR auto-labeling configuration for actions/labeler@v5
+# Maps file path patterns to labels applied automatically on PR open/sync.
+
+# --- Provider labels ---
+"provider: OpenAI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenAI/**'
+
+"provider: MistralAI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.MistralAI/**'
+
+"provider: Anthropic":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.Anthropic/**'
+
+"provider: DeepSeek":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.DeepSeek/**'
+
+"provider: OpenRouter":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenRouter/**'
+
+# --- Scope labels ---
+"scope: UI":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/SmartHopper.Components/**'
+          - 'src/SmartHopper.Menu/**'
+
+"scope: AI Calls":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Core/AI/**'
+
+"scope: Component Base":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Core.Grasshopper/**'
+
+"scope: Security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*Sign*'
+          - '**/*Hash*'
+          - '**/*Authenticode*'
+          - '.hashes/**'
+
+# --- OS labels ---
+"os: Windows":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/win-*/**'
+          - '**/*.Windows.*'
+
+"os: MacOS":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/osx-*/**'
+          - '**/*.MacOS.*'
+
+# --- Infrastructure labels ---
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/actions/**'
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+          - '.github/ISSUE_TEMPLATE/**'

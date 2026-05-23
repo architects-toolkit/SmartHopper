@@ -1,5 +1,13 @@
 name: 🚀 6 Upload to Yak Rhino Server
 
+# Related workflows (release pipeline — execute in numbered order):
+#   - release-1-milestone.yml (creates milestone and branches)
+#   - release-2-pr-to-dev-closed.yml (creates PR from dev→main on release merge)
+#   - release-3-pr-to-main-closed.yml (creates GitHub Release on main merge)
+#   - release-4-build.yml (builds platform artifacts on release publish)
+#   - release-5-deploy-pages.yml (deploys documentation pages)
+#   - release-6-upload-yak.yml (uploads to Yak package manager)
+
 # Description: This workflow uploads the release artifacts to the Yak Rhino Server.
 # It must be triggered manually after the release is built.
 #
@@ -49,6 +57,7 @@ jobs:
   upload-to-yak:
     name: Upload to Yak
     runs-on: windows-latest
+    timeout-minutes: 45
 
     permissions:
       contents: read
@@ -79,6 +88,12 @@ jobs:
             Write-Host "Using version from main branch: $version"
           }
           echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Update manifest text for version
+        uses: ./.github/actions/versioning/update-manifest-text
+        with:
+          version: ${{ steps.get_version.outputs.version }}
+          update-file: 'true'
 
       - name: Create version label if doesn't exist
         if: inputs.upload_to_yak == 'true'

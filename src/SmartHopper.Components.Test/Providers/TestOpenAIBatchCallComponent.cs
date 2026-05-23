@@ -173,7 +173,7 @@ namespace SmartHopper.Components.Test.Providers
 
                     if (result != null)
                     {
-                        this._parent.SetAIReturnSnapshot(result);
+                        this._parent.SetAIReturnSnapshot(result as AIReturn);
                     }
 
                     this._callSuccess = new GH_Boolean(callSuccess);

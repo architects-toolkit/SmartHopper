@@ -93,7 +93,7 @@ $oldContent = [System.IO.File]::ReadAllText($TemplateFile, [System.Text.Encoding
 
 if ($newContent -eq $oldContent) {
     Write-Host "No changes needed in $TemplateFile"
-    exit 1
+    exit 0
 }
 
 [System.IO.File]::WriteAllText($TemplateFile, $newContent, [System.Text.Encoding]::UTF8)
