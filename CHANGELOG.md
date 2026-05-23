@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GhJSON diff and patch** (`.ghpatch` sibling profile from [ghjson-spec](https://architects-toolkit.github.io/ghjson-spec/)):
+  - New AI tools: `gh_diff` (produces a `.ghpatch` from two `.ghjson` documents), `gh_patch_apply` (applies a `.ghpatch` to a base `.ghjson`, refusing on base checksum mismatch by default), `gh_patch_validate` (structural patch validation).
+  - New Grasshopper components: `GhDiffComponents` ("Diff GhJSON") and `GhPatchApplyComponents` ("Apply GhPatch") in the `SmartHopper > Grasshopper` tab, exposing the new operations on the canvas.
+  - All operations route through the new `GhJSON.Core.DiffOperations` façade endpoints (`GhJson.Diff`, `GhJson.ApplyPatch`, `GhJson.PatchFromJson/ToJson`, `GhJson.ValidatePatch`) and require `GhJSON.Core` 1.1.0 or later.
 - **DEV.md provider model sync automation**: added `tools/Update-DevProviderModels.ps1` and a GitHub workflow that validates provider model documentation on PRs and opens sync PRs after protected-branch provider registry updates.
 - **README Trademark and Logo Usage Policy**: explicit policy clarifying that the SmartHopper name and logo are not licensed under LGPL, listing permitted uses (articles, tutorials, educational materials, references to the unmodified official plug-in) and uses requiring prior written permission (commercial bundling, forks, materials that may imply endorsement).
 
