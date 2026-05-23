@@ -44,7 +44,7 @@ namespace SmartHopper.Providers.OpenRouter
     /// <summary>
     /// OpenRouter provider implementation using the Chat Completions API (OpenAI-compatible).
     /// Provides access to multiple AI models through a unified interface.
-    /// Text-only; image generation is not supported.
+    /// Supports text and vision input; image generation is handled via the img_generate tool.
     /// </summary>
     public sealed class OpenRouterProvider : AIProvider<OpenRouterProvider>
     {
@@ -449,10 +449,40 @@ namespace SmartHopper.Providers.OpenRouter
                     obj["content"] = string.Empty;
                 }
             }
-            else if (interaction is AIInteractionImage)
+            else if (interaction is AIInteractionImage imageInteraction)
             {
-                // OpenRouter text-only: ignore images but keep placeholder note
-                obj["content"] = "[image content omitted: provider supports text only]";
+                // OpenRouter supports vision via OpenAI-compatible image_url format
+                string imageUrlValue = null;
+
+                if (imageInteraction.ImageUrl != null)
+                {
+                    imageUrlValue = imageInteraction.ImageUrl.ToString();
+                }
+                else if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                {
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    imageUrlValue = $"data:{mimeType};base64,{imageInteraction.ImageData}";
+                }
+
+                if (imageUrlValue != null)
+                {
+                    var contentArray = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "image_url",
+                            ["image_url"] = new JObject
+                            {
+                                ["url"] = imageUrlValue,
+                            },
+                        },
+                    };
+                    obj["content"] = contentArray;
+                }
+                else
+                {
+                    obj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
+                }
             }
             else
             {
