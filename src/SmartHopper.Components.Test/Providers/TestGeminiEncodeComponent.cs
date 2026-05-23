@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -137,7 +138,11 @@ namespace SmartHopper.Components.Test.Providers
 
                     // Check for required role mappings (Gemini uses user, model, function)
                     // System messages go in system_instruction field, not in contents array
-                    if (!encoded.Contains("\"role\":\"user\""))
+                    var json = JObject.Parse(encoded);
+                    var contents = json["contents"] as JArray;
+                    var roles = contents?.Select(c => c["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    if (!roles.Contains("user"))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing user role (User message)"));
@@ -145,7 +150,7 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!encoded.Contains("\"role\":\"model\""))
+                    if (!roles.Contains("model"))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing model role (ToolCall message)"));
@@ -154,7 +159,7 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Check for system_instruction field (System messages)
-                    if (!encoded.Contains("system_instruction"))
+                    if (json["system_instruction"] == null)
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing system_instruction field (System message)"));
@@ -163,7 +168,8 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Check for function calling encoding (Gemini uses functionCalls)
-                    if (!encoded.Contains("\"function_calls\"") && !encoded.Contains("\"functionCalls\""))
+                    var hasFunctionCalls = contents?.Any(c => c["parts"] is JArray parts && parts.Any(p => p["functionCall"] != null || p["functionCalls"] != null)) ?? false;
+                    if (!hasFunctionCalls)
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing function_calls in encoding"));
@@ -172,7 +178,8 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Check for function/tool name in encoded output
-                    if (!encoded.Contains("\"test_function\""))
+                    var hasFunctionName = contents?.Any(c => c.ToString().Contains("test_function")) ?? false;
+                    if (!hasFunctionName)
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Function name 'test_function' not found in encoding"));
@@ -181,7 +188,7 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Check for function role (Gemini uses function for tool results)
-                    if (!encoded.Contains("\"role\":\"function\""))
+                    if (!roles.Contains("function"))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing function role (ToolResult message)"));

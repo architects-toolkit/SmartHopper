@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -142,7 +143,11 @@ namespace SmartHopper.Components.Test.Providers
 
                     // Check for required role mappings (Anthropic uses user, assistant)
                     // System messages go in system_instruction field, not in messages array
-                    if (!encoded.Contains("\"role\":\"user\""))
+                    var json = JObject.Parse(encoded);
+                    var messages = json["messages"] as JArray;
+                    var roles = messages?.Select(m => m["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    if (!roles.Contains("user"))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing user role (User message)"));
@@ -150,7 +155,7 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!encoded.Contains("\"role\":\"assistant\""))
+                    if (!roles.Contains("assistant"))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing assistant role (ToolCall message)"));
@@ -159,7 +164,7 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Check for system_instruction field (System messages)
-                    if (!encoded.Contains("system_instruction"))
+                    if (json["system_instruction"] == null)
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing system_instruction field (System message)"));

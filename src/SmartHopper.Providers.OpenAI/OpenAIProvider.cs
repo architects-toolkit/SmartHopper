@@ -149,6 +149,11 @@ namespace SmartHopper.Providers.OpenAI
                 // Text-to-Speech (TTS) endpoint
                 request.Endpoint = "/audio/speech";
             }
+            else if (request.Endpoint == "/responses")
+            {
+                // Responses API endpoint (reasoning models with summary support)
+                request.Endpoint = "/responses";
+            }
             else if (request.Endpoint == "/models")
             {
                 request.HttpMethod = "GET";
@@ -183,6 +188,12 @@ namespace SmartHopper.Providers.OpenAI
             else if (request.Endpoint == "/audio/speech")
             {
                 return this.FormatAudioSpeechRequestBody(request);
+            }
+            else if (request.Endpoint == "/responses")
+            {
+                // Convert interactions to Responses API input format
+                var messages = this.BuildMessages(request.Body.Interactions);
+                return this.FormatResponsesApiRequestBody(request, messages);
             }
             else
             {
@@ -475,6 +486,11 @@ namespace SmartHopper.Providers.OpenAI
                     // Audio transcription response (STT)
                     return this.ProcessAudioTranscriptionResponseData(response);
                 }
+                else if (response["output"] != null)
+                {
+                    // Responses API output (e.g., reasoning models with reasoning summaries)
+                    return this.ProcessResponsesApiData(response);
+                }
                 else if (response["choices"] != null)
                 {
                     // Chat completion response
@@ -750,6 +766,157 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
+        /// Formats request body for the Responses API endpoint.
+        /// Supports reasoning models with reasoning summaries.
+        /// </summary>
+        private string FormatResponsesApiRequestBody(AIRequestCall request, JArray messages)
+        {
+            var p = request.Parameters;
+
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            string reasoningEffort = p?.Extras != null && p.Extras.TryGetValue("reasoning_effort", out var reToken)
+                ? reToken?.ToString() ?? this.GetSetting<string>("ReasoningEffort") ?? "medium"
+                : this.GetSetting<string>("ReasoningEffort") ?? "medium";
+            bool reasoningSummary = p?.Extras != null && p.Extras.TryGetValue("reasoning_summary", out var rsToken)
+                ? rsToken?.Value<bool>() ?? false
+                : this.GetSetting<bool>("ReasoningSummary");
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string? toolFilter = request.Body.ToolFilter;
+            bool hasTools = !string.IsNullOrWhiteSpace(toolFilter);
+
+            // Convert messages array to input array for Responses API
+            var input = new JArray();
+            foreach (var msg in messages)
+            {
+                input.Add(msg);
+            }
+
+            var requestBody = new JObject
+            {
+                ["model"] = request.Model,
+                ["input"] = input,
+                ["max_output_tokens"] = maxTokens,
+            };
+
+            // Reasoning configuration for reasoning models
+            var reasoningObj = new JObject
+            {
+                ["effort"] = reasoningEffort,
+            };
+
+            if (reasoningSummary)
+            {
+                reasoningObj["summary"] = "auto";
+            }
+
+            requestBody["reasoning"] = reasoningObj;
+
+            // Apply optional parameters from extras
+            if (p?.Extras != null)
+            {
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                {
+                    requestBody["top_p"] = topPToken.Value<double?>();
+                }
+
+                if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                {
+                    requestBody["presence_penalty"] = ppToken;
+                }
+
+                if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                {
+                    requestBody["frequency_penalty"] = fpToken;
+                }
+
+                if (p.Extras.TryGetValue("temperature", out var tempToken) && tempToken != null)
+                {
+                    requestBody["temperature"] = tempToken.Value<double?>();
+                }
+
+                if (p.Extras.TryGetValue("prompt_cache_retention", out var cacheRetentionToken) && cacheRetentionToken != null)
+                {
+                    requestBody["prompt_cache_retention"] = cacheRetentionToken.ToString();
+                }
+
+                if (p.Extras.TryGetValue("prompt_cache_key", out var cacheKeyToken) && cacheKeyToken != null)
+                {
+                    requestBody["prompt_cache_key"] = cacheKeyToken.ToString();
+                }
+            }
+
+            // Add response format if JSON schema is provided
+            if (!string.IsNullOrEmpty(jsonSchema))
+            {
+                try
+                {
+                    var schemaObj = JObject.Parse(jsonSchema);
+                    InjectAdditionalPropertiesFalse(schemaObj);
+
+                    if (InjectRequiredForAllProperties(schemaObj))
+                    {
+                        request.Messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Warning,
+                            SHRuntimeMessageOrigin.Provider,
+                            SHMessageCode.SchemaRequiredAutoAdded,
+                            "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
+                    }
+
+                    var svc = JsonSchemaService.Instance;
+                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+                    svc.SetCurrentWrapperInfo(wrapperInfo);
+
+                    requestBody["text"] = new JObject
+                    {
+                        ["format"] = new JObject
+                        {
+                            ["type"] = "json_schema",
+                            ["name"] = "response_schema",
+                            ["schema"] = wrappedSchema,
+                            ["strict"] = true,
+                        },
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OpenAI] Failed to parse JSON schema for Responses API: {ex.Message}");
+                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+                }
+            }
+            else
+            {
+                JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+            }
+
+            // Add tools if requested
+            if (hasTools)
+            {
+                var tools = this.GetFormattedTools(toolFilter);
+                if (tools != null && tools.Count > 0)
+                {
+                    requestBody["tools"] = tools;
+
+                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
+                    {
+                        requestBody["tool_choice"] = new JObject
+                        {
+                            ["type"] = "function",
+                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
+                        };
+                        Debug.WriteLine($"[OpenAI] Forcing tool call via Responses API: {request.ForceToolName}");
+                    }
+                    else
+                    {
+                        requestBody["tool_choice"] = "auto";
+                    }
+                }
+            }
+
+            Debug.WriteLine($"[OpenAI] Responses API Request: {requestBody}");
+            return requestBody.ToString();
+        }
+
+        /// <summary>
         /// Formats request body for image generation endpoint.
         /// </summary>
         private string FormatImageGenerationRequestBody(AIRequestCall request)
@@ -915,18 +1082,29 @@ namespace SmartHopper.Providers.OpenAI
 
                 if (usage != null)
                 {
-                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>() ?? 0;
+                    // Support both Chat Completions API and Responses API token field names
+                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>()
+                        ?? usage["input_tokens"]?.Value<int>()
+                        ?? 0;
 
-                    // Extract cached tokens from nested prompt_tokens_details object
+                    // Extract cached tokens from nested details object
                     var promptDetails = usage["prompt_tokens_details"] as JObject;
-                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
+                    var inputDetails = usage["input_tokens_details"] as JObject;
+                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>()
+                        ?? inputDetails?["cached_tokens"]?.Value<int>()
+                        ?? 0;
                     metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
 
-                    metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+                    metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>()
+                        ?? usage["output_tokens"]?.Value<int>()
+                        ?? metrics.OutputTokensGeneration;
 
-                    // Extract reasoning tokens from nested completion_tokens_details object (o1/o3/GPT-5 models)
+                    // Extract reasoning tokens from nested completion/output token details (o1/o3/GPT-5 models)
                     var completionDetails = usage["completion_tokens_details"] as JObject;
-                    var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>() ?? 0;
+                    var outputDetails = usage["output_tokens_details"] as JObject;
+                    var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>()
+                        ?? outputDetails?["reasoning_tokens"]?.Value<int>()
+                        ?? 0;
                     metrics.OutputTokensReasoning = reasoningTokens;
                 }
 
@@ -985,7 +1163,7 @@ namespace SmartHopper.Providers.OpenAI
                         if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase) ||
                             string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
                         {
-                            var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
+                            var textVal = part["reasoning"]?.ToString() ?? part["text"]?.ToString() ?? part["content"]?.ToString();
                             if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
                         }
                         else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
@@ -1075,6 +1253,143 @@ namespace SmartHopper.Providers.OpenAI
             catch (Exception ex)
             {
                 Debug.WriteLine($"[OpenAI] ProcessChatCompletionsResponseData error: {ex.Message}");
+            }
+
+            return interactions;
+        }
+
+        /// <summary>
+        /// Processes Responses API output data and converts to interactions.
+        /// Handles reasoning items with summary arrays and message items with output_text content.
+        /// </summary>
+        private List<IAIInteraction> ProcessResponsesApiData(JObject responseJson)
+        {
+            var interactions = new List<IAIInteraction>();
+
+            try
+            {
+                Debug.WriteLine("[OpenAI] ProcessResponsesApiData - Processing response");
+
+                var output = responseJson["output"] as JArray;
+                if (output == null)
+                {
+                    Debug.WriteLine("[OpenAI] No output array in response");
+                    return interactions;
+                }
+
+                var contentParts = new List<string>();
+                var reasoningParts = new List<string>();
+                var toolCalls = new List<AIInteractionToolCall>();
+
+                foreach (var item in output.OfType<JObject>())
+                {
+                    var type = item["type"]?.ToString();
+
+                    if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Extract reasoning summaries: summary array of {type, text}
+                        var summary = item["summary"] as JArray;
+                        if (summary != null)
+                        {
+                            foreach (var summaryItem in summary.OfType<JObject>())
+                            {
+                                var summaryText = summaryItem["text"]?.ToString();
+                                if (!string.IsNullOrEmpty(summaryText))
+                                {
+                                    reasoningParts.Add(summaryText);
+                                }
+                            }
+                        }
+
+                        // Also support direct reasoning_text or text fields
+                        var directText = item["reasoning_text"]?.ToString() ?? item["text"]?.ToString();
+                        if (!string.IsNullOrEmpty(directText))
+                        {
+                            reasoningParts.Add(directText);
+                        }
+                    }
+                    else if (string.Equals(type, "message", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var role = item["role"]?.ToString();
+                        var messageContent = item["content"] as JArray;
+                        if (messageContent != null)
+                        {
+                            foreach (var contentItem in messageContent.OfType<JObject>())
+                            {
+                                var contentType = contentItem["type"]?.ToString();
+                                if (string.Equals(contentType, "output_text", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(contentType, "text", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var text = contentItem["text"]?.ToString();
+                                    if (!string.IsNullOrEmpty(text))
+                                    {
+                                        contentParts.Add(text);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Fallback: direct content string
+                            var directContent = item["content"]?.ToString();
+                            if (!string.IsNullOrEmpty(directContent))
+                            {
+                                contentParts.Add(directContent);
+                            }
+                        }
+                    }
+                    else if (string.Equals(type, "function_call", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Responses API function call format
+                        var callId = item["call_id"]?.ToString() ?? item["id"]?.ToString();
+                        var name = item["name"]?.ToString();
+                        var arguments = item["arguments"]?.ToString() ?? "{}";
+
+                        JObject argsObj;
+                        try
+                        {
+                            argsObj = JObject.Parse(arguments);
+                        }
+                        catch
+                        {
+                            argsObj = new JObject();
+                        }
+
+                        toolCalls.Add(new AIInteractionToolCall
+                        {
+                            Id = callId,
+                            Name = name,
+                            Arguments = argsObj,
+                        });
+                    }
+                }
+
+                string content = string.Join(string.Empty, contentParts).Trim();
+                string reasoning = string.Join("\n\n", reasoningParts).Trim();
+
+                if (!string.IsNullOrEmpty(content) || !string.IsNullOrEmpty(reasoning) || toolCalls.Count > 0)
+                {
+                    var interaction = new AIInteractionText();
+                    interaction.SetResult(
+                        agent: AIAgent.Assistant,
+                        content: content,
+                        reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+
+                    var metrics = this.DecodeMetrics(responseJson);
+                    interaction.Metrics = metrics;
+
+                    interactions.Add(interaction);
+                }
+
+                foreach (var toolCall in toolCalls)
+                {
+                    toolCall.Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning;
+                    interactions.Add(toolCall);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] ProcessResponsesApiData error: {ex.Message}");
             }
 
             return interactions;

@@ -23,6 +23,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -116,24 +117,32 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    // Check for image content in encoding
-                    if (!encoded.Contains("\"inlineData\"") && !encoded.Contains("\"inline_data\""))
+                    // Check for image content in encoding by parsing JSON
+                    var json = JObject.Parse(encoded);
+                    var contents = json["contents"] as JArray;
+                    var parts = contents?.SelectMany(c => c["parts"] as JArray ?? new JArray()).ToList() ?? new List<JToken>();
+
+                    var inlineDataPart = parts.FirstOrDefault(p => p["inline_data"] != null);
+                    if (inlineDataPart == null)
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing inline image data in encoding"));
+                        this._messages.Add(new GH_String("Missing inline_data part in encoding"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!encoded.Contains("image/png") && !encoded.Contains("image/jpeg"))
+                    var inlineData = inlineDataPart["inline_data"] as JObject;
+                    var mimeType = inlineData?["mime_type"]?.ToString() ?? string.Empty;
+                    if (mimeType != "image/png" && mimeType != "image/jpeg")
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing image MIME type in encoding"));
+                        this._messages.Add(new GH_String("Unexpected image MIME type in encoding"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!encoded.Contains(base64Image.Substring(0, 20)))
+                    var data = inlineData?["data"]?.ToString() ?? string.Empty;
+                    if (string.IsNullOrEmpty(data))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Base64 image data not found in encoding"));
