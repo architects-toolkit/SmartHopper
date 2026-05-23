@@ -170,6 +170,11 @@ namespace SmartHopper.Components.Test.Providers
                         this._messages.Add(new GH_String("Metrics not populated"));
                     }
 
+                    if (result != null)
+                    {
+                        this._parent.SetAIReturnSnapshot(result);
+                    }
+
                     this._callSuccess = new GH_Boolean(callSuccess);
                     this._metricsValid = new GH_Boolean(metricsValid);
                 }
@@ -189,6 +194,7 @@ namespace SmartHopper.Components.Test.Providers
                 this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
                 this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                this._parent.SetMetricsOutput(DA);
                 message = this._callSuccess.Value && this._metricsValid.Value ? "MistralAI batch call test passed" : "MistralAI batch call test failed";
             }
         }
