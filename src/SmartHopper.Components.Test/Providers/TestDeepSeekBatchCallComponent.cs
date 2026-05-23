@@ -23,14 +23,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Batch;
-using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -86,18 +87,19 @@ namespace SmartHopper.Components.Test.Providers
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
+                bool callSuccess = false;
+                bool metricsValid = false;
+                AIReturn result = null;
+
                 try
                 {
-                    bool callSuccess = false;
-                    bool metricsValid = false;
-
                     // Create test AIRequestCall with batch parameters
                     var call = new AIRequestCall();
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
                     builder.Add(new AIInteractionText
                     {
                         Agent = AIAgent.Context,
-                        Content = "Say 'batch test' in two words."
+                        Content = "Say 'batch test' in two words.",
                     });
                     call.Body = builder.Build();
 
@@ -182,10 +184,6 @@ namespace SmartHopper.Components.Test.Providers
                             // Build an AIReturn from decoded interactions for metrics/output
                             result = new AIReturn();
                             result.SetBody(decoded);
-                            if (lastText?.Metrics != null)
-                            {
-                                result.Metrics = lastText.Metrics;
-                            }
                         }
                         else
                         {

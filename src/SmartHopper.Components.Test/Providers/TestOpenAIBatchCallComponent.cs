@@ -25,12 +25,12 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Components.Test.Providers
@@ -182,10 +182,6 @@ namespace SmartHopper.Components.Test.Providers
                             // Build an AIReturn from decoded interactions for metrics/output
                             result = new AIReturn();
                             result.SetBody(decoded);
-                            if (lastText?.Metrics != null)
-                            {
-                                result.Metrics = lastText.Metrics;
-                            }
                         }
                         else
                         {
