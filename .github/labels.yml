@@ -153,6 +153,9 @@
 - name: "provider: Anthropic"
   color: "000"
   description: "Issues related to the Anthropic provider"
+- name: "provider: Gemini"
+  color: "000"
+  description: "Issues related to the Gemini provider"
 
 # Scope Labels
 - name: "scope: Settings"
