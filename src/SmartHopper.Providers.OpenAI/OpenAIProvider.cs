@@ -905,7 +905,7 @@ namespace SmartHopper.Providers.OpenAI
                 var tools = this.GetFormattedTools(toolFilter);
                 if (tools != null && tools.Count > 0)
                 {
-                    requestBody["tools"] = tools;
+                    requestBody["tools"] = this.ConvertToolsToResponsesFormat(tools);
 
                     if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
                     {
@@ -925,6 +925,66 @@ namespace SmartHopper.Providers.OpenAI
 
             Debug.WriteLine($"[OpenAI] Responses API Request: {requestBody}");
             return requestBody.ToString();
+        }
+
+        /// <summary>
+        /// Converts Chat Completions style tool definitions to Responses API format.
+        /// Keeps non-function tools unchanged.
+        /// </summary>
+        /// <param name="tools">Tools formatted in generic provider shape.</param>
+        /// <returns>Tools compatible with OpenAI Responses API.</returns>
+        private JArray ConvertToolsToResponsesFormat(JArray tools)
+        {
+            var converted = new JArray();
+            foreach (var token in tools)
+            {
+                if (token is not JObject tool)
+                {
+                    continue;
+                }
+
+                var type = tool["type"]?.ToString();
+                if (!string.Equals(type, "function", StringComparison.OrdinalIgnoreCase))
+                {
+                    converted.Add(tool.DeepClone());
+                    continue;
+                }
+
+                // Generic formatter emits { type:"function", function:{ ... } }.
+                // Responses expects flattened function fields at the tool root.
+                if (tool["function"] is JObject functionObj)
+                {
+                    var flattened = new JObject
+                    {
+                        ["type"] = "function",
+                    };
+
+                    if (functionObj["name"] != null)
+                    {
+                        flattened["name"] = functionObj["name"]!.DeepClone();
+                    }
+
+                    if (functionObj["description"] != null)
+                    {
+                        flattened["description"] = functionObj["description"]!.DeepClone();
+                    }
+
+                    if (functionObj["parameters"] != null)
+                    {
+                        flattened["parameters"] = functionObj["parameters"]!.DeepClone();
+                    }
+
+                    // Responses API function tools are strict by default.
+                    // We set it explicitly for clarity and consistency.
+                    flattened["strict"] = true;
+                    converted.Add(flattened);
+                    continue;
+                }
+
+                converted.Add(tool.DeepClone());
+            }
+
+            return converted;
         }
 
         /// <summary>
@@ -1285,6 +1345,7 @@ namespace SmartHopper.Providers.OpenAI
 
                 var contentParts = new List<string>();
                 var reasoningParts = new List<string>();
+                var refusalParts = new List<string>();
                 var toolCalls = new List<AIInteractionToolCall>();
 
                 foreach (var item in output.OfType<JObject>())
@@ -1327,9 +1388,25 @@ namespace SmartHopper.Providers.OpenAI
                                     string.Equals(contentType, "text", StringComparison.OrdinalIgnoreCase))
                                 {
                                     var text = contentItem["text"]?.ToString();
+                                    var parsed = contentItem["parsed"];
+                                    if (string.IsNullOrEmpty(text) && parsed != null && parsed.Type != JTokenType.Null)
+                                    {
+                                        text = parsed.Type == JTokenType.String
+                                            ? parsed.ToString()
+                                            : parsed.ToString(Newtonsoft.Json.Formatting.None);
+                                    }
+
                                     if (!string.IsNullOrEmpty(text))
                                     {
                                         contentParts.Add(text);
+                                    }
+                                }
+                                else if (string.Equals(contentType, "refusal", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var refusal = contentItem["refusal"]?.ToString();
+                                    if (!string.IsNullOrEmpty(refusal))
+                                    {
+                                        refusalParts.Add(refusal);
                                     }
                                 }
                             }
@@ -1350,6 +1427,10 @@ namespace SmartHopper.Providers.OpenAI
                         var callId = item["call_id"]?.ToString() ?? item["id"]?.ToString();
                         var name = item["name"]?.ToString();
                         var arguments = item["arguments"]?.ToString() ?? "{}";
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            Debug.WriteLine($"[OpenAI] Warning: function_call item '{callId ?? "(unknown id)"}' has no name.");
+                        }
 
                         JObject argsObj;
                         try
@@ -1371,6 +1452,11 @@ namespace SmartHopper.Providers.OpenAI
                 }
 
                 string content = string.Join(string.Empty, contentParts).Trim();
+                if (string.IsNullOrWhiteSpace(content) && refusalParts.Count > 0)
+                {
+                    content = string.Join("\n\n", refusalParts).Trim();
+                }
+
                 string reasoning = string.Join("\n\n", reasoningParts).Trim();
 
                 if (!string.IsNullOrEmpty(content) || !string.IsNullOrEmpty(reasoning) || toolCalls.Count > 0)
@@ -1510,11 +1596,15 @@ namespace SmartHopper.Providers.OpenAI
                 // Prepare request via provider (sets endpoint, method, auth kind)
                 request = this.Prepare(request);
 
-                // Only chat completions are supported for streaming for now
-                if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
+                // Determine which API we're streaming against
+                bool isResponsesApi = request.Endpoint.Contains("/responses", StringComparison.OrdinalIgnoreCase);
+                bool isChatCompApi = request.Endpoint.Contains("/chat/completions", StringComparison.OrdinalIgnoreCase);
+
+                // Only chat completions and responses are supported for streaming for now
+                if (!isResponsesApi && !isChatCompApi)
                 {
                     var unsupported = new AIReturn();
-                    unsupported.CreateProviderError("Streaming is only supported for /chat/completions in this adapter.", request);
+                    unsupported.CreateProviderError("Streaming is only supported for /responses and /chat/completion in this adapter.", request);
                     yield return unsupported;
                     yield break;
                 }
@@ -1532,12 +1622,16 @@ namespace SmartHopper.Providers.OpenAI
 
                 body["stream"] = true;
 
-                // Ask OpenAI to include token usage in the final streaming chunk
-                // See: stream_options.include_usage = true
-                body["stream_options"] = new JObject
+                // stream_options is only supported by Chat Completions
+                if (isChatCompApi)
                 {
-                    ["include_usage"] = true,
-                };
+                    // Ask OpenAI to include token usage in the final streaming chunk
+                    // See: stream_options.include_usage = true
+                    body["stream_options"] = new JObject
+                    {
+                        ["include_usage"] = true,
+                    };
+                }
 
                 // Build URL with helper
                 var fullUrl = this.BuildFullUrl(request.Endpoint);
@@ -1606,6 +1700,7 @@ namespace SmartHopper.Providers.OpenAI
                 var lastEmit = DateTime.UtcNow;
                 var firstChunk = true;
                 bool hadReasoningOnlySegment = false; // Track if we emitted reasoning-only
+                bool responsesTextSegmentClosed = false;
                 string finalFinishReason = string.Empty;
                 int promptTokens = 0;
                 int completionTokens = 0;
@@ -1621,6 +1716,10 @@ namespace SmartHopper.Providers.OpenAI
 
                 // Tool call accumulation (index -> partial)
                 var toolCalls = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
+
+                // Responses API tool call accumulation (item_id -> partial)
+                var responsesToolCalls = new Dictionary<string, (string Id, string Name, StringBuilder Args)>();
+                var responsesRefusalBuffer = new StringBuilder();
 
                 // Helper local function to emit text chunk
                 async IAsyncEnumerable<AIReturn> EmitAsync(string text, bool streamingStatus)
@@ -1702,6 +1801,377 @@ namespace SmartHopper.Providers.OpenAI
                     catch
                     {
                         // Skip malformed chunk
+                        continue;
+                    }
+
+                    // --- Responses API streaming format ---
+                    var eventType = parsed["type"]?.ToString();
+                    if (!string.IsNullOrEmpty(eventType))
+                    {
+                        if (string.Equals(eventType, "response.output_text.delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            responsesTextSegmentClosed = false;
+                            var textDelta = parsed["delta"]?.ToString();
+                            if (!string.IsNullOrEmpty(textDelta))
+                            {
+                                buffer.Append(textDelta);
+                                if (firstChunk)
+                                {
+                                    firstChunk = false;
+                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                                else
+                                {
+                                    var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.content.delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            responsesTextSegmentClosed = false;
+                            var textDelta = parsed["delta"]?.ToString();
+                            if (!string.IsNullOrEmpty(textDelta))
+                            {
+                                buffer.Append(textDelta);
+                                if (firstChunk)
+                                {
+                                    firstChunk = false;
+                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                                else
+                                {
+                                    var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.output_text.done", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Explicitly close current text interaction segment (before potential tool calls).
+                            var textDone = parsed["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(textDone) && buffer.Length == 0)
+                            {
+                                buffer.Append(textDone);
+                            }
+
+                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                            foreach (var d in emitted)
+                            {
+                                yield return d;
+                            }
+
+                            if (!responsesTextSegmentClosed &&
+                                (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning)))
+                            {
+                                var completeSnapshot = new AIInteractionText
+                                {
+                                    Agent = assistantAggregate.Agent,
+                                    Content = assistantAggregate.Content,
+                                    Reasoning = assistantAggregate.Reasoning,
+                                    Time = DateTime.UtcNow,
+                                    Metrics = new AIMetrics
+                                    {
+                                        Provider = assistantAggregate.Metrics.Provider,
+                                        Model = assistantAggregate.Metrics.Model,
+                                        FinishReason = assistantAggregate.Metrics.FinishReason,
+                                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                                    },
+                                };
+
+                                var completeDelta = new AIReturn
+                                {
+                                    Request = request,
+                                    Status = AICallStatus.Finished,
+                                };
+                                completeDelta.SetBody(new List<IAIInteraction> { completeSnapshot });
+                                yield return completeDelta;
+                                responsesTextSegmentClosed = true;
+                                await Task.Yield();
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.refusal.delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            responsesTextSegmentClosed = false;
+                            var refusalDelta = parsed["delta"]?.ToString();
+                            if (!string.IsNullOrEmpty(refusalDelta))
+                            {
+                                responsesRefusalBuffer.Append(refusalDelta);
+                                buffer.Append(refusalDelta);
+
+                                if (firstChunk)
+                                {
+                                    firstChunk = false;
+                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                                else
+                                {
+                                    var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.refusal.done", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var refusalDone = parsed["refusal"]?.ToString();
+                            if (string.IsNullOrEmpty(refusalDone) && responsesRefusalBuffer.Length > 0)
+                            {
+                                refusalDone = responsesRefusalBuffer.ToString();
+                            }
+
+                            if (!string.IsNullOrEmpty(refusalDone) && buffer.Length == 0)
+                            {
+                                buffer.Append(refusalDone);
+                            }
+
+                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                            foreach (var d in emitted)
+                            {
+                                yield return d;
+                            }
+
+                            if (!responsesTextSegmentClosed &&
+                                (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning)))
+                            {
+                                var completeSnapshot = new AIInteractionText
+                                {
+                                    Agent = assistantAggregate.Agent,
+                                    Content = assistantAggregate.Content,
+                                    Reasoning = assistantAggregate.Reasoning,
+                                    Time = DateTime.UtcNow,
+                                    Metrics = new AIMetrics
+                                    {
+                                        Provider = assistantAggregate.Metrics.Provider,
+                                        Model = assistantAggregate.Metrics.Model,
+                                        FinishReason = assistantAggregate.Metrics.FinishReason,
+                                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                                    },
+                                };
+
+                                var completeDelta = new AIReturn
+                                {
+                                    Request = request,
+                                    Status = AICallStatus.Finished,
+                                };
+                                completeDelta.SetBody(new List<IAIInteraction> { completeSnapshot });
+                                yield return completeDelta;
+                                responsesTextSegmentClosed = true;
+                                await Task.Yield();
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.completed", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var responseObj = parsed["response"] as JObject;
+                            var respUsage = responseObj?["usage"] as JObject;
+                            if (respUsage != null)
+                            {
+                                var pt = respUsage["input_tokens"]?.Value<int?>();
+                                var ct = respUsage["output_tokens"]?.Value<int?>();
+                                if (pt.HasValue) promptTokens = pt.Value;
+                                if (ct.HasValue) completionTokens = ct.Value;
+                                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                                {
+                                    Provider = this.Provider.Name,
+                                    Model = request.Model,
+                                    InputTokensPrompt = pt ?? 0,
+                                    OutputTokensGeneration = ct ?? 0,
+                                });
+                            }
+
+                            finalFinishReason = "stop";
+                        }
+                        else if (string.Equals(eventType, "error", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var err = parsed["error"] as JObject;
+                            var errMsg = err?["message"]?.ToString() ?? "Unknown streaming error";
+                            var errorReturn = new AIReturn();
+                            errorReturn.CreateProviderError(errMsg, request);
+                            yield return errorReturn;
+                            yield break;
+                        }
+                        else if (string.Equals(eventType, "response.output_item.added", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var item = parsed["item"] as JObject;
+                            if (string.Equals(item?["type"]?.ToString(), "function_call", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var itemId = item["id"]?.ToString();
+                                var callId = item["call_id"]?.ToString();
+                                var name = item["name"]?.ToString();
+                                if (string.IsNullOrWhiteSpace(name))
+                                {
+                                    Debug.WriteLine($"[OpenAI] Warning: streaming function_call item '{callId ?? itemId ?? "(unknown id)"}' has no name.");
+                                }
+
+                                if (!string.IsNullOrEmpty(itemId))
+                                {
+                                    responsesToolCalls[itemId] = (Id: callId ?? itemId, Name: name ?? string.Empty, Args: new StringBuilder());
+                                }
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.function_call_arguments.delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var itemId = parsed["item_id"]?.ToString();
+                            var funcArgsDelta = parsed["delta"]?.ToString();
+                            if (!string.IsNullOrEmpty(itemId) && responsesToolCalls.TryGetValue(itemId, out var entry))
+                            {
+                                if (!string.IsNullOrEmpty(funcArgsDelta)) entry.Args.Append(funcArgsDelta);
+                                responsesToolCalls[itemId] = entry;
+
+                                // Flush text before switching to tool calls
+                                var flushed = await FlushAsync(force: true).ConfigureAwait(false);
+                                foreach (var d in flushed) yield return d;
+
+                                // Emit current tool call snapshot
+                                var interactions = new List<IAIInteraction>();
+                                foreach (var kv in responsesToolCalls.OrderBy(k => k.Key))
+                                {
+                                    var (id, name, argsSb) = kv.Value;
+                                    JObject argsObj = null;
+                                    var argsStr = argsSb.ToString();
+                                    try
+                                    {
+                                        if (!string.IsNullOrWhiteSpace(argsStr))
+                                        {
+                                            argsObj = JObject.Parse(argsStr);
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        // Partial JSON, ignore
+                                    }
+
+                                    interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
+                                }
+
+                                var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                                tcDelta.SetBody(interactions);
+                                yield return tcDelta;
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.output_item.done", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var item = parsed["item"] as JObject;
+                            if (string.Equals(item?["type"]?.ToString(), "function_call", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var itemId = item["id"]?.ToString();
+                                var finalArgs = item["arguments"]?.ToString();
+                                if (!string.IsNullOrEmpty(itemId) && responsesToolCalls.TryGetValue(itemId, out var entry))
+                                {
+                                    if (!string.IsNullOrEmpty(finalArgs))
+                                    {
+                                        entry.Args.Clear();
+                                        entry.Args.Append(finalArgs);
+                                        responsesToolCalls[itemId] = entry;
+                                    }
+
+                                    // Emit final snapshot for all tool calls
+                                    var interactions = new List<IAIInteraction>();
+                                    foreach (var kv in responsesToolCalls.OrderBy(k => k.Key))
+                                    {
+                                        var (id, name, argsSb) = kv.Value;
+                                        JObject argsObj = null;
+                                        var argsStr = argsSb.ToString();
+                                        try
+                                        {
+                                            if (!string.IsNullOrWhiteSpace(argsStr))
+                                            {
+                                                argsObj = JObject.Parse(argsStr);
+                                            }
+                                        }
+                                        catch
+                                        {
+                                            // Partial JSON, ignore
+                                        }
+
+                                        interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
+                                    }
+
+                                    var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                                    tcDelta.SetBody(interactions);
+                                    yield return tcDelta;
+                                }
+                            }
+                            else if (string.Equals(item?["type"]?.ToString(), "message", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Structured outputs may provide parsed content on message done.
+                                var messageContent = item?["content"] as JArray;
+                                if (messageContent != null)
+                                {
+                                    foreach (var contentItem in messageContent.OfType<JObject>())
+                                    {
+                                        var contentType = contentItem["type"]?.ToString();
+                                        if (string.Equals(contentType, "output_text", StringComparison.OrdinalIgnoreCase) ||
+                                            string.Equals(contentType, "text", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            var parsedContent = contentItem["parsed"];
+                                            if (parsedContent != null && parsedContent.Type != JTokenType.Null)
+                                            {
+                                                var structured = parsedContent.Type == JTokenType.String
+                                                    ? parsedContent.ToString()
+                                                    : parsedContent.ToString(Newtonsoft.Json.Formatting.None);
+
+                                                if (!string.IsNullOrWhiteSpace(structured) && buffer.Length == 0)
+                                                {
+                                                    buffer.Append(structured);
+                                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                                    foreach (var d in emitted)
+                                                    {
+                                                        yield return d;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else if (string.Equals(contentType, "refusal", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            var refusal = contentItem["refusal"]?.ToString();
+                                            if (!string.IsNullOrWhiteSpace(refusal))
+                                            {
+                                                responsesRefusalBuffer.Append(refusal);
+                                                if (buffer.Length == 0)
+                                                {
+                                                    buffer.Append(refusal);
+                                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                                    foreach (var d in emitted)
+                                                    {
+                                                        yield return d;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         continue;
                     }
 
@@ -1994,6 +2464,27 @@ namespace SmartHopper.Providers.OpenAI
 
                 // Add tool calls if present (already marked as NOT new since they were yielded)
                 foreach (var kv in toolCalls.OrderBy(k => k.Key))
+                {
+                    var (id, name, argsSb) = kv.Value;
+                    JObject argsObj = null;
+                    var argsStr = argsSb.ToString();
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(argsStr))
+                        {
+                            argsObj = JObject.Parse(argsStr);
+                        }
+                    }
+                    catch
+                    {
+                        // Partial JSON
+                    }
+
+                    finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
+                }
+
+                // Add Responses API tool calls if present
+                foreach (var kv in responsesToolCalls.OrderBy(k => k.Key))
                 {
                     var (id, name, argsSb) = kv.Value;
                     JObject argsObj = null;
