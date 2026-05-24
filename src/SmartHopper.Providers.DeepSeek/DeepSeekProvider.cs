@@ -210,6 +210,53 @@ namespace SmartHopper.Providers.DeepSeek
                 }
             }
 
+            // Merge consecutive assistant messages that carry tool_calls into a single
+            // assistant message. DeepSeek (strict OpenAI compatibility) requires that an
+            // assistant message with tool_calls is followed immediately by tool messages
+            // responding to every tool_call_id. When the model emits parallel tool calls
+            // in a single turn, our history stores them as separate AIInteractionToolCall
+            // entries, which would otherwise produce two consecutive assistant messages
+            // and trigger HTTP 400 ("insufficient tool messages following tool_calls").
+            {
+                var merged = new JArray();
+                JObject? pendingToolCallMsg = null;
+                foreach (var item in convertedMessages.OfType<JObject>())
+                {
+                    var role = item["role"]?.ToString();
+                    var hasToolCalls = item["tool_calls"] is JArray;
+                    if (role == "assistant" && hasToolCalls)
+                    {
+                        if (pendingToolCallMsg == null)
+                        {
+                            pendingToolCallMsg = item;
+                            merged.Add(item);
+                        }
+                        else
+                        {
+                            // Append this message's tool_calls into the pending one
+                            var dst = (JArray)pendingToolCallMsg["tool_calls"]!;
+                            foreach (var tc in (JArray)item["tool_calls"]!)
+                            {
+                                dst.Add(tc);
+                            }
+
+                            // Preserve reasoning_content if pending lacks it
+                            if (pendingToolCallMsg["reasoning_content"] == null && item["reasoning_content"] != null)
+                            {
+                                pendingToolCallMsg["reasoning_content"] = item["reasoning_content"];
+                            }
+                        }
+                    }
+                    else
+                    {
+                        pendingToolCallMsg = null;
+                        merged.Add(item);
+                    }
+                }
+
+                convertedMessages = merged;
+            }
+
 #if DEBUG
             // Log final messages array for debugging
             try

@@ -235,6 +235,34 @@ namespace SmartHopper.Providers.OpenAI
                 return null;
             }
 
+            // Responses API represents tool calls and tool results as standalone
+            // items (no role / no content field) with their own type.
+            // NOTE: AIInteractionToolResult inherits from AIInteractionToolCall, so it
+            // must be checked first; otherwise tool results would be emitted as function_call.
+            if (format == OpenAIRequestFormat.Responses)
+            {
+                if (interaction is AIInteractionToolResult toolResultResp)
+                {
+                    return new JObject
+                    {
+                        ["type"] = "function_call_output",
+                        ["call_id"] = toolResultResp.Id,
+                        ["output"] = toolResultResp.Result?.ToString() ?? string.Empty,
+                    };
+                }
+
+                if (interaction is AIInteractionToolCall toolCallResp)
+                {
+                    return new JObject
+                    {
+                        ["type"] = "function_call",
+                        ["call_id"] = toolCallResp.Id,
+                        ["name"] = toolCallResp.Name,
+                        ["arguments"] = toolCallResp.Arguments?.ToString() ?? "{}",
+                    };
+                }
+            }
+
             var messageObj = new JObject();
 
             switch (interaction.Agent)
@@ -266,11 +294,16 @@ namespace SmartHopper.Providers.OpenAI
             {
                 if (format == OpenAIRequestFormat.Responses)
                 {
+                    // Responses API requires 'output_text' for assistant messages and
+                    // 'input_text' for user/system/developer messages.
+                    var contentType = interaction.Agent == AIAgent.Assistant
+                        ? "output_text"
+                        : "input_text";
                     var contentArray = new JArray
                     {
                         new JObject
                         {
-                            ["type"] = "input_text",
+                            ["type"] = contentType,
                             ["text"] = textInteraction.Content ?? string.Empty,
                         },
                     };
@@ -971,12 +1004,12 @@ namespace SmartHopper.Providers.OpenAI
 
                     if (functionObj["parameters"] != null)
                     {
+                        // Tool function schemas are passed as-is. We do not enable
+                        // OpenAI strict mode for function tools, so the full JSON-Schema
+                        // vocabulary (default, format, patternProperties, etc.) is allowed.
                         flattened["parameters"] = functionObj["parameters"]!.DeepClone();
                     }
 
-                    // Responses API function tools are strict by default.
-                    // We set it explicitly for clarity and consistency.
-                    flattened["strict"] = true;
                     converted.Add(flattened);
                     continue;
                 }

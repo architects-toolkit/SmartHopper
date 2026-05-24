@@ -264,6 +264,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DeepSeek provider**: Fixed HTTP 400 "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'" when the model emits parallel tool calls in a single turn. The encoder now merges consecutive assistant `tool_calls` messages into a single message with all `tool_calls` aggregated, so the subsequent tool result messages satisfy DeepSeek's strict OpenAI-compatible ordering rule.
+
 - **Batch Processing**:
   - Sentinel trees now survive file close/reopen and manual result loading
   - Batch item errors properly surfaced as Grasshopper runtime messages

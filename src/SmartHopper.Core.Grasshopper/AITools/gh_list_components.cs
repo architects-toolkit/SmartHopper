@@ -67,8 +67,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""includeDetails"": {
                             ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""enum"": [""name"", ""nickname"", ""category"", ""subCategory"", ""guid"", ""description"", ""keywords"", ""inputs"", ""outputs""],
+                            ""items"": {
+                                ""type"": ""string"",
+                                ""enum"": [""name"", ""nickname"", ""category"", ""subCategory"", ""guid"", ""description"", ""keywords"", ""inputs"", ""outputs""]
+                            },
                             ""description"": ""Select which component details to include in response. If not specified, returns all details. Recommended 'name', 'description', 'inputs' and 'outputs' to avoid token overload.""
                         },
                         ""maxResults"": {

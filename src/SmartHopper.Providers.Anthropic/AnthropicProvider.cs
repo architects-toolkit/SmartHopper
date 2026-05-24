@@ -733,8 +733,11 @@ namespace SmartHopper.Providers.Anthropic
                             }
                             else
                             {
-                                // Use string value for auto (not wrapped in JObject) per Anthropic docs
-                                requestBody["tool_choice"] = "auto";
+                                // Anthropic requires tool_choice to be an object, even for "auto".
+                                requestBody["tool_choice"] = new JObject
+                                {
+                                    ["type"] = "auto",
+                                };
                             }
                         }
                     }
