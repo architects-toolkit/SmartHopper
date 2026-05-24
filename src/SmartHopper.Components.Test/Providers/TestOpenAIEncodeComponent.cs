@@ -54,7 +54,8 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Success", "S", "Test passed", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Responses Success", "RS", "Responses API encoding test passed", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Chat Completions Success", "CCS", "Chat Completions encoding test passed", GH_ParamAccess.item);
             pManager.AddTextParameter("Messages", "M", "Test messages", GH_ParamAccess.list);
         }
 
@@ -65,7 +66,8 @@ namespace SmartHopper.Components.Test.Providers
 
         private sealed class Worker : AsyncWorkerBase
         {
-            private GH_Boolean _success = new GH_Boolean(false);
+            private GH_Boolean _responsesSuccess = new GH_Boolean(false);
+            private GH_Boolean _chatCompletionsSuccess = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
             private readonly TestOpenAIEncodeComponent _parent;
 
@@ -84,106 +86,90 @@ namespace SmartHopper.Components.Test.Providers
             {
                 try
                 {
-                    // Create test AIRequestCall with different message types using AIBodyBuilder
-                    var bodyBuilder = AIBodyBuilder.Create();
-
-                    // Add System message (maps to system in OpenAI)
-                    bodyBuilder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.System,
-                        Content = "You are a helpful assistant."
-                    });
-
-                    // Add User message (maps to user in OpenAI)
-                    bodyBuilder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.User,
-                        Content = "Hello, how are you?"
-                    });
-
-                    // Add ToolCall message
-                    bodyBuilder.Add(new AIInteractionToolCall
-                    {
-                        Id = "call_123",
-                        Name = "test_tool",
-                        Arguments = JObject.Parse("{\"param\": \"value\"}")
-                    });
-
-                    // Add ToolResult message
-                    bodyBuilder.Add(new AIInteractionToolResult
-                    {
-                        Result = new JObject { ["content"] = "Tool result" },
-                        Id = "call_123"
-                    });
-
-                    var call = new AIRequestCall();
-                    call.Body = bodyBuilder.Build();
-                    call.Initialize("OpenAI", "gpt-5.4-mini", call.Body, "/chat/completions", AICapability.Text2Text);
-
-                    // Encode using provider
                     var provider = this._parent.GetActualAIProvider();
                     if (provider == null)
                     {
-                        this._success = new GH_Boolean(false);
+                        this._responsesSuccess = new GH_Boolean(false);
+                        this._chatCompletionsSuccess = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Provider not found"));
                         await Task.Yield();
                         return;
                     }
-                    var encoded = provider.Encode(call);
 
-                    // Verify encoding
-                    if (string.IsNullOrEmpty(encoded))
+                    // Create test interactions with different message types using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
+                    bodyBuilder.Add(new AIInteractionText { Agent = AIAgent.System, Content = "You are a helpful assistant." });
+                    bodyBuilder.Add(new AIInteractionText { Agent = AIAgent.User, Content = "Hello, how are you?" });
+                    bodyBuilder.Add(new AIInteractionToolCall { Id = "call_123", Name = "test_tool", Arguments = JObject.Parse("{\"param\": \"value\"}") });
+                    bodyBuilder.Add(new AIInteractionToolResult { Result = new JObject { ["content"] = "Tool result" }, Id = "call_123" });
+                    var body = bodyBuilder.Build();
+
+                    // ==========================================
+                    // TEST 1: Responses API encoding (Default)
+                    // ==========================================
+                    this._messages.Add(new GH_String("=== Test 1: Responses API Encoding ==="));
+                    var responsesCall = new AIRequestCall();
+                    responsesCall.Body = body;
+                    responsesCall.Initialize("OpenAI", "gpt-5.4-mini", responsesCall.Body, "/responses", AICapability.Text2Text);
+                    responsesCall = provider.PreCall(responsesCall);
+
+                    var responsesEncoded = provider.Encode(responsesCall);
+                    if (string.IsNullOrEmpty(responsesEncoded))
                     {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Encoded message is empty"));
-                        await Task.Yield();
-                        return;
+                        this._messages.Add(new GH_String("✗ Responses API encoded message is empty"));
+                    }
+                    else
+                    {
+                        var json = JObject.Parse(responsesEncoded);
+                        var input = json["input"] as JArray; // Responses API uses "input" instead of "messages"
+                        var roles = input?.Select(m => m["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
+
+                        if (input != null && roles.Contains("system") && roles.Contains("user") && roles.Contains("assistant") && roles.Contains("tool"))
+                        {
+                            this._responsesSuccess = new GH_Boolean(true);
+                            this._messages.Add(new GH_String("✓ Responses API encoding successful (uses 'input' array and contains correct roles)"));
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String($"✗ Responses API encoding invalid. Input present: {input != null}, Roles found: {string.Join(", ", roles)}"));
+                        }
                     }
 
-                    // Check for required role mappings (OpenAI uses system, user, assistant, tool)
-                    var json = JObject.Parse(encoded);
-                    var messages = json["messages"] as JArray;
-                    var roles = messages?.Select(m => m["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    // ==========================================
+                    // TEST 2: Chat Completions encoding (Legacy)
+                    // ==========================================
+                    this._messages.Add(new GH_String("=== Test 2: Chat Completions Encoding ==="));
+                    var ccCall = new AIRequestCall();
+                    ccCall.Body = body;
+                    ccCall.Initialize("OpenAI", "gpt-5.4-mini", ccCall.Body, "/chat/completions", AICapability.Text2Text);
+                    ccCall = provider.PreCall(ccCall);
 
-                    if (!roles.Contains("system"))
+                    var ccEncoded = provider.Encode(ccCall);
+                    if (string.IsNullOrEmpty(ccEncoded))
                     {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing system role (System message)"));
-                        await Task.Yield();
-                        return;
+                        this._messages.Add(new GH_String("✗ Chat Completions encoded message is empty"));
                     }
-
-                    if (!roles.Contains("user"))
+                    else
                     {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing user role (User message)"));
-                        await Task.Yield();
-                        return;
-                    }
+                        var json = JObject.Parse(ccEncoded);
+                        var messages = json["messages"] as JArray; // Chat Completions uses "messages"
+                        var roles = messages?.Select(m => m["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
 
-                    if (!roles.Contains("assistant"))
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing assistant role (ToolCall message)"));
-                        await Task.Yield();
-                        return;
+                        if (messages != null && roles.Contains("system") && roles.Contains("user") && roles.Contains("assistant") && roles.Contains("tool"))
+                        {
+                            this._chatCompletionsSuccess = new GH_Boolean(true);
+                            this._messages.Add(new GH_String("✓ Chat Completions encoding successful (uses 'messages' array and contains correct roles)"));
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String($"✗ Chat Completions encoding invalid. Messages present: {messages != null}, Roles found: {string.Join(", ", roles)}"));
+                        }
                     }
-
-                    if (!roles.Contains("tool"))
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing tool role (ToolResult message)"));
-                        await Task.Yield();
-                        return;
-                    }
-
-                    this._success = new GH_Boolean(true);
-                    this._messages.Add(new GH_String("OpenAI encoding successful"));
-                    this._messages.Add(new GH_String($"Encoded message length: {encoded.Length}"));
                 }
                 catch (Exception ex)
                 {
-                    this._success = new GH_Boolean(false);
+                    this._responsesSuccess = new GH_Boolean(false);
+                    this._chatCompletionsSuccess = new GH_Boolean(false);
                     this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
@@ -193,9 +179,10 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Responses Success", this._responsesSuccess, DA);
+                this._parent.SetPersistentOutput("Chat Completions Success", this._chatCompletionsSuccess, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
-                message = this._success.Value ? "OpenAI encoding test passed" : "OpenAI encoding test failed";
+                message = this._responsesSuccess.Value && this._chatCompletionsSuccess.Value ? "OpenAI encoding tests passed" : "OpenAI encoding tests failed";
             }
         }
     }

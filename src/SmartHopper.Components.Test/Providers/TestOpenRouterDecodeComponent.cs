@@ -174,7 +174,7 @@ namespace SmartHopper.Components.Test.Providers
                         return false;
                     }
 
-                    // Test structured content with reasoning (o-series models via OpenRouter)
+                    // Test structured content with reasoning (official OpenRouter format)
                     var reasoningResponse = new JObject
                     {
                         ["choices"] = new JArray
@@ -184,19 +184,8 @@ namespace SmartHopper.Components.Test.Providers
                                 ["message"] = new JObject
                                 {
                                     ["role"] = "assistant",
-                                    ["content"] = new JArray
-                                    {
-                                        new JObject
-                                        {
-                                            ["type"] = "reasoning",
-                                            ["reasoning"] = "Let me analyze this..."
-                                        },
-                                        new JObject
-                                        {
-                                            ["type"] = "text",
-                                            ["text"] = "Final answer here."
-                                        }
-                                    }
+                                    ["content"] = "Final answer here.",
+                                    ["reasoning"] = "Let me analyze this..."
                                 },
                                 ["finish_reason"] = "stop"
                             }

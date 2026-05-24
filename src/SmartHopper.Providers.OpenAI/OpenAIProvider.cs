@@ -134,7 +134,10 @@ namespace SmartHopper.Providers.OpenAI
             request.ContentType = "application/json";
             request.Authentication = "bearer";
 
-            // Determine endpoint based on request capability
+            // Determine endpoint based on request capability and settings.
+            // The Responses API is a superset of Chat Completions and is recommended by OpenAI
+            // for all new projects. We default to /v1/responses for text, vision, tools, and JSON.
+            // Only legacy endpoints (images, audio) and explicit overrides use other paths.
             if (request.Capability.HasFlag(AICapability.ImageOutput))
             {
                 request.Endpoint = "/images/generations";
@@ -149,20 +152,22 @@ namespace SmartHopper.Providers.OpenAI
                 // Text-to-Speech (TTS) endpoint
                 request.Endpoint = "/audio/speech";
             }
-            else if (request.Endpoint == "/responses")
-            {
-                // Responses API endpoint (reasoning models with summary support)
-                request.Endpoint = "/responses";
-            }
             else if (request.Endpoint == "/models")
             {
                 request.HttpMethod = "GET";
                 request.RequestKind = AIRequestKind.Backoffice;
             }
+            else if (string.Equals(request.Endpoint, "/chat/completions", StringComparison.OrdinalIgnoreCase)
+                     || this.GetSetting<bool>("ForceChatCompletions"))
+            {
+                // Explicit Chat Completions override or user forcing legacy endpoint
+                request.Endpoint = "/chat/completions";
+            }
             else
             {
-                // Default to chat completions
-                request.Endpoint = "/chat/completions";
+                // Default to Responses API for all text, vision, tool, and JSON requests.
+                // This includes reasoning models, structured outputs, and function calling.
+                request.Endpoint = "/responses";
             }
 
             return request;
@@ -177,41 +182,52 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             // Handle different endpoints
-            if (request.Endpoint == "/images/generations")
+            if (request.Endpoint.Contains("/images/generations"))
             {
                 return this.FormatImageGenerationRequestBody(request);
             }
-            else if (request.Endpoint == "/audio/transcriptions")
+            else if (request.Endpoint.Contains("/audio/transcriptions"))
             {
                 return this.FormatAudioTranscriptionRequestBody(request);
             }
-            else if (request.Endpoint == "/audio/speech")
+            else if (request.Endpoint.Contains("/audio/speech"))
             {
                 return this.FormatAudioSpeechRequestBody(request);
             }
-            else if (request.Endpoint == "/responses")
+            else if (request.Endpoint.Contains("/responses"))
             {
-                // Convert interactions to Responses API input format
-                var messages = this.BuildMessages(request.Body.Interactions);
-                return this.FormatResponsesApiRequestBody(request, messages);
+                var input = this.BuildResponsesInput(request.Body.Interactions);
+                return this.FormatResponsesApiRequestBody(request, input);
+            }
+            else if (request.Endpoint.Contains("/chat/completions"))
+            {
+                var messages = this.BuildChatCompletionMessages(request.Body.Interactions);
+                return this.FormatChatCompletionsRequestBody(request, messages);
             }
             else
             {
-                // Convert interactions to OpenAI format (simple sequential encoding like MistralAI)
-                var messages = this.BuildMessages(request.Body.Interactions);
-                return this.FormatChatCompletionsRequestBody(request, messages);
+                throw new NotSupportedException($"Unsupported OpenAI endpoint: {request.Endpoint}");
             }
         }
 
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            var messageObj = this.EncodeToJToken(interaction);
+            var messageObj = this.EncodeToJToken(interaction, OpenAIRequestFormat.Responses);
             return messageObj?.ToString();
         }
 
+        /// <summary>
+        /// Defines which OpenAI API format to use when encoding interactions.
+        /// </summary>
+        private enum OpenAIRequestFormat
+        {
+            ChatCompletions,
+            Responses,
+        }
+
         /// <inheritdoc/>
-        private JToken? EncodeToJToken(IAIInteraction interaction)
+        private JToken? EncodeToJToken(IAIInteraction interaction, OpenAIRequestFormat format)
         {
             // Skip UI-only diagnostics
             if (interaction is AIInteractionRuntimeMessage)
@@ -246,12 +262,24 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             // Handle different interaction types
-            string msgContent = string.Empty;
-            bool contentSetExplicitly = false;
-
             if (interaction is AIInteractionText textInteraction)
             {
-                msgContent = textInteraction.Content ?? string.Empty;
+                if (format == OpenAIRequestFormat.Responses)
+                {
+                    var contentArray = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = "input_text",
+                            ["text"] = textInteraction.Content ?? string.Empty,
+                        },
+                    };
+                    messageObj["content"] = contentArray;
+                }
+                else
+                {
+                    messageObj["content"] = textInteraction.Content ?? string.Empty;
+                }
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
@@ -261,7 +289,7 @@ namespace SmartHopper.Providers.OpenAI
                     messageObj["name"] = toolResultInteraction.Name;
                 }
 
-                msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
+                messageObj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
             {
@@ -278,25 +306,6 @@ namespace SmartHopper.Providers.OpenAI
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
-
-                // For o-series or gpt-5+ models, include reasoning in content array
-                if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
-                {
-                    var contentArray = new JArray
-                    {
-                        new JObject
-                        {
-                            ["type"] = "reasoning",
-                            ["text"] = toolCallInteraction.Reasoning,
-                        },
-                    };
-                    messageObj["content"] = contentArray;
-                    contentSetExplicitly = true;
-                }
-                else
-                {
-                    msgContent = string.Empty;
-                }
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
@@ -315,51 +324,69 @@ namespace SmartHopper.Providers.OpenAI
                 else
                 {
                     // No image data available; fall back to prompt text
-                    msgContent = imageInteraction.OriginalPrompt ?? string.Empty;
+                    messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
                     imageUrlValue = null;
                 }
 
                 if (imageUrlValue != null)
                 {
-                    var contentArray = new JArray
+                    JObject imageBlock;
+                    if (format == OpenAIRequestFormat.Responses)
                     {
-                        new JObject
+                        imageBlock = new JObject
+                        {
+                            ["type"] = "input_image",
+                            ["image_url"] = imageUrlValue,
+                        };
+                    }
+                    else
+                    {
+                        imageBlock = new JObject
                         {
                             ["type"] = "image_url",
                             ["image_url"] = new JObject
                             {
                                 ["url"] = imageUrlValue,
                             },
-                        },
-                    };
+                        };
+                    }
+
+                    var contentArray = new JArray { imageBlock };
                     messageObj["content"] = contentArray;
-                    contentSetExplicitly = true;
                 }
             }
             else
             {
                 // Fallback to empty string for unknown types
-                msgContent = string.Empty;
-            }
-
-            if (!contentSetExplicitly)
-            {
-                messageObj["content"] = msgContent;
+                messageObj["content"] = string.Empty;
             }
 
             return messageObj;
         }
 
         /// <summary>
-        /// Builds the OpenAI <c>messages</c> array from SmartHopper interactions while enforcing
-        /// OpenAI tool calling sequencing rules.
-        ///
+        /// Builds the OpenAI <c>messages</c> array for the Chat Completions API.
         /// </summary>
-        /// <param name="interactions">Ordered list of SmartHopper interactions to encode.</param>
-        /// <returns>JArray of OpenAI-formatted messages.</returns>
-        private JArray BuildMessages(IReadOnlyList<IAIInteraction> interactions)
+        private JArray BuildChatCompletionMessages(IReadOnlyList<IAIInteraction> interactions)
+        {
+            return this.BuildFormattedMessages(interactions, OpenAIRequestFormat.ChatCompletions);
+        }
+
+        /// <summary>
+        /// Builds the OpenAI <c>input</c> array for the Responses API.
+        /// </summary>
+        private JArray BuildResponsesInput(IReadOnlyList<IAIInteraction> interactions)
+        {
+            return this.BuildFormattedMessages(interactions, OpenAIRequestFormat.Responses);
+        }
+
+        /// <summary>
+        /// Builds the formatted message/input array from SmartHopper interactions.
+        /// </summary>
+        private JArray BuildFormattedMessages(IReadOnlyList<IAIInteraction> interactions, OpenAIRequestFormat format)
         {
             var messages = new JArray();
+            string formatName = format == OpenAIRequestFormat.Responses ? "Responses" : "ChatCompletions";
 
 #if DEBUG
             try
@@ -368,9 +395,8 @@ namespace SmartHopper.Providers.OpenAI
                 int tc = interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
                 int tr = interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
                 int tx = interactions?.Count(i => i is AIInteractionText) ?? 0;
-                Debug.WriteLine($"[OpenAI] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+                Debug.WriteLine($"[OpenAI] BuildFormattedMessages ({formatName}): interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
 
-                // Log full interaction sequence for debugging
                 Debug.WriteLine($"[OpenAI] Full interaction sequence:");
                 for (int debugIdx = 0; debugIdx < interactions.Count; debugIdx++)
                 {
@@ -396,10 +422,9 @@ namespace SmartHopper.Providers.OpenAI
             // Merge System and Summary interactions before encoding
             var mergedInteractions = this.MergeSystemAndSummary(interactions);
 
-            // Simple sequential encoding like MistralAI - no complex coalescing or deduplication
             foreach (var interaction in mergedInteractions)
             {
-                var token = this.EncodeToJToken(interaction);
+                var token = this.EncodeToJToken(interaction, format);
                 if (token != null)
                 {
                     messages.Add(token);
@@ -409,8 +434,7 @@ namespace SmartHopper.Providers.OpenAI
 #if DEBUG
             try
             {
-                // Log the final encoded messages array for debugging
-                Debug.WriteLine($"[OpenAI] Final encoded messages array ({messages.Count} messages):");
+                Debug.WriteLine($"[OpenAI] Final encoded {formatName} array ({messages.Count} items):");
                 for (int idx = 0; idx < messages.Count; idx++)
                 {
                     var msg = messages[idx] as JObject;
@@ -769,7 +793,7 @@ namespace SmartHopper.Providers.OpenAI
         /// Formats request body for the Responses API endpoint.
         /// Supports reasoning models with reasoning summaries.
         /// </summary>
-        private string FormatResponsesApiRequestBody(AIRequestCall request, JArray messages)
+        private string FormatResponsesApiRequestBody(AIRequestCall request, JArray input)
         {
             var p = request.Parameters;
 
@@ -777,19 +801,9 @@ namespace SmartHopper.Providers.OpenAI
             string reasoningEffort = p?.Extras != null && p.Extras.TryGetValue("reasoning_effort", out var reToken)
                 ? reToken?.ToString() ?? this.GetSetting<string>("ReasoningEffort") ?? "medium"
                 : this.GetSetting<string>("ReasoningEffort") ?? "medium";
-            bool reasoningSummary = p?.Extras != null && p.Extras.TryGetValue("reasoning_summary", out var rsToken)
-                ? rsToken?.Value<bool>() ?? false
-                : this.GetSetting<bool>("ReasoningSummary");
             string jsonSchema = request.Body.JsonOutputSchema;
             string? toolFilter = request.Body.ToolFilter;
             bool hasTools = !string.IsNullOrWhiteSpace(toolFilter);
-
-            // Convert messages array to input array for Responses API
-            var input = new JArray();
-            foreach (var msg in messages)
-            {
-                input.Add(msg);
-            }
 
             var requestBody = new JObject
             {
@@ -798,16 +812,13 @@ namespace SmartHopper.Providers.OpenAI
                 ["max_output_tokens"] = maxTokens,
             };
 
-            // Reasoning configuration for reasoning models
+            // Reasoning configuration for reasoning models.
+            // Always request reasoning summaries so users can see the model's reasoning process.
             var reasoningObj = new JObject
             {
                 ["effort"] = reasoningEffort,
+                ["summary"] = "auto",
             };
-
-            if (reasoningSummary)
-            {
-                reasoningObj["summary"] = "auto";
-            }
 
             requestBody["reasoning"] = reasoningObj;
 
@@ -1146,27 +1157,21 @@ namespace SmartHopper.Providers.OpenAI
                     return interactions;
                 }
 
-                // Extract content and reasoning if OpenAI returns structured content parts
-                // Reasoning parts may appear as items with type "reasoning" or "thinking"; text in type "text"
+                // Extract content from Chat Completions response.
+                // Per official OpenAI docs, Chat Completions message.content is a string in responses.
+                // Content arrays (if present) only contain text parts; reasoning is not exposed here.
+                // Reasoning text is only available via the Responses API output array.
                 string content = string.Empty;
-                string reasoning = string.Empty;
 
                 var contentToken = message["content"];
                 if (contentToken is JArray contentArray)
                 {
                     var contentParts = new List<string>();
-                    var reasoningParts = new List<string>();
 
                     foreach (var part in contentArray.OfType<JObject>())
                     {
                         var type = part["type"]?.ToString();
-                        if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var textVal = part["reasoning"]?.ToString() ?? part["text"]?.ToString() ?? part["content"]?.ToString();
-                            if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
-                        }
-                        else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
                         {
                             var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
                             if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
@@ -1180,7 +1185,6 @@ namespace SmartHopper.Providers.OpenAI
                     }
 
                     content = string.Join(string.Empty, contentParts).Trim();
-                    reasoning = string.Join("\n\n", reasoningParts).Trim();
                 }
                 else if (contentToken != null)
                 {
@@ -1200,7 +1204,7 @@ namespace SmartHopper.Providers.OpenAI
                 interaction.SetResult(
                     agent: AIAgent.Assistant,
                     content: content,
-                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+                    reasoning: null);
 
                 var metrics = this.DecodeMetrics(responseJson);
 
@@ -1244,7 +1248,9 @@ namespace SmartHopper.Providers.OpenAI
                             Id = tc["id"]?.ToString(),
                             Name = tc["function"]?["name"]?.ToString(),
                             Arguments = argsObj,
-                            Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+
+                            // Chat Completions does not expose reasoning text
+                            Reasoning = null,
                         };
                         interactions.Add(toolCall);
                     }
@@ -2024,17 +2030,37 @@ namespace SmartHopper.Providers.OpenAI
             string firstEncodedBody = null;
             var customIds = new List<string>();
 
+            string batchEndpoint = null;
+
             foreach (var (customId, request) in items)
             {
                 var preparedRequest = this.PreCall(request);
                 var encodedBody = this.Encode(preparedRequest);
                 if (firstEncodedBody == null) firstEncodedBody = encodedBody;
                 var bodyObj = JObject.Parse(encodedBody);
+
+                // Derive the endpoint from the prepared request (e.g. /responses or /chat/completions).
+                // OpenAI batch requires all lines to target the same endpoint.
+                var endpoint = preparedRequest.Endpoint;
+                if (!endpoint.StartsWith("/v1/", StringComparison.OrdinalIgnoreCase))
+                {
+                    endpoint = "/v1" + endpoint;
+                }
+
+                if (batchEndpoint == null)
+                {
+                    batchEndpoint = endpoint;
+                }
+                else if (!string.Equals(batchEndpoint, endpoint, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"[OpenAI] Batch items must all use the same endpoint. Expected '{batchEndpoint}', found '{endpoint}'.");
+                }
+
                 var batchLine = new JObject
                 {
                     ["custom_id"] = customId,
                     ["method"] = "POST",
-                    ["url"] = "/v1/chat/completions",
+                    ["url"] = endpoint,
                     ["body"] = bodyObj,
                 };
                 jsonlBuilder.AppendLine(batchLine.ToString(Newtonsoft.Json.Formatting.None));
@@ -2073,7 +2099,7 @@ namespace SmartHopper.Providers.OpenAI
             var batchBody = new JObject
             {
                 ["input_file_id"] = fileId,
-                ["endpoint"] = "/v1/chat/completions",
+                ["endpoint"] = batchEndpoint ?? "/v1/responses",
                 ["completion_window"] = "24h",
             };
 
@@ -2300,10 +2326,23 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     results[lineCustomId] = resultBody;
 
-                    // Extract finish_reason and surface as warning for non-stop reasons
+                    // Extract finish/status warnings for both Chat Completions and Responses API
+                    string finishReason = null;
+
+                    // Chat Completions format: choices[0].finish_reason
                     var choices = resultBody["choices"] as JArray;
                     var firstChoice = choices?.FirstOrDefault() as JObject;
-                    var finishReason = firstChoice?["finish_reason"]?.ToString();
+                    finishReason = firstChoice?["finish_reason"]?.ToString();
+
+                    // Responses API format: status field (e.g. "completed", "incomplete", "failed")
+                    if (string.IsNullOrEmpty(finishReason))
+                    {
+                        var status = resultBody["status"]?.ToString();
+                        if (!string.IsNullOrEmpty(status) && status != "completed")
+                        {
+                            finishReason = status;
+                        }
+                    }
 
                     if (!string.IsNullOrEmpty(finishReason) && finishReason != "stop")
                     {

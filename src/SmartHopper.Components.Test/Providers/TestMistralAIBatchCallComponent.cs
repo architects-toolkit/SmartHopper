@@ -137,9 +137,9 @@ namespace SmartHopper.Components.Test.Providers
                     var submission = await batchProvider.SubmitBatchAsync(items, token).ConfigureAwait(false);
                     this._messages.Add(new GH_String($"Batch submitted: {submission.BatchId}"));
 
-                    // Poll until completion (timeout: 5 minutes)
+                    // Poll until completion
                     AIBatchStatus status = null;
-                    var timeout = TimeSpan.FromMinutes(5);
+                    var timeout = TimeSpan.FromSeconds(call.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds);
                     var start = DateTime.UtcNow;
                     while (DateTime.UtcNow - start < timeout)
                     {

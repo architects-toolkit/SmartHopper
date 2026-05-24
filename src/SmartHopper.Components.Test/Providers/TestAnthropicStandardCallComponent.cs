@@ -95,7 +95,7 @@ namespace SmartHopper.Components.Test.Providers
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.User,
                         Content = "Say 'test' in one word."
                     });
                     call.Body = builder.Build();

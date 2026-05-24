@@ -330,7 +330,7 @@ namespace SmartHopper.Components.Test.Providers
                         return false;
                     }
 
-                    if (toolResult.Result == null || toolResult.Result["content"]?.ToString() != "Search results: 3 items found")
+                    if (toolResult.Result == null || toolResult.Result["value"]?.ToString() != "Search results: 3 items found")
                     {
                         this._messages.Add(new GH_String("✗ Tool result content not decoded correctly"));
                         return false;
@@ -525,10 +525,10 @@ namespace SmartHopper.Components.Test.Providers
                         return false;
                     }
 
-                    // Anthropic calculates InputTokensPrompt = input_tokens - cache_read_input_tokens
-                    if (metrics.InputTokensPrompt != 30) // 45 - 15
+                    // Anthropic input_tokens maps directly to InputTokensPrompt
+                    if (metrics.InputTokensPrompt != 45)
                     {
-                        this._messages.Add(new GH_String($"✗ Input tokens incorrect: expected 30, got {metrics.InputTokensPrompt}"));
+                        this._messages.Add(new GH_String($"✗ Input tokens incorrect: expected 45, got {metrics.InputTokensPrompt}"));
                         return false;
                     }
 

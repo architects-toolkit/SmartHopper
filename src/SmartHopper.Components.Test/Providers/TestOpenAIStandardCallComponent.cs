@@ -55,7 +55,8 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Call Success", "CS", "API call succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Responses Success", "RS", "Responses API call succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("ChatComp Success", "CC", "Chat completions API call succeeded", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Metrics Valid", "MV", "Metrics structure is valid", GH_ParamAccess.item);
             pManager.AddTextParameter("Messages", "M", "Test messages", GH_ParamAccess.list);
         }
@@ -67,7 +68,8 @@ namespace SmartHopper.Components.Test.Providers
 
         private sealed class Worker : AsyncWorkerBase
         {
-            private GH_Boolean _callSuccess = new GH_Boolean(false);
+            private GH_Boolean _responsesSuccess = new GH_Boolean(false);
+            private GH_Boolean _chatCompSuccess = new GH_Boolean(false);
             private GH_Boolean _metricsValid = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
             private readonly TestOpenAIStandardCallComponent _parent;
@@ -87,18 +89,9 @@ namespace SmartHopper.Components.Test.Providers
             {
                 try
                 {
-                    bool callSuccess = false;
+                    bool responsesSuccess = false;
+                    bool chatCompSuccess = false;
                     bool metricsValid = false;
-
-                    // Create test AIRequestCall
-                    var call = new AIRequestCall();
-                    var builder = AIBodyBuilder.FromImmutable(call.Body);
-                    builder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.Context,
-                        Content = "Say 'test' in one word."
-                    });
-                    call.Body = builder.Build();
 
                     // Get provider from manager
                     var providerManager = SmartHopper.Infrastructure.AIProviders.ProviderManager.Instance;
@@ -107,36 +100,72 @@ namespace SmartHopper.Components.Test.Providers
                     if (provider == null)
                     {
                         this._messages.Add(new GH_String("OpenAI provider not found"));
-                        this._callSuccess = new GH_Boolean(false);
+                        this._responsesSuccess = new GH_Boolean(false);
+                        this._chatCompSuccess = new GH_Boolean(false);
                         this._metricsValid = new GH_Boolean(false);
                         await Task.Yield();
                         return;
                     }
 
-                    // Make API call
-                    IAIReturn result = null;
+                    // Build shared body
+                    var builder = AIBodyBuilder.Create();
+                    builder.Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.Context,
+                        Content = "Say 'test' in one word."
+                    });
+                    var body = builder.Build();
+
+                    // Call 1: Responses API (default endpoint)
+                    IAIReturn responsesResult = null;
                     try
                     {
-                        result = await provider.Call(call).ConfigureAwait(false);
+                        var responsesCall = new AIRequestCall { Body = body, Endpoint = "/responses" };
+                        responsesResult = await provider.Call(responsesCall).ConfigureAwait(false);
 
-                        if (result != null && result.Body != null && result.Body.InteractionsCount > 0)
+                        if (responsesResult != null && responsesResult.Body != null && responsesResult.Body.InteractionsCount > 0)
                         {
-                            callSuccess = true;
-                            var lastInteraction = result.Body.Interactions.LastOrDefault() as AIInteractionText;
+                            responsesSuccess = true;
+                            var lastInteraction = responsesResult.Body.Interactions.LastOrDefault() as AIInteractionText;
                             var responseText = lastInteraction?.Content ?? "No text response";
-                            this._messages.Add(new GH_String($"API call successful: {responseText.Substring(0, Math.Min(50, responseText.Length))}..."));
+                            this._messages.Add(new GH_String($"Responses API: {responseText.Substring(0, Math.Min(50, responseText.Length))}"));
                         }
                         else
                         {
-                            this._messages.Add(new GH_String("API call returned empty result"));
+                            this._messages.Add(new GH_String("Responses API returned empty result"));
                         }
                     }
                     catch (Exception ex)
                     {
-                        this._messages.Add(new GH_String($"API call failed: {ex.Message}"));
+                        this._messages.Add(new GH_String($"Responses API failed: {ex.Message}"));
                     }
 
-                    // Validate metrics
+                    // Call 2: Chat Completions API (explicit endpoint override)
+                    IAIReturn chatCompResult = null;
+                    try
+                    {
+                        var chatCompCall = new AIRequestCall { Body = body, Endpoint = "/chat/completions" };
+                        chatCompResult = await provider.Call(chatCompCall).ConfigureAwait(false);
+
+                        if (chatCompResult != null && chatCompResult.Body != null && chatCompResult.Body.InteractionsCount > 0)
+                        {
+                            chatCompSuccess = true;
+                            var lastInteraction = chatCompResult.Body.Interactions.LastOrDefault() as AIInteractionText;
+                            var responseText = lastInteraction?.Content ?? "No text response";
+                            this._messages.Add(new GH_String($"Chat Completions: {responseText.Substring(0, Math.Min(50, responseText.Length))}"));
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String("Chat Completions returned empty result"));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        this._messages.Add(new GH_String($"Chat Completions failed: {ex.Message}"));
+                    }
+
+                    // Validate metrics from the last successful result
+                    var result = responsesResult ?? chatCompResult;
                     if (result?.Metrics != null)
                     {
                         metricsValid = true;
@@ -168,12 +197,14 @@ namespace SmartHopper.Components.Test.Providers
                         this._parent.SetAIReturnSnapshot(result as AIReturn);
                     }
 
-                    this._callSuccess = new GH_Boolean(callSuccess);
+                    this._responsesSuccess = new GH_Boolean(responsesSuccess);
+                    this._chatCompSuccess = new GH_Boolean(chatCompSuccess);
                     this._metricsValid = new GH_Boolean(metricsValid);
                 }
                 catch (Exception ex)
                 {
-                    this._callSuccess = new GH_Boolean(false);
+                    this._responsesSuccess = new GH_Boolean(false);
+                    this._chatCompSuccess = new GH_Boolean(false);
                     this._metricsValid = new GH_Boolean(false);
                     this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
@@ -184,11 +215,14 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
+                this._parent.SetPersistentOutput("Responses Success", this._responsesSuccess, DA);
+                this._parent.SetPersistentOutput("ChatComp Success", this._chatCompSuccess, DA);
                 this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
                 this._parent.SetMetricsOutput(DA);
-                message = this._callSuccess.Value && this._metricsValid.Value ? "OpenAI standard call test passed" : "OpenAI standard call test failed";
+                message = this._responsesSuccess.Value && this._chatCompSuccess.Value && this._metricsValid.Value
+                    ? "OpenAI dual endpoint test passed"
+                    : "OpenAI dual endpoint test failed";
             }
         }
     }

@@ -93,15 +93,15 @@ namespace SmartHopper.Components.Test.Providers
                 {
                     var provider = OpenAIProvider.Instance;
 
-                    // Test 1: Chat Completions text decoding
-                    this._messages.Add(new GH_String("=== Test 1: Chat Completions Text Decoding ==="));
-                    bool textTest = await TestTextDecoding(provider);
-                    this._textDecodeSuccess = new GH_Boolean(textTest);
-
-                    // Test 2: Responses API decoding (reasoning + content)
-                    this._messages.Add(new GH_String("=== Test 2: Responses API Decoding ==="));
+                    // Test 1: Responses API decoding (reasoning + content) - TESTED FIRST
+                    this._messages.Add(new GH_String("=== Test 1: Responses API Decoding ==="));
                     bool responsesTest = await TestResponsesApiDecoding(provider);
                     this._responsesApiDecodeSuccess = new GH_Boolean(responsesTest);
+
+                    // Test 2: Chat Completions text decoding - TESTED SECOND
+                    this._messages.Add(new GH_String("=== Test 2: Chat Completions Text Decoding ==="));
+                    bool textTest = await TestTextDecoding(provider);
+                    this._textDecodeSuccess = new GH_Boolean(textTest);
 
                     // Test 3: Tool call decoding
                     this._messages.Add(new GH_String("=== Test 3: Tool Call Decoding ==="));
@@ -120,8 +120,8 @@ namespace SmartHopper.Components.Test.Providers
 
                     // Overall summary
                     this._messages.Add(new GH_String("=== Test Summary ==="));
-                    this._messages.Add(new GH_String($"Text Decode: {(textTest ? "PASS" : "FAIL")}"));
                     this._messages.Add(new GH_String($"Responses API Decode: {(responsesTest ? "PASS" : "FAIL")}"));
+                    this._messages.Add(new GH_String($"Text Decode: {(textTest ? "PASS" : "FAIL")}"));
                     this._messages.Add(new GH_String($"Tool Call Decode: {(toolCallTest ? "PASS" : "FAIL")}"));
                     this._messages.Add(new GH_String($"Error Decode: {(errorTest ? "PASS" : "FAIL")}"));
                     this._messages.Add(new GH_String($"Metrics: {(metricsTest ? "PASS" : "FAIL")}"));
@@ -183,9 +183,11 @@ namespace SmartHopper.Components.Test.Providers
                         return false;
                     }
 
-                    // Test structured content array (Chat Completions format, gpt-5.4 etc.)
-                    // Per OpenAI docs, Chat Completions returns only text/refusal parts, not reasoning text.
-                    var structuredResponse = new JObject
+                    // Per official OpenAI docs, Chat Completions message.content is always a string in responses.
+                    // Reasoning tokens are tracked in usage.completion_tokens_details.reasoning_tokens,
+                    // but reasoning TEXT is never exposed in the message body of Chat Completions.
+                    // Reasoning text is only available via the Responses API output array.
+                    var reasoningModelResponse = new JObject
                     {
                         ["choices"] = new JArray
                         {
@@ -194,51 +196,57 @@ namespace SmartHopper.Components.Test.Providers
                                 ["message"] = new JObject
                                 {
                                     ["role"] = "assistant",
-                                    ["content"] = new JArray
-                                    {
-                                        new JObject
-                                        {
-                                            ["type"] = "reasoning",
-                                            ["reasoning"] = "Let me think about this step by step..."
-                                        },
-                                        new JObject
-                                        {
-                                            ["type"] = "text",
-                                            ["text"] = "Here is the final answer."
-                                        }
-                                    }
+                                    ["content"] = "Here is the final answer."
                                 },
                                 ["finish_reason"] = "stop"
+                            }
+                        },
+                        ["usage"] = new JObject
+                        {
+                            ["prompt_tokens"] = 20,
+                            ["completion_tokens"] = 10,
+                            ["total_tokens"] = 30,
+                            ["completion_tokens_details"] = new JObject
+                            {
+                                ["reasoning_tokens"] = 5
                             }
                         },
                         ["model"] = "gpt-5.4-mini",
                         ["id"] = "chatcmpl-456"
                     };
 
-                    var structuredInteractions = provider.Decode(structuredResponse);
-                    var structuredText = structuredInteractions.OfType<AIInteractionText>().FirstOrDefault();
-                    if (structuredText == null)
+                    var reasoningInteractions = provider.Decode(reasoningModelResponse);
+                    var reasoningText = reasoningInteractions.OfType<AIInteractionText>().FirstOrDefault();
+                    if (reasoningText == null)
                     {
-                        this._messages.Add(new GH_String("✗ Structured content not decoded"));
+                        this._messages.Add(new GH_String("✗ Reasoning model response not decoded"));
                         return false;
                     }
 
-                    if (!structuredText.Content.Contains("Here is the final answer"))
+                    if (!reasoningText.Content.Contains("Here is the final answer"))
                     {
-                        this._messages.Add(new GH_String("✗ Structured content text not extracted correctly"));
+                        this._messages.Add(new GH_String("✗ Reasoning model content not extracted correctly"));
                         return false;
                     }
 
-                    // Chat Completions does not return reasoning text in the response body
-                    if (structuredText.Reasoning != null)
+                    // Chat Completions must never expose reasoning text in the response body
+                    if (reasoningText.Reasoning != null)
                     {
                         this._messages.Add(new GH_String("✗ Chat Completions should not return reasoning text"));
                         return false;
                     }
 
+                    // Metrics should still capture reasoning tokens from usage details
+                    if (reasoningText.Metrics?.OutputTokensReasoning != 5)
+                    {
+                        this._messages.Add(new GH_String($"✗ Reasoning tokens not extracted from metrics: expected 5, got {reasoningText.Metrics?.OutputTokensReasoning}"));
+                        return false;
+                    }
+
                     this._messages.Add(new GH_String("✓ Text decoding successful"));
                     this._messages.Add(new GH_String("✓ Simple text response decoded"));
-                    this._messages.Add(new GH_String("✓ Structured text content decoded"));
+                    this._messages.Add(new GH_String("✓ Reasoning model content decoded (no reasoning text exposed)"));
+                    this._messages.Add(new GH_String("✓ Reasoning tokens extracted from usage metrics"));
                     return true;
                 }
                 catch (Exception ex)

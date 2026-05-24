@@ -54,8 +54,10 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Encoding Success", "ES", "Tool encoding succeeded", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Parsing Success", "PS", "Tool result parsing succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Responses Tool Encoding Success", "RTES", "Tool encoding on Responses API succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Responses Tool Parsing Success", "RTPS", "Tool result parsing on Responses API succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Chat Completions Tool Encoding Success", "CCTES", "Tool encoding on Chat Completions succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Chat Completions Tool Parsing Success", "CCTPS", "Tool result parsing on Chat Completions succeeded", GH_ParamAccess.item);
             pManager.AddTextParameter("Messages", "M", "Test messages", GH_ParamAccess.list);
         }
 
@@ -66,8 +68,10 @@ namespace SmartHopper.Components.Test.Providers
 
         private sealed class Worker : AsyncWorkerBase
         {
-            private GH_Boolean _encodingSuccess = new GH_Boolean(false);
-            private GH_Boolean _parsingSuccess = new GH_Boolean(false);
+            private GH_Boolean _responsesEncodingSuccess = new GH_Boolean(false);
+            private GH_Boolean _responsesParsingSuccess = new GH_Boolean(false);
+            private GH_Boolean _ccEncodingSuccess = new GH_Boolean(false);
+            private GH_Boolean _ccParsingSuccess = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
             private readonly TestOpenAIToolsComponent _parent;
 
@@ -86,171 +90,161 @@ namespace SmartHopper.Components.Test.Providers
             {
                 try
                 {
-                    bool encodingSuccess = false;
-                    bool parsingSuccess = false;
-
-                    // Create test AIRequestCall with tool definitions using AIBodyBuilder
-                    var bodyBuilder = AIBodyBuilder.Create();
-
-                    bodyBuilder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.System,
-                        Content = "You have access to tools."
-                    });
-
-                    // Add tool call
-                    bodyBuilder.Add(new AIInteractionToolCall
-                    {
-                        Id = "call_weather_123",
-                        Name = "get_weather",
-                        Arguments = JObject.Parse("{\"location\": \"New York\"}")
-                    });
-
-                    // Add tool result
-                    bodyBuilder.Add(new AIInteractionToolResult
-                    {
-                        Result = new JObject { ["content"] = "Weather in New York: 72°F, Sunny" },
-                        Id = "call_weather_123"
-                    });
-
-                    var call = new AIRequestCall();
-                    call.Body = bodyBuilder.Build();
-                    call.Initialize("OpenAI", "gpt-5.4-mini", call.Body, "/chat/completions", AICapability.Text2Text, "*");
-
-                    // Encode using provider from parent
                     var provider = this._parent.GetActualAIProvider();
                     if (provider == null)
                     {
                         this._messages.Add(new GH_String("Provider not found"));
-                        this._encodingSuccess = new GH_Boolean(false);
-                        this._parsingSuccess = new GH_Boolean(false);
-                        await Task.Yield();
-                        return;
-                    }
-                    var encoded = provider.Encode(call);
-
-                    // Verify tool encoding
-                    if (string.IsNullOrEmpty(encoded))
-                    {
-                        this._messages.Add(new GH_String("Encoded message is empty"));
-                        this._encodingSuccess = new GH_Boolean(false);
-                        this._parsingSuccess = new GH_Boolean(false);
                         await Task.Yield();
                         return;
                     }
 
-                    // Parse JSON and verify tool structure
-                    var encodedJson = JObject.Parse(encoded);
-                    var messages = encodedJson["messages"] as JArray;
-                    if (messages == null)
+                    // Create test interactions with tool definitions using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
+                    bodyBuilder.Add(new AIInteractionText { Agent = AIAgent.System, Content = "You have access to tools." });
+                    bodyBuilder.Add(new AIInteractionToolCall { Id = "call_weather_123", Name = "get_weather", Arguments = JObject.Parse("{\"location\": \"New York\"}") });
+                    bodyBuilder.Add(new AIInteractionToolResult { Result = new JObject { ["content"] = "Weather in New York: 72°F, Sunny" }, Id = "call_weather_123" });
+                    var body = bodyBuilder.Build();
+
+                    // ==========================================
+                    // TEST 1: Responses API Tools (Default) - TESTED FIRST
+                    // ==========================================
+                    this._messages.Add(new GH_String("=== Test 1: Responses API Tools ==="));
+                    var responsesCall = new AIRequestCall();
+                    responsesCall.Body = body;
+                    responsesCall.Initialize("OpenAI", "gpt-5.4-mini", responsesCall.Body, "/responses", AICapability.Text2Text, "*");
+                    responsesCall = provider.PreCall(responsesCall);
+
+                    var responsesEncoded = provider.Encode(responsesCall);
+                    if (string.IsNullOrEmpty(responsesEncoded))
                     {
-                        this._messages.Add(new GH_String("Missing messages array"));
-                        this._encodingSuccess = new GH_Boolean(false);
-                        this._parsingSuccess = new GH_Boolean(false);
-                        await Task.Yield();
-                        return;
+                        this._messages.Add(new GH_String("✗ Responses API tool encoded message is empty"));
                     }
-
-                    // Check for tool_calls in assistant message
-                    bool hasToolCalls = false;
-                    bool hasToolName = false;
-                    bool hasToolCallId = false;
-                    var roles = new HashSet<string>();
-
-                    foreach (var message in messages)
+                    else
                     {
-                        var role = message["role"]?.ToString();
-                        if (!string.IsNullOrEmpty(role))
+                        var json = JObject.Parse(responsesEncoded);
+                        var input = json["input"] as JArray; // Responses API uses "input"
+                        
+                        bool hasToolCalls = false;
+                        bool hasToolName = false;
+                        bool hasToolCallId = false;
+                        var roles = new HashSet<string>();
+
+                        if (input != null)
                         {
-                            roles.Add(role);
-                        }
-
-                        // Check for tool_calls array in assistant messages
-                        if (role == "assistant")
-                        {
-                            var toolCalls = message["tool_calls"] as JArray;
-                            if (toolCalls != null && toolCalls.Any())
+                            foreach (var message in input)
                             {
-                                hasToolCalls = true;
-                                foreach (var toolCall in toolCalls)
+                                var role = message["role"]?.ToString();
+                                if (!string.IsNullOrEmpty(role)) roles.Add(role);
+
+                                if (role == "assistant")
                                 {
-                                    var functionName = toolCall["function"]?["name"]?.ToString();
-                                    if (functionName == "get_weather")
+                                    var toolCalls = message["tool_calls"] as JArray;
+                                    if (toolCalls != null && toolCalls.Any())
                                     {
-                                        hasToolName = true;
+                                        hasToolCalls = true;
+                                        foreach (var tc in toolCalls)
+                                        {
+                                            if (tc["function"]?["name"]?.ToString() == "get_weather") hasToolName = true;
+                                        }
                                     }
+                                }
+                                if (role == "tool" && !string.IsNullOrEmpty(message["tool_call_id"]?.ToString()))
+                                {
+                                    hasToolCallId = true;
                                 }
                             }
                         }
 
-                        // Check for tool_call_id in tool messages
-                        if (role == "tool")
+                        if (hasToolCalls && hasToolName && hasToolCallId)
                         {
-                            var toolCallId = message["tool_call_id"]?.ToString();
-                            if (!string.IsNullOrEmpty(toolCallId))
-                            {
-                                hasToolCallId = true;
-                            }
+                            this._responsesEncodingSuccess = new GH_Boolean(true);
+                            this._messages.Add(new GH_String("✓ Responses API Tool encoding successful"));
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String($"✗ Responses API Tool encoding failed (tool_calls={hasToolCalls}, name={hasToolName}, call_id={hasToolCallId})"));
+                        }
+
+                        if (roles.Contains("assistant") && roles.Contains("tool"))
+                        {
+                            this._responsesParsingSuccess = new GH_Boolean(true);
+                            this._messages.Add(new GH_String("✓ Responses API Tool result parsing structure valid"));
                         }
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"[TestOpenAITools] Found roles: {string.Join(", ", roles)}");
-                    System.Diagnostics.Debug.WriteLine($"[TestOpenAITools] Tool checks - tool_calls: {hasToolCalls}, tool_name: {hasToolName}, tool_call_id: {hasToolCallId}");
+                    // ==========================================
+                    // TEST 2: Chat Completions Tools (Legacy) - TESTED SECOND
+                    // ==========================================
+                    this._messages.Add(new GH_String("=== Test 2: Chat Completions Tools ==="));
+                    var ccCall = new AIRequestCall();
+                    ccCall.Body = body;
+                    ccCall.Initialize("OpenAI", "gpt-5.4-mini", ccCall.Body, "/chat/completions", AICapability.Text2Text, "*");
+                    ccCall = provider.PreCall(ccCall);
 
-                    if (!hasToolCalls)
+                    var ccEncoded = provider.Encode(ccCall);
+                    if (string.IsNullOrEmpty(ccEncoded))
                     {
-                        this._messages.Add(new GH_String("Missing tool_calls array in encoding"));
-                        this._encodingSuccess = new GH_Boolean(false);
-                        this._parsingSuccess = new GH_Boolean(false);
-                        await Task.Yield();
-                        return;
-                    }
-
-                    if (!hasToolName)
-                    {
-                        this._messages.Add(new GH_String("Tool name 'get_weather' not found in encoding"));
-                        this._encodingSuccess = new GH_Boolean(false);
-                        this._parsingSuccess = new GH_Boolean(false);
-                        await Task.Yield();
-                        return;
-                    }
-
-                    if (!hasToolCallId)
-                    {
-                        this._messages.Add(new GH_String("Missing tool_call_id in tool result"));
-                        this._encodingSuccess = new GH_Boolean(false);
-                        this._parsingSuccess = new GH_Boolean(false);
-                        await Task.Yield();
-                        return;
-                    }
-
-                    encodingSuccess = true;
-                    this._messages.Add(new GH_String("Tool encoding successful"));
-                    this._messages.Add(new GH_String("- Tool calls array present"));
-                    this._messages.Add(new GH_String("- Tool name 'get_weather' encoded"));
-                    this._messages.Add(new GH_String("- Tool call ID present in result"));
-
-                    // Verify parsing would work (basic structure check)
-                    bool hasAssistant = roles.Contains("assistant");
-                    bool hasTool = roles.Contains("tool");
-
-                    if (hasAssistant && hasTool)
-                    {
-                        parsingSuccess = true;
-                        this._messages.Add(new GH_String("Tool result parsing structure valid"));
+                        this._messages.Add(new GH_String("✗ Chat Completions tool encoded message is empty"));
                     }
                     else
                     {
-                        this._messages.Add(new GH_String("Tool result parsing structure invalid"));
-                    }
+                        var json = JObject.Parse(ccEncoded);
+                        var messages = json["messages"] as JArray; // Chat Completions uses "messages"
+                        
+                        bool hasToolCalls = false;
+                        bool hasToolName = false;
+                        bool hasToolCallId = false;
+                        var roles = new HashSet<string>();
 
-                    this._encodingSuccess = new GH_Boolean(encodingSuccess);
-                    this._parsingSuccess = new GH_Boolean(parsingSuccess);
+                        if (messages != null)
+                        {
+                            foreach (var message in messages)
+                            {
+                                var role = message["role"]?.ToString();
+                                if (!string.IsNullOrEmpty(role)) roles.Add(role);
+
+                                if (role == "assistant")
+                                {
+                                    var toolCalls = message["tool_calls"] as JArray;
+                                    if (toolCalls != null && toolCalls.Any())
+                                    {
+                                        hasToolCalls = true;
+                                        foreach (var tc in toolCalls)
+                                        {
+                                            if (tc["function"]?["name"]?.ToString() == "get_weather") hasToolName = true;
+                                        }
+                                    }
+                                }
+                                if (role == "tool" && !string.IsNullOrEmpty(message["tool_call_id"]?.ToString()))
+                                {
+                                    hasToolCallId = true;
+                                }
+                            }
+                        }
+
+                        if (hasToolCalls && hasToolName && hasToolCallId)
+                        {
+                            this._ccEncodingSuccess = new GH_Boolean(true);
+                            this._messages.Add(new GH_String("✓ Chat Completions Tool encoding successful"));
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String($"✗ Chat Completions Tool encoding failed (tool_calls={hasToolCalls}, name={hasToolName}, call_id={hasToolCallId})"));
+                        }
+
+                        if (roles.Contains("assistant") && roles.Contains("tool"))
+                        {
+                            this._ccParsingSuccess = new GH_Boolean(true);
+                            this._messages.Add(new GH_String("✓ Chat Completions Tool result parsing structure valid"));
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    this._encodingSuccess = new GH_Boolean(false);
-                    this._parsingSuccess = new GH_Boolean(false);
+                    this._responsesEncodingSuccess = new GH_Boolean(false);
+                    this._responsesParsingSuccess = new GH_Boolean(false);
+                    this._ccEncodingSuccess = new GH_Boolean(false);
+                    this._ccParsingSuccess = new GH_Boolean(false);
                     this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
@@ -260,10 +254,15 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this._parent.SetPersistentOutput("Encoding Success", this._encodingSuccess, DA);
-                this._parent.SetPersistentOutput("Parsing Success", this._parsingSuccess, DA);
+                this._parent.SetPersistentOutput("Responses Tool Encoding Success", this._responsesEncodingSuccess, DA);
+                this._parent.SetPersistentOutput("Responses Tool Parsing Success", this._responsesParsingSuccess, DA);
+                this._parent.SetPersistentOutput("Chat Completions Tool Encoding Success", this._ccEncodingSuccess, DA);
+                this._parent.SetPersistentOutput("Chat Completions Tool Parsing Success", this._ccParsingSuccess, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
-                message = this._encodingSuccess.Value && this._parsingSuccess.Value ? "OpenAI tools test passed" : "OpenAI tools test failed";
+                
+                bool allPassed = this._responsesEncodingSuccess.Value && this._responsesParsingSuccess.Value &&
+                                 this._ccEncodingSuccess.Value && this._ccParsingSuccess.Value;
+                message = allPassed ? "OpenAI tools tests passed" : "OpenAI tools tests failed";
             }
         }
     }

@@ -93,19 +93,18 @@ namespace SmartHopper.Components.Test.Providers
 
                 try
                 {
-                    // Build the test request with service_tier=batch
+                    // Build the test request for batch API
                     var call = new AIRequestCall();
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.Context,
+                        Agent = AIAgent.User,
                         Content = "Say 'batch test' in two words."
                     });
                     call.Body = builder.Build();
                     call.Parameters = new AIRequestParameters
                     {
                         Model = this._parent.GetModel(),
-                        Extras = new Dictionary<string, JToken> { { "service_tier", "batch" } },
                     };
 
                     // Resolve provider and verify it supports batch
@@ -137,9 +136,9 @@ namespace SmartHopper.Components.Test.Providers
                     var submission = await batchProvider.SubmitBatchAsync(items, token).ConfigureAwait(false);
                     this._messages.Add(new GH_String($"Batch submitted: {submission.BatchId}"));
 
-                    // Poll until completion (timeout: 5 minutes)
+                    // Poll until completion
                     AIBatchStatus status = null;
-                    var timeout = TimeSpan.FromMinutes(5);
+                    var timeout = TimeSpan.FromSeconds(call.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds);
                     var start = DateTime.UtcNow;
                     while (DateTime.UtcNow - start < timeout)
                     {
@@ -163,6 +162,14 @@ namespace SmartHopper.Components.Test.Providers
                     if (status == null || status.State != AIBatchState.Completed)
                     {
                         this._messages.Add(new GH_String($"Batch did not complete successfully: {status?.State.ToString() ?? "unknown"}"));
+                        if (status?.Messages?.Count > 0)
+                        {
+                            foreach (var msg in status.Messages)
+                            {
+                                this._messages.Add(new GH_String($"Batch item error: {msg.Message}"));
+                            }
+                        }
+
                         this._callSuccess = new GH_Boolean(false);
                         this._metricsValid = new GH_Boolean(false);
                         return;

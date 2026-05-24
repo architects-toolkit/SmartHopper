@@ -431,23 +431,13 @@ namespace SmartHopper.Providers.OpenRouter
                 };
                 obj["tool_calls"] = new JArray { toolCallObj };
 
-                // For reasoning-enabled models (o-series via OpenRouter), include reasoning in content array
+                // For reasoning-enabled models, emit reasoning in the official OpenRouter field
                 if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
                 {
-                    var contentArray = new JArray
-                    {
-                        new JObject
-                        {
-                            ["type"] = "reasoning",
-                            ["text"] = toolCallInteraction.Reasoning,
-                        },
-                    };
-                    obj["content"] = contentArray;
+                    obj["reasoning"] = toolCallInteraction.Reasoning;
                 }
-                else
-                {
-                    obj["content"] = string.Empty;
-                }
+
+                obj["content"] = string.Empty;
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
@@ -559,6 +549,38 @@ namespace SmartHopper.Providers.OpenRouter
                 else if (contentToken != null)
                 {
                     content = contentToken.ToString() ?? string.Empty;
+                }
+
+                // Extract reasoning from official OpenRouter fields (preferred over legacy content-array)
+                var reasoningToken = message["reasoning"];
+                if (reasoningToken != null && !string.IsNullOrEmpty(reasoningToken.ToString()))
+                {
+                    reasoning = reasoningToken.ToString();
+                }
+
+                var reasoningDetails = message["reasoning_details"] as JArray;
+                if (reasoningDetails != null && reasoningDetails.Count > 0)
+                {
+                    var reasoningParts = new List<string>();
+                    foreach (var detail in reasoningDetails.OfType<JObject>())
+                    {
+                        var detailType = detail["type"]?.ToString();
+                        if (string.Equals(detailType, "reasoning.text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var text = detail["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(text)) reasoningParts.Add(text);
+                        }
+                        else if (string.Equals(detailType, "reasoning.summary", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var summary = detail["summary"]?.ToString();
+                            if (!string.IsNullOrEmpty(summary)) reasoningParts.Add(summary);
+                        }
+                    }
+
+                    if (reasoningParts.Count > 0)
+                    {
+                        reasoning = string.Join("\n\n", reasoningParts);
+                    }
                 }
 
                 var result = new AIInteractionText();

@@ -57,7 +57,8 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Call Success", "CS", "Batch API call succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Responses Success", "RS", "Responses batch API call succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("ChatComp Success", "CC", "Chat completions batch API call succeeded", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Metrics Valid", "MV", "Metrics structure is valid", GH_ParamAccess.item);
             pManager.AddTextParameter("Messages", "M", "Test messages", GH_ParamAccess.list);
         }
@@ -69,7 +70,8 @@ namespace SmartHopper.Components.Test.Providers
 
         private sealed class Worker : AsyncWorkerBase
         {
-            private GH_Boolean _callSuccess = new GH_Boolean(false);
+            private GH_Boolean _responsesSuccess = new GH_Boolean(false);
+            private GH_Boolean _chatCompSuccess = new GH_Boolean(false);
             private GH_Boolean _metricsValid = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
             private readonly TestOpenAIBatchCallComponent _parent;
@@ -87,33 +89,20 @@ namespace SmartHopper.Components.Test.Providers
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
-                bool callSuccess = false;
+                bool responsesSuccess = false;
+                bool chatCompSuccess = false;
                 bool metricsValid = false;
                 AIReturn result = null;
 
                 try
                 {
-                    // Build the test request with service_tier=batch
-                    var call = new AIRequestCall();
-                    var builder = AIBodyBuilder.FromImmutable(call.Body);
-                    builder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.Context,
-                        Content = "Say 'batch test' in two words."
-                    });
-                    call.Body = builder.Build();
-                    call.Parameters = new AIRequestParameters
-                    {
-                        Model = this._parent.GetModel(),
-                        Extras = new Dictionary<string, JToken> { { "service_tier", "batch" } },
-                    };
-
                     // Resolve provider and verify it supports batch
                     var provider = ProviderManager.Instance.GetProvider("OpenAI");
                     if (provider == null)
                     {
                         this._messages.Add(new GH_String("OpenAI provider not found"));
-                        this._callSuccess = new GH_Boolean(false);
+                        this._responsesSuccess = new GH_Boolean(false);
+                        this._chatCompSuccess = new GH_Boolean(false);
                         this._metricsValid = new GH_Boolean(false);
                         return;
                     }
@@ -121,79 +110,129 @@ namespace SmartHopper.Components.Test.Providers
                     if (provider is not IAIBatchProvider batchProvider)
                     {
                         this._messages.Add(new GH_String("OpenAI provider does not implement IAIBatchProvider"));
-                        this._callSuccess = new GH_Boolean(false);
+                        this._responsesSuccess = new GH_Boolean(false);
+                        this._chatCompSuccess = new GH_Boolean(false);
                         this._metricsValid = new GH_Boolean(false);
                         return;
                     }
 
-                    // Submit batch job via the true Batch API (/v1/batches)
-                    var customId = AIBatchSubmission.GenerateCustomId("test-batch", 0);
-                    var items = new List<(string CustomId, AIRequestCall Request)>
+                    // Build shared body
+                    var builder = AIBodyBuilder.Create();
+                    builder.Add(new AIInteractionText
                     {
-                        (customId, call),
-                    };
+                        Agent = AIAgent.Context,
+                        Content = "Say 'batch test' in two words."
+                    });
+                    var body = builder.Build();
 
-                    this._messages.Add(new GH_String("Submitting batch job..."));
-                    var submission = await batchProvider.SubmitBatchAsync(items, token).ConfigureAwait(false);
-                    this._messages.Add(new GH_String($"Batch submitted: {submission.BatchId}"));
+                    var model = this._parent.GetModel();
+                    var extras = new Dictionary<string, JToken> { { "service_tier", "batch" } };
 
-                    // Poll until completion (timeout: 5 minutes)
-                    AIBatchStatus status = null;
-                    var timeout = TimeSpan.FromMinutes(5);
-                    var start = DateTime.UtcNow;
-                    while (DateTime.UtcNow - start < timeout)
+                    // Batch Job 1: Responses API (default endpoint)
+                    try
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
-                        status = await batchProvider.GetBatchStatusAsync(submission, token).ConfigureAwait(false);
-                        this._messages.Add(new GH_String($"Poll: {status.State}"));
-
-                        if (status.State == AIBatchState.Completed)
+                        var responsesCall = new AIRequestCall
                         {
-                            break;
-                        }
+                            Body = body,
+                            Endpoint = "/responses",
+                            Parameters = new AIRequestParameters { Model = model, Extras = extras },
+                        };
 
-                        if (status.State == AIBatchState.Failed ||
-                            status.State == AIBatchState.Cancelled ||
-                            status.State == AIBatchState.Expired)
+                        var customId1 = AIBatchSubmission.GenerateCustomId("test-batch-responses", 0);
+                        var items1 = new List<(string CustomId, AIRequestCall Request)> { (customId1, responsesCall) };
+
+                        this._messages.Add(new GH_String("Submitting Responses batch job..."));
+                        var submission1 = await batchProvider.SubmitBatchAsync(items1, token).ConfigureAwait(false);
+                        this._messages.Add(new GH_String($"Responses batch submitted: {submission1.BatchId}"));
+
+                        var timeout1 = TimeSpan.FromSeconds(responsesCall.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds);
+                        var status1 = await PollBatchAsync(batchProvider, submission1, timeout1, token).ConfigureAwait(false);
+                        if (status1 != null && status1.State == AIBatchState.Completed)
                         {
-                            break;
-                        }
-                    }
-
-                    if (status == null || status.State != AIBatchState.Completed)
-                    {
-                        this._messages.Add(new GH_String($"Batch did not complete successfully: {status?.State.ToString() ?? "unknown"}"));
-                        this._callSuccess = new GH_Boolean(false);
-                        this._metricsValid = new GH_Boolean(false);
-                        return;
-                    }
-
-                    // Decode the batch result body
-                    if (status.Results != null && status.Results.TryGetValue(customId, out var resultBody))
-                    {
-                        var decoded = provider.Decode(resultBody);
-                        if (decoded != null && decoded.Count > 0)
-                        {
-                            callSuccess = true;
-                            var lastText = decoded.OfType<AIInteractionText>().LastOrDefault();
-                            var responseText = lastText?.Content ?? "No text response";
-                            this._messages.Add(new GH_String($"Batch result: {responseText}"));
-
-                            // Build an AIReturn from decoded interactions for metrics/output
-                            result = new AIReturn();
-                            result.SetBody(decoded);
+                            if (status1.Results != null && status1.Results.TryGetValue(customId1, out var resultBody1))
+                            {
+                                var decoded1 = provider.Decode(resultBody1);
+                                if (decoded1 != null && decoded1.Count > 0)
+                                {
+                                    responsesSuccess = true;
+                                    var lastText = decoded1.OfType<AIInteractionText>().LastOrDefault();
+                                    this._messages.Add(new GH_String($"Responses batch result: {lastText?.Content ?? "No text"}"));
+                                    result = new AIReturn();
+                                    result.SetBody(decoded1);
+                                }
+                                else
+                                {
+                                    this._messages.Add(new GH_String("Responses batch decoded to empty interactions"));
+                                }
+                            }
+                            else
+                            {
+                                this._messages.Add(new GH_String("Responses batch completed but custom_id not found"));
+                            }
                         }
                         else
                         {
-                            this._messages.Add(new GH_String("Batch result decoded to empty interactions"));
+                            this._messages.Add(new GH_String($"Responses batch did not complete: {status1?.State.ToString() ?? "unknown"}"));
                         }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        this._messages.Add(new GH_String("Batch completed but custom_id not found in results"));
+                        this._messages.Add(new GH_String($"Responses batch failed: {ex.Message}"));
                     }
 
-                    // Validate metrics
+                    // Batch Job 2: Chat Completions API (explicit endpoint override)
+                    try
+                    {
+                        var chatCompCall = new AIRequestCall
+                        {
+                            Body = body,
+                            Endpoint = "/chat/completions",
+                            Parameters = new AIRequestParameters { Model = model, Extras = extras },
+                        };
+
+                        var customId2 = AIBatchSubmission.GenerateCustomId("test-batch-chatcomp", 0);
+                        var items2 = new List<(string CustomId, AIRequestCall Request)> { (customId2, chatCompCall) };
+
+                        this._messages.Add(new GH_String("Submitting Chat Completions batch job..."));
+                        var submission2 = await batchProvider.SubmitBatchAsync(items2, token).ConfigureAwait(false);
+                        this._messages.Add(new GH_String($"Chat Completions batch submitted: {submission2.BatchId}"));
+
+                        var timeout2 = TimeSpan.FromSeconds(chatCompCall.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds);
+                        var status2 = await PollBatchAsync(batchProvider, submission2, timeout2, token).ConfigureAwait(false);
+                        if (status2 != null && status2.State == AIBatchState.Completed)
+                        {
+                            if (status2.Results != null && status2.Results.TryGetValue(customId2, out var resultBody2))
+                            {
+                                var decoded2 = provider.Decode(resultBody2);
+                                if (decoded2 != null && decoded2.Count > 0)
+                                {
+                                    chatCompSuccess = true;
+                                    var lastText = decoded2.OfType<AIInteractionText>().LastOrDefault();
+                                    this._messages.Add(new GH_String($"Chat Completions batch result: {lastText?.Content ?? "No text"}"));
+                                    result ??= new AIReturn();
+                                    result.SetBody(decoded2);
+                                }
+                                else
+                                {
+                                    this._messages.Add(new GH_String("Chat Completions batch decoded to empty interactions"));
+                                }
+                            }
+                            else
+                            {
+                                this._messages.Add(new GH_String("Chat Completions batch completed but custom_id not found"));
+                            }
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String($"Chat Completions batch did not complete: {status2?.State.ToString() ?? "unknown"}"));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        this._messages.Add(new GH_String($"Chat Completions batch failed: {ex.Message}"));
+                    }
+
+                    // Validate metrics from the last successful result
                     if (result?.Metrics != null)
                     {
                         metricsValid = true;
@@ -234,17 +273,41 @@ namespace SmartHopper.Components.Test.Providers
                     this._parent.SetAIReturnSnapshot(result);
                 }
 
-                this._callSuccess = new GH_Boolean(callSuccess);
+                this._responsesSuccess = new GH_Boolean(responsesSuccess);
+                this._chatCompSuccess = new GH_Boolean(chatCompSuccess);
                 this._metricsValid = new GH_Boolean(metricsValid);
+            }
+
+            private static async Task<AIBatchStatus> PollBatchAsync(IAIBatchProvider batchProvider, AIBatchSubmission submission, TimeSpan timeout, CancellationToken token)
+            {
+                var start = DateTime.UtcNow;
+                while (DateTime.UtcNow - start < timeout)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
+                    var status = await batchProvider.GetBatchStatusAsync(submission, token).ConfigureAwait(false);
+
+                    if (status.State == AIBatchState.Completed ||
+                        status.State == AIBatchState.Failed ||
+                        status.State == AIBatchState.Cancelled ||
+                        status.State == AIBatchState.Expired)
+                    {
+                        return status;
+                    }
+                }
+
+                return null;
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
+                this._parent.SetPersistentOutput("Responses Success", this._responsesSuccess, DA);
+                this._parent.SetPersistentOutput("ChatComp Success", this._chatCompSuccess, DA);
                 this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
                 this._parent.SetMetricsOutput(DA);
-                message = this._callSuccess.Value && this._metricsValid.Value ? "OpenAI batch call test passed" : "OpenAI batch call test failed";
+                message = this._responsesSuccess.Value && this._chatCompSuccess.Value && this._metricsValid.Value
+                    ? "OpenAI dual batch endpoint test passed"
+                    : "OpenAI dual batch endpoint test failed";
             }
         }
     }

@@ -163,11 +163,11 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    // Check for system_instruction field (System messages)
-                    if (json["system_instruction"] == null)
+                    // Check for system field (System messages in Anthropic Messages API)
+                    if (json["system"] == null)
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing system_instruction field (System message)"));
+                        this._messages.Add(new GH_String("Missing system field (System message)"));
                         await Task.Yield();
                         return;
                     }

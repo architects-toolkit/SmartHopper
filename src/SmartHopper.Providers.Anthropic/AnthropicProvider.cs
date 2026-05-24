@@ -787,12 +787,15 @@ namespace SmartHopper.Providers.Anthropic
                 // Anthropic message response has top-level 'content' array and 'role': 'assistant'
                 var content = response["content"] as JArray;
                 string contentText = string.Empty;
+                string reasoningText = string.Empty;
                 var toolCalls = new List<AIInteractionToolCall>();
                 var toolResults = new List<AIInteractionToolResult>();
 
                 if (content != null)
                 {
                     var textParts = new List<string>();
+                    var thinkingParts = new List<string>();
+
                     foreach (var block in content.OfType<JObject>())
                     {
                         var type = block["type"]?.ToString();
@@ -803,6 +806,18 @@ namespace SmartHopper.Providers.Anthropic
                             {
                                 textParts.Add(t);
                             }
+                        }
+                        else if (string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var t = block["thinking"]?.ToString();
+                            if (!string.IsNullOrEmpty(t))
+                            {
+                                thinkingParts.Add(t);
+                            }
+                        }
+                        else if (string.Equals(type, "redacted_thinking", StringComparison.OrdinalIgnoreCase))
+                        {
+                            thinkingParts.Add("[redacted thinking]");
                         }
                         else if (string.Equals(type, "tool_use", StringComparison.OrdinalIgnoreCase))
                         {
@@ -855,6 +870,7 @@ namespace SmartHopper.Providers.Anthropic
                     }
 
                     contentText = string.Join(string.Empty, textParts);
+                    reasoningText = thinkingParts.Count > 0 ? string.Join("\n\n", thinkingParts) : null;
                 }
 
                 // Unwrap schema if wrapped centrally
@@ -866,7 +882,7 @@ namespace SmartHopper.Providers.Anthropic
 
                 // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
                 var interaction = new AIInteractionText();
-                interaction.SetResult(agent: AIAgent.Assistant, content: contentText, reasoning: null);
+                interaction.SetResult(agent: AIAgent.Assistant, content: contentText, reasoning: reasoningText);
                 interaction.Metrics = this.DecodeMetrics(response);
 
                 Debug.WriteLine($"[Anthropic] Decode creating text interaction: content='{contentText.Substring(0, Math.Min(50, contentText.Length))}...', toolCalls={toolCalls.Count}, toolResults={toolResults.Count}");

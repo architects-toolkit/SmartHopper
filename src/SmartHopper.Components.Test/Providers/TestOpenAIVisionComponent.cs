@@ -28,6 +28,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Providers.OpenAI;
 
@@ -55,7 +56,8 @@ namespace SmartHopper.Components.Test.Providers
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBooleanParameter("Success", "S", "Test passed", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Responses Success", "RS", "Responses API vision encoding test passed", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Chat Completions Success", "CCS", "Chat Completions vision encoding test passed", GH_ParamAccess.item);
             pManager.AddTextParameter("Messages", "M", "Test messages", GH_ParamAccess.list);
         }
 
@@ -66,7 +68,8 @@ namespace SmartHopper.Components.Test.Providers
 
         private sealed class Worker : AsyncWorkerBase
         {
-            private GH_Boolean _success = new GH_Boolean(false);
+            private GH_Boolean _responsesSuccess = new GH_Boolean(false);
+            private GH_Boolean _chatCompletionsSuccess = new GH_Boolean(false);
             private List<GH_String> _messages = new List<GH_String>();
             private readonly TestOpenAIVisionComponent _parent;
 
@@ -92,78 +95,85 @@ namespace SmartHopper.Components.Test.Providers
                     const string base64Image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwAhgGAWjR9awAAAABJRU5ErkJggg==";
 
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
-                    builder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.Context,
-                        Content = "Analyze this image"
-                    });
-                    builder.Add(new AIInteractionImage
-                    {
-                        ImageData = base64Image
-                    });
+                    builder.Add(new AIInteractionText { Agent = AIAgent.User, Content = "Analyze this image" });
+                    builder.Add(new AIInteractionImage { Agent = AIAgent.User, ImageData = base64Image });
                     call.Body = builder.Build();
 
-                    // Encode using OpenAI provider
                     var provider = AIProvider<OpenAIProvider>.Instance;
-                    var encoded = provider.Encode(call);
 
-                    // Verify encoding
-                    if (string.IsNullOrEmpty(encoded))
+                    // ==========================================
+                    // TEST 1: Responses API Vision (Default) - TESTED FIRST
+                    // ==========================================
+                    this._messages.Add(new GH_String("=== Test 1: Responses API Vision ==="));
+                    var responsesCall = new AIRequestCall();
+                    responsesCall.Body = call.Body;
+                    responsesCall.Initialize("OpenAI", "gpt-5.4-mini", responsesCall.Body, "/responses", AICapability.Image2Text);
+                    responsesCall = provider.PreCall(responsesCall);
+
+                    var responsesEncoded = provider.Encode(responsesCall);
+                    if (string.IsNullOrEmpty(responsesEncoded))
                     {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Encoded message is empty"));
-                        await Task.Yield();
-                        return;
+                        this._messages.Add(new GH_String("✗ Responses API vision encoded message is empty"));
+                    }
+                    else
+                    {
+                        var json = JObject.Parse(responsesEncoded);
+                        var input = json["input"] as JArray; // Responses API uses "input"
+                        var contentBlocks = input?.SelectMany(m => m["content"] as JArray ?? new JArray()).ToList() ?? new List<JToken>();
+
+                        // Responses API uses "input_image" as the type and "image_url" is a string directly
+                        var imageBlock = contentBlocks.FirstOrDefault(c => c["type"]?.ToString() == "input_image");
+                        var imageUrl = imageBlock?["image_url"]?.ToString() ?? string.Empty;
+
+                        if (!string.IsNullOrEmpty(imageUrl) && imageUrl.StartsWith("data:image/png;base64,") && imageUrl.Contains("base64"))
+                        {
+                            this._responsesSuccess = new GH_Boolean(true);
+                            this._messages.Add(new GH_String("✓ Responses API vision encoding successful (uses 'input_image' and direct 'image_url' string)"));
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String($"✗ Responses API vision encoding invalid. ImageBlock found: {imageBlock != null}, ImageURL: {imageUrl}"));
+                        }
                     }
 
-                    // Check for image content in encoding by parsing JSON
-                    var json = JObject.Parse(encoded);
-                    var messages = json["messages"] as JArray;
-                    var contentBlocks = messages?.SelectMany(m => m["content"] as JArray ?? new JArray()).ToList() ?? new List<JToken>();
+                    // ==========================================
+                    // TEST 2: Chat Completions Vision (Legacy) - TESTED SECOND
+                    // ==========================================
+                    this._messages.Add(new GH_String("=== Test 2: Chat Completions Vision ==="));
+                    var ccCall = new AIRequestCall();
+                    ccCall.Body = call.Body;
+                    ccCall.Initialize("OpenAI", "gpt-5.4-mini", ccCall.Body, "/chat/completions", AICapability.Image2Text);
+                    ccCall = provider.PreCall(ccCall);
 
-                    var imageBlock = contentBlocks.FirstOrDefault(c => c["type"]?.ToString() == "image_url");
-                    if (imageBlock == null)
+                    var ccEncoded = provider.Encode(ccCall);
+                    if (string.IsNullOrEmpty(ccEncoded))
                     {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing image_url content block"));
-                        await Task.Yield();
-                        return;
+                        this._messages.Add(new GH_String("✗ Chat Completions vision encoded message is empty"));
                     }
-
-                    var imageUrl = imageBlock["image_url"]?["url"]?.ToString() ?? string.Empty;
-                    if (string.IsNullOrEmpty(imageUrl))
+                    else
                     {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing image URL in image_url block"));
-                        await Task.Yield();
-                        return;
-                    }
+                        var json = JObject.Parse(ccEncoded);
+                        var messages = json["messages"] as JArray; // Chat Completions uses "messages"
+                        var contentBlocks = messages?.SelectMany(m => m["content"] as JArray ?? new JArray()).ToList() ?? new List<JToken>();
 
-                    if (!imageUrl.StartsWith("data:image/png;base64,") && !imageUrl.StartsWith("data:image/jpeg;base64,"))
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Image URL is not a data URI with expected MIME type"));
-                        await Task.Yield();
-                        return;
-                    }
+                        var imageBlock = contentBlocks.FirstOrDefault(c => c["type"]?.ToString() == "image_url");
+                        var imageUrl = imageBlock?["image_url"]?["url"]?.ToString() ?? string.Empty;
 
-                    if (!imageUrl.Contains("base64"))
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing base64 encoding marker in image URL"));
-                        await Task.Yield();
-                        return;
+                        if (!string.IsNullOrEmpty(imageUrl) && imageUrl.StartsWith("data:image/png;base64,") && imageUrl.Contains("base64"))
+                        {
+                            this._chatCompletionsSuccess = new GH_Boolean(true);
+                            this._messages.Add(new GH_String("✓ Chat Completions vision encoding successful"));
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String($"✗ Chat Completions vision encoding invalid. ImageBlock found: {imageBlock != null}, ImageURL valid: {!string.IsNullOrEmpty(imageUrl)}"));
+                        }
                     }
-
-                    this._success = new GH_Boolean(true);
-                    this._messages.Add(new GH_String("OpenAI vision encoding successful"));
-                    this._messages.Add(new GH_String("- Image URL present"));
-                    this._messages.Add(new GH_String("- MIME type correctly set"));
-                    this._messages.Add(new GH_String("- Base64 encoding marker present"));
                 }
                 catch (Exception ex)
                 {
-                    this._success = new GH_Boolean(false);
+                    this._responsesSuccess = new GH_Boolean(false);
+                    this._chatCompletionsSuccess = new GH_Boolean(false);
                     this._messages.Add(new GH_String($"Error: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
@@ -173,9 +183,10 @@ namespace SmartHopper.Components.Test.Providers
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Responses Success", this._responsesSuccess, DA);
+                this._parent.SetPersistentOutput("Chat Completions Success", this._chatCompletionsSuccess, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
-                message = this._success.Value ? "OpenAI vision test passed" : "OpenAI vision test failed";
+                message = this._responsesSuccess.Value && this._chatCompletionsSuccess.Value ? "OpenAI vision tests passed" : "OpenAI vision tests failed";
             }
         }
     }
