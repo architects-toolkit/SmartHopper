@@ -9,9 +9,22 @@ $readmePath = Join-Path $repoRoot "README.md"
 $changelogPath = Join-Path $repoRoot "CHANGELOG.md"
 $expectedPlaceholder = "This value is automatically replaced by the build tooling before official builds."
 
+# Determine whether there are code changes in src/
+$stagedFiles = git diff --cached --name-only
+$hasSrcChanges = $false
+foreach ($file in $stagedFiles) {
+    if ($file.StartsWith("src/")) {
+        $hasSrcChanges = $true
+        break
+    }
+}
+
 # ===== Step 1: Update version date =====
 Write-Host "Step 1: Updating version date..." -ForegroundColor Cyan
-if (Test-Path $versionScript) {
+if (-not $hasSrcChanges) {
+    Write-Host "Skipping version update: no staged changes in src/." -ForegroundColor Yellow
+}
+elseif (Test-Path $versionScript) {
     # Capture pre-script state of all files that might be modified
     $solutionPropsBefore = if (Test-Path $solutionPropsPath) { Get-Content $solutionPropsPath -Raw -Encoding utf8 } else { $null }
     $readmeBefore = if (Test-Path $readmePath) { Get-Content $readmePath -Raw -Encoding utf8 } else { $null }
