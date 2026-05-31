@@ -59,12 +59,20 @@ jobs:
               return { name, color, description };
             });
 
-            // Get current repo labels
-            const { data: currentLabels } = await github.rest.issues.listLabelsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100
-            });
+            // Get all current repo labels (paginated)
+            let page = 1;
+            const currentLabels = [];
+            while (true) {
+              const { data: labelsPage } = await github.rest.issues.listLabelsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100,
+                page: page
+              });
+              if (labelsPage.length === 0) break;
+              currentLabels.push(...labelsPage);
+              page++;
+            }
 
             const currentNames = currentLabels.map(l => l.name);
             const desiredNames = desiredLabels.map(l => l.name);
@@ -74,23 +82,37 @@ jobs:
               'status: needs-attention': 'status: needs attention'
             };
 
+            // Track names we've already assigned during this run to avoid collisions
+            const claimedNames = new Set();
+
             // Labels to create
             for (const label of desiredLabels) {
-              if (!currentNames.includes(label.name)) {
-                // Check explicit rename map first
-                const explicitOld = Object.entries(renameMap).find(([oldName, newName]) => newName === label.name && currentNames.includes(oldName))?.[0];
+              if (currentNames.includes(label.name) || claimedNames.has(label.name)) {
+                // Update color/description if changed
+                const current = currentLabels.find(l => l.name === label.name);
+                if (current && (current.color !== label.color || current.description !== label.description)) {
+                  try {
+                    await github.rest.issues.updateLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      name: label.name,
+                      color: label.color,
+                      description: label.description
+                    });
+                    console.log(`Updated: ${label.name}`);
+                  } catch (e) {
+                    console.log(`Skipped update for ${label.name}: ${e.message}`);
+                  }
+                }
+                continue;
+              }
 
-                // Then fall back to heuristic detection
-                const possibleOld = explicitOld
-                  ? currentLabels.find(l => l.name === explicitOld)
-                  : currentLabels.find(l =>
-                      l.color === label.color &&
-                      !desiredNames.includes(l.name) &&
-                      (l.description.includes(label.description.split(' ')[0]) ||
-                       label.description.includes(l.description.split(' ')[0]))
-                    );
+              // Only use explicit rename map for known migrations
+              const explicitOld = Object.entries(renameMap).find(([oldName, newName]) => newName === label.name && currentNames.includes(oldName))?.[0];
+              const possibleOld = explicitOld ? currentLabels.find(l => l.name === explicitOld) : null;
 
-                if (possibleOld) {
+              if (possibleOld) {
+                try {
                   // Rename
                   await github.rest.issues.updateLabel({
                     owner: context.repo.owner,
@@ -101,6 +123,7 @@ jobs:
                     description: label.description
                   });
                   console.log(`Renamed: ${possibleOld.name} -> ${label.name}`);
+                  claimedNames.add(label.name);
 
                   // Migrate open issues/PRs
                   const { data: issues } = await github.rest.issues.listForRepo({
@@ -125,7 +148,15 @@ jobs:
                     });
                   }
                   console.log(`Migrated ${issues.length} issues from ${possibleOld.name}`);
-                } else {
+                } catch (e) {
+                  if (e.status === 422 && e.message?.includes('already_exists')) {
+                    console.log(`Skipped rename to ${label.name}: target already exists`);
+                  } else {
+                    console.log(`Error renaming to ${label.name}: ${e.message}`);
+                  }
+                }
+              } else {
+                try {
                   // Create new label
                   await github.rest.issues.createLabel({
                     owner: context.repo.owner,
@@ -135,19 +166,13 @@ jobs:
                     description: label.description
                   });
                   console.log(`Created: ${label.name}`);
-                }
-              } else {
-                // Update color/description if changed
-                const current = currentLabels.find(l => l.name === label.name);
-                if (current.color !== label.color || current.description !== label.description) {
-                  await github.rest.issues.updateLabel({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    name: label.name,
-                    color: label.color,
-                    description: label.description
-                  });
-                  console.log(`Updated: ${label.name}`);
+                  claimedNames.add(label.name);
+                } catch (e) {
+                  if (e.status === 422 && e.message?.includes('already_exists')) {
+                    console.log(`Skipped create for ${label.name}: already exists`);
+                  } else {
+                    console.log(`Error creating ${label.name}: ${e.message}`);
+                  }
                 }
               }
             }
