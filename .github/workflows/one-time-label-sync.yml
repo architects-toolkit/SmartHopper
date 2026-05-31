@@ -46,7 +46,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const yaml = require('js-yaml');
 
             // Read current labels.yml
             const labelsPath = '.github/labels.yml';
