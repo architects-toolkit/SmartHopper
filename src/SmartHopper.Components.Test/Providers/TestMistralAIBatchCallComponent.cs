@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
         public override Guid ComponentGuid => new Guid("37AF00FA-75EA-4512-A2BA-95EF1E0D2764");
 
         public TestMistralAIBatchCallComponent()
-            : base("Test MistralAI Batch Call", "TEST-MISTRAL-BATCH", "Tests MistralAI batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
+            : base("Test MistralAI Batch Call", "TEST-MISTRAL-BATCH", "Tests MistralAI batch API call with service_tier=batch and metrics validation", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("MistralAI");

@@ -85,7 +85,7 @@ namespace SmartHopper.Components.Test.Misc
                   "TEST-DEBOUNCE",
                   "Test component for validating ComponentStateManager debounce behavior. " +
                   "Rapidly change inputs to test debounce cancellation and generation tracking.",
-                  "SmartHopper",
+                  "SmartHopper Tests",
                   "Testing Base")
         {
             this.stateManager = this.StateManager;

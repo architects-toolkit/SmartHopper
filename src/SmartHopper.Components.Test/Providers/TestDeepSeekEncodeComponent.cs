@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public TestDeepSeekEncodeComponent()
-            : base("Test DeepSeek Encode", "TEST-DEEPSEEK-ENC", "Tests DeepSeek message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
+            : base("Test DeepSeek Encode", "TEST-DEEPSEEK-ENC", "Tests DeepSeek message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("DeepSeek");

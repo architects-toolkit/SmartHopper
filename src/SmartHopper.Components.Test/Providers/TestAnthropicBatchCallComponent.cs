@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public TestAnthropicBatchCallComponent()
-            : base("Test Anthropic Batch Call", "TEST-ANTHROPIC-BATCH", "Tests Anthropic batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
+            : base("Test Anthropic Batch Call", "TEST-ANTHROPIC-BATCH", "Tests Anthropic batch API call with service_tier=batch and metrics validation", "SmartHopper Tests", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Anthropic");

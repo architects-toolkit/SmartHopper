@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test GH_Structure WithStrings",
                 "TEST-GH-STRUCT-STR",
                 "Tests that GH_Structure can be created with strings.",
-                "SmartHopper",
+                "SmartHopper Tests",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         public TestDeepSeekCancellationComponent()
-            : base("Test DeepSeek Cancellation", "TEST-DEEPSEEK-CANCEL", "Tests DeepSeek cancellation across all async operations", "SmartHopper", "Test/Providers")
+            : base("Test DeepSeek Cancellation", "TEST-DEEPSEEK-CANCEL", "Tests DeepSeek cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("DeepSeek");

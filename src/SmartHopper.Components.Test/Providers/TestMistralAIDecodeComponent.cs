@@ -39,7 +39,7 @@ namespace SmartHopper.Components.Test.Providers
         public override Guid ComponentGuid => new Guid("8D2545BA-C1BC-45DD-B94B-A07838C00B15");
 
         public TestMistralAIDecodeComponent()
-            : base("Test MistralAI Decode", "TEST-MISTRAL-DEC", "Tests MistralAI comprehensive response decoding", "SmartHopper", "Test/Providers")
+            : base("Test MistralAI Decode", "TEST-MISTRAL-DEC", "Tests MistralAI comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("MistralAI");

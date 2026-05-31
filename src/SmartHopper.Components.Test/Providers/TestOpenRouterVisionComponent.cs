@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public TestOpenRouterVisionComponent()
-            : base("Test OpenRouter Vision", "TEST-OPENROUTER-VISION", "Tests OpenRouter vision API call with image input", "SmartHopper", "Test/Providers")
+            : base("Test OpenRouter Vision", "TEST-OPENROUTER-VISION", "Tests OpenRouter vision API call with image input", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenRouter");

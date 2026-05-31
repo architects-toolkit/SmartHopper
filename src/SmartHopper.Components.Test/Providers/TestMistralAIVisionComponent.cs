@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
         public override Guid ComponentGuid => new Guid("B2C7D4E8-1234-4ABC-9DEF-123456789ABC");
 
         public TestMistralAIVisionComponent()
-            : base("Test MistralAI Vision", "TEST-MISTRAL-VISION", "Tests MistralAI vision API call with image input", "SmartHopper", "Test/Providers")
+            : base("Test MistralAI Vision", "TEST-MISTRAL-VISION", "Tests MistralAI vision API call with image input", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("MistralAI");

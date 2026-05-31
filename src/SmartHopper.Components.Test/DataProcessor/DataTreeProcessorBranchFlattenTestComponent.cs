@@ -48,7 +48,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test DataTreeProcessor (BranchFlatten)",
                 "TEST-DTP-FLATTEN",
                 "Tests DataTreeProcessor with BranchFlatten topology where all branches are flattened and processed together.",
-                "SmartHopper",
+                "SmartHopper Tests",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

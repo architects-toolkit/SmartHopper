@@ -40,7 +40,7 @@ namespace SmartHopper.Components.Test.Providers
         public override Guid ComponentGuid => new Guid("DC5C78E6-CE9A-4171-BA76-772BA553AFAE");
 
         public TestMistralAICancellationComponent()
-            : base("Test MistralAI Cancellation", "TEST-MISTRAL-CANCEL", "Tests MistralAI cancellation across all async operations", "SmartHopper", "Test/Providers")
+            : base("Test MistralAI Cancellation", "TEST-MISTRAL-CANCEL", "Tests MistralAI cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("MistralAI");

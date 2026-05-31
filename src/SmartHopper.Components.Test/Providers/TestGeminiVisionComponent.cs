@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestGeminiVisionComponent()
-            : base("Test Gemini Vision", "TEST-GEMINI-VISION", "Tests Gemini vision API call with image input", "SmartHopper", "Test/Providers")
+            : base("Test Gemini Vision", "TEST-GEMINI-VISION", "Tests Gemini vision API call with image input", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Gemini");

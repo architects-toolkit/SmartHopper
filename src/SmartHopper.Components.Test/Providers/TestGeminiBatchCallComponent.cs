@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestGeminiBatchCallComponent()
-            : base("Test Gemini Batch Call", "TEST-GEMINI-BATCH", "Tests Gemini batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
+            : base("Test Gemini Batch Call", "TEST-GEMINI-BATCH", "Tests Gemini batch API call with service_tier=batch and metrics validation", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Gemini");

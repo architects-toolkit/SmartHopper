@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public TestAnthropicCancellationComponent()
-            : base("Test Anthropic Cancellation", "TEST-ANTHROPIC-CANCEL", "Tests Anthropic cancellation across all async operations", "SmartHopper", "Test/Providers")
+            : base("Test Anthropic Cancellation", "TEST-ANTHROPIC-CANCEL", "Tests Anthropic cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Anthropic");

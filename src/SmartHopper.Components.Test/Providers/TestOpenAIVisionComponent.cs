@@ -44,7 +44,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         public TestOpenAIVisionComponent()
-            : base("Test OpenAI Vision", "TEST-OPENAI-VISION", "Tests OpenAI vision API call with image input", "SmartHopper", "Test/Providers")
+            : base("Test OpenAI Vision", "TEST-OPENAI-VISION", "Tests OpenAI vision API call with image input", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenAI");

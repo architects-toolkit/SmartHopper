@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public TestAnthropicDecodeComponent()
-            : base("Test Anthropic Decode", "TEST-ANTHROPIC-DEC", "Tests Anthropic comprehensive response decoding", "SmartHopper", "Test/Providers")
+            : base("Test Anthropic Decode", "TEST-ANTHROPIC-DEC", "Tests Anthropic comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Anthropic");

@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public TestOpenRouterDecodeComponent()
-            : base("Test OpenRouter Decode", "TEST-OPENROUTER-DEC", "Tests OpenRouter comprehensive response decoding", "SmartHopper", "Test/Providers")
+            : base("Test OpenRouter Decode", "TEST-OPENROUTER-DEC", "Tests OpenRouter comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenRouter");

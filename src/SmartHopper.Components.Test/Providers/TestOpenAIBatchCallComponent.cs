@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         public TestOpenAIBatchCallComponent()
-            : base("Test OpenAI Batch Call", "TEST-OPENAI-BATCH", "Tests OpenAI batch API call with service_tier=batch and metrics validation", "SmartHopper", "Test/Providers")
+            : base("Test OpenAI Batch Call", "TEST-OPENAI-BATCH", "Tests OpenAI batch API call with service_tier=batch and metrics validation", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenAI");

@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public TestGeminiCancellationComponent()
-            : base("Test Gemini Cancellation", "TEST-GEMINI-CANCEL", "Tests Gemini cancellation across all async operations", "SmartHopper", "Test/Providers")
+            : base("Test Gemini Cancellation", "TEST-GEMINI-CANCEL", "Tests Gemini cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Gemini");

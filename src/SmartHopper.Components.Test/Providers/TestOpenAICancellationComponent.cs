@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         public TestOpenAICancellationComponent()
-            : base("Test OpenAI Cancellation", "TEST-OPENAI-CANCEL", "Tests OpenAI cancellation across all async operations", "SmartHopper", "Test/Providers")
+            : base("Test OpenAI Cancellation", "TEST-OPENAI-CANCEL", "Tests OpenAI cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenAI");

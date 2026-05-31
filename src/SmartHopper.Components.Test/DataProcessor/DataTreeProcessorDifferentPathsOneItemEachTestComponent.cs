@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test DataTreeProcessor (Different Paths, 1 item each)",
                 "TEST-DTP-DIFF-1",
                 "Tests DataTreeProcessor with two input trees with different paths (one item each).",
-                "SmartHopper",
+                "SmartHopper Tests",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

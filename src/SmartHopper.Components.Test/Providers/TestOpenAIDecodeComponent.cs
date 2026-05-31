@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         public TestOpenAIDecodeComponent()
-            : base("Test OpenAI Decode", "TEST-OPENAI-DEC", "Tests OpenAI comprehensive response decoding", "SmartHopper", "Test/Providers")
+            : base("Test OpenAI Decode", "TEST-OPENAI-DEC", "Tests OpenAI comprehensive response decoding", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenAI");

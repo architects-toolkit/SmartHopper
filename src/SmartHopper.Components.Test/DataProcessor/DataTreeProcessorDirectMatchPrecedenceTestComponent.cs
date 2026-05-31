@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test Direct Match Precedence",
                 "TEST-BC-DIRECT",
                 "Tests direct {0} match taking precedence over deeper paths",
-                "SmartHopper",
+                "SmartHopper Tests",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

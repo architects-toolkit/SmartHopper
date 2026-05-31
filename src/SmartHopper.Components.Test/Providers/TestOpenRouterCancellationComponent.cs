@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public TestOpenRouterCancellationComponent()
-            : base("Test OpenRouter Cancellation", "TEST-OPENROUTER-CANCEL", "Tests OpenRouter cancellation across all async operations", "SmartHopper", "Test/Providers")
+            : base("Test OpenRouter Cancellation", "TEST-OPENROUTER-CANCEL", "Tests OpenRouter cancellation across all async operations", "SmartHopper Tests", "Testing Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenRouter");

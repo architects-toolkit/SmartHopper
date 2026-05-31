@@ -82,7 +82,7 @@ namespace SmartHopper.Components.Test.Misc
                   "TEST-RESTORE",
                   "Test component for validating ComponentStateManager file restoration. " +
                   "Run with a number, save the file, close, reopen - outputs should be preserved.",
-                  "SmartHopper",
+                  "SmartHopper Tests",
                   "Testing Base")
         {
             this.stateManager = new ComponentStateManager(this.GetType().Name);
