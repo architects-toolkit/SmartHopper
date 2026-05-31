@@ -26,8 +26,8 @@ using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.Serialization;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
+using SmartHopper.Core.Grasshopper.Utils.Components;
 using SmartHopper.Core.Grasshopper.Utils.Constants;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -168,8 +168,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Retrieve the script component from the current canvas
                 var objects = CanvasAccess.GetCurrentObjects();
-                var target = objects.FirstOrDefault(o => o.InstanceGuid == scriptGuid) as IScriptComponent;
-                if (target == null)
+                var target = objects.FirstOrDefault(o => o.InstanceGuid == scriptGuid);
+                if (target == null || !ScriptComponentReflection.IsScriptComponent(target))
                 {
                     output.CreateError($"Script component with GUID {scriptGuid} not found.");
                     return output;
@@ -210,7 +210,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     else
                     {
                         // Fallback to direct access
-                        scriptCode = target.Text ?? string.Empty;
+                        scriptCode = ScriptComponentReflection.GetScriptText(target);
                         language = DetectLanguageFromComponentGuid((activeTarget as IGH_Component)?.ComponentGuid);
                         Debug.WriteLine($"[script_review] Using fallback extraction");
                     }
@@ -218,7 +218,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 catch (Exception ex)
                 {
                     // Fallback if serialization fails
-                    scriptCode = target.Text ?? string.Empty;
+                    scriptCode = ScriptComponentReflection.GetScriptText(target);
                     language = target is IGH_ActiveObject ao ? DetectLanguageFromComponentGuid((ao as IGH_Component)?.ComponentGuid) : "unknown";
                     Debug.WriteLine($"[script_review] Serialization failed, using fallback: {ex.Message}");
                 }

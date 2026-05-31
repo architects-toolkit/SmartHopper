@@ -24,7 +24,6 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using Rhino;
-using RhinoCodePlatform.GH;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Components;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -309,12 +308,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return $"Set input '{paramName}' to {(optional ? "optional" : "required")}";
         }));
 
-        private string ExecuteScriptOp(JObject args, Func<IScriptComponent, IGH_Component, string> operation)
+        private string ExecuteScriptOp(JObject args, Func<object, IGH_Component, string> operation)
         {
             var scriptGuid = Guid.Parse(args["scriptGuid"]?.ToString() ?? throw new ArgumentException("Missing scriptGuid"));
             var obj = CanvasAccess.FindInstance(scriptGuid);
             if (obj == null) throw new ArgumentException("Script component not found");
-            if (!(obj is IScriptComponent scriptComp)) throw new ArgumentException("Object is not a script component");
+            if (!ScriptComponentReflection.IsScriptComponent(obj)) throw new ArgumentException("Object is not a script component");
+            var scriptComp = obj;
             var comp = scriptComp as IGH_Component;
             comp?.RecordUndoEvent("[SH] Modify Script Parameter");
             var result = operation(scriptComp, comp);
