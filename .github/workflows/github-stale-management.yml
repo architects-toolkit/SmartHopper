@@ -67,7 +67,7 @@ jobs:
             automated,model-verification
           exempt-pr-labels: >
             priority: critical,priority: high,
-            automated,status: needs-attention
+            automated,status: needs attention
           exempt-all-milestones: true
 
           # Processing limits
