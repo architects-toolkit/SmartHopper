@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: stabilization-init-${{ github.event.milestone.number }}
@@ -200,6 +201,13 @@ jobs:
                 throw error;
               }
             }
+
+      - name: Create version label
+        if: steps.validate.outputs.is-stabilization == 'true'
+        uses: ./.github/actions/versioning/create-version-label
+        with:
+          version: ${{ github.event.milestone.title }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Summary
         if: steps.validate.outputs.is-stabilization == 'true'
