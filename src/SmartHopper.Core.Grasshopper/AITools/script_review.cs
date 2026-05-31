@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using GhJSON.Core.NameResolution;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.Serialization;
 using Grasshopper.Kernel;
@@ -197,7 +198,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     if (props != null)
                     {
                         scriptCode = ExtractScriptCode(props) ?? string.Empty;
-                        language = DetectLanguageFromComponentGuid(props.ComponentGuid);
+                        language = ScriptComponentRegistry.GetLanguageKey(props.ComponentGuid);
 
                         // Build component context for AI (optional rich context)
                         componentData["language"] = language;
@@ -211,7 +212,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         // Fallback to direct access
                         scriptCode = ScriptComponentReflection.GetScriptText(target);
-                        language = DetectLanguageFromComponentGuid((activeTarget as IGH_Component)?.ComponentGuid);
+                        language = ScriptComponentRegistry.GetLanguageKey((activeTarget as IGH_Component)?.ComponentGuid);
                         Debug.WriteLine($"[script_review] Using fallback extraction");
                     }
                 }
@@ -219,8 +220,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     // Fallback if serialization fails
                     scriptCode = ScriptComponentReflection.GetScriptText(target);
-                    language = target is IGH_ActiveObject ao ? DetectLanguageFromComponentGuid((ao as IGH_Component)?.ComponentGuid) : "unknown";
+                    language = target is IGH_ActiveObject ao ? ScriptComponentRegistry.GetLanguageKey((ao as IGH_Component)?.ComponentGuid) : "unknown";
                     Debug.WriteLine($"[script_review] Serialization failed, using fallback: {ex.Message}");
+                }
+
+                // Validate we actually got script code
+                if (string.IsNullOrWhiteSpace(scriptCode))
+                {
+                    output.CreateError($"Could not extract script code from component {scriptGuid}. The component may not be a supported script type (Python, C#, IronPython, VB).");
+                    return output;
                 }
 
                 // Coded static checks by language
@@ -329,36 +337,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        private static string DetectLanguageFromComponentGuid(Guid? componentGuid)
-        {
-            if (componentGuid == null)
-            {
-                return "unknown";
-            }
-
-            var guid = componentGuid.Value;
-            if (guid == new Guid("719467e6-7cf5-4848-99b0-c5dd57e5442c"))
-            {
-                return "python";
-            }
-
-            if (guid == new Guid("97aa26ef-88ae-4ba6-98a6-ed6ddeca11d1"))
-            {
-                return "ironpython";
-            }
-
-            if (guid == new Guid("b6ba1144-02d6-4a2d-b53c-ec62e290eeb7"))
-            {
-                return "c#";
-            }
-
-            if (guid == new Guid("079bd9bd-54a0-41d4-98af-db999015f63d"))
-            {
-                return "vb";
-            }
-
-            return "unknown";
-        }
 
         private static string? ExtractScriptCode(GhJSON.Core.SchemaModels.GhJsonComponent component)
         {

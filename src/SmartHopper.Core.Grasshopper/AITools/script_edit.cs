@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core;
+using GhJSON.Core.NameResolution;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
 using Newtonsoft.Json;
@@ -204,7 +205,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var existingComp = inputDoc.Components[0];
-                var existingLanguage = DetectLanguageFromComponentGuid(existingComp.ComponentGuid);
+                var existingLanguage = ScriptComponentRegistry.GetLanguageKey(existingComp.ComponentGuid);
                 var existingInstanceGuid = existingComp.InstanceGuid;
 
                 Debug.WriteLine($"[script_edit] Existing language: {existingLanguage}, InstanceGuid: {existingInstanceGuid}");
@@ -354,48 +355,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
         }
 
-        private static string DetectLanguageFromComponentGuid(Guid? componentGuid)
+        private static string? NormalizeDataMapping(string? value)
         {
-            if (componentGuid == null)
+            if (string.IsNullOrWhiteSpace(value))
             {
-                return "python";
+                return null;
             }
 
-            var guid = componentGuid.Value;
-            if (guid == new Guid("719467e6-7cf5-4848-99b0-c5dd57e5442c"))
+            return value.Trim().ToLowerInvariant() switch
             {
-                return "python";
-            }
-
-            if (guid == new Guid("97aa26ef-88ae-4ba6-98a6-ed6ddeca11d1"))
-            {
-                return "ironpython";
-            }
-
-            if (guid == new Guid("b6ba1144-02d6-4a2d-b53c-ec62e290eeb7"))
-            {
-                return "c#";
-            }
-
-            if (guid == new Guid("079bd9bd-54a0-41d4-98af-db999015f63d"))
-            {
-                return "vb";
-            }
-
-            return "python";
-        }
-
-        private static string GetExtensionKey(string languageKey)
-        {
-            return languageKey?.Trim().ToLowerInvariant() switch
-            {
-                "python" => GhJsonExtensionKeys.Python,
-                "ironpython" => GhJsonExtensionKeys.IronPython,
-                "c#" => GhJsonExtensionKeys.CSharp,
-                "csharp" => GhJsonExtensionKeys.CSharp,
-                "vb" => GhJsonExtensionKeys.VBScript,
-                "vbscript" => GhJsonExtensionKeys.VBScript,
-                _ => GhJsonExtensionKeys.Python,
+                "none" => "none",
+                "flatten" => "flatten",
+                "graft" => "graft",
+                _ => value.Trim().ToLowerInvariant(),
             };
         }
 
@@ -411,21 +383,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             var component = new GhJsonComponent
             {
-                Name = languageKey?.Trim().ToLowerInvariant() switch
-                {
-                    "python" => "Python",
-                    "ironpython" => "IronPython",
-                    "c#" => "C#",
-                    "csharp" => "C#",
-                    "vb" => "VB Script",
-                    "vbscript" => "VB Script",
-                    _ => "Python",
-                },
+                Name = ScriptComponentRegistry.GetComponentName(languageKey),
                 NickName = nickname,
                 InstanceGuid = instanceGuid,
-                Id = instanceGuid.HasValue ? null : 1,
-                Pivot = pivot,
+                ComponentGuid = ScriptComponentRegistry.GetGuid(languageKey),
+                Id = 1,
             };
+
+            if (pivot != null)
+            {
+                component.Pivot = pivot;
+            }
 
             component.InputSettings = ParseParameters(inputs);
             component.OutputSettings = ParseParameters(outputs);
@@ -434,7 +402,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Extensions = new Dictionary<string, object>
                 {
-                    [GetExtensionKey(languageKey)] = new Dictionary<string, object>
+                    [ScriptComponentRegistry.GetExtensionKey(languageKey)] = new Dictionary<string, object>
                     {
                         [GhJsonExtensionKeys.CodeProperty] = scriptCode ?? string.Empty,
                     },
@@ -476,7 +444,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     VariableName = o["variableName"]?.ToString(),
                     Description = o["description"]?.ToString(),
                     Access = o["access"]?.ToString(),
-                    DataMapping = o["dataMapping"]?.ToString(),
+                    DataMapping = NormalizeDataMapping(o["dataMapping"]?.ToString()),
                     TypeHint = o["type"]?.ToString(),
                     Expression = o["expression"]?.ToString(),
                     IsReversed = o["reverse"]?.ToObject<bool?>(),
@@ -734,7 +702,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ""type"": { ""type"": ""string"", ""description"": ""Type hint (e.g., int, double, string, Point3d, Curve, etc.). Use 'object' when unsure."" },
                                 ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
                                 ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""], ""description"": ""Data access mode. Use 'item' when unsure."" },
-                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation. Use 'None' when no mapping is needed."" },
+                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""none"", ""flatten"", ""graft""], ""description"": ""Data tree manipulation. Use 'none' when no mapping is needed."" },
                                 ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse list order. Use false when not needed."" },
                                 ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify data tree paths. Use false when not needed."" },
                                 ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type). Use false when not needed."" },
@@ -754,7 +722,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ""variableName"": { ""type"": ""string"", ""description"": ""Optional script variable name (identifier). If omitted, defaults to 'name'."" },
                                 ""type"": { ""type"": ""string"", ""description"": ""Expected output type hint. Use 'object' when unsure."" },
                                 ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
-                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation. Use 'None' when no mapping is needed."" },
+                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""none"", ""flatten"", ""graft""], ""description"": ""Data tree manipulation. Use 'none' when no mapping is needed."" },
                                 ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse output list order. Use false when not needed."" },
                                 ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify output data tree paths. Use false when not needed."" },
                                 ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type). Use false when not needed."" }

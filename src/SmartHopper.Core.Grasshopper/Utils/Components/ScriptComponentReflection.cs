@@ -19,6 +19,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using GhJSON.Core.NameResolution;
 using Grasshopper.Kernel;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Components
@@ -29,17 +31,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
     /// </summary>
     public static class ScriptComponentReflection
     {
-        /// <summary>
-        /// Known component GUIDs for Rhino 8 script components.
-        /// </summary>
-        private static readonly HashSet<Guid> ScriptComponentGuids = new HashSet<Guid>
-        {
-            new Guid("719467e6-7cf5-4848-99b0-c5dd57e5442c"), // Python
-            new Guid("97aa26ef-88ae-4ba6-98a6-ed6ddeca11d1"), // IronPython
-            new Guid("b6ba1144-02d6-4a2d-b53c-ec62e290eeb7"), // C#
-            new Guid("079bd9bd-54a0-41d4-98af-db999015f63d"), // VB
-        };
-
         /// <summary>
         /// Determines whether the specified document object is a script component.
         /// Checks known GUIDs first, then falls back to detecting a <c>Text</c> property.
@@ -52,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
             }
 
             // Fast path: known script component GUIDs
-            if (obj is IGH_Component comp && ScriptComponentGuids.Contains(comp.ComponentGuid))
+            if (obj is IGH_Component comp && ScriptComponentRegistry.IsScriptComponent(comp.ComponentGuid))
             {
                 return true;
             }
@@ -64,6 +55,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
         /// <summary>
         /// Gets the script code text from a script component via reflection.
+        /// Tries IScriptComponent interface first, then common property names,
+        /// then nested ScriptSource objects.
         /// </summary>
         public static string GetScriptText(object scriptComp)
         {
@@ -74,10 +67,60 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             try
             {
-                var textProp = scriptComp.GetType().GetProperty("Text");
-                if (textProp != null)
+                var type = scriptComp.GetType();
+
+                // Strategy 1: IScriptComponent interface (Rhino 8 Python 3, C#, IronPython)
+                var scriptInterface = type.GetInterfaces().FirstOrDefault(i => i.Name == "IScriptComponent");
+                if (scriptInterface != null)
                 {
-                    return textProp.GetValue(scriptComp)?.ToString() ?? string.Empty;
+                    var textProp = scriptInterface.GetProperty("Text");
+                    if (textProp != null && textProp.CanRead)
+                    {
+                        var value = textProp.GetValue(scriptComp)?.ToString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            return value;
+                        }
+                    }
+                }
+
+                // Strategy 2: Common property names on concrete type
+                string[] candidates = { "Text", "Script", "Code", "ScriptCode", "Source", "SourceCode" };
+                foreach (var name in candidates)
+                {
+                    var prop = type.GetProperty(name);
+                    if (prop != null && prop.CanRead)
+                    {
+                        var value = prop.GetValue(scriptComp)?.ToString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            return value;
+                        }
+                    }
+                }
+
+                // Strategy 3: Nested ScriptSource object
+                var scriptSourceProp = type.GetProperty("ScriptSource");
+                if (scriptSourceProp != null && scriptSourceProp.CanRead)
+                {
+                    var scriptSourceObj = scriptSourceProp.GetValue(scriptComp);
+                    if (scriptSourceObj != null)
+                    {
+                        var scriptSourceType = scriptSourceObj.GetType();
+                        string[] sourceCandidates = { "ScriptCode", "Code", "Text", "Source", "SourceCode" };
+                        foreach (var name in sourceCandidates)
+                        {
+                            var prop = scriptSourceType.GetProperty(name);
+                            if (prop != null && prop.CanRead)
+                            {
+                                var value = prop.GetValue(scriptSourceObj)?.ToString();
+                                if (!string.IsNullOrWhiteSpace(value))
+                                {
+                                    return value;
+                                }
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -90,6 +133,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
         /// <summary>
         /// Sets the script code text on a script component via reflection.
+        /// Tries IScriptComponent interface first, then common property names,
+        /// then nested ScriptSource objects.
         /// </summary>
         public static void SetScriptText(object scriptComp, string code)
         {
@@ -100,10 +145,51 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
 
             try
             {
-                var textProp = scriptComp.GetType().GetProperty("Text");
-                if (textProp != null && textProp.CanWrite)
+                var type = scriptComp.GetType();
+
+                // Strategy 1: IScriptComponent interface
+                var scriptInterface = type.GetInterfaces().FirstOrDefault(i => i.Name == "IScriptComponent");
+                if (scriptInterface != null)
                 {
-                    textProp.SetValue(scriptComp, code);
+                    var textProp = scriptInterface.GetProperty("Text");
+                    if (textProp != null && textProp.CanWrite)
+                    {
+                        textProp.SetValue(scriptComp, code);
+                        return;
+                    }
+                }
+
+                // Strategy 2: Common property names
+                string[] candidates = { "Text", "Script", "Code", "ScriptCode", "Source", "SourceCode" };
+                foreach (var name in candidates)
+                {
+                    var prop = type.GetProperty(name);
+                    if (prop != null && prop.CanWrite)
+                    {
+                        prop.SetValue(scriptComp, code);
+                        return;
+                    }
+                }
+
+                // Strategy 3: Nested ScriptSource object
+                var scriptSourceProp = type.GetProperty("ScriptSource");
+                if (scriptSourceProp != null && scriptSourceProp.CanRead)
+                {
+                    var scriptSourceObj = scriptSourceProp.GetValue(scriptComp);
+                    if (scriptSourceObj != null)
+                    {
+                        var scriptSourceType = scriptSourceObj.GetType();
+                        string[] sourceCandidates = { "ScriptCode", "Code", "Text", "Source", "SourceCode" };
+                        foreach (var name in sourceCandidates)
+                        {
+                            var prop = scriptSourceType.GetProperty(name);
+                            if (prop != null && prop.CanWrite)
+                            {
+                                prop.SetValue(scriptSourceObj, code);
+                                return;
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception ex)
