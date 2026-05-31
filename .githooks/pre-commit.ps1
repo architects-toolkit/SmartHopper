@@ -43,8 +43,34 @@ else {
     Write-Warning "Label script not found at $labelScript, skipping label regeneration."
 }
 
-# ===== Step 2: Update version date =====
-Write-Host "`nStep 2: Updating version date..." -ForegroundColor Cyan
+# ===== Step 2: Update license headers =====
+Write-Host "`nStep 2: Updating license headers..." -ForegroundColor Cyan
+$licenseScript = Join-Path $repoRoot "tools\Update-LicenseHeaders.ps1"
+if (Test-Path $licenseScript) {
+    & $licenseScript
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "License header update script failed (exit $LASTEXITCODE)."
+        exit $LASTEXITCODE
+    }
+
+    # Stage any modified .cs or .csproj files under src/ that were already staged
+    $modifiedSrcFiles = git diff --cached --name-only | Where-Object { $_ -match '^src\/.*\.(cs|csproj)$' }
+    if ($modifiedSrcFiles) {
+        foreach ($file in $modifiedSrcFiles) {
+            git add $file 2>$null
+            Write-Host "Staged updated license header: $file" -ForegroundColor Green
+        }
+    }
+    else {
+        Write-Host "No license header changes to stage." -ForegroundColor Yellow
+    }
+}
+else {
+    Write-Warning "License header script not found at $licenseScript, skipping license header update."
+}
+
+# ===== Step 3: Update version date =====
+Write-Host "`nStep 3: Updating version date..." -ForegroundColor Cyan
 
 # Determine whether to skip version update based on staged files
 $stagedFiles = git diff --cached --name-only
@@ -121,8 +147,8 @@ else {
     Write-Warning "Version script not found at $versionScript, skipping version update."
 }
 
-# ===== Step 3: Anonymize SmartHopperPublicKey =====
-Write-Host "`nStep 3: Anonymizing SmartHopperPublicKey..." -ForegroundColor Cyan
+# ===== Step 4: Anonymize SmartHopperPublicKey =====
+Write-Host "`nStep 4: Anonymizing SmartHopperPublicKey..." -ForegroundColor Cyan
 
 # Check if SmartHopper.Infrastructure.csproj is staged for commit
 $stagedFiles = git diff --cached --name-only
