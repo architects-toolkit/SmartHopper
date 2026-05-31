@@ -208,5 +208,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ steps.create-pr.outputs.pr_number }},
-              labels: ['needs-attention']
+              labels: ['status: needs-attention']
             });
