@@ -1,0 +1,201 @@
+name: 🏷️ One-Time Label Sync
+
+# Description: One-time manual workflow to synchronize the live GitHub repository
+# labels with the current project structure. Renames, creates, and deletes labels
+# via the GitHub API, and migrates existing issues/PRs to renamed labels.
+#
+# Related workflows:
+#   - github-labels-sync.yml (keeps labels in sync after this one-time run)
+#   - github-labels-auto-create.yml (handles future new folders automatically)
+#
+# Trigger: workflow_dispatch only
+#
+# Permissions:
+#   - issues: write
+#   - pull-requests: write
+#   - contents: write
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync repository labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update labels.yml from project structure
+        shell: pwsh
+        run: |
+          & .\tools\Update-GitHubLabels.ps1 -Apply
+
+      - name: Sync labels via GitHub API
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const yaml = require('js-yaml');
+
+            // Read current labels.yml
+            const labelsPath = '.github/labels.yml';
+            const content = fs.readFileSync(labelsPath, 'utf8');
+            // Simple YAML parsing for our label blocks
+            const labelBlocks = content.match(/- name: "[^"]+"\s*\n  color: "[^"]+"\s*\n  description: "[^"]*"/g) || [];
+            const desiredLabels = labelBlocks.map(block => {
+              const name = block.match(/- name: "([^"]+)"/)[1];
+              const color = block.match(/  color: "([^"]+)"/)[1];
+              const description = block.match(/  description: "([^"]*)"/)?.[1] || '';
+              return { name, color, description };
+            });
+
+            // Get current repo labels
+            const { data: currentLabels } = await github.rest.issues.listLabelsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+
+            const currentNames = currentLabels.map(l => l.name);
+            const desiredNames = desiredLabels.map(l => l.name);
+
+            // Explicit rename mappings for known label migrations
+            const renameMap = {
+              'status: needs-attention': 'status: needs attention'
+            };
+
+            // Labels to create
+            for (const label of desiredLabels) {
+              if (!currentNames.includes(label.name)) {
+                // Check explicit rename map first
+                const explicitOld = Object.entries(renameMap).find(([oldName, newName]) => newName === label.name && currentNames.includes(oldName))?.[0];
+
+                // Then fall back to heuristic detection
+                const possibleOld = explicitOld
+                  ? currentLabels.find(l => l.name === explicitOld)
+                  : currentLabels.find(l =>
+                      l.color === label.color &&
+                      !desiredNames.includes(l.name) &&
+                      (l.description.includes(label.description.split(' ')[0]) ||
+                       label.description.includes(l.description.split(' ')[0]))
+                    );
+
+                if (possibleOld) {
+                  // Rename
+                  await github.rest.issues.updateLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: possibleOld.name,
+                    new_name: label.name,
+                    color: label.color,
+                    description: label.description
+                  });
+                  console.log(`Renamed: ${possibleOld.name} -> ${label.name}`);
+
+                  // Migrate open issues/PRs
+                  const { data: issues } = await github.rest.issues.listForRepo({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    labels: possibleOld.name,
+                    state: 'open',
+                    per_page: 100
+                  });
+                  for (const issue of issues) {
+                    await github.rest.issues.addLabels({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      labels: [label.name]
+                    });
+                    await github.rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      name: possibleOld.name
+                    });
+                  }
+                  console.log(`Migrated ${issues.length} issues from ${possibleOld.name}`);
+                } else {
+                  // Create new label
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description
+                  });
+                  console.log(`Created: ${label.name}`);
+                }
+              } else {
+                // Update color/description if changed
+                const current = currentLabels.find(l => l.name === label.name);
+                if (current.color !== label.color || current.description !== label.description) {
+                  await github.rest.issues.updateLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description
+                  });
+                  console.log(`Updated: ${label.name}`);
+                }
+              }
+            }
+
+            // Labels to delete (orphaned)
+            for (const current of currentLabels) {
+              if (!desiredNames.includes(current.name) &&
+                  (current.name.startsWith('component:') ||
+                   current.name.startsWith('scope:') ||
+                   current.name.startsWith('provider:'))) {
+                // Remove from all open issues first
+                const { data: issues } = await github.rest.issues.listForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  labels: current.name,
+                  state: 'open',
+                  per_page: 100
+                });
+                for (const issue of issues) {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    name: current.name
+                  });
+                }
+
+                // Delete the label
+                await github.rest.issues.deleteLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: current.name
+                });
+                console.log(`Deleted: ${current.name} (removed from ${issues.length} issues)`);
+              }
+            }
+
+      - name: Create Pull Request for labels.yml update
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(labels): sync labels.yml with project structure"
+          title: "chore(labels): sync labels.yml with project structure"
+          body: |
+            This PR updates `.github/labels.yml` to match the current project
+            structure. The one-time label sync workflow has already applied the
+            equivalent changes to the live GitHub repository labels.
+          branch: chore/label-sync-${{ github.run_id }}
+          delete-branch: true
+          labels: automated
