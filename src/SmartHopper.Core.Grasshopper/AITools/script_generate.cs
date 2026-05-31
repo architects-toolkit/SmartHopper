@@ -320,7 +320,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["success"] = true,
                     ["ghjson"] = ghJsonString,
                     ["language"] = language,
-                    ["componentName"] = CreateComponentName(language),
+                    ["componentName"] = ScriptComponentRegistry.GetComponentName(language),
                     ["inputCount"] = inputs.Count,
                     ["outputCount"] = outputs.Count,
                     ["summary"] = summary,
