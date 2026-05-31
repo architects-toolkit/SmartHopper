@@ -384,5 +384,5 @@ jobs:
               repo: context.repo.repo,
               title,
               body,
-              labels: ['automated', 'needs-attention'],
+              labels: ['automated', 'status: needs-attention'],
             });
