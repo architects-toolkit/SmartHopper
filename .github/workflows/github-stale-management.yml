@@ -38,12 +38,12 @@ jobs:
           # Issue settings
           days-before-issue-stale: 60
           days-before-issue-close: 14
-          stale-issue-label: stale
+          stale-issue-label: "status: stale"
           stale-issue-message: >
             This issue has been automatically marked as **stale** because it has
             not had activity in the last 60 days. It will be closed in 14 days
             if no further activity occurs. If this issue is still relevant,
-            please leave a comment or remove the `stale` label.
+            please leave a comment or remove the `status: stale` label.
           close-issue-message: >
             This issue was closed automatically after being stale for 14 days
             with no further activity. Feel free to reopen if it is still relevant.
@@ -51,7 +51,7 @@ jobs:
           # PR settings
           days-before-pr-stale: 30
           days-before-pr-close: 7
-          stale-pr-label: stale
+          stale-pr-label: "status: stale"
           stale-pr-message: >
             This pull request has been automatically marked as **stale** because
             it has not had activity in the last 30 days. It will be closed in 7
@@ -67,7 +67,7 @@ jobs:
             automated,model-verification
           exempt-pr-labels: >
             priority: critical,priority: high,
-            automated,needs-attention
+            automated,status: needs-attention
           exempt-all-milestones: true
 
           # Processing limits
