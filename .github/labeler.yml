@@ -1,4 +1,4 @@
-# PR auto-labeling configuration for actions/labeler@v5
+﻿# PR auto-labeling configuration for actions/labeler@v5
 # Maps file path patterns to labels applied automatically on PR open/sync.
 
 # --- Provider labels ---
@@ -71,3 +71,126 @@ documentation:
           - '**/*.md'
           - 'docs/**'
           - '.github/ISSUE_TEMPLATE/**'
+      - all-globs-to-all-file: '!CHANGELOG*'
+
+# --- Component labels ---
+"component: AI Chat":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIChatComponent.cs'
+"component: AI DiscoursePostSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIDiscoursePostSummarizeComponent.cs'
+"component: AI DiscourseTopicSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIDiscourseTopicSummarizeComponent.cs'
+"component: AI ExtraSettings":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIExtraSettingsComponent.cs'
+"component: AI File2Md":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIFile2MdComponent.cs'
+"component: AI FileContext":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIFileContextComponent.cs'
+"component: AI Img2Text":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/AIImg2TextComponent.cs'
+"component: AI LadybugForumPostSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AILadybugForumPostSummarizeComponent.cs'
+"component: AI LadybugForumTopicSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AILadybugForumTopicSummarizeComponent.cs'
+"component: AI List2Boolean":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/List/AIList2BooleanComponent.cs'
+"component: AI ListFilter":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/List/AIListFilter.cs'
+"component: AI McNeelForumPostSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIMcNeelForumPostSummarizeComponent.cs'
+"component: AI McNeelForumTopicSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIMcNeelForumTopicSummarizeComponent.cs'
+"component: AI Models":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIModelsComponent.cs'
+"component: AI ScriptGenerate":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Script/AIScriptGenerateComponent.cs'
+"component: AI ScriptReview":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Script/AIScriptReviewComponent.cs'
+"component: AI Settings":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AISettingsComponent.cs'
+"component: AI Text2Boolean":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Text/AIText2BooleanComponent.cs'
+"component: AI Text2Img":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/AIText2ImgComponent.cs'
+"component: AI Text2Text":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Text/AIText2TextComponent.cs'
+"component: AI Text2TextList":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Text/AIText2TextListComponent.cs'
+"component: DeconstructMetrics":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Misc/DeconstructMetricsComponent.cs'
+"component: DiscoursePostDeconstruct":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/DiscoursePostDeconstructComponent.cs'
+"component: DiscoursePostGet":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/DiscoursePostGetComponent.cs'
+"component: DiscoursePostOpen":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/DiscoursePostOpenComponent.cs'
+"component: DiscourseSearch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/DiscourseSearchComponent.cs'
+"component: FileToMd":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/FileToMdComponent.cs'
+"component: GhGet":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhGetComponents.cs'
+"component: GhMerge":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhMergeComponents.cs'
+"component: GhPut":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhPutComponents.cs'
+"component: GhRetrieve":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhRetrieveComponents.cs'
+"component: GhTidyUp":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhTidyUpComponents.cs'
+"component: ImageViewer":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/ImageViewerComponent.cs'
+"component: LadybugForumPostGet":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/LadybugForumPostGetComponent.cs'
+"component: LadybugForumPostOpen":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/LadybugForumPostOpenComponent.cs'
+"component: LadybugForumSearch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/LadybugForumSearchComponent.cs'
+"component: McNeelForumPostGet":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/McNeelForumPostGetComponent.cs'
+"component: McNeelForumPostOpen":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/McNeelForumPostOpenComponent.cs'
+"component: McNeelForumSearch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/McNeelForumSearchComponent.cs'
+"component: Web2Md":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/Web2MdComponent.cs'
