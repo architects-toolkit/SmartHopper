@@ -45,7 +45,21 @@ else {
 
 # ===== Step 2: Update version date =====
 Write-Host "`nStep 2: Updating version date..." -ForegroundColor Cyan
-if (Test-Path $versionScript) {
+
+# Determine whether to skip version update based on staged files
+$stagedFiles = git diff --cached --name-only
+$hasSrcChanges = $false
+foreach ($file in $stagedFiles) {
+    if ($file -match '^src\/') {
+        $hasSrcChanges = $true
+        break
+    }
+}
+
+if (-not $hasSrcChanges) {
+    Write-Host "Skipping version update: no staged files under src/." -ForegroundColor Yellow
+}
+elseif (Test-Path $versionScript) {
     # Capture pre-script state of all files that might be modified
     $solutionPropsBefore = if (Test-Path $solutionPropsPath) { Get-Content $solutionPropsPath -Raw -Encoding utf8 } else { $null }
     $readmeBefore = if (Test-Path $readmePath) { Get-Content $readmePath -Raw -Encoding utf8 } else { $null }
