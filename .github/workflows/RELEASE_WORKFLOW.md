@@ -301,7 +301,7 @@ All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-
 - Use `patch-propagate.yml` with `auto-discover: true` to fan out a fix to all `dev` and `dev-*` branches
 - Set `include-main-branches: true` for critical fixes that also need to reach `main-*` branches
 - Use `exclude-branches` to skip specific branches from auto-discovery
-- If any cherry-pick has conflicts, an issue is auto-created with the `needs-attention` label
+- If any cherry-pick has conflicts, an issue is auto-created with the `status: needs-attention` label
 
 ### Regular Release Example
 

@@ -11,7 +11,7 @@ inputs:
   color:
     description: 'Label color (hex without #, default: 0366d6)'
     required: false
-    default: '0366d6'
+    default: 'FFFFFF'
 
 outputs:
   label-created:
