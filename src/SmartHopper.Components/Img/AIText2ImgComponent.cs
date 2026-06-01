@@ -457,6 +457,7 @@ namespace SmartHopper.Components.Img
 
                     this.parent.SetPersistentOutput("Image", imagesTree, DA);
                     this.parent.SetPersistentOutput("Revised Prompt", revisedTree, DA);
+                    this.parent.SetMetricsOutput(DA);
 
                     message = "Image generation completed successfully";
                 }
