@@ -311,8 +311,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!result.Success)
                 {
-                    // Propagate structured messages from AI call
-                    output.Messages = result.Messages;
+                    // Propagate structured messages and metrics from AI call
+                    output.CreateError("AI review request failed", toolCall, result.Metrics);
+                    foreach (var msg in result.Messages.Where(m => m != null))
+                    {
+                        output.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
+                    }
+
                     return output;
                 }
 

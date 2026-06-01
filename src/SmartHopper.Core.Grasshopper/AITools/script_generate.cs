@@ -110,6 +110,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
               - description: Parameter description
               - dataMapping: 'None', 'Flatten', 'Graft'
               - reverse, simplify, invert: Same as inputs
+
+            ## CRITICAL: Python Script-Mode Output Rule
+            When generating Python scripts for Grasshopper script components, do NOT use `return` statements at the top level.
+            Grasshopper script-mode does not run inside a function; `return` outside a function is a SyntaxError.
+            Instead, assign values directly to the output variables (e.g., `a = result`, `b = other_result`).
+
             The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
             """;
 
@@ -212,7 +218,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!result.Success)
                 {
-                    output.Messages = result.Messages;
+                    output.CreateError("AI script generation failed", toolCall, result.Metrics);
+                    foreach (var msg in result.Messages.Where(m => m != null))
+                    {
+                        output.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
+                    }
+
                     return output;
                 }
 
@@ -525,7 +536,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!generateResult.Success)
                 {
                     Debug.WriteLine($"[{this.wrapperToolName}] script_generate failed");
-                    output.Messages = generateResult.Messages;
+                    output.CreateError("AI script generation failed", toolCall, generateResult.Metrics);
+                    foreach (var msg in generateResult.Messages.Where(m => m != null))
+                    {
+                        output.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
+                    }
+
                     return output;
                 }
 
