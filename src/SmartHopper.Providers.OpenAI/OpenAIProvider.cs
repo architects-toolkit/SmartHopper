@@ -723,11 +723,6 @@ namespace SmartHopper.Providers.OpenAI
                     requestBody["top_logprobs"] = topLogprobsToken.Value<int?>();
                 }
 
-                if (p.Extras.TryGetValue("n", out var nToken) && nToken != null)
-                {
-                    requestBody["n"] = nToken.Value<int?>();
-                }
-
                 if (p.Extras.TryGetValue("prompt_cache_retention", out var cacheRetentionToken) && cacheRetentionToken != null)
                 {
                     requestBody["prompt_cache_retention"] = cacheRetentionToken.ToString();
@@ -2921,12 +2916,6 @@ namespace SmartHopper.Providers.OpenAI
                     null),
 
                 // OpenAI-specific parameters
-                new AIExtraDescriptor(
-                    "n",
-                    "N (Completions)",
-                    "Number of completions to generate for each prompt. Useful for getting multiple variations.",
-                    typeof(int),
-                    null),
                 new AIExtraDescriptor(
                     "logprobs",
                     "Log Probabilities",

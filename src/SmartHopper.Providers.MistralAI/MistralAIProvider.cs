@@ -364,11 +364,6 @@ namespace SmartHopper.Providers.MistralAI
                     requestBody["presence_penalty"] = presPenaltyToken.Value<double?>();
                 }
 
-                if (p.Extras.TryGetValue("n", out var nToken) && nToken != null)
-                {
-                    requestBody["n"] = nToken.Value<int?>();
-                }
-
                 if (p.Extras.TryGetValue("safe_prompt", out var spToken) && spToken != null)
                 {
                     requestBody["safe_prompt"] = spToken;
@@ -1536,12 +1531,6 @@ namespace SmartHopper.Providers.MistralAI
                     null),
 
                 // Mistral-specific parameters
-                new AIExtraDescriptor(
-                    "n",
-                    "N (Completions)",
-                    "Number of completions to generate for each prompt. Useful for getting multiple variations.",
-                    typeof(int),
-                    null),
                 new AIExtraDescriptor(
                     "safe_prompt",
                     "Safe Prompt",
