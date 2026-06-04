@@ -25,7 +25,6 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -141,12 +140,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var list = proxies.Select(p =>
                 {
-                    var instance = ObjectFactory.CreateInstance(p);
+                    var instance = p.CreateInstance();
+                    instance.CreateAttributes();
                     List<object> inputs;
                     List<object> outputs;
                     if (instance is IGH_Component comp)
                     {
-                        inputs = ParameterAccess.GetAllInputs(comp)
+                        inputs = comp.Params.Input
                             .Select(param => new
                             {
                                 name = param.Name,
@@ -157,7 +157,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             })
                             .Cast<object>()
                             .ToList();
-                        outputs = ParameterAccess.GetAllOutputs(comp)
+                        outputs = comp.Params.Output
                             .Select(param => new
                             {
                                 name = param.Name,

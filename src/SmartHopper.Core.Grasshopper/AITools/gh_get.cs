@@ -31,6 +31,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AIContext;
 using SmartHopper.Infrastructure.AITools;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -425,6 +426,53 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     AssignSequentialIds = true,
                     IncludeMetadata = includeMetadata,
                 };
+
+                // Apply user-defined metadata overrides from the file context provider
+                if (includeMetadata)
+                {
+                    var metadataProvider = AIContextManager.GetProvider("file-metadata");
+                    if (metadataProvider != null)
+                    {
+                        try
+                        {
+                            var metadataContext = metadataProvider.GetContext();
+                            if (metadataContext.TryGetValue("title", out var metaTitle))
+                            {
+                                serOptions.MetadataTitle = metaTitle;
+                            }
+
+                            if (metadataContext.TryGetValue("description", out var metaDescription))
+                            {
+                                serOptions.MetadataDescription = metaDescription;
+                            }
+
+                            if (metadataContext.TryGetValue("version", out var metaVersion))
+                            {
+                                serOptions.MetadataVersion = metaVersion;
+                            }
+
+                            if (metadataContext.TryGetValue("author", out var metaAuthor))
+                            {
+                                serOptions.MetadataAuthor = metaAuthor;
+                            }
+
+                            if (metadataContext.TryGetValue("tags", out var metaTags))
+                            {
+                                serOptions.MetadataTags = metaTags
+                                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(t => t.Trim())
+                                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                                    .ToList();
+                            }
+
+                            Debug.WriteLine("[gh_get] Applied metadata overrides from file context provider");
+                        }
+                        catch (Exception metaEx)
+                        {
+                            Debug.WriteLine($"[gh_get] Error applying file-metadata overrides: {metaEx.Message}");
+                        }
+                    }
+                }
 
                 var document = GhJsonGrasshopper.Serialize(resultObjects, serOptions);
 

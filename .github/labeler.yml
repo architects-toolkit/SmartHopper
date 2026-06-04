@@ -140,9 +140,9 @@ documentation:
 "component: AI File2Md":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIFile2MdComponent.cs'
-"component: AI FileContext":
+"component: AI FileMetadata":
   - changed-files:
-      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIFileContextComponent.cs'
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIFileMetadataComponent.cs'
 "component: AI Img2Text":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Img/AIImg2TextComponent.cs'

@@ -22,10 +22,11 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Core.DependencyGraph;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.LayoutRefinements;
 using GhJSON.Grasshopper.Serialization;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -136,23 +137,59 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var doc = GhJsonGrasshopper.Serialize(selected, SerializationOptions.Default);
-                var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
+
+                // Core dependency-graph layout (longest-path layering, dummy-chain routing,
+                // crossing minimization, bounds-aware coordinates) followed by Grasshopper-aware
+                // refinements that use real component bounds and input-port positions for
+                // alignment and collision avoidance. This is the same pipeline used by gh_put,
+                // so placement and tidy-up stay consistent.
+                const float spacingX = 200f;
+                const float spacingY = 100f;
+                const float islandSpacingY = 150f;
+
+                var layoutResult = GhJSON.Core.GhJson.CalculateLayout(doc, new LayoutOptions
+                {
+                    SpacingX = spacingX,
+                    SpacingY = spacingY,
+                    IslandSpacingY = islandSpacingY,
+                });
+
+                var positions = LayoutRefinementEngine.ApplyRefinements(
+                    layoutResult,
+                    doc,
+                    new LayoutRefinementOptions
+                    {
+                        SpacingX = spacingX,
+                        SpacingY = spacingY,
+                        ApplyBoundsAwareSpacing = true,
+                        AlignParamsToInputPorts = true,
+                        AlignOneToOneConnections = true,
+                        MinimizeConnectionLengths = true,
+                        AvoidCollisions = true,
+                    });
+
+                if (positions.Count == 0)
+                {
+                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: Layout produced no positions.");
+                    output.CreateError("Layout produced no positions for the selected components.");
+                    return output;
+                }
 
                 if (!hasStart)
                 {
-                    // Anchor grid at original pivot of top-left component
-                    var firstNode = layoutNodes.OrderBy(n => n.Pivot.X).ThenBy(n => n.Pivot.Y).First();
-                    var origObj = selected.First(o => o.InstanceGuid == firstNode.ComponentId);
+                    // Anchor the laid-out cluster at the original pivot of the top-left component
+                    // so the tidied result stays roughly where the user had it.
+                    var firstKvp = positions.OrderBy(p => p.Value.X).ThenBy(p => p.Value.Y).First();
+                    var origObj = selected.First(o => o.InstanceGuid == firstKvp.Key);
                     var origPivot = origObj.Attributes.Pivot;
-                    origin = new PointF(origPivot.X - firstNode.Pivot.X, origPivot.Y - firstNode.Pivot.Y);
+                    origin = new PointF(origPivot.X - firstKvp.Value.X, origPivot.Y - firstKvp.Value.Y);
                 }
 
                 var moved = new List<string>();
-                foreach (var node in layoutNodes)
+                foreach (var kvp in positions)
                 {
-                    var guid = node.ComponentId;
-                    var rel = node.Pivot;
-                    var target = new PointF(origin.X + rel.X, origin.Y + rel.Y);
+                    var guid = kvp.Key;
+                    var target = new PointF(origin.X + kvp.Value.X, origin.Y + kvp.Value.Y);
                     var ok = CanvasAccess.MoveInstance(guid, target, relative: false);
                     Debug.WriteLine(ok
                         ? $"[GhObjTools] GhTidyUpAsync: Moved {guid} to ({target.X},{target.Y})"

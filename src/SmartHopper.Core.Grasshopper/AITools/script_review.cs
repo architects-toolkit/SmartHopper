@@ -353,10 +353,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             var extensionKeys = new[]
             {
-                GhJsonExtensionKeys.Python,
-                GhJsonExtensionKeys.IronPython,
-                GhJsonExtensionKeys.CSharp,
-                GhJsonExtensionKeys.VBScript
+                ScriptComponentRegistry.GetExtensionKey("python"),
+                ScriptComponentRegistry.GetExtensionKey("ironpython"),
+                ScriptComponentRegistry.GetExtensionKey("c#"),
+                ScriptComponentRegistry.GetExtensionKey("vb")
             };
 
             foreach (var key in extensionKeys)

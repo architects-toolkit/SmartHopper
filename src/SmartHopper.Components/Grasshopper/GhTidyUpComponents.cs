@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Grasshopper
             : base(
                 "Tidy Up",
                 "GhTidyUp",
-                "Organize selected components into a tidy grid layout\n\n!!! THIS IS STILL EXPERIMENTAL, IT MIGHT MESS UP YOUR DOCUMENT !!!",
+                "Organize selected components into a tidy grid layout",
                 "SmartHopper",
                 "Grasshopper")
         {
