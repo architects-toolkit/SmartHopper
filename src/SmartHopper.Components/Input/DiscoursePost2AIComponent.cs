@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Input
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
-        protected override Bitmap Icon => Resources.discoursepost2ai;
+        protected override Bitmap Icon => Resources.toaidiscoursepost;
 
         public DiscoursePost2AIComponent()
             : base(
@@ -58,7 +58,7 @@ namespace SmartHopper.Components.Input
                   "DiscoursePost2AI",
                   "Retrieves a Discourse forum post by ID and wraps it into an AIInputPayload for AI processing.",
                   "SmartHopper",
-                  "Input")
+                  "B. Input")
         {
         }
 

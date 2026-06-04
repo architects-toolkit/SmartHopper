@@ -60,7 +60,7 @@ namespace SmartHopper.Components.Input
                 "LadybugTopic2AI",
                 "Retrieves a Ladybug forum topic by ID from discourse.ladybug.tools and wraps it into an AIInputPayload.",
                 "SmartHopper",
-                "Input")
+                "B. Input")
         {
         }
 

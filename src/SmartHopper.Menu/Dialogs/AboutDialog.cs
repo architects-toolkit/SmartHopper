@@ -109,7 +109,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var subtitleLabel = new Label
             {
-                Text = "An AI-powered assistant for Grasshopper3D",
+                Text = "An Open Source AI-powered Assistant for Grasshopper3D",
                 Font = new Font(SystemFont.Default, 12),
                 TextColor = SystemColors.ControlText,
                 Wrap = WrapMode.Word,
@@ -360,7 +360,6 @@ namespace SmartHopper.Menu.Dialogs
             contentLayout.Items.Add(textractLink);
             contentLayout.Items.Add(magicHtmlLink);
             contentLayout.Items.Add(dataFlowLink);
-            contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(rhinoIconLink);
             contentLayout.Items.Add(ladybugIconLink);
             contentLayout.Items.Add(logoDesignThanksLabel);

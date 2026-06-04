@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("AC2DDCD0-B4E9-4B99-80DA-CA9F9BBCD4C9");
 
-        protected override Bitmap Icon => Resources.fileai;
+        protected override Bitmap Icon => Resources.toaifile;
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
@@ -60,7 +60,7 @@ namespace SmartHopper.Components.Input
                 "File2AI",
                 "Reads a file and converts it to Markdown using file2md AI tool, wrapping the content into an AIInputPayload.",
                 "SmartHopper",
-                "Input")
+                "B. Input")
         {
         }
 

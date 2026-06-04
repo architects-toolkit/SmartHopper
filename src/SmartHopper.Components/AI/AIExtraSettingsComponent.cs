@@ -69,11 +69,11 @@ namespace SmartHopper.Components.AI
         /// <summary>Initializes a new instance of <see cref="AIExtraSettingsComponent"/>.</summary>
         public AIExtraSettingsComponent()
             : base(
-                "AI Extra Settings",
-                "AIExtras",
+                "Extra Settings",
+                "Extras",
                 "Generates provider-specific AI settings (service tier, reasoning effort, etc.) as a JSON extras object.\nConnect output to the Extras input of AI Settings component.\nRight-click to select provider.",
                 "SmartHopper",
-                "AI")
+                "A. AI")
         {
             this._retryStopwatch.Start();
         }

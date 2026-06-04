@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("A7294D39-8DCB-4178-A435-AD7D73BA5E14");
 
-        protected override Bitmap Icon => Resources.webtomd;
+        protected override Bitmap Icon => Resources.toaiweb;
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
@@ -59,7 +59,7 @@ namespace SmartHopper.Components.Input
                 "Web2AI",
                 "Fetches web content from a URL using web2md AI tool and wraps it into an AIInputPayload.",
                 "SmartHopper",
-                "Input")
+                "B. Input")
         {
         }
 

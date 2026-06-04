@@ -53,15 +53,14 @@ namespace SmartHopper.Components.Grasshopper
         {
         }
 
-        /// <summary>
-        /// Gets the unique identifier for this component.
-        /// </summary>
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("8B6F904F-8B96-45F5-B4DE-80B53C4FBA10");
 
-        /// <summary>
-        /// Gets the component's icon.
-        /// </summary>
+        /// <inheritdoc/>
         protected override Bitmap Icon => Properties.Resources.tidyup;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <summary>
         /// Enables the selection mode for this component.

@@ -60,7 +60,7 @@ namespace SmartHopper.Components.Input
                 "McNeelTopic2AI",
                 "Retrieves a McNeel forum topic by ID from discourse.mcneel.com and wraps it into an AIInputPayload.",
                 "SmartHopper",
-                "Input")
+                "B. Input")
         {
         }
 

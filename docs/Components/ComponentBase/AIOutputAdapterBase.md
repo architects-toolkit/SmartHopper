@@ -16,7 +16,7 @@ Eliminate boilerplate for "tree of payloads in → typed values out" components.
 - **`OutputMapping.Single` helper** wraps a scalar extractor into the unified `IEnumerable<IGH_Goo>` contract; list-shaped extractors return their list.
 - **Symmetric batch and sync paths.** Both legs run the same `DecodeAllMappings` helper, so list-shaped outputs work transparently in batch mode. The legacy `SentinelTransformOutputs` hook is **not** invoked by the adapter base — declare every named output through `GetOutputMappings` instead.
 - **Sealed input shape.** Adds `Input >` (`AIInputPayloadParameter`, tree access) at index 0, then chains to `base.RegisterInputParams`. Subclasses use `RegisterAdditionalInputParams` for extra inputs and `GatherAdditionalInputs(DA, dict)` to inject them into the per-branch input dictionary.
-- **Category locked** to `"SmartHopper" / "Output"`.
+- **Category locked** to `"SmartHopper" / "C. Output"`.
 
 ## Subclass contract
 

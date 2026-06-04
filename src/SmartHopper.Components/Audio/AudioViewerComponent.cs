@@ -65,7 +65,7 @@ namespace SmartHopper.Components.Audio
                 "AudioView",
                 "Display audio files on the canvas, play them, and save them to disk.",
                 "SmartHopper",
-                "Audio")
+                "Data Visualization")
         {
         }
 

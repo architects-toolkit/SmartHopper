@@ -138,7 +138,7 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="description">Component description.</param>
         /// <param name="exposure">Component exposure level (primary or secondary).</param>
         protected AIOutputAdapterBase(string name, string nickname, string description, GH_Exposure exposure)
-            : base(name, nickname, description, "SmartHopper", "Output")
+            : base(name, nickname, description, "SmartHopper", "C. Output")
         {
             this._exposure = exposure;
         }

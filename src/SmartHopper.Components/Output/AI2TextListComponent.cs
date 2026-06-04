@@ -23,6 +23,7 @@ using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
+using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -47,7 +48,7 @@ namespace SmartHopper.Components.Output
 
         public override Guid ComponentGuid => new Guid("C4286A7D-3BCB-4785-84E9-2FB2164519C0");
 
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.aitotextlist;
 
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 

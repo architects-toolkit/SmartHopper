@@ -50,20 +50,16 @@ namespace SmartHopper.Components.Grasshopper
         {
         }
 
-        /// <summary>
-        /// Gets the unique identifier for this component.
-        /// </summary>
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("B4D9C3A2-5E1F-4A6B-8D7C-9E2F1A5B6D8E");
 
-        /// <summary>
-        /// Gets the component's icon.
-        /// </summary>
-        protected override Bitmap Icon => Resources.ghmerge;
+        /// <inheritdoc/>
+        protected override Bitmap Icon => Resources.ghdiff;
 
-        /// <summary>
-        /// Registers the input parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register inputs with.</param>
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Left", "L", "Left (base) GhJSON document.", GH_ParamAccess.item);

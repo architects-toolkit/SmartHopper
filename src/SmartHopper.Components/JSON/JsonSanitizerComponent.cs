@@ -42,10 +42,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("83A970D9-B812-46C7-8475-717076032B4D");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonobj;
+        protected override Bitmap Icon => Resources.jsonclean;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSanitizerComponent"/> class.

@@ -125,6 +125,9 @@ documentation:
 "component: AI Context":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/AIContextComponent.cs'
+"component: AI ContextProviders":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIContextProvidersComponent.cs'
 "component: AI DiscoursePostSummarize":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIDiscoursePostSummarizeComponent.cs'

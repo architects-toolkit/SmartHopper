@@ -12,7 +12,7 @@ Provide a uniform shape for "convert X into the AI pipeline's input type" compon
 
 - **No AI calls.** Adapters are pure converters; they never reach a provider.
 - **Single canonical output.** `RegisterOutputParams` is `sealed`; subclasses add extra outputs through `RegisterAdditionalOutputParams` starting at index 1.
-- **Category locked.** Always `"SmartHopper" / "Input"`. Exposure level is per-instance via the constructor.
+- **Category locked.** Always `"SmartHopper" / "B. Input"`. Exposure level is per-instance via the constructor.
 - **Helpers do the wrapping.** `CreateTextPayload`, `CreateImagePayload`, `CreateAudioPayload`, `CreateContextPayload` validate inputs and return `AIInputPayload`. `WrapPayload` boxes it into `GH_AIInputPayload` for the GH parameter system.
 
 ## Subclass contract

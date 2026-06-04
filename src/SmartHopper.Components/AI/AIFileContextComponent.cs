@@ -42,7 +42,7 @@ namespace SmartHopper.Components.AI
         protected override Bitmap Icon => Properties.Resources.context;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -58,10 +58,10 @@ namespace SmartHopper.Components.AI
         /// Constructor for the AI File Context component.
         /// </summary>
         public AIFileContextComponent()
-            : base("AI File Context", "AIFileCtx",
+            : base("File Context", "FileCtx",
                 "Defines the current file context.\n\nFor example, explain the aim of this file, your expectations of the results, the main input parameters, and what to avoid.\n\nAI-powered components will read this information to generate relevant responses.",
                 "SmartHopper",
-                "AI")
+                "A. AI")
         {
             // Register this component as a context provider
             AIContextManager.RegisterProvider(this);

@@ -43,6 +43,8 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("07254553-A47A-419C-9509-8A97D51A85F9");
 
+        protected override Bitmap Icon => Resources.toaighjson;
+
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
         public GhJSON2AIComponent()
@@ -51,7 +53,7 @@ namespace SmartHopper.Components.Input
                 "GhJSON2AI",
                 "Retrieves selected or all Grasshopper canvas components as GhJSON and wraps into an AIInputPayload.",
                 "SmartHopper",
-                "Input")
+                "B. Input")
         {
         }
 
