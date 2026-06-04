@@ -37,7 +37,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.jsontotext;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonObject2TextComponent"/> class.

@@ -47,14 +47,10 @@ namespace SmartHopper.Core.ComponentBase
             this._exposure = exposure;
         }
 
-        /// <summary>
-        /// Gets the component icon.
-        /// </summary>
-        protected abstract Bitmap Icon { get; }
+        /// <inheritdoc/>
+        protected override abstract Bitmap Icon { get; }
 
-        /// <summary>
-        /// Gets the component exposure level (primary or secondary).
-        /// </summary>
+        /// <inheritdoc/>
         public override GH_Exposure Exposure => this._exposure;
 
         /// <summary>

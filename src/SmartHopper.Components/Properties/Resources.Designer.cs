@@ -123,6 +123,13 @@ namespace SmartHopper.Components.Properties {
             }
         }
 
+        internal static Bitmap audio {
+            get {
+                object obj = ResourceManager.GetObject("audio", resourceCulture);
+                return ((Bitmap)(obj));
+            }
+        }
+
         internal static Bitmap aichat {
             get {
                 object obj = ResourceManager.GetObject("aichat", resourceCulture);

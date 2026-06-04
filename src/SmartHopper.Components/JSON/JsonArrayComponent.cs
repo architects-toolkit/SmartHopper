@@ -38,7 +38,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.jsonarray;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonArrayComponent"/> class.

@@ -143,9 +143,7 @@ namespace SmartHopper.Core.ComponentBase
             this._exposure = exposure;
         }
 
-        /// <summary>
-        /// Gets the component exposure level (primary or secondary).
-        /// </summary>
+        /// <inheritdoc/>
         public override GH_Exposure Exposure => this._exposure;
 
         /// <summary>
@@ -155,10 +153,8 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The internal system prompt string.</returns>
         protected abstract string GetInternalSystemPrompt();
 
-        /// <summary>
-        /// Gets the component icon.
-        /// </summary>
-        protected abstract Bitmap Icon { get; }
+        /// <inheritdoc/>
+        protected override abstract Bitmap Icon { get; }
 
         /// <summary>
         /// Gets the output mappings that define how to extract results from an AIReturn.

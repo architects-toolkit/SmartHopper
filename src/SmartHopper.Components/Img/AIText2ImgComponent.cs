@@ -40,21 +40,11 @@ namespace SmartHopper.Components.Img
     /// </summary>
     public class AIText2ImgComponent : AIStatefulAsyncComponentBase
     {
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("B4E69EAD-2EEB-413C-8E47-19D5079882BE");
 
-        /// <summary>
-        /// Gets the icon for this component.
-        /// </summary>
+        /// <inheritdoc/>
         protected override Bitmap Icon => Resources.texttoimg;
-
-        /// <summary>
-        /// Gets the exposure level of this component in the ribbon.
-        /// </summary>
-        /// <value>The exposure level.</value>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -103,10 +93,7 @@ namespace SmartHopper.Components.Img
         {
         }
 
-        /// <summary>
-        /// Registers additional input parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register inputs with.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Prompt", "P", "Text prompt describing the desired image", GH_ParamAccess.tree);
@@ -115,21 +102,14 @@ namespace SmartHopper.Components.Img
             pManager.AddTextParameter("Style", "St", "Image style ('vivid' or 'natural')", GH_ParamAccess.tree, "vivid");
         }
 
-        /// <summary>
-        /// Registers additional output parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register outputs with.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Image", "I", "Generated image as VersatileImage format", GH_ParamAccess.tree);
             pManager.AddTextParameter("Revised Prompt", "RP", "AI-revised prompt used for generation", GH_ParamAccess.tree);
         }
 
-        /// <summary>
-        /// Creates the async worker for this component.
-        /// </summary>
-        /// <param name="progressReporter">Progress reporter callback.</param>
-        /// <returns>The async worker instance.</returns>
+        /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIText2ImgWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
@@ -227,11 +207,7 @@ namespace SmartHopper.Components.Img
                 dataCount = 0;
             }
 
-            /// <summary>
-            /// Performs the async work to generate images.
-            /// </summary>
-            /// <param name="token">Cancellation token.</param>
-            /// <returns>Async task.</returns>
+            /// <inheritdoc/>
             public override async Task DoWorkAsync(CancellationToken token)
             {
                 this.imageResults = new GH_Structure<IGH_Goo>();

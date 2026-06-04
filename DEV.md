@@ -170,8 +170,8 @@ SmartHopper currently supports the following AI providers and features:
 | OpenAI | ✅ Supported | OpenAI Platform | Yes | Yes (o-series & gpt-5 structured content) | Yes | Yes (non o-series & non gpt-5) | Yes | Yes | Yes (DALL-E) | ✅ Yes |
 | MistralAI | ✅ Supported | Le Plateforme | Yes | Yes (thinking blocks) | Yes | Yes | Yes | Yes | No | ✅ Yes |
 | DeepSeek | ✅ Supported | DeepSeek Platform | Yes | Yes (reasoning_content) | Yes | Yes | Yes | Yes | No | ❌ No |
-| Anthropic | ✅ Supported | Claude Console | Yes | No | No | Yes | Yes | Yes | No | ✅ Yes |
-| OpenRouter | ✅ Supported | OpenRouter | No | No (varies by routed model) | No | Varies | Varies | Varies | Varies | ❌ No |
+| Anthropic | ✅ Supported | Claude Console | Yes | Yes (thinking blocks) | No | Yes | Yes | Yes | No | ✅ Yes |
+| OpenRouter | ✅ Supported | OpenRouter | Yes | No (varies by routed model) | No | Varies | Varies | Varies | Varies | ❌ No |
 | Gemini | 🟠 Testing | Google AI Studio | Yes | Yes (thinking_level) | Yes | Yes | Yes | Yes | ✅ Yes | ✅ Yes |
 | Ollama | ⚪ Planned | Local Ollama server | Planned | Planned | Planned | Planned | Planned | Planned | No | Planned |
 | LocalAI | ⚪ Planned | LocalAI server | Planned | Planned | Planned | Planned | Planned | Planned | Planned | Planned |
@@ -181,7 +181,7 @@ SmartHopper currently supports the following AI providers and features:
 Notes:
 - “Temperature config” indicates whether the provider/model family supports a temperature parameter in SmartHopper. For OpenAI o‑series and gpt‑5, temperature is omitted by design; other OpenAI models support it.
 - “Live reasoning streaming in UI” depends on the provider exposing a distinct reasoning/thinking channel and SmartHopper adapter support.
-- OpenRouter capabilities vary by the routed underlying model; current SmartHopper adapter does not enable streaming/reasoning there.
+- OpenRouter capabilities vary by the routed underlying model; the SmartHopper adapter enables streaming, but reasoning support depends on the routed model.
 
 Do you want more providers? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 
