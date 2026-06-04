@@ -54,6 +54,7 @@ namespace SmartHopper.Components.Grasshopper
                 "SmartHopper",
                 "Grasshopper")
         {
+            this.RunOnlyOnInputChanges = false;
         }
 
         public override Guid ComponentGuid => new Guid("E7BB7C92-9565-584C-C1DD-425E77651FD8");
