@@ -100,6 +100,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();
                 var existingPositions = new Dictionary<Guid, PointF>();
                 var componentsToReplace = new List<Guid>();
+                HashSet<Guid> unchangedGuids = null;
 
                 // Captured external connections: source/target component + parameter names
                 var capturedConnections = new List<(Guid sourceGuid, string sourceParam, Guid targetGuid, string targetParam)>();
@@ -196,9 +197,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         componentsToReplace.Clear();
                         componentsToReplace.AddRange(confirmedReplacements);
 
+                        // Capture unchanged GUIDs BEFORE mutating existingComponents so Step 3
+                        // can still filter out unchanged components correctly.
+                        unchangedGuids = existingComponents.Keys.Except(confirmedReplacements).ToHashSet();
+
                         // Remove non-confirmed components from tracking dictionaries
-                        var guidsToRemove = existingComponents.Keys.Except(confirmedReplacements).ToList();
-                        foreach (var guid in guidsToRemove)
+                        foreach (var guid in unchangedGuids)
                         {
                             existingComponents.Remove(guid);
                             existingPositions.Remove(guid);
@@ -406,7 +410,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             if (comp.InstanceGuid.HasValue && comp.InstanceGuid.Value != Guid.Empty)
                             {
                                 var guid = comp.InstanceGuid.Value;
-                                if (existingComponents.ContainsKey(guid) && !confirmedReplaceSet.Contains(guid))
+                                if (unchangedGuids != null && unchangedGuids.Contains(guid))
                                 {
                                     // This is an unchanged existing component — skip it
                                     skippedGuids.Add(guid);
