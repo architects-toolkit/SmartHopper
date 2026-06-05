@@ -490,11 +490,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var json = GhJson.ToJson(document, new WriteOptions { Indented = false });
 
+                var thinComponents = document.Components
+                    .Where(c => c.Warnings?.Any(w => w.Contains("without a specialized handler")) == true)
+                    .Select(c => new { c.Name, c.Library })
+                    .ToList();
+
+                var missingPlugins = document.Components
+                    .Select(c => c.Library)
+                    .Where(l => !string.IsNullOrEmpty(l))
+                    .Distinct()
+                    .ToList();
+
                 var toolResult = new JObject
                 {
                     ["names"] = JArray.FromObject(names),
                     ["guids"] = JArray.FromObject(guidList),
                     ["ghjson"] = json,
+                    ["serializationQuality"] = new JObject
+                    {
+                        ["totalComponents"] = document.Components.Count,
+                        ["thinComponents"] = JArray.FromObject(thinComponents),
+                        ["referencedPlugins"] = JArray.FromObject(missingPlugins),
+                    },
                 };
 
                 var body = AIBodyBuilder.Create()
