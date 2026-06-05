@@ -245,6 +245,9 @@ documentation:
 "component: GhPatchApply":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhPatchApplyComponents.cs'
+"component: GhPatchApplyToCanvas":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhPatchApplyToCanvasComponents.cs'
 "component: GhPut":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhPutComponents.cs'
