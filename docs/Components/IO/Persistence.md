@@ -57,6 +57,15 @@ Handled explicitly by `SafeGooCodec`:
 - `GH_Number` — `GH_Number|{value}` (InvariantCulture)
 - `GH_Integer` — `GH_Integer|{value}` (InvariantCulture)
 - `GH_Boolean` — `GH_Boolean|1` or `0` (also accepts `true`/`false` on decode)
+- `GH_VersatileImage` — `GH_VersatileImage|{json}` where JSON contains:
+  - `k` — `VersatileImageKind` (`Bitmap`, `LocalFile`, `Url`, `Base64`, `DataUri`)
+  - `v` — `RawValue` (path, URL, base64, or data-URI; null when `k == Bitmap`)
+  - `b` — Base64-encoded PNG bitmap (only present when `k == Bitmap`)
+  - `i`, `c`, `p`, `s`, `m` — `Id`, `Context`, `PageOrSlide`, `SourceDocument`, `MimeType`
+- `GH_VersatileAudio` — `GH_VersatileAudio|{json}` where JSON contains:
+  - `k` — `VersatileAudioKind` (`LocalFile`, `Url`, `Base64`, `DataUri`)
+  - `v` — `RawValue` (path, URL, base64, or data-URI)
+  - `i`, `c`, `p`, `s`, `m` — `Id`, `Context`, `PageOrSlide`, `SourceDocument`, `MimeType`
 
 Fallbacks and warnings:
 

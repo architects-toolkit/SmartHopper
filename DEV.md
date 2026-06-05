@@ -248,6 +248,15 @@ Some models are still supported but **not recommended** for script-oriented tool
 
 Data type serialization is handled by the [ghjson-dotnet](https://github.com/architects-toolkit/ghjson-dotnet) library. See its documentation for the full list of supported data types, serialization formats, and extensibility patterns.
 
+### SmartHopper-specific types
+
+The following custom goo types are persisted via `SafeGooCodec` when components save to `.gh` files:
+
+- `GH_VersatileImage` — Wraps `Bitmap`, file paths, URLs, base64, data-URIs, and document-extracted images with metadata. Persisted as a compact JSON payload with base64 PNG encoding for in-memory bitmaps.
+- `GH_VersatileAudio` — Wraps file paths, URLs, base64, data-URIs, and document-extracted audio with metadata. Persisted as a compact JSON payload.
+
+See [`docs/Components/IO/Persistence.md`](./docs/Components/IO/Persistence.md) for the full persistence format.
+
 —
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.

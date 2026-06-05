@@ -20,11 +20,13 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.Validation;
 using Grasshopper.Kernel;
-
-using SmartHopper.Components.Properties;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -32,7 +34,7 @@ namespace SmartHopper.Components.Grasshopper
     /// Grasshopper component that validates a GhJSON document against the official schema
     /// and performs structural checks.
     /// </summary>
-    public class GhValidateComponents : GH_Component
+    public class GhValidateComponents : AsyncComponentBase
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GhValidateComponents"/> class.
@@ -73,67 +75,104 @@ namespace SmartHopper.Components.Grasshopper
             pManager.AddTextParameter("Info", "I", "List of informational messages.", GH_ParamAccess.list);
         }
 
-        /// <inheritdoc/>
-        protected override void SolveInstance(IGH_DataAccess DA)
+        protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            string? json = null;
-            if (!DA.GetData(0, ref json) || string.IsNullOrEmpty(json))
+            return new GhValidateWorker(this, this.AddRuntimeMessage);
+        }
+
+        private sealed class GhValidateWorker : AsyncWorkerBase
+        {
+            private string _json = string.Empty;
+            private ValidationLevel _level = ValidationLevel.Standard;
+            private bool _preferOnline = false;
+
+            private bool _isValid;
+            private List<string> _errors = new List<string>();
+            private List<string> _warnings = new List<string>();
+            private List<string> _info = new List<string>();
+
+            public GhValidateWorker(
+                GH_Component parent,
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                : base(parent, addRuntimeMessage)
             {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "GhJSON input is required");
-                return;
             }
 
-            int levelValue = 1;
-            DA.GetData(1, ref levelValue);
-            var level = (ValidationLevel)Math.Max(0, Math.Min(2, levelValue));
-
-            bool preferOnline = false;
-            DA.GetData(2, ref preferOnline);
-
-            try
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                var result = GhJson.Validate(json, level, schemaVersion: null, preferOnline);
-
-                var errors = result.Errors?.Select(e => e.ToString()).ToList() ?? new List<string>();
-                var warnings = result.Warnings?.Select(w => w.ToString()).ToList() ?? new List<string>();
-                var info = result.Info?.Select(i => i.ToString()).ToList() ?? new List<string>();
-
-                if (!result.IsValid)
+                string? json = null;
+                if (!DA.GetData(0, ref json) || string.IsNullOrEmpty(json))
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"GhJSON validation failed with {errors.Count} error(s)");
-                }
-                else if (warnings.Count > 0)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"GhJSON valid with {warnings.Count} warning(s)");
-                }
-                else
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "GhJSON is valid");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "GhJSON input is required");
+                    dataCount = 0;
+                    return;
                 }
 
-                foreach (var error in errors)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error);
-                }
+                this._json = json;
 
-                foreach (var warning in warnings)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, warning);
-                }
+                int levelValue = 1;
+                DA.GetData(1, ref levelValue);
+                this._level = (ValidationLevel)Math.Max(0, Math.Min(2, levelValue));
 
-                foreach (var message in info)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, message);
-                }
+                bool preferOnline = false;
+                DA.GetData(2, ref preferOnline);
+                this._preferOnline = preferOnline;
 
-                DA.SetData(0, result.IsValid);
-                DA.SetDataList(1, errors);
-                DA.SetDataList(2, warnings);
-                DA.SetDataList(3, info);
+                dataCount = 1;
             }
-            catch (Exception ex)
+
+            public override async Task DoWorkAsync(CancellationToken token)
             {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                try
+                {
+                    var result = await GhJson.ValidateAsync(this._json, this._level, schemaVersion: null, this._preferOnline, token).ConfigureAwait(false);
+
+                    this._isValid = result.IsValid;
+                    this._errors = result.Errors?.Select(e => e.ToString()).ToList() ?? new List<string>();
+                    this._warnings = result.Warnings?.Select(w => w.ToString()).ToList() ?? new List<string>();
+                    this._info = result.Info?.Select(i => i.ToString()).ToList() ?? new List<string>();
+
+                    if (!this._isValid)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, $"GhJSON validation failed with {this._errors.Count} error(s)");
+                    }
+                    else if (this._warnings.Count > 0)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"GhJSON valid with {this._warnings.Count} warning(s)");
+                    }
+                    else
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Info, "GhJSON is valid");
+                    }
+
+                    foreach (var error in this._errors)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, error);
+                    }
+
+                    foreach (var warning in this._warnings)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, warning);
+                    }
+
+                    foreach (var message in this._info)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Info, message);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
+                }
+            }
+
+            public override void SetOutput(IGH_DataAccess DA, out string message)
+            {
+                DA.SetData(0, this._isValid);
+                DA.SetDataList(1, this._errors);
+                DA.SetDataList(2, this._warnings);
+                DA.SetDataList(3, this._info);
+                message = this._isValid ? "GhJSON is valid" : $"GhJSON validation failed with {this._errors.Count} error(s)";
             }
         }
     }
