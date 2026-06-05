@@ -40,14 +40,20 @@ Source:
 - `SafeStructureCodec`
   - `EncodeTree(GH_Structure<IGH_Goo>) -> GH_Structure<GH_String>`
   - `DecodeTree(GH_Structure<GH_String>, out List<string> warnings) -> GH_Structure<IGH_Goo>`
-- `SafeGooCodec`
+- `SafeGooCodec` (thin facade over `GooCodecRegistry`)
   - `Encode(IGH_Goo) -> string`
   - `TryDecode(string, out IGH_Goo goo, out string warning) -> bool`
+- `GooCodecRegistry`
+  - Maintains a list of `IGooCodec` implementations checked in priority order.
+  - Built-in codecs: `StringCodec`, `NumberCodec`, `IntegerCodec`, `BooleanCodec`, `VersatileImageCodec`, `VersatileAudioCodec`.
+  - Custom codecs can be registered at runtime via `GooCodecRegistry.Register(IGooCodec)`.
 
 Source:
 
 - `src/SmartHopper.Core/IO/SafeStructureCodec.cs`
 - `src/SmartHopper.Core/IO/SafeGooCodec.cs`
+- `src/SmartHopper.Core/IO/Codecs/GooCodecRegistry.cs`
+- `src/SmartHopper.Core/IO/Codecs/IGooCodec.cs`
 
 ## Supported item types
 
@@ -88,9 +94,40 @@ Source: `src/SmartHopper.Core/IO/GHPersistenceService.cs`.
 
 ## Extending to new types
 
-To persist a new GH type safely:
+To persist a new GH type safely, implement `IGooCodec` and register it with `GooCodecRegistry`:
 
-1. Add a new `typeHint` case in `SafeGooCodec.Encode(IGH_Goo)` producing a canonical string representation.
-2. Add the corresponding case in `SafeGooCodec.TryDecode(...)` to parse the string back to an `IGH_Goo` instance.
-3. Use `CultureInfo.InvariantCulture` for numeric formats and keep strings unescaped if possible; if escaping is needed, keep the prefix format `typeHint|payload` stable and implement reversible escaping.
-4. Maintain backward compatibility: new readers must still decode old payloads; never remove existing type hints.
+```csharp
+public class MyCustomCodec : IGooCodec
+{
+    public string TypeHint => "GH_MyCustom";
+    public int Priority => 0;
+
+    public bool CanEncode(IGH_Goo goo) => goo is GH_MyCustom;
+
+    public string Encode(IGH_Goo goo)
+    {
+        var custom = (GH_MyCustom)goo;
+        return $"{custom.Value}"; // payload without prefix
+    }
+
+    public bool TryDecode(string data, out IGH_Goo goo, out string warning)
+    {
+        warning = null;
+        goo = new GH_MyCustom(data);
+        return true;
+    }
+}
+```
+
+Then register at plugin startup (or before first save/load):
+
+```csharp
+GooCodecRegistry.Register(new MyCustomCodec());
+```
+
+Guidelines:
+
+1. Implement `IGooCodec` with a unique `TypeHint` and a `CanEncode` check for your goo type.
+2. Keep the payload format stable and reversible. Use `CultureInfo.InvariantCulture` for numeric formats.
+3. Maintain backward compatibility: new readers must still decode old payloads; never remove existing type hints.
+4. On decode failure, return a `GH_String` with a warning — never throw.
