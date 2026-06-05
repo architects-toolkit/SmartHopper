@@ -175,6 +175,7 @@ namespace SmartHopper.Core.IO.Codecs
             Register(new BooleanCodec());
             Register(new VersatileImageCodec());
             Register(new VersatileAudioCodec());
+            Register(new AIInputPayloadCodec());
         }
     }
 }

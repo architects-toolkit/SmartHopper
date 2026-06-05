@@ -22,7 +22,7 @@ namespace SmartHopper.Core.IO.Codecs
 {
     /// <summary>
     /// Interface for codecs that encode individual IGH_Goo instances to/from
-    canonical string payloads for safe persistence.
+    /// canonical string payloads for safe persistence.
     /// </summary>
     public interface IGooCodec
     {

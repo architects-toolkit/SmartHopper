@@ -45,7 +45,7 @@ Source:
   - `TryDecode(string, out IGH_Goo goo, out string warning) -> bool`
 - `GooCodecRegistry`
   - Maintains a list of `IGooCodec` implementations checked in priority order.
-  - Built-in codecs: `StringCodec`, `NumberCodec`, `IntegerCodec`, `BooleanCodec`, `VersatileImageCodec`, `VersatileAudioCodec`.
+  - Built-in codecs: `StringCodec`, `NumberCodec`, `IntegerCodec`, `BooleanCodec`, `VersatileImageCodec`, `VersatileAudioCodec`, `AIInputPayloadCodec`.
   - Custom codecs can be registered at runtime via `GooCodecRegistry.Register(IGooCodec)`.
 
 Source:
@@ -72,6 +72,14 @@ Handled explicitly by `SafeGooCodec`:
   - `k` — `VersatileAudioKind` (`LocalFile`, `Url`, `Base64`, `DataUri`)
   - `v` — `RawValue` (path, URL, base64, or data-URI)
   - `i`, `c`, `p`, `s`, `m` — `Id`, `Context`, `PageOrSlide`, `SourceDocument`, `MimeType`
+- `GH_AIInputPayload` — `GH_AIInputPayload|{json}` where JSON contains:
+  - `capability` — `AICapability` enum value (int)
+  - `payloadType` — `AIInputPayloadType` enum value (int)
+  - `hint` — MIME type or format hint string
+  - `interactions` — Array of interaction objects, each with:
+    - `$type` — discriminator (`text`, `image`, `audio`, `toolCall`, `toolResult`, `runtimeMessage`)
+    - Common fields: `turnId`, `time`, `agent`
+    - Type-specific fields (e.g., `content` for text, `imageUrl`/`imageData` for image, etc.)
 
 Fallbacks and warnings:
 

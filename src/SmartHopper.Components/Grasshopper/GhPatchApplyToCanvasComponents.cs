@@ -27,12 +27,11 @@ using GhJSON.Core;
 using GhJSON.Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Grasshopper
 {
