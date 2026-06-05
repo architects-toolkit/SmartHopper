@@ -254,6 +254,9 @@ documentation:
 "component: GhTidyUp":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhTidyUpComponents.cs'
+"component: GhValidate":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhValidateComponents.cs'
 "component: ImageViewer":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Img/ImageViewerComponent.cs'
@@ -329,6 +332,18 @@ documentation:
 "component: NumberList2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/NumberList2AIComponent.cs'
+"component: OpenGhJSON":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/OpenGhJSONComponent.cs'
+"component: OpenGhPatch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/OpenGhPatchComponent.cs'
+"component: SaveGhJSON":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/SaveGhJSONComponent.cs'
+"component: SaveGhPatch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/SaveGhPatchComponent.cs'
 "component: Text2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Text2AIComponent.cs'
