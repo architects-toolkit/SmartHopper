@@ -87,7 +87,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **`JsonSanitizerComponent`** (`SmartHopper > JSON > JSON Sanitizer`): sync component that recovers a valid JSON object from a malformed / AI-generated string. Runs the full recovery pipeline (direct parse → strip markdown fences → brace-depth extraction → sanitization), outputs a minified single-line JSON plus a human-readable summary of the steps performed. Supports tree input with preserved path/branch structure on both outputs.
   - **`JsonFormatHelper.TryRecoverJsonToken`** / **`TryRecoverJsonObject`** and **`ExtractFirstJsonContainer`** / **`ExtractFirstJsonObject`**: centralized JSON recovery utilities. Token-level recovery preserves JSON **array** roots (`[...]`) in addition to objects; object-only wrapper rejects array roots for callers that need object semantics. `AIResponseParser.ParseJsonObjectFromResponse` now delegates to `TryRecoverJsonObject` instead of re-implementing the recovery pipeline. `JsonSanitizerComponent` uses `TryRecoverJsonToken` so array inputs round-trip as arrays.
 
-
 - **Google Gemini Provider**: Full integration of Google's Gemini AI models
   - Support for Gemini 3.1, 2.5, 2.0, and 1.5 models
   - Text generation with streaming support
@@ -119,9 +118,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `OpenAIStreamingAdapter` now supports SSE streaming for the `/v1/responses` endpoint in addition to `/v1/chat/completions`.
   - Handles semantic events: `response.output_text.delta` (text streaming), `response.completed` (usage + finish), `response.output_item.added` / `response.function_call_arguments.delta` / `response.output_item.done` (tool call streaming), and `error` (provider errors).
   - Conditionally omits `stream_options.include_usage` for Responses API (not supported) while retaining it for Chat Completions.
+- **Additional GhJSON and GhPatch Grasshopper components** in the `SmartHopper > Grasshopper` tab:
+  - `SaveGhPatch` ("Save GhPatch") — saves a `.ghpatch` string to a file.
+  - `OpenGhPatch` ("Open GhPatch") — opens a `.ghpatch` file from disk with validation output.
+  - `GhValidateComponents` ("Validate GhJSON") — validates a GhJSON document against the official schema and performs structural checks.
+  - `GhPatchApplyToCanvasComponents` ("Apply GhPatch to Canvas") — applies a `.ghpatch` directly to the canvas with intelligent change detection.
+- `AIInputPayloadCodec` for `GH_AIInputPayload` serialization with stable checksums.
+- Audio viewer component icon and visualization improvements for audio and image components.
+- Missing component icons and reorganized components panel for better discoverability.
+- **OpenRouter provider**: Added vision input support via OpenAI-compatible `image_url` format.
+- **`script_generate` tool**: Added Python top-level return validation and improved error handling.
 
 ### Changed
 
+- Time context keys renamed from `current-*` to `local-*` (e.g., `current-time` → `local-time`, `current-file_selected-count` → `local-file_selected-count`) for clarity.
+- `AIFileContext` renamed to `AIFileMetadata` and integrated with GhJSON serialization.
+- Codec logic refactored into a registry pattern with `IGooCodec` interface; documentation added for `GH_VersatileImage` and `GH_VersatileAudio` `SafeGooCodec` serialization.
+- `GhGetComponents` migrated to worker pattern and input-change optimization disabled to fix missing metrics outputs.
+- OpenAI and MistralAI providers: removed `n` (completions count) parameter.
+- AI coding rules migrated from `.windsurf` to `.devin` configuration directory.
 - Rhino compatiblity downgraded from `Rhino 8.24` to `Rhino 8.0`.
 
 - **AI model rebalancing**:
@@ -319,6 +334,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AI2Json`: `text_generate` → `text2json`
   - `AI2Img`: `img_generate` → `text2img`
   - `AI2Script`: `script_new` → `script_generate`
+
+- `gh_put` no longer fails to replace components when Grasshopper is in edit mode.
+- Added defensive null checks, try-catch blocks, and enum string serialization for improved error-handling robustness.
+- `ScriptComponentRegistry` integration for robust script extraction in script-review workflow.
 
 ### Removed
 
