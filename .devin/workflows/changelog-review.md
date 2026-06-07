@@ -1,5 +1,6 @@
 ---
 description: Review the changelog and last commits for consistency
+auto_execution_mode: 3
 ---
 
 Omit this workflow if current branch is main or dev.
@@ -10,4 +11,4 @@ Omit this workflow if current branch is main or dev.
 
 3. Compare the list of commits against the [Unreleased] section in CHANGELOG.md.
 
-4. Suggest missing `CHANGELOG.md` entries to the user.
+4. Suggest missing `CHANGELOG.md` entries to the user. Pay special attention to features that affect the user experience or break existing functionality.
