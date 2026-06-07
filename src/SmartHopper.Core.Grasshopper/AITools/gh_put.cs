@@ -210,6 +210,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                         Debug.WriteLine($"[gh_put] Final replacement count: {componentsToReplace.Count}");
 
+                        // If no replacements were needed, all existing components are unchanged.
+                        // Ensure unchangedGuids is populated so Step 3 filters them out.
+                        if (unchangedGuids == null && existingComponents.Count > 0)
+                        {
+                            unchangedGuids = existingComponents.Keys.ToHashSet();
+                        }
+
                         // Capture external connections for replaced components (on UI thread, before removal)
                         if (componentsToReplace.Count > 0)
                         {

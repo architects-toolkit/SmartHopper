@@ -46,8 +46,8 @@ namespace SmartHopper.Core.IO.Codecs
             var payload = ((GH_AIInputPayload)goo).Value;
             var json = new JObject
             {
-                ["capability"] = (int)payload.InputCapabilityAtSource,
-                ["payloadType"] = (int)payload.PayloadType,
+                ["capability"] = payload.InputCapabilityAtSource.ToString(),
+                ["payloadType"] = payload.PayloadType.ToString(),
                 ["hint"] = payload.Hint
             };
 
@@ -71,8 +71,8 @@ namespace SmartHopper.Core.IO.Codecs
             try
             {
                 var json = JObject.Parse(data);
-                var capability = (AICapability)json.Value<int>("capability");
-                var payloadType = (AIInputPayloadType)json.Value<int>("payloadType");
+                var capability = Enum.TryParse<AICapability>(json.Value<string>("capability") ?? string.Empty, out var cap) ? cap : AICapability.None;
+                var payloadType = Enum.TryParse<AIInputPayloadType>(json.Value<string>("payloadType") ?? string.Empty, out var pt) ? pt : AIInputPayloadType.None;
                 var hint = json.Value<string>("hint");
 
                 var interactions = new List<IAIInteraction>();
@@ -108,7 +108,7 @@ namespace SmartHopper.Core.IO.Codecs
             // Common fields
             json["turnId"] = interaction.TurnId;
             json["time"] = interaction.Time.ToString("O");
-            json["agent"] = (int)interaction.Agent;
+            json["agent"] = interaction.Agent.ToString();
 
             switch (interaction)
             {
@@ -157,9 +157,9 @@ namespace SmartHopper.Core.IO.Codecs
 
                 case AIInteractionRuntimeMessage msg:
                     json["$type"] = "runtimeMessage";
-                    json["severity"] = (int)msg.Severity;
-                    json["code"] = (int)msg.Code;
-                    json["origin"] = (int)msg.Origin;
+                    json["severity"] = msg.Severity.ToString();
+                    json["code"] = msg.Code.ToString();
+                    json["origin"] = msg.Origin.ToString();
                     json["surfaceable"] = msg.Surfaceable;
                     json["content"] = msg.Content;
                     break;
@@ -180,7 +180,7 @@ namespace SmartHopper.Core.IO.Codecs
 
             var turnId = json.Value<string>("turnId");
             var timeStr = json.Value<string>("time");
-            var agent = (AIAgent)json.Value<int>("agent");
+            var agent = Enum.TryParse<AIAgent>(json.Value<string>("agent") ?? string.Empty, out var ag) ? ag : AIAgent.User;
 
             IAIInteraction interaction = type switch
             {
@@ -191,7 +191,7 @@ namespace SmartHopper.Core.IO.Codecs
                 },
                 "image" => new AIInteractionImage
                 {
-                    ImageUrl = json.Value<string>("imageUrl") != null ? new Uri(json.Value<string>("imageUrl")) : null,
+                    ImageUrl = !string.IsNullOrWhiteSpace(json.Value<string>("imageUrl")) ? new Uri(json.Value<string>("imageUrl")) : null,
                     ImageData = json.Value<string>("imageData"),
                     RevisedPrompt = json.Value<string>("revisedPrompt"),
                     OriginalPrompt = json.Value<string>("originalPrompt"),
@@ -224,9 +224,9 @@ namespace SmartHopper.Core.IO.Codecs
                 },
                 "runtimeMessage" => new AIInteractionRuntimeMessage
                 {
-                    Severity = (SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageSeverity)json.Value<int>("severity"),
-                    Code = (SmartHopper.Infrastructure.Diagnostics.SHMessageCode)json.Value<int>("code"),
-                    Origin = (SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin)json.Value<int>("origin"),
+                    Severity = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageSeverity>(json.Value<string>("severity") ?? string.Empty, out var sev) ? sev : SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageSeverity.Info,
+                    Code = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHMessageCode>(json.Value<string>("code") ?? string.Empty, out var code) ? code : SmartHopper.Infrastructure.Diagnostics.SHMessageCode.None,
+                    Origin = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin>(json.Value<string>("origin") ?? string.Empty, out var orig) ? orig : SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin.Unknown,
                     Surfaceable = json.Value<bool>("surfaceable"),
                     Content = json.Value<string>("content")
                 },

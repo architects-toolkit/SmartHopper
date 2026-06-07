@@ -149,6 +149,12 @@ namespace SmartHopper.Components.Grasshopper
 
                     // 1. Get current canvas as base
                     var baseDoc = GhJsonGrasshopper.Get();
+                    if (baseDoc == null)
+                    {
+                        this.error = "Failed to retrieve current canvas document";
+                        return;
+                    }
+
                     var baseJson = GhJson.ToJson(baseDoc, new GhJSON.Core.Serialization.WriteOptions { Indented = false });
 
                     // 2. Apply patch via AI tool
