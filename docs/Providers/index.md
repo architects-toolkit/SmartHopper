@@ -51,9 +51,9 @@ Providers implement API-specific logic while conforming to a common contract so 
 
 ## Provider implementations (in order of implementation)
 
-- MistralAI
-- OpenAI
-- DeepSeek
-- Anthropic
-- OpenRouter
+- [MistralAI](./MistralAI.md)
+- [OpenAI](./OpenAI.md)
+- [DeepSeek](./DeepSeek.md)
+- [Anthropic](./Anthropic.md)
+- [OpenRouter](./OpenRouter.md)
 - [Google Gemini](./Gemini.md)

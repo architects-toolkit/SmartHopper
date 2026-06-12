@@ -19,7 +19,7 @@ The Google Gemini provider integrates Google's Gemini AI models into SmartHopper
 
 Get your API key from [Google AI Studio](https://ai.google.dev/):
 
-1. Visit https://ai.google.dev/
+1. Visit <https://ai.google.dev/>
 2. Click "Get API key"
 3. Create a new API key
 4. Copy the key into SmartHopper's Google provider settings
@@ -42,28 +42,6 @@ Get your API key from [Google AI Studio](https://ai.google.dev/):
 - **Top-P Sampling**: Top-P (nucleus) parameter
 - **Random Seed**: For deterministic outputs
 - **Safety Level**: Content safety filter level
-
-## Model Capabilities
-
-### Gemini 3.1 (Preview)
-
-- **gemini-3.1-pro-preview**: Full-featured flagship model
-- **gemini-3.1-flash-preview**: Fast, efficient model
-- **gemini-3-pro-image-preview**: Image generation with reasoning
-- **gemini-3.1-flash-image-preview**: Fast image generation
-
-### Gemini 2.5 (Stable)
-
-- **gemini-2.5-pro**: High-quality text generation
-- **gemini-2.5-flash**: Recommended default for most tasks
-- **gemini-2.5-flash-image**: Image generation
-- **gemini-2.5-flash-lite**: Lightweight, fast model
-
-### Gemini 2.0 & 1.5 (Stable/Deprecated)
-
-- **gemini-2.0-flash**: Stable, verified model
-- **gemini-1.5-pro**: Deprecated but available
-- **gemini-1.5-flash**: Deprecated but available
 
 ## JSON Schema Support
 
