@@ -46,6 +46,7 @@ Providers implement API-specific logic while conforming to a common contract so 
 - [AICall](./AICall/index.md)
 - [AIModelCapabilities](./AIModelCapabilities.md)
 - [Model Selection Policy](./ModelSelection.md)
+- [Prompt Caching](./PromptCaching.md)
 - [Streaming Adapters](./AICall/Streaming.md)
 
 ## Provider implementations (in order of implementation)

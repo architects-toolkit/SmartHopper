@@ -24,6 +24,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -246,7 +247,26 @@ namespace SmartHopper.Providers.OpenRouter
                 if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
                     body["top_logprobs"] = topLogprobsToken.Value<int?>();
                 if (p.Extras.TryGetValue("enable_caching", out var enableCachingToken) && enableCachingToken?.Value<bool>() == true)
-                    body["cache_control"] = new JObject { ["type"] = "ephemeral" };
+                {
+                    // Top-level cache_control is Anthropic-specific (automatic caching).
+                    // Sending it for other models is undocumented and restricts OpenRouter routing,
+                    // so only emit it for Anthropic models. Other providers (OpenAI, DeepSeek,
+                    // Grok, Groq, Gemini 2.5) cache automatically without any request changes.
+                    if (request.Model?.StartsWith("anthropic/", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        body["cache_control"] = new JObject { ["type"] = "ephemeral" };
+                    }
+
+                    // Stable session_id enables OpenRouter provider sticky routing from the first
+                    // request, keeping subsequent requests on the same provider endpoint so prompt
+                    // caches stay warm. Derived from model + first system text so all requests
+                    // sharing the same stable prefix land on the same endpoint.
+                    var sessionId = ComputeSessionId(request.Model, mergedInteractions);
+                    if (!string.IsNullOrEmpty(sessionId))
+                    {
+                        body["session_id"] = sessionId;
+                    }
+                }
             }
 
             // Add tools if requested
@@ -351,6 +371,38 @@ namespace SmartHopper.Providers.OpenRouter
             catch (Exception ex)
             {
                 Debug.WriteLine($"[OpenRouter] Encode(IAIInteraction) error: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Computes a stable session identifier for OpenRouter provider sticky routing.
+        /// Derived from the model name and the first system/context text so that all
+        /// requests sharing the same stable prompt prefix are routed to the same
+        /// provider endpoint, keeping prompt caches warm across requests.
+        /// </summary>
+        /// <param name="model">The requested model name.</param>
+        /// <param name="interactions">The merged interactions of the request body.</param>
+        /// <returns>A stable hash-based session id, or an empty string when no seed content is available.</returns>
+        private static string ComputeSessionId(string? model, IEnumerable<IAIInteraction> interactions)
+        {
+            try
+            {
+                var firstSystem = interactions?
+                    .OfType<AIInteractionText>()
+                    .FirstOrDefault(i => i.Agent == AIAgent.System || i.Agent == AIAgent.Context);
+                var seed = (model ?? string.Empty) + "\n" + (firstSystem?.Content ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(seed))
+                {
+                    return string.Empty;
+                }
+
+                using var sha = SHA256.Create();
+                var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(seed));
+                return "sh-" + Convert.ToHexString(hash).ToLowerInvariant();
+            }
+            catch
+            {
                 return string.Empty;
             }
         }
@@ -1173,7 +1225,7 @@ namespace SmartHopper.Providers.OpenRouter
                 new AIExtraDescriptor(
                     "enable_caching",
                     "Enable Prompt Caching",
-                    "Adds cache_control to the request body, enabling prompt caching for supported providers routed through OpenRouter.",
+                    "Enables prompt caching optimizations: adds automatic cache_control for Anthropic models and a stable session_id for provider sticky routing so repeated requests stay on the same endpoint. OpenAI, DeepSeek, Grok, Groq, and Gemini 2.5 models cache automatically regardless of this setting.",
                     typeof(bool),
                     null),
             };

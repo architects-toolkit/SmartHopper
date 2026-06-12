@@ -665,22 +665,46 @@ namespace SmartHopper.Providers.Anthropic
                 }
             }
 
+            // Determine whether prompt caching is enabled via extras.
+            bool enableCaching = p?.Extras != null
+                && p.Extras.TryGetValue("enable_caching", out var ecToken)
+                && ecToken?.Value<bool>() == true;
+
             // After collecting both conversation system texts and optional schema instruction,
-            // set the top-level system string, joining entries with "\n---\n".
+            // set the top-level system field, joining entries with "\n---\n".
             if (systemTexts.Count > 0)
             {
                 var combinedSystem = string.Join("\n---\n", systemTexts.Where(s => !string.IsNullOrWhiteSpace(s)));
                 if (!string.IsNullOrWhiteSpace(combinedSystem))
                 {
-                    requestBody["system"] = combinedSystem;
+                    if (enableCaching)
+                    {
+                        // When caching is enabled, emit system as a content-block array with an
+                        // explicit cache breakpoint on the last (stable) system block. This makes
+                        // single-shot and batch requests sharing the same tools+system prefix hit
+                        // the cache even when the user message varies per request.
+                        requestBody["system"] = new JArray
+                        {
+                            new JObject
+                            {
+                                ["type"] = "text",
+                                ["text"] = combinedSystem,
+                                ["cache_control"] = new JObject { ["type"] = "ephemeral" },
+                            },
+                        };
+                    }
+                    else
+                    {
+                        requestBody["system"] = combinedSystem;
+                    }
                 }
             }
 
             // Apply automatic prompt caching when enable_caching=true:
-            // Adds top-level cache_control so Anthropic automatically caches the longest stable prefix.
-            bool enableCaching = p?.Extras != null
-                && p.Extras.TryGetValue("enable_caching", out var ecToken)
-                && ecToken?.Value<bool>() == true;
+            // Adds top-level cache_control so Anthropic automatically advances the cache
+            // breakpoint over the growing message history in multi-turn conversations.
+            // This is complementary to the explicit system breakpoint above and is a no-op
+            // when the last cacheable block already carries the same cache_control TTL.
             if (enableCaching)
             {
                 requestBody["cache_control"] = new JObject { ["type"] = "ephemeral" };
@@ -1645,7 +1669,7 @@ namespace SmartHopper.Providers.Anthropic
                 new AIExtraDescriptor(
                     "enable_caching",
                     "Enable Prompt Caching",
-                    "Automatically caches the longest stable prompt prefix (>1024 tokens for Sonnet, >4096 tokens for Opus and Haiku). Reduces latency and cost on repeated calls sharing the same context. Highly recommended for batch processing.",
+                    "Caches the stable prompt prefix (tools + system prompt) with an explicit breakpoint, plus automatic caching of growing conversation history. Requires the prefix to be identical across requests, above the model's minimum (1024-4096 tokens), and reused within 5 minutes. Cache writes cost 1.25x input price; reads cost 0.1x.",
                     typeof(bool),
                     null),
             };

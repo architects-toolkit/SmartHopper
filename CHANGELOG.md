@@ -131,6 +131,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Prompt caching improvements**:
+  - **Anthropic provider**: `enable_caching` now also emits an explicit `cache_control` breakpoint on the system content block, so single-shot and batch requests sharing the same tools+system prefix get cache hits even when the user message varies (previously only top-level automatic caching was sent, which never produced cache reads for varying single-turn requests). Top-level automatic caching is kept for multi-turn conversation growth.
+  - **OpenRouter provider**: top-level `cache_control` is now only sent for `anthropic/*` models (it is Anthropic-specific and restricted OpenRouter routing for other models); `enable_caching` now also sends a stable `session_id` (hash of model + first system text) to activate provider sticky routing from the first request, keeping prompt caches warm.
+  - Updated `enable_caching` descriptors in both providers to accurately describe behavior, costs, and minimum-token/TTL conditions.
 - Time context keys renamed from `current-*` to `local-*` (e.g., `current-time` → `local-time`, `current-file_selected-count` → `local-file_selected-count`) for clarity.
 - `AIFileContext` renamed to `AIFileMetadata` and integrated with GhJSON serialization.
 - Codec logic refactored into a registry pattern with `IGooCodec` interface; documentation added for `GH_VersatileImage` and `GH_VersatileAudio` `SafeGooCodec` serialization.
