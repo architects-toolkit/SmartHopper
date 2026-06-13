@@ -72,7 +72,7 @@ namespace SmartHopper.Core.IO.Codecs
             {
                 var json = JObject.Parse(data);
                 var capability = Enum.TryParse<AICapability>(json.Value<string>("capability") ?? string.Empty, out var cap) ? cap : AICapability.None;
-                var payloadType = Enum.TryParse<AIInputPayloadType>(json.Value<string>("payloadType") ?? string.Empty, out var pt) ? pt : AIInputPayloadType.None;
+                var payloadType = Enum.TryParse<AIInputPayloadType>(json.Value<string>("payloadType") ?? string.Empty, out var pt) ? pt : AIInputPayloadType.Unknown;
                 var hint = json.Value<string>("hint");
 
                 var interactions = new List<IAIInteraction>();
@@ -225,8 +225,8 @@ namespace SmartHopper.Core.IO.Codecs
                 "runtimeMessage" => new AIInteractionRuntimeMessage
                 {
                     Severity = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageSeverity>(json.Value<string>("severity") ?? string.Empty, out var sev) ? sev : SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageSeverity.Info,
-                    Code = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHMessageCode>(json.Value<string>("code") ?? string.Empty, out var code) ? code : SmartHopper.Infrastructure.Diagnostics.SHMessageCode.None,
-                    Origin = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin>(json.Value<string>("origin") ?? string.Empty, out var orig) ? orig : SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin.Unknown,
+                    Code = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHMessageCode>(json.Value<string>("code") ?? string.Empty, out var code) ? code : SmartHopper.Infrastructure.Diagnostics.SHMessageCode.Unknown,
+                    Origin = Enum.TryParse<SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin>(json.Value<string>("origin") ?? string.Empty, out var orig) ? orig : SmartHopper.Infrastructure.Diagnostics.SHRuntimeMessageOrigin.Worker,
                     Surfaceable = json.Value<bool>("surfaceable"),
                     Content = json.Value<string>("content")
                 },
