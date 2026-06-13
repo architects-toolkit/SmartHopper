@@ -6,6 +6,7 @@ name: 📜 Update License Headers
 #   - pr-build-hash-validation.yml (build hash integrity)
 #   - pr-version-validation.yml (version consistency)
 #   - pr-dependency-validation.yml (dependency checks)
+#   - pr-documentation-validation.yml (documentation structure validation)
 #   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
 #   - ci-dotnet-tests.yml (.NET build and test)
 
