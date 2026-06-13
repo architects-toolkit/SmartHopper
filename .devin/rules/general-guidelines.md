@@ -22,8 +22,9 @@ trigger: always_on
 - Prefer native Grasshopper/Rhino types and APIs when working with canvas, data-tree, or geometry logic.
 - Use https://developer.rhino3d.com/ as the official Rhino/Grasshopper API reference.
 - Check `/docs` before changing existing architecture; those docs are the local source of truth for module responsibilities and data flows.
-- Use commands appropriate to the current execution environment. Windows-only build/signing flows require Developer PowerShell for Visual Studio; do not assume every assistant or CI runner is on Windows.
+- Use commands appropriate to the current execution environment. Windows-only build/signing flows require Developer PowerShell for Visual Studio; do not assume every assistant or GitHub Actions runner is on Windows.
 - Never add unit tests that require Rhino/Grasshopper references. For tests that require Rhino/Grasshopper references, create a testing component in the `SmartHopper.Components.Test` project.
+- When testing for compilation errors, use the `.\tools\Build-Solution.ps1` script that automatically handles authenticode and prompts the user for the signing password.
 - Do not commit secrets, signing keys, local provider API keys, or generated private credentials.
 
 ## Context persistence

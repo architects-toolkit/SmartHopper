@@ -534,8 +534,12 @@ namespace SmartHopper.Core.ComponentBase
                 hasMessages = true;
             }
 
-            // Add all item-level messages (works for both success and failure)
-            if (messages != null && messages.Count > 0)
+            // Add item-level messages only for failure states.
+            // For Completed batches, item-level messages (finish_reason, cancelled, expired)
+            // are surfaced with branch-path context inside OnBatchCompleted →
+            // ProcessBatchResults<T> / ProcessMappingsBatchResults. Surfacing them here as
+            // well would cause duplicates (once with raw custom_id, once with branch path).
+            if (state != AIBatchState.Completed && messages != null && messages.Count > 0)
             {
                 foreach (var msg in messages)
                 {
@@ -552,7 +556,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // For success states, delegate to the virtual OnBatchCompleted hook
-            if (state == AIBatchState.Completed && (results != null || hasMessages))
+            if (state == AIBatchState.Completed && (results != null || messages?.Count > 0))
             {
                 try
                 {
