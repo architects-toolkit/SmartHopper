@@ -24,4 +24,4 @@ Safe, versioned persistence for Grasshopper component outputs.
 ## Related
 
 - Base integration in `StatefulComponentBase` read/write paths.
-- See `StatefulComponentBase` (in `src/SmartHopper.Core/ComponentBase/StatefulComponentBaseV2.cs`) for where persistence is invoked.
+- See `StatefulComponentBase` (in `src/SmartHopper.Core/ComponentBase/StatefulComponentBase.cs`) for where persistence is invoked.

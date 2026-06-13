@@ -1,6 +1,6 @@
 # ComponentStateManager
 
-`src/SmartHopper.Core/ComponentBase/ComponentStateManager.cs`
+`src/SmartHopper.Core/ComponentBase/Cores/ComponentStateManager.cs`
 
 Sealed, thread-safe class that owns the per-component state machine for [StatefulComponentBase](./StatefulComponentBase.md). Each component creates one instance in its constructor.
 

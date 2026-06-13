@@ -106,7 +106,7 @@ Shorthands available in `ToolResultEnvelopeExtensions`:
 
 ## Examples in repo
 
-- `src/SmartHopper.Core.Grasshopper/AITools/text_generate.cs`
-- `src/SmartHopper.Core.Grasshopper/AITools/list_generate.cs`
-- `src/SmartHopper.Core.Grasshopper/AITools/img_generate.cs`
+- `src/SmartHopper.Core.Grasshopper/AITools/text2text.cs`
+- `src/SmartHopper.Core.Grasshopper/AITools/text2textlist.cs`
+- `src/SmartHopper.Core.Grasshopper/AITools/text2img.cs`
 

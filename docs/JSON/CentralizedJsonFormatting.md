@@ -200,12 +200,12 @@ This follows the same pattern as `AIResponseParser.ExtractFromMarkdownCodeBlock(
 | File | Changes |
 | --- | --- |
 | `JsonFormatHelper.cs` | ✅ Created |
-| `JsonSchemaComponent.cs` | ✅ Updated to use `MinifyJson()` |
-| `JsonObjectComponent.cs` | ✅ Updated to use `MinifyJson()` |
-| `JsonMergeComponent.cs` | ✅ Updated to use `MinifyJson()` |
+| `JsonSchemaComponent.cs` | ✅ Updated to use `JsonToString()` |
+| `JsonObjectComponent.cs` | ✅ Updated to use `JsonToString()` |
+| `JsonMergeComponent.cs` | ✅ Updated to use `JsonToString()` |
 | `JsonGetValueComponent.cs` | ✅ Already consistent |
-| `text2json.cs` | ✅ Updated to use `NormalizeJson()` |
-| `AIText2JsonComponent.cs` | ✅ Updated to use `EnsureMinified()` |
+| `text2json.cs` | ✅ Updated to use `JsonToString()` |
+| `AIText2JsonComponent.cs` | ✅ Updated to use `JsonToString()` |
 
 ## Testing Recommendations
 

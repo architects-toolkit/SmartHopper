@@ -71,13 +71,14 @@ Data flow:
 
 - Contract: `src/SmartHopper.Infrastructure/AIContext/IAIContextProvider.cs`
   - `ProviderId`
-  - `GetContext(): IDictionary<string, string>` returning context key‑values
+  - `GetContext(): Dictionary<string, string>` returning context key‑values
 
 - Implementations:
   - `EnvironmentContextProvider.cs` — OS, Rhino version, platform
   - `TimeContextProvider.cs` — current time and timezone
+  - `FileContextProvider.cs` — current file, selection, and object counts
 
-These are injected to enrich AI prompts with environment and time metadata.
+These are injected to enrich AI prompts with environment, time, and file metadata.
 
 ## 6. Component Base Classes
 
@@ -161,6 +162,17 @@ These are injected to enrich AI prompts with environment and time metadata.
   - `src/SmartHopper.Core/ComponentBase/AIStatefulAsyncComponentBase.cs` — [docs](./Components/ComponentBase/AIStatefulAsyncComponentBase.md)
 - Tools
   - `src/SmartHopper.Core.Grasshopper/AITools/`
+- AI Call Pipeline
+  - `src/SmartHopper.Infrastructure/AICall/` — Request/response handling, tool execution, metrics
+  - `src/SmartHopper.Infrastructure/AICall/Core/` — Core types (AIBody, AIRequest, AIReturn, AIMetrics)
+  - `src/SmartHopper.Infrastructure/AICall/Tools/` — Tool result envelope and tool management
+- Diagnostics & Streaming
+  - `src/SmartHopper.Infrastructure/Diagnostics/` — Logging, tracing, and diagnostic utilities
+  - `src/SmartHopper.Infrastructure/Streaming/` — Streaming response handling and buffering
+- Input/Output & Types
+  - `src/SmartHopper.Core/IO/` — File I/O and data serialization utilities
+  - `src/SmartHopper.Core/Types/` — Core type definitions and extensions
+  - `src/SmartHopper.Core.Grasshopper/AITools/` — Grasshopper-specific AI tools (text2text, text2img, etc.)
 
 ---
 

@@ -9,8 +9,8 @@ Covers `IAIRequest`, `AIRequestBase`, and `AIRequestCall`.
   - `string Provider`, `IAIProvider ProviderInstance`
   - `string Model`, `AICapability Capability`
   - `AIBody Body`
-  - `List<AIRuntimeMessage> Messages`
-  - `IsValid() : (bool IsValid, List<AIRuntimeMessage> Errors)`
+  - `List<SHRuntimeMessage> Messages`
+  - `IsValid() : (bool IsValid, List<SHRuntimeMessage> Errors)`
   - `Exec() : Task<AIReturn>`
 
 ## AIRequestBase
@@ -20,7 +20,7 @@ Covers `IAIRequest`, `AIRequestBase`, and `AIRequestCall`.
 - Model resolution (provider-scoped):
   - The `Model` property resolves to a provider-capable model for the requested `Capability`.
   - If a requested model is incompatible or missing, a provider default is selected via the model registry.
-  - Validation notes are surfaced via structured `AIRuntimeMessage`s.
+  - Validation notes are surfaced via structured `SHRuntimeMessage`s.
 - Initialization helpers:
   - `Initialize(provider, model, body, endpoint, capability)`
   - `Initialize(provider, model, interactions, endpoint, capability, toolFilter?)`

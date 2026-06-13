@@ -158,16 +158,94 @@ Automatically removes:
 - Elements with classes/IDs matching: `ad`, `advertisement`, `cookie`, `sidebar`, `menu`, `banner`, `social`, `share`
 
 ### Semantic Prioritization
+
 Prioritizes content in:
+
 - `<article>` tags (+100 score bonus)
 - `<main>` tags (+80 score bonus)
 - Elements with content-indicating classes: `content`, `main`, `article`, `post`, `entry`, `body` (+50 bonus)
 
 ## Architecture
 
-### Converter Framework
+### File Converters Subsystem
 
-The file-to-Markdown system uses an extensible plugin architecture:
+The file-to-Markdown system uses an extensible plugin architecture for converting various file formats to Markdown.
+
+#### Core Types
+
+**IFileConverter** (interface)
+
+- Contract for file-to-markdown converters
+- Each converter handles one or more file formats
+- Properties:
+  - `SupportedExtensions` — file extensions supported (e.g., ".pdf", ".docx")
+- Methods:
+  - `ConvertAsync(filePath, options)` — converts file to Markdown asynchronously
+
+**FileConverterRegistry** (dispatcher)
+
+- Central registry for all file converters
+- Extension-based converter routing
+- Methods:
+  - `Register(converter)` — registers a single converter
+  - `RegisterAll(converters)` — registers multiple converters
+  - `IsSupported(extension)` — checks if extension is supported
+  - `ConvertAsync(filePath, options)` — dispatches to appropriate converter
+  - `SupportedExtensions` — returns all registered extensions
+
+**FileConversionOptions** (configuration)
+
+- Configures conversion behavior
+- Properties:
+  - `PreserveTableStructure` (bool, default: true) — convert tables to Markdown format
+  - `RemoveHeadersFooters` (bool, default: true) — attempt to remove headers/footers
+  - `ExtractImages` (bool, default: false) — extract embedded images as base64
+
+**FileConversionResult** (output)
+
+- Result of a file-to-markdown conversion
+- Properties:
+  - `MarkdownContent` — extracted Markdown content (string)
+  - `DetectedFormat` — detected original format (string, e.g., "pdf", "docx")
+  - `Metadata` — extracted metadata (Dictionary, title, author, etc.)
+  - `Warnings` — warnings during conversion (List, e.g., "Page 3 appears to be scanned")
+  - `Images` — extracted images (List, when ExtractImages enabled)
+  - `IsSuccess` — whether conversion succeeded (bool)
+- Factory Methods:
+  - `Success(markdownContent, detectedFormat)` — creates successful result
+  - `Failure(detectedFormat, warningMessage)` — creates failed result
+
+#### Format Converters
+
+All converters implement `IFileConverter` and are registered in `FileConverterRegistry`:
+
+| Converter | File | Extensions | Library | Features |
+| --- | --- | --- | --- | --- |
+| `PdfConverter` | `PdfConverter.cs` | `.pdf` | UglyToad.PdfPig | Column detection, reading order, header/footer removal, heading detection, table recognition, scanned-page warnings |
+| `DocxConverter` | `DocxConverter.cs` | `.docx` | DocumentFormat.OpenXml | Headings (H1-H6), bold/italic, tables, lists, images, metadata |
+| `XlsxConverter` | `XlsxConverter.cs` | `.xlsx` | DocumentFormat.OpenXml | Multi-sheet support, header rows, Markdown tables, metadata |
+| `PptxConverter` | `PptxConverter.cs` | `.pptx` | DocumentFormat.OpenXml | Slide titles, body text, bullet points, speaker notes, metadata |
+| `HtmlConverter` | `HtmlConverter.cs` | `.html`, `.htm` | HtmlAgilityPack | Readability scoring, boilerplate removal, semantic content extraction |
+| `EmlConverter` | `EmlConverter.cs` | `.eml` | MimeKit | From/To/Subject/Date, HTML or plain text body, attachment list |
+| `EpubConverter` | `EpubConverter.cs` | `.epub` | Built-in | Chapter extraction in reading order, metadata |
+| `RtfConverter` | `RtfConverter.cs` | `.rtf` | RichTextBox (Windows) / Regex (macOS) | Plain text extraction |
+| `CsvConverter` | `CsvConverter.cs` | `.csv` | Built-in | Markdown table conversion |
+| `JsonConverter` | `JsonConverter.cs` | `.json` | Built-in | Pretty-printed fenced code block |
+| `XmlConverter` | `XmlConverter.cs` | `.xml` | Built-in | Pretty-printed fenced code block |
+| `TxtConverter` | `TxtConverter.cs` | `.txt` | Built-in | Pass-through with line normalization |
+| `UrlConverter` | `UrlConverter.cs` | (HTTP/HTTPS URLs) | HtmlAgilityPack | Fetches and converts web pages |
+
+#### Helper Classes
+
+- **HeuristicExtractor** — base class for content extraction heuristics
+- **HtmlReadabilityHelper** — HTML readability scoring and boilerplate removal
+- **ReadabilityExtractor** — Readability-based HTML content extraction
+- **SmartReaderExtractor** — Smart reader-based HTML content extraction
+- **GHStructureConverter** — Converts Grasshopper structures to Markdown
+- **StringConverter** — Converts strings to Markdown
+- **IntConverter** — Converts integers to Markdown
+
+### Converter Framework Diagram
 
 ```
 IFileConverter (interface)
@@ -179,19 +257,18 @@ FileConverterRegistry (dispatcher)
 ├── IsSupported(extension)
 └── ConvertAsync(filePath, options)
 
-ExtractedImage
-├── Id: string             (e.g., "img-1")
-├── Base64Data: string     (base64-encoded image bytes)
-├── MimeType: string       (e.g., "image/png", "image/jpeg")
-├── Context: string        (e.g., "Page 3", "Slide 2", "Document body")
-└── PageOrSlide: int       (1-based; 0 if not applicable)
+FileConversionOptions
+├── PreserveTableStructure: bool
+├── RemoveHeadersFooters: bool
+└── ExtractImages: bool
 
 FileConversionResult
 ├── MarkdownContent: string
 ├── DetectedFormat: string
 ├── Metadata: Dictionary<string, string>
 ├── Warnings: List<string>
-└── Images: List<ExtractedImage>
+├── Images: List<VersatileImage>
+└── IsSuccess: bool
 ```
 
 ### Adding Custom Converters

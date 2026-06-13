@@ -4,7 +4,7 @@ The Google Gemini provider integrates Google's Gemini AI models into SmartHopper
 
 ## Features
 
-- **Models**: Gemini 3.1, Gemini 2.5, Gemini 2.0, and Gemini 1.5 models
+- **Models**: Gemini 3.0, Gemini 2.5, Gemini 2.0, and Gemini 1.5 models
 - **Text Generation**: Full support for text-to-text conversations
 - **Image Generation**: Generate images using Gemini image models
 - **Structured Outputs**: JSON schema support with Gemini's JSON Schema subset

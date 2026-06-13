@@ -119,7 +119,7 @@ AIContextComponent("time") → GH_AIInputPayload(Context("time"))
 
 ## File Structure
 
-### Core Types (SmartHopper.Core.Grasshopper/Types/)
+### Core Types (SmartHopper.Core/Models/)
 
 - `AIInputPayload.cs` — Core payload class and `AIInputPayloadType` enum
 - `GH_AIInputPayload.cs` — Grasshopper goo wrapper
@@ -127,7 +127,7 @@ AIContextComponent("time") → GH_AIInputPayload(Context("time"))
 - `AIInputPayloadMerger.cs` — Branch-aware merging logic
 - `AIInputPayloadRenderer.cs` — User-readable rendering
 
-### Image Support (SmartHopper.Core.Grasshopper/Types/)
+### Image Support (SmartHopper.Core/Models/)
 
 - `VersatileImage.cs` — Versatile image source adapter
 - `GH_AIImage.cs` — Grasshopper goo wrapper for images
@@ -179,11 +179,11 @@ var summary = AIInputPayloadRenderer.GetSummary(payload);
 4. **Statelessness**: Input adapters have no internal state or AI calls
 5. **Extensibility**: New payload types can be added without breaking existing code
 
-## Future Phases
+## Current State
 
-- **Phase 4**: Output components (`AI2Text`, `AI2List`, `AI2Json`, etc.)
-- **Phase 5**: Data tree processing centralization
-- **Phase 6**: Batch and sentinel centralization
-- **Phase 7**: Fallback resolver (modality fallback)
-- **Phase 8**: Audio provider support
-- **Phase 9**: Shim wrappers and panel reorganization
+The AIInputPayload architecture is fully implemented with:
+- **Input Adapters**: Text, image, audio, and context providers
+- **Output Components**: Full suite of AI2* components for converting AI responses to Grasshopper data types
+- **Data Tree Processing**: Centralized through `AIInputPayloadMerger` and component integration
+- **Streaming Support**: Integrated with async component base classes
+- **Tool Integration**: Complete tool result envelope support with metadata tracking

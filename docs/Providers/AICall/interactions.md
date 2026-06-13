@@ -53,6 +53,47 @@ Covers `IAIInteraction` and concrete message types.
 - Overrides agent to `ToolResult`
 - See also: [Tools](./tools.md) for result aggregation and message handling.
 
+## AIInteractionRuntimeMessage
+
+- File: `AIInteractionRuntimeMessage.cs`
+- Purpose: unified UI-only diagnostic interaction carrying structured runtime message metadata (severity, origin, code, surfaceable flag, content)
+- Replaces previous four distinct interaction types (Debug, Info, Warning, Error) with severity modeled as data rather than type
+- **Critical**: Providers must skip all instances of this class during request encoding — these entries are for UI/diagnostics only and must never be sent to the AI model
+- Fields:
+  - `Severity` (SHRuntimeMessageSeverity: Debug/Info/Warning/Error) — determines effective Agent, CSS role class, and display name
+  - `Code` (SHMessageCode) — machine-readable diagnostic code; defaults to Unknown
+  - `Origin` (SHRuntimeMessageOrigin: Request/Return/Provider/Tool/Network/Validation/Worker) — who emitted this diagnostic
+  - `Surfaceable` (bool) — whether this diagnostic should be surfaced to end users; defaults to true for Info/Warning/Error, false for Debug
+  - `Content` (string) — human-readable diagnostic text
+- Methods:
+  - `SetResult(string content, AIMetrics metrics)` — set the diagnostic content and optional metrics
+  - `ToRuntimeMessage()` — project into an equivalent SHRuntimeMessage
+  - `FromRuntimeMessage(SHRuntimeMessage message)` — create from an SHRuntimeMessage
+  - `CreateDebug(string content, AIMetrics metrics)` — factory for debug-level diagnostic (non-surfaceable by default)
+  - `GetRoleClassForRender()` — returns CSS role class based on severity
+  - `GetDisplayNameForRender()` — returns display label for UI
+  - `GetRawContentForRender()` — returns diagnostic content for rendering
+  - `GetRawReasoningForRender()` — returns empty string (diagnostics have no reasoning)
+  - `GetStreamKey()` — stable grouping key for streaming
+  - `GetDedupKey()` — stable identity for persisted messages
+- Implements: `IAIKeyedInteraction`, `IAIRenderInteraction`
+
+## AIInteractionAudio
+
+- File: `AIInteractionAudio.cs`
+- Purpose: audio interaction for speech-to-text or text-to-speech operations
+- Fields:
+  - `Data` (byte[]) — audio data as a byte array; either Data or FilePath should be set, not both
+  - `FilePath` (string) — file path to the audio file; either Data or FilePath should be set, not both
+  - `MimeType` (string) — MIME type of the audio (e.g., "audio/wav", "audio/mp3", "audio/mpeg")
+  - `LanguageHint` (string) — optional language hint for speech-to-text operations; ISO 639-1 language code format (e.g., "en", "es", "fr")
+- Methods:
+  - `GetAudioSize()` — returns the size of the audio data in bytes; handles both in-memory and file-based audio
+  - `GetStreamKey()` — returns a stable stream grouping key using file path when available, otherwise a short hash of audio data
+  - `GetDedupKey()` — returns a stable de-duplication key including stream key and MIME type to distinguish similar audio files
+  - `ToString()` — returns a formatted string containing audio metadata (MIME type, source, size, language hint)
+- Implements: `IAIKeyedInteraction`
+
 ## AIAgent
 
 - File: `AIAgent.cs`

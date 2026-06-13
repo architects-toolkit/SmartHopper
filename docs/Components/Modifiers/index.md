@@ -1,7 +1,5 @@
 # Component & Parameter Modifiers
 
-**Last Updated**: November 2025
-
 Comprehensive utilities for modifying Grasshopper components and their parameters programmatically.
 
 ---
@@ -233,5 +231,4 @@ catch (ArgumentNullException ex)
 | **ParameterModifier** | ✅ Stable | 5 | Parameter data |
 | **ComponentManipulation** | ✅ Stable | 3 | State only |
 
-**Last Review**: November 2025
 **Breaking Changes**: None planned

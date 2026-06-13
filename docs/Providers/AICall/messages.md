@@ -1,9 +1,32 @@
 # Runtime Messages and Aggregation
 
-This document explains the centralized propagation and aggregation of structured runtime messages (AIRuntimeMessage) across the AI call stack.
+This document explains the centralized propagation and aggregation of structured runtime messages (SHRuntimeMessage) across the AI call stack.
 
 - Audience: developers implementing providers, tool wrappers, or infrastructure.
 - Goal: ensure all informational, warning, and error messages surface consistently to callers and the Grasshopper UI.
+
+## SHRuntimeMessage Class
+
+- File: `src/SmartHopper.Infrastructure/Diagnostics/SHRuntimeMessage.cs`
+- **Immutable class** carrying severity, origin, machine-readable code, and human-readable text
+- Constructor: `SHRuntimeMessage(SHRuntimeMessageSeverity severity, SHRuntimeMessageOrigin origin, SHMessageCode code, string message, bool surfaceable = true)`
+- Properties (all read-only):
+  - `Severity` (SHRuntimeMessageSeverity) — message severity level
+    - `Debug` — low-level diagnostic, typically hidden from end users
+    - `Info` — informational message suitable for end-user visibility
+    - `Warning` — non-fatal issue that the user should be aware of
+    - `Error` — error condition that interrupted or degraded the operation
+  - `Origin` (SHRuntimeMessageOrigin) — who emitted this message
+    - `Request` — emitted during request validation
+    - `Return` — emitted during return processing
+    - `Provider` — emitted by the AI provider
+    - `Tool` — emitted during tool execution
+    - `Network` — emitted due to network issues
+    - `Validation` — emitted during validation
+    - `Worker` — emitted by a Grasshopper worker/component
+  - `Code` (SHMessageCode) — machine-readable code for programmatic checks (defaults to Unknown/0)
+  - `Message` (string) — human-readable diagnostic text
+  - `Surfaceable` (bool) — whether this message should be shown to end users in the UI (defaults to true)
 
 ## Sources of messages
 
@@ -74,7 +97,7 @@ return output;
 ## Message codes (machine-readable)
 
 - Purpose: allow robust programmatic checks without parsing message text.
-- Model: `AIRuntimeMessage` now includes `Code: AIMessageCode`.
+- Model: `SHRuntimeMessage` now includes `Code: AIMessageCode`.
 - Default: `AIMessageCode.Unknown (0)` to keep existing emits backward compatible.
 
 ### Initial codes
@@ -87,10 +110,10 @@ return output;
 
 ### Batch processing messages
 
-Batch operations (via `IAIBatchProvider`) surface item-level results through a unified `IReadOnlyList<AIRuntimeMessage>` on `AIBatchStatus.Messages`:
+Batch operations (via `IAIBatchProvider`) surface item-level results through a unified `IReadOnlyList<SHRuntimeMessage>` on `AIBatchStatus.Messages`:
 
 | Code | Severity | Origin | When emitted |
-|------|----------|--------|--------------|
+| --- | --- | --- | --- |
 | `BatchItemError` | Error | Provider | Item returned an error (invalid request, server error, etc.) |
 | `BatchItemCanceled` | Error | Provider | Item was canceled before processing (user/system cancellation) |
 | `BatchItemExpired` | Warning | Provider | Item expired before being sent to model (24h batch limit exceeded) |
@@ -107,7 +130,7 @@ All batch messages flow through `ProcessBatchResults()` in `AIStatefulAsyncCompo
 
 - Prefer setting `Code` when raising messages in validators, providers, and policies.
 - Keep `Message` human-readable; `Code` is for logic/tests.
-- Backward compatibility: existing calls to `new AIRuntimeMessage(sev, origin, text)` automatically default `Code` to `Unknown`.
+- Backward compatibility: existing calls to `new SHRuntimeMessage(sev, origin, text)` automatically default `Code` to `Unknown`.
 
 ### Example (with codes)
 
@@ -115,9 +138,9 @@ All batch messages flow through `ProcessBatchResults()` in `AIStatefulAsyncCompo
 // Streaming validation in request
 if (settings != null && settings.EnableStreaming == false)
 {
-    messages.Add(new AIRuntimeMessage(
-        AIRuntimeMessageSeverity.Error,
-        AIRuntimeMessageOrigin.Validation,
+    messages.Add(new SHRuntimeMessage(
+        SHRuntimeMessageSeverity.Error,
+        SHRuntimeMessageOrigin.Validation,
         AIMessageCode.StreamingDisabledProvider,
         $"Streaming requested but provider '{provider}' has streaming disabled in settings."));
 }
@@ -137,16 +160,16 @@ Examples:
 
 ```csharp
 // Unknown model
-messages.Add(new AIRuntimeMessage(
-    AIRuntimeMessageSeverity.Warning,
-    AIRuntimeMessageOrigin.Validation,
+messages.Add(new SHRuntimeMessage(
+    SHRuntimeMessageSeverity.Warning,
+    SHRuntimeMessageOrigin.Validation,
     AIMessageCode.UnknownModel,
     $"Requested model '{requestedModel}' is not registered for provider '{provider}'."));
 
 // Capability mismatch (selection replaced)
-messages.Add(new AIRuntimeMessage(
-    AIRuntimeMessageSeverity.Warning,
-    AIRuntimeMessageOrigin.Validation,
+messages.Add(new SHRuntimeMessage(
+    SHRuntimeMessageSeverity.Warning,
+    SHRuntimeMessageOrigin.Validation,
     AIMessageCode.CapabilityMismatch,
     $"Requested model '{requestedModel}' does not support {capability}; selected '{resolvedModel}' instead."));
 ```

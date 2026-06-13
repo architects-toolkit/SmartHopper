@@ -13,7 +13,7 @@ Safe, versioned persistence of component outputs used by `StatefulComponentBase`
 - `StatefulComponentBase.Write(GH_IWriter)` writes current output trees using `GHPersistenceService.WriteOutputsV2()`.
 - `StatefulComponentBase.Read(GH_IReader)` reads output trees using `GHPersistenceService.ReadOutputsV2()` and restores them to the component's outputs.
 
-See: `src/SmartHopper.Core/ComponentBase/StatefulComponentBaseV2.cs`.
+See: `src/SmartHopper.Core/ComponentBase/StatefulComponentBase.cs`.
 
 ## Versioning and keys
 

@@ -5,7 +5,8 @@ This page explains the always-on request/response policy pipeline that runs arou
 - Location: `src/SmartHopper.Infrastructure/AICall/Policies/`
 - Core types:
   - `PolicyPipeline` — orchestrates request and response policies
-  - Default response policy: TODO update
+  - `IRequestPolicy` — contract for request-phase policies
+  - `IResponsePolicy` — contract for response-phase policies
 
 ## What policies do
 
@@ -14,7 +15,25 @@ This page explains the always-on request/response policy pipeline that runs arou
 
 ## Default pipeline behavior
 
-TODO update
+The pipeline runs **6 request policies** and **2 response policies** in sequence:
+
+### Request policies (in order)
+
+| Policy | File | Trigger | Description |
+| --- | --- | --- | --- |
+| `AIToolValidationRequestPolicy` | `Request/AIToolValidationRequestPolicy.cs` | Request | Validates pending tool calls in the request body: existence, JSON schema, and capability compatibility. Uses composed validators (ToolExistsValidator, ToolJsonSchemaValidator, ToolCapabilityValidator). Emits structured diagnostics via `AddRuntimeMessage()`; makes request invalid on Error-level issues to block early before provider call. |
+| `ContextInjectionRequestPolicy` | `Request/ContextInjectionRequestPolicy.cs` | Request | Injects a context interaction immutably at the beginning of the request body based on `ContextFilter`. Collects current context from `AIContextManager` according to filter rules and prepends as a System-agent interaction. |
+| `RequestTimeoutPolicy` | `Request/RequestTimeoutPolicy.cs` | Request | Normalizes the per-request timeout on `AIRequestBase` derivatives. Applies defaults when unset and clamps to safe range (min/max from `TimeoutDefaults`). Adds lightweight diagnostic as system interaction when adjustments are made. |
+| `SchemaAttachRequestPolicy` | `Request/SchemaAttachRequestPolicy.cs` | Request | Attaches JSON output schema to the request when `AIBody.JsonOutputSchema` is set. Passes schema to provider encoding layer for structured output inference. |
+| `SchemaValidateRequestPolicy` | `Request/SchemaValidateRequestPolicy.cs` | Request | Validates JSON output schema syntax and compatibility with the selected model's capabilities. Emits validation errors as structured messages; may auto-add schema if required by capability. |
+| `ToolFilterNormalizationRequestPolicy` | `Request/ToolFilterNormalizationRequestPolicy.cs` | Request | Normalizes and validates tool filter expressions (e.g., `+*`, `-*`, `+tool1`, `-tool2`). Ensures filter syntax is valid; emits warnings for invalid patterns. |
+
+### Response policies (in order)
+
+| Policy | File | Trigger | Description |
+| --- | --- | --- | --- |
+| `FinishReasonNormalizeResponsePolicy` | `Response/FinishReasonNormalizeResponsePolicy.cs` | Response | Standardizes provider-specific finish reasons into canonical `AIFinishReason` values (e.g., `stop`, `length`, `tool_calls`, `content_filter`). Maps provider-specific strings to unified enum. |
+| `SchemaValidateResponsePolicy` | `Response/SchemaValidateResponsePolicy.cs` | Response | Validates the response against the requested JSON schema (if set). Uses `JsonSchemaResponseValidator` to check structure. Emits validation errors as structured messages via `AddRuntimeMessage()`. |
 
 ## Developer guidance
 

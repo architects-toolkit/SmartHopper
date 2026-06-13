@@ -54,7 +54,7 @@ var result = await call.Exec();
 if (!result.Success)
 {
     // Handle errors - all error details are in result.Messages collection
-    foreach (var msg in result.Messages.Where(m => m.Severity == AIRuntimeMessageSeverity.Error))
+    foreach (var msg in result.Messages.Where(m => m.Severity == SHRuntimeMessageSeverity.Error))
     {
         Console.WriteLine($"[{msg.Origin}] {msg.Message}");
     }
