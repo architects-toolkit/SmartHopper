@@ -1,4 +1,3 @@
-#if NET7_WINDOWS
 /*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
@@ -16,6 +15,8 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
+
+#if NET7_WINDOWS
 
 namespace SmartHopper.Infrastructure.Tests.AICall.Providers
 {
