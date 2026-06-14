@@ -73,86 +73,94 @@ This document aggregates development-facing information.
 AI Tools are the interface between AI and Grasshopper, allowing to, for example, read your selected components, get the available Grasshopper components, or write a new script. All these tools are available to the provider to use while chatting in the AI Chat component.
 
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released 🎉 |
-|-----------|----------|-------------|:-------:|:-----------:|:-------:|:-----------:|
-| `text2boolean` | DataProcessing | Evaluates text against a true/false question | ⚪ | 🟡 | 🟠 | 🟢 |
+| Tool Name | Category | Description | Planned | In Progress | Testing | Released |
+|-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|
+| `text2boolean` | DataProcessing | Evaluates a text against a true/false question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2text` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| `text2img` | DataProcessing | Generates an image based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
-| `textlist2boolean` | DataProcessing | Evaluates a list based on natural language question | ⚪ | 🟡 | 🟠 | 🟢 |
-| `list_filter` | DataProcessing | Filters a list based on natural language criteria | ⚪ | 🟡 | 🟠 | 🟢 |
-| `text2textlist` | DataProcessing | Generates a list based on a natural language prompt | ⚪ | 🟡 | 🟠 | 🟢 |
-| `img2text` | ImageProcessing | Describes or analyzes an image using a vision model | ⚪ | 🟡 | 🟠 | 🟢 |
-| `text2json` | DataProcessing | Generates structured JSON from a prompt conforming to a provided JSON Schema | ⚪ | 🟡 | - | - |
+| `text2img` | ImageProcessing | Generates an image based on a text prompt using AI image generation models | ⚪ | 🟡 | 🟠 | 🟢 |
+| `textlist2boolean` | DataProcessing | Evaluates a list based on a natural language question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
+| `list_filter` | DataProcessing | Manipulates a list based on natural language criteria: filter, sort, reorder, select, shuffle, expand, or rearrange items | ⚪ | 🟡 | 🟠 | 🟢 |
+| `text2textlist` | DataProcessing | Generates a list of items based on a prompt, count and type | ⚪ | 🟡 | 🟠 | 🟢 |
+| `img2text` | Img | Describes or analyzes an image using a vision AI model. Provide either an image URL or base64-encoded image data. Returns a text description of the image content. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `text2json` | DataProcessing | Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema | ⚪ | 🟡 | - | - |
 | `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
-| `script_review` | Script | Review a script for potential issues using AI-powered checks | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_generate` | Script | Create Grasshopper script components based on instructions (hidden from chat) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_generate_and_place_on_canvas` | Script | Generate a new script component and place it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_edit` | Script | Edit Grasshopper script components based on instructions (hidden from chat) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `script_edit_and_replace_on_canvas` | Script | Edit a script component by GUID and replace it on canvas in one call | ⚪ | 🟡 | 🟠 | 🟢 |
-| `instruction_get` | Instructions | Returns operational instructions for SmartHopper by topic (canvas, ghjson, scripting, etc.) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `web2md` | Knowledge | Convert web pages (URLs) to Markdown with metadata and warnings | ⚪ | 🟡 | 🟠 | 🟢 |
-| `file2md` | Knowledge | Convert local files to Markdown (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_search` | Knowledge | Search any Discourse forum with configurable limit (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_post_get` | Knowledge | Retrieve a Discourse forum post by ID (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_topic_get` | Knowledge | Retrieve all posts in a Discourse forum topic by ID (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum post (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `discourse_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Discourse forum topic (requires base_url parameter) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_search` | Knowledge | Search McNeel Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_post_get` | Knowledge | Retrieve a McNeel Discourse forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_topic_get` | Knowledge | Retrieve all posts in a McNeel Discourse forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_post_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum post | ⚪ | 🟡 | 🟠 | 🟢 |
-| `mcneel_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a McNeel Discourse forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
-| `ladybug_forum_search` | Knowledge | Search Ladybug Tools Discourse forum with configurable limit | ⚪ | 🟡 | 🟠 | 🟢 |
-| `ladybug_forum_post_get` | Knowledge | Retrieve a Ladybug forum post by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `ladybug_forum_topic_get` | Knowledge | Retrieve all posts in a Ladybug forum topic by ID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `ladybug_forum_post_summarize` | Knowledge | Generate AI-powered summary of a Ladybug forum post | ⚪ | 🟡 | 🟠 | 🟢 |
-| `ladybug_forum_topic_summarize` | Knowledge | Generate AI-powered summary of a Ladybug forum topic | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_list_categories` | Components | List available Grasshopper categories | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_list_components` | Components | List Grasshopper components (optionally filtered by category) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get` | Components | Retrieve Grasshopper components as GhJSON with optional filters (attr, category, type, guid, connectionDepth, metadata, runtimeData) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_selected` | Components | Retrieve only the selected components from the Grasshopper canvas as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_selected_with_data` | Components | Retrieve selected components as GhJSON with runtime data snapshot | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_by_guid` | Components | Retrieve specific components by GUID as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_by_guid_with_data` | Components | Retrieve specific components by GUID as GhJSON with runtime data | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_errors` | Components | Retrieve only components that have error messages as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_errors_with_data` | Components | Retrieve errored components as GhJSON with runtime data | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_locked` | Components | Retrieve only locked (disabled) components as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_hidden` | Components | Retrieve only components with preview turned off as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_visible` | Components | Retrieve only components with preview turned on as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_start` | Components | Retrieve start nodes (data sources with no incoming connections) as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_start_with_data` | Components | Retrieve start nodes as GhJSON with runtime data | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_end` | Components | Retrieve end nodes (data sinks with no outgoing connections) as GhJSON | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_get_end_with_data` | Components | Retrieve end nodes as GhJSON with runtime data | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_put` | Components | Place Grasshopper components on the canvas from GhJSON format | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_merge` | Components | Merge two GhJSON documents into one (target takes priority on conflicts) | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_component_toggle_preview` | Components | Show or hide component geometry preview by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_component_hide_preview_selected` | Components | Hide geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_component_show_preview_selected` | Components | Show geometry preview for currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_component_toggle_lock` | Components | Lock (disable) or unlock (enable) components by GUID | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_component_lock_selected` | Components | Lock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_component_unlock_selected` | Components | Unlock currently selected components | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_move` | Components | Move component pivot by GUID with absolute or relative positioning | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_tidy_up` | Components | Organize selected components into a tidy grid layout | ⚪ | 🟡 | 🟠 | 🟢 |
-| `gh_generate` | Components | Generate Grasshopper definitions using AI | ⚪ | 🟡 | - | - |
-| `gh_connect` | Components | Connect Grasshopper components by creating wires between outputs and inputs | ⚪ | 🟡 | - | - |
-| `gh_group` | Components | Group components and set a meaningful title | ⚪ | 🟡 | - | - |
-| `gh_parameter_data_mapping_none` | Parameters | Set a parameter's data mapping to None | ⚪ | - | - | - |
-| `gh_parameter_data_mapping_flatten` | Parameters | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
-| `gh_parameter_data_mapping_graft` | Parameters | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
-| `gh_parameter_reverse` | Parameters | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
-| `gh_parameter_simplify` | Parameters | Simplify geometry in a parameter (remove redundant control points) | ⚪ | 🟡 | - | - |
-| `rhino_get_geometry` | Rhino | Retrieve geometry from the active Rhino document (by selection, layer, or type) | ⚪ | 🟡 | - | - |
-| `rhino_read_3dm` | Rhino | Analyze a Rhino .3dm file and extract information about objects, layers, and metadata | ⚪ | 🟡 | - | - |
+| `script_review` | Scripting | Return a code review for the script component specified by its GUID. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_generate` | Hidden | Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_generate_and_place_on_canvas` | Scripting | Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_edit` | Hidden | Edit an existing Grasshopper script component based on instructions. Takes GhJSON input and returns updated GhJSON (does not modify canvas). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `script_edit_and_replace_on_canvas` | Scripting | Edit an existing Grasshopper script component by instance GUID and replace it on the canvas. This wrapper automatically retrieves the component GhJSON (gh_get_by_guid), calls script_edit, and then gh_put with editMode=true. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `instruction_get` | Instructions | Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `web2md` | Knowledge | Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you need to read the contents of a web page. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `file2md` | Knowledge | Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_search` | Knowledge | Search Discourse forum posts by query and return matching results. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_post_get` | Knowledge | Retrieve a filtered Discourse forum post by ID (username, date, title, raw markdown). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_topic_get` | Knowledge | Retrieve all posts in a Discourse forum topic by topic ID (title, URL, posts array). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_post_summarize` | Knowledge | Generate a concise summary of one or more Discourse forum posts by ID. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `discourse_forum_topic_summarize` | Knowledge | Generate a concise summary of a Discourse forum topic by ID, based on its posts. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_search` | Knowledge | Search McNeel forum posts by query and return matching results. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_post_get` | Knowledge | Retrieve a filtered McNeel forum post by ID (username, date, title, raw markdown). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_topic_get` | Knowledge | Retrieve all posts in a McNeel forum topic by topic ID (title, URL, posts array). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_post_summarize` | Knowledge | Generate a concise summary of one or more McNeel forum posts by ID. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `mcneel_forum_topic_summarize` | Knowledge | Generate a concise summary of a McNeel forum topic by ID, based on its posts. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_search` | Knowledge | Search Ladybug Tools forum posts by query and return matching results. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_post_get` | Knowledge | Retrieve a filtered Ladybug Tools forum post by ID (username, date, title, raw markdown). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_topic_get` | Knowledge | Retrieve all posts in a Ladybug Tools forum topic by topic ID (title, URL, posts array). | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_post_summarize` | Knowledge | Generate a concise summary of one or more Ladybug Tools forum posts by ID. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `ladybug_forum_topic_summarize` | Knowledge | Generate a concise summary of a Ladybug Tools forum topic by ID, based on its posts. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_list_categories` | ComponentsRetrieval | Discover what component categories are available in the user's Grasshopper installation (e.g., 'Maths', 'Curve', 'Surface'). Use this before gh_list_components to narrow your search. Apply filters to find specific categories and save tokens. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_list_components` | ComponentsRetrieval | Search for available Grasshopper components by category or name to find what the user can use. Returns component details including inputs/outputs. IMPORTANT: Use includeDetails parameter to request only needed fields (e.g., ['name','description','inputs','outputs']) to avoid token waste. Use maxResults to limit output. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get` | Components | Read the current Grasshopper file with optional filters. By default, it returns all components. Returns a GhJSON structure of the file. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_selected` | Components | Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_selected_with_data` | Components | Read selected components WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results, count items, or check actual output values. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive! | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_by_guid` | Components | Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_by_guid_with_data` | Components | Read specific components by GUID WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results from known components. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive! | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_visible` | Components | Read only components currently visible in the canvas viewport. Use this when the user refers to 'on screen', 'visible', or 'what I can see'. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_errors` | Components | Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_errors_with_data` | Components | Read only components that have error messages WITH their runtime data (volatile data - actual values flowing through outputs). Use this when debugging broken components and you also need to inspect their computed results. Returns GhJSON plus a 'runtimeData' object. This is token-expansive! | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_locked` | Components | Read only locked (disabled) components from the Grasshopper canvas. Use this when the user asks about locked or disabled components. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_preview_off` | Components | Read only components with preview turned off (hidden geometry). Use this when the user asks about hidden components or components with disabled preview. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_preview_on` | Components | Read only components with preview turned on (visible geometry). Use this when the user asks about visible components or components with enabled preview. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_start` | Components | Read only start nodes (components with no incoming connections - data sources like parameters, sliders, panels with internalized data). Use this to get a wide view of where data originates in the definition. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_start_with_data` | Components | Read start nodes (data sources) WITH their runtime data. Use this to inspect what initial values are feeding into the definition. Returns GhJSON with 'runtimeData'. This is token-expansive! | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_end` | Components | Read only end nodes (components with no outgoing connections - data sinks like panels, preview components, bake components). Use this to get a wide view of the definition's outputs. Returns a GhJSON structure. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_get_end_with_data` | Components | Read end nodes (data sinks) WITH their runtime data. Use this to inspect the final computed outputs of the definition. Returns GhJSON with 'runtimeData'. This is token-expansive! | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_put` | Components | Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_merge` | Components | Merge two GhJSON documents into one. The target document takes priority on conflicts (duplicate components by GUID are skipped from source). Connections and groups from both documents are combined with proper ID remapping and deduplication. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_diff` | Components | Diff two GhJSON documents and produce a structured `.ghpatch` document describing the differences (added/removed/modified components, connections, groups, and metadata). Components are matched by instanceGuid, then id, then structural fingerprint (componentGuid + name + optional pivot). Connections are matched by their endpoints (paramName preferred, paramIndex fallback). By default, runtime messages, metadata counters and metadata timestamps are ignored. | - | - | - | - |
+| `gh_patch_apply` | Components | Apply a `.ghpatch` patch document to a base GhJSON document. Components are matched by instanceGuid, then id, then structural fingerprint. By default, the patch's recorded base checksum is verified against the supplied base document — on mismatch, the apply is refused (no partial application). Conflicts (match not found, connection already present, dangling group members, ...) are recorded in the result. | - | - | - | - |
+| `gh_patch_validate` | Components | Structurally validate a `.ghpatch` document. Checks the patch kind, that components/groups in remove/modify ops carry at least one identity field, and that connections have valid endpoints. | - | - | - | - |
+| `gh_component_toggle_preview` | Components | Show or hide component geometry preview in the Rhino viewport. Hiding preview improves performance for complex definitions. Only affects components that generate geometry. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_hide_preview_selected` | Components | Hide geometry preview for currently selected components. Quick way to hide preview for selected items without needing to specify GUIDs manually. Improves performance for complex definitions. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_show_preview_selected` | Components | Show geometry preview for currently selected components. Quick way to enable preview for selected items without needing to specify GUIDs manually. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_toggle_lock` | Components | Lock (disable) or unlock (enable) components. Locked components don't execute and show as grayed out. Use this to temporarily disable parts of a definition without deleting them. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_lock_selected` | Components | Lock (disable) currently selected components. Quick way to disable selected items without needing to specify GUIDs manually. Locked components don't execute and show as grayed out. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_component_unlock_selected` | Components | Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_move` | Components | Reposition components on the canvas by specifying target coordinates. Use absolute coordinates (canvas position) or relative offsets (move by delta). Useful for organizing layouts or separating component groups. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_tidy_up` | Components | Automatically arrange components into a clean grid layout respecting data flow direction. Organizes components left-to-right based on their connections. Use this to clean up messy definitions. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `gh_tidy_up_selected` | Components | Organize currently selected components into a tidy grid layout. Quick way to clean up selected items without needing to specify GUIDs manually. Arranges components left-to-right based on connections. | - | - | - | - |
+| `gh_generate` | NotTested | Generate GhJSON for creating a set of Grasshopper components by name and parameters. Returns a valid GhJSON structure that can be passed to gh_put to place components on canvas. Use this to create individual components or small networks when you know the exact component names. For complex networks, consider using the full gh_put workflow with AI-generated GhJSON. | ⚪ | 🟡 | - | - |
+| `gh_connect` | NotTested | Connect Grasshopper components together by creating wires between outputs and inputs. Use this to establish data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | ⚪ | 🟡 | - | - |
+| `gh_group` | Components | Create a visual group container around components to organize and annotate them. Use this to highlight related components, mark areas of interest, or add notes to the canvas. Requires component GUIDs from gh_get. | ⚪ | 🟡 | - | - |
+| `gh_group_selected` | Components | Create a group around currently selected components. Quick way to organize selected items without needing to specify GUIDs manually. | ⚪ | 🟡 | - | - |
+| `gh_parameter_data_mapping_none` | Parameters | Set a parameter's data mapping to None | ⚪ | 🟡 | - | - |
+| `gh_parameter_data_mapping_flatten` | NotTested | Set a parameter's data mapping to Flatten | ⚪ | 🟡 | - | - |
+| `gh_parameter_data_mapping_graft` | NotTested | Set a parameter's data mapping to Graft | ⚪ | 🟡 | - | - |
+| `gh_parameter_reverse` | NotTested | Reverse the order of items in a parameter | ⚪ | 🟡 | - | - |
+| `gh_parameter_simplify` | NotTested | Simplify geometry in a parameter (removes redundant control points) | ⚪ | 🟡 | - | - |
+| `rhino_get_geometry` | NotTested | Extract detailed geometry information from objects in the active Rhino document. Can retrieve selected objects, objects by layer, or objects by type. Returns geometry properties, coordinates, and metadata. | ⚪ | 🟡 | - | - |
+| `rhino_read_3dm` | NotTested | Analyze a Rhino .3dm file and extract information about objects, layers, and file metadata. Returns summary statistics and object details. Use this to understand the contents of a 3DM file before processing. | ⚪ | 🟡 | - | - |
 | `script_parameter_add_input` | NotTested | Add a new input parameter to a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_add_output` | NotTested | Add a new output parameter to a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_remove_input` | NotTested | Remove an input parameter from a script component | ⚪ | 🟡 | - | - |
 | `script_parameter_remove_output` | NotTested | Remove an output parameter from a script component | ⚪ | 🟡 | - | - |
-| `script_parameter_set_type_input` | NotTested | Set the type hint for a script input parameter | ⚪ | 🟡 | - | - |
-| `script_parameter_set_type_output` | NotTested | Set the type hint for a script output parameter | ⚪ | 🟡 | - | - |
-| `script_parameter_set_access` | NotTested | Set how a script input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
+| `script_parameter_set_type_input` | NotTested | Set the type hint for a script component input parameter | ⚪ | 🟡 | - | - |
+| `script_parameter_set_type_output` | NotTested | Set the type hint for a script component output parameter | ⚪ | 🟡 | - | - |
+| `script_parameter_set_access` | NotTested | Set how an input parameter receives data (item/list/tree) | ⚪ | 🟡 | - | - |
 | `script_toggle_std_output` | NotTested | Show or hide the standard output parameter ('out') in a script component | ⚪ | 🟡 | - | - |
 | `script_set_principal_input` | NotTested | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
 | `script_parameter_set_optional` | NotTested | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
+| `speech_generate` | Speech | Generates speech audio from text input | - | - | - | - |
 
 Notes:
 
