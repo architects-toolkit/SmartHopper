@@ -69,6 +69,7 @@ namespace SmartHopper.Components.Grasshopper
             pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
             pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Include Runtime Data", "Dt", "Include runtime/volatile data (actual values flowing through outputs). This is token-expansive!", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Viewport Only", "V", "Only include components visible in the current canvas viewport", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -93,6 +94,9 @@ namespace SmartHopper.Components.Grasshopper
             private int connectionDepth;
             private bool includeMetadata;
             private bool includeRuntimeData;
+
+            /// <summary>Whether to restrict results to components visible in the canvas viewport.</summary>
+            private bool viewportOnly;
             private List<IGH_DocumentObject> selectedObjects = new List<IGH_DocumentObject>();
 
             private List<string> names = new List<string>();
@@ -114,6 +118,7 @@ namespace SmartHopper.Components.Grasshopper
                 DA.GetData(3, ref this.connectionDepth);
                 DA.GetData(4, ref this.includeMetadata);
                 DA.GetData(5, ref this.includeRuntimeData);
+                DA.GetData(6, ref this.viewportOnly);
                 this.selectedObjects = new List<IGH_DocumentObject>(this.parent.SelectedObjects);
             }
 
@@ -130,6 +135,7 @@ namespace SmartHopper.Components.Grasshopper
                         ["includeMetadata"] = this.includeMetadata,
                         ["guidFilter"] = JArray.FromObject(this.selectedObjects.Select(o => o.InstanceGuid.ToString())),
                         ["includeRuntimeData"] = this.includeRuntimeData,
+                        ["viewportOnly"] = this.viewportOnly,
                     };
 
                     var toolCallInteraction = new AIInteractionToolCall
@@ -144,11 +150,18 @@ namespace SmartHopper.Components.Grasshopper
                     toolCall.FromToolCallInteraction(toolCallInteraction);
                     toolCall.SkipMetricsValidation = true;
 
-                    var toolResult = ToolCallResult.FromAIReturn(await toolCall.Exec());
+                    var aiReturn = await toolCall.Exec();
+                    var toolResult = ToolCallResult.FromAIReturn(aiReturn);
                     if (toolResult.Result == null)
                     {
                         this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'gh_get' did not return a valid result");
                         return;
+                    }
+
+                    // Surface any warning/info messages from the tool (e.g. viewportOnly with no canvas)
+                    foreach (var msg in aiReturn.Messages.Where(m => m?.Severity != SHRuntimeMessageSeverity.Error))
+                    {
+                        this.CollectMessage(msg.Severity, msg.Message);
                     }
 
                     this.names = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();

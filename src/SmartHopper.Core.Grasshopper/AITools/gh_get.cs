@@ -26,6 +26,7 @@ using GhJSON.Core.Serialization;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.Query;
 using GhJSON.Grasshopper.Serialization;
+using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -33,6 +34,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIContext;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -84,7 +86,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""connectionDepth"": {
                             ""type"": ""integer"",
                             ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only matching components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                            ""description"": ""Depth of connections to include: 0 (default) only matching components; 1 includes directly connected components; 2 includes two-level connected components, etc. Note: when used with viewportOnly, values > 0 may include off-screen neighbors of visible components.""
                         },
                         ""includeMetadata"": {
                             ""type"": ""boolean"",
@@ -95,6 +97,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""boolean"",
                             ""default"": false,
                             ""description"": ""Whether to include runtime/volatile data (actual values currently flowing through component outputs). Useful for inspecting computed results. Default is false. This is token-expansive!""
+                        },
+                        ""viewportOnly"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""When true, only returns components currently visible in the canvas viewport. Useful for large definitions where off-screen components should be ignored.""
                         }
                     }
                 }",
@@ -231,9 +238,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }, null, false));
 
-            // Specialized wrapper: gh_get_hidden
+            // Specialized wrapper: gh_get_preview_off (formerly gh_get_hidden)
             yield return new AITool(
-                name: "gh_get_hidden",
+                name: "gh_get_preview_off",
                 description: "Read only components with preview turned off (hidden geometry). Use this when the user asks about hidden components or components with disabled preview. Returns a GhJSON structure.",
                 category: "Components",
                 parametersSchema: @"{
@@ -242,15 +249,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""connectionDepth"": {
                             ""type"": ""integer"",
                             ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only hidden components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                            ""description"": ""Depth of connections to include: 0 (default) only preview-off components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
                         }
                     }
                 }",
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }, null, false));
 
-            // Specialized wrapper: gh_get_visible
+            // Specialized wrapper: gh_get_preview_on (formerly gh_get_visible)
             yield return new AITool(
-                name: "gh_get_visible",
+                name: "gh_get_preview_on",
                 description: "Read only components with preview turned on (visible geometry). Use this when the user asks about visible components or components with enabled preview. Returns a GhJSON structure.",
                 category: "Components",
                 parametersSchema: @"{
@@ -259,11 +266,28 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""connectionDepth"": {
                             ""type"": ""integer"",
                             ""default"": 0,
-                            ""description"": ""Depth of connections to include: 0 (default) only visible components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
+                            ""description"": ""Depth of connections to include: 0 (default) only preview-on components; 1 includes directly connected components; 2 includes two-level connected components, etc.""
                         }
                     }
                 }",
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }, null, false));
+
+            // Specialized wrapper: gh_get_visible — viewport-based filter
+            yield return new AITool(
+                name: "gh_get_visible",
+                description: "Read only components currently visible in the canvas viewport. Use this when the user refers to 'on screen', 'visible', or 'what I can see'. Returns a GhJSON structure.",
+                category: "Components",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connectionDepth"": {
+                            ""type"": ""integer"",
+                            ""default"": 0,
+                            ""description"": ""Depth of connections to include: 0 (default) only visible components; 1 includes directly connected components; 2 includes two-level connected components, etc. Note: values > 0 may include off-screen neighbors of visible components.""
+                        }
+                    }
+                }",
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false, forceViewportOnly: true));
 
             // Specialized wrapper: gh_get_start
             yield return new AITool(
@@ -341,8 +365,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="predefinedAttrFilters">Predefined attribute filters to apply (used by wrapper tools).</param>
         /// <param name="predefinedTypeFilters">Predefined type filters to apply (used by wrapper tools).</param>
         /// <param name="forceIncludeRuntimeData">When true, forces inclusion of runtime data regardless of parameter value.</param>
+        /// <param name="forceViewportOnly">When true, restricts results to components visible in the canvas viewport regardless of parameter value.</param>
         /// <returns>Task that returns the result of the operation.</returns>
-        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceIncludeRuntimeData = false)
+        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceIncludeRuntimeData = false, bool forceViewportOnly = false)
         {
             var output = new AIReturn() { Request = toolCall };
 
@@ -358,10 +383,26 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
                 var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
-                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}");
+                var viewportOnly = forceViewportOnly || (args["viewportOnly"]?.ToObject<bool>() ?? false);
+                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}");
 
                 // Build the query using CanvasSelector
                 var selector = CanvasSelector.FromActiveCanvas();
+
+                // Viewport restriction — only include components whose bounds intersect the visible canvas area
+                if (viewportOnly)
+                {
+                    var canvas = Instances.ActiveCanvas;
+                    if (canvas?.Viewport != null)
+                    {
+                        selector.WithViewport(canvas.Viewport.VisibleRegion);
+                    }
+                    else
+                    {
+                        Debug.WriteLine("[gh_get] viewportOnly requested but no active canvas viewport available.");
+                        output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "viewportOnly was requested but no active canvas viewport was available. Returning all components.");
+                    }
+                }
 
                 // GUID restriction
                 var guidStrings = args["guidFilter"]?.ToObject<List<string>>();

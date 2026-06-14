@@ -103,7 +103,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 Canvas state reading:
 - Use gh_get_selected when the user refers to "this/these/selected".
 - Use gh_get_errors to locate broken definitions.
-- Use gh_get_locked / gh_get_hidden / gh_get_visible for quick filters.
+- Use gh_get_locked / gh_get_preview_off / gh_get_preview_on for quick attribute-based filters.
+- Use gh_get_visible when the user refers to components currently on screen (viewport-based).
 - Use gh_get_start / gh_get_end to get a wide view of data sources (startnodes) or outputs (endnodes).
 - Use gh_get_start_with_data / gh_get_end_with_data to inspect initial values or final outputs with runtime data.
 - Use gh_get_by_guid only when you already have GUIDs from prior steps.

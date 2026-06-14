@@ -26,6 +26,7 @@ using GhJSON.Core.DependencyGraph;
 using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.LayoutRefinements;
 using GhJSON.Grasshopper.Serialization;
+using Grasshopper;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -70,6 +71,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ""y"": { ""type"": ""number"" }
                             },
                             ""description"": ""Optional absolute start point for the top-left of the grid. Overrides selection's top-left if provided.""
+                        },
+                        ""viewportOnly"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""When true, only includes components currently visible in the canvas viewport. Ignores off-screen components even if their GUIDs are provided.""
                         }
                     },
                     ""required"": [ ""guids"" ]
@@ -91,6 +97,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ""y"": { ""type"": ""number"" }
                             },
                             ""description"": ""Optional absolute start point for the top-left of the grid. Overrides selection's top-left if provided.""
+                        },
+                        ""viewportOnly"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""When true, only includes selected components currently visible in the canvas viewport.""
                         }
                     }
                 }",
@@ -100,7 +111,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Reorganize selected components into a tidy grid layout by GUID list.
         /// </summary>
-        private async Task<AIReturn> GhTidyUpAsync(AIToolCall toolCall)
+        private Task<AIReturn> GhTidyUpAsync(AIToolCall toolCall)
         {
             // Prepare the output
             var output = new AIReturn()
@@ -129,11 +140,27 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var currentObjs = CanvasAccess.GetCurrentObjects();
                 var selected = currentObjs.Where(o => guids.Contains(o.InstanceGuid.ToString())).ToList();
+                var viewportOnly = args["viewportOnly"]?.ToObject<bool>() ?? false;
+
+                if (viewportOnly)
+                {
+                    var canvas = Instances.ActiveCanvas;
+                    if (canvas?.Viewport != null)
+                    {
+                        var visibleRegion = canvas.Viewport.VisibleRegion;
+                        selected = selected.Where(o =>
+                        {
+                            var bounds = o.Attributes?.Bounds;
+                            return bounds.HasValue && visibleRegion.IntersectsWith(bounds.Value);
+                        }).ToList();
+                    }
+                }
+                
                 if (!selected.Any())
                 {
-                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching GUIDs found.");
-                    output.CreateError("No matching components found for provided GUIDs.");
-                    return output;
+                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching components found after filtering.");
+                    output.CreateError("No matching components found.");
+                    return Task.FromResult(output);
                 }
 
                 var doc = GhJsonGrasshopper.Serialize(selected, SerializationOptions.Default);
@@ -172,7 +199,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     Debug.WriteLine("[GhObjTools] GhTidyUpAsync: Layout produced no positions.");
                     output.CreateError("Layout produced no positions for the selected components.");
-                    return output;
+                    return Task.FromResult(output);
                 }
 
                 if (!hasStart)
@@ -206,44 +233,72 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(immutableBody, toolCall);
-                return output;
+                return Task.FromResult(output);
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error: {ex.Message}");
-                return output;
+                return Task.FromResult(output);
             }
         }
 
+        /// <summary>
+        /// Reorganizes the currently selected components into a tidy grid layout.
+        /// Collects selected objects first, applies optional viewport filtering, then delegates to GhTidyUpAsync.
+        /// </summary>
         private async Task<AIReturn> GhTidyUpSelectedAsync(AIToolCall toolCall)
         {
-            // Get selected component GUIDs
-            var selectedGuids = CanvasAccess.GetCurrentObjects()
-                .Where(o => o.Attributes.Selected)
-                .Select(o => o.InstanceGuid.ToString())
-                .ToList();
-
-            if (!selectedGuids.Any())
-            {
-                Debug.WriteLine("[GhObjTools] GhTidyUpSelectedAsync: No components selected.");
-                var output = new AIReturn() { Request = toolCall };
-                output.CreateError("No components are currently selected.");
-                return output;
-            }
-
-            // Create a modified tool call with the selected GUIDs
+            // Parse arguments first so viewportOnly is available before filtering
             var toolInfo = toolCall.GetToolCall();
             var args = toolInfo.Arguments ?? new JObject();
+            var viewportOnly = args["viewportOnly"]?.ToObject<bool>() ?? false;
+
+            // Collect selected document objects (not just GUIDs) so the viewport pivot check can be applied
+            var selectedObjects = CanvasAccess.GetCurrentObjects()
+                .Where(o => o.Attributes.Selected)
+                .ToList();
+
+            // Restrict to viewport-visible components if requested
+            if (viewportOnly)
+            {
+                var canvas = Instances.ActiveCanvas;
+                if (canvas?.Viewport != null)
+                {
+                    var visibleRegion = canvas.Viewport.VisibleRegion;
+                    selectedObjects = selectedObjects
+                        .Where(o =>
+                        {
+                            var bounds = o.Attributes?.Bounds;
+                            return bounds.HasValue && visibleRegion.IntersectsWith(bounds.Value);
+                        })
+                        .ToList();
+                }
+            }
+
+            if (!selectedObjects.Any())
+            {
+                Debug.WriteLine("[GhObjTools] GhTidyUpSelectedAsync: No selected components visible in viewport.");
+                var earlyOutput = new AIReturn() { Request = toolCall };
+                earlyOutput.CreateError("No selected components are visible in the current viewport.");
+                return earlyOutput;
+            }
+
+            // Extract GUIDs after filtering
+            var selectedGuids = selectedObjects.Select(o => o.InstanceGuid.ToString()).ToList();
+
+            // Build forwarding args for the general method
             var modifiedArgs = new JObject
             {
-                ["guids"] = JArray.FromObject(selectedGuids)
+                ["guids"] = JArray.FromObject(selectedGuids),
+                ["viewportOnly"] = viewportOnly,
             };
 
             // Preserve optional startPoint parameter if provided
             if (args["startPoint"] != null)
+            {
                 modifiedArgs["startPoint"] = args["startPoint"];
+            }
 
-            // Create a new tool call with modified arguments
             var modifiedToolCall = new AIToolCall
             {
                 Provider = toolCall.Provider,
@@ -253,7 +308,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         id: toolInfo.Id,
                         name: toolInfo.Name ?? this.toolName,
                         args: modifiedArgs)
-                    .Build()
+                    .Build(),
             };
 
             modifiedToolCall.SkipMetricsValidation = true;
