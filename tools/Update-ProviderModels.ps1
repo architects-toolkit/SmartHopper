@@ -1673,3 +1673,4 @@ if ($FailOnValidationErrors -and -not $validation.success) {
     exit 9
 }
 
+exit 0

@@ -92,7 +92,7 @@ runs:
             try { $report = $reportJson | ConvertFrom-Json } catch { $report = $null }
           }
 
-          if ($scriptExit -ne 0) {
+          if ($scriptExit -and $scriptExit -ne 0) {
             Write-Host "::error::Update-ProviderModels.ps1 exited with code $scriptExit"
             "success=false" >> $env:GITHUB_OUTPUT
             "error=Update-ProviderModels.ps1 exited with code $scriptExit" >> $env:GITHUB_OUTPUT
