@@ -2,9 +2,36 @@
 
 This document describes `AIModelCapabilities` and how SmartHopper uses it to drive model selection and badges.
 
-Location: `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs`
+---
 
-## Fields
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+`AIModelCapabilities` is the central data structure that tells SmartHopper what each model can do, which model to pick by default, and how to surface compatibility warnings. If you are adding or tuning model support, this is the document to read.
+
+**You should read this if you:**
+
+- Are adding a new model to a provider and need to declare its capabilities
+- Want to understand how SmartHopper chooses the default model for a given task
+- Need to mark a model as verified, deprecated, or discouraged for specific tools
+
+---
+
+## End-User Guide
+
+### Fields
 
 - **Provider**
   Provider id (e.g., "openai", "mistralai").
@@ -48,7 +75,7 @@ Location: `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs`
   Used by `ComponentBadgesAttributes` to show a "not recommended" badge when
   components that use those tools select this model.
 
-## Best practices
+### Best practices
 
 - **Defaults per capability**
   Mark at most one default per capability per provider.
@@ -69,7 +96,7 @@ Location: `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs`
   structure for `list_generate`). This does not block the model; it only
   surfaces a warning badge.
 
-## Examples
+### Examples
 
 - **Text-only default**
   - Capabilities: `Text2Text | ToolChat`
@@ -79,8 +106,55 @@ Location: `src/SmartHopper.Infrastructure/AIModels/AIModelCapabilities.cs`
   - Capabilities: `Text2Text | ToolChat`
   - Default: `ToolChat`
 
-## See also
+### See also
 
 - Model selection policy: `ModelSelection.md`
 - Manager API: `ProviderManager.md`, `AIProviderModels.md`
 - Badges and UI integration: `../Components/Helpers/AIComponentAttributes.md`
+
+---
+
+## Developer Reference
+
+`AIModelCapabilities` is typically populated by a provider's `AIProviderModels` implementation and registered with `ModelManager` during initialization.
+
+```csharp
+// Declaring capabilities for a model
+var capabilities = new AIModelCapabilities
+{
+    Provider = "openai",
+    Model = "gpt-4o-mini",
+    Capabilities = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
+    Default = AICapability.Text2Text,
+    Verified = true,
+    Deprecated = false,
+    Rank = 100,
+    Aliases = new List<string> { "gpt-4o-mini-2024-07-18" },
+    SupportsStreaming = true,
+    SupportsPromptCaching = false,
+    DiscouragedForTools = new List<string>()
+};
+
+ModelManager.RegisterCapabilities(capabilities);
+
+```
+
+```csharp
+// Registering a default with exclusivity
+ModelManager.SetDefault(
+    provider: "openai",
+    capability: AICapability.Text2Text,
+    model: "gpt-4o-mini",
+    exclusive: true);
+
+```
+
+---
+
+## Architecture & Design
+
+`AIModelCapabilities` acts as the bridge between provider-specific model knowledge and SmartHopper's centralized model selection policy. Each provider declares what it knows; `ModelManager` consumes these declarations as the single source of truth.
+
+The design uses bitmasks for capabilities and defaults so that a single model can serve multiple roles, while still having a clear default for each role. The `Verified`, `Deprecated`, and `Rank` fields create a simple scoring system that `ModelManager.SelectBestModel` uses when multiple models satisfy the requested capability.
+
+`DiscouragedForTools` is intentionally non-blocking: it feeds UI badges rather than hard restrictions, keeping the system flexible while still guiding users toward better choices.

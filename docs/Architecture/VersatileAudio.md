@@ -2,13 +2,45 @@
 
 Versatile audio adapter for handling heterogeneous audio inputs (file paths, URLs, base64, data-URIs) with unified access and document extraction metadata.
 
+---
+
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core/Types/VersatileAudio.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+VersatileAudio provides a unified way to handle audio from multiple sources in SmartHopper components and AI interactions. It parallels the existing VersatileImage system and supports document extraction workflows.
+
+**You should read this if you:**
+
+- Need to handle audio inputs from files, URLs, or base64 data in your components
+- Want to understand how audio flows into AI interactions via AIInputPayload
+- Are building Grasshopper components that process or generate audio
+- Need to preserve document extraction metadata with audio sources
+
+---
+
+## End-User Guide
+
+### Overview
+
 - Files: `src/SmartHopper.Core/Types/VersatileAudio.cs`, `GH_VersatileAudio.cs`, `VersatileAudioParameter.cs`, `VersatileAudioCodec.cs`
 - Parallel to the already-documented `VersatileImage` system
 - Enables flexible audio input handling across components and AI interactions
 
-## Core Concepts
+### Core Concepts
 
-### VersatileAudioKind Enum
+#### VersatileAudioKind Enum
 
 Specifies the source kind of audio:
 
@@ -17,11 +49,11 @@ Specifies the source kind of audio:
 - `Base64` — Base64-encoded audio data
 - `DataUri` — Data URI with embedded base64 audio (e.g., `data:audio/mp3;base64,...`)
 
-### VersatileAudio Class
+#### VersatileAudio Class
 
 **Immutable adapter** wrapping heterogeneous audio inputs with automatic kind detection and metadata support.
 
-#### Properties
+##### Properties
 
 - `Kind` (VersatileAudioKind) — the source kind (auto-detected or explicit)
 - `RawValue` (string) — the raw value (path, URL, base64, or data-URI string)
@@ -31,9 +63,9 @@ Specifies the source kind of audio:
 - `PageOrSlide` (int) — page or slide number where the audio was found (1-based); 0 means unknown or not applicable; only populated when extracted from a document
 - `SourceDocument` (string, nullable) — source document path or identifier; only populated when extracted from a document
 
-#### Factory Methods
+##### Factory Methods
 
-##### String-Based Construction
+###### String-Based Construction
 
 - `FromString(string input)` — creates from a string with auto-detection of source kind
   - Detects URLs (http://, https://)
@@ -42,20 +74,20 @@ Specifies the source kind of audio:
   - Falls back to local file path
   - Throws `ArgumentException` if input is null or whitespace
 
-##### Document Extraction
+###### Document Extraction
 
 - `FromExtractedDocument(string base64Data, string mimeType, string id, string context, int pageOrSlide, string sourceDocument)` — creates from extracted document data
   - Use this when creating audio sources from PDF/DOCX/PPTX file extraction
   - Automatically sets `Kind` to `Base64`
   - Stores document metadata for context preservation
 
-##### Deserialization
+###### Deserialization
 
 - `FromDeserialized(VersatileAudioKind kind, string rawValue, string mimeType, string id, string context, int pageOrSlide, string sourceDocument)` — reconstructs from persisted data
   - Used by `VersatileAudioCodec` to restore saved outputs
   - Enables round-trip serialization/deserialization
 
-#### Conversion Methods
+##### Conversion Methods
 
 - `ToByteArray()` — converts audio source to byte array
   - For `LocalFile`: loads from disk
@@ -73,7 +105,7 @@ Specifies the source kind of audio:
   - Preserves `MimeType`
   - Preserves document metadata if available
 
-#### Utility Methods
+##### Utility Methods
 
 - `GetAudioSize()` — returns the size of the audio data in bytes
   - For `LocalFile`: file size from disk
@@ -95,9 +127,9 @@ Specifies the source kind of audio:
 - `ToString()` — returns a formatted string representation
   - Example: `VersatileAudio (Url): https://example.com/audio.mp3`
 
-## Grasshopper Integration
+### Grasshopper Integration
 
-### GH_VersatileAudio (Goo Wrapper)
+#### GH_VersatileAudio (Goo Wrapper)
 
 Grasshopper goo wrapper for `VersatileAudio`.
 
@@ -111,7 +143,7 @@ Grasshopper goo wrapper for `VersatileAudio`.
   - `GH_String` (via `FromString()`)
 - **Duplication**: Full deep copy via `Duplicate()`
 
-### VersatileAudioParameter
+#### VersatileAudioParameter
 
 Grasshopper parameter type for `GH_VersatileAudio`.
 
@@ -122,7 +154,7 @@ Grasshopper parameter type for `GH_VersatileAudio`.
 - **GUID**: `F478886E-B6B2-4340-8013-DE56284CBCA0`
 - **Casting**: Automatically converts compatible inputs to `GH_VersatileAudio`
 
-### VersatileAudioCodec
+#### VersatileAudioCodec
 
 Codec for serializing/deserializing `GH_VersatileAudio` in Grasshopper documents.
 
@@ -138,7 +170,7 @@ Codec for serializing/deserializing `GH_VersatileAudio` in Grasshopper documents
 - **Decoding**: Reconstructs from JSON, with fallback to `GH_String` on error
 - **Persistence**: Enables round-trip save/load of audio data in definitions
 
-## Supported Audio Formats
+### Supported Audio Formats
 
 Automatically detected by file extension:
 
@@ -151,7 +183,9 @@ Automatically detected by file extension:
 - `.wma` — Windows Media Audio
 - `.opus` — Opus audio
 
-## Usage Examples
+---
+
+## Developer Reference
 
 ### Creating from String
 
@@ -205,7 +239,11 @@ public class Audio2AIComponent : AIInputAdapterBase
 }
 ```
 
-## Design Principles
+---
+
+## Architecture & Design
+
+### Design Principles
 
 1. **Flexibility**: Accepts multiple input formats (file, URL, base64, data-URI)
 2. **Auto-Detection**: Automatically determines source kind from input
@@ -215,7 +253,7 @@ public class Audio2AIComponent : AIInputAdapterBase
 6. **Serialization**: Full round-trip support via codec
 7. **Type Safety**: Grasshopper goo wrapper enables type-safe parameter passing
 
-## Integration Points
+### Integration Points
 
 - **AIInputPayload**: Audio payloads carry `AIInteractionAudio` interactions
 - **Audio2AIComponent**: Input adapter converting audio files to AI payloads

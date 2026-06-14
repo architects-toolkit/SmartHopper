@@ -1,10 +1,67 @@
 # Grasshopper Test Components
 
-## Overview
+Grasshopper-dependent tests that run within the Grasshopper environment as special test components.
+
+---
+
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core.Grasshopper/TestComponents/` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+Grasshopper-dependent tests cannot run in standard xUnit test projects because they require Rhino's runtime environment and Grasshopper assemblies. This page describes the test component pattern that solves this by running tests inside Grasshopper.
+
+**You should read this if you:**
+
+- Need to test Grasshopper-specific functionality
+- Want to understand the test component architecture
+- Are migrating tests from xUnit to Grasshopper test components
+
+---
+
+## End-User Guide
+
+### Overview
 
 Grasshopper-dependent tests cannot run in standard xUnit test projects because they require Rhino's runtime environment and Grasshopper assemblies. To solve this, we create **test components** in the `SmartHopper.Components.Test` project that run within Grasshopper's environment.
 
-## Pattern
+### Running Tests
+
+1. **In Grasshopper**: Add test components to a canvas and set `Run` to true
+2. **Visual Feedback**:
+   - Green checkmarks (✓) indicate passing tests
+   - Red X marks (✗) indicate failing tests
+   - Success output shows overall pass/fail status
+   - Messages output shows detailed test results
+
+### Existing Test Components
+
+#### Data Processing Tests
+
+- `DataProcessor/` - Tests for `DataTreeProcessor` topology and behavior
+- `DataProcessor/GH_StructureTestComponent.cs` - Tests for `GH_Structure`, `GH_Path`, and related types
+
+#### Type Tests
+
+- `Misc/GH_ExtractedImageTestComponent.cs` - Tests for `GH_ExtractedImage` serialization and casting
+
+#### Badge Tests
+
+- `Badges/` - Tests for component badge rendering
+
+---
+
+## Developer Reference
 
 Test components follow the standard `StatefulComponentBase` pattern with these characteristics:
 
@@ -43,6 +100,7 @@ public class MyTypeTestComponent : StatefulComponentBase
         // Test implementation here
     }
 }
+
 ```
 
 ### Key Features
@@ -104,33 +162,14 @@ public override async Task DoWorkAsync(CancellationToken token)
         this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
     }
 }
+
 ```
 
-## Existing Test Components
+---
 
-### Data Processing Tests
+## Architecture & Design
 
-- `DataProcessor/` - Tests for `DataTreeProcessor` topology and behavior
-- `DataProcessor/GH_StructureTestComponent.cs` - Tests for `GH_Structure`, `GH_Path`, and related types
-
-### Type Tests
-
-- `Misc/GH_ExtractedImageTestComponent.cs` - Tests for `GH_ExtractedImage` serialization and casting
-
-### Badge Tests
-
-- `Badges/` - Tests for component badge rendering
-
-## Running Tests
-
-1. **In Grasshopper**: Add test components to a canvas and set `Run` to true
-2. **Visual Feedback**:
-   - Green checkmarks (✓) indicate passing tests
-   - Red X marks (✗) indicate failing tests
-   - Success output shows overall pass/fail status
-   - Messages output shows detailed test results
-
-## Benefits Over xUnit Tests
+### Benefits Over xUnit Tests
 
 | Aspect                | xUnit Tests                | Test Components           |
 | -------------------- | ------------------------- | ------------------------- |
@@ -142,7 +181,7 @@ public override async Task DoWorkAsync(CancellationToken token)
 | Speed                 | ✅ Fast                   | ❌ Slower                 |
 | Automation            | ✅ Easy                   | ⚠️ Manual in Grasshopper  |
 
-## When to Use Test Components
+### When to Use Test Components
 
 Use test components for:
 
@@ -158,7 +197,7 @@ Use xUnit tests for:
 - ✅ CI/CD automated testing
 - ✅ Tests that don't need Rhino runtime
 
-## Migration from xUnit to Test Components
+### Migration from xUnit to Test Components
 
 When converting xUnit tests to test components:
 
@@ -169,7 +208,7 @@ When converting xUnit tests to test components:
 5. **Output Results**: Set `Success` boolean and `Messages` list
 6. **Remove xUnit Tests**: Delete the original xUnit test methods
 
-## Example: GH_ExtractedImage Tests
+### Example: GH_ExtractedImage Tests
 
 The `GH_ExtractedImageTestComponent` demonstrates testing a Grasshopper type:
 
@@ -179,7 +218,7 @@ The `GH_ExtractedImageTestComponent` demonstrates testing a Grasshopper type:
 - Tests script variable conversion
 - Provides detailed pass/fail messages for each test
 
-## Example: GH_Structure Tests
+### Example: GH_Structure Tests
 
 The `GH_StructureTestComponent` demonstrates testing Grasshopper data structures:
 
@@ -189,11 +228,11 @@ The `GH_StructureTestComponent` demonstrates testing Grasshopper data structures
 - Tests tree operations (Flatten, Graft)
 - Validates path and data counts
 
-## Suitable Tests for Grasshopper Test Components
+### Suitable Tests for Grasshopper Test Components
 
 Based on analysis of existing test components, the following tests from the test matrix are suitable for implementation as Grasshopper test components. **All test data is hardcoded internally** - users only need to toggle Run=true.
 
-### 🔴 P0 - Breaking Changes (2 tests)
+#### 🔴 P0 - Breaking Changes (2 tests)
 
 - **TC-BREAK-09**: Test AI tools are accessible by new names in chat/tool calls
   - Hardcoded: Use AIToolCall with new tool names (e.g., "text_generate")
@@ -205,7 +244,7 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: Error is returned (no silent failure, no crash)
   - Success: ToolManager returns expected "tool not found" error
 
-### 🔴 P0 - Mixed-Type Data Trees (5 tests)
+#### 🔴 P0 - Mixed-Type Data Trees (5 tests)
 
 - **TC-DATATREE-05**: Handle mixed-type trees with multiple IGH_Goo types
   - Hardcoded: Create GH_Structure<IGH_Goo> with GH_String, GH_Integer, GH_Number, GH_Boolean
@@ -232,7 +271,7 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: Outputs dictionary accessible and contains both results
   - Success: Dictionary has expected keys with correct GH_Structure values
 
-### 🟡 P1 - Vision Input (2 tests)
+#### 🟡 P1 - Vision Input (2 tests)
 
 - **TC-VISION-17**: `AIImgToTextComponent` - base64 input validation
   - Hardcoded: Create base64-encoded 1x1 PNG image (stored as constant string)
@@ -244,14 +283,14 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: Write to GH_IWriter, read from GH_IReader, compare properties
   - Success: All properties match after round-trip (no file save/load needed)
 
-### 🟡 P1 - File-to-Markdown (1 test)
+#### 🟡 P1 - File-to-Markdown (1 test)
 
 - **TC-F2MD-26**: `File2MdComponent` - Images output extraction
   - Hardcoded: Store sample PDF bytes internally (minimal test PDF or mock)
   - Verify: File2Md extracts images and returns GH_ExtractedImage objects
   - Success: Images list is non-empty, each item has valid base64 data
 
-### 🟡 P1 - AI Settings Components (4 tests)
+#### 🟡 P1 - AI Settings Components (4 tests)
 
 - **TC-SETTINGS-01**: Assemble AIRequestParameters from inputs
   - Hardcoded: Create AISettingsComponent with test values
@@ -273,7 +312,7 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: CastFrom string works, creates valid parameters with model set
   - Success: Backward compatibility maintained
 
-### 🟡 P1 - JSON Tools (6 tests)
+#### 🟡 P1 - JSON Tools (6 tests)
 
 - **TC-JSON-17**: `JsonArray2TextListComponent` - parse JSON array to GH text list
   - Hardcoded: JSON string `["item1","item2","item3"]`
@@ -305,20 +344,18 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: Generated schema has type="object" with properties map
   - Success: Nested schema structure is correct
 
-### 🟢 P2 - UI/UX (1 test)
+#### 🟢 P2 - UI/UX (1 test)
 
 - **TC-UI-07**: Tool results inherit TurnId from ToolCall
   - Hardcoded: Create simulated tool call with TurnId=123
   - Verify: Tool result message has same TurnId
   - Success: TurnId propagation works correctly (no actual tool execution needed)
 
----
-
-## Provider-Specific Test Components
+### Provider-Specific Test Components
 
 These test components validate provider functionality using actual API credentials and runtime settings available in Grasshopper. Each provider has multiple components testing individual features.
 
-### 🔴 P0 - OpenAI Provider Tests (5 components)
+#### 🔴 P0 - OpenAI Provider Tests (5 components)
 
 - **TC-PROVIDER-OPENAI-01**: Encode AIRequestCall to OpenAI message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -345,7 +382,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
   - Success: Both success flags true - tool encoding works AND tool result parsing works
 
-### 🔴 P0 - MistralAI Provider Tests (5 components)
+#### 🔴 P0 - MistralAI Provider Tests (5 components)
 
 - **TC-PROVIDER-MISTRAL-01**: Encode AIRequestCall to MistralAI message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -372,7 +409,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
   - Success: Both success flags true - tool encoding works AND tool result parsing works
 
-### 🔴 P0 - DeepSeek Provider Tests (5 components)
+#### 🔴 P0 - DeepSeek Provider Tests (5 components)
 
 - **TC-PROVIDER-DEEPSEEK-01**: Encode AIRequestCall to DeepSeek message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -399,7 +436,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
   - Success: Both success flags true - tool encoding works AND tool result parsing works
 
-### 🟡 P1 - Google Gemini Provider Tests (5 components)
+#### 🟡 P1 - Google Gemini Provider Tests (5 components)
 
 - **TC-PROVIDER-GEMINI-01**: Encode AIRequestCall to Gemini message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -426,7 +463,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: Image encoded correctly in Gemini format
   - Success: Vision content structure is valid
 
-### 🟡 P1 - Anthropic Provider Tests (5 components)
+#### 🟡 P1 - Anthropic Provider Tests (5 components)
 
 - **TC-PROVIDER-ANTHROPIC-01**: Encode AIRequestCall to Anthropic message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -453,7 +490,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
   - Success: Both success flags true - tool encoding works AND tool result parsing works
 
-### 🟢 P2 - OpenRouter Provider Tests (5 components)
+#### 🟢 P2 - OpenRouter Provider Tests (5 components)
 
 - **TC-PROVIDER-OPENROUTER-01**: Encode AIRequestCall to OpenRouter message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -492,11 +529,9 @@ These test components validate provider functionality using actual API credentia
 - TC-UI-01 to TC-UI-06: Progress counter display (visual inspection)
 - TC-UI-08: Metrics aggregation (covered by provider tests above)
 
----
+### Summary
 
-## Summary
-
-### Total Suitable Grasshopper Test Components: 50 tests
+#### Total Suitable Grasshopper Test Components: 50 tests
 
 **Core Functionality Tests (20 tests):**
 
@@ -543,7 +578,7 @@ Provider tests focus on:
 - Make real API calls (not mocked)
 - Validate metrics structure and token counts
 
-## Future Improvements
+### Future Improvements
 
 - [ ] Batch test running across multiple components
 - [ ] Test result persistence to file

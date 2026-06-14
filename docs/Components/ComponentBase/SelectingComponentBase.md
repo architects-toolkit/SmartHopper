@@ -2,7 +2,36 @@
 
 This page documents the family of bases that add a *Select Components* button to a Grasshopper component for picking other canvas objects as inputs.
 
-## The three bases
+---
+
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core.Grasshopper/ComponentBase/SelectingComponentBase.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+The SelectingComponent family lets users point at other Grasshopper objects on the canvas and use them as inputs, without explicit wire connections. This is essential for components that need to reference many scattered objects or groups.
+
+**You should read this if you:**
+
+- Are building a component that needs to read or react to other canvas objects (components, params, groups, scribbles, panels).
+- Want to understand how selection persistence works across copy/paste and file re-open.
+- Need to choose between the three selection-enabled base classes.
+
+---
+
+## End-User Guide
+
+### The three bases
 
 | Base | Inherits | Use when |
 | --- | --- | --- |
@@ -12,7 +41,26 @@ This page documents the family of bases that add a *Select Components* button to
 
 All three implement `ISelectingComponent` and delegate the actual logic to the shared `SelectingComponentCore` helper. None of them re-implements selection or persistence.
 
-## `ISelectingComponent`
+### Custom attributes
+
+- `SelectingComponentAttributes` (used by `SelectingComponentBase` and `SelectingStatefulComponentBase`) extends `GH_ComponentAttributes` and renders the Select button below the component plus a dashed-rectangle highlight around hovered selections.
+- `AISelectingComponentAttributes` (used by `AISelectingStatefulAsyncComponentBase`) extends [`ComponentBadgesAttributes`](#related), so the AI variant keeps provider/model badges and adds the Select button. It also defers tooltip rendering so the tooltip stays above the Select overlay.
+
+Both classes share a 5 s auto-hide timer for the dashed highlight when hovering the Select button.
+
+### Selection pipeline
+
+1. User clicks Select → attributes call `ISelectingComponent.EnableSelectionMode()`.
+2. Core enters selection mode, clears the list, refreshes canvas.
+3. Core reads currently-selected canvas objects, filters and stores them, sets `Message = "N selected"`.
+4. On `Write` the core stores `InstanceGuid`s.
+5. On `Read` and on `OnDocumentAdded` GUIDs are resolved back to live `IGH_DocumentObject` instances; missing ones are skipped.
+
+---
+
+## Developer Reference
+
+### `ISelectingComponent`
 
 ```csharp
 public interface ISelectingComponent
@@ -20,11 +68,12 @@ public interface ISelectingComponent
     List<IGH_DocumentObject> SelectedObjects { get; }
     void EnableSelectionMode();
 }
+
 ```
 
 > `SelectedObjects` exposes `IGH_DocumentObject`, not `IGH_ActiveObject`, so types like scribbles (which do not implement `IGH_ActiveObject`) are supported.
 
-## `SelectingComponentCore` (internal helper)
+### `SelectingComponentCore` (internal helper)
 
 Contains every piece of selection logic. Created by each base in its constructor with a `SubscribeToDocumentEvents()` call:
 
@@ -37,22 +86,24 @@ Contains every piece of selection logic. Created by each base in its constructor
 
 All canvas/UI work is marshalled to Rhino's UI thread via `RhinoApp.InvokeOnUiThread`.
 
-## Custom attributes
+### Filtering selected objects
 
-- `SelectingComponentAttributes` (used by `SelectingComponentBase` and `SelectingStatefulComponentBase`) extends `GH_ComponentAttributes` and renders the Select button below the component plus a dashed-rectangle highlight around hovered selections.
-- `AISelectingComponentAttributes` (used by `AISelectingStatefulAsyncComponentBase`) extends [`ComponentBadgesAttributes`](#related), so the AI variant keeps provider/model badges and adds the Select button. It also defers tooltip rendering so the tooltip stays above the Select overlay.
+```csharp
+// SelectingComponentCore filters the active selection like this:
+var selected = Instances.ActiveCanvas.Document.SelectedObjects();
+var accepted = selected.Where(obj =>
+    obj is IGH_Component ||
+    obj is IGH_Param ||
+    obj is GH_Group ||
+    obj.GetType().Name.Contains("Scribble") ||
+    obj.GetType().Name.Contains("Panel")
+).ToList();
 
-Both classes share a 5 s auto-hide timer for the dashed highlight when hovering the Select button.
+```
 
-## Selection pipeline
+---
 
-1. User clicks Select → attributes call `ISelectingComponent.EnableSelectionMode()`.
-2. Core enters selection mode, clears the list, refreshes canvas.
-3. Core reads currently-selected canvas objects, filters and stores them, sets `Message = "N selected"`.
-4. On `Write` the core stores `InstanceGuid`s.
-5. On `Read` and on `OnDocumentAdded` GUIDs are resolved back to live `IGH_DocumentObject` instances; missing ones are skipped.
-
-## Design criteria
+## Architecture & Design
 
 - **One source of truth.** All selection logic lives in `SelectingComponentCore`; the three bases are thin pass-throughs.
 - **Persist GUIDs, not objects.** Documents survive copy/paste and re-open without dangling references.

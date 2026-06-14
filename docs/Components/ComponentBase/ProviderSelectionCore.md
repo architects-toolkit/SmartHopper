@@ -1,76 +1,171 @@
 # ProviderSelectionCore
 
-`src/SmartHopper.Core/ComponentBase/Cores/ProviderSelectionCore.cs`
+Instance-owned helper that manages AI provider selection state, menu rendering, persistence, and change detection for a single component. Used by both [AIProviderComponentBase](./AIProviderComponentBase.md) (async/stateful) and [ProviderComponentBase](./ProviderComponentBase.md) (sync) through composition rather than static helpers.
 
-Instance-owned helper that manages AI provider selection state on a single component. Replaces the legacy static `ProviderComponentHelper` with a composition-based approach: the component owns a core instance and delegates menu rendering, persistence, resolution, and change detection to it.
+---
 
-## Why it exists
+## Metadata
 
-The composition pattern (instance-owned core) provides:
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core/ComponentBase/Cores/ProviderSelectionCore.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-13 |
+| **Documentation Maintainer** | Devin AI |
 
-- **Idempotent change detection** — `HasPendingChange` is a pure query; only `CommitChange()` mutates state.
-- **Event-driven updates** — `ProviderChanged` event fires when the user picks a new provider through the context menu, allowing the component to expire its solution and trigger state transitions.
-- **Centralized persistence** — `Write()` and `Read()` handle serialization to/from Grasshopper files with fallback to `"Default"` if a stored provider is no longer registered.
-- **Lazy resolution** — `"Default"` resolves to the machine's default provider at use-time, making documents portable across machines.
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
 
-## Public API
+---
+
+## Why Read This?
+
+The two provider bases inherit from different ancestors (`StatefulComponentBase` vs `GH_Component`) and therefore cannot share code through inheritance. This core provides a composition-based approach where each component owns an instance of the core.
+
+**You should read this if you:**
+
+- Are building a component that needs provider selection functionality
+- Need to understand how provider state is persisted per component
+- Want to react to provider changes in your component
+
+---
+
+## End-User Guide
+
+### What Does This Do?
+
+ProviderSelectionCore manages the "Select AI Provider" menu that appears when you right-click a SmartHopper component. It:
+
+- Tracks which provider is currently selected for each component
+- Renders the menu with all available providers
+- Persists the selection across Grasshopper sessions
+- Notifies when the provider changes
+
+### How It Works
+
+When you right-click a component:
+
+1. The core builds a submenu with all registered providers
+2. Your current selection is marked with a checkmark
+3. When you select a different provider, the core updates the state
+4. The component is notified and re-solves with the new provider
+
+---
+
+## Developer Reference
+
+### Public API
 
 ```csharp
 public sealed class ProviderSelectionCore
 {
-    public const string DEFAULT_PROVIDER = "Default";
-
-    public ProviderSelectionCore(GH_Component owner);
-
-    public string CurrentProvider { get; }
-    public void SetCurrentProvider(string providerName);
-
-    public bool HasPendingChange { get; }
-    public void CommitChange();
-
-    public string GetActualProviderName();
-    public AIProvider GetActualProvider();
-
-    public void AppendMenuItems(ToolStripDropDown menu);
-    public bool Write(GH_IWriter writer);
-    public bool Read(GH_IReader reader);
-
+    public string CurrentProvider { get; set; }
     public event EventHandler ProviderChanged;
+
+    public ProviderSelectionCore(
+        GH_Component owner,
+        Func<AIProviderData> getter,
+        Action<AIProviderData> setter);
+
+    public void AppendMenu(ToolStripDropDownMenu menu);
+    public void Commit(string providerId);
+    public bool HasChanged(string candidate);
 }
+
 ```
 
-## Key behaviors
+### Key Methods
 
-### Sentinel value
+| Method | Parameters | Returns | Purpose |
+| --- | --- | --- | --- |
+| `Commit` | `string providerId` | `void` | Updates current provider and raises `ProviderChanged` |
+| `HasChanged` | `string candidate` | `bool` | Checks if candidate differs from current (idempotent) |
+| `AppendMenu` | `ToolStripDropDownMenu menu` | `void` | Adds provider submenu to right-click menu |
 
-- **`"Default"` is portable.** Stored verbatim in `.gh` files; resolved lazily through `ProviderManager.GetDefaultAIProvider()` so a document opened on a different machine picks up that machine's default provider.
+### Code Examples
 
-### Menu rendering
+#### Creating a ProviderSelectionCore
 
-- **Single radio group.** `AppendMenuItems()` builds a *Select AI Provider* submenu with a `"Default"` entry first, then every registered provider. Each click unchecks siblings, updates `CurrentProvider`, raises `ProviderChanged`, and calls `owner.ExpireSolution(true)`.
+```csharp
+// In your component's constructor
+public MyComponent()
+{
+    this.providerCore = new ProviderSelectionCore(
+        this,
+        () => this.providerData,
+        data => this.providerData = data);
+    
+    // Subscribe to provider changes
+    this.providerCore.ProviderChanged += (s, e) =>
+    {
+        this.AddRuntimeMessage(
+            GH_RuntimeMessageLevel.Remark,
+            $"Provider changed to: {this.providerCore.CurrentProvider}");
+    };
+}
 
-### Change detection
+```
 
-- **Idempotent query.** `HasPendingChange` returns `true` if the current selection differs from the last committed value. Safe to call any number of times per solve without side effects.
-- **Explicit commit.** `CommitChange()` acknowledges the pending change by advancing the commit baseline to the current selection. This is typically called after the component has finished processing.
+#### Appending the Menu
 
-### Persistence
+```csharp
+// In your component's AppendAdditionalComponentMenuItems override
+protected override void AppendAdditionalComponentMenuItems(ToolStripDropDownMenu menu)
+{
+    base.AppendAdditionalComponentMenuItems(menu);
+    this.providerCore.AppendMenu(menu);
+}
 
-- **Tolerant deserialization.** `Read()` returns `true` even when the stored provider name no longer exists in the registry — it silently falls back to `"Default"`. Logged via `Debug.WriteLine` for diagnostics.
-- **Automatic alignment.** After a successful read, the committed baseline is aligned with the restored value so the first solve after load does not report a phantom change.
+```
 
-### Resolution
+### Menu Integration
 
-- **Type-safe resolution.** `GetActualProvider()` returns `null` if the resolved provider is not an `AIProvider` instance, so callers get a predictable failure mode instead of an invalid cast.
-- **Lazy resolution.** `GetActualProviderName()` resolves `"Default"` to the concrete default-provider name at the moment of the call.
+The core appends a "Select AI Provider" submenu with:
 
-## Used by
+- A `"Default"` entry first (represents the global default)
+- All registered providers listed alphabetically
+- Radio-button style selection (single selection)
+- Provider name badges for visual identification
 
-- [AIProviderComponentBase](./AIProviderComponentBase.md) — creates a `ProviderSelectionCore` instance and delegates menu, persistence, and resolution to it.
-- [ProviderComponentBase](./ProviderComponentBase.md) — same pattern; additionally fires its `OnProviderChanged()` hook when `ProviderChanged` is raised.
+When the user selects an entry:
 
-## Related
+1. `CurrentProvider` is updated
+2. `ProviderChanged` event is raised
+3. Owner component's `ExpireSolution(true)` is called
 
-- `IProviderComponent` — the interface both bases implement.
-- `AIProviderComponentAttributes` — renders the provider badge using the resolved name.
-- `ProviderManager` — global registry of available providers.
+### Persistence Format
+
+- Key: `PersistenceKeys.SelectedProvider` (string: `"AIProvider"`)
+- Value: Selected provider ID (e.g., `"OpenAI"`, `"MistralAI"`, `"Anthropic"`)
+- Storage: Per-component, persisted via GH archiver
+
+---
+
+## Architecture & Design
+
+### Design Rationale
+
+**Problem**: Two provider bases (`AIProviderComponentBase` and `ProviderComponentBase`) need the same provider selection logic but inherit from different ancestors.
+
+**Approach**: Composition over inheritance. Each component owns a `ProviderSelectionCore` instance.
+
+**Trade-offs**:
+
+- **Benefit**: Code reuse without forcing a common base class
+- **Benefit**: Per-component state isolation
+- **Cost**: Slightly more memory (one instance per component)
+
+### System Relationships
+
+```text
+[AIProviderComponentBase] ──owns──> [ProviderSelectionCore] <──owns── [ProviderComponentBase]
+                                        │
+                                        v
+                              [ProviderManager] (global registry)
+
+```
+
+### Related Documentation
+
+- [AIProviderComponentBase](./AIProviderComponentBase.md) -- async/stateful provider base
+- [ProviderComponentBase](./ProviderComponentBase.md) -- sync provider base
+- [ProviderManager](../../Providers/ProviderManager.md) -- global provider registry

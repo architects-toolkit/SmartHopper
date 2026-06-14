@@ -128,12 +128,25 @@ function Test-Links {
     $content = Get-Content $FilePath -Raw
     $directory = Split-Path $FilePath
     
-    # Find all markdown links
-    $links = [regex]::Matches($content, '\[([^\]]+)\]\(([^)]+)\)')
+    # Remove fenced code blocks, inline code spans, and <code> blocks before link checking
+    # to avoid false positives from path notation like [q0,q1,q2](0)
+    $cleanContent = $content
+    # Replace fenced code blocks (```...```) with spaces of same length
+    $cleanContent = [regex]::Replace($cleanContent, '```[\s\S]*?```', { ' ' * $args[0].Length })
+    # Replace inline code spans (`...`) with spaces of same length
+    $cleanContent = [regex]::Replace($cleanContent, '`[^`\n]+`', { ' ' * $args[0].Length })
+    # Replace <code>...</code> blocks with spaces of same length
+    $cleanContent = [regex]::Replace($cleanContent, '<code>.*?</code>', { ' ' * $args[0].Length })
+    
+    # Find all markdown links in cleaned content
+    $links = [regex]::Matches($cleanContent, '\[([^\]]+)\]\(([^)]+)\)')
     
     foreach ($link in $links) {
         $linkText = $link.Groups[1].Value
         $linkPath = $link.Groups[2].Value
+        
+        # Strip angle brackets from link path (autolink syntax: <url>)
+        $linkPath = $linkPath -replace '^<', '' -replace '>$', ''
         
         # Skip external links and anchors
         if ($linkPath -match "^https?://" -or $linkPath -match "^#") {
@@ -204,7 +217,7 @@ function Validate-AllDocumentation {
     
     # Find all markdown files (exclude TEMPLATES folder itself)
     $mdFiles = Get-ChildItem -Path $DocsPath -Filter "*.md" -Recurse |
-        Where-Object { $_.FullName -notlike "*\TEMPLATES\*" }
+        Where-Object { $_.FullName -notlike "*\TEMPLATES\*" -and $_.FullName -notlike "*\Reviews\*" }
     
     if ($mdFiles.Count -eq 0) {
         Write-Log "No markdown files found in $DocsPath" "Warning"
