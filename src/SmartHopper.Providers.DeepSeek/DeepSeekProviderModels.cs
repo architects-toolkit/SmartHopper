@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -48,7 +48,7 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between February 2026 and May 2026
+                // Released between March 2026 and June 2026
 
                 new AIModelCapabilities
                 {
@@ -63,9 +63,9 @@ namespace SmartHopper.Providers.DeepSeek
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.00000014m,
-                        Completion = 0.00000028m,
-                        InputCacheRead = 0.0000000028m,
+                        Prompt = 0.00000009m,
+                        Completion = 0.00000018m,
+                        InputCacheRead = 0.00000002m,
                     },
                 },
 
@@ -113,7 +113,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Deprecated = true,
                     Rank = -5,
                     ContextLimit = 64000,
-                },
+                }
             };
 
             return Task.FromResult(models);

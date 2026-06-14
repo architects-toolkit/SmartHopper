@@ -25,7 +25,7 @@
     Provider name matching the folder under src/SmartHopper.Providers.<Provider>,
     e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek, Gemini.
 
-.PARAMETER ApiKey
+.PARAMETER OpenRouterApiKey
     OpenRouter API key. The same key is used for every provider because
     OpenRouter is the primary source of truth.
 
@@ -47,6 +47,12 @@
                    separate model entries; no reverse link is exposed).
       OpenAI     - no alias field in the model object.
       DeepSeek   - no alias field in the model object.
+
+.PARAMETER PromptKeys
+    Switch. When present, the script interactively prompts for the
+    OpenRouter API key and (optionally) the provider API key via
+    Read-Host. This is useful when running the script locally and you
+    prefer not to pass keys on the command line.
 
 .PARAMETER TargetFile
     Optional. Absolute or repo-relative path to the *ProviderModels.cs file.
@@ -72,22 +78,169 @@
     }
 
 .EXAMPLE
-    .\tools\Update-ProviderModels.ps1 -Provider OpenAI -ApiKey $env.OPENROUTER_API_KEY
+    .\tools\Update-ProviderModels.ps1 -Provider OpenAI -OpenRouterApiKey $env.OPENROUTER_API_KEY
 
-    .\tools\Update-ProviderModels.ps1 -Provider Anthropic -ApiKey $env.OPENROUTER_API_KEY -UpdateFile
+    .\tools\Update-ProviderModels.ps1 -Provider Anthropic -OpenRouterApiKey $env.OPENROUTER_API_KEY -UpdateFile
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string] $Provider,
-    [Parameter(Mandatory = $false)][string] $ApiKey = "",
+    [Parameter(Mandatory = $false)][string] $Provider,
+    [Parameter(Mandatory = $false)][string] $OpenRouterApiKey = "",
     [Parameter(Mandatory = $false)][string] $ProviderApiKey = "",
     [Parameter(Mandatory = $false)][string] $TargetFile = "",
     [Parameter(Mandatory = $false)][switch] $UpdateFile,
     [Parameter(Mandatory = $false)][switch] $FailOnValidationErrors,
-    [Parameter(Mandatory = $false)][switch] $ValidateOnly
+    [Parameter(Mandatory = $false)][switch] $ValidateOnly,
+    [Parameter(Mandatory = $false)][switch] $Help,
+    [Parameter(Mandatory = $false)][switch] $PromptKeys
 )
 
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+if ($Help) {
+    $helpText = @"
+Update-ProviderModels.ps1
+=========================
+Queries OpenRouter (and optionally the provider's own API) for model metadata,
+then updates or validates the corresponding *ProviderModels.cs file.
+
+SYNTAX
+------
+    .\Update-ProviderModels.ps1 -Provider <String> [-OpenRouterApiKey <String>]
+        [-ProviderApiKey <String>] [-TargetFile <String>] [-UpdateFile]
+        [-FailOnValidationErrors] [-ValidateOnly] [-PromptKeys]
+
+    .\Update-ProviderModels.ps1 -Help
+
+PARAMETERS
+----------
+    -Provider <String>
+        Required (unless -Help is used).
+        Provider name matching the folder under src/SmartHopper.Providers.<Provider>.
+        Supported values: OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek, Gemini.
+
+    -OpenRouterApiKey <String>
+        Optional. OpenRouter API key.
+        OpenRouter is queried as the primary source of truth for all providers.
+        If omitted, the script falls back to checking the environment variable
+        OPENROUTER_API_KEY.
+
+    -ProviderApiKey <String>
+        Optional. The provider's own API key.
+        When supplied, the provider's official /models endpoint is also queried
+        so that models exposed by the provider but not yet listed on OpenRouter
+        are still added (with conservative default capabilities).
+        Alias information is merged when available (MistralAI supports this).
+
+    -TargetFile <String>
+        Optional. Absolute or repo-relative path to the *ProviderModels.cs file.
+        Defaults to:
+          src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs
+
+    -UpdateFile
+        Switch. When present, the source file is rewritten with:
+          - New models inserted
+          - Existing models updated (Capabilities, ContextLimit, Deprecated)
+          - Missing models marked as Deprecated = true
+        Without this switch, the script runs in report-only mode.
+
+    -FailOnValidationErrors
+        Switch. Causes the script to exit with a non-zero code when validation
+        errors are found (e.g. deprecated models still marked Default = true).
+
+    -ValidateOnly
+        Switch. Skips fetching live data and only performs static validation
+        of the existing *ProviderModels.cs file.
+
+    -PromptKeys
+        Switch. Interactively prompts for the OpenRouter API key and
+        (optionally) the provider API key via secure Read-Host input.
+        Useful when running the script locally to avoid exposing keys
+        in shell history.
+
+    -Help
+        Switch. Displays this help message and exits.
+
+BEHAVIOUR
+---------
+  OpenRouter source of truth
+    Every provider except OpenRouter itself is filtered by a provider-specific
+    prefix (e.g. "openai/" for OpenAI). OpenRouter models are kept verbatim.
+
+  Deprecation rules
+    A model is marked Deprecated = true when:
+      - It is absent from OpenRouter (and from the provider API if queried).
+      - Its expiration_date on OpenRouter is closer than one year from now.
+
+  Validation rules
+    - A model that is Deprecated must NOT be marked Default = true.
+    - A Default model must have a Rank value.
+    - Aliases must resolve to a known model entry.
+    - Every model id must be unique.
+    - Only one Default model per provider.
+
+EXAMPLES
+--------
+  # Report-only run for OpenAI (no file changes)
+  .\Update-ProviderModels.ps1 -Provider OpenAI -OpenRouterApiKey `$env:OPENROUTER_API_KEY
+
+  # Update the Anthropic model file
+  .\Update-ProviderModels.ps1 -Provider Anthropic -OpenRouterApiKey `$env:OPENROUTER_API_KEY -UpdateFile
+
+  # Enrich with MistralAI's own API to catch unreleased aliases
+  .\Update-ProviderModels.ps1 -Provider MistralAI -OpenRouterApiKey `$env:OPENROUTER_API_KEY `
+      -ProviderApiKey `$env:MISTRAL_API_KEY -UpdateFile
+
+  # Validate existing file without network calls
+  .\Update-ProviderModels.ps1 -Provider OpenAI -ValidateOnly -FailOnValidationErrors
+
+  # Run interactively (prompts for keys so they don't appear in shell history)
+  .\Update-ProviderModels.ps1 -Provider OpenAI -PromptKeys -UpdateFile
+
+OUTPUT
+------
+    A JSON summary is written to stdout with the following shape:
+    {
+      "provider": "OpenAI",
+      "apiUrl": "https://openrouter.ai/api/v1/models",
+      "apiModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "openrouterModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "providerApiModels": [ "gpt-4o", "gpt-4o-mini" ],
+      "sourceModels": [ "gpt-4", "gpt-4o" ],
+      "newModels": [ "gpt-4o-mini" ],
+      "deprecatedModels": [ "gpt-4" ],
+      "unchangedModels": [ "gpt-4o" ],
+      "fileUpdated": true
+    }
+"@
+    Write-Host $helpText
+    exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($Provider)) {
+    $Provider = Read-Host -Prompt "Enter provider name (e.g. OpenAI, Anthropic, MistralAI, OpenRouter, DeepSeek, Gemini)"
+    if ([string]::IsNullOrWhiteSpace($Provider)) {
+        Write-Error "Parameter -Provider is required. Run with -Help for usage information."
+        exit 1
+    }
+}
+
 $ErrorActionPreference = 'Stop'
+
+# ---------------------------------------------------------------------------
+# Interactive key prompting
+# ---------------------------------------------------------------------------
+if ($PromptKeys) {
+    $secureOpenRouter = Read-Host -Prompt "Enter OpenRouter API Key" -AsSecureString
+    $OpenRouterApiKey = [System.Net.NetworkCredential]::new('', $secureOpenRouter).Password
+
+    $secureProvider = Read-Host -Prompt "Enter Provider API Key (optional, press Enter to skip)" -AsSecureString
+    $providerPlain = [System.Net.NetworkCredential]::new('', $secureProvider).Password
+    if (-not [string]::IsNullOrWhiteSpace($providerPlain)) {
+        $ProviderApiKey = $providerPlain
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -589,7 +742,7 @@ if ($ValidateOnly) {
 # ---------------------------------------------------------------------------
 # 2. Query OpenRouter
 # ---------------------------------------------------------------------------
-$headers = @{ Authorization = "Bearer $ApiKey" }
+$headers = @{ Authorization = "Bearer $OpenRouterApiKey" }
 
 try {
     $response = Invoke-RestMethod -Uri $OpenRouterUrl -Headers $headers -Method GET -TimeoutSec 60
@@ -1560,13 +1713,13 @@ if ($UpdateFile) {
         $m | Add-Member -NotePropertyName 'TermIndex' -NotePropertyValue (Get-TermIndex $m.Created) -Force
     }
 
-    # Sort: non-deprecated first, then term (most recent first),
-    # then verified first, then output price (cheapest first), then name
+    # Sort by: deprecated first, then term (most recent first), then verified first, then output price (cheapest first), then created date (newest first), then name
     $sorted = $mergedModels.Values | Sort-Object -Property @(
         @{ Expression = { if ($_.Deprecated -eq 'true') { 1 } else { 0 } }; Ascending = $true }
         @{ Expression = { $_.TermIndex }; Ascending = $true }
         @{ Expression = { if ($_.Verified -eq 'true') { 0 } else { 1 } }; Ascending = $true }
         @{ Expression = { $_.OutputPrice }; Ascending = $true }
+        @{ Expression = { $_.Created }; Descending = $true }
         @{ Expression = { $_.Model }; Ascending = $true }
     )
 

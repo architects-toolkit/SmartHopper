@@ -67,7 +67,7 @@ runs:
 
         $params = @{
           Provider = '${{ inputs.provider }}'
-          ApiKey   = $env:API_KEY
+          OpenRouterApiKey = $env:API_KEY
         }
         if (-not [string]::IsNullOrWhiteSpace($env:PROVIDER_API_KEY)) {
           $params['ProviderApiKey'] = $env:PROVIDER_API_KEY
