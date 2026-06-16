@@ -1,0 +1,147 @@
+name: 🔄 Version Sync
+
+# Related workflows (triggered on Solution.props / version changes):
+#   - chore-version-sync.yml (unified version date + badge update)
+#   - chore-version-main-release.yml (strips date suffix for main release PRs)
+
+# Description: This unified workflow automatically updates the development version date
+# and/or version badge in README.md when source files or Solution.props change.
+#
+# Triggers:
+# - Automatically when code files or Solution.props are modified in relevant branches
+# - Manually via workflow_dispatch
+#
+# Permissions:
+# - contents:write - Required to commit version changes
+# - pull-requests:write - Required to create PRs with version updates
+
+on:
+  push:
+    branches:
+      - dev
+      - release/*
+      - main
+      - main-*
+      - dev-*
+      - hotfix/**
+      - release/**
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'Solution.props'
+      - '!.github/**'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Get current version
+        id: current-version
+        uses: ./.github/actions/versioning/get-version
+
+      - name: Calculate new version
+        id: calculate-version
+        uses: ./.github/actions/versioning/calculate-version
+        with:
+          version: ${{ steps.current-version.outputs.version }}
+          increment: date
+          change-pre-release: none
+
+      - name: Version Manager
+        id: version-manager
+        uses: ./.github/actions/versioning/version-manager
+        with:
+          mode: ${{ steps.calculate-version.outputs.was-date-updated == 'true' && 'set-version' || 'badges-only' }}
+          new-version: ${{ steps.calculate-version.outputs.new-version }}
+          require-src-changes: 'false'
+
+      - name: Determine PR details
+        id: pr-details
+        if: steps.version-manager.outputs.has-changes == 'true'
+        shell: bash
+        run: |
+          if [[ "${{ steps.calculate-version.outputs.was-date-updated }}" == "true" ]]; then
+            echo "commit-message=chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}" >> $GITHUB_OUTPUT
+            echo "title=chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}" >> $GITHUB_OUTPUT
+            echo "branch=chore/update-version-date-${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "pr-title=chore: update development version date to ${{ steps.calculate-version.outputs.new-version }}" >> $GITHUB_OUTPUT
+          else
+            echo "commit-message=docs: update version badge for ${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "title=docs: update version badge for ${{ github.ref_name }} to ${{ steps.current-version.outputs.version }}" >> $GITHUB_OUTPUT
+            echo "branch=docs/update-version-badge-${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "pr-title=docs: update version badge for ${{ github.ref_name }} to ${{ steps.current-version.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if changes exist
+        id: check-changes
+        if: steps.version-manager.outputs.has-changes == 'true'
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.version-manager.outputs.has-changes == 'true' && steps.check-changes.outputs.has_changes == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: ${{ steps.pr-details.outputs.commit-message }}
+          title: ${{ steps.pr-details.outputs.title }}
+          body: |
+            ${{ steps.calculate-version.outputs.was-date-updated == 'true' && 'This PR updates the development version date in Solution.props to reflect the latest changes.' || 'This PR updates the version badge in the README.md to match the current version in Solution.props.' }}
+
+            This is an automated PR created by the Version Sync workflow.
+          branch: ${{ steps.pr-details.outputs.branch }}
+          base: ${{ github.ref_name }}
+          delete-branch: true
+          labels: |
+            automated
+
+      - name: Assign PR to Milestone
+        if: steps.version-manager.outputs.has-changes == 'true' && steps.check-changes.outputs.has_changes == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.version-manager.outputs.has-changes == 'true' && steps.check-changes.outputs.has_changes == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.pr-details.outputs.branch }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: ${{ github.ref_name }}
+          pr-title: ${{ steps.pr-details.outputs.pr-title }}
+
+      - name: Label PR on failure
+        if: failure() && steps.create-pr.outputs.pull-request-number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
+              labels: ['status: needs attention']
+            });

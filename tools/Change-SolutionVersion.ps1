@@ -32,22 +32,29 @@
 .PARAMETER DryRun
     When set, shows what would change without modifying any files.
 
-.PARAMETER UpdateDateOnly
+.PARAMETER DateOnly
     When set, only updates the date part (.YYMMDD) of the current version if it exists.
     Does not modify the base version (X.Y.Z) or pre-release type.
+
+.PARAMETER BadgesOnly
+    When set, only updates the version and status badges in README.md.
+    Does not modify Solution.props or CHANGELOG.md.
 
 .EXAMPLE
     .\Change-SolutionVersion.ps1
     .\Change-SolutionVersion.ps1 -Version 2.0.0
     .\Change-SolutionVersion.ps1 -Version 1.5.0 -DryRun
-    .\Change-SolutionVersion.ps1 -UpdateDateOnly
+    .\Change-SolutionVersion.ps1 -DateOnly
     # If current version is 1.0.0-dev.250101, updates to 1.0.0-dev.YYMMDD (today's date)
+    .\Change-SolutionVersion.ps1 -BadgesOnly
+    # Updates README.md badges to match the current version in Solution.props
 #>
 param(
     [string]$Version,
     [switch]$Help,
     [switch]$DryRun,
-    [switch]$UpdateDateOnly
+    [switch]$DateOnly,
+    [switch]$BadgesOnly
 )
 
 if ($Help) {
@@ -171,77 +178,84 @@ if (-not $parsed) {
     exit 1
 }
 
-# Determine base X.Y.Z for the new version
-if ($UpdateDateOnly) {
-    # Only update date for -dev versions
-    if ($parsed.PreType -ne 'dev') {
-        Write-Host "Current version is not a -dev version ($currentVersion). Skipping date update for non-dev versions." -ForegroundColor Yellow
-        Write-Host "  Version remains: $currentVersion" -ForegroundColor Green
-        exit 0
-    }
-    
-    # Keep the same X.Y.Z and pre-release type, only update the date
-    $newMajor = $parsed.Major
-    $newMinor = $parsed.Minor
-    $newPatch = $parsed.Patch
-    
-    # Determine pre-release type - use existing or default to 'dev'
-    $preType = if ($parsed.PreType) { $parsed.PreType } else { 'dev' }
-    
-    $newVersion = "$newMajor.$newMinor.$newPatch-$preType.$today"
-    Write-Host "[UpdateDateOnly] Keeping base version $newMajor.$newMinor.$newPatch, updating to date: $today" -ForegroundColor Cyan
+# BadgesOnly: skip version calculation and Solution.props update
+if ($BadgesOnly) {
+    $newVersion = $currentVersion
+    Write-Host "`n[BadgesOnly] Using current version for badge update." -ForegroundColor Cyan
 }
-elseif ($baseVersion) {
-    # Use explicit or branch-detected version as the base
-    $baseParsed = Parse-Version $baseVersion
-    if ($baseParsed) {
-        # Check if base version ends with exactly '-dev' (no date suffix)
-        if ($baseVersion -match '-dev$') {
-            # Append date to -dev suffix
-            $newVersion = "$baseVersion.$today"
-            Write-Host "Base version ends with -dev, appending date: $newVersion" -ForegroundColor Cyan
-        }
-        else {
-            # Use base version as-is (stable, -alpha, -beta, -rc, or -dev.YYMMDD already provided)
-            $newVersion = $baseVersion
-            Write-Host "Using base version as-is: $newVersion" -ForegroundColor Cyan
+else {
+    # Determine base X.Y.Z for the new version
+    if ($DateOnly) {
+        # Only update date for -dev versions
+        if ($parsed.PreType -ne 'dev') {
+            Write-Host "Current version is not a -dev version ($currentVersion). Skipping date update for non-dev versions." -ForegroundColor Yellow
+            Write-Host "  Version remains: $currentVersion" -ForegroundColor Green
+            exit 0
         }
         
-        # Set numeric components from the parsed base version
-        $newMajor = $baseParsed.Major
-        $newMinor = $baseParsed.Minor
-        $newPatch = $baseParsed.Patch
+        # Keep the same X.Y.Z and pre-release type, only update the date
+        $newMajor = $parsed.Major
+        $newMinor = $parsed.Minor
+        $newPatch = $parsed.Patch
+        
+        # Determine pre-release type - use existing or default to 'dev'
+        $preType = if ($parsed.PreType) { $parsed.PreType } else { 'dev' }
+        
+        $newVersion = "$newMajor.$newMinor.$newPatch-$preType.$today"
+        Write-Host "[DateOnly] Keeping base version $newMajor.$newMinor.$newPatch, updating to date: $today" -ForegroundColor Cyan
+    }
+    elseif ($baseVersion) {
+        # Use explicit or branch-detected version as the base
+        $baseParsed = Parse-Version $baseVersion
+        if ($baseParsed) {
+            # Check if base version ends with exactly '-dev' (no date suffix)
+            if ($baseVersion -match '-dev$') {
+                # Append date to -dev suffix
+                $newVersion = "$baseVersion.$today"
+                Write-Host "Base version ends with -dev, appending date: $newVersion" -ForegroundColor Cyan
+            }
+            else {
+                # Use base version as-is (stable, -alpha, -beta, -rc, or -dev.YYMMDD already provided)
+                $newVersion = $baseVersion
+                Write-Host "Using base version as-is: $newVersion" -ForegroundColor Cyan
+            }
+            
+            # Set numeric components from the parsed base version
+            $newMajor = $baseParsed.Major
+            $newMinor = $baseParsed.Minor
+            $newPatch = $baseParsed.Patch
+        }
+        else {
+            Write-Error "Failed to parse base version: $baseVersion"
+            exit 1
+        }
+    }
+    elseif ($parsed.PreType -eq 'dev') {
+        # Already a -dev version -> keep same X.Y.Z
+        $newMajor = $parsed.Major
+        $newMinor = $parsed.Minor
+        $newPatch = $parsed.Patch
     }
     else {
-        Write-Error "Failed to parse base version: $baseVersion"
-        exit 1
+        # Not a -dev version (stable, beta, alpha, rc) -> increment patch
+        $newMajor = $parsed.Major
+        $newMinor = $parsed.Minor
+        $newPatch = $parsed.Patch + 1
     }
-}
-elseif ($parsed.PreType -eq 'dev') {
-    # Already a -dev version -> keep same X.Y.Z
-    $newMajor = $parsed.Major
-    $newMinor = $parsed.Minor
-    $newPatch = $parsed.Patch
-}
-else {
-    # Not a -dev version (stable, beta, alpha, rc) -> increment patch
-    $newMajor = $parsed.Major
-    $newMinor = $parsed.Minor
-    $newPatch = $parsed.Patch + 1
-}
 
-if (-not $UpdateDateOnly -and -not $newVersion) {
-    $newVersion = "$newMajor.$newMinor.$newPatch-dev.$today"
-}
-Write-Host "New version: $newVersion" -ForegroundColor Green
+    if (-not $DateOnly -and -not $newVersion) {
+        $newVersion = "$newMajor.$newMinor.$newPatch-dev.$today"
+    }
+    Write-Host "New version: $newVersion" -ForegroundColor Green
 
-if ($DryRun) {
-    Write-Host "[DRY RUN] Would update Solution.props: $currentVersion -> $newVersion" -ForegroundColor Yellow
-}
-else {
-    $xml.Project.PropertyGroup.SolutionVersion = $newVersion
-    $xml.Save($solutionPropsPath)
-    Write-Host "Updated Solution.props successfully."
+    if ($DryRun) {
+        Write-Host "[DRY RUN] Would update Solution.props: $currentVersion -> $newVersion" -ForegroundColor Yellow
+    }
+    else {
+        $xml.Project.PropertyGroup.SolutionVersion = $newVersion
+        $xml.Save($solutionPropsPath)
+        Write-Host "Updated Solution.props successfully."
+    }
 }
 
 # ===== STEP 3 & 4: Update badges in README.md =============================
@@ -280,64 +294,75 @@ else {
 }
 
 # ===== STEP 5: Ensure CHANGELOG.md top section is [Unreleased] ============
-Write-Host "`n===== Step 5: Ensure CHANGELOG.md top section is [Unreleased] =====" -ForegroundColor Cyan
+if (-not $BadgesOnly) {
+    Write-Host "`n===== Step 5: Ensure CHANGELOG.md top section is [Unreleased] =====" -ForegroundColor Cyan
 
-if (-not (Test-Path $changelogPath)) {
-    Write-Warning "CHANGELOG.md not found at $changelogPath; skipping."
-}
-else {
-    $changelogLines = Get-Content $changelogPath -Encoding utf8
-
-    # Find the first ## heading
-    $firstHeadingIndex = -1
-    for ($i = 0; $i -lt $changelogLines.Count; $i++) {
-        if ($changelogLines[$i] -match '^## ') {
-            $firstHeadingIndex = $i
-            break
-        }
-    }
-
-    if ($firstHeadingIndex -eq -1) {
-        Write-Host "No ## heading found in CHANGELOG.md. Adding [Unreleased] section."
-        if (-not $DryRun) {
-            $changelogLines += ""
-            $changelogLines += "## [Unreleased]"
-            $changelogLines += ""
-            Set-Content -Path $changelogPath -Value $changelogLines -Encoding utf8
-            Write-Host "Added [Unreleased] section to CHANGELOG.md."
-        }
-        else {
-            Write-Host "[DRY RUN] Would add [Unreleased] section." -ForegroundColor Yellow
-        }
-    }
-    elseif ($changelogLines[$firstHeadingIndex] -match '^\#\# \[Unreleased\]') {
-        Write-Host "Top section is already [Unreleased]. No changes needed." -ForegroundColor Green
+    if (-not (Test-Path $changelogPath)) {
+        Write-Warning "CHANGELOG.md not found at $changelogPath; skipping."
     }
     else {
-        Write-Host "Top section is: $($changelogLines[$firstHeadingIndex])"
-        Write-Host "Inserting [Unreleased] section above it."
+        $changelogLines = Get-Content $changelogPath -Encoding utf8
 
-        if (-not $DryRun) {
-            $before = $changelogLines[0..($firstHeadingIndex - 1)]
-            $after = $changelogLines[$firstHeadingIndex..($changelogLines.Count - 1)]
-            $changelogLines = $before + @("## [Unreleased]", "") + $after
-            Set-Content -Path $changelogPath -Value $changelogLines -Encoding utf8
-            Write-Host "Inserted [Unreleased] section in CHANGELOG.md."
+        # Find the first ## heading
+        $firstHeadingIndex = -1
+        for ($i = 0; $i -lt $changelogLines.Count; $i++) {
+            if ($changelogLines[$i] -match '^## ') {
+                $firstHeadingIndex = $i
+                break
+            }
+        }
+
+        if ($firstHeadingIndex -eq -1) {
+            Write-Host "No ## heading found in CHANGELOG.md. Adding [Unreleased] section."
+            if (-not $DryRun) {
+                $changelogLines += ""
+                $changelogLines += "## [Unreleased]"
+                $changelogLines += ""
+                Set-Content -Path $changelogPath -Value $changelogLines -Encoding utf8
+                Write-Host "Added [Unreleased] section to CHANGELOG.md."
+            }
+            else {
+                Write-Host "[DRY RUN] Would add [Unreleased] section." -ForegroundColor Yellow
+            }
+        }
+        elseif ($changelogLines[$firstHeadingIndex] -match '^\#\# \[Unreleased\]') {
+            Write-Host "Top section is already [Unreleased]. No changes needed." -ForegroundColor Green
         }
         else {
-            Write-Host "[DRY RUN] Would insert [Unreleased] section above existing heading." -ForegroundColor Yellow
+            Write-Host "Top section is: $($changelogLines[$firstHeadingIndex])"
+            Write-Host "Inserting [Unreleased] section above it."
+
+            if (-not $DryRun) {
+                $before = $changelogLines[0..($firstHeadingIndex - 1)]
+                $after = $changelogLines[$firstHeadingIndex..($changelogLines.Count - 1)]
+                $changelogLines = $before + @("## [Unreleased]", "") + $after
+                Set-Content -Path $changelogPath -Value $changelogLines -Encoding utf8
+                Write-Host "Inserted [Unreleased] section in CHANGELOG.md."
+            }
+            else {
+                Write-Host "[DRY RUN] Would insert [Unreleased] section above existing heading." -ForegroundColor Yellow
+            }
         }
     }
 }
 
 # ===== Summary =============================================================
 Write-Host "`n===== Summary =====" -ForegroundColor Cyan
-Write-Host "  Version:  $currentVersion -> $newVersion"
+if ($BadgesOnly) {
+    Write-Host "  Mode:     BadgesOnly"
+    Write-Host "  Version:  $currentVersion (unchanged)"
+}
+else {
+    Write-Host "  Version:  $currentVersion -> $newVersion"
+}
 Write-Host "  Badge:    $shieldsVersion ($($badgeInfo.Color))"
 Write-Host "  Status:   $($badgeInfo.Text) ($($badgeInfo.Color))"
 
 if ($DryRun) {
     Write-Host "`n  [DRY RUN] No files were modified." -ForegroundColor Yellow
+}
+elseif ($BadgesOnly) {
+    Write-Host "`n  README.md badges updated successfully." -ForegroundColor Green
 }
 else {
     Write-Host "`n  All files updated successfully." -ForegroundColor Green

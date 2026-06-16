@@ -91,9 +91,10 @@ jobs:
       - name: Create release branch
         run: git checkout -b ${{ steps.set-branch.outputs.release_branch }}
 
-      - name: Update version in Solution.props
-        uses: ./.github/actions/versioning/update-version
+      - name: Update version
+        uses: ./.github/actions/versioning/version-manager
         with:
+          mode: set-version
           new-version: ${{ steps.extract-version.outputs.version }}
 
       - name: Include missing issues in changelog
@@ -107,10 +108,6 @@ jobs:
         with:
           action: create-release
           version: ${{ steps.extract-version.outputs.version }}
-          
-      - name: Update README badges
-        uses: ./.github/actions/documentation/update-badges
-        id: update-badges
 
       - name: Update Ready badge to YES (brightgreen)
         uses: ./.github/actions/documentation/update-ready-badge

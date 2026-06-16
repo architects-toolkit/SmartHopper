@@ -106,6 +106,5 @@ header comment referencing the other. Example:
 
 ```yaml
 # Related workflows:
-#   - chore-version-date.yml (updates version date on dev pushes)
-#   - chore-version-badge.yml (updates README badge on version change)
+#   - chore-version-sync.yml (unified version date + badge update)
 ```

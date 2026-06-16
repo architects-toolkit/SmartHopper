@@ -1,8 +1,7 @@
 name: 🔄 Remove Release Version Date
 
 # Related workflows (triggered on Solution.props / version changes):
-#   - chore-version-date.yml (updates version date suffix on dev/release pushes)
-#   - chore-version-badge.yml (updates README badge on version change)
+#   - chore-version-sync.yml (unified version date + badge update)
 #   - chore-version-main-release.yml (strips date suffix for main release PRs)
 #   (dev-update-manifest.yml was removed — manifest text is now resolved at build time via .manifest.json)
 
@@ -61,16 +60,11 @@ jobs:
           fi
           echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Update version in Solution.props
-        uses: ./.github/actions/versioning/update-version
+      - name: Update version
+        uses: ./.github/actions/versioning/version-manager
         with:
+          mode: set-version
           new-version: ${{ steps.strip-date.outputs.new-version }}
-
-      # Update badges to match the new version
-      - name: Update badges
-        id: update-badges
-        if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
-        uses: ./.github/actions/documentation/update-badges
 
       - name: Create Pull Request
         if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version

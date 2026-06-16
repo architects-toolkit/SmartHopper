@@ -91,7 +91,7 @@ elseif (Test-Path $versionScript) {
     $readmeBefore = if (Test-Path $readmePath) { Get-Content $readmePath -Raw -Encoding utf8 } else { $null }
     $changelogBefore = if (Test-Path $changelogPath) { Get-Content $changelogPath -Raw -Encoding utf8 } else { $null }
 
-    & $versionScript -UpdateDateOnly
+    & $versionScript -DateOnly
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Version update script failed (exit $LASTEXITCODE)."
         exit $LASTEXITCODE

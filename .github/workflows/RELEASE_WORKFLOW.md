@@ -373,11 +373,11 @@ All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-
 
 **Problem:** Version badge not updated
 
-- **Solution:** Run `chore-version-badge.yml` workflow manually
+- **Solution:** Run `chore-version-sync.yml` workflow manually
 
 ## Related Workflows
 
-- **chore-version-badge.yml** - Updates README version badge
-- **chore-version-date.yml** - Updates version date in dev branch
+- **chore-version-sync.yml** - Unified version date + badge update
+- **chore-version-main-release.yml** - Strips date suffix for main release
 - **pr-validation.yml** - Validates all PRs
 - **ci-dotnet-tests.yml** - Runs .NET tests
