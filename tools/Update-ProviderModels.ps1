@@ -340,26 +340,39 @@ function Test-RealtimeModelName($modelName) {
 
 function Test-ProviderModelValidation($models) {
     $validationErrors = [System.Collections.Generic.List[string]]::new()
+    $validationWarnings = [System.Collections.Generic.List[string]]::new()
     $missingDefaultCapabilities = [System.Collections.Generic.List[string]]::new()
     $pendingCapabilityModels = [System.Collections.Generic.List[string]]::new()
     $realtimeModels = [System.Collections.Generic.List[string]]::new()
 
     $nonDeprecatedModelsForValidation = @($models | Where-Object { $_.Deprecated -ne 'true' })
 
+    # Helper: Check if a model is discouraged for all tools
+    function Test-ModelDiscouragedForAllTools($model) {
+        if ($model.DiscouragedForTools -and $model.DiscouragedForTools.Count -gt 0) {
+            return $model.DiscouragedForTools -contains '*'
+        }
+        return $false
+    }
+
     foreach ($composite in $CompositeDefaultCapabilities.GetEnumerator()) {
         $capableModels = @($nonDeprecatedModelsForValidation | Where-Object {
-            Test-CapabilityExpressionHasAll $_.Capabilities $composite.Value
+            Test-CapabilityExpressionHasAll $_.Capabilities $composite.Value -and
+            -not (Test-ModelDiscouragedForAllTools $_)
         })
 
         if ($capableModels.Count -eq 0) { continue }
 
         $defaultModels = @($nonDeprecatedModelsForValidation | Where-Object {
-            Test-CapabilityExpressionContains $_.Default $composite.Key
+            Test-CapabilityExpressionContains $_.Default $composite.Key -and
+            -not (Test-ModelDiscouragedForAllTools $_)
         })
 
         if ($defaultModels.Count -eq 0) {
             [void]$missingDefaultCapabilities.Add($composite.Key)
-            [void]$validationErrors.Add("Missing default for AICapability.$($composite.Key) while $($capableModels.Count) non-deprecated model(s) support $($composite.Value -join ', ').")
+            # Missing defaults are warnings, not errors. Some providers may only
+            # serve a subset of capability categories (e.g. image-generation only).
+            [void]$validationWarnings.Add("Missing default for AICapability.$($composite.Key) while $($capableModels.Count) non-deprecated model(s) support $($composite.Value -join ', ').")
         }
     }
 
@@ -381,6 +394,7 @@ function Test-ProviderModelValidation($models) {
     return [ordered]@{
         success                    = ($validationErrors.Count -eq 0)
         errors                     = @($validationErrors)
+        warnings                   = @($validationWarnings)
         missingDefaultCapabilities = @($missingDefaultCapabilities)
         pendingCapabilityModels    = @($pendingCapabilityModels)
         realtimeModels             = @($realtimeModels)
@@ -489,8 +503,27 @@ if ($ValidateOnly) {
 
     Write-Output ($report | ConvertTo-Json -Depth 10)
 
+    if ($validation.warnings.Count -gt 0) {
+        foreach ($validationWarning in $validation.warnings) {
+            Write-Host "::warning title=$Provider provider model validation::$validationWarning"
+        }
+    }
+
+    if (-not $validation.success) {
+        # Surface each validation issue as a GitHub Actions error annotation so
+        # the message is visible in the run log. We deliberately use Write-Host
+        # (not Write-Error) here: Write-Error under $ErrorActionPreference =
+        # 'Stop' throws a terminating exception which propagates out of the
+        # script as an opaque [System.Management.Automation.RuntimeException],
+        # making downstream catch blocks (e.g. the fetch-models action wrapper)
+        # surface a generic "script failed" message instead of the actual
+        # validation details.
+        foreach ($validationError in $validation.errors) {
+            Write-Host "::error title=$Provider provider model validation::$validationError"
+        }
+    }
+
     if ($FailOnValidationErrors -and -not $validation.success) {
-        Write-Error "[$Provider] Provider model validation failed: $($validation.errors -join ' | ')"
         exit 9
     }
 
@@ -1432,8 +1465,23 @@ $report = [ordered]@{
 
 Write-Output ($report | ConvertTo-Json -Depth 10)
 
+if ($validation.warnings.Count -gt 0) {
+    foreach ($validationWarning in $validation.warnings) {
+        Write-Host "::warning title=$Provider provider model validation::$validationWarning"
+    }
+}
+
+if (-not $validation.success) {
+    # Surface each validation issue as a GitHub Actions error annotation so the
+    # message is visible in the run log. See the matching block in the
+    # -ValidateOnly path above for the rationale (Write-Error + EAP=Stop would
+    # throw and obscure the cause).
+    foreach ($validationError in $validation.errors) {
+        Write-Host "::error title=$Provider provider model validation::$validationError"
+    }
+}
+
 if ($FailOnValidationErrors -and -not $validation.success) {
-    Write-Error "[$Provider] Provider model validation failed: $($validation.errors -join ' | ')"
     exit 9
 }
 

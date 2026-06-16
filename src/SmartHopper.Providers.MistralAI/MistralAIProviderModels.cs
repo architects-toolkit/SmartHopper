@@ -60,7 +60,7 @@ namespace SmartHopper.Providers.MistralAI
                     Provider = provider,
                     Model = "mistral-small-2603",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
                     Rank = 10000,
@@ -74,6 +74,7 @@ namespace SmartHopper.Providers.MistralAI
                     Provider = provider,
                     Model = "mistral-medium-3-5",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.Reasoning | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    Default = AICapability.ReasoningChat | AICapability.ToolReasoningChat,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9995,
@@ -262,6 +263,7 @@ namespace SmartHopper.Providers.MistralAI
                     Provider = provider,
                     Model = "voxtral-mini-2602",
                     Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9920,
@@ -272,20 +274,9 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "voxtral-mini-transcribe-realtime-2602",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Rank = 9915,
-                    Aliases = new List<string> { "voxtral-mini-realtime-2602", "voxtral-mini-realtime-latest" },
-                    DiscouragedForTools = new List<string> { "*" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "voxtral-mini-tts-2603",
                     Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.AudioOutput,
+                    Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9910,

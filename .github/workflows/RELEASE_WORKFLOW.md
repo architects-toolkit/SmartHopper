@@ -243,7 +243,7 @@ All PRs (release → dev, dev → main) run:
 - **main-X.Y.Z**: Protected stabilization branch (created by automation); `github-actions[bot]` has bypass for create/delete
 - **release/\***: Temporary branches, deleted after merge
 
-All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-build-hash-validation`, `pr-manifest-validation`) run on PRs to `dev-*` and `main-*` branches identical to `dev` and `main`.
+All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-build-hash-validation`) run on PRs to `dev-*` and `main-*` branches identical to `dev` and `main`. Manifest text validation was removed — `manifest.yml` now uses the `{{NOTE_TEXT}}` placeholder, resolved at build time by `release-6-upload-yak.yml`.
 
 ### Stabilization Path Example
 
@@ -301,7 +301,7 @@ All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-
 - Use `patch-propagate.yml` with `auto-discover: true` to fan out a fix to all `dev` and `dev-*` branches
 - Set `include-main-branches: true` for critical fixes that also need to reach `main-*` branches
 - Use `exclude-branches` to skip specific branches from auto-discovery
-- If any cherry-pick has conflicts, an issue is auto-created with the `needs-attention` label
+- If any cherry-pick has conflicts, an issue is auto-created with the `status: needs-attention` label
 
 ### Regular Release Example
 

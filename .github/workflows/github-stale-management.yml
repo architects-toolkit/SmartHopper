@@ -1,0 +1,74 @@
+name: 🕰️ Stale Issue & PR Management
+
+# Description: Marks issues and PRs as stale after periods of inactivity,
+# then closes them if no further activity occurs. Runs weekly on Monday mornings.
+#
+# Policy:
+#   - Issues: stale after 60 days of inactivity, closed after 14 more days
+#   - PRs: stale after 30 days of inactivity, closed after 7 more days
+#   - Exempt: issues/PRs with priority:*, status: in progress, or automated labels
+#
+# Triggers:
+#   - schedule: every Monday at 6:00 UTC
+#   - workflow_dispatch for manual runs
+#
+# Permissions:
+#   - issues: write - Required to label and close stale issues
+#   - pull-requests: write - Required to label and close stale PRs
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Manage stale issues and PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issue settings
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-label: "status: stale"
+          stale-issue-message: >
+            This issue has been automatically marked as **stale** because it has
+            not had activity in the last 60 days. It will be closed in 14 days
+            if no further activity occurs. If this issue is still relevant,
+            please leave a comment or remove the `status: stale` label.
+          close-issue-message: >
+            This issue was closed automatically after being stale for 14 days
+            with no further activity. Feel free to reopen if it is still relevant.
+
+          # PR settings
+          days-before-pr-stale: 30
+          days-before-pr-close: 7
+          stale-pr-label: "status: stale"
+          stale-pr-message: >
+            This pull request has been automatically marked as **stale** because
+            it has not had activity in the last 30 days. It will be closed in 7
+            days if no further activity occurs.
+          close-pr-message: >
+            This PR was closed automatically after being stale for 7 days
+            with no further activity. Feel free to reopen if it is still needed.
+
+          # Exemptions — never mark these as stale
+          exempt-issue-labels: >
+            priority: critical,priority: high,priority: medium,
+            status: in progress,status: blocked,
+            automated,model-verification
+          exempt-pr-labels: >
+            priority: critical,priority: high,
+            automated,status: needs attention
+          exempt-all-milestones: true
+
+          # Processing limits
+          operations-per-run: 60

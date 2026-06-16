@@ -1,5 +1,13 @@
 name: Stabilization 2 - ✅ Complete Path
 
+# Related workflows (stabilization & hotfix paths):
+#   - stabilization-0-init.yml (creates dev-X.Y.Z and main-X.Y.Z branches)
+#   - stabilization-1-cancel.yml (cancels stabilization path)
+#   - stabilization-2-complete.yml (completes stabilization)
+#   - hotfix-0-new-branch.yml (creates hotfix branch from main)
+#   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
+#   - main-sync-to-dev.yml (syncs main changes to dev and dev-* branches)
+
 # Description: Completes a stabilization path when a no-suffix milestone (e.g. "1.4.2") is closed
 # and no staged sub-milestones remain open (meaning the stable release was successfully shipped).
 # Creates a backport PR from main-X.Y.Z to main. Stabilization branches are deleted after the PR merges.
@@ -27,6 +35,7 @@ permissions:
 jobs:
   complete-stabilization-path:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: "stabilization-close-${{ github.event.milestone.title }}"
       cancel-in-progress: false
@@ -133,6 +142,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Assign PR to Milestone
+        if: steps.check.outputs.should-complete == 'true' && steps.check-branches.outputs.branches-exist == 'true' && steps.create-pr.outputs.pr_number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pr_number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Summary
         if: steps.check.outputs.should-complete == 'true'
         run: |
@@ -150,6 +166,7 @@ jobs:
   # Delete stabilization branches after the backport PR is merged into main
   cleanup-on-pr-merge:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: |
       github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
