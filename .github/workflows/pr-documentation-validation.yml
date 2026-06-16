@@ -82,7 +82,9 @@ jobs:
           $output | Write-Host
 
           # Check for failures in the output
-          if ($output -match "\[FAIL\]" -or $exitCode -ne 0) {
+          # Coerce $null exit code to 0 so null -ne 0 doesn't accidentally trigger failure
+          $safeExitCode = if ($null -eq $exitCode) { 0 } else { $exitCode }
+          if ($output -match "\[FAIL\]" -or $safeExitCode -ne 0) {
             Write-Host ""
             Write-Error "::error::Documentation validation failed. Please fix the issues above."
             exit 1

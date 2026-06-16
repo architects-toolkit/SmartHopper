@@ -245,14 +245,17 @@ function Validate-AllDocumentation {
     
     if ($failCount -eq 0) {
         Write-Log "All documentation files are valid!" "Success"
+        return 0
     } else {
         Write-Log "$failCount file(s) need attention" "Error"
+        return 1
     }
 }
 
 # Main execution
 if (Test-Path $Path) {
-    Validate-AllDocumentation $Path
+    $result = Validate-AllDocumentation $Path
+    exit $result
 } else {
     Write-Log "Path not found: $Path" "Error"
     exit 1
