@@ -5,7 +5,7 @@
 # Category            Hex       Purpose
 # ─────────────────── ───────── ─────────────────────────────────
 # scope:              000000    Internal code area (black)
-# scope: Security     500       Security-sensitive (dark red)
+# scope: Security     550000    Security-sensitive (dark red)
 # component:          1B2638    Grasshopper component (dark navy)
 # provider:           1A3636    AI provider (dark teal)
 # os:                 2B3A52    Platform tag (dark slate)
@@ -243,9 +243,9 @@
   description: "Issues related to the OpenRouter provider"
 
 # scope Labels
-- name: "scope: AICall"
+- name: "scope: AI Calls"
   color: "000000"
-  description: "Issues related to the AICall area"
+  description: "Issues related to the AI Calls area"
 - name: "scope: AIContext"
   color: "000000"
   description: "Issues related to the AIContext area"
@@ -258,9 +258,9 @@
 - name: "scope: AITools"
   color: "000000"
   description: "Issues related to the AITools area"
-- name: "scope: ComponentBase"
+- name: "scope: Component Base"
   color: "000000"
-  description: "Issues related to the ComponentBase area"
+  description: "Issues related to the Component Base area"
 - name: "scope: DataTree"
   color: "000000"
   description: "Issues related to the DataTree area"
@@ -282,6 +282,15 @@
 - name: "scope: UI"
   color: "000000"
   description: "Issues related to the UI area"
+<<<<<<< HEAD
+=======
+- name: "scope: Utilities"
+  color: "000000"
+  description: "Issues related to the Utilities area"
+- name: "scope: Security"
+  color: "550000"
+  description: "Security-sensitive issues"
+>>>>>>> 20e19b5f (fix(labels): align labels.yml with labeler.yml naming)
 - name: "scope: Utils"
   color: "000000"
   description: "Issues related to the Utils area"
