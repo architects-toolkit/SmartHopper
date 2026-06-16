@@ -15,7 +15,7 @@ if (-not $Path) {
 # Configuration
 $RequiredSections = @(
     "End-User Guide",
-    "Developer Reference", 
+    "Developer Reference",
     "Architecture & Design"
 )
 
