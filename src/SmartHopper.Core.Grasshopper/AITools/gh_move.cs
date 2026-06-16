@@ -40,6 +40,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_move";
+
         /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>

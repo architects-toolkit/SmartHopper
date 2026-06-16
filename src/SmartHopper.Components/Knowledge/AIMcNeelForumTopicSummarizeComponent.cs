@@ -43,7 +43,17 @@ namespace SmartHopper.Components.Knowledge
 
         protected override Bitmap Icon => Resources.mcneeltopicsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIMcNeelTopicSumm",
+            "mcneel_forum_topic_summarize",
+            "McNeel Forum Topic",
+            "Topic Summarize",
+            "Forum Summary",
+            "McNeel Summary",
+        };
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "mcneel_forum_topic_summarize" };
@@ -52,11 +62,10 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "AI McNeelForum Topic Summarize",
                   "AIMcNeelTopicSumm",
-                  "Generate a concise summary of a McNeel Discourse forum topic by ID using the configured AI provider.",
+                  "Generate a concise summary of a McNeel Discourse forum topic (all posts) by topic ID using the configured AI provider.",
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
@@ -75,7 +84,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIMcNeelForumTopicSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIMcNeelForumTopicSummarizeWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIMcNeelForumTopicSummarizeWorker : AsyncWorkerBase
@@ -172,7 +181,7 @@ namespace SmartHopper.Components.Knowledge
                                         parameters["instructions"] = this.instructions;
                                     }
 
-                                    var toolResult = await this.parent.CallAiToolAsync("mcneel_forum_topic_summarize", parameters).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAIToolAsync("mcneel_forum_topic_summarize", parameters, token).ConfigureAwait(false);
 
                                     if (toolResult == null)
                                     {
@@ -226,14 +235,17 @@ namespace SmartHopper.Components.Knowledge
                     {
                         this.resultSummaries = summaryTree;
                     }
+
                     if (resultTrees.TryGetValue("Title", out var titleTree))
                     {
                         this.resultTitles = titleTree;
                     }
+
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;
                     }
+
                     if (resultTrees.TryGetValue("PostCount", out var postCountTree))
                     {
                         this.resultPostCounts = postCountTree;
@@ -252,6 +264,7 @@ namespace SmartHopper.Components.Knowledge
                 this.parent.SetPersistentOutput("Title", this.resultTitles ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("URL", this.resultUrls ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Post Count", this.resultPostCounts ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetMetricsOutput(DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
                 message = hasAnySummary ? "Topic(s) summarized" : "No summary available";

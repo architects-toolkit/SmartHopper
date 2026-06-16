@@ -17,7 +17,9 @@
  */
 
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.Settings;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {
@@ -28,10 +30,13 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
     /// </summary>
     public sealed class RequestTimeoutPolicy : IRequestPolicy
     {
-        // Default and bounds (seconds)
-        private const int DefaultTimeout = 120;
-        private const int MinTimeout = 1;
-        private const int MaxTimeout = 600; // 10 minutes maximum guard
+        // Default fallback values when settings cannot be read.
+        // Sourced from TimeoutDefaults so all layers (policy, provider HTTP, tool execution) stay aligned.
+        private const int DefaultTimeout = TimeoutDefaults.DefaultTimeoutSeconds;
+
+        // Bounds (seconds)
+        private const int MinTimeout = TimeoutDefaults.MinTimeoutSeconds;
+        private const int MaxTimeout = TimeoutDefaults.MaxTimeoutSeconds;
 
         public Task ApplyAsync(PolicyContext context)
         {
@@ -41,23 +46,31 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 return Task.CompletedTask;
             }
 
-            int original = rq.TimeoutSeconds;
-            int normalized = original;
+            int? original = rq.TimeoutSeconds;
+            int normalized;
 
-            if (normalized <= 0)
+            // If timeout is not set (null), resolve from settings
+            if (original == null)
             {
-                normalized = DefaultTimeout;
+                // Read response generation timeout from settings
+                var settingValue = SmartHopperSettings.Instance.GetSetting("Global", "TimeoutSeconds");
+                normalized = settingValue is int timeout ? timeout : DefaultTimeout;
                 rq.TimeoutSeconds = normalized;
+
+                // Applying the settings default is routine — emit as a non-surfaceable debug
+                // diagnostic so it is captured in logs/analytics without being shown to end users.
                 if (rq.Body != null)
                 {
-                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddError($"Timeout applied: {normalized}s (default)")
+                        .AddDebug($"Timeout applied: {normalized}s (from settings)")
                         .Build();
                 }
 
                 return Task.CompletedTask;
             }
+
+            // Use the explicitly set timeout value
+            normalized = original.Value;
 
             // Clamp to bounds
             if (normalized < MinTimeout)
@@ -65,9 +78,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 rq.TimeoutSeconds = MinTimeout;
                 if (rq.Body != null)
                 {
-                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
+                    // Surface as a warning: the request's explicit timeout was adjusted to the allowed minimum.
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddError($"Timeout increased from {original}s to {MinTimeout}s (minimum)")
+                        .AddWarning($"Timeout increased from {original}s to {MinTimeout}s (minimum)")
                         .Build();
                 }
             }
@@ -76,9 +89,9 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 rq.TimeoutSeconds = MaxTimeout;
                 if (rq.Body != null)
                 {
-                    // Use AIInteractionError to surface as UI-only diagnostic; providers will skip encoding it
+                    // Surface as a warning: the request's explicit timeout was clamped to the allowed maximum.
                     rq.Body = AIBodyBuilder.FromImmutable(rq.Body)
-                        .AddError($"Timeout reduced from {original}s to {MaxTimeout}s (maximum)")
+                        .AddWarning($"Timeout reduced from {original}s to {MaxTimeout}s (maximum)")
                         .Build();
                 }
             }

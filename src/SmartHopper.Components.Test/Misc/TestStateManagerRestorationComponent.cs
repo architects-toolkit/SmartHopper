@@ -25,6 +25,8 @@ using System.Threading.Tasks;
 using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Cores;
+using SmartHopper.Core.ComponentBase.State;
 
 namespace SmartHopper.Components.Test.Misc
 {
@@ -80,7 +82,7 @@ namespace SmartHopper.Components.Test.Misc
                   "TEST-RESTORE",
                   "Test component for validating ComponentStateManager file restoration. " +
                   "Run with a number, save the file, close, reopen - outputs should be preserved.",
-                  "SmartHopper",
+                  "SmartHopper Tests",
                   "Testing Base")
         {
             this.stateManager = new ComponentStateManager(this.GetType().Name);
@@ -190,7 +192,7 @@ namespace SmartHopper.Components.Test.Misc
             }
 
             // Check if we have restored outputs
-            if (this.persistentOutputs.ContainsKey("Result"))
+            if (this.HasPersistentOutput("Result"))
             {
                 this.restorationSuccess = true;
             }
@@ -239,7 +241,7 @@ namespace SmartHopper.Components.Test.Misc
             public override async Task DoWorkAsync(CancellationToken token)
             {
                 // Simple calculation with a small delay to simulate async work
-                await Task.Delay(100, token);
+                await Task.Delay(100, token).ConfigureAwait(false);
                 this.result = (this.inputNumber * 2d) + 1d;
             }
 

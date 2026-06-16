@@ -65,14 +65,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""string"",
                             ""format"": ""uri"",
                             ""description"": ""The URL of the webpage to convert to Markdown.""
+                        },
+                        ""HTMLreadabilityMode"": {
+                            ""type"": ""string"",
+                            ""enum"": [""auto"", ""smartreader"", ""heuristic"", ""off""],
+                            ""description"": ""HTML main-content extraction strategy. 'auto' (default): SmartReader (Mozilla Readability port) with heuristic fallback. 'smartreader': force SmartReader. 'heuristic': force the built-in magic-html-inspired extractor. 'off': skip extraction and convert the full document body."",
+                            ""default"": ""auto""
+                        },
+                        ""includeLinks"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Keep hyperlinks in the Markdown output. When false, link text is preserved but URLs are dropped. Default: true."",
+                            ""default"": true
+                        },
+                        ""includeImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Keep inline image references in the Markdown output. Default: true."",
+                            ""default"": true
                         }
                     },
                     ""required"": [""url""]
                 }",
-                execute: this.WebToMdAsync);
+                execute: this.Web2MdAsync);
         }
 
-        private async Task<AIReturn> WebToMdAsync(AIToolCall toolCall)
+        private async Task<AIReturn> Web2MdAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -101,7 +117,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     PreserveTableStructure = true,
                     RemoveHeadersFooters = false, // Not applicable for web pages
                     DetectHeadings = true,
-                    MaxContentLength = 0
+                    MaxContentLength = 0,
+                    HtmlReadabilityMode = ReadabilityModeExtensions.FromString(args["HTMLreadabilityMode"]?.ToString()),
+                    IncludeLinks = args["includeLinks"]?.Value<bool>() ?? true,
+                    IncludeImages = args["includeImages"]?.Value<bool>() ?? true,
                 };
 
                 // Convert the URL
@@ -156,10 +175,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WebToMd] Error in WebToMdAsync: {ex.Message}");
+                Debug.WriteLine($"[Web2Md] Error in Web2MdAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
         }
+
     }
 }

@@ -40,7 +40,11 @@ namespace SmartHopper.Providers.DeepSeek
 
         public (JObject wrapped, SchemaWrapperInfo info) Wrap(JObject schema)
         {
-            if (schema is null) throw new ArgumentNullException(nameof(schema));
+            if (schema is null)
+            {
+                throw new ArgumentNullException(nameof(schema));
+            }
+
             var schemaType = schema["type"]?.ToString();
 
             // DeepSeek also behaves better with object-root schemas
@@ -86,7 +90,10 @@ namespace SmartHopper.Providers.DeepSeek
 
         public string Unwrap(string content, SchemaWrapperInfo info)
         {
-            if (string.IsNullOrWhiteSpace(content)) return content;
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return content;
+            }
 
             // DeepSeek sometimes returns malformed JSON where array is put under an "enum" property
             try

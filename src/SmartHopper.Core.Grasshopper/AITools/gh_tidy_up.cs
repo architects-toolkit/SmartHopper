@@ -22,10 +22,12 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Core.DependencyGraph;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.LayoutRefinements;
 using GhJSON.Grasshopper.Serialization;
+using Grasshopper;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Graph;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -43,6 +45,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_tidy_up";
+
         /// <summary>
         /// Returns AI tools for component visibility control.
         /// </summary>
@@ -68,6 +71,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ""y"": { ""type"": ""number"" }
                             },
                             ""description"": ""Optional absolute start point for the top-left of the grid. Overrides selection's top-left if provided.""
+                        },
+                        ""viewportOnly"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""When true, only includes components currently visible in the canvas viewport. Ignores off-screen components even if their GUIDs are provided.""
                         }
                     },
                     ""required"": [ ""guids"" ]
@@ -89,6 +97,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ""y"": { ""type"": ""number"" }
                             },
                             ""description"": ""Optional absolute start point for the top-left of the grid. Overrides selection's top-left if provided.""
+                        },
+                        ""viewportOnly"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""When true, only includes selected components currently visible in the canvas viewport.""
                         }
                     }
                 }",
@@ -98,7 +111,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Reorganize selected components into a tidy grid layout by GUID list.
         /// </summary>
-        private async Task<AIReturn> GhTidyUpAsync(AIToolCall toolCall)
+        private Task<AIReturn> GhTidyUpAsync(AIToolCall toolCall)
         {
             // Prepare the output
             var output = new AIReturn()
@@ -127,31 +140,83 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var currentObjs = CanvasAccess.GetCurrentObjects();
                 var selected = currentObjs.Where(o => guids.Contains(o.InstanceGuid.ToString())).ToList();
+                var viewportOnly = args["viewportOnly"]?.ToObject<bool>() ?? false;
+
+                if (viewportOnly)
+                {
+                    var canvas = Instances.ActiveCanvas;
+                    if (canvas?.Viewport != null)
+                    {
+                        var visibleRegion = canvas.Viewport.VisibleRegion;
+                        selected = selected.Where(o =>
+                        {
+                            var bounds = o.Attributes?.Bounds;
+                            return bounds.HasValue && visibleRegion.IntersectsWith(bounds.Value);
+                        }).ToList();
+                    }
+                }
+                
                 if (!selected.Any())
                 {
-                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching GUIDs found.");
-                    output.CreateError("No matching components found for provided GUIDs.");
-                    return output;
+                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: No matching components found after filtering.");
+                    output.CreateError("No matching components found.");
+                    return Task.FromResult(output);
                 }
 
                 var doc = GhJsonGrasshopper.Serialize(selected, SerializationOptions.Default);
-                var layoutNodes = DependencyGraphUtils.CreateComponentGrid(doc, force: true);
+
+                // Core dependency-graph layout (longest-path layering, dummy-chain routing,
+                // crossing minimization, bounds-aware coordinates) followed by Grasshopper-aware
+                // refinements that use real component bounds and input-port positions for
+                // alignment and collision avoidance. This is the same pipeline used by gh_put,
+                // so placement and tidy-up stay consistent.
+                const float spacingX = 200f;
+                const float spacingY = 100f;
+                const float islandSpacingY = 150f;
+
+                var layoutResult = GhJSON.Core.GhJson.CalculateLayout(doc, new LayoutOptions
+                {
+                    SpacingX = spacingX,
+                    SpacingY = spacingY,
+                    IslandSpacingY = islandSpacingY,
+                });
+
+                var positions = LayoutRefinementEngine.ApplyRefinements(
+                    layoutResult,
+                    doc,
+                    new LayoutRefinementOptions
+                    {
+                        SpacingX = spacingX,
+                        SpacingY = spacingY,
+                        ApplyBoundsAwareSpacing = true,
+                        AlignParamsToInputPorts = true,
+                        AlignOneToOneConnections = true,
+                        MinimizeConnectionLengths = true,
+                        AvoidCollisions = true,
+                    });
+
+                if (positions.Count == 0)
+                {
+                    Debug.WriteLine("[GhObjTools] GhTidyUpAsync: Layout produced no positions.");
+                    output.CreateError("Layout produced no positions for the selected components.");
+                    return Task.FromResult(output);
+                }
 
                 if (!hasStart)
                 {
-                    // Anchor grid at original pivot of top-left component
-                    var firstNode = layoutNodes.OrderBy(n => n.Pivot.X).ThenBy(n => n.Pivot.Y).First();
-                    var origObj = selected.First(o => o.InstanceGuid == firstNode.ComponentId);
+                    // Anchor the laid-out cluster at the original pivot of the top-left component
+                    // so the tidied result stays roughly where the user had it.
+                    var firstKvp = positions.OrderBy(p => p.Value.X).ThenBy(p => p.Value.Y).First();
+                    var origObj = selected.First(o => o.InstanceGuid == firstKvp.Key);
                     var origPivot = origObj.Attributes.Pivot;
-                    origin = new PointF(origPivot.X - firstNode.Pivot.X, origPivot.Y - firstNode.Pivot.Y);
+                    origin = new PointF(origPivot.X - firstKvp.Value.X, origPivot.Y - firstKvp.Value.Y);
                 }
 
                 var moved = new List<string>();
-                foreach (var node in layoutNodes)
+                foreach (var kvp in positions)
                 {
-                    var guid = node.ComponentId;
-                    var rel = node.Pivot;
-                    var target = new PointF(origin.X + rel.X, origin.Y + rel.Y);
+                    var guid = kvp.Key;
+                    var target = new PointF(origin.X + kvp.Value.X, origin.Y + kvp.Value.Y);
                     var ok = CanvasAccess.MoveInstance(guid, target, relative: false);
                     Debug.WriteLine(ok
                         ? $"[GhObjTools] GhTidyUpAsync: Moved {guid} to ({target.X},{target.Y})"
@@ -168,44 +233,72 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(immutableBody, toolCall);
-                return output;
+                return Task.FromResult(output);
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error: {ex.Message}");
-                return output;
+                return Task.FromResult(output);
             }
         }
 
+        /// <summary>
+        /// Reorganizes the currently selected components into a tidy grid layout.
+        /// Collects selected objects first, applies optional viewport filtering, then delegates to GhTidyUpAsync.
+        /// </summary>
         private async Task<AIReturn> GhTidyUpSelectedAsync(AIToolCall toolCall)
         {
-            // Get selected component GUIDs
-            var selectedGuids = CanvasAccess.GetCurrentObjects()
-                .Where(o => o.Attributes.Selected)
-                .Select(o => o.InstanceGuid.ToString())
-                .ToList();
-
-            if (!selectedGuids.Any())
-            {
-                Debug.WriteLine("[GhObjTools] GhTidyUpSelectedAsync: No components selected.");
-                var output = new AIReturn() { Request = toolCall };
-                output.CreateError("No components are currently selected.");
-                return output;
-            }
-
-            // Create a modified tool call with the selected GUIDs
+            // Parse arguments first so viewportOnly is available before filtering
             var toolInfo = toolCall.GetToolCall();
             var args = toolInfo.Arguments ?? new JObject();
+            var viewportOnly = args["viewportOnly"]?.ToObject<bool>() ?? false;
+
+            // Collect selected document objects (not just GUIDs) so the viewport pivot check can be applied
+            var selectedObjects = CanvasAccess.GetCurrentObjects()
+                .Where(o => o.Attributes.Selected)
+                .ToList();
+
+            // Restrict to viewport-visible components if requested
+            if (viewportOnly)
+            {
+                var canvas = Instances.ActiveCanvas;
+                if (canvas?.Viewport != null)
+                {
+                    var visibleRegion = canvas.Viewport.VisibleRegion;
+                    selectedObjects = selectedObjects
+                        .Where(o =>
+                        {
+                            var bounds = o.Attributes?.Bounds;
+                            return bounds.HasValue && visibleRegion.IntersectsWith(bounds.Value);
+                        })
+                        .ToList();
+                }
+            }
+
+            if (!selectedObjects.Any())
+            {
+                Debug.WriteLine("[GhObjTools] GhTidyUpSelectedAsync: No selected components visible in viewport.");
+                var earlyOutput = new AIReturn() { Request = toolCall };
+                earlyOutput.CreateError("No selected components are visible in the current viewport.");
+                return earlyOutput;
+            }
+
+            // Extract GUIDs after filtering
+            var selectedGuids = selectedObjects.Select(o => o.InstanceGuid.ToString()).ToList();
+
+            // Build forwarding args for the general method
             var modifiedArgs = new JObject
             {
-                ["guids"] = JArray.FromObject(selectedGuids)
+                ["guids"] = JArray.FromObject(selectedGuids),
+                ["viewportOnly"] = viewportOnly,
             };
 
             // Preserve optional startPoint parameter if provided
             if (args["startPoint"] != null)
+            {
                 modifiedArgs["startPoint"] = args["startPoint"];
+            }
 
-            // Create a new tool call with modified arguments
             var modifiedToolCall = new AIToolCall
             {
                 Provider = toolCall.Provider,
@@ -215,13 +308,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         id: toolInfo.Id,
                         name: toolInfo.Name ?? this.toolName,
                         args: modifiedArgs)
-                    .Build()
+                    .Build(),
             };
 
             modifiedToolCall.SkipMetricsValidation = true;
 
             // Delegate to the general method
-            return await this.GhTidyUpAsync(modifiedToolCall);
+            return await this.GhTidyUpAsync(modifiedToolCall).ConfigureAwait(false);
         }
     }
 }

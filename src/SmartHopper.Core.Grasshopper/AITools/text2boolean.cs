@@ -19,8 +19,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -52,15 +54,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         private readonly string systemPrompt =
             "You are a text evaluator. Your task is to analyze a text and return a boolean value indicating whether the text matches the given criteria.\n\n" +
-            "Respond with TRUE or FALSE, nothing else.\n\n" +
-            "In case the text does not match the criteria, respond with FALSE.";
+            "Respond with TRUE or FALSE, nothing else.";
 
         /// <summary>
         /// User prompt for the AI tool provided by this class. Use <question> and <text> placeholders.
         /// </summary>
         private readonly string userPrompt =
-            "This is my question: \"<question>\"\n\n" +
-            "Answer the previous question based on the following input:\n<text>\n\n";
+            "TEXT TO EVALUATE:\n\n---\n\n<text>\n\n---\n\n" +
+            "QUESTION TO ANSWER:\n\n---\n\n\"<question>\"\n\n---\n\n" +
+            "Remember, you must answer with TRUE or FALSE, nothing else.";
 
         /// <summary>
         /// Get all tools provided by this class.
@@ -70,27 +72,66 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Evaluates a text against a true/false question",
+                description: "Evaluates a text against a true/false question with optional fallback value",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""text"": { ""type"": ""string"", ""description"": ""The text to evaluate"" },
-                        ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" }
+                        ""question"": { ""type"": ""string"", ""description"": ""The true/false question to evaluate"" },
+                        ""fallback"": { ""type"": ""boolean"", ""description"": ""Optional fallback value to use when AI response cannot be parsed as true/false. If not provided, the result will be null for unparsable responses"" }
                     },
                     ""required"": [""text"", ""question"" ]
                 }",
-                execute: this.EvaluateText,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                execute: this.Text2Boolean,
+                requiredCapabilities: this.toolCapabilityRequirements,
+                buildRequest: this.BuildEvaluateRequest);
         }
 
         /// <summary>
-        /// Tool wrapper for the EvaluateText function.
+        /// Builds an <see cref="AIRequestCall"/> from the tool call parameters without executing it.
+        /// Used during batch collection to aggregate multiple requests into a single batch submission.
         /// </summary>
-        /// <param name="parameters">Parameters passed from the AI.</param>
-        /// <returns>Result object.</returns>
-        private async Task<AIReturn> EvaluateText(AIToolCall toolCall)
+        /// <param name="toolCall">The tool call containing provider, model, and arguments.</param>
+        /// <returns>A fully-specified <see cref="AIRequestCall"/> ready for batch submission.</returns>
+        private AIRequestCall BuildEvaluateRequest(AIToolCall toolCall)
         {
+            AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+            var args = toolInfo.Arguments ?? new JObject();
+            string text = args["text"]?.ToString();
+            string question = args["question"]?.ToString();
+            string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
+
+            var userPrompt = this.userPrompt;
+            userPrompt = userPrompt.Replace("<question>", question);
+            userPrompt = userPrompt.Replace("<text>", text);
+
+            var requestBody = AIBodyBuilder.Create()
+                .AddSystem(this.systemPrompt)
+                .AddUser(userPrompt)
+                .WithContextFilter(contextFilter)
+                .Build();
+
+            var request = new AIRequestCall();
+            request.Initialize(
+                provider: toolCall.Provider,
+                model: toolCall.Model,
+                body: requestBody,
+                endpoint: this.toolName,
+                capability: this.toolCapabilityRequirements);
+            return request;
+        }
+
+        /// <summary>
+        /// Tool wrapper for the Text2Boolean function.
+        /// </summary>
+        /// <param name="toolCall">The tool call containing parameters.</param>
+        /// <returns>Result object.</returns>
+        private async Task<AIReturn> Text2Boolean(AIToolCall toolCall)
+        {
+            // Build the request first (shared logic between batch and non-batch paths)
+            var request = this.BuildEvaluateRequest(toolCall);
+
             // Prepare the output
             var output = new AIReturn()
             {
@@ -99,55 +140,34 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             try
             {
-                Debug.WriteLine("[TextTools] Running EvaluateText tool");
+                Debug.WriteLine("[TextTools] Running Text2Boolean tool");
 
-                // Extract parameters
-                string providerName = toolCall.Provider;
-                string modelName = toolCall.Model;
-                string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
                 string? text = args["text"]?.ToString();
                 string? question = args["question"]?.ToString();
-                string? contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
+
+                // Parse fallback as boolean using centralized helper
+                string? fallbackStr = args["fallback"]?.ToString();
+                bool? fallback = StringConverter.StringToBoolean(fallbackStr);
 
                 if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(question))
                 {
-                    Debug.WriteLine($"[TextTools.EvaluateText] Missing required parameters - text: '{text ?? "null"}', question: '{question ?? "null"}'");
+                    Debug.WriteLine($"[TextTools.Text2Boolean] Missing required parameters - text: '{text ?? "null"}', question: '{question ?? "null"}'");
                     output.CreateError("Missing required parameters");
                     return output;
                 }
 
-                // Prepare the AI request
-                var userPrompt = this.userPrompt;
-                userPrompt = userPrompt.Replace("<question>", question);
-                userPrompt = userPrompt.Replace("<text>", text);
+                Debug.WriteLine($"[TextTools.Text2Boolean] System prompt: {this.systemPrompt}");
+                Debug.WriteLine($"[TextTools.Text2Boolean] User prompt: {request.Body?.Interactions?.LastOrDefault()}");
+                Debug.WriteLine($"[TextTools.Text2Boolean] Fallback value: '{fallback?.ToString() ?? "null"}'");
 
-                Debug.WriteLine($"[TextTools.EvaluateText] System prompt: {this.systemPrompt}");
-                Debug.WriteLine($"[TextTools.EvaluateText] User prompt: {userPrompt}");
-
-                // Initiate immutable AIBody
-                var requestBody = AIBodyBuilder.Create()
-                    .AddSystem(this.systemPrompt)
-                    .AddUser(userPrompt)
-                    .WithContextFilter(contextFilter)
-                    .Build();
-
-                // Initiate AIRequestCall
-                var request = new AIRequestCall();
-                request.Initialize(
-                    provider: providerName,
-                    model: modelName,
-                    capability: this.toolCapabilityRequirements,
-                    endpoint: endpoint,
-                    body: requestBody);
-
-                // Execute the AIRequestCall
+                // Execute the pre-built request
                 var result = await request.Exec().ConfigureAwait(false);
 
                 if (!result.Success)
                 {
-                    Debug.WriteLine($"[TextTools.EvaluateText] AI call failed. Messages: {result.Messages?.Count ?? 0}");
+                    Debug.WriteLine($"[TextTools.Text2Boolean] AI call failed. Messages: {result.Messages?.Count ?? 0}");
 
                     // Propagate structured messages from AI call
                     output.Messages = result.Messages;
@@ -155,20 +175,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }
 
                 var response = result.Body.GetLastInteraction(AIAgent.Assistant).ToString();
-                Debug.WriteLine($"[TextTools.EvaluateText] AI response: '{response}'");
+                Debug.WriteLine($"[TextTools.Text2Boolean] AI response: '{response}'");
 
-                // Parse the boolean from the response
-                var parsedResult = AIResponseParser.ParseBooleanFromResponse(response);
-
-                if (parsedResult == null)
-                {
-                    output.CreateError($"The AI returned an invalid response:\n{result}");
-                    return output;
-                }
-
-                // Success case
-                var toolResult = new JObject();
-                toolResult.Add("result", parsedResult.Value);
+                // Centralized parse + fallback resolution (shared with batch path).
+                var toolResult = BooleanResultResolver.BuildToolResult(response, fallback);
+                Debug.WriteLine($"[TextTools.Text2Boolean] Resolved: {toolResult}");
 
                 var toolBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo?.Id, name: this.toolName, metrics: result.Metrics, messages: result.Messages)
@@ -179,7 +190,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[TextTools] Error in EvaluateText: {ex.Message}");
+                Debug.WriteLine($"[TextTools] Error in Text2Boolean: {ex.Message}");
 
                 output.CreateError($"Error: {ex.Message}");
                 return output;

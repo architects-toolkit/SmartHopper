@@ -25,6 +25,7 @@ using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -34,9 +35,9 @@ namespace SmartHopper.Components.Knowledge
     /// </summary>
     public class DiscoursePostOpenComponent : StatefulComponentBase
     {
-        public override Guid ComponentGuid => new Guid("9E3D6B2F-4C5A-4D6E-9B0F-1A2B3C4D5E6F");
+        public override Guid ComponentGuid => new Guid("D5EB98E2-27BF-4692-BEC7-DA1CE1CE49DB");
 
-        protected override Bitmap Icon => Resources.mcneelpostopen;
+        protected override Bitmap Icon => Resources.discoursepostopen;
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
@@ -44,7 +45,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "Discourse Post Open",
                   "DiscoursePostOpen",
-                  "Open the Discourse forum webpage for a post JSON in the default browser. Works with any Discourse instance.",
+                  "Open a Discourse forum post in the default web browser by its numeric ID from any Discourse instance.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -152,7 +153,7 @@ namespace SmartHopper.Components.Knowledge
 
                         if (string.IsNullOrWhiteSpace(effectiveBaseUrl))
                         {
-                            this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not determine base URL. Please provide Base URL input.");
+                            this.CollectMessage(SHRuntimeMessageSeverity.Error, "Could not determine base URL. Please provide Base URL input.");
                             this.resultUrl = string.Empty;
                             return;
                         }
@@ -191,7 +192,7 @@ namespace SmartHopper.Components.Knowledge
 
                     if (string.IsNullOrWhiteSpace(postUrl))
                     {
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not determine post URL from JSON.");
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, "Could not determine post URL from JSON.");
                         this.resultUrl = string.Empty;
                         return;
                     }
@@ -210,18 +211,18 @@ namespace SmartHopper.Components.Knowledge
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"[DiscoursePostOpenWorker] Error opening browser: {ex.Message}");
-                        this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                         this.resultUrl = string.Empty;
                     }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[DiscoursePostOpenWorker] Error parsing JSON: {ex.Message}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                     this.resultUrl = string.Empty;
                 }
 
-                await Task.CompletedTask;
+                await Task.CompletedTask.ConfigureAwait(false);
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)

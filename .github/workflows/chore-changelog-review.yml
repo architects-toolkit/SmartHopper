@@ -145,9 +145,9 @@ jobs:
           api-key: ${{ secrets.MISTRAL_API_KEY }}
           model: mistral-medium-latest
           temperature: '0.3'
-          max-tokens: '4096'
+          max-tokens: '32768'
           system-prompt: |
-            You are a changelog editor for SmartHopper, a Grasshopper plugin for Rhino 3D.
+            You are a changelog editor for SmartHopper, an open-source plugin that implements AI features to Grasshopper (inside Rhino3D).
             Your job is to rewrite the [Unreleased] section of the changelog for end users.
 
             RULES:
@@ -155,7 +155,7 @@ jobs:
             2. Focus on end-user value, not implementation details
             3. ALWAYS preserve issue references like [#123](https://github.com/architects-toolkit/SmartHopper/issues/123)
             4. ALWAYS preserve the contributors section unchanged (### New Contributors and everything below it)
-            5. Preserve the markdown structure: ### Added, ### Changed, ### Fixed, ### Deprecated, ### Removed sections
+            5. Preserve the markdown structure in this order: ### Added, ### Changed, ### Fixed, ### Deprecated, ### Removed sections
             6. Remove empty sections (sections with no entries after simplification)
             7. Do NOT add any sections that don't exist in the original
 

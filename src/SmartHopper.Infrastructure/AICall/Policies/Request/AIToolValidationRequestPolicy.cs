@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Validation;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Policies.Request
 {
@@ -51,7 +52,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 return;
             }
 
-            var diagnostics = new List<AIRuntimeMessage>();
+            var diagnostics = new List<SHRuntimeMessage>();
 
             foreach (var call in pendingToolCalls)
             {
@@ -75,7 +76,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                             if (m == null) continue;
                             var prefix = string.IsNullOrWhiteSpace(call?.Name) ? "<unknown>" : call.Name;
                             var id = string.IsNullOrWhiteSpace(call?.Id) ? string.Empty : $" (id: {call.Id})";
-                            diagnostics.Add(new AIRuntimeMessage(m.Severity, m.Origin, $"[tool:{prefix}{id}] {m.Message}"));
+                            diagnostics.Add(new SHRuntimeMessage(m.Severity, m.Origin, SHMessageCode.ToolValidationError, $"[tool:{prefix}{id}] {m.Message}"));
                         }
                     }
                 }
@@ -90,7 +91,7 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
             context.Diagnostics.AddRange(diagnostics);
 
             // 2) Attach to request-level messages so they are surfaced and can influence gating
-            var merged = new List<AIRuntimeMessage>(rq.Messages ?? new List<AIRuntimeMessage>());
+            var merged = new List<SHRuntimeMessage>(rq.Messages ?? new List<SHRuntimeMessage>());
             merged.AddRange(diagnostics);
             rq.Messages = merged;
 

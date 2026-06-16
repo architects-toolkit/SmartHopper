@@ -1,0 +1,185 @@
+# Google Gemini Provider
+
+The Google Gemini provider integrates Google's Gemini AI models into SmartHopper, supporting text generation, image generation, structured outputs, tool calling, and batch processing.
+
+---
+
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Infrastructure/Providers/Gemini/GeminiProvider.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+This document explains how to configure and use the Google Gemini provider to access Gemini models within SmartHopper. It covers text generation, image generation, batch processing, structured outputs, and thinking/reasoning configuration.
+
+**You should read this if you:**
+
+- Want to use Gemini models (Gemini 2.5, 2.0, or 1.5) inside SmartHopper
+- Need to generate images or process batch jobs
+- Plan to use structured outputs with JSON schema
+- Want to configure thinking levels or extra generation parameters
+
+---
+
+## End-User Guide
+
+### Features
+
+- **Models**: Gemini 2.5, Gemini 2.0, and Gemini 1.5 models
+- **Text Generation**: Full support for text-to-text conversations
+- **Image Generation**: Generate images using Gemini image models
+- **Structured Outputs**: JSON schema support with Gemini's JSON Schema subset
+- **Tool Calling**: Function calling with structured arguments
+- **Thinking/Reasoning**: Extended thinking with configurable thinking levels
+- **Batch Processing**: Asynchronous batch job submission and status polling
+- **Streaming**: Real-time response streaming via Server-Sent Events (SSE)
+
+### Configuration
+
+#### API Key
+
+Get your API key from [Google AI Studio](https://ai.google.dev/):
+
+1. Visit <https://ai.google.dev/>
+2. Click "Get API key"
+3. Create a new API key
+4. Copy the key into SmartHopper's Google provider settings
+
+#### Settings
+
+- **API Key**: Your Google AI API key (required)
+- **Model**: Select from available Gemini models (default: `gemini-2.5-flash`)
+- **Enable Streaming**: Allow streaming responses (default: enabled)
+- **Max Tokens**: Maximum output tokens (default: 2000)
+- **Temperature**: Controls randomness (0.0–2.0, default: 1.0)
+
+#### Extra Parameters
+
+- **Thinking Level**: Gemini 2.5 Flash (`minimal`/`low`/`medium`/`high`) or Gemini 2.5 Pro (integer budget)
+- **Batch Priority**: Priority for batch jobs (0 = default)
+- **Image Aspect Ratio**: For image generation (e.g., `16:9`, `1:1`)
+- **Image Size**: For image generation (e.g., `1K`, `2K`, `4K`)
+- **Top-K Sampling**: Top-K parameter for sampling
+- **Top-P Sampling**: Top-P (nucleus) parameter
+- **Random Seed**: For deterministic outputs
+- **Safety Level**: Content safety filter level
+
+### JSON Schema Support
+
+Gemini supports a subset of JSON Schema for structured outputs:
+
+**Supported types**: `string`, `number`, `integer`, `boolean`, `object`, `array`, `null`
+
+**Supported keywords**: `title`, `description`, `properties`, `required`, `additionalProperties`, `enum`, `format`, `minimum`, `maximum`, `items`, `prefixItems`, `minItems`, `maxItems`
+
+**Note**: Gemini 2.0 models require `propertyOrdering` array for proper structure (auto-injected by the provider).
+
+### Thinking/Reasoning
+
+Configure thinking levels for extended reasoning:
+
+- **Gemini 2.5 Flash**: Use `thinking_level` extra parameter with values: `minimal`, `low`, `medium`, `high`
+- **Gemini 2.5**: Use `thinking_level` as integer string (e.g., `"8192"` for 8K token budget, `"0"` to disable)
+
+### Image Generation
+
+For image generation models:
+
+1. Select an image model (e.g., `gemini-2.5-flash-image`)
+2. Set request capability to `ImageOutput`
+3. Optionally configure `image_aspect_ratio` and `image_size` in extras
+4. Images are returned as base64-encoded data in the response
+
+### Authentication
+
+The provider uses Google's `x-goog-api-key` authentication header. Your API key is automatically applied from the settings.
+
+### Error Handling
+
+Common errors:
+
+- **Invalid API Key**: Verify your API key is correct and has appropriate permissions
+- **Rate Limiting**: Implement exponential backoff for retries
+- **Model Not Available**: Check that the selected model is available in your region
+- **Quota Exceeded**: Check your Google Cloud project quotas
+
+### References
+
+- [Google AI API Documentation](https://ai.google.dev/api?hl=en)
+- [Gemini 3 Developer Guide](https://ai.google.dev/gemini-api/docs/gemini-3)
+- [Image Generation Guide](https://ai.google.dev/gemini-api/docs/image-generation)
+- [Batch Processing Guide](https://ai.google.dev/gemini-api/docs/batch-processing)
+
+---
+
+## Developer Reference
+
+### Batch Processing
+
+Submit multiple requests as a batch:
+
+```csharp
+var requests = new List<AIRequestCall> { /* ... */ };
+var submission = await provider.SubmitBatchAsync(requests);
+var batchId = submission.BatchId;
+
+// Poll for status
+var status = await provider.GetBatchStatusAsync(batchId);
+while (status.State == AIBatchState.Processing)
+{
+    await Task.Delay(5000);
+    status = await provider.GetBatchStatusAsync(batchId);
+}
+
+// Access results
+foreach (var result in status.Results.Values)
+{
+    // Process result
+}
+
+```
+
+Optional: Set `batch_priority` in extras (0 = default, higher = higher priority).
+
+### Streaming
+
+Streaming is enabled by default. Responses are streamed in real-time via SSE:
+
+```csharp
+var request = new AIRequestCall
+{
+    EnableStreaming = true,
+    // ... other settings
+};
+
+await foreach (var chunk in provider.StreamAsync(request))
+{
+    // Process each chunk as it arrives
+}
+
+```
+
+### Tool Calling
+
+Gemini supports function calling via native `tools` and `tool_choice` parameters. The provider translates SmartHopper tool definitions into Gemini's format and handles structured argument parsing.
+
+---
+
+## Architecture & Design
+
+The Gemini provider implements the `IAIProvider` interface and translates SmartHopper's generic request/response model into Google's Gemini API format. Key architectural decisions include:
+
+- **JSON Schema Subset Mapping**: The provider filters and maps JSON schemas to Gemini's supported subset, automatically injecting `propertyOrdering` for Gemini 2.0 models to preserve object field order.
+- **Thinking Level Translation**: Thinking levels are translated into Gemini-specific parameters. For Gemini 2.5 Flash, string values (`minimal`, `low`, `medium`, `high`) are used. For Gemini 2.5 Pro, integer token budgets are passed directly.
+- **Image Output Handling**: Image generation responses are decoded from base64-encoded data and surfaced as `AIInteractionImage` instances with appropriate MIME types.
+- **Batch Job Management**: Batch submissions are tracked via job IDs with configurable priority levels. The provider polls state transitions and surfaces results through `AIBatchStatus`.
+- **Safety Filtering**: Content safety levels are mapped to Gemini's safety category thresholds, allowing per-request control over filtered content.

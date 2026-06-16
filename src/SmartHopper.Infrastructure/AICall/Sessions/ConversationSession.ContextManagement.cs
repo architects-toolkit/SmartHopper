@@ -184,7 +184,6 @@ namespace SmartHopper.Infrastructure.AICall.Sessions
             }
         }
 
-
         /// <summary>
         /// Checks if an error message indicates a context length exceeded error.
         /// </summary>

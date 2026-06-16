@@ -11,7 +11,11 @@ name: 🔄 Remove Release Version Date
 
 on:
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+      - 'main-*'
+      - 'hotfix/**'
+      - 'release/**'
     paths:
       - 'Solution.props'
   workflow_dispatch:

@@ -1,16 +1,62 @@
 # Special Turns
 
-Special turns are a flexible system for executing AI requests with custom overrides while leveraging the regular conversation flow infrastructure.
+Flexible system for executing AI requests with custom overrides while leveraging the regular conversation flow infrastructure.
 
-## Overview
+---
+
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Infrastructure/AICall/Core/SpecialTurns.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+Special turns provide a flexible mechanism for executing isolated AI requests with custom overrides while controlling how results are persisted to conversation history. They are essential for operations like greetings, summarization, and ephemeral validation that should not pollute the main conversation flow.
+
+**You should read this if you:**
+
+- Need to generate AI greetings or summarize conversations without exposing internal prompts
+- Want to execute validation or analysis without leaving traces in conversation history
+- Need to override provider settings, models, or tools for a single turn
+- Are working with `ConversationSession` and need to understand its advanced capabilities
+
+---
+
+## End-User Guide
+
+### Overview
 
 A **special turn** is an AI request that:
+
 - Executes through the regular `ConversationSession` conversation flow
 - Can override interactions, provider settings, tools, and context
 - Controls how results are persisted to conversation history
 - Maintains automatic state snapshot and restore
 
-## Key Concepts
+Special turns are useful when you need to perform an AI operation that should be isolated from the main conversation until the final result is ready. For example, generating a greeting should not expose the system prompt used to generate it. Summarizing a long conversation should replace old history with a concise summary.
+
+### Built-in Special Turns
+
+SmartHopper includes two built-in special turns:
+
+- **Greeting Turn**: Generates an AI greeting using the provider's default Text2Text model, with all tools disabled and a 30-second timeout. Only the final greeting is persisted to history.
+- **Summarize Turn**: Automatically triggered when context usage exceeds 80% or when a context exceeded error occurs. Replaces old conversation history with a summary while preserving the last user message and system context.
+
+### Concurrency
+
+Special turns support **parallel execution** — multiple special turns can execute simultaneously without locking.
+
+---
+
+## Developer Reference
 
 ### Configuration
 
@@ -46,6 +92,7 @@ var result = await session.ExecuteSpecialTurnAsync(
     config,
     preferStreaming: true,
     cancellationToken);
+
 ```
 
 ### History Persistence Strategies
@@ -53,15 +100,18 @@ var result = await session.ExecuteSpecialTurnAsync(
 Four strategies control how special turn results are persisted:
 
 #### 1. PersistResult (Default)
+
 Only persists the result interactions (typically assistant responses) to history.
 
 **Use case:** AI-generated greetings where you don't want the generation prompt visible.
 
 ```csharp
 PersistenceStrategy = HistoryPersistenceStrategy.PersistResult
+
 ```
 
 #### 2. PersistAll
+
 Persists all interactions (input + result) to history, filtered by `PersistenceFilter`.
 
 **Use case:** Multi-step reasoning where intermediate steps should be visible.
@@ -69,18 +119,22 @@ Persists all interactions (input + result) to history, filtered by `PersistenceF
 ```csharp
 PersistenceStrategy = HistoryPersistenceStrategy.PersistAll,
 PersistenceFilter = InteractionFilter.Default  // Excludes system/context
+
 ```
 
 #### 3. Ephemeral
+
 Executes the turn but doesn't persist anything to history.
 
 **Use case:** Internal processing, analysis, or validation without disturbing UI/history.
 
 ```csharp
 PersistenceStrategy = HistoryPersistenceStrategy.Ephemeral
+
 ```
 
 #### 4. ReplaceAbove
+
 Replaces all previous interactions with the special turn result, filtered by `PersistenceFilter`.
 
 **Use case:** Conversation summarization that replaces long history with a summary.
@@ -88,6 +142,7 @@ Replaces all previous interactions with the special turn result, filtered by `Pe
 ```csharp
 PersistenceStrategy = HistoryPersistenceStrategy.ReplaceAbove,
 PersistenceFilter = InteractionFilter.PreserveSystemContext  // Keep system/context
+
 ```
 
 ### Interaction Filtering
@@ -112,21 +167,22 @@ var filter = new InteractionFilter
     AllowedAgents = new HashSet<AIAgent> { AIAgent.User, AIAgent.Assistant },
     BlockedAgents = new HashSet<AIAgent> { AIAgent.System }
 };
+
 ```
 
 **Filter Logic:**
+
 - Blocklist takes precedence over allowlist
 - Empty allowlist means "allow all" (unless blocked)
 - Non-empty allowlist means "allow only these" (unless blocked)
 
 **Predefined filters:**
+
 - `InteractionFilter.Default` - Conversation only (User, Assistant, Tools)
 - `InteractionFilter.PreserveSystemContext` - Blocks System/Context, allows all others
 - `InteractionFilter.AllowAll` - No restrictions
 
 **Future-proof:** Automatically supports new interaction types (images, audio, etc.) without code changes
-
-## Built-in Special Turns
 
 ### Greeting Turn
 
@@ -142,9 +198,11 @@ var greeting = await session.ExecuteSpecialTurnAsync(
     greetingConfig,
     preferStreaming: true,
     cancellationToken);
+
 ```
 
 **Configuration:**
+
 - Uses provider's default Text2Text model
 - Disables all tools (`-*`)
 - 30 second timeout
@@ -166,6 +224,7 @@ var summary = await session.ExecuteSpecialTurnAsync(
     summarizeConfig,
     preferStreaming: false,
     cancellationToken);
+
 ```
 
 **Configuration:**
@@ -193,44 +252,20 @@ The `ConversationSession` automatically triggers summarization when:
   - This ensures a clean conversation state and prevents token bloat from incomplete turns
   - The next provider call will be a fresh assistant response to the preserved user message
 
-## Execution Flow
+### Use Cases
 
-1. **Snapshot**: Current request state is captured for final persistence
-2. **Clone**: An isolated `AIRequestCall` is created with config overrides applied
-3. **Execute**: Request executes on isolated clone (no observer notifications)
-   - Streaming mode uses provider's streaming adapter
-   - Non-streaming mode uses standard execution
-4. **Persist**: Result is persisted to main conversation according to strategy
-   - **This is when observers are notified** (not during execution)
+#### 1. AI-Generated Greeting
 
-**Key benefit**: Special turn execution is completely isolated from the main conversation until persistence, preventing internal interactions (e.g., greeting generation prompts) from appearing in the UI.
 
-## Observer Behavior
-
-Special turns are **isolated from observers** during execution:
-
-- **No deltas during execution**: Observers don't receive `OnDelta` events during special turn streaming
-- **No partial notifications**: Execution happens in isolation without observer notifications
-- **Single final event**: Observers receive `OnFinal` only when persistence strategy merges results into main conversation (except `Ephemeral` strategy)
-
-**Result**: UI only shows the final persisted interactions according to the persistence strategy. Internal special turn interactions (system prompts, tool calls, intermediate reasoning) remain hidden from observers.
-
-## Error Handling
-
-If a special turn fails:
-- Error is captured in `AIReturn` with error message
-- Error is persisted to history according to `PersistenceStrategy`
-- Main conversation remains unaffected (isolated execution protects against side effects)
-
-## Use Cases
-
-### 1. AI-Generated Greeting
 ```csharp
 var config = GreetingSpecialTurn.Create(provider, systemPrompt);
 var greeting = await session.ExecuteSpecialTurnAsync(config, preferStreaming: true);
+
 ```
 
-### 2. Conversation Summary
+#### 2. Conversation Summary
+
+
 ```csharp
 var config = new SpecialTurnConfig
 {
@@ -243,9 +278,12 @@ var config = new SpecialTurnConfig
     PersistenceFilter = InteractionFilter.PreserveSystemContext,
     TurnType = "summary"
 };
+
 ```
 
-### 3. Internal Validation (No Trace)
+#### 3. Internal Validation (No Trace)
+
+
 ```csharp
 var config = new SpecialTurnConfig
 {
@@ -255,9 +293,12 @@ var config = new SpecialTurnConfig
 };
 var validationResult = await session.ExecuteSpecialTurnAsync(config, preferStreaming: false);
 // Result available but not in history
+
 ```
 
-### 4. Image Generation (Force Non-Streaming)
+#### 4. Image Generation (Force Non-Streaming)
+
+
 ```csharp
 var config = new SpecialTurnConfig
 {
@@ -267,13 +308,44 @@ var config = new SpecialTurnConfig
     PersistenceStrategy = HistoryPersistenceStrategy.PersistResult,
     TurnType = "image_generation"
 };
+
 ```
 
-## Concurrency
+---
 
-Special turns support **parallel execution** - multiple special turns can execute simultaneously without locking.
+## Architecture & Design
 
-## Architecture Benefits
+### Execution Flow
+
+1. **Snapshot**: Current request state is captured for final persistence
+2. **Clone**: An isolated `AIRequestCall` is created with config overrides applied
+3. **Execute**: Request executes on isolated clone (no observer notifications)
+   - Streaming mode uses provider's streaming adapter
+   - Non-streaming mode uses standard execution
+4. **Persist**: Result is persisted to main conversation according to strategy
+   - **This is when observers are notified** (not during execution)
+
+**Key benefit**: Special turn execution is completely isolated from the main conversation until persistence, preventing internal interactions (e.g., greeting generation prompts) from appearing in the UI.
+
+### Observer Behavior
+
+Special turns are **isolated from observers** during execution:
+
+- **No deltas during execution**: Observers don't receive `OnDelta` events during special turn streaming
+- **No partial notifications**: Execution happens in isolation without observer notifications
+- **Single final event**: Observers receive `OnFinal` only when persistence strategy merges results into main conversation (except `Ephemeral` strategy)
+
+**Result**: UI only shows the final persisted interactions according to the persistence strategy. Internal special turn interactions (system prompts, tool calls, intermediate reasoning) remain hidden from observers.
+
+### Error Handling
+
+If a special turn fails:
+
+- Error is captured in `AIReturn` with error message
+- Error is persisted to history according to `PersistenceStrategy`
+- Main conversation remains unaffected (isolated execution protects against side effects)
+
+### Architecture Benefits
 
 - **Code reuse**: Special turns use the same infrastructure as regular turns
 - **Unified streaming**: Automatic streaming support via provider adapters
@@ -282,15 +354,16 @@ Special turns support **parallel execution** - multiple special turns can execut
 - **Observer compatibility**: Works seamlessly with existing observer pattern
 - **Extensible**: Easy to create new special turn types
 
-## Future Extensions
+### Future Extensions
 
 Possible future special turn types:
+
 - **Translation turn**: Translate conversations to different languages
 - **Refinement turn**: Improve/refine previous responses
 - **Tool reflection turn**: Internal reasoning about tool execution
 - **Context expansion turn**: Fetch additional context based on conversation
 
-## Related Files
+### Related Files
 
 - `src/SmartHopper.Infrastructure/AICall/Sessions/SpecialTurns/SpecialTurnConfig.cs`
 - `src/SmartHopper.Infrastructure/AICall/Sessions/SpecialTurns/HistoryPersistenceStrategy.cs`

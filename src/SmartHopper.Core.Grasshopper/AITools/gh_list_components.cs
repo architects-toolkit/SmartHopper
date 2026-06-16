@@ -25,7 +25,6 @@ using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -42,6 +41,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Name of the AI tool provided by this class.
         /// </summary>
         private readonly string toolName = "gh_list_components";
+
         /// <summary>
         /// Returns a list of AI tools provided by this plugin.
         /// </summary>
@@ -66,8 +66,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""includeDetails"": {
                             ""type"": ""array"",
-                            ""items"": { ""type"": ""string"" },
-                            ""enum"": [""name"", ""nickname"", ""category"", ""subCategory"", ""guid"", ""description"", ""keywords"", ""inputs"", ""outputs""],
+                            ""items"": {
+                                ""type"": ""string"",
+                                ""enum"": [""name"", ""nickname"", ""category"", ""subCategory"", ""guid"", ""description"", ""keywords"", ""inputs"", ""outputs""]
+                            },
                             ""description"": ""Select which component details to include in response. If not specified, returns all details. Recommended 'name', 'description', 'inputs' and 'outputs' to avoid token overload.""
                         },
                         ""maxResults"": {
@@ -127,8 +129,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var filterLower = nameFilter.ToLowerInvariant();
                     proxies = proxies.Where(p =>
                         p.Desc.Name.ToLowerInvariant().Contains(filterLower) ||
-                        p.Desc.NickName.ToLowerInvariant().Contains(filterLower)
-                    ).ToList();
+                        p.Desc.NickName.ToLowerInvariant().Contains(filterLower)).ToList();
                 }
 
                 // Apply max results limit
@@ -139,12 +140,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var list = proxies.Select(p =>
                 {
-                    var instance = ObjectFactory.CreateInstance(p);
+                    var instance = p.CreateInstance();
+                    instance.CreateAttributes();
                     List<object> inputs;
                     List<object> outputs;
                     if (instance is IGH_Component comp)
                     {
-                        inputs = ParameterAccess.GetAllInputs(comp)
+                        inputs = comp.Params.Input
                             .Select(param => new
                             {
                                 name = param.Name,
@@ -155,7 +157,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             })
                             .Cast<object>()
                             .ToList();
-                        outputs = ParameterAccess.GetAllOutputs(comp)
+                        outputs = comp.Params.Output
                             .Select(param => new
                             {
                                 name = param.Name,
@@ -211,7 +213,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         componentData["outputs"] = outputs;
 
                     return componentData;
-
                 }).ToList();
                 var names = list.Where(x => x.ContainsKey("name")).Select(x => x["name"].ToString()).Distinct().ToList();
                 var guids = list.Where(x => x.ContainsKey("guid")).Select(x => x["guid"].ToString()).Distinct().ToList();

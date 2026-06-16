@@ -36,7 +36,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "Deconstruct Discourse Post",
                   "DeconstructDiscoursePost",
-                  "Deconstruct Discourse forum post JSON into id, username, topic id, title, date, and cooked content. Works with any Discourse instance.",
+                  "Deconstruct a Discourse forum post into its individual properties (id, username, topic id, title, date, etc.). Works with any Discourse instance, including McNeel and Ladybug forum posts.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -47,18 +47,12 @@ namespace SmartHopper.Components.Knowledge
         /// <summary>
         /// Gets the component's icon.
         /// </summary>
-        protected override Bitmap Icon => Resources.mcneelpostdeconstruct;
+        protected override Bitmap Icon => Resources.discoursepostdeconstruct;
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter(
-                "Base URL",
-                "U",
-                "Base URL of the Discourse forum (e.g., https://discourse.mcneel.com or https://discourse.ladybug.tools).",
-                GH_ParamAccess.item,
-                "https://discourse.mcneel.com");
             pManager.AddTextParameter(
                 "Discourse Post",
                 "P",
@@ -71,7 +65,7 @@ namespace SmartHopper.Components.Knowledge
             pManager.AddIntegerParameter("Id", "I", "Numeric ID of the forum post.", GH_ParamAccess.list);
             pManager.AddTextParameter("Username", "U", "Author username of the forum post.", GH_ParamAccess.list);
             pManager.AddIntegerParameter("Topic Id", "T", "Topic ID that the post belongs to.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Title", "Ti", "Title of the topic.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Topic Title", "Ti", "Title of the topic that the post belongs to.", GH_ParamAccess.list);
             pManager.AddTextParameter("Post URL", "Url", "Full URL to the forum post.", GH_ParamAccess.list);
             pManager.AddTextParameter("Date", "D", "Post creation date as a string.", GH_ParamAccess.list);
             pManager.AddTextParameter("Content", "C", "Raw content of the post, in Markdown.", GH_ParamAccess.list);
@@ -81,19 +75,8 @@ namespace SmartHopper.Components.Knowledge
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            string baseUrl = "https://discourse.mcneel.com";
-            DA.GetData(0, ref baseUrl);
-
-            if (string.IsNullOrWhiteSpace(baseUrl))
-            {
-                baseUrl = "https://discourse.mcneel.com";
-            }
-
-            // Remove trailing slash if present
-            baseUrl = baseUrl.TrimEnd('/');
-
             var jsonPosts = new List<string>();
-            if (!DA.GetDataList(1, jsonPosts) || jsonPosts.Count == 0)
+            if (!DA.GetDataList(0, jsonPosts) || jsonPosts.Count == 0)
             {
                 // Clear outputs when no input is provided
                 DA.SetDataList(0, new List<int>());
@@ -143,33 +126,21 @@ namespace SmartHopper.Components.Knowledge
                     int id = obj["id"]?.Value<int?>() ?? 0;
                     string username = obj["username"]?.Value<string>() ?? string.Empty;
                     int topicId = obj["topic_id"]?.Value<int?>() ?? 0;
-                    string title = obj["title"]?.Value<string>() ?? string.Empty;
-
-                    // Build URL from base_url + topic_id/post_number when possible
-                    string postUrl = string.Empty;
-                    if (topicId > 0)
-                    {
-                        int? postNumber = obj["post_number"]?.Value<int?>();
-                        if (postNumber.HasValue && postNumber.Value > 0)
-                        {
-                            postUrl = $"{baseUrl}/t/{topicId}/{postNumber.Value}";
-                        }
-                        else
-                        {
-                            postUrl = $"{baseUrl}/t/{topicId}";
-                        }
-                    }
+                    string topicTitle = obj["topic_title"]?.Value<string>() ?? string.Empty;
+                    string postUrl = obj["url"]?.Value<string>() ?? string.Empty;
 
                     string date = obj["date"]?.Value<string>() ?? obj["created_at"]?.Value<string>() ?? string.Empty;
                     string rawContent = obj["raw"]?.Value<string>() ?? string.Empty;
 
                     int reads = obj["reads"]?.Value<int?>() ?? 0;
-                    int likes = obj["likes"]?.Value<int?>() ?? 0;
+
+                    // Discourse API uses 'like_count' in search results, 'likes' in some contexts
+                    int likes = obj["likes"]?.Value<int?>() ?? obj["like_count"]?.Value<int?>() ?? 0;
 
                     ids.Add(id);
                     usernames.Add(username);
                     topicIds.Add(topicId);
-                    titles.Add(title);
+                    titles.Add(topicTitle);
                     postUrls.Add(postUrl);
                     dates.Add(date);
                     rawList.Add(rawContent);

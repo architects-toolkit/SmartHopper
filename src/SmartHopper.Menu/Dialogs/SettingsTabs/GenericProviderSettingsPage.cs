@@ -354,7 +354,9 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
             foreach (var descriptor in descriptors)
             {
                 if (!this._controls.ContainsKey(descriptor.Name))
+                {
                     continue;
+                }
 
                 var control = this._controls[descriptor.Name];
                 object newValue = null;

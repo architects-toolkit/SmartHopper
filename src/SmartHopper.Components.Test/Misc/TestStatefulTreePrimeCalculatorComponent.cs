@@ -39,13 +39,18 @@ namespace SmartHopper.Components.Test.Misc
     public class TestStatefulTreePrimeCalculatorComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("E2DB56F0-C597-432C-9774-82DF431CC848");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public TestStatefulTreePrimeCalculatorComponent()
-            : base("Test Stateful Tree Prime Calculator", "TEST-STATEFUL-TREE-PRIME",
-                  "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
-                  "SmartHopper", "Testing Base")
+            : base(
+                "Test Stateful Tree Prime Calculator",
+                "TEST-STATEFUL-TREE-PRIME",
+                "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
+                "SmartHopper Tests",
+                "Testing Base")
         {
         }
 
@@ -61,7 +66,7 @@ namespace SmartHopper.Components.Test.Misc
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new TestStatefulTreePrimeCalculatorWorker(this, AddRuntimeMessage);
+            return new TestStatefulTreePrimeCalculatorWorker(this, this.AddRuntimeMessage);
         }
 
         private class TestStatefulTreePrimeCalculatorWorker : AsyncWorkerBase
@@ -102,7 +107,7 @@ namespace SmartHopper.Components.Test.Misc
                         if (item is GH_Integer ghInt)
                         {
                             int n = Math.Max(1, Math.Min(ghInt.Value, 1000000));
-                            long result = await CalculateNthPrime(n, token);
+                            long result = await this.CalculateNthPrime(n, token).ConfigureAwait(false);
                             resultBranch.Add(new GH_Number(result));
 
                             Debug.WriteLine($"[TestStatefulTreePrimeCalculatorWorker] DoWorkAsync - Calculating nth prime for {n}: {result}");

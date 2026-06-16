@@ -45,7 +45,6 @@ namespace SmartHopper.Components.AI
         private string _systemPrompt;
 
         // Removed duplicated last-return storage; use base AIReturn snapshot instead
-
         protected override AICapability RequiredCapability => AICapability.ToolChat;
 
         private readonly string _defaultSystemPrompt = """
@@ -61,11 +60,22 @@ namespace SmartHopper.Components.AI
                 "AiChat",
                 "Interactive AI-powered conversational interface.",
                 "SmartHopper",
-                "AI")
+                "A. AI")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;
         }
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "Chat",
+            "AI Chat",
+            "Chat AI",
+            "Conversation",
+            "AI Conversation",
+            "Talk",
+            "Ask AI",
+        };
 
         /// <summary>
         /// Called when the component is removed from the canvas.
@@ -198,7 +208,7 @@ namespace SmartHopper.Components.AI
         /// <summary>
         /// Gets the unique ID for this component type.
         /// </summary>
-        public override Guid ComponentGuid => new("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
+        public override Guid ComponentGuid => new ("7D3F8B2A-E5C1-4F9D-B7A6-9C8D2E3F1A5B");
 
         /// <summary>
         /// Disable automatic restoration of persistent outputs from the base class.
@@ -215,14 +225,6 @@ namespace SmartHopper.Components.AI
         internal AIReturn GetSnapshot()
         {
             return this.CurrentAIReturnSnapshot;
-        }
-
-        /// <summary>
-        /// Disable base post-solve metrics emission; metrics are emitted synchronously in SolveInstance.
-        /// </summary>
-        protected override bool ShouldEmitMetricsInPostSolve()
-        {
-            return false;
         }
 
         /// <summary>
@@ -313,7 +315,7 @@ namespace SmartHopper.Components.AI
                     }
 
                     // This worker is intentionally short-lived; incremental updates will retrigger recomputes
-                    await System.Threading.Tasks.Task.CompletedTask;
+                    await System.Threading.Tasks.Task.CompletedTask.ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

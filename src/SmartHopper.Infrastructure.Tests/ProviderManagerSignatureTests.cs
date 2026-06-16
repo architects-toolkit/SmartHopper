@@ -80,6 +80,7 @@ namespace SmartHopper.Infrastructure.Tests
 #else
         [Fact(DisplayName = "VerifySignature_AuthenticodeSigned_NoStrongName_FailsVerification [Core]")]
 #endif
+
         /// <summary>
         /// Test that an Authenticode-signed but non-strong-named assembly fails verification.
         /// The verification may fail with either SecurityException or CryptographicException

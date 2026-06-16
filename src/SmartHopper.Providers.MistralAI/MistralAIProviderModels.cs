@@ -53,7 +53,7 @@ namespace SmartHopper.Providers.MistralAI
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between February 2026 and May 2026
+                // Released between March 2026 and June 2026
 
                 new AIModelCapabilities
                 {
@@ -65,6 +65,13 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = true,
                     Rank = 10000,
                     ContextLimit = 131072,
+                    Created = new DateTime(2026, 3, 16),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000015m,
+                        Completion = 0.0000006m,
+                        InputCacheRead = 0.000000015m,
+                    },
                     Aliases = new List<string> { "mistral-small", "mistral-small-latest", "magistral-small-latest", "mistral-vibe-cli-fast" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
@@ -72,19 +79,24 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistral-medium-3-5",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.Reasoning | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    Default = AICapability.ReasoningChat | AICapability.ToolReasoningChat,
+                    Model = "mistral-medium-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9995,
-                    ContextLimit = 256000,
-                    Aliases = new List<string> { "mistral-medium-3.5", "mistral-medium-3", "mistral-medium-2604", "mistral-medium-c21211-r0-75", "mistral-vibe-cli-latest" },
+                    Rank = 9990,
+                    ContextLimit = 262144,
+                    Created = new DateTime(2026, 4, 30),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000015m,
+                        Completion = 0.0000075m,
+                    },
+                    Aliases = new List<string> { "mistral-medium-3-5-0", "mistral-medium", "mistral-medium-3-5", "mistral-medium-3.5", "mistral-medium-3", "mistral-medium-2604", "mistral-vibe-cli-latest", "mistral-vibe-cli-with-tools" },
                 },
 
 
 
-                // Released between November 2025 and February 2026
+                // Released between September 2025 and December 2025
 
                 new AIModelCapabilities
                 {
@@ -93,8 +105,15 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9990,
+                    Rank = 9985,
                     ContextLimit = 131072,
+                    Created = new DateTime(2025, 12, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001m,
+                        Completion = 0.0000001m,
+                        InputCacheRead = 0.00000001m,
+                    },
                     Aliases = new List<string> { "ministral-3b-latest" },
                 },
 
@@ -105,8 +124,15 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9985,
+                    Rank = 9980,
                     ContextLimit = 131072,
+                    Created = new DateTime(2025, 12, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000015m,
+                        Completion = 0.00000015m,
+                        InputCacheRead = 0.000000015m,
+                    },
                     Aliases = new List<string> { "ministral-8b-latest" },
                 },
 
@@ -117,8 +143,15 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9980,
+                    Rank = 9975,
                     ContextLimit = 262144,
+                    Created = new DateTime(2025, 12, 2),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000002m,
+                        Completion = 0.0000002m,
+                        InputCacheRead = 0.00000002m,
+                    },
                     Aliases = new List<string> { "ministral-14b-latest" },
                 },
 
@@ -129,9 +162,16 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9970,
                     ContextLimit = 131072,
-                    Aliases = new List<string> { "mistral-large", "mistral-large-latest" },
+                    Created = new DateTime(2025, 12, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000005m,
+                        Completion = 0.0000015m,
+                        InputCacheRead = 0.00000005m,
+                    },
+                    Aliases = new List<string> { "mistral-large", "mistral-large-latest", "mistral-large-veteran-2512" },
                 },
 
                 new AIModelCapabilities
@@ -141,14 +181,21 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9970,
+                    Rank = 9965,
                     ContextLimit = 262144,
-                    Aliases = new List<string> { "devstral-medium-latest", "devstral-latest" },
+                    Created = new DateTime(2025, 12, 9),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000004m,
+                        Completion = 0.000002m,
+                        InputCacheRead = 0.00000004m,
+                    },
+                    Aliases = new List<string> { "devstral-medium-latest", "devstral-latest", "devstral-medium-251121", "mistral-code-agent-latest" },
                 },
 
 
 
-                // Released between May 2025 and August 2025
+                // Released between June 2025 and September 2025
 
                 new AIModelCapabilities
                 {
@@ -157,14 +204,21 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9965,
+                    Rank = 9960,
                     ContextLimit = 256000,
-                    Aliases = new List<string> { "codestral-latest" },
+                    Created = new DateTime(2025, 8, 1),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000003m,
+                        Completion = 0.0000009m,
+                        InputCacheRead = 0.00000003m,
+                    },
+                    Aliases = new List<string> { "codestral-latest", "mistral-code-latest", "mistral-code-fim-latest" },
                 },
 
 
 
-                // Released before May 2024 or unknown release date
+                // Released before June 2024 or unknown release date
 
                 new AIModelCapabilities
                 {
@@ -173,9 +227,8 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9960,
+                    Rank = 9955,
                     ContextLimit = 131072,
-                    Aliases = new List<string> { "mistral-medium", "mistral-medium-latest", "mistral-vibe-cli-with-tools" },
                 },
 
                 new AIModelCapabilities
@@ -185,7 +238,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9955,
+                    Rank = 9950,
                     Aliases = new List<string> { "codestral-embed-2505" },
                 },
 
@@ -196,7 +249,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9950,
+                    Rank = 9945,
                     ContextLimit = 256000,
                 },
 
@@ -207,7 +260,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9945,
+                    Rank = 9940,
                     ContextLimit = 40000,
                     Aliases = new List<string> { "magistral-medium-latest" },
                 },
@@ -219,7 +272,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.EmbedOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9940,
+                    Rank = 9935,
                     Aliases = new List<string> { "mistral-embed" },
                 },
 
@@ -230,7 +283,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9935,
+                    Rank = 9930,
                     ContextLimit = 128000,
                 },
 
@@ -241,7 +294,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.ImageInput | AICapability.ImageOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9930,
+                    Rank = 9925,
                     Aliases = new List<string> { "mistral-ocr-latest" },
                     DiscouragedForTools = new List<string> { "*" },
                 },
@@ -253,9 +306,19 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9925,
+                    Rank = 9920,
                     ContextLimit = 128000,
                     Aliases = new List<string> { "open-mistral-nemo-2407", "mistral-tiny-2407", "mistral-tiny-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "voxtral-mini-2507",
+                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9915,
                 },
 
                 new AIModelCapabilities
@@ -266,9 +329,9 @@ namespace SmartHopper.Providers.MistralAI
                     Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9920,
+                    Rank = 9910,
                     ContextLimit = 32000,
-                    Aliases = new List<string> { "voxtral-mini-latest" },
+                    Aliases = new List<string> { voxtral-mini-latest, "voxtral-mini-transcribe-2602" },
                 },
 
                 new AIModelCapabilities
@@ -279,7 +342,7 @@ namespace SmartHopper.Providers.MistralAI
                     Default = AICapability.Text2Speech,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9910,
+                    Rank = 9905,
                     Aliases = new List<string> { "voxtral-mini-tts-latest" },
                 },
 
@@ -290,7 +353,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9905,
+                    Rank = 9900,
                     ContextLimit = 32000,
                     Aliases = new List<string> { "voxtral-small-latest" },
                 },
@@ -302,37 +365,12 @@ namespace SmartHopper.Providers.MistralAI
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "mistral-large-2411",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = 0,
-                    ContextLimit = 131072,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "pixtral-large-2411",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
-                    SupportsStreaming = false,
-                    Verified = false,
-                    Deprecated = true,
-                    Rank = -5,
-                    ContextLimit = 131072,
-                    Aliases = new List<string> { "pixtral-large-latest", "mistral-large-pixtral-2411" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
                     Model = "devstral-medium-2507",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -10,
+                    Rank = 0,
                 },
 
                 new AIModelCapabilities
@@ -343,7 +381,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -15,
+                    Rank = -5,
                 },
 
                 new AIModelCapabilities
@@ -354,7 +392,25 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -20,
+                    Rank = -10,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "mistral-large-2411",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Deprecated = true,
+                    Rank = -15,
+                    ContextLimit = 131072,
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000006m,
+                        InputCacheRead = 0.0000002m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -365,7 +421,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -25,
+                    Rank = -20,
                     ContextLimit = 128000,
                     Aliases = new List<string> { "mistral-moderation-latest" },
                 },
@@ -378,7 +434,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -30,
+                    Rank = -25,
                 },
 
                 new AIModelCapabilities
@@ -389,7 +445,7 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
-                    Rank = -35,
+                    Rank = -30,
                     DiscouragedForTools = new List<string> { "*" },
                 },
 
@@ -401,7 +457,26 @@ namespace SmartHopper.Providers.MistralAI
                     SupportsStreaming = false,
                     Verified = false,
                     Deprecated = true,
+                    Rank = -35,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "pixtral-large-2411",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput,
+                    SupportsStreaming = false,
+                    Verified = false,
+                    Deprecated = true,
                     Rank = -40,
+                    ContextLimit = 131072,
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000002m,
+                        Completion = 0.000006m,
+                        InputCacheRead = 0.0000002m,
+                    },
+                    Aliases = new List<string> { "pixtral-large-latest", "mistral-large-pixtral-2411" },
                 },
 
                 new AIModelCapabilities

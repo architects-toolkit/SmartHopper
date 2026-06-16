@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SmartHopper.Infrastructure.AIModels;
@@ -47,7 +48,7 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between February 2026 and May 2026
+                // Released between March 2026 and June 2026
 
                 new AIModelCapabilities
                 {
@@ -59,6 +60,13 @@ namespace SmartHopper.Providers.DeepSeek
                     Verified = false,
                     Rank = 10000,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.00000009m,
+                        Completion = 0.00000018m,
+                        InputCacheRead = 0.00000002m,
+                    },
                 },
 
                 new AIModelCapabilities
@@ -70,6 +78,13 @@ namespace SmartHopper.Providers.DeepSeek
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 1048576,
+                    Created = new DateTime(2026, 4, 24),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.000000435m,
+                        Completion = 0.00000087m,
+                        InputCacheRead = 0.000000003625m,
+                    },
                 },
 
 
@@ -85,6 +100,7 @@ namespace SmartHopper.Providers.DeepSeek
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 60000,
+                    Created = new DateTime(2024, 12, 26),
                 },
 
                 new AIModelCapabilities

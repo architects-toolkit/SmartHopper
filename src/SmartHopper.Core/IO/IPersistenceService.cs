@@ -18,7 +18,6 @@
 
 // Purpose: Define the contract for a safe, versioned persistence service for component outputs.
 // Centralizes read/write logic to avoid GH internal type lookups on read and ensure forward compatibility.
-
 using System;
 using System.Collections.Generic;
 using GH_IO.Serialization;

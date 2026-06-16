@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorMixedDepthsTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("F788712F-B2B3-4131-87CA-E654F6153339");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public DataTreeProcessorMixedDepthsTestComponent()
-            : base("Test Mixed Depths", "TEST-BC-MIXED",
-                  "Tests flat {0} broadcasting to mixed depth paths",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test Mixed Depths",
+                "TEST-BC-MIXED",
+                "Tests flat {0} broadcasting to mixed depth paths",
+                "SmartHopper Tests",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -58,7 +63,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorMixedDepthsTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -134,41 +139,41 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
-                        _resultTree = outTree;
+                    if (result != null && result.Outputs.TryGetValue("Result", out var outTree) && outTree != null)
+                        this._resultTree = outTree;
 
                     // Expected: A broadcasts to ALL paths (mixed depths trigger Rule 3)
                     // {0;0}: 10 - 5 = 5
                     // {1}: 20 - 5 = 15
                     // {1;0}: 30 - 5 = 25
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 3 &&
-                        _resultTree.get_Branch(path00) != null && _resultTree.get_Branch(path00).Count == 1 &&
-                        _resultTree.get_Branch(path00)[0] is GH_Integer v00 && v00.Value == 5 &&
-                        _resultTree.get_Branch(path1) != null && _resultTree.get_Branch(path1).Count == 1 &&
-                        _resultTree.get_Branch(path1)[0] is GH_Integer v1 && v1.Value == 15 &&
-                        _resultTree.get_Branch(path10) != null && _resultTree.get_Branch(path10).Count == 1 &&
-                        _resultTree.get_Branch(path10)[0] is GH_Integer v10 && v10.Value == 25;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 3 &&
+                        this._resultTree.get_Branch(path00) != null && this._resultTree.get_Branch(path00).Count == 1 &&
+                        this._resultTree.get_Branch(path00)[0] is GH_Integer v00 && v00.Value == 5 &&
+                        this._resultTree.get_Branch(path1) != null && this._resultTree.get_Branch(path1).Count == 1 &&
+                        this._resultTree.get_Branch(path1)[0] is GH_Integer v1 && v1.Value == 15 &&
+                        this._resultTree.get_Branch(path10) != null && this._resultTree.get_Branch(path10).Count == 1 &&
+                        this._resultTree.get_Branch(path10)[0] is GH_Integer v10 && v10.Value == 25;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Case 12&13: A={{0}} [5], B={{0;0}} [10], {{1}} [20], {{1;0}} [30]. Expected: A broadcasts to all mixed-depth paths (Rule 3)."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"Case 12&13: A={{0}} [5], B={{0;0}} [10], {{1}} [20], {{1;0}} [30]. Expected: A broadcasts to all mixed-depth paths (Rule 3)."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Mixed depths test passed" : "Test failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Mixed depths test passed" : "Test failed";
             }
         }
     }

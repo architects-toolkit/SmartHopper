@@ -1,0 +1,101 @@
+name: 🔄 Update DEV.md AI Tools
+
+# Description: Keeps the AI Tools table in DEV.md in sync with the
+# AITool definitions in src/SmartHopper.Core.Grasshopper/AITools.
+# Pull requests validate that DEV.md is current;
+# pushes to protected branches open an automated PR when documentation changes.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+      - 'main-*'
+      - 'dev-*'
+      - 'hotfix/**'
+      - 'release/**'
+    paths:
+      - 'src/SmartHopper.Core.Grasshopper/AITools/**/*.cs'
+      - 'tools/Update-DevAiTools.ps1'
+      - 'DEV.md'
+  push:
+    branches:
+      - main
+      - dev
+      - 'main-*'
+      - 'dev-*'
+      - 'hotfix/**'
+      - 'release/**'
+    paths:
+      - 'src/SmartHopper.Core.Grasshopper/AITools/**/*.cs'
+      - 'tools/Update-DevAiTools.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-dev:
+    name: Update DEV.md AI Tools table
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Update-DevAiTools.ps1
+        id: update
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          pwsh -ExecutionPolicy Bypass -File .\tools\Update-DevAiTools.ps1
+          $code = $LASTEXITCODE
+          if ($code -eq 0) {
+            "changed=true" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } elseif ($code -eq 1) {
+            "changed=false" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } else {
+            throw "Update-DevAiTools.ps1 failed with exit code $code"
+          }
+          $global:LASTEXITCODE = 0
+
+      - name: Verify DEV.md is current
+        if: github.event_name == 'pull_request' && steps.update.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          git diff -- DEV.md
+          throw "DEV.md AI Tools table is out of date. Run tools/Update-DevAiTools.ps1 and commit the result."
+
+      - name: Emit step summary
+        if: always()
+        shell: pwsh
+        run: |
+          $changed = '${{ steps.update.outputs.changed }}'
+          if ($changed -eq 'true') {
+            Write-Output "## DEV.md AI Tools table updated" >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "The AI Tools table in ``DEV.md`` was refreshed from ``AITools/*.cs`` source files." >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            Write-Output "## No changes needed" >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "The AI Tools table in ``DEV.md`` is already up to date." >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Create Pull Request
+        if: github.event_name == 'push' && steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs(dev): update AI Tools summary [ci skip]"
+          title: "docs(dev): sync AI Tools table"
+          body: |
+            Auto-generated PR from `.github/workflows/chore-update-dev-aitools.yml`.
+
+            The AI Tools table in `DEV.md` has been refreshed to reflect
+            the current tool definitions in `src/SmartHopper.Core.Grasshopper/AITools`.
+          branch: "chore/update-dev-aitools"
+          base: ${{ github.ref_name }}
+          delete-branch: true
+          labels: |
+            automated
+            documentation

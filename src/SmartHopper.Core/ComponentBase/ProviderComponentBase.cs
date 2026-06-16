@@ -19,25 +19,25 @@
 using System;
 using System.Windows.Forms;
 using Grasshopper.Kernel;
+using SmartHopper.Core.ComponentBase.Attributes;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
-    /// Base class for non-async Grasshopper components that need AI provider selection functionality.
-    /// Provides provider selection context menu and related functionality.
+    /// Base class for non-async Grasshopper components that need AI provider selection
+    /// functionality. Delegates state, menu wiring and persistence of the provider
+    /// choice to a <see cref="ProviderSelectionCore"/> instance so the same logic is
+    /// shared with <see cref="AIProviderComponentBase"/>.
     /// </summary>
     public abstract class ProviderComponentBase : GH_Component, IProviderComponent
     {
         /// <summary>
-        /// The currently selected AI provider.
+        /// Instance helper that owns the provider selection state.
         /// </summary>
-        private string aiProvider = ProviderComponentHelper.DEFAULT_PROVIDER;
-
-        /// <summary>
-        /// The previously selected AI provider, used for change detection.
-        /// </summary>
-        private string previousSelectedProvider = ProviderComponentHelper.DEFAULT_PROVIDER;
+        private readonly ProviderSelectionCore providerCore;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ProviderComponentBase"/> class.
@@ -50,40 +50,32 @@ namespace SmartHopper.Core.ComponentBase
         protected ProviderComponentBase(string name, string nickname, string description, string category, string subcategory)
             : base(name, nickname, description, category, subcategory)
         {
+            this.providerCore = new ProviderSelectionCore(this);
+
+            // Non-async components have no worker lifecycle to commit the change
+            // against, so acknowledge and notify derived classes immediately after
+            // the user picks a new provider through the menu.
+            this.providerCore.ProviderChanged += (sender, e) =>
+            {
+                this.OnProviderChanged();
+                this.providerCore.CommitChange();
+            };
         }
 
         /// <inheritdoc/>
-        public string SelectedProviderName => this.aiProvider;
+        public string SelectedProviderName => this.providerCore.CurrentProvider;
 
         /// <inheritdoc/>
         public void SetSelectedProviderName(string providerName)
         {
-            this.aiProvider = providerName;
+            this.providerCore.SetCurrentProvider(providerName);
         }
 
         /// <inheritdoc/>
-        public string GetActualAIProviderName()
-        {
-            return ProviderComponentHelper.GetActualProviderName(this.aiProvider);
-        }
+        public string GetActualAIProviderName() => this.providerCore.GetActualProviderName();
 
         /// <inheritdoc/>
-        public AIProvider GetActualAIProvider()
-        {
-            return ProviderComponentHelper.GetActualProvider(this.aiProvider);
-        }
-
-        /// <inheritdoc/>
-        public bool HasProviderChanged()
-        {
-            if (this.aiProvider != this.previousSelectedProvider)
-            {
-                this.previousSelectedProvider = this.aiProvider;
-                return true;
-            }
-
-            return false;
-        }
+        public AIProvider GetActualAIProvider() => this.providerCore.GetActualProvider();
 
         /// <summary>
         /// Appends additional menu items to the component's context menu.
@@ -92,16 +84,7 @@ namespace SmartHopper.Core.ComponentBase
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
-
-            ProviderComponentHelper.AppendProviderMenuItems(
-                menu,
-                this.aiProvider,
-                providerName =>
-                {
-                    this.aiProvider = providerName;
-                    this.OnProviderChanged();
-                    this.ExpireSolution(true);
-                });
+            this.providerCore.AppendMenuItems(menu);
         }
 
         /// <summary>
@@ -119,7 +102,7 @@ namespace SmartHopper.Core.ComponentBase
         {
             var attrs = new AIProviderComponentAttributes(this)
             {
-                ProviderTooltipTemplate = "Settings for %provider%"
+                ProviderTooltipTemplate = "Settings for %provider%",
             };
 
             this.m_attributes = attrs;
@@ -137,7 +120,7 @@ namespace SmartHopper.Core.ComponentBase
                 return false;
             }
 
-            return ProviderComponentHelper.WriteProvider(writer, this.aiProvider);
+            return this.providerCore.Write(writer);
         }
 
         /// <summary>
@@ -152,14 +135,7 @@ namespace SmartHopper.Core.ComponentBase
                 return false;
             }
 
-            if (ProviderComponentHelper.ReadProvider(reader, out string storedProvider))
-            {
-                this.aiProvider = storedProvider;
-                this.previousSelectedProvider = storedProvider;
-                return true;
-            }
-
-            return false;
+            return this.providerCore.Read(reader);
         }
     }
 }

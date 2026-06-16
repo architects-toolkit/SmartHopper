@@ -30,6 +30,54 @@
 namespace SmartHopper.Core.Grasshopper.Converters
 {
     /// <summary>
+    /// Controls how main-content extraction is performed for HTML sources.
+    /// </summary>
+    public enum ReadabilityMode
+    {
+        /// <summary>
+        /// Try SmartReader (Mozilla Readability port) first; fall back to the
+        /// built-in heuristic extractor when SmartReader is not confident.
+        /// </summary>
+        Auto = 0,
+
+        /// <summary>Force SmartReader, regardless of confidence.</summary>
+        SmartReader = 1,
+
+        /// <summary>Force the built-in heuristic extractor (magic-html inspired).</summary>
+        Heuristic = 2,
+
+        /// <summary>Skip content extraction entirely and convert the full document body.</summary>
+        Off = 3,
+    }
+
+    /// <summary>
+    /// Helper methods for <see cref="ReadabilityMode"/>.
+    /// </summary>
+    public static class ReadabilityModeExtensions
+    {
+        /// <summary>
+        /// Parses a string value into a <see cref="ReadabilityMode"/>, defaulting to <see cref="ReadabilityMode.Auto"/>.
+        /// </summary>
+        /// <param name="value">The input value to parse.</param>
+        /// <returns>The parsed readability mode, or <see cref="ReadabilityMode.Auto"/> when the value is empty or unknown.</returns>
+        public static ReadabilityMode FromString(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return ReadabilityMode.Auto;
+            }
+
+            return value.Trim().ToLowerInvariant() switch
+            {
+                "smartreader" => ReadabilityMode.SmartReader,
+                "heuristic" => ReadabilityMode.Heuristic,
+                "off" => ReadabilityMode.Off,
+                _ => ReadabilityMode.Auto,
+            };
+        }
+    }
+
+    /// <summary>
     /// Options for file-to-markdown conversion.
     /// </summary>
     public sealed class FileConversionOptions
@@ -71,6 +119,30 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public int MaxContentLength { get; set; } = 0;
 
         /// <summary>
+        /// Gets or sets the HTML main-content extraction strategy. Default: <see cref="ReadabilityMode.Auto"/>.
+        /// </summary>
+        public ReadabilityMode HtmlReadabilityMode { get; set; } = ReadabilityMode.Auto;
+
+        /// <summary>
+        /// Gets or sets whether hyperlinks are preserved in the Markdown output for HTML sources.
+        /// When false, link text is kept but URLs are dropped. Default: true.
+        /// </summary>
+        public bool IncludeLinks { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether inline <c>&lt;img&gt;</c> references in HTML sources are preserved in the Markdown output.
+        /// When false, images are removed entirely. Note: this is independent of <see cref="ExtractImages"/>,
+        /// which controls document-embedded image extraction for PDF/DOCX/PPTX. Default: true.
+        /// </summary>
+        public bool IncludeImages { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets an optional base URL used to resolve relative links and image sources in HTML into absolute URLs.
+        /// Typically set by <see cref="Formats.UrlConverter"/> to the fetched page URL. Default: null.
+        /// </summary>
+        public string? BaseUrl { get; set; }
+
+        /// <summary>
         /// Creates a new instance with default options.
         /// </summary>
         public FileConversionOptions()
@@ -89,6 +161,10 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 DetectHeadings = this.DetectHeadings,
                 MaxContentLength = this.MaxContentLength,
                 ExtractImages = this.ExtractImages,
+                HtmlReadabilityMode = this.HtmlReadabilityMode,
+                IncludeLinks = this.IncludeLinks,
+                IncludeImages = this.IncludeImages,
+                BaseUrl = this.BaseUrl,
             };
         }
     }

@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Utilities;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -74,7 +75,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets or sets the structured runtime messages associated with this image interaction.
         /// Used to propagate warnings, infos, or provider notes alongside the result.
         /// </summary>
-        public List<AIRuntimeMessage> Messages { get; set; } = new List<AIRuntimeMessage>();
+        public List<SHRuntimeMessage> Messages { get; set; } = new List<SHRuntimeMessage>();
 
         /// <summary>
         /// Returns a string representation of the AIInteractionImage.
@@ -172,11 +173,29 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 
             if (imageUrl != null)
             {
-                var hash = HashUtility.ComputeShortHash(imageUrl);
                 if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
                 {
                     this.SetResult(uri, imageData, revisedPrompt);
+                    return;
                 }
+
+                if (imageData == null)
+                {
+                    throw new ArgumentException(
+                        $"imageUrl '{imageUrl}' is not a valid absolute URI and no imageData was provided.",
+                        nameof(imageUrl));
+                }
+            }
+
+            // Handle case where only imageData is provided (no URL, or URL was invalid but data is present)
+            if (imageData != null)
+            {
+                this.ImageData = imageData;
+            }
+
+            if (revisedPrompt != null)
+            {
+                this.RevisedPrompt = revisedPrompt;
             }
         }
 

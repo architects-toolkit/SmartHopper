@@ -17,11 +17,7 @@
  */
 
 using System;
-using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Rhino;
@@ -73,8 +69,7 @@ namespace SmartHopper.Menu.Items
                         StyledMessageDialog.ShowInfo(
                             $"No provider DLLs were found in the application directory.\n\n" +
                             "Place your SmartHopper.Providers.*.dll files in the same folder as the SmartHopper.Infrastructure.dll (or reinstall the providers) and run verification again.",
-                            "Provider Verification - SmartHopper"
-                        );
+                            "Provider Verification - SmartHopper");
                     }));
                     return;
                 }
@@ -120,8 +115,7 @@ namespace SmartHopper.Menu.Items
                 {
                     StyledMessageDialog.ShowError(
                         $"Failed to verify providers: {ex.Message}",
-                        "Provider Verification - SmartHopper"
-                    );
+                        "Provider Verification - SmartHopper");
                 }));
             }
         }

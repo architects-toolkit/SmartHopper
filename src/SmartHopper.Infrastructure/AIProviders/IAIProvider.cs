@@ -18,6 +18,7 @@
 
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -102,8 +103,9 @@ namespace SmartHopper.Infrastructure.AIProviders
         /// Gets the task processing the Call with the provider.
         /// </summary>
         /// <param name="request">The request to send to the AI provider.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The response from the AI provider.</returns>
-        Task<IAIReturn> Call(AIRequestCall request);
+        Task<IAIReturn> Call(AIRequestCall request, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets the post-call response for the provider.

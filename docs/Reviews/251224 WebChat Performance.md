@@ -25,7 +25,7 @@ This review analyzes the interaction between the WebChat UI layer (`WebChatDialo
 ### 1.1 Component Responsibilities
 
 | Component | Responsibility |
-|-----------|---------------|
+| --- | --- |
 | `WebChatDialog` | UI host, WebView management, DOM update serialization, event bridging |
 | `WebChatObserver` | Converts session events to UI updates, streaming aggregation, throttling |
 | `ConversationSession` | Multi-turn orchestration, tool execution, history management |
@@ -237,12 +237,14 @@ flowchart LR
 ```
 
 **Strengths**:
+
 - Render versioning prevents stale updates
 - Batched draining (10 items per batch) prevents UI blocking
 - Debounced scheduling (16ms) coalesces rapid updates
 - Window move/resize deferral prevents janky interactions
 
 **Weaknesses**:
+
 - LRU cache for idempotency (1000 entries) may be memory-heavy for long conversations
 - Concurrent script limit (4) may cause re-queueing under heavy streaming
 
@@ -339,7 +341,7 @@ await foreach (var delta in adapter.StreamAsync(...))
 The observer maintains extensive state for streaming aggregation:
 
 | State | Purpose |
-|-------|---------|
+| --- | --- |
 | `_streams` | Committed streaming aggregates by segmented key |
 | `_preStreamAggregates` | Pre-commit aggregates before first render |
 | `_textInteractionSegments` | Segment counters per base key |
@@ -362,7 +364,7 @@ The observer maintains extensive state for streaming aggregation:
 Each provider implements streaming differently:
 
 | Provider | Protocol | Delta Format | Reasoning Support |
-|----------|----------|--------------|-------------------|
+| --- | --- | --- | --- |
 | OpenAI | SSE | `choices[].delta.content` | via tool_calls |
 | DeepSeek | Chunked JSON | `choices[].delta` | `reasoning_content` field |
 | MistralAI | SSE | `chunk` objects | Limited |
@@ -384,6 +386,7 @@ flowchart LR
 ```
 
 **Issue**: The user message is wrapped/unwrapped multiple times:
+
 1. String → `AIInteractionText`
 2. `AIInteractionText` → Added to `List<IAIInteraction>`
 3. List → Encoded to provider-specific JSON
@@ -394,6 +397,7 @@ flowchart LR
 #### 4.5.1 Model Selection in Multiple Places
 
 Model resolution happens in:
+
 - `AIProvider.SelectModel()`
 - `AIProvider.GetDefaultModel()`
 - `ModelManager.SelectBestModel()`
@@ -518,7 +522,7 @@ flowchart TD
 ## 7. Metrics Summary
 
 | Metric | Current | Target |
-|--------|---------|--------|
+| --- | --- | --- |
 | Streaming delta processing steps | 9 | 5 |
 | Code duplication (streaming) | ~120 lines | 0 |
 | Observer state objects | 8 | 2-3 |
@@ -530,7 +534,7 @@ flowchart TD
 ## 8. Appendix: Key File Locations
 
 | File | Lines | Purpose |
-|------|-------|---------|
+| --- | --- | --- |
 | `WebChatDialog.cs` | 1434 | UI host and DOM management |
 | `WebChatObserver.cs` | 959 | Session-to-UI bridge |
 | `ConversationSession.cs` | 897 | Multi-turn orchestration |

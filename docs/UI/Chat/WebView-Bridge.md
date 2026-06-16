@@ -2,18 +2,43 @@
 
 This document specifies the conventions used by the Chat UI WebView to communicate with the C# host, and the host-side threading/serialization rules that must be followed to keep Rhino and Eto.Forms responsive and stable.
 
-- Host file: `src/SmartHopper.Core/UI/Chat/WebChatDialog.cs`
-- JS file: `src/SmartHopper.Core/UI/Chat/Resources/js/chat-script.js`
-- Rendering: `src/SmartHopper.Core/UI/Chat/HtmlChatRenderer.cs`
+---
 
-## Custom URL Schemes
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core.Grasshopper/UI/Chat/WebViewBridge.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+The WebView ↔ Host Bridge is the communication backbone of SmartHopper's Chat UI. Understanding its conventions is essential when extending the chat interface, debugging threading issues, or adding new event types between JavaScript and the C# host.
+
+**You should read this if you:**
+
+- Need to extend or modify the Chat UI WebView ↔ host communication
+- Are debugging threading, serialization, or DOM update issues in the chat dialog
+- Want to understand how user actions (send, clear, cancel, copy) flow from JS to C#
+
+---
+
+## End-User Guide
+
+### Custom URL Schemes
 
 The WebView sends actions to the host by navigating to custom URL schemes (navigation is intercepted and canceled by the host):
 
-- sh://event?type=send&text=...
-- sh://event?type=clear
-- sh://event?type=cancel
-- clipboard://copy?text=...
+- `sh://event?type=send&text=...`
+- `sh://event?type=clear`
+- `sh://event?type=cancel`
+- `clipboard://copy?text=...`
 
 The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 
@@ -23,6 +48,34 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 - The `text` payload can contain newlines and markdown; it must be URL-encoded from JS before navigation.
 - Unknown keys are ignored; unrecognized `type` values log a warning and no action is performed.
 
+### Event types and lifecycle
+
+- **send**
+  - JS → host: `sh://event?type=send&text=...`
+  - Host appends user bubble immediately, then schedules `ProcessAIInteraction()` on a background task.
+  - Observer updates status/spinner and replaces the temporary loading bubble with streamed or final content.
+- **clear**
+  - JS → host: `sh://event?type=clear`
+  - Host cancels any run and clears transcript in place (`clearMessages()`), emits reset snapshot.
+- **cancel**
+  - JS → host: `sh://event?type=cancel`
+  - Host cancels current CTS.
+- **clipboard**
+  - JS → host: `clipboard://copy?text=...`
+  - Host sets system clipboard and calls `showToast('Copied to clipboard')`.
+
+### Testing checklist
+
+- Enter-to-send works; Shift+Enter inserts newline.
+- `send`, `clear`, `cancel` all execute when buttons are clicked or shortcuts are used.
+- Clipboard copy creates a toast and the data is in the OS clipboard.
+- While a run is in progress, spinner is visible and input is disabled.
+- Streaming updates incrementally replace the loading bubble; fallback to non-streaming displays final answer.
+
+---
+
+## Developer Reference
+
 ### Example (JS)
 
 ```js
@@ -30,25 +83,29 @@ The C# host handles them in `WebChatDialog.WebView_DocumentLoading(...)`.
 const raw = input.value;                    // raw text from textarea
 const encoded = encodeURIComponent(raw);    // URL-encode for transport
 window.location.href = `sh://event?type=send&text=${encoded}`;
+
 ```
 
 ```js
 // Clear transcript
 window.location.href = `sh://event?type=clear`;
+
 ```
 
 ```js
 // Cancel current run
 window.location.href = `sh://event?type=cancel`;
+
 ```
 
 ```js
 // Clipboard copy (used by code blocks)
 const payload = encodeURIComponent(textToCopy);
 window.location.href = `clipboard://copy?text=${payload}`;
+
 ```
 
-## Host-side interception flow
+### Host-side interception flow
 
 - The host subscribes to `WebView.DocumentLoading`.
 - For `sh://` and `clipboard://`, it sets `e.Cancel = true` to prevent actual navigation.
@@ -59,11 +116,12 @@ Important: To avoid re-entrancy and deadlocks in WebView during `DocumentLoading
 
 ```csharp
 Application.Instance.AsyncInvoke(() => SendMessage(text));
+
 ```
 
 This ensures scripts (e.g., `ExecuteScript(...)`) are not executed inside `DocumentLoading`.
 
-## Threading and serialization rules
+### Threading and serialization rules
 
 - All UI updates must run on Rhino's main UI thread using `Rhino.RhinoApp.InvokeOnUiThread(...)`.
 - The dialog serializes DOM updates to avoid nested WebView script execution:
@@ -71,13 +129,37 @@ This ensures scripts (e.g., `ExecuteScript(...)`) are not executed inside `Docum
   - `ExecuteScript(string)` always marshals to the UI thread and is called only after the document is fully loaded.
 - After deferring from `DocumentLoading`, host methods may safely call `ExecuteScript(...)` (e.g., `addMessage`, `setStatus`, `setProcessing`).
 
-### Performance rules
+### Example: Serializing DOM updates with a re-entrancy guard
 
-- The host drains queued DOM work in small batches and debounces drain scheduling to coalesce bursts of updates.
-- `ExecuteScript(...)` enforces a small concurrency gate to avoid piling scripts into the WebView and stalling the UI.
-- The WebView batches DOM mutations using a `requestAnimationFrame` (rAF) queue (with a small timeout fallback) so streaming updates don't trigger a DOM write per delta.
+```csharp
+public void RunWhenWebViewReady(Action action)
+{
+    if (_isExecutingScript)
+    {
+        _pendingActions.Enqueue(action);
+        return;
+    }
 
-## JS ↔ Host API
+    _isExecutingScript = true;
+    try
+    {
+        action();
+    }
+    finally
+    {
+        _isExecutingScript = false;
+        // Drain any actions that queued during execution
+        while (_pendingActions.Count > 0)
+        {
+            var next = _pendingActions.Dequeue();
+            next();
+        }
+    }
+}
+
+```
+
+### JS ↔ Host API
 
 JavaScript functions (in `chat-script.js`):
 
@@ -123,23 +205,7 @@ The WebView only applies patches when a message with the target `key` already ex
 
 - The WebView samples render-time counters (flushes, renders, slow renders, equality checks) and logs only outliers to keep overhead low.
 
-## Event types and lifecycle
-
-- send
-  - JS → host: `sh://event?type=send&text=...`
-  - Host appends user bubble immediately, then schedules `ProcessAIInteraction()` on a background task.
-  - Observer updates status/spinner and replaces the temporary loading bubble with streamed or final content.
-- clear
-  - JS → host: `sh://event?type=clear`
-  - Host cancels any run and clears transcript in place (`clearMessages()`), emits reset snapshot.
-- cancel
-  - JS → host: `sh://event?type=cancel`
-  - Host cancels current CTS.
-- clipboard
-  - JS → host: `clipboard://copy?text=...`
-  - Host sets system clipboard and calls `showToast('Copied to clipboard')`.
-
-## Error handling
+### Error handling
 
 - If an exception occurs during processing, the host:
   - Appends a system error bubble
@@ -147,16 +213,26 @@ The WebView only applies patches when a message with the target `key` already ex
   - Emits a snapshot (`ChatUpdated`)
 - Validation failures when attempting streaming are logged and the host falls back to non-streaming execution.
 
-## Testing checklist
-
-- Enter-to-send works; Shift+Enter inserts newline.
-- `send`, `clear`, `cancel` all execute when buttons are clicked or shortcuts are used.
-- Clipboard copy creates a toast and the data is in the OS clipboard.
-- While a run is in progress, spinner is visible and input is disabled.
-- Streaming updates incrementally replace the loading bubble; fallback to non-streaming displays final answer.
-
-## Security considerations
+### Security considerations
 
 - Only `sh://event` and `clipboard://copy` are handled. All other schemes are ignored or allowed to navigate normally.
 - The host never executes arbitrary JS received from the page; it only injects known safe JS functions under our control.
 - User message text is treated as data and rendered as HTML via `HtmlChatRenderer` with Markdown conversion (avoid raw HTML injection from user content).
+
+---
+
+## Architecture & Design
+
+The bridge is designed around a strict separation of concerns: JavaScript owns rendering and user input, while the C# host owns AI orchestration, threading, and state. Communication is unidirectional via intercepted navigation because it is simple, synchronous, and requires no extra WebView APIs.
+
+**Threading model:**
+
+- JS events are emitted on the WebView's renderer thread.
+- `DocumentLoading` fires on the UI thread, but the handler must defer work to avoid re-entrancy.
+- All DOM mutations are funneled through a serialized queue with a re-entrancy guard, and Rhino's main UI thread is used for all WebView script execution.
+
+**Performance design:**
+
+- The host drains queued DOM work in small batches and debounces drain scheduling to coalesce bursts of updates.
+- `ExecuteScript(...)` enforces a small concurrency gate to avoid piling scripts into the WebView and stalling the UI.
+- The WebView batches DOM mutations using a `requestAnimationFrame` (rAF) queue (with a small timeout fallback) so streaming updates don't trigger a DOM write per delta.

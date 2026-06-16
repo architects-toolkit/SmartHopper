@@ -504,8 +504,9 @@ namespace SmartHopper.Infrastructure.Settings
             try
             {
                 // Try to retrieve existing key first
+                // 256-bit key expected
                 var existingKey = GetSecureData(keyName);
-                if (existingKey != null && existingKey.Length == 32) // 256-bit key
+                if (existingKey != null && existingKey.Length == 32)
                 {
                     Debug.WriteLine("[SecureStore] Retrieved existing encryption key from OS secure store");
                     return existingKey;

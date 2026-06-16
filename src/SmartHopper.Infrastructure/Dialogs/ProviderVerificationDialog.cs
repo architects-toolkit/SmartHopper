@@ -45,9 +45,9 @@ namespace SmartHopper.Infrastructure.Dialogs
 
         public ProviderVerificationDialog(Dictionary<string, ProviderVerificationResult> results, string version, string platform)
         {
-            _results = results;
-            _version = version;
-            _platform = platform;
+            this._results = results;
+            this._version = version;
+            this._platform = platform;
 
             this.Title = "Provider Verification - SmartHopper";
             this.Resizable = false;
@@ -64,7 +64,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                 }
             }
 
-            this.Content = BuildContent();
+            this.Content = this.BuildContent();
         }
 
         private Control BuildContent()
@@ -74,10 +74,10 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Spacing = 15,
                 Items =
                 {
-                    BuildHeaderPanel(),
-                    BuildDescriptionPanel(),
-                    BuildResultsPanel(),
-                    BuildSummaryPanel(),
+                    this.BuildHeaderPanel(),
+                    this.BuildDescriptionPanel(),
+                    this.BuildResultsPanel(),
+                    this.BuildSummaryPanel(),
                 }
             };
 
@@ -95,7 +95,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Rows =
                 {
                     new TableRow(scrollable) { ScaleHeight = true },
-                    new TableRow(BuildButtonPanel())
+                    new TableRow(this.BuildButtonPanel())
                 }
             };
         }
@@ -111,7 +111,7 @@ namespace SmartHopper.Infrastructure.Dialogs
 
             var infoLabel = new Label
             {
-                Text = $"Version: {_version}  |  Platform: {_platform}",
+                Text = $"Version: {this._version}  |  Platform: {this._platform}",
                 Font = new Font(SystemFont.Default, 10),
                 TextColor = SystemColors.DisabledText,
             };
@@ -160,9 +160,9 @@ namespace SmartHopper.Infrastructure.Dialogs
                 Items = { }
             };
 
-            foreach (var result in _results)
+            foreach (var result in this._results)
             {
-                resultsList.Items.Add(BuildProviderResultItem(result.Key, result.Value));
+                resultsList.Items.Add(this.BuildProviderResultItem(result.Key, result.Value));
             }
 
             var scrollable = new Scrollable
@@ -178,9 +178,9 @@ namespace SmartHopper.Infrastructure.Dialogs
 
         private Control BuildProviderResultItem(string dllName, ProviderVerificationResult verification)
         {
-            string statusText = "";
+            string statusText = string.Empty;
             Color statusColor = Colors.Black;
-            string tooltip = "";
+            string tooltip = string.Empty;
 
             switch (verification.Status)
             {
@@ -236,13 +236,13 @@ namespace SmartHopper.Infrastructure.Dialogs
                     verification.LocalHash == verification.PublicHash)
                 {
                     // For verified providers with matching hashes, show only one hash
-                    var hashLabel = CreateClickableHashLabel($"Hash: {verification.LocalHash}", verification.LocalHash);
+                    var hashLabel = this.CreateClickableHashLabel($"Hash: {verification.LocalHash}", verification.LocalHash);
                     detailsLayout.Items.Add(hashLabel);
                 }
                 else
                 {
                     // For other statuses, show local hash inline
-                    var localHashLabel = CreateClickableHashLabel($"Local: {verification.LocalHash}", verification.LocalHash);
+                    var localHashLabel = this.CreateClickableHashLabel($"Local: {verification.LocalHash}", verification.LocalHash);
                     detailsLayout.Items.Add(localHashLabel);
                 }
             }
@@ -252,7 +252,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                   verification.LocalHash == verification.PublicHash))
             {
                 // Show expected hash inline (only when different from local)
-                var expectedHashLabel = CreateClickableHashLabel($"Expected: {verification.PublicHash}", verification.PublicHash);
+                var expectedHashLabel = this.CreateClickableHashLabel($"Expected: {verification.PublicHash}", verification.PublicHash);
                 detailsLayout.Items.Add(expectedHashLabel);
             }
 
@@ -351,7 +351,7 @@ namespace SmartHopper.Infrastructure.Dialogs
             int unavailableCount = 0;
             int notFoundCount = 0;
 
-            foreach (var result in _results.Values)
+            foreach (var result in this._results.Values)
             {
                 switch (result.Status)
                 {
@@ -373,12 +373,12 @@ namespace SmartHopper.Infrastructure.Dialogs
             var summaryItems = new StackLayout
             {
                 Spacing = 5,
-                Items = { }
+                Items = { },
             };
 
             summaryItems.Items.Add(new Label
             {
-                Text = $"Total Providers: {_results.Count}",
+                Text = $"Total Providers: {this._results.Count}",
                 Font = new Font(SystemFont.Bold, 11),
             });
 
@@ -437,7 +437,7 @@ namespace SmartHopper.Infrastructure.Dialogs
 
             // Add "Which are the risks?" button if there are mismatches
             bool hasMismatches = false;
-            foreach (var result in _results.Values)
+            foreach (var result in this._results.Values)
             {
                 if (result.Status == ProviderVerificationStatus.Mismatch)
                 {

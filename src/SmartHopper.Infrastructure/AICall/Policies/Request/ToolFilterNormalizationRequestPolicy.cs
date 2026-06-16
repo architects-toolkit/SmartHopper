@@ -52,8 +52,8 @@ namespace SmartHopper.Infrastructure.AICall.Policies.Request
                 var builder = AIBodyBuilder.FromImmutable(rq.Body)
                     .WithToolFilter(normalized);
 
-                // Attach a light diagnostic to the request body for traceability
-                // Use AIInteractionError so it can be surfaced in UI but skipped by providers during encoding
+                // Attach a light diagnostic to the request body for traceability.
+                // Diagnostics are surfaced to the UI but skipped by providers during encoding.
                 if (string.IsNullOrWhiteSpace(raw))
                 {
                     builder = builder.AddError($"Tool filter was empty; interpreted as '{normalized}'.");

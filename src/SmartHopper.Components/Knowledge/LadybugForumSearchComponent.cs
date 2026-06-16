@@ -33,6 +33,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
@@ -43,9 +44,9 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("B3C4D5E6-F7A8-4B9C-0D1E-2F3A4B5C6D7E");
 
-        protected override Bitmap Icon => Resources.mcneelforumsearch;
+        protected override Bitmap Icon => Resources.ladybugforumsearch;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
         {
@@ -58,7 +59,7 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "LadybugForum Search",
                   "LadybugSearch",
-                  "Search Ladybug Tools Discourse forum posts by query and return raw JSON results.",
+                  "Search for Ladybug Tools Discourse forum posts by query string.",
                   "SmartHopper",
                   "Knowledge")
         {
@@ -68,7 +69,6 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Query", "Q", "REQUIRED search query or queries for the Ladybug Tools Discourse forum.", GH_ParamAccess.tree);
-            pManager.AddIntegerParameter("Limit", "L", "Maximum number of posts to return per query (default: 10, max: 50).", GH_ParamAccess.item, 10);
         }
 
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -78,7 +78,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new LadybugForumSearchWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new LadybugForumSearchWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class LadybugForumSearchWorker : AsyncWorkerBase
@@ -86,7 +86,6 @@ namespace SmartHopper.Components.Knowledge
             private readonly LadybugForumSearchComponent parent;
             private readonly ProcessingOptions processingOptions;
             private Dictionary<string, GH_Structure<GH_String>> inputTrees;
-            private int limit;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultPosts;
@@ -105,15 +104,11 @@ namespace SmartHopper.Components.Knowledge
             {
                 var queryTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("Query", out queryTree);
-                int localLimit = 10;
-                DA.GetData(1, ref localLimit);
 
                 this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Query", queryTree ?? new GH_Structure<GH_String>() },
                 };
-
-                this.limit = localLimit;
 
                 this.hasWork = queryTree != null && queryTree.DataCount > 0;
                 if (!this.hasWork)
@@ -121,7 +116,7 @@ namespace SmartHopper.Components.Knowledge
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Query is required.");
                 }
 
-                Debug.WriteLine($"[LadybugForumSearchWorker] GatherInput - QueryTreeCount={queryTree?.DataCount ?? 0}, Limit={this.limit}, HasWork={this.hasWork}");
+                Debug.WriteLine($"[LadybugForumSearchWorker] GatherInput - QueryTreeCount={queryTree?.DataCount ?? 0}, HasWork={this.hasWork}");
 
                 dataCount = 0;
             }
@@ -158,11 +153,10 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                Debug.WriteLine($"[LadybugForumSearchWorker] DoWorkAsync starting. Query='{queryValue}', Limit={this.limit}");
+                                Debug.WriteLine($"[LadybugForumSearchWorker] DoWorkAsync starting. Query='{queryValue}'");
                                 var parameters = new JObject
                                 {
                                     ["query"] = queryValue,
-                                    ["limit"] = this.limit,
                                 };
 
                                 var toolCallInteraction = new AIInteractionToolCall
@@ -188,7 +182,7 @@ namespace SmartHopper.Components.Knowledge
                                 catch (Exception ex)
                                 {
                                     Debug.WriteLine($"[LadybugForumSearchWorker] Error executing tool: {ex}");
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                                     continue;
                                 }
 
@@ -198,21 +192,10 @@ namespace SmartHopper.Components.Knowledge
                                     Debug.WriteLine($"[LadybugForumSearchWorker] Body interactions count={aiResult.Body.Interactions?.Count ?? 0}");
                                 }
 
-                                var toolResultInteraction = aiResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                                if (toolResultInteraction == null)
+                                var toolResult = ToolCallResult.FromAIReturn(aiResult);
+                                if (toolResult.Result == null)
                                 {
-                                    Debug.WriteLine("[LadybugForumSearchWorker] toolResultInteraction is null.");
-                                }
-                                else
-                                {
-                                    Debug.WriteLine($"[LadybugForumSearchWorker] toolResultInteraction.Result is {(toolResultInteraction.Result == null ? "null" : "non-null")}.");
-                                }
-
-                                var toolResult = toolResultInteraction?.Result;
-
-                                if (toolResult == null)
-                                {
-                                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'ladybug_forum_search' returned no result.");
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Error, "Tool 'ladybug_forum_search' returned no result.", SHRuntimeMessageOrigin.Tool);
                                     continue;
                                 }
 
@@ -238,7 +221,7 @@ namespace SmartHopper.Components.Knowledge
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[LadybugForumSearchWorker] Error: {ex}");
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 

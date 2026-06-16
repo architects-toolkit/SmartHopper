@@ -24,10 +24,12 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
@@ -35,6 +37,7 @@ using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.JsonSchemas;
 using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Streaming;
 
 namespace SmartHopper.Providers.OpenRouter
@@ -42,7 +45,7 @@ namespace SmartHopper.Providers.OpenRouter
     /// <summary>
     /// OpenRouter provider implementation using the Chat Completions API (OpenAI-compatible).
     /// Provides access to multiple AI models through a unified interface.
-    /// Text-only; image generation is not supported.
+    /// Supports text and vision input; image generation is handled via the img_generate tool.
     /// </summary>
     public sealed class OpenRouterProvider : AIProvider<OpenRouterProvider>
     {
@@ -167,7 +170,10 @@ namespace SmartHopper.Providers.OpenRouter
                 int tx = request.Body.Interactions?.Count(i => i is AIInteractionText) ?? 0;
                 Debug.WriteLine($"[OpenRouter] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #endif
 
             // Build messages from interactions
@@ -241,7 +247,26 @@ namespace SmartHopper.Providers.OpenRouter
                 if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
                     body["top_logprobs"] = topLogprobsToken.Value<int?>();
                 if (p.Extras.TryGetValue("enable_caching", out var enableCachingToken) && enableCachingToken?.Value<bool>() == true)
-                    body["cache_control"] = new JObject { ["type"] = "ephemeral" };
+                {
+                    // Top-level cache_control is Anthropic-specific (automatic caching).
+                    // Sending it for other models is undocumented and restricts OpenRouter routing,
+                    // so only emit it for Anthropic models. Other providers (OpenAI, DeepSeek,
+                    // Grok, Groq, Gemini 2.5) cache automatically without any request changes.
+                    if (request.Model?.StartsWith("anthropic/", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        body["cache_control"] = new JObject { ["type"] = "ephemeral" };
+                    }
+
+                    // Stable session_id enables OpenRouter provider sticky routing from the first
+                    // request, keeping subsequent requests on the same provider endpoint so prompt
+                    // caches stay warm. Derived from model + first system text so all requests
+                    // sharing the same stable prefix land on the same endpoint.
+                    var sessionId = ComputeSessionId(request.Model, mergedInteractions);
+                    if (!string.IsNullOrEmpty(sessionId))
+                    {
+                        body["session_id"] = sessionId;
+                    }
+                }
             }
 
             // Add tools if requested
@@ -251,7 +276,21 @@ namespace SmartHopper.Providers.OpenRouter
                 if (tools != null && tools.Count > 0)
                 {
                     body["tools"] = tools;
-                    body["tool_choice"] = "auto";
+
+                    // Handle forced tool call: OpenRouter uses tool_choice with type and function name (OpenAI-compatible)
+                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
+                    {
+                        body["tool_choice"] = new JObject
+                        {
+                            ["type"] = "function",
+                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
+                        };
+                        Debug.WriteLine($"[OpenRouter] Forcing tool call: {request.ForceToolName}");
+                    }
+                    else
+                    {
+                        body["tool_choice"] = "auto";
+                    }
                 }
             }
 
@@ -310,7 +349,10 @@ namespace SmartHopper.Providers.OpenRouter
                 Debug.WriteLine($"[OpenRouter] Request body:");
                 Debug.WriteLine(body.ToString(Newtonsoft.Json.Formatting.Indented));
             }
-            catch { }
+            catch
+            {
+                // Intentionally empty
+            }
 #else
             Debug.WriteLine($"[OpenRouter] Request: {body}");
 #endif
@@ -334,6 +376,38 @@ namespace SmartHopper.Providers.OpenRouter
         }
 
         /// <summary>
+        /// Computes a stable session identifier for OpenRouter provider sticky routing.
+        /// Derived from the model name and the first system/context text so that all
+        /// requests sharing the same stable prompt prefix are routed to the same
+        /// provider endpoint, keeping prompt caches warm across requests.
+        /// </summary>
+        /// <param name="model">The requested model name.</param>
+        /// <param name="interactions">The merged interactions of the request body.</param>
+        /// <returns>A stable hash-based session id, or an empty string when no seed content is available.</returns>
+        private static string ComputeSessionId(string? model, IEnumerable<IAIInteraction> interactions)
+        {
+            try
+            {
+                var firstSystem = interactions?
+                    .OfType<AIInteractionText>()
+                    .FirstOrDefault(i => i.Agent == AIAgent.System || i.Agent == AIAgent.Context);
+                var seed = (model ?? string.Empty) + "\n" + (firstSystem?.Content ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(seed))
+                {
+                    return string.Empty;
+                }
+
+                using var sha = SHA256.Create();
+                var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(seed));
+                return "sh-" + Convert.ToHexString(hash).ToLowerInvariant();
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
         /// Converts a single interaction to an OpenRouter message object (JToken).
         /// Returns null for interactions that should not be sent (e.g., UI-only errors).
         /// </summary>
@@ -345,7 +419,7 @@ namespace SmartHopper.Providers.OpenRouter
             }
 
             // UI-only diagnostics must not be sent to providers
-            if (interaction is AIInteractionError)
+            if (interaction is AIInteractionRuntimeMessage)
             {
                 return null;
             }
@@ -409,28 +483,48 @@ namespace SmartHopper.Providers.OpenRouter
                 };
                 obj["tool_calls"] = new JArray { toolCallObj };
 
-                // For reasoning-enabled models (o-series via OpenRouter), include reasoning in content array
+                // For reasoning-enabled models, emit reasoning in the official OpenRouter field
                 if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
+                {
+                    obj["reasoning"] = toolCallInteraction.Reasoning;
+                }
+
+                obj["content"] = string.Empty;
+            }
+            else if (interaction is AIInteractionImage imageInteraction)
+            {
+                // OpenRouter supports vision via OpenAI-compatible image_url format
+                string imageUrlValue = null;
+
+                if (imageInteraction.ImageUrl != null)
+                {
+                    imageUrlValue = imageInteraction.ImageUrl.ToString();
+                }
+                else if (!string.IsNullOrWhiteSpace(imageInteraction.ImageData))
+                {
+                    var mimeType = imageInteraction.MimeType ?? "image/png";
+                    imageUrlValue = $"data:{mimeType};base64,{imageInteraction.ImageData}";
+                }
+
+                if (imageUrlValue != null)
                 {
                     var contentArray = new JArray
                     {
                         new JObject
                         {
-                            ["type"] = "reasoning",
-                            ["text"] = toolCallInteraction.Reasoning,
+                            ["type"] = "image_url",
+                            ["image_url"] = new JObject
+                            {
+                                ["url"] = imageUrlValue,
+                            },
                         },
                     };
                     obj["content"] = contentArray;
                 }
                 else
                 {
-                    obj["content"] = string.Empty;
+                    obj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
                 }
-            }
-            else if (interaction is AIInteractionImage)
-            {
-                // OpenRouter text-only: ignore images but keep placeholder note
-                obj["content"] = "[image content omitted: provider supports text only]";
             }
             else
             {
@@ -452,6 +546,18 @@ namespace SmartHopper.Providers.OpenRouter
 
             try
             {
+                // Handle provider error responses (e.g. batch items with status_code 4xx/5xx).
+                // OpenRouter is OpenAI-compatible: {"error": {"message": "...", "code": "..."}}
+                if (response["error"] is JObject errorObj)
+                {
+                    var errMsg = errorObj["message"]?.ToString()
+                              ?? errorObj["code"]?.ToString()
+                              ?? "Provider returned an error";
+                    Debug.WriteLine($"[OpenRouter] Decode: provider error in response body: {errMsg}");
+                    interactions.Add(new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = errMsg });
+                    return interactions;
+                }
+
                 // OpenRouter response format
                 var choices = response["choices"] as JArray;
                 var firstChoice = choices?.FirstOrDefault() as JObject;
@@ -495,6 +601,38 @@ namespace SmartHopper.Providers.OpenRouter
                 else if (contentToken != null)
                 {
                     content = contentToken.ToString() ?? string.Empty;
+                }
+
+                // Extract reasoning from official OpenRouter fields (preferred over legacy content-array)
+                var reasoningToken = message["reasoning"];
+                if (reasoningToken != null && !string.IsNullOrEmpty(reasoningToken.ToString()))
+                {
+                    reasoning = reasoningToken.ToString();
+                }
+
+                var reasoningDetails = message["reasoning_details"] as JArray;
+                if (reasoningDetails != null && reasoningDetails.Count > 0)
+                {
+                    var reasoningParts = new List<string>();
+                    foreach (var detail in reasoningDetails.OfType<JObject>())
+                    {
+                        var detailType = detail["type"]?.ToString();
+                        if (string.Equals(detailType, "reasoning.text", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var text = detail["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(text)) reasoningParts.Add(text);
+                        }
+                        else if (string.Equals(detailType, "reasoning.summary", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var summary = detail["summary"]?.ToString();
+                            if (!string.IsNullOrEmpty(summary)) reasoningParts.Add(summary);
+                        }
+                    }
+
+                    if (reasoningParts.Count > 0)
+                    {
+                        reasoning = string.Join("\n\n", reasoningParts);
+                    }
                 }
 
                 var result = new AIInteractionText();
@@ -593,7 +731,8 @@ namespace SmartHopper.Providers.OpenRouter
         /// </summary>
         private sealed class OpenRouterStreamingAdapter : AIProviderStreamingAdapter, IStreamingAdapter
         {
-            public OpenRouterStreamingAdapter(OpenRouterProvider provider) : base(provider)
+            public OpenRouterStreamingAdapter(OpenRouterProvider provider)
+                : base(provider)
             {
             }
 
@@ -683,8 +822,17 @@ namespace SmartHopper.Providers.OpenRouter
                 if (!response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    var (message, isNetworkLike) = AIProvider.ClassifyHttpError((int)response.StatusCode, response.ReasonPhrase, content, this.Provider.Name);
                     var err = new AIReturn();
-                    err.CreateProviderError($"HTTP {(int)response.StatusCode}: {content}", request);
+                    if (isNetworkLike)
+                    {
+                        err.CreateNetworkError(message, request);
+                    }
+                    else
+                    {
+                        err.CreateProviderError(message, request);
+                    }
+
                     yield return err;
                     yield break;
                 }
@@ -771,8 +919,8 @@ namespace SmartHopper.Providers.OpenRouter
                     yield return initial;
                 }
 
-                // Determine idle timeout from request (fallback to 60s if invalid)
-                var idleTimeout = TimeSpan.FromSeconds(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : 60);
+                // Determine idle timeout from request; fall back to shared default if invalid.
+                var idleTimeout = TimeSpan.FromSeconds((double)(request.TimeoutSeconds > 0 ? request.TimeoutSeconds : TimeoutDefaults.DefaultTimeoutSeconds));
                 await foreach (var data in this.ReadSseDataAsync(
                     response,
                     idleTimeout,
@@ -827,12 +975,18 @@ namespace SmartHopper.Providers.OpenRouter
 
                             // Force immediate first emit for snappy UX
                             var emitted = await FlushAsync(force: true).ConfigureAwait(false);
-                            foreach (var d in emitted) { yield return d; }
+                            foreach (var d in emitted)
+                            {
+                                yield return d;
+                            }
                         }
                         else
                         {
                             var emitted = await FlushAsync(force: false).ConfigureAwait(false);
-                            foreach (var d in emitted) { yield return d; }
+                            foreach (var d in emitted)
+                            {
+                                yield return d;
+                            }
                         }
                     }
 
@@ -867,7 +1021,10 @@ namespace SmartHopper.Providers.OpenRouter
 
                         // If we know we're heading to tool calls, flush text first
                         var emittedTc = await FlushAsync(force: true).ConfigureAwait(false);
-                        foreach (var d in emittedTc) { yield return d; }
+                        foreach (var d in emittedTc)
+                        {
+                            yield return d;
+                        }
 
                         // Emit current tool call snapshot with CallingTools status
                         var interactions = new List<IAIInteraction>();
@@ -876,7 +1033,18 @@ namespace SmartHopper.Providers.OpenRouter
                             var (id, name, argsSb) = kv.Value;
                             JObject argsObj = null;
                             var argsStr = argsSb.ToString();
-                            try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON, ignore */ }
+                            try
+                            {
+                                if (!string.IsNullOrWhiteSpace(argsStr))
+                                {
+                                    argsObj = JObject.Parse(argsStr);
+                                }
+                            }
+                            catch
+                            {
+                                // Partial JSON, ignore
+                            }
+
                             interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
                         }
 
@@ -888,7 +1056,10 @@ namespace SmartHopper.Providers.OpenRouter
 
                 // Final flush
                 var finalEmitted = await FlushAsync(force: true).ConfigureAwait(false);
-                foreach (var d in finalEmitted) { yield return d; }
+                foreach (var d in finalEmitted)
+                {
+                    yield return d;
+                }
 
                 // Emit final Finished marker with the complete assistant interaction
                 var final = new AIReturn
@@ -939,7 +1110,18 @@ namespace SmartHopper.Providers.OpenRouter
                     var (id, name, argsSb) = kv.Value;
                     JObject argsObj = null;
                     var argsStr = argsSb.ToString();
-                    try { if (!string.IsNullOrWhiteSpace(argsStr)) argsObj = JObject.Parse(argsStr); } catch { /* partial JSON */ }
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(argsStr))
+                        {
+                            argsObj = JObject.Parse(argsStr);
+                        }
+                    }
+                    catch
+                    {
+                        // Partial JSON
+                    }
+
                     finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
                 }
 
@@ -954,56 +1136,98 @@ namespace SmartHopper.Providers.OpenRouter
             return new[]
             {
                 // General parameters (shared across providers)
-                new AIExtraDescriptor("seed", "Seed",
+                new AIExtraDescriptor(
+                    "seed",
+                    "Seed",
                     "Reproducibility seed for deterministic sampling. Use the same seed to get similar outputs. Leave empty for random.",
-                    typeof(int), null),
-                new AIExtraDescriptor("top_p", "Top P",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "top_p",
+                    "Top P",
                     "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
-                    typeof(double), null),
-                new AIExtraDescriptor("top_k", "Top K",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "top_k",
+                    "Top K",
                     "Only sample from the top K options for each token. Lower values make output more focused.",
-                    typeof(int), null),
-                new AIExtraDescriptor("frequency_penalty", "Frequency Penalty",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "frequency_penalty",
+                    "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
-                    typeof(double), null),
-                new AIExtraDescriptor("presence_penalty", "Presence Penalty",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "presence_penalty",
+                    "Presence Penalty",
                     "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
-                    typeof(double), null),
+                    typeof(double),
+                    null),
 
                 // OpenRouter-specific parameters
-                new AIExtraDescriptor("repetition_penalty", "Repetition Penalty",
+                new AIExtraDescriptor(
+                    "repetition_penalty",
+                    "Repetition Penalty",
                     "Alternative penalty for repeated tokens (0.0–2.0). Higher values reduce repetition more strongly.",
-                    typeof(double), null),
-                new AIExtraDescriptor("min_p", "Min P",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "min_p",
+                    "Min P",
                     "Minimum probability for token sampling (0.0–1.0). Tokens below this threshold are ignored.",
-                    typeof(double), null),
-                new AIExtraDescriptor("top_a", "Top A",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "top_a",
+                    "Top A",
                     "Alternative nucleus sampling method. Threshold based on probability of most likely token.",
-                    typeof(double), null),
-                new AIExtraDescriptor("logprobs", "Log Probabilities",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "logprobs",
+                    "Log Probabilities",
                     "Return log probabilities of output tokens. Useful for analyzing model confidence.",
-                    typeof(bool), null),
-                new AIExtraDescriptor("top_logprobs", "Top Logprobs",
+                    typeof(bool),
+                    null),
+                new AIExtraDescriptor(
+                    "top_logprobs",
+                    "Top Logprobs",
                     "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
-                    typeof(int), null),
+                    typeof(int),
+                    null),
 
                 // Provider selection settings
-                new AIExtraDescriptor("allow_fallback", "Allow Fallback",
+                new AIExtraDescriptor(
+                    "allow_fallback",
+                    "Allow Fallback",
                     "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
-                    typeof(bool), null),
-                new AIExtraDescriptor("sort", "Sort",
+                    typeof(bool),
+                    null),
+                new AIExtraDescriptor(
+                    "sort",
+                    "Sort",
                     "Provider routing sort order: 'price' (cheapest), 'throughput' (fastest), or 'latency' (lowest latency).",
-                    typeof(string), "price",
+                    typeof(string),
+                    "price",
                     new[] { "price", "throughput", "latency" }),
-                new AIExtraDescriptor("data_collection", "Data Collection",
+                new AIExtraDescriptor(
+                    "data_collection",
+                    "Data Collection",
                     "Whether to allow provider to collect data from requests: 'allow' or 'deny'.",
-                    typeof(string), "deny",
+                    typeof(string),
+                    "deny",
                     new[] { "allow", "deny" }),
 
                 // OpenRouter prompt caching parameters
-                new AIExtraDescriptor("enable_caching", "Enable Prompt Caching",
-                    "Adds cache_control to the request body, enabling prompt caching for supported providers routed through OpenRouter.",
-                    typeof(bool), null),
+                new AIExtraDescriptor(
+                    "enable_caching",
+                    "Enable Prompt Caching",
+                    "Enables prompt caching optimizations: adds automatic cache_control for Anthropic models and a stable session_id for provider sticky routing so repeated requests stay on the same endpoint. OpenAI, DeepSeek, Grok, Groq, and Gemini 2.5 models cache automatically regardless of this setting.",
+                    typeof(bool),
+                    null),
             };
         }
     }

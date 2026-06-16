@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorBroadcastDeeperDiffRootTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("D659A768-A076-4946-80B9-A8AD99D4F740");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public DataTreeProcessorBroadcastDeeperDiffRootTestComponent()
-            : base("Test Broadcast (Deeper Diff Root)", "TEST-BC-DEEP-ROOT1",
-                  "Tests flat {0} broadcasting to deeper paths {1;0},{1;1}",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test Broadcast (Deeper Diff Root)",
+                "TEST-BC-DEEP-ROOT1",
+                "Tests flat {0} broadcasting to deeper paths {1;0},{1;1}",
+                "SmartHopper Tests",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -58,7 +63,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorBroadcastDeeperDiffRootTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -132,38 +137,38 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
-                        _resultTree = outTree;
+                    if (result != null && result.Outputs.TryGetValue("Result", out var outTree) && outTree != null)
+                        this._resultTree = outTree;
 
                     // Expected: A broadcasts to {1;0} and {1;1}
                     // {1;0}: 7 * 10 = 70
                     // {1;1}: 7 * 20 = 140
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 2 &&
-                        _resultTree.get_Branch(path10) != null && _resultTree.get_Branch(path10).Count == 1 &&
-                        _resultTree.get_Branch(path10)[0] is GH_Integer v10 && v10.Value == 70 &&
-                        _resultTree.get_Branch(path11) != null && _resultTree.get_Branch(path11).Count == 1 &&
-                        _resultTree.get_Branch(path11)[0] is GH_Integer v11 && v11.Value == 140;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 2 &&
+                        this._resultTree.get_Branch(path10) != null && this._resultTree.get_Branch(path10).Count == 1 &&
+                        this._resultTree.get_Branch(path10)[0] is GH_Integer v10 && v10.Value == 70 &&
+                        this._resultTree.get_Branch(path11) != null && this._resultTree.get_Branch(path11).Count == 1 &&
+                        this._resultTree.get_Branch(path11)[0] is GH_Integer v11 && v11.Value == 140;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Case 7&8: A={{0}} [7], B={{1;0}} [10], {{1;1}} [20]. Expected: A broadcasts to deeper paths under different root (Rule 3)."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"Case 7&8: A={{0}} [7], B={{1;0}} [10], {{1;1}} [20]. Expected: A broadcasts to deeper paths under different root (Rule 3)."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Broadcast to deeper different root test passed" : "Test failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Broadcast to deeper different root test passed" : "Test failed";
             }
         }
     }

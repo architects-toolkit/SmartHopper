@@ -21,6 +21,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Returns
 {
@@ -59,12 +60,12 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// These are informational, warning, or error notes that should be surfaced by components.
         /// Expected format uses prefixes, e.g. "(Error) ...", "(Warning) ...", "(Info) ...".
         /// </summary>
-        List<AIRuntimeMessage> Messages { get; set; }
+        List<SHRuntimeMessage> Messages { get; set; }
 
         /// <summary>
         /// Value indicating whether the structure of this IAIReturn is valid.
         /// </summary>
-        (bool IsValid, List<AIRuntimeMessage> Errors) IsValid();
+        (bool IsValid, List<SHRuntimeMessage> Errors) IsValid();
 
         /// <summary>
         /// Sets the body of the result.
@@ -102,7 +103,7 @@ namespace SmartHopper.Infrastructure.AICall.Core.Returns
         /// <param name="severity">The message severity.</param>
         /// <param name="origin">The message origin.</param>
         /// <param name="text">The message text.</param>
-        void AddRuntimeMessage(AIRuntimeMessageSeverity severity, AIRuntimeMessageOrigin origin, string text);
+        void AddRuntimeMessage(SHRuntimeMessageSeverity severity, SHRuntimeMessageOrigin origin, string text);
 
         /// <summary>
         /// Sets the completion time to the last interaction.

@@ -1,0 +1,258 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024-2026 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.AICall.Batch;
+using SmartHopper.Infrastructure.AICall.Core;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIProviders;
+
+namespace SmartHopper.Components.Test.Providers
+{
+    /// <summary>
+    /// Test component for Anthropic batch API call.
+    /// </summary>
+    public class TestAnthropicBatchCallComponent : AIStatefulAsyncComponentBase
+    {
+        public override Guid ComponentGuid => new Guid("963561E5-8242-4B9F-AF16-16635E173401");
+
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+
+        public TestAnthropicBatchCallComponent()
+            : base("Test Anthropic Batch Call", "TEST-ANTHROPIC-BATCH", "Tests Anthropic batch API call with service_tier=batch and metrics validation", "SmartHopper Tests", "Testing Providers")
+        {
+            this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("Anthropic");
+        }
+
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        {
+        }
+
+        protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddBooleanParameter("Call Success", "CS", "Batch API call succeeded", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Metrics Valid", "MV", "Metrics structure is valid", GH_ParamAccess.item);
+            pManager.AddTextParameter("Messages", "M", "Test messages", GH_ParamAccess.list);
+        }
+
+        protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
+        {
+            return new Worker(this, this.AddRuntimeMessage);
+        }
+
+        private sealed class Worker : AsyncWorkerBase
+        {
+            private GH_Boolean _callSuccess = new GH_Boolean(false);
+            private GH_Boolean _metricsValid = new GH_Boolean(false);
+            private List<GH_String> _messages = new List<GH_String>();
+            private readonly TestAnthropicBatchCallComponent _parent;
+
+            public Worker(TestAnthropicBatchCallComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                : base(parent, addRuntimeMessage)
+            {
+                this._parent = parent;
+            }
+
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
+            {
+                dataCount = 1;
+            }
+
+            public override async Task DoWorkAsync(CancellationToken token)
+            {
+                bool callSuccess = false;
+                bool metricsValid = false;
+                AIReturn result = null;
+
+                try
+                {
+                    // Build the test request for batch API
+                    var call = new AIRequestCall();
+                    var builder = AIBodyBuilder.FromImmutable(call.Body);
+                    builder.Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.User,
+                        Content = "Say 'batch test' in two words."
+                    });
+                    call.Body = builder.Build();
+                    call.Parameters = new AIRequestParameters
+                    {
+                        Model = this._parent.GetModel(),
+                    };
+
+                    // Resolve provider and verify it supports batch
+                    var provider = ProviderManager.Instance.GetProvider("Anthropic");
+                    if (provider == null)
+                    {
+                        this._messages.Add(new GH_String("Anthropic provider not found"));
+                        this._callSuccess = new GH_Boolean(false);
+                        this._metricsValid = new GH_Boolean(false);
+                        return;
+                    }
+
+                    if (provider is not IAIBatchProvider batchProvider)
+                    {
+                        this._messages.Add(new GH_String("Anthropic provider does not implement IAIBatchProvider"));
+                        this._callSuccess = new GH_Boolean(false);
+                        this._metricsValid = new GH_Boolean(false);
+                        return;
+                    }
+
+                    // Submit batch job via the true Batch API
+                    var customId = AIBatchSubmission.GenerateCustomId("test-batch", 0);
+                    var items = new List<(string CustomId, AIRequestCall Request)>
+                    {
+                        (customId, call),
+                    };
+
+                    this._messages.Add(new GH_String("Submitting batch job..."));
+                    var submission = await batchProvider.SubmitBatchAsync(items, token).ConfigureAwait(false);
+                    this._messages.Add(new GH_String($"Batch submitted: {submission.BatchId}"));
+
+                    // Poll until completion
+                    AIBatchStatus status = null;
+                    var timeout = TimeSpan.FromSeconds(call.TimeoutSeconds ?? TimeoutDefaults.DefaultTimeoutSeconds);
+                    var start = DateTime.UtcNow;
+                    while (DateTime.UtcNow - start < timeout)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
+                        status = await batchProvider.GetBatchStatusAsync(submission, token).ConfigureAwait(false);
+                        this._messages.Add(new GH_String($"Poll: {status.State}"));
+
+                        if (status.State == AIBatchState.Completed)
+                        {
+                            break;
+                        }
+
+                        if (status.State == AIBatchState.Failed ||
+                            status.State == AIBatchState.Cancelled ||
+                            status.State == AIBatchState.Expired)
+                        {
+                            break;
+                        }
+                    }
+
+                    if (status == null || status.State != AIBatchState.Completed)
+                    {
+                        this._messages.Add(new GH_String($"Batch did not complete successfully: {status?.State.ToString() ?? "unknown"}"));
+                        if (status?.Messages?.Count > 0)
+                        {
+                            foreach (var msg in status.Messages)
+                            {
+                                this._messages.Add(new GH_String($"Batch item error: {msg.Message}"));
+                            }
+                        }
+
+                        this._callSuccess = new GH_Boolean(false);
+                        this._metricsValid = new GH_Boolean(false);
+                        return;
+                    }
+
+                    // Decode the batch result body
+                    if (status.Results != null && status.Results.TryGetValue(customId, out var resultBody))
+                    {
+                        var decoded = provider.Decode(resultBody);
+                        if (decoded != null && decoded.Count > 0)
+                        {
+                            callSuccess = true;
+                            var lastText = decoded.OfType<AIInteractionText>().LastOrDefault();
+                            var responseText = lastText?.Content ?? "No text response";
+                            this._messages.Add(new GH_String($"Batch result: {responseText}"));
+
+                            // Build an AIReturn from decoded interactions for metrics/output
+                            result = new AIReturn();
+                            result.SetBody(decoded);
+                        }
+                        else
+                        {
+                            this._messages.Add(new GH_String("Batch result decoded to empty interactions"));
+                        }
+                    }
+                    else
+                    {
+                        this._messages.Add(new GH_String("Batch completed but custom_id not found in results"));
+                    }
+
+                    // Validate metrics
+                    if (result?.Metrics != null)
+                    {
+                        metricsValid = true;
+                        if (result.Metrics.InputTokens <= 0)
+                        {
+                            metricsValid = false;
+                            this._messages.Add(new GH_String("Input tokens not set or invalid"));
+                        }
+
+                        if (result.Metrics.OutputTokens <= 0)
+                        {
+                            metricsValid = false;
+                            this._messages.Add(new GH_String("Output tokens not set or invalid"));
+                        }
+
+                        if (metricsValid)
+                        {
+                            this._messages.Add(new GH_String($"Metrics valid - Input: {result.Metrics.InputTokens}, Output: {result.Metrics.OutputTokens}"));
+                        }
+                    }
+                    else
+                    {
+                        this._messages.Add(new GH_String("Metrics not populated"));
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    this._messages.Add(new GH_String("Batch call was cancelled"));
+                }
+                catch (Exception ex)
+                {
+                    this._messages.Add(new GH_String($"Error: {ex.Message}"));
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                }
+
+                if (result != null)
+                {
+                    this._parent.SetAIReturnSnapshot(result);
+                }
+
+                this._callSuccess = new GH_Boolean(callSuccess);
+                this._metricsValid = new GH_Boolean(metricsValid);
+            }
+
+            public override void SetOutput(IGH_DataAccess DA, out string message)
+            {
+                this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
+                this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                this._parent.SetMetricsOutput(DA);
+                message = this._callSuccess.Value && this._metricsValid.Value ? "Anthropic batch call test passed" : "Anthropic batch call test failed";
+            }
+        }
+    }
+}

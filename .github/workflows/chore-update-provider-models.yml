@@ -48,6 +48,7 @@ jobs:
           - provider: Anthropic
           - provider: OpenRouter
           - provider: DeepSeek
+          - provider: Gemini
     steps:
       - name: Skip if secret is absent or filtered out
         id: check
@@ -85,7 +86,7 @@ jobs:
         with:
           provider: ${{ matrix.provider }}
           api-key: ${{ secrets.OPENROUTER_API_KEY }}
-          provider-api-key: ${{ (matrix.provider == 'OpenAI' && secrets.OPENAI_API_KEY) || (matrix.provider == 'MistralAI' && secrets.MISTRAL_API_KEY) || (matrix.provider == 'Anthropic' && secrets.ANTHROPIC_API_KEY) || (matrix.provider == 'DeepSeek' && secrets.DEEPSEEK_API_KEY) || '' }}
+          provider-api-key: ${{ (matrix.provider == 'OpenAI' && secrets.OPENAI_API_KEY) || (matrix.provider == 'MistralAI' && secrets.MISTRAL_API_KEY) || (matrix.provider == 'Anthropic' && secrets.ANTHROPIC_API_KEY) || (matrix.provider == 'DeepSeek' && secrets.DEEPSEEK_API_KEY) || (matrix.provider == 'Gemini' && secrets.GEMINI_API_KEY) || '' }}
           update-file: true
           # Don't fail the scheduled job on validation errors. New models picked
           # up from OpenRouter often arrive with incomplete metadata (no input

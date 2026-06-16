@@ -15,7 +15,7 @@ description: 'Fetch model metadata from OpenRouter and update *ProviderModels.cs
 
 inputs:
   provider:
-    description: 'Provider identifier (e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek)'
+    description: 'Provider identifier (e.g. OpenAI, MistralAI, Anthropic, OpenRouter, DeepSeek, Gemini)'
     required: true
   api-key:
     description: 'OpenRouter API key (used as the single source of truth for all providers)'
@@ -67,7 +67,7 @@ runs:
 
         $params = @{
           Provider = '${{ inputs.provider }}'
-          ApiKey   = $env:API_KEY
+          OpenRouterApiKey = $env:API_KEY
         }
         if (-not [string]::IsNullOrWhiteSpace($env:PROVIDER_API_KEY)) {
           $params['ProviderApiKey'] = $env:PROVIDER_API_KEY
@@ -92,7 +92,7 @@ runs:
             try { $report = $reportJson | ConvertFrom-Json } catch { $report = $null }
           }
 
-          if ($scriptExit -ne 0) {
+          if ($scriptExit -and $scriptExit -ne 0) {
             Write-Host "::error::Update-ProviderModels.ps1 exited with code $scriptExit"
             "success=false" >> $env:GITHUB_OUTPUT
             "error=Update-ProviderModels.ps1 exited with code $scriptExit" >> $env:GITHUB_OUTPUT

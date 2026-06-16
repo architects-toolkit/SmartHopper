@@ -51,20 +51,16 @@ namespace SmartHopper.Components.Grasshopper
         {
         }
 
-        /// <summary>
-        /// Gets the unique identifier for this component.
-        /// </summary>
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("A3C8F291-7D4E-4B5A-9E2F-8C1D6B3A5E7F");
 
-        /// <summary>
-        /// Gets the component's icon.
-        /// </summary>
+        /// <inheritdoc/>
         protected override Bitmap Icon => Resources.ghmerge;
 
-        /// <summary>
-        /// Registers the input parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register inputs with.</param>
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Target", "T", "Target GhJSON document. Takes priority on conflicts.", GH_ParamAccess.item);
@@ -157,11 +153,9 @@ namespace SmartHopper.Components.Grasshopper
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 
-                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
-                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
-                var toolResult = toolResultInteraction?.Result;
+                var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
 
-                if (toolResult == null)
+                if (toolResult.Result == null)
                 {
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_merge' did not return a valid result");
                     return;

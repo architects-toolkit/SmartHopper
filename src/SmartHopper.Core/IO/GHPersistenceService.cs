@@ -19,7 +19,6 @@
 // Purpose: Grasshopper-specific implementation of a safe, versioned persistence service.
 // Stores output trees as GH_Structure<GH_String> (encoded payloads) per output parameter GUID.
 // Reading never throws; decoding warnings are collected for the caller to surface.
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

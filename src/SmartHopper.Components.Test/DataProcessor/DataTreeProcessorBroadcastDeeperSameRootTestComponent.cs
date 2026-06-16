@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorBroadcastDeeperSameRootTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("0E1105D8-1EA0-446B-B51D-F90D1EC29342");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public DataTreeProcessorBroadcastDeeperSameRootTestComponent()
-            : base("Test Broadcast (Deeper Same Root)", "TEST-BC-DEEP-ROOT0",
-                  "Tests flat {0} broadcasting to deeper paths {0;0},{0;1}",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test Broadcast (Deeper Same Root)",
+                "TEST-BC-DEEP-ROOT0",
+                "Tests flat {0} broadcasting to deeper paths {0;0},{0;1}",
+                "SmartHopper Tests",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -58,7 +63,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorBroadcastDeeperSameRootTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -133,44 +138,44 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
-                        _resultTree = outTree;
+                    if (result != null && result.Outputs.TryGetValue("Result", out var outTree) && outTree != null)
+                        this._resultTree = outTree;
 
                     // Expected: A broadcasts to deeper {0;0} and {0;1}
                     // {0;0}: [50,60] + [1,2] = [50,60,1,2]
                     // {0;1}: [50,60] + [3,4] = [50,60,3,4]
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 2 &&
-                        _resultTree.get_Branch(path00) != null && _resultTree.get_Branch(path00).Count == 4 &&
-                        _resultTree.get_Branch(path00)[0] is GH_Integer v00 && v00.Value == 50 &&
-                        _resultTree.get_Branch(path00)[1] is GH_Integer v01 && v01.Value == 60 &&
-                        _resultTree.get_Branch(path00)[2] is GH_Integer v02 && v02.Value == 1 &&
-                        _resultTree.get_Branch(path00)[3] is GH_Integer v03 && v03.Value == 2 &&
-                        _resultTree.get_Branch(path01) != null && _resultTree.get_Branch(path01).Count == 4 &&
-                        _resultTree.get_Branch(path01)[0] is GH_Integer v10 && v10.Value == 50 &&
-                        _resultTree.get_Branch(path01)[1] is GH_Integer v11 && v11.Value == 60 &&
-                        _resultTree.get_Branch(path01)[2] is GH_Integer v12 && v12.Value == 3 &&
-                        _resultTree.get_Branch(path01)[3] is GH_Integer v13 && v13.Value == 4;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 2 &&
+                        this._resultTree.get_Branch(path00) != null && this._resultTree.get_Branch(path00).Count == 4 &&
+                        this._resultTree.get_Branch(path00)[0] is GH_Integer v00 && v00.Value == 50 &&
+                        this._resultTree.get_Branch(path00)[1] is GH_Integer v01 && v01.Value == 60 &&
+                        this._resultTree.get_Branch(path00)[2] is GH_Integer v02 && v02.Value == 1 &&
+                        this._resultTree.get_Branch(path00)[3] is GH_Integer v03 && v03.Value == 2 &&
+                        this._resultTree.get_Branch(path01) != null && this._resultTree.get_Branch(path01).Count == 4 &&
+                        this._resultTree.get_Branch(path01)[0] is GH_Integer v10 && v10.Value == 50 &&
+                        this._resultTree.get_Branch(path01)[1] is GH_Integer v11 && v11.Value == 60 &&
+                        this._resultTree.get_Branch(path01)[2] is GH_Integer v12 && v12.Value == 3 &&
+                        this._resultTree.get_Branch(path01)[3] is GH_Integer v13 && v13.Value == 4;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Case 5&6: A={{0}} [50,60], B={{0;0}} [1,2], {{0;1}} [3,4]. Expected: A broadcasts to deeper paths (Rule 3)."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"Case 5&6: A={{0}} [50,60], B={{0;0}} [1,2], {{0;1}} [3,4]. Expected: A broadcasts to deeper paths (Rule 3)."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Broadcast to deeper same root test passed" : "Test failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Broadcast to deeper same root test passed" : "Test failed";
             }
         }
     }

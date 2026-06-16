@@ -1,0 +1,100 @@
+name: 🔄 Update DEV.md Provider Models
+
+# Description: Keeps the provider model summary in DEV.md in sync with the
+# *ProviderModels.cs source files. Pull requests validate that DEV.md is current;
+# pushes to protected branches open an automated PR when documentation changes.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+      - 'main-*'
+      - 'dev-*'
+      - 'hotfix/**'
+      - 'release/**'
+    paths:
+      - 'src/SmartHopper.Providers.*/[A-Z]*ProviderModels.cs'
+      - 'tools/Update-DevProviderModels.ps1'
+      - 'DEV.md'
+  push:
+    branches:
+      - main
+      - dev
+      - 'main-*'
+      - 'dev-*'
+      - 'hotfix/**'
+      - 'release/**'
+    paths:
+      - 'src/SmartHopper.Providers.*/[A-Z]*ProviderModels.cs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-dev:
+    name: Update DEV.md provider models
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Update-DevProviderModels.ps1
+        id: update
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          pwsh -ExecutionPolicy Bypass -File .\tools\Update-DevProviderModels.ps1
+          $code = $LASTEXITCODE
+          if ($code -eq 0) {
+            "changed=true" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } elseif ($code -eq 1) {
+            "changed=false" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+          } else {
+            throw "Update-DevProviderModels.ps1 failed with exit code $code"
+          }
+          $global:LASTEXITCODE = 0
+
+      - name: Verify DEV.md is current
+        if: github.event_name == 'pull_request' && steps.update.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          git diff -- DEV.md
+          throw "DEV.md provider model table is out of date. Run tools/Update-DevProviderModels.ps1 and commit the result."
+
+      - name: Emit step summary
+        if: always()
+        shell: pwsh
+        run: |
+          $changed = '${{ steps.update.outputs.changed }}'
+          if ($changed -eq 'true') {
+            Write-Output "## DEV.md provider model table updated" >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "The provider model table in ``DEV.md`` was refreshed from ``*ProviderModels.cs``." >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            Write-Output "## No changes needed" >> $env:GITHUB_STEP_SUMMARY
+            Write-Output "The provider model table in ``DEV.md`` is already up to date." >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Create Pull Request
+        if: github.event_name == 'push' && steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs(dev): update provider model summary [ci skip]"
+          title: "docs(dev): sync provider model summary"
+          body: |
+            Auto-generated PR from `.github/workflows/chore-update-dev-provider-models.yml`.
+
+            The provider model summary in `DEV.md` has been refreshed to reflect
+            the current default and verified models declared in each
+            `*ProviderModels.cs` file.
+          branch: "chore/update-dev-provider-models"
+          base: ${{ github.ref_name }}
+          delete-branch: true
+          labels: |
+            automated
+            documentation

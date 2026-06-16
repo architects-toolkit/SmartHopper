@@ -23,6 +23,7 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Validation
 {
@@ -31,26 +32,28 @@ namespace SmartHopper.Infrastructure.AICall.Validation
     /// </summary>
     public sealed class ToolExistsValidator : IValidator<AIInteractionToolCall>
     {
-        public AIRuntimeMessageSeverity FailOn { get; } = AIRuntimeMessageSeverity.Error;
+        public SHRuntimeMessageSeverity FailOn { get; } = SHRuntimeMessageSeverity.Error;
 
         public Task<ValidationResult> ValidateAsync(AIInteractionToolCall instance, ValidationContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var messages = new List<AIRuntimeMessage>();
+            var messages = new List<SHRuntimeMessage>();
 
             if (instance == null)
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.ToolValidationError,
                     "Tool call instance is null"));
             }
             else if (string.IsNullOrWhiteSpace(instance.Name))
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.ToolValidationError,
                     "Tool name is required"));
             }
             else
@@ -58,9 +61,10 @@ namespace SmartHopper.Infrastructure.AICall.Validation
                 var tools = AIToolManager.GetTools();
                 if (!tools.ContainsKey(instance.Name))
                 {
-                    messages.Add(new AIRuntimeMessage(
-                        AIRuntimeMessageSeverity.Error,
-                        AIRuntimeMessageOrigin.Validation,
+                    messages.Add(new SHRuntimeMessage(
+                        SHRuntimeMessageSeverity.Error,
+                        SHRuntimeMessageOrigin.Validation,
+                        SHMessageCode.ToolValidationError,
                         $"Unknown tool '{instance.Name}'"));
                 }
             }
