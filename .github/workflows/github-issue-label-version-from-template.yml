@@ -1,10 +1,11 @@
-name: 🏷️ Auto-Tag Issues with Version
+name: 🏷️ Issue Label Version from Template
 
 # Related workflows (issue label management):
 #   - github-issue-labels-close.yml (closes issue when close: label added)
 #   - github-issue-labels-on-close.yml (converts status→close labels on issue close)
 #   - github-labels-sync.yml (syncs label definitions from labels.yml)
-#   - issue-auto-tag.yml (auto-labels new issues based on content)
+#   - github-issue-label-version-from-template.yml (labels issues with version from bug report template)
+#   - github-issue-label-by-content.yml (labels issues based on title/body content)
 
 # Description: Automatically tags newly created issues with the appropriate version label
 # based on the SmartHopper Version field from the bug report template.
@@ -33,19 +34,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get current version
-        id: get-version
-        uses: ./.github/actions/versioning/get-version
-        with:
-          branch: main
-
       - name: Parse issue body for version
         id: parse-version
         uses: actions/github-script@v7
         with:
           script: |
             const issueBody = context.payload.issue.body || '';
-            
+
             // Try to extract SmartHopper Version from issue body
             // Pattern: "SmartHopper Version" followed by input value
             const versionPatterns = [
@@ -55,7 +50,7 @@ jobs:
               /Version[\s\w:]*\n?\s*([\d]+\.[\d]+\.[\d]+[\-\w]*)/i,
               /([\d]+\.[\d]+\.[\d]+-(alpha|beta|rc)(\.\d+)?)/i
             ];
-            
+
             let detectedVersion = null;
             for (const pattern of versionPatterns) {
               const match = issueBody.match(pattern);
@@ -64,34 +59,33 @@ jobs:
                 break;
               }
             }
-            
-            // If no version found in body, use current version
-            if (!detectedVersion) {
-              const currentVersion = '${{ steps.get-version.outputs.version }}';
-              console.log(`No version found in issue body, using current version: ${currentVersion}`);
-              detectedVersion = currentVersion;
-            } else {
+
+            if (detectedVersion) {
               console.log(`Detected version from issue: ${detectedVersion}`);
+            } else {
+              console.log('No version found in issue body, skipping version label');
             }
-            
+
             core.setOutput('detected_version', detectedVersion);
 
       - name: Create version label if doesn't exist
         id: create-label
+        if: steps.parse-version.outputs.detected_version != ''
         uses: ./.github/actions/versioning/create-version-label
         with:
           version: ${{ steps.parse-version.outputs.detected_version }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Apply version label to issue
+        if: steps.parse-version.outputs.detected_version != ''
         uses: actions/github-script@v7
         with:
           script: |
             const issueNumber = context.payload.issue.number;
             const versionLabel = '${{ steps.create-label.outputs.label-name }}';
-            
+
             console.log(`Applying label "${versionLabel}" to issue #${issueNumber}`);
-            
+
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
@@ -99,7 +93,7 @@ jobs:
                 issue_number: issueNumber,
                 labels: [versionLabel]
               });
-              
+
               console.log(`✅ Successfully labeled issue #${issueNumber} with "${versionLabel}"`);
             } catch (error) {
               console.error(`❌ Failed to label issue: ${error.message}`);
@@ -120,5 +114,9 @@ jobs:
           echo "- Issue: #$ISSUE_NUMBER"
           echo "- Title: $ISSUE_TITLE"
           echo "- Detected Version: $DETECTED_VERSION"
-          echo "- Label Applied: $LABEL_NAME"
-          echo "- Label Created: $LABEL_CREATED"
+          if [ -n "$DETECTED_VERSION" ]; then
+            echo "- Label Applied: $LABEL_NAME"
+            echo "- Label Created: $LABEL_CREATED"
+          else
+            echo "- Label Applied: (none — version not specified in issue)"
+          fi
