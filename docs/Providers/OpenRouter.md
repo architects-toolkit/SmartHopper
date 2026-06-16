@@ -56,13 +56,13 @@ Get your API key from [OpenRouter](https://openrouter.ai/):
 
 | Setting | Description | Default |
 | --- | --- | --- |
-| **API Key** | Your OpenRouter API key (required) | — |
+| **API Key** | Your OpenRouter API key (required) | â€” |
 | **Model** | Select from available models (resolved from registry) | Default from registry |
 | **Enable Streaming** | Allow streaming responses | Enabled |
-| **Max Tokens** | Maximum output tokens | 2000 (range: 1–100000) |
-| **Temperature** | Controls randomness | 0.5 (range: 0.0–2.0) |
+| **Max Tokens** | Maximum output tokens | 2000 (range: 1â€“100000) |
+| **Temperature** | Controls randomness | 0.5 (range: 0.0â€“2.0) |
 | **Allow Fallbacks** | Allow fallback to compatible models if preferred is unavailable | true |
-| **Sort Strategy** | Provider selection sort — `price`, `throughput`, or `latency` | price |
+| **Sort Strategy** | Provider selection sort â€” `price`, `throughput`, or `latency` | price |
 | **Data Collection** | Allow or deny provider data collection | deny |
 
 ### Common Questions
@@ -87,8 +87,8 @@ A: If fallbacks are enabled (default), OpenRouter automatically routes to the ne
 public class OpenRouterProvider : AIProvider
 {
     public override string Name => "OpenRouter";
-    public override AICapability Capabilities => 
-        AICapability.TextGeneration | AICapability.Vision | 
+    public override AICapability Capabilities =>
+        AICapability.TextGeneration | AICapability.Vision |
         AICapability.ToolCalling | AICapability.Streaming;
 }
 
@@ -114,10 +114,10 @@ var provider = ProviderManager.Instance.GetProvider("OpenRouter");
 var input = new AIInputPayload();
 input.Messages.Add(new AIMessage { Role = "user", Content = "Hello, world!" });
 
-var parameters = new AIRequestParameters 
-{ 
+var parameters = new AIRequestParameters
+{
     Model = "openai/gpt-4o",
-    Temperature = 0.7 
+    Temperature = 0.7
 };
 
 var response = await provider.GenerateAsync(input, parameters);
@@ -150,9 +150,9 @@ await foreach (var chunk in provider.StreamAsync(request))
 // OpenRouter supports function calling via OpenAI-compatible tools
 var tools = new List<AITool>
 {
-    new AITool 
-    { 
-        Name = "get_weather", 
+    new AITool
+    {
+        Name = "get_weather",
         Description = "Get current weather for a location",
         Parameters = new JsonSchema { /* ... */ }
     }
@@ -191,7 +191,7 @@ var response = await provider.GenerateAsync(input, parameters, tools);
 ### System Relationships
 
 ```text
-SmartHopper Component → AIRequestCall → OpenRouterProvider → OpenRouter API → Underlying Provider
+SmartHopper Component â†’ AIRequestCall â†’ OpenRouterProvider â†’ OpenRouter API â†’ Underlying Provider
 
 ```
 

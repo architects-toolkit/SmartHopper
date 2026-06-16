@@ -49,6 +49,7 @@ jobs:
         id: update
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           pwsh -ExecutionPolicy Bypass -File .\tools\Update-DevAiTools.ps1
           $code = $LASTEXITCODE
           if ($code -eq 0) {
@@ -58,6 +59,7 @@ jobs:
           } else {
             throw "Update-DevAiTools.ps1 failed with exit code $code"
           }
+          $global:LASTEXITCODE = 0
 
       - name: Verify DEV.md is current
         if: github.event_name == 'pull_request' && steps.update.outputs.changed == 'true'

@@ -74,7 +74,7 @@ documentation:
       - any-glob-to-any-file:
           - 'docs/**'
           - '.github/ISSUE_TEMPLATE/**'
-      - all-globs-to-all-file: '!CHANGELOG*'
+      - all-globs-to-all-files: '!CHANGELOG*'
 
 # --- Component labels ---
 "component: AI 2Boolean":

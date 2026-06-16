@@ -39,7 +39,7 @@ In Grasshopper data tree processing, a **flat tree** is a tree with a single pat
 
 A flat tree with path `{0}` (where `PathCount == 1`) broadcasts its data to other inputs based on **topology complexity**:
 
-#### Rule 1: Same-Depth Single Paths → No Broadcasting
+#### Rule 1: Same-Depth Single Paths â†’ No Broadcasting
 
 When comparing a flat `{0}` tree (A) against another tree (B) that has:
 
@@ -51,8 +51,8 @@ When comparing a flat `{0}` tree (A) against another tree (B) that has:
 **Examples:**
 
 ```text
-A: {0}      B: {1}           → A{0} does NOT match B{1}
-A: {0} [1,2,3]   B: {1} [4,5,6]   → Output: {0}→[1,2,3], {1}→[4,5,6] (passthrough)
+A: {0}      B: {1}           â†’ A{0} does NOT match B{1}
+A: {0} [1,2,3]   B: {1} [4,5,6]   â†’ Output: {0}â†’[1,2,3], {1}â†’[4,5,6] (passthrough)
 
 ```
 
@@ -60,16 +60,16 @@ A: {0} [1,2,3]   B: {1} [4,5,6]   → Output: {0}→[1,2,3], {1}→[4,5,6] (pass
 
 ---
 
-#### Rule 2: Multiple Paths → Broadcasting Enabled
+#### Rule 2: Multiple Paths â†’ Broadcasting Enabled
 
 When B has **multiple paths at the same depth level**, A's flat `{0}` tree broadcasts to **all** B paths.
 
 **Examples:**
 
 ```text
-A: {0}      B: {0}, {1}      → A{0} matches all paths in B
-A: {0}      B: {1}, {2}      → A{0} matches all paths in B
-A: {0}      B: {0}, {1}, {2} → A{0} matches all paths in B
+A: {0}      B: {0}, {1}      â†’ A{0} matches all paths in B
+A: {0}      B: {1}, {2}      â†’ A{0} matches all paths in B
+A: {0}      B: {0}, {1}, {2} â†’ A{0} matches all paths in B
 
 ```
 
@@ -77,20 +77,20 @@ A: {0}      B: {0}, {1}, {2} → A{0} matches all paths in B
 
 ---
 
-#### Rule 3: Different Topology Depth → Broadcasting Enabled
+#### Rule 3: Different Topology Depth â†’ Broadcasting Enabled
 
 When B has paths at a **different depth level** (deeper hierarchy with `;` separator), A's flat `{0}` broadcasts to **all** B paths.
 
 **Examples:**
 
 ```text
-A: {0}      B: {0;0}              → A{0} matches all paths in B
-A: {0}      B: {0;0}, {0;1}       → A{0} matches all paths in B
-A: {0}      B: {1;0}              → A{0} matches all paths in B
-A: {0}      B: {1;0}, {1;1}       → A{0} matches all paths in B
-A: {0}      B: {0;0}, {1}         → A{0} matches all paths in B
-A: {0}      B: {0;0}, {1;0}       → A{0} matches all paths in B
-A: {0}      B: {0;1}, {1;0;0}     → A{0} matches all paths in B
+A: {0}      B: {0;0}              â†’ A{0} matches all paths in B
+A: {0}      B: {0;0}, {0;1}       â†’ A{0} matches all paths in B
+A: {0}      B: {1;0}              â†’ A{0} matches all paths in B
+A: {0}      B: {1;0}, {1;1}       â†’ A{0} matches all paths in B
+A: {0}      B: {0;0}, {1}         â†’ A{0} matches all paths in B
+A: {0}      B: {0;0}, {1;0}       â†’ A{0} matches all paths in B
+A: {0}      B: {0;1}, {1;0;0}     â†’ A{0} matches all paths in B
 
 ```
 
@@ -107,8 +107,8 @@ When B has **both** a direct matching path `{0}` **and** deeper paths under the 
 **Examples:**
 
 ```text
-A: {0}      B: {0}, {0;0}            → A{0} matches B{0} only, NOT B{0;0}
-A: {0}      B: {0}, {0;0}, {0;1}     → A{0} matches B{0} only, NOT B{0;0} or B{0;1}
+A: {0}      B: {0}, {0;0}            â†’ A{0} matches B{0} only, NOT B{0;0}
+A: {0}      B: {0}, {0;0}, {0;1}     â†’ A{0} matches B{0} only, NOT B{0;0} or B{0;1}
 
 ```
 
@@ -117,8 +117,8 @@ A: {0}      B: {0}, {0;0}, {0;1}     → A{0} matches B{0} only, NOT B{0;0} or B
 **However**, if B has multiple top-level paths including `{0}`:
 
 ```text
-A: {0}      B: {0}, {1}              → A{0} matches ALL paths in B (Rule 2 applies)
-A: {0}      B: {0}, {1}, {2}         → A{0} matches ALL paths in B (Rule 2 applies)
+A: {0}      B: {0}, {1}              â†’ A{0} matches ALL paths in B (Rule 2 applies)
+A: {0}      B: {0}, {1}, {2}         â†’ A{0} matches ALL paths in B (Rule 2 applies)
 
 ```
 
@@ -142,11 +142,11 @@ In these cases, the presence of multiple top-level branches triggers Rule 2 (str
 
 The following test components validate these rules:
 
-- **TEST-DTP-DIFF-1**: A `{0}` [1 item], B `{1}` [1 item] → Both scalar, broadcast applies (special case)
-- **TEST-DTP-DIFF-3-1**: A `{0}` [3 items], B `{1}` [1 item] → B is scalar, broadcasts to A's path
-- **TEST-DTP-DIFF-3**: A `{0}` [3 items], B `{1}` [3 items] → Rule 1: no broadcasting, passthrough
-- **TEST-DTP-ITEM**: Both at `{0}` → Direct match, normal item-to-item processing
-- **TEST-DTP-GRAFT**: Both at `{0}` → Direct match, normal grafting
+- **TEST-DTP-DIFF-1**: A `{0}` [1 item], B `{1}` [1 item] â†’ Both scalar, broadcast applies (special case)
+- **TEST-DTP-DIFF-3-1**: A `{0}` [3 items], B `{1}` [1 item] â†’ B is scalar, broadcasts to A's path
+- **TEST-DTP-DIFF-3**: A `{0}` [3 items], B `{1}` [3 items] â†’ Rule 1: no broadcasting, passthrough
+- **TEST-DTP-ITEM**: Both at `{0}` â†’ Direct match, normal item-to-item processing
+- **TEST-DTP-GRAFT**: Both at `{0}` â†’ Direct match, normal grafting
 
 ### Revision History
 
@@ -195,9 +195,9 @@ var result = await DataTreeProcessor.RunAsync<GH_String, GH_String>(
     {
         // Process each logical unit; flat tree data is automatically broadcast
         var outputs = new Dictionary<string, List<GH_String>>();
-        outputs["Result"] = new List<GH_String> 
-        { 
-            new GH_String(branchData["Text"][0].Value.ToUpper()) 
+        outputs["Result"] = new List<GH_String>
+        {
+            new GH_String(branchData["Text"][0].Value.ToUpper())
         };
         return outputs;
     },
@@ -211,16 +211,16 @@ protected override async Task DoWorkAsync(CancellationToken token)
 {
     var textTree = this.inputTree["Text"];
     var filterTree = this.inputTree["Filter"];
-    
+
     // Flat tree broadcasting is automatically handled by DataTreeProcessor
     // when building the processing plan via GetProcessingPaths.
     // If Filter is a flat {0} tree, it broadcasts to all Text paths.
     this.result = await this.parent.RunProcessingAsync(
         this.inputTree,
         ProcessData,
-        new ProcessingOptions 
-        { 
-            Topology = ProcessingTopology.BranchToBranch 
+        new ProcessingOptions
+        {
+            Topology = ProcessingTopology.BranchToBranch
         },
         token);
 }

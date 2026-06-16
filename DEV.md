@@ -212,20 +212,23 @@ Notes:
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
 |---|---|:---:|:---:|:---:|---|---|
 | Anthropic | `claude-sonnet-4-6` | - | ✅ | - | Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
-| DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ToolReasoningChat | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
+| MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
 | MistralAI | `mistral-medium-2508` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| OpenAI | `dall-e-3` | ⭐ | - | - | Text2Image | TextInput, ImageOutput |
-| OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
+| MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
+| MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
+| OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
+| OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Image2Image | TextInput, ImageInput, ImageOutput |
 | OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
 | OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text, Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 
@@ -234,22 +237,14 @@ Notes:
 Some models are still supported but **not recommended** for script-oriented tools due to quality and stability trade-offs. These models are marked with `DiscouragedForTools` in the provider registries and surface in the UI as a "Not Recommended" badge when used with those tools.
 
 - **Anthropic**
-  - `claude-haiku-4-5-20251001`/`claude-haiku-4-5`/`claude-haiku-4-5-latest` -> discouraged for: `script_generate`, `script_edit`
+  - `claude-haiku-4-5-20251001`/`claude-haiku-4-5`/`claude-haiku-4-5-latest`/`claude-haiku-4.5`/`claude-haiku-4.5-latest` -> discouraged for: `script_generate`, `script_edit`
   - `claude-3-5-haiku-20241022`/`claude-3-5-haiku`/`claude-3-5-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
   - `claude-3-haiku-20240307`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
 - **MistralAI**
   - `mistral-small-2603`/`mistral-small`/`mistral-small-latest`/`magistral-small-latest`/`mistral-vibe-cli-fast` -> discouraged for: `script_generate`, `script_edit`
   - `mistral-ocr-2512`/`mistral-ocr-latest` -> discouraged for: any tool
-  - `voxtral-mini-transcribe-realtime-2602`/`voxtral-mini-realtime-2602`/`voxtral-mini-realtime-latest` -> discouraged for: any tool
   - `mistral-ocr-2505` -> discouraged for: any tool
 - **OpenAI**
-  - `gpt-4o-mini-realtime-preview-2024-12-17`/`gpt-4o-mini-realtime-preview`/`gpt-4o-mini-realtime-preview-latest` -> discouraged for: any tool
-  - `gpt-4o-realtime-preview-2024-12-17` -> discouraged for: any tool
-  - `gpt-4o-realtime-preview-2025-06-03`/`gpt-4o-realtime-preview`/`gpt-4o-realtime-preview-latest` -> discouraged for: any tool
-  - `gpt-realtime-1.5` -> discouraged for: any tool
-  - `gpt-realtime-2025-08-28`/`gpt-realtime`/`gpt-realtime-latest` -> discouraged for: any tool
-  - `gpt-realtime-mini-2025-10-06` -> discouraged for: any tool
-  - `gpt-realtime-mini-2025-12-15`/`gpt-realtime-mini`/`gpt-realtime-mini-latest` -> discouraged for: any tool
   - `omni-moderation-2024-09-26`/`omni-moderation-latest`/`omni-moderation` -> discouraged for: any tool
 
 ## 🔢 Supported Data Types
