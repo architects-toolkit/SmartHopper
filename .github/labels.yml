@@ -282,15 +282,12 @@
 - name: "scope: UI"
   color: "000000"
   description: "Issues related to the UI area"
-<<<<<<< HEAD
-=======
 - name: "scope: Utilities"
   color: "000000"
   description: "Issues related to the Utilities area"
 - name: "scope: Security"
   color: "550000"
   description: "Security-sensitive issues"
->>>>>>> 20e19b5f (fix(labels): align labels.yml with labeler.yml naming)
 - name: "scope: Utils"
   color: "000000"
   description: "Issues related to the Utils area"
