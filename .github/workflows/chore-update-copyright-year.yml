@@ -104,7 +104,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
-              labels: ['status: needs-attention']
+              labels: ['status: needs attention']
             });
 
       - name: No changes needed
