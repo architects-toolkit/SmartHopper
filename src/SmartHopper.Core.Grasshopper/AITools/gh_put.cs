@@ -408,7 +408,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     // Unchanged existing components are stripped out so they are not duplicated.
                     if (document.Components != null)
                     {
-                        var confirmedReplaceSet = new HashSet<Guid>(componentsToReplace);
                         var filteredComponents = new List<GhJsonComponent>();
                         var skippedGuids = new HashSet<Guid>();
 
