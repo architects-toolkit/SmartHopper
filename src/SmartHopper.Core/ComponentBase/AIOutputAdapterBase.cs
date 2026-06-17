@@ -241,6 +241,45 @@ namespace SmartHopper.Core.ComponentBase
             base.RegisterOutputParams(pManager);
         }
 
+        /// <summary>
+        /// Internal wrapper for CombineIntoPersistedMetrics, accessible from nested worker class.
+        /// </summary>
+        internal void CombineIntoPersistedMetricsInternal(Infrastructure.AICall.Metrics.AIMetrics metrics, string role = null)
+        {
+            this.CombineIntoPersistedMetrics(metrics, role);
+        }
+
+        /// <summary>
+        /// Resolves the effective modality fallback mode from global settings
+        /// and per-component Extras override.
+        /// </summary>
+        private Infrastructure.AICall.Fallback.ModalityFallbackMode ResolveEffectiveFallbackMode()
+        {
+            var settings = Infrastructure.Settings.SmartHopperSettings.Load();
+            var globalMode = settings.ModalityFallback;
+
+            // Check per-component override from Extras
+            var extras = this.GetParameters()?.Extras;
+            if (extras != null && extras.TryGetValue("modality_fallback", out var modeToken))
+            {
+                var modeStr = modeToken?.ToString();
+                if (!string.IsNullOrWhiteSpace(modeStr))
+                {
+                    switch (modeStr.ToLowerInvariant())
+                    {
+                        case "disabled":
+                            return Infrastructure.AICall.Fallback.ModalityFallbackMode.Disabled;
+                        case "configured_provider":
+                            return Infrastructure.AICall.Fallback.ModalityFallbackMode.ConfiguredProvider;
+                        case "any_provider":
+                            return Infrastructure.AICall.Fallback.ModalityFallbackMode.AnyProvider;
+                    }
+                }
+            }
+
+            return globalMode;
+        }
+
         /// <inheritdoc/>
         protected override void PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext context)
         {
@@ -254,15 +293,32 @@ namespace SmartHopper.Core.ComponentBase
                     "Components with >1 UsingAiTools must override PrepareInputs (Complex Case).");
             }
 
+            // Resolve effective modality fallback mode (global setting + per-component Extras override)
+            var effectiveFallbackMode = ResolveEffectiveFallbackMode();
+
+            // Block fallback in batch mode
+            if (effectiveFallbackMode != Infrastructure.AICall.Fallback.ModalityFallbackMode.Disabled
+                && this.IsBatchRequest())
+            {
+                throw new InvalidOperationException(
+                    "Modality fallback is not supported in batch mode. Run without batch mode to use fallback.");
+            }
+
             // Validate capabilities before AI call (RequiredCapability automatically merges UsingAiTools)
             var validation = new ComponentCapabilityValidator(this.GetActualAIProviderName(), this.GetModel())
-                .ValidateSync(this.RequiredCapability);
+                .ValidateSync(this.RequiredCapability, effectiveFallbackMode);
 
             if (!validation.IsValid)
             {
                 var errorMsg = validation.Messages?.FirstOrDefault(m => m.Severity == SHRuntimeMessageSeverity.Error);
                 throw new InvalidOperationException(
                     $"[Capability] {errorMsg?.Message ?? "Provider/model does not support required capability"}");
+            }
+
+            // Store the resolved fallback chain for use in ProcessBranchAsync
+            if (validation.FallbackChain != null)
+            {
+                inputs["_FallbackChain"] = validation.FallbackChain;
             }
 
             // Merge AIInputPayload inputs per-branch and build system prompt
@@ -494,26 +550,22 @@ namespace SmartHopper.Core.ComponentBase
                 this.SurfaceMessagesFromReturn(errorReturn, "batch_item");
             }
 
-            // Aggregate metrics and publish a synthetic AIReturn snapshot — same as ProcessBatchResults<T>.
+            // Aggregate metrics via AIMetricsList for multi-provider support.
             if (allInteractions.Count > 0)
             {
-                var aggregatedMetrics = new SmartHopper.Infrastructure.AICall.Metrics.AIMetrics
-                {
-                    Provider = providerName,
-                    Model = this.GetModel(),
-                };
+                this.PersistedMetricsList = new SmartHopper.Infrastructure.AICall.Metrics.AIMetricsList();
                 foreach (var m in allMetrics)
                 {
-                    aggregatedMetrics.Combine(m);
+                    this.PersistedMetricsList.Add(m, "main");
                 }
 
-                this.PersistedMetrics = aggregatedMetrics;
+                var firstEntry = this.PersistedMetricsList.Entries[0];
 
                 var batchReturn = new AIReturn();
                 var batchRequest = new SmartHopper.Infrastructure.AICall.Core.Requests.AIRequestCall();
                 batchRequest.Initialize(
-                    aggregatedMetrics.Provider,
-                    aggregatedMetrics.Model,
+                    firstEntry.Provider,
+                    firstEntry.Model,
                     new List<IAIInteraction>(),
                     endpoint: "batch_complete",
                     capability: AICapability.None,
@@ -691,6 +743,21 @@ namespace SmartHopper.Core.ComponentBase
                 AIReturn aiResult = null;
                 if (inputs.TryGetValue("_MergedBody", out var mergedBodyObj) && mergedBodyObj is AIBody mergedBody)
                 {
+                    // Apply fallback chain if resolved during validation
+                    if (inputs.TryGetValue("_FallbackChain", out var chainObj)
+                        && chainObj is Infrastructure.AICall.Fallback.FallbackChain chain)
+                    {
+                        var fallbackResult = await chain.ApplyAsync(mergedBody, token).ConfigureAwait(false);
+                        mergedBody = fallbackResult.TransformedBody;
+
+                        // Record fallback metrics
+                        foreach (var m in fallbackResult.ExtraMetricsList)
+                        {
+                            var stepName = chain.Steps.Count > 0 ? chain.Steps[0].Name : "unknown";
+                            this._parent.CombineIntoPersistedMetricsInternal(m, $"fallback:{stepName}");
+                        }
+                    }
+
                     aiResult = await this._parent.CallAIAsync(mergedBody, cancellationToken: token).ConfigureAwait(false);
                 }
 

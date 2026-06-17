@@ -73,15 +73,52 @@ namespace SmartHopper.Core.ComponentBase
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
-            var metrics = this._batchState.PersistedMetrics ?? this.AIReturnSnapshot?.Metrics;
-            if (metrics == null)
+            var metricsList = this._batchState.PersistedMetricsList;
+            var fallbackMetrics = metricsList == null ? this.AIReturnSnapshot?.Metrics : null;
+
+            if (metricsList == null && fallbackMetrics == null)
             {
                 Debug.WriteLine("[AIStatefulComponentBase] Empty metrics, skipping");
                 return;
             }
 
-            // Create JSON object with metrics
-            var metricsJson = new JObject(
+            JToken metricsToken;
+
+            if (metricsList != null && metricsList.Entries.Count > 0)
+            {
+                if (metricsList.IsSingleProvider)
+                {
+                    // Single entry or all same provider/model → plain JObject (no breaking change)
+                    metricsToken = this.SerializeMetricsEntry(metricsList.Entries[0]);
+                }
+                else
+                {
+                    // Multiple providers/models → JArray
+                    var array = new JArray();
+                    foreach (var entry in metricsList.Entries)
+                    {
+                        array.Add(this.SerializeMetricsEntry(entry));
+                    }
+
+                    metricsToken = array;
+                }
+            }
+            else
+            {
+                // Fallback to single AIMetrics from AIReturn snapshot
+                metricsToken = this.SerializeMetricsEntry(fallbackMetrics);
+            }
+
+            var metricsJsonString = metricsToken.ToString();
+            var ghString = new GH_String(metricsJsonString);
+            this.SetPersistentOutput(WellKnownInputs.Metrics, ghString, dA);
+
+            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsToken}");
+        }
+
+        private JObject SerializeMetricsEntry(AIMetrics metrics)
+        {
+            var obj = new JObject(
                 new JProperty("ai_provider", metrics.Provider),
                 new JProperty("ai_model", metrics.Model),
                 new JProperty("tokens_input", metrics.InputTokens),
@@ -93,18 +130,32 @@ namespace SmartHopper.Core.ComponentBase
                 new JProperty("tokens_output_generation", metrics.OutputTokensGeneration),
                 new JProperty("finish_reason", metrics.FinishReason),
                 new JProperty("completion_time", metrics.CompletionTime),
-                new JProperty("context_usage_percent", metrics.ContextUsagePercent),
-                new JProperty("data_count", this.DataCount),
-                new JProperty("iterations_count", this.ProgressInfo.Total));
+                new JProperty("context_usage_percent", metrics.ContextUsagePercent));
 
-            // Convert metricsJson to GH_String
-            var metricsJsonString = metricsJson.ToString();
-            var ghString = new GH_String(metricsJsonString);
+            if (metrics.Role != null)
+            {
+                obj.Add("role", metrics.Role);
+            }
 
-            // Set the metrics output
-            this.SetPersistentOutput(WellKnownInputs.Metrics, ghString, dA);
+            if (metrics.DataCount.HasValue)
+            {
+                obj.Add("data_count", metrics.DataCount.Value);
+            }
+            else
+            {
+                obj.Add("data_count", this.DataCount);
+            }
 
-            Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics output. JSON: {metricsJson}");
+            if (metrics.IterationsCount.HasValue)
+            {
+                obj.Add("iterations_count", metrics.IterationsCount.Value);
+            }
+            else
+            {
+                obj.Add("iterations_count", this.ProgressInfo.Total);
+            }
+
+            return obj;
         }
 
         /// <summary>
@@ -150,19 +201,12 @@ namespace SmartHopper.Core.ComponentBase
         /// After calling this, invoke <see cref="SetMetricsOutput"/> to re-emit.
         /// </summary>
         /// <param name="metrics">The metrics to merge in.</param>
-        protected void CombineIntoPersistedMetrics(AIMetrics metrics)
+        /// <param name="role">Optional role label for the metrics entry (e.g. "main", "fallback:ImageToText").</param>
+        protected void CombineIntoPersistedMetrics(AIMetrics metrics, string role = null)
         {
             if (metrics == null) return;
-            if (this._batchState.PersistedMetrics == null)
-            {
-                this._batchState.PersistedMetrics = new AIMetrics
-                {
-                    Provider = this.GetActualAIProviderName(),
-                    Model = this.GetModel(),
-                };
-            }
-
-            this._batchState.PersistedMetrics.Combine(metrics);
+            this._batchState.PersistedMetricsList ??= new Infrastructure.AICall.Metrics.AIMetricsList();
+            this._batchState.PersistedMetricsList.Add(metrics, role);
         }
 
         /// <summary>
@@ -196,14 +240,15 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
 
-            // Stamp CompletionTime into _persistedMetrics (the single authoritative metrics instance).
+            // Stamp CompletionTime into the first metrics entry (the main call).
             // AIReturn.Metrics is computed fresh on every access — writing to it is a no-op.
             if (this._batchState.CompletionTime.HasValue)
             {
-                if (this._batchState.PersistedMetrics != null)
+                var entries = this._batchState.PersistedMetricsList?.Entries;
+                if (entries != null && entries.Count > 0)
                 {
-                    this._batchState.PersistedMetrics.CompletionTime = this._batchState.CompletionTime.Value;
-                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchState.CompletionTime.Value:F2}s into _persistedMetrics");
+                    entries[0].CompletionTime = this._batchState.CompletionTime.Value;
+                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchState.CompletionTime.Value:F2}s into PersistedMetricsList[0]");
                 }
 
                 this._batchState.CompletionTime = null;

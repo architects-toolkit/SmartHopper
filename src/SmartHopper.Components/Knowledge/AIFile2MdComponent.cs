@@ -392,7 +392,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 foreach (var m in allSlotMetrics)
                 {
-                    this.CombineIntoPersistedMetrics(m);
+                    this.CombineIntoPersistedMetrics(m, "tool:img2text");
                 }
 
                 Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics via CombineIntoPersistedMetrics");

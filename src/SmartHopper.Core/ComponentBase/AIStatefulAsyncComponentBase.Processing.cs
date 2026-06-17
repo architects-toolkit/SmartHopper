@@ -201,29 +201,22 @@ namespace SmartHopper.Core.ComponentBase
             // AIReturn.Metrics is computed fresh on every access, so any mutation to it is a no-op.
             if (allInteractions.Count > 0)
             {
-                // Aggregate all per-interaction metrics into one named instance
-                var aggregatedMetrics = new AIMetrics
-                {
-                    Provider = this.GetActualAIProviderName(),
-                    Model = this.GetModel(),
-                };
+                // Build per-item metrics via AIMetricsList for multi-provider support
+                this.PersistedMetricsList = new Infrastructure.AICall.Metrics.AIMetricsList();
                 foreach (var m in allMetrics)
                 {
-                    aggregatedMetrics.Combine(m);
+                    this.PersistedMetricsList.Add(m, "main");
                 }
 
-                System.Diagnostics.Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items, " +
-                              $"InputTokens={aggregatedMetrics.InputTokens}, OutputTokens={aggregatedMetrics.OutputTokens}");
-
-                // Store as the single authoritative source for SetMetricsOutput
-                this._batchState.PersistedMetrics = aggregatedMetrics;
+                var firstEntry = this.PersistedMetricsList.Entries[0];
+                System.Diagnostics.Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items");
 
                 // Build AIReturn for body/interactions (used by CurrentAIReturnSnapshot consumers)
                 var batchReturn = new AIReturn();
                 var batchRequest = new AIRequestCall();
                 batchRequest.Initialize(
-                    aggregatedMetrics.Provider,
-                    aggregatedMetrics.Model,
+                    firstEntry.Provider,
+                    firstEntry.Model,
                     new List<IAIInteraction>(),
                     endpoint: "batch_complete",
                     capability: AICapability.None,
