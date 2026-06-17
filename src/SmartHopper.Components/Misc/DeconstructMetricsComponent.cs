@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
@@ -49,15 +50,16 @@ namespace SmartHopper.Components.Misc
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("AI Provider", "P", "AI provider used", GH_ParamAccess.item);
-            pManager.AddTextParameter("AI Model", "M", "AI model used", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Input Tokens", "I", "Number of input tokens", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Output Tokens", "O", "Number of output tokens", GH_ParamAccess.item);
-            pManager.AddTextParameter("Finish Reason", "F", "Reason for finishing", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Completion Time", "T", "Time taken for completion, in seconds", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Context Usage", "CU", "Context usage percentage (0-100), representing how much of the model's context limit is being used. Empty if context limit is unknown.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Data Count", "DC", "The number of data items that were processed by the component. This may not match the total number of items in your input lists. If the component is configured to process data in batches, this value indicates how many batches (or groups) of results the component needs to process.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Iterations Count", "IC", "The number of times the component ran its calculation. If the component was set to recognize and group identical combinations of input items, it only processed each unique combination once and applied the results to all matching outputs. As a result, the iteration count may be less than the total data count.", GH_ParamAccess.item);
+            pManager.AddTextParameter("AI Provider", "P", "AI provider used", GH_ParamAccess.list);
+            pManager.AddTextParameter("AI Model", "M", "AI model used", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Input Tokens", "I", "Number of input tokens", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Output Tokens", "O", "Number of output tokens", GH_ParamAccess.list);
+            pManager.AddTextParameter("Finish Reason", "F", "Reason for finishing", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Completion Time", "T", "Time taken for completion, in seconds", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Context Usage", "CU", "Context usage percentage (0-100), representing how much of the model's context limit is being used. Empty if context limit is unknown.", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Data Count", "DC", "The number of data items that were processed by the component. This may not match the total number of items in your input lists. If the component is configured to process data in batches, this value indicates how many batches (or groups) of results the component needs to process.", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Iterations Count", "IC", "The number of times the component ran its calculation. If the component was set to recognize and group identical combinations of input items, it only processed each unique combination once and applied the results to all matching outputs. As a result, the iteration count may be less than the total data count.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Role", "R", "Role label for each metrics entry (e.g. main, fallback:ImageToText, tool:img2text). Null for the primary call.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -70,72 +72,68 @@ namespace SmartHopper.Components.Misc
 
             try
             {
-                var metricsObject = JObject.Parse(jsonMetrics);
+                // Parse as JToken to handle both JObject (single) and JArray (multi)
+                var token = JToken.Parse(jsonMetrics);
+                var entries = new List<JObject>();
 
-                string aiProvider = metricsObject["ai_provider"]?.Value<string>() ?? "Unknown";
-                string aiModel = metricsObject["ai_model"]?.Value<string>() ?? "Unknown";
-                int inputTokens = metricsObject["tokens_input"]?.Value<int>() ?? 0;
-                int outputTokens = metricsObject["tokens_output"]?.Value<int>() ?? 0;
-                string finishReason = metricsObject["finish_reason"]?.Value<string>() ?? "Unknown";
-                double completionTime = metricsObject["completion_time"]?.Value<double>() ?? 0.0;
-                double? contextUsagePercent = metricsObject["context_usage_percent"]?.Value<double?>();
-                int inputDataCount = metricsObject["data_count"]?.Value<int>() ?? 0;
-                int iterationsCount = metricsObject["iterations_count"]?.Value<int>() ?? 0;
-
-                // Checks to see if the values were actually present
-                bool hasAIProvider = metricsObject["ai_provider"] != null;
-                bool hasAIModel = metricsObject["ai_model"] != null;
-                bool hasInputTokens = metricsObject["tokens_input"] != null;
-                bool hasOutputTokens = metricsObject["tokens_output"] != null;
-                bool hasFinishReason = metricsObject["finish_reason"] != null;
-                bool hasCompletionTime = metricsObject["completion_time"] != null;
-                bool hasContextUsage = metricsObject["context_usage_percent"] != null;
-
-                // Set the data, potentially with warnings if values were missing
-                DA.SetData(0, aiProvider);
-                if (!hasAIProvider)
+                if (token is JArray array)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "AI provider not found in JSON");
+                    foreach (var item in array)
+                    {
+                        if (item is JObject obj)
+                        {
+                            entries.Add(obj);
+                        }
+                    }
+                }
+                else if (token is JObject singleObj)
+                {
+                    entries.Add(singleObj);
+                }
+                else
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Unexpected JSON format for metrics");
+                    return;
                 }
 
-                DA.SetData(1, aiModel);
-                if (!hasAIModel)
+                var providers = new List<string>();
+                var models = new List<string>();
+                var inputTokensList = new List<int>();
+                var outputTokensList = new List<int>();
+                var finishReasons = new List<string>();
+                var completionTimes = new List<double>();
+                var contextUsages = new List<double>();
+                var dataCounts = new List<int>();
+                var iterationsCounts = new List<int>();
+                var roles = new List<string>();
+
+                foreach (var metricsObject in entries)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "AI model not found in JSON");
+                    providers.Add(metricsObject["ai_provider"]?.Value<string>() ?? "Unknown");
+                    models.Add(metricsObject["ai_model"]?.Value<string>() ?? "Unknown");
+                    inputTokensList.Add(metricsObject["tokens_input"]?.Value<int>() ?? 0);
+                    outputTokensList.Add(metricsObject["tokens_output"]?.Value<int>() ?? 0);
+                    finishReasons.Add(metricsObject["finish_reason"]?.Value<string>() ?? "Unknown");
+                    completionTimes.Add(metricsObject["completion_time"]?.Value<double>() ?? 0.0);
+
+                    var contextUsagePercent = metricsObject["context_usage_percent"]?.Value<double?>();
+                    contextUsages.Add(contextUsagePercent.HasValue ? contextUsagePercent.Value * 100.0 : 0.0);
+
+                    dataCounts.Add(metricsObject["data_count"]?.Value<int>() ?? 0);
+                    iterationsCounts.Add(metricsObject["iterations_count"]?.Value<int>() ?? 0);
+                    roles.Add(metricsObject["role"]?.Value<string>());
                 }
 
-                DA.SetData(2, inputTokens);
-                if (!hasInputTokens)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Input tokens not found in JSON");
-                }
-
-                DA.SetData(3, outputTokens);
-                if (!hasOutputTokens)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Output tokens not found in JSON");
-                }
-
-                DA.SetData(4, finishReason);
-                if (!hasFinishReason)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Finish reason not found in JSON");
-                }
-
-                DA.SetData(5, completionTime);
-                if (!hasCompletionTime)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Completion time not found in JSON");
-                }
-
-                if (hasContextUsage && contextUsagePercent.HasValue)
-                {
-                    DA.SetData(6, contextUsagePercent.Value * 100.0); // Convert 0-1 to 0-100
-                }
-
-                DA.SetData(7, inputDataCount);
-
-                DA.SetData(8, iterationsCount);
+                DA.SetDataList(0, providers);
+                DA.SetDataList(1, models);
+                DA.SetDataList(2, inputTokensList);
+                DA.SetDataList(3, outputTokensList);
+                DA.SetDataList(4, finishReasons);
+                DA.SetDataList(5, completionTimes);
+                DA.SetDataList(6, contextUsages);
+                DA.SetDataList(7, dataCounts);
+                DA.SetDataList(8, iterationsCounts);
+                DA.SetDataList(9, roles);
             }
             catch (Exception ex)
             {

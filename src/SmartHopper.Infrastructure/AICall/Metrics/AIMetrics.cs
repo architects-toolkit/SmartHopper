@@ -18,6 +18,7 @@
 
 using System.Collections.Generic;
 using System.Diagnostics;
+using Newtonsoft.Json;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.Diagnostics;
@@ -26,6 +27,26 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
 {
     public class AIMetrics
     {
+        /// <summary>
+        /// Optional human-readable label for this metrics entry, e.g.
+        /// "main", "fallback:ImageToText", "tool:img2text".
+        /// Null for the primary call (serialized as absent, not null).
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public string Role { get; set; }
+
+        /// <summary>
+        /// Per-role data item count set by the caller. Null when not applicable.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? DataCount { get; set; }
+
+        /// <summary>
+        /// Per-role iteration count set by the caller. Null when not applicable.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? IterationsCount { get; set; }
+
         /// <summary>
         /// Gets or sets the reason for the finish of the AI call.
         /// </summary>
@@ -242,6 +263,9 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             this.EstimatedOutputTokens += other.EstimatedOutputTokens;
             this.CompletionTime += other.CompletionTime;
             this.LastEffectiveTotalTokens = otherLast;
+
+            this.DataCount = (this.DataCount ?? 0) + (other.DataCount ?? 0);
+            this.IterationsCount = (this.IterationsCount ?? 0) + (other.IterationsCount ?? 0);
         }
 
         private static bool IsDefault(AIMetrics metrics)
