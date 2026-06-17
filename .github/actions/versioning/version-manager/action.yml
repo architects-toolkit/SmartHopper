@@ -165,7 +165,7 @@ runs:
           }
         }
 
-        if ($LASTEXITCODE -ne 0) {
+        if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
           Write-Error "Change-SolutionVersion.ps1 failed (exit $LASTEXITCODE)."
           exit $LASTEXITCODE
         }
