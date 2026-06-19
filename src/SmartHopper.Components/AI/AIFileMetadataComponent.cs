@@ -75,6 +75,13 @@ namespace SmartHopper.Components.AI
             AIContextManager.RegisterProvider(this);
         }
 
+        /// <inheritdoc/>
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            AIContextManager.UnregisterProvider(this);
+            base.RemovedFromDocument(document);
+        }
+
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Title", "T", "Title of the file or definition", GH_ParamAccess.item, string.Empty);
