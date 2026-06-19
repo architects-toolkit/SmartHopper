@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
@@ -199,6 +200,19 @@ namespace SmartHopper.Core.ComponentBase
         private AIReturn AIReturnSnapshot;
 
         /// <summary>
+        /// Path of the processing unit currently being executed (set by
+        /// <see cref="OnProcessingUnitStart"/>). Null outside of active processing.
+        /// </summary>
+        private GH_Path _currentProcessingPath;
+
+        /// <summary>
+        /// Metrics tree built during the current solve. Each metric JSON string is placed
+        /// at the same path as the branch/item that produced it, so downstream components
+        /// can deconstruct metrics while preserving tree topology.
+        /// </summary>
+        private GH_Structure<GH_String> _metricsTree;
+
+        /// <summary>
         /// Gets or sets the authoritative metrics list for multi-provider support.
         /// Use <see cref="CombineIntoPersistedMetrics(AIMetrics, string)"/> to add entries.
         /// </summary>
@@ -316,7 +330,7 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific outputs
             base.RegisterOutputParams(pManager);
 
-            pManager.AddTextParameter(WellKnownInputs.Metrics, "M", "Usage metrics in JSON format including input tokens, output tokens, and completion time.", GH_ParamAccess.item);
+            pManager.AddTextParameter(WellKnownInputs.Metrics, "M", "Usage metrics in JSON format including input tokens, output tokens, and completion time. Preserves branch topology — one metric item per output branch.", GH_ParamAccess.tree);
         }
 
         #endregion

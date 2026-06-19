@@ -43,27 +43,14 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                 && string.Equals(m.Model, this._entries[0].Model, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
-        /// Adds an entry. Entries with the same Provider+Model are merged (Combine);
-        /// entries with a different Provider or Model are appended as a new entry.
+        /// Adds an entry. Each call appends a distinct entry so that multi-branch
+        /// solves emit one metric per branch. Entries are never merged.
         /// </summary>
         public void Add(AIMetrics metrics, string role = null)
         {
             if (metrics == null) return;
             metrics.Role = role;
-
-            var existing = this._entries
-                .FirstOrDefault(e =>
-                    string.Equals(e.Provider, metrics.Provider, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(e.Model, metrics.Model, StringComparison.OrdinalIgnoreCase));
-
-            if (existing != null)
-            {
-                existing.Combine(metrics);
-            }
-            else
-            {
-                this._entries.Add(metrics);
-            }
+            this._entries.Add(metrics);
         }
 
     }

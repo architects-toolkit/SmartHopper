@@ -22,6 +22,9 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.ComponentBase.Mixins;
@@ -174,7 +177,58 @@ namespace SmartHopper.Core.ComponentBase
             Debug.WriteLine($"[AIStatefulAsyncComponentBase] OnEnteringNeedsRun: resetting per-run state, SentinelTrees count={this._batchState.SentinelTrees?.Count ?? 0}");
             this.AIReturnSnapshot = null;
             this._batchState.ResetForNextRun();
+            this._currentProcessingPath = null;
+            this._metricsTree = null;
             this.ResetProgress();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnProcessingUnitStart(GH_Path path)
+        {
+            base.OnProcessingUnitStart(path);
+            this._currentProcessingPath = path;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnProcessingUnitComplete(GH_Path inputPath, List<GH_Path> targetPaths)
+        {
+            base.OnProcessingUnitComplete(inputPath, targetPaths);
+
+            // When GroupIdenticalBranches is active, non-primary target paths reuse
+            // results from the primary path. Emit a zero-data-count metric for each
+            // reused path so downstream components can distinguish processed vs reused.
+            if (this._metricsTree == null || inputPath == null || targetPaths == null)
+            {
+                return;
+            }
+
+            var inputBranch = this._metricsTree.get_Branch(inputPath);
+            if (inputBranch == null || inputBranch.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var targetPath in targetPaths)
+            {
+                if (targetPath == null || targetPath.Equals(inputPath))
+                {
+                    continue;
+                }
+
+                foreach (GH_String metricStr in inputBranch)
+                {
+                    try
+                    {
+                        var obj = JObject.Parse(metricStr.Value);
+                        obj["data_count"] = 0;
+                        this._metricsTree.Append(new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)), targetPath);
+                    }
+                    catch
+                    {
+                        // If parsing fails, skip the copy
+                    }
+                }
+            }
         }
 
         protected override void OnSolveInstancePostSolve(IGH_DataAccess DA)

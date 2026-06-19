@@ -454,7 +454,7 @@ namespace SmartHopper.Core.ComponentBase
             var perMappingTrees = mappings.ToDictionary(m => m.ParamName, _ => new GH_Structure<IGH_Goo>());
 
             // customId -> branch path (for clearer error messages).
-            var customIdToBranchPath = new Dictionary<string, string>();
+            var customIdToBranchPath = new Dictionary<string, GH_Path>();
             foreach (var path in primarySentinelTree.Paths)
             {
                 foreach (var item in primarySentinelTree.get_Branch(path))
@@ -462,13 +462,13 @@ namespace SmartHopper.Core.ComponentBase
                     var str = (item as GH_String)?.Value ?? string.Empty;
                     if (BatchSentinel.TryExtract(str, out var customId))
                     {
-                        customIdToBranchPath[customId] = path.ToString();
+                        customIdToBranchPath[customId] = path;
                     }
                 }
             }
 
             var allInteractions = new List<IAIInteraction>();
-            var allMetrics = new List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>();
+            var customIdToMetrics = new Dictionary<string, List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>>();
 
             foreach (var path in primarySentinelTree.Paths)
             {
@@ -490,9 +490,15 @@ namespace SmartHopper.Core.ComponentBase
                     }
 
                     allInteractions.AddRange(interactions);
+                    var metricsList = new List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>();
                     foreach (var inter in interactions)
                     {
-                        if (inter.Metrics != null) allMetrics.Add(inter.Metrics);
+                        if (inter.Metrics != null) metricsList.Add(inter.Metrics);
+                    }
+
+                    if (metricsList.Count > 0)
+                    {
+                        customIdToMetrics[customId] = metricsList;
                     }
 
                     var aiReturn = new AIReturn
@@ -553,6 +559,7 @@ namespace SmartHopper.Core.ComponentBase
             // Aggregate metrics via AIMetricsList for multi-provider support.
             if (allInteractions.Count > 0)
             {
+                var allMetrics = customIdToMetrics.Values.SelectMany(v => v).ToList();
                 this.PersistedMetricsList = new SmartHopper.Infrastructure.AICall.Metrics.AIMetricsList();
                 foreach (var m in allMetrics)
                 {
@@ -572,6 +579,21 @@ namespace SmartHopper.Core.ComponentBase
                     toolFilter: null);
                 batchReturn.CreateSuccess(allInteractions, request: batchRequest);
                 this.SetAIReturnSnapshot(batchReturn);
+
+                // Append metrics to the tree at each sentinel's branch path.
+                foreach (var kvp in customIdToMetrics)
+                {
+                    var customId = kvp.Key;
+                    if (!customIdToBranchPath.TryGetValue(customId, out var path))
+                    {
+                        continue;
+                    }
+
+                    foreach (var m in kvp.Value)
+                    {
+                        this.AppendMetricToTreeAtPath(m, path);
+                    }
+                }
             }
 
             // Persist primary + extras atomically via FinishResults.

@@ -18,6 +18,7 @@
 
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Newtonsoft.Json;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AIModels;
@@ -239,15 +240,9 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                 Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
             }
 
-            if (!string.IsNullOrEmpty(other.Provider) && !string.Equals(other.Provider, "Unknown", System.StringComparison.Ordinal))
-            {
-                this.Provider = other.Provider;
-            }
-
-            if (!string.IsNullOrEmpty(other.Model))
-            {
-                this.Model = other.Model;
-            }
+            this.Provider = CombineCommaSeparated(this.Provider, other.Provider, "Unknown");
+            this.Model = CombineCommaSeparated(this.Model, other.Model);
+            this.Role = CombineCommaSeparated(this.Role, other.Role);
 
             if (other.FinishReason != null)
             {
@@ -273,6 +268,40 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             {
                 this.IterationsCount = (this.IterationsCount ?? 0) + (other.IterationsCount ?? 0);
             }
+        }
+
+        /// <summary>
+        /// Combines two string values into a comma-separated list of unique values.
+        /// If <paramref name="current"/> is null/empty or matches the default marker,
+        /// returns <paramref name="other"/> directly. If <paramref name="other"/> is
+        /// null/empty or matches the default marker, returns <paramref name="current"/>
+        /// unchanged. If both differ, appends <paramref name="other"/> to the list
+        /// only if it is not already present (case-insensitive).
+        /// </summary>
+        private static string CombineCommaSeparated(string current, string other, string defaultValue = null)
+        {
+            if (string.IsNullOrEmpty(other))
+            {
+                return current;
+            }
+
+            if (string.Equals(other, defaultValue, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return current;
+            }
+
+            if (string.IsNullOrEmpty(current) || string.Equals(current, defaultValue, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return other;
+            }
+
+            var parts = current.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (!parts.Contains(other, StringComparer.OrdinalIgnoreCase))
+            {
+                parts.Add(other);
+            }
+
+            return string.Join(", ", parts);
         }
 
         private static bool IsDefault(AIMetrics metrics)

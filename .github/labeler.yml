@@ -205,6 +205,9 @@ documentation:
 "component: BooleanList2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/BooleanList2AIComponent.cs'
+"component: CombineMetrics":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Misc/CombineMetricsComponent.cs'
 "component: DeconstructMetrics":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Misc/DeconstructMetricsComponent.cs'
