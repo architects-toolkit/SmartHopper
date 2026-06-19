@@ -75,16 +75,17 @@ namespace SmartHopper.Components.Output
         /// Resolves the list of strings from the AI response, applying the fallback when the
         /// response cannot be parsed into a non-empty list.
         /// </summary>
-        private (List<string> Items, bool UsedFallback) ResolveList(AIReturn aiReturn)
+        private (List<string> Items, List<bool> UsedFallback) ResolveList(AIReturn aiReturn)
         {
             var text = aiReturn?.Body?.GetLastAssistantText();
-            var (parsed, _) = StringListResultResolver.Resolve(text);
-            if (parsed != null && parsed.Count > 0)
+            var (strings, usedFallbackFlag) = StringListResultResolver.Resolve(text);
+
+            if (usedFallbackFlag)
             {
-                return (parsed, false);
+                return (strings, Enumerable.Repeat(true, strings.Count).ToList());
             }
 
-            return (this._fallback?.ToList() ?? new List<string>(), true);
+            return (strings, Enumerable.Repeat(false, strings.Count).ToList());
         }
 
         protected override IReadOnlyList<OutputMapping> GetOutputMappings()
@@ -108,14 +109,14 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True when the AI response could not be parsed as a list and the Fallback value was used (or an empty list was emitted because no fallback was provided).",
+                    Description = "True for items where the AI response could not be parsed and the fallback value was used.",
                     ParamType = typeof(Param_Boolean),
-                    Access = GH_ParamAccess.tree,
-                    Extractor = OutputMapping.Single(aiReturn =>
+                    Access = GH_ParamAccess.list,
+                    Extractor = aiReturn =>
                     {
                         var (_, usedFallback) = this.ResolveList(aiReturn);
-                        return new GH_Boolean(usedFallback);
-                    }),
+                        return usedFallback.Select(b => (IGH_Goo)new GH_Boolean(b));
+                    },
                 },
             };
         }
