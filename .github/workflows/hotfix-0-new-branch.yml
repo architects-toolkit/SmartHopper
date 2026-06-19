@@ -6,7 +6,6 @@ name: 🔥 0 Create Hotfix Branch
 #   - stabilization-2-complete.yml (completes stabilization)
 #   - hotfix-0-new-branch.yml (creates hotfix branch from main)
 #   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
-#   - main-sync-to-dev.yml (syncs main changes to dev and dev-* branches)
 
 # Description: This workflow creates a new hotfix branch from main for emergency patches.
 # It calculates the next patch version and creates a hotfix/X.X.X-description branch.

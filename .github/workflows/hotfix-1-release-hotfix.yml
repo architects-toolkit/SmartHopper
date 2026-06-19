@@ -6,7 +6,6 @@ name: 🔥 1 Prepare Hotfix Release
 #   - stabilization-2-complete.yml (completes stabilization)
 #   - hotfix-0-new-branch.yml (creates hotfix branch from main)
 #   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
-#   - main-sync-to-dev.yml (syncs main changes to dev and dev-* branches)
 
 # Description: This workflow prepares a hotfix release by updating version, changelog, and badges.
 # It creates a release/X.X.X-hotfix-description branch with a PR to main.
