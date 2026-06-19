@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   delete-auto-branches:
@@ -41,7 +42,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Check for open PRs from this branch
+        id: check-open-prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          OPEN_PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "${BRANCH}" \
+            --state open \
+            --json number \
+            --jq 'length')
+          if [ "$OPEN_PRS" -gt 0 ]; then
+            echo "Found ${OPEN_PRS} open PR(s) from ${BRANCH}. Skipping deletion."
+            echo "has_open_prs=true" >> $GITHUB_OUTPUT
+          else
+            echo "No open PRs from ${BRANCH}."
+            echo "has_open_prs=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Delete branch
+        if: steps.check-open-prs.outputs.has_open_prs == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ github.event.pull_request.head.ref }}

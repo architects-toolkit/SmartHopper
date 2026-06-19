@@ -380,7 +380,8 @@ jobs:
       - name: Create or update promotion-blocked issue
         if: |
           steps.should-promote.outputs.should-promote == 'false' &&
-          steps.check-issues.outputs.release-old-enough == 'true'
+          steps.check-issues.outputs.release-old-enough == 'true' &&
+          steps.check-issues.outputs.has-issues == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -388,12 +389,12 @@ jobs:
             const version = '${{ matrix.version }}';
             const reason = '${{ steps.should-promote.outputs.reason }}';
             const title = `\u26d4 Promotion blocked: ${version}`;
-            
+
             // Check if issue already exists
             const existing = await github.rest.search.issuesAndPullRequests({
               q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open "${title}" in:title`
             });
-            
+
             if (existing.data.total_count === 0) {
               await github.rest.issues.create({
                 owner: context.repo.owner,
