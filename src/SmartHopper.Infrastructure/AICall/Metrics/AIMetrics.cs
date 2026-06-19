@@ -264,8 +264,15 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             this.CompletionTime += other.CompletionTime;
             this.LastEffectiveTotalTokens = otherLast;
 
-            this.DataCount = (this.DataCount ?? 0) + (other.DataCount ?? 0);
-            this.IterationsCount = (this.IterationsCount ?? 0) + (other.IterationsCount ?? 0);
+            if (this.DataCount.HasValue || other.DataCount.HasValue)
+            {
+                this.DataCount = (this.DataCount ?? 0) + (other.DataCount ?? 0);
+            }
+
+            if (this.IterationsCount.HasValue || other.IterationsCount.HasValue)
+            {
+                this.IterationsCount = (this.IterationsCount ?? 0) + (other.IterationsCount ?? 0);
+            }
         }
 
         private static bool IsDefault(AIMetrics metrics)
