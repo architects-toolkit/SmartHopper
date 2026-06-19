@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-dev.260619] - 2026-06-19
+
 Many thanks to the following contributors to this release:
 
 - [marc-romu](https://github.com/marc-romu)
 
 ----
+
+> This release reimagines SmartHopper's component surface with a unified `*2*` naming convention, introduces a complete family of typed AI I/O components with graceful fallback handling, adds GhJSON diff/patch operations for versioned Grasshopper workflows, and brings speech and music support across OpenAI, MistralAI and Google Gemini. Breaking changes include renamed tools/components, new `Settings` input replacing `Model`, batch API signature changes, and a deep `ComponentBase` refactor.
 
 ### ⚠️ BREAKING CHANGES
 
