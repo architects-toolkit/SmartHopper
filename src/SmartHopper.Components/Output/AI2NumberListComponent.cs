@@ -120,7 +120,7 @@ namespace SmartHopper.Components.Output
                     NickName = "N",
                     Description = "Parsed list of numbers (one branch entry per JSON array element). Items that fail to parse are skipped. Falls back to the Fallback input when no items are parseable.",
                     ParamType = typeof(Param_Number),
-                    Access = GH_ParamAccess.list,
+                    Access = GH_ParamAccess.tree,
                     Extractor = aiReturn =>
                     {
                         var (items, _) = this.ResolveList(aiReturn);
@@ -133,7 +133,7 @@ namespace SmartHopper.Components.Output
                     NickName = "UF",
                     Description = "True for items where the AI response could not be parsed and the fallback value was used.",
                     ParamType = typeof(Param_Boolean),
-                    Access = GH_ParamAccess.list,
+                    Access = GH_ParamAccess.tree,
                     Extractor = aiReturn =>
                     {
                         var (_, usedFallback) = this.ResolveList(aiReturn);
