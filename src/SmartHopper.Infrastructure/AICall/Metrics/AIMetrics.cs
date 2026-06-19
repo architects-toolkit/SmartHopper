@@ -16,15 +16,39 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using Newtonsoft.Json;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Metrics
 {
     public class AIMetrics
     {
+        /// <summary>
+        /// Optional human-readable label for this metrics entry, e.g.
+        /// "main", "fallback:ImageToText", "tool:img2text".
+        /// Null for the primary call (serialized as absent, not null).
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public string Role { get; set; }
+
+        /// <summary>
+        /// Per-role data item count set by the caller. Null when not applicable.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? DataCount { get; set; }
+
+        /// <summary>
+        /// Per-role iteration count set by the caller. Null when not applicable.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public int? IterationsCount { get; set; }
+
         /// <summary>
         /// Gets or sets the reason for the finish of the AI call.
         /// </summary>
@@ -153,42 +177,46 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
         /// <summary>
         /// Value indicating whether the structure of this AIMetrics is valid.
         /// </summary>
-        public (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        public (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
         {
-            var errors = new List<AIRuntimeMessage>();
+            var errors = new List<SHRuntimeMessage>();
 
             if (string.IsNullOrEmpty(this.Provider) || string.IsNullOrEmpty(this.Model))
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Provider and model fields are required",
                     false));
             }
 
             if (this.InputTokens < 0 || this.OutputTokens < 0)
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Input and output tokens must be greater than or equal to 0",
                     false));
             }
 
             if (string.IsNullOrEmpty(this.FinishReason))
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Finish reason must be set",
                     false));
             }
 
             if (this.CompletionTime < 0)
             {
-                errors.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
+                errors.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.BodyInvalid,
                     "Completion time must be greater than or equal to 0",
                     false));
             }
@@ -213,15 +241,9 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                 Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
             }
 
-            if (other.Provider != null)
-            {
-                this.Provider = other.Provider;
-            }
-
-            if (other.Model != null)
-            {
-                this.Model = other.Model;
-            }
+            this.Provider = CombineCommaSeparated(this.Provider, other.Provider, "Unknown");
+            this.Model = CombineCommaSeparated(this.Model, other.Model);
+            this.Role = CombineCommaSeparated(this.Role, other.Role);
 
             if (other.FinishReason != null)
             {
@@ -237,6 +259,50 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
             this.EstimatedOutputTokens += other.EstimatedOutputTokens;
             this.CompletionTime += other.CompletionTime;
             this.LastEffectiveTotalTokens = otherLast;
+
+            if (this.DataCount.HasValue || other.DataCount.HasValue)
+            {
+                this.DataCount = (this.DataCount ?? 0) + (other.DataCount ?? 0);
+            }
+
+            if (this.IterationsCount.HasValue || other.IterationsCount.HasValue)
+            {
+                this.IterationsCount = (this.IterationsCount ?? 0) + (other.IterationsCount ?? 0);
+            }
+        }
+
+        /// <summary>
+        /// Combines two string values into a comma-separated list of unique values.
+        /// If <paramref name="current"/> is null/empty or matches the default marker,
+        /// returns <paramref name="other"/> directly. If <paramref name="other"/> is
+        /// null/empty or matches the default marker, returns <paramref name="current"/>
+        /// unchanged. If both differ, appends <paramref name="other"/> to the list
+        /// only if it is not already present (case-insensitive).
+        /// </summary>
+        private static string CombineCommaSeparated(string current, string other, string defaultValue = null)
+        {
+            if (string.IsNullOrEmpty(other))
+            {
+                return current;
+            }
+
+            if (string.Equals(other, defaultValue, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return current;
+            }
+
+            if (string.IsNullOrEmpty(current) || string.Equals(current, defaultValue, System.StringComparison.OrdinalIgnoreCase))
+            {
+                return other;
+            }
+
+            var parts = current.Split(',').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (!parts.Contains(other, StringComparer.OrdinalIgnoreCase))
+            {
+                parts.Add(other);
+            }
+
+            return string.Join(", ", parts);
         }
 
         private static bool IsDefault(AIMetrics metrics)

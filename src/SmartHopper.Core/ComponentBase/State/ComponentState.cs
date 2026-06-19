@@ -1,0 +1,113 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024-2026 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
+using SmartHopper.Core.ComponentBase.Contracts;
+
+namespace SmartHopper.Core.ComponentBase.State
+{
+    /// <summary>
+    /// Defines the possible states a component can be in.
+    /// Add new states here as needed for your specific requirements.
+    /// </summary>
+    public enum ComponentState
+    {
+        /// <summary>
+        /// Initial state. All workers finished, output the previous results, if any.
+        /// </summary>
+        Completed,
+
+        /// <summary>
+        /// When running with a toggle set to True, waiting for input changes. On next SolveInstance (means input changed), transition to NeedsRun.
+        /// </summary>
+        Waiting,
+
+        /// <summary>
+        /// When running with a button, Run = False. On input changes && Run = True, transition to Processing.
+        /// </summary>
+        NeedsRun,
+
+        /// <summary>
+        /// Run async work, transition to Completed when all workers finish.
+        /// </summary>
+        Processing,
+
+        /// <summary>
+        /// Manually cancelled. The component stays in this state until the user
+        /// pulses <c>Run</c> again (→ <see cref="Processing"/>) or an input change
+        /// is detected (→ <see cref="NeedsRun"/>); it does not transition
+        /// automatically. A runtime error message is surfaced while in this state.
+        /// </summary>
+        Cancelled,
+
+        /// <summary>
+        /// An error occurred. Same recovery semantics as <see cref="Cancelled"/>:
+        /// the component stays in <c>Error</c> until a Run pulse or input change
+        /// triggers the next solve. A runtime error message is surfaced while in
+        /// this state.
+        /// </summary>
+        Error,
+    }
+
+    /// <summary>
+    /// Extension methods for ComponentState enum.
+    /// </summary>
+    public static class ComponentStateExtensions
+    {
+        /// <summary>
+        /// Gets a user-friendly string representation of the ComponentState.
+        /// </summary>
+        /// <param name="state">The component state.</param>
+        /// <returns>A formatted state message string.</returns>
+        public static string ToMessageString(this ComponentState state)
+        {
+            return ToMessageString(state, null);
+        }
+
+        /// <summary>
+        /// Gets a user-friendly string representation of the ComponentState with optional progress information.
+        /// </summary>
+        /// <param name="state">The component state.</param>
+        /// <param name="progressInfo">Optional progress information for dynamic messages.</param>
+        /// <returns>A formatted state message string.</returns>
+        public static string ToMessageString(this ComponentState state, ProgressInfo progressInfo)
+        {
+            switch (state)
+            {
+                case ComponentState.Waiting:
+                    return "Done";
+                case ComponentState.NeedsRun:
+                    return "Run me!";
+                case ComponentState.Processing:
+                    if (progressInfo?.IsActive == true)
+                    {
+                        return $"Process {progressInfo.ProgressString}...";
+                    }
+
+                    return "Processing...";
+                case ComponentState.Completed:
+                    return "Done";
+                case ComponentState.Cancelled:
+                    return "Cancelled";
+                case ComponentState.Error:
+                    return "Error";
+                default:
+                    return state.ToString();
+            }
+        }
+    }
+}

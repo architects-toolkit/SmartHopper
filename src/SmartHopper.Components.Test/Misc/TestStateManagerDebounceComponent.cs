@@ -24,6 +24,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Cores;
+using SmartHopper.Core.ComponentBase.State;
 
 namespace SmartHopper.Components.Test.Misc
 {
@@ -83,7 +85,7 @@ namespace SmartHopper.Components.Test.Misc
                   "TEST-DEBOUNCE",
                   "Test component for validating ComponentStateManager debounce behavior. " +
                   "Rapidly change inputs to test debounce cancellation and generation tracking.",
-                  "SmartHopper",
+                  "SmartHopper Tests",
                   "Testing Base")
         {
             this.stateManager = this.StateManager;
@@ -239,7 +241,7 @@ namespace SmartHopper.Components.Test.Misc
             public override async Task DoWorkAsync(CancellationToken token)
             {
                 // Simulate some async work
-                await Task.Delay(200, token);
+                await Task.Delay(200, token).ConfigureAwait(false);
                 this.result = this.inputValue * 3.14159;
             }
 

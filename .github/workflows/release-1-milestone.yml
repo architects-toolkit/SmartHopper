@@ -85,8 +85,8 @@ jobs:
 
       - name: Set up Git user
         run: |
-          git config user.name "github-actions"
-          git config user.email "action@github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Remove existing release branch if it exists
         run: |
@@ -112,9 +112,10 @@ jobs:
             exit 1
           fi
 
-      - name: Update version in Solution.props
-        uses: ./.github/actions/versioning/update-version
+      - name: Update version
+        uses: ./.github/actions/versioning/version-manager
         with:
+          mode: set-version
           new-version: ${{ inputs.milestone-title }}
 
       - name: Update manifest text for release version
@@ -135,11 +136,6 @@ jobs:
         with:
           action: create-release
           version: ${{ inputs.milestone-title }}
-          
-      - name: Update README badges
-        uses: ./.github/actions/documentation/update-badges
-        id: update-badges
-
       - name: Update Ready badge to YES (brightgreen)
         uses: ./.github/actions/documentation/update-ready-badge
         with:

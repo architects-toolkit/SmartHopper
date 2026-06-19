@@ -18,7 +18,6 @@
 
 // Purpose: Encode/decode GH_Structure<IGH_Goo> to/from GH_Structure<GH_String>
 // using SafeGooCodec per item, preserving paths and order. Never throws.
-
 using System.Collections.Generic;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;

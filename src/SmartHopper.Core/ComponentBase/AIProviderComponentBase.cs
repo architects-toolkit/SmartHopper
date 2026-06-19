@@ -19,31 +19,30 @@
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using SmartHopper.Core.ComponentBase.Attributes;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Core.ComponentBase
 {
     /// <summary>
     /// Base class for async components that need AI provider selection functionality.
-    /// Provides the provider selection context menu and related functionality on top of
-    /// the stateful async component functionality.
+    /// Delegates state, menu wiring and persistence of the provider choice to a
+    /// <see cref="ProviderSelectionCore"/> instance so the same logic is shared with
+    /// <see cref="ProviderComponentBase"/>.
     /// </summary>
     public abstract class AIProviderComponentBase : StatefulComponentBase, IProviderComponent
     {
         /// <summary>
         /// Special value used to indicate that the default provider from settings should be used.
         /// </summary>
-        public const string DEFAULT_PROVIDER = ProviderComponentHelper.DEFAULT_PROVIDER;
+        public const string DEFAULT_PROVIDER = ProviderSelectionCore.DEFAULT_PROVIDER;
 
         /// <summary>
-        /// The currently selected AI provider.
+        /// Instance helper that owns the provider selection state.
         /// </summary>
-        private string aiProvider = ProviderComponentHelper.DEFAULT_PROVIDER;
-
-        /// <summary>
-        /// The previously selected AI provider, used for change detection.
-        /// </summary>
-        private string previousSelectedProvider = ProviderComponentHelper.DEFAULT_PROVIDER;
+        private readonly ProviderSelectionCore providerCore;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AIProviderComponentBase"/> class.
@@ -56,6 +55,7 @@ namespace SmartHopper.Core.ComponentBase
         protected AIProviderComponentBase(string name, string nickname, string description, string category, string subcategory)
             : base(name, nickname, description, category, subcategory)
         {
+            this.providerCore = new ProviderSelectionCore(this);
         }
 
         /// <summary>
@@ -65,28 +65,14 @@ namespace SmartHopper.Core.ComponentBase
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
-
-            ProviderComponentHelper.AppendProviderMenuItems(
-                menu,
-                this.aiProvider,
-                providerName =>
-                {
-                    this.aiProvider = providerName;
-                    this.ExpireSolution(true);
-                });
+            this.providerCore.AppendMenuItems(menu);
         }
 
         /// <inheritdoc/>
-        public string GetActualAIProviderName()
-        {
-            return ProviderComponentHelper.GetActualProviderName(this.aiProvider);
-        }
+        public string GetActualAIProviderName() => this.providerCore.GetActualProviderName();
 
         /// <inheritdoc/>
-        public AIProvider GetActualAIProvider()
-        {
-            return ProviderComponentHelper.GetActualProvider(this.aiProvider);
-        }
+        public AIProvider GetActualAIProvider() => this.providerCore.GetActualProvider();
 
         /// <summary>
         /// Creates the custom attributes for this component, which includes the provider logo badge.
@@ -108,7 +94,7 @@ namespace SmartHopper.Core.ComponentBase
                 return false;
             }
 
-            return ProviderComponentHelper.WriteProvider(writer, this.aiProvider);
+            return this.providerCore.Write(writer);
         }
 
         /// <summary>
@@ -123,47 +109,66 @@ namespace SmartHopper.Core.ComponentBase
                 return false;
             }
 
-            if (ProviderComponentHelper.ReadProvider(reader, out string storedProvider))
-            {
-                this.aiProvider = storedProvider;
-                this.previousSelectedProvider = storedProvider;
-                return true;
-            }
-
-            return false;
+            return this.providerCore.Read(reader);
         }
 
         /// <inheritdoc/>
-        public string SelectedProviderName => this.aiProvider;
+        public string SelectedProviderName => this.providerCore.CurrentProvider;
 
         /// <inheritdoc/>
         public void SetSelectedProviderName(string providerName)
         {
-            this.aiProvider = providerName;
+            this.providerCore.SetCurrentProvider(providerName);
         }
 
-        /// <inheritdoc/>
-        public bool HasProviderChanged()
-        {
-            if (this.aiProvider != this.previousSelectedProvider)
-            {
-                this.previousSelectedProvider = this.aiProvider;
-                return true;
-            }
-
-            return false;
-        }
-
+        /// <summary>
+        /// Injects the synthetic <see cref="WellKnownInputs.AIProvider"/> entry when the
+        /// user picked a new provider since the last solve. Idempotent: calling this
+        /// method multiple times per solve returns the same result. The pending change
+        /// is acknowledged from <see cref="OnWorkerCompleted"/>.
+        /// </summary>
         protected override List<string> InputsChanged()
         {
             List<string> changedInputs = base.InputsChanged();
 
-            if (this.HasProviderChanged())
+            if (this.providerCore.HasPendingChange)
             {
-                changedInputs.Add("AIProvider");
+                changedInputs.Add(WellKnownInputs.AIProvider);
             }
 
             return changedInputs;
+        }
+
+        /// <summary>
+        /// Commits the pending provider change after a successful run so subsequent
+        /// solves do not keep reporting the same change.
+        /// </summary>
+        protected override void OnWorkerCompleted()
+        {
+            base.OnWorkerCompleted();
+            this.providerCore.CommitChange();
+        }
+
+        /// <summary>
+        /// Commits the pending provider change when processing is cancelled. Without this,
+        /// <see cref="InputsChanged"/> would keep reporting <see cref="WellKnownInputs.AIProvider"/>
+        /// for every subsequent solve, permanently marking the component as dirty.
+        /// </summary>
+        protected override void OnTasksCancelDetected()
+        {
+            base.OnTasksCancelDetected();
+            this.providerCore.CommitChange();
+        }
+
+        /// <summary>
+        /// Commits the pending provider change on error for the same reason as
+        /// <see cref="OnTasksCancelDetected"/>: the user's selection has taken effect on
+        /// the attempted run and should not resurface as "changed" on the next solve.
+        /// </summary>
+        protected override void OnEnteringError()
+        {
+            base.OnEnteringError();
+            this.providerCore.CommitChange();
         }
     }
 }

@@ -35,8 +35,44 @@ Many thanks to the following contributors to this release:
   - `AIImgToTextComponent` → `AIImg2TextComponent`
   - `AIFileToMdComponent` → `AIFile2MdComponent`
   - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
+  - `AIInstructionsComponent` → `AIPromptComponent`
+
+- **Batch API breaking changes** (for custom `IAIBatchProvider` implementations):
+  - `AIBatchStatus.ResultBody` replaced by `Results` (dictionary mapping custom ID to response body)
+  - `IAIBatchProvider.SubmitBatchAsync` signature changed to accept multiple items
+  - `OnBatchCompleted` signature changed from `(AIReturn)` to `(IReadOnlyDictionary<string, JObject>)`
+
+- **Settings input change**: `AIStatefulAsyncComponentBase` `Model (M)` input replaced by `Settings (S)` parameter accepting `AIRequestParameters` or plain model name string
+
+- **Removed `service_tier` extra descriptor** from OpenAI, Anthropic, and MistralAI providers. Use the dedicated `Batch` input on `AISettingsComponent` instead.
+
+- **Removed legacy interaction classes**: `AIInteractionError`, `AIInteractionInfo`, `AIInteractionWarning`, `AIInteractionDebug`, `AIInteractionDiagnosticBase`. Use `AIInteractionRuntimeMessage` with explicit `Severity` instead.
+
+- **`ComponentBase` deep refactor** (`src/SmartHopper.Core/ComponentBase/`):
+  - `IProviderComponent.HasProviderChanged()` removed — its accessor mutated state on read. Replace with the new `ProviderSelectionCore.ProviderChanged` event and idempotent `IsProviderChangedSinceLastCommit()`/`CommitProviderChange()` methods. `ProviderComponentHelper` was folded into `ProviderSelectionCore`.
+  - `AIStatefulAsyncComponentBase.SetAIReturnSnapshot` is now `protected` (was `public`); `_persistedMetrics` is now `private` (was `protected`) — derived classes must use the new `protected SetPersistedMetrics(AIMetrics)` setter or `CombineIntoPersistedMetrics`.
+  - Inner attributes classes `SelectingComponentAttributes` and `AISelectingComponentAttributes` retained but now thin shells over the new `internal SelectingButtonBehavior` helper.
+  - **Legacy `Value_*` / `Type_*` persistence reader removed** along with `PersistenceConstants.EnableLegacyRestore`. Files saved with the V2 schema (anything from the public release line) restore unchanged; pre-V2 alpha files lose persistent outputs on first open and must be re-run once.
 
 ### Added
+
+- **GhJSON diff and patch** (`.ghpatch` sibling profile from [ghjson-spec](https://architects-toolkit.github.io/ghjson-spec/)):
+  - New AI tools: `gh_diff` (produces a `.ghpatch` from two `.ghjson` documents), `gh_patch_apply` (applies a `.ghpatch` to a base `.ghjson`, refusing on base checksum mismatch by default), `gh_patch_validate` (structural patch validation).
+  - New Grasshopper components: `GhDiffComponents` ("Diff GhJSON") and `GhPatchApplyComponents` ("Apply GhPatch") in the `SmartHopper > Grasshopper` tab, exposing the new operations on the canvas.
+  - All operations route through the new `GhJSON.Core.DiffOperations` façade endpoints (`GhJson.Diff`, `GhJson.ApplyPatch`, `GhJson.PatchFromJson/ToJson`, `GhJson.ValidatePatch`) and require `GhJSON.Core` 1.1.0 or later.
+- **DEV.md provider model sync automation**: added `tools/Update-DevProviderModels.ps1` and a GitHub workflow that validates provider model documentation on PRs and opens sync PRs after protected-branch provider registry updates.
+- **README Trademark and Logo Usage Policy**: explicit policy clarifying that the SmartHopper name and logo are not licensed under LGPL, listing permitted uses (articles, tutorials, educational materials, references to the unmodified official plug-in) and uses requiring prior written permission (commercial bundling, forks, materials that may imply endorsement).
+
+#### 📋 List I/O components
+
+- **Typed list adapters** (8 new components) that collapse / expand JSON arrays per branch:
+  - **Inputs (`SmartHopper > Input`)**: `TextList2AI`, `NumberList2AI`, `IntegerList2AI`, `BooleanList2AI` — read a typed `GH_ParamAccess.list` and emit a single `GH_AIInputPayload` whose payload text is a `JsonConvert.SerializeObject(list)` JSON array. One payload per branch.
+  - **Outputs (`SmartHopper > Output`)**: `AI2TextList`, `AI2NumberList`, `AI2IntegerList`, `AI2BooleanList` — instruct the model to return a JSON array of the requested type, then expand each parsed element into the output branch (`GH_ParamAccess.list`). Each gains an optional `Fallback` (F) typed list input and `Used Fallback` (UF) boolean output: when the AI response is unparseable or yields zero parseable items, the fallback list is emitted (or empty if not provided) and `UsedFallback=true`. Built on the unified `OutputMapping.Extractor` enumerable contract.
+- **`OutputMapping.Extractor` unified**: single `Func<AIReturn, IEnumerable<IGH_Goo>>` covers both scalar and list outputs. Replaces the prior scalar `Func<AIReturn, IGH_Goo>` and the short-lived `ListExtractor` field. Scalar callsites use the new `OutputMapping.Single(...)` helper. **Breaking** for any external `OutputMapping` consumer — migration is a 1-line wrap.
+- **`AIOutputAdapterBase` batch ↔ non-batch parity**: both legs now route mapping decoding through a single private `DecodeAllMappings(...)` helper. New mapping-aware `ProcessMappingsBatchResults` walks the primary sentinel tree, decodes each branch's `AIReturn` once via `provider.Decode`, and `AppendRange`'s the per-mapping items at the sentinel's path — so list-shaped outputs (e.g. `AI2*List`) work transparently in batch mode. The `AIOutputAdapterBase`-level override of `SentinelTransformOutputs` was removed; the virtual hook remains on `AIStatefulAsyncComponentBase` for legacy non-adapter components (`AIText2BooleanComponent`, `AIList2BooleanComponent`).
+- **`AIInputAdapterBase` output centralization**: the standard `Input >` output is now sealed-registered by the base class. Subclasses no longer duplicate the registration; they may tailor the tooltip via the new `PayloadOutputDescription` virtual property and add extra outputs via the new `RegisterAdditionalOutputParams` hook. Refactored `Text2AI`, `Img2AI`, `Audio2AI`, `Json2AI`, `AIInstructions`, and the four `*List2AI` components.
+
+#### 🆕 New AI Providers and Models
 
 - **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):
   - **Anthropic**: kept first-party Claude API IDs, retained existing defaults, and added `ToolChat`/`Image2Text` defaults to `claude-haiku-4-5`.
@@ -44,6 +80,32 @@ Many thanks to the following contributors to this release:
   - **DeepSeek**: kept first-party API model IDs `deepseek-v4-pro`, `deepseek-v4-flash`, `deepseek-chat`, and `deepseek-reasoner`; did not add OpenRouter-only release IDs to the DeepSeek provider list. `deepseek-v4-flash` remains the default for text, tool, reasoning, tool-reasoning, and JSON chat.
   - **MistralAI**: added dated aliases `mistral-medium-3-1-25-08`, `mistral-small-3-2-25-06`, `magistral-medium-1-2-25-09`, `magistral-small-1-2-25-09`, `voxtral-mini-transcribe-26-02`, and new `devstral-2-25-12` code-agent model. Kept `*-latest` aliases (Mistral repoints them automatically).
   - **OpenRouter**: added `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `deepseek/deepseek-v4-flash`, `mistralai/mistral-small-4`.
+
+- **Centralized JSON Formatting Utility** (`JsonFormatHelper`):
+  - New utility class in `SmartHopper.Infrastructure.Utilities` for consistent JSON formatting
+  - Core methods: `JsonToString()` (JToken/string to minified JSON), `StringToJson()` (string to JToken), `IsValidJson()` (validation with optional parsing)
+  - All methods support optional error handling via `out string error` parameter
+  - **Automatic markdown code block extraction**: String-based methods automatically extract JSON from ` ```json ... ``` `, ` ```txt ... ``` `, ` ```text ... ``` `, and ` ``` ... ``` ` blocks before processing
+  - Ensures all JSON output is minified (no unnecessary whitespace) across all JSON components and tools
+  - Provides graceful error handling with detailed error messages for invalid JSON
+  - Integrates seamlessly with existing `JsonPathHelper` for error messaging
+  - Follows `AIResponseParser` patterns for consistency with existing response parsing logic
+  - **`JsonSanitizerComponent`** (`SmartHopper > JSON > JSON Sanitizer`): sync component that recovers a valid JSON object from a malformed / AI-generated string. Runs the full recovery pipeline (direct parse → strip markdown fences → brace-depth extraction → sanitization), outputs a minified single-line JSON plus a human-readable summary of the steps performed. Supports tree input with preserved path/branch structure on both outputs.
+  - **`JsonFormatHelper.TryRecoverJsonToken`** / **`TryRecoverJsonObject`** and **`ExtractFirstJsonContainer`** / **`ExtractFirstJsonObject`**: centralized JSON recovery utilities. Token-level recovery preserves JSON **array** roots (`[...]`) in addition to objects; object-only wrapper rejects array roots for callers that need object semantics. `AIResponseParser.ParseJsonObjectFromResponse` now delegates to `TryRecoverJsonObject` instead of re-implementing the recovery pipeline. `JsonSanitizerComponent` uses `TryRecoverJsonToken` so array inputs round-trip as arrays.
+
+- **Google Gemini Provider**: Full integration of Google's Gemini AI models
+  - Support for Gemini 3.1, 2.5, 2.0, and 1.5 models
+  - Text generation with streaming support
+  - Image generation, structured outputs, tool calling
+  - Extended thinking/reasoning with configurable levels
+  - Batch processing with priority support
+  - Service tier selection (`standard`, `flex`, `priority`)
+
+- **Phase 8 Audio Support (OpenAI, MistralAI, Gemini)**:
+  - Speech-to-Text (STT) and Text-to-Speech (TTS) API endpoints
+  - OpenAI: `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` for STT; `tts-1`, `tts-1-hd` for TTS
+  - MistralAI: `voxtral-small-latest`, `voxtral-mini-latest` for STT; `voxtral-tts-26-03` for TTS
+  - Gemini: Native audio input; `gemini-2.5-flash/preview-tts` for TTS; `lyria-3-clip/pro` for music generation
 
 - Community model verification flow:
   - New issue template `.github/ISSUE_TEMPLATE/model-verification.yml` with tests grouped by location ("Components on the Grasshopper canvas" — `AITextGenerate`, `AITextListGenerate`, `AIImgToText`, `AIImgGenerate`, audio — and "Chat interface" — streaming, ToolChat/FunctionCalling, Reasoning, multi-turn `ConversationSession`), each test specifying the **exact prompt** to use and the expected behavior. The template also embeds a copy-paste codeblock (with a `/verify-confirm` header and a hidden `<!-- model-verification-confirm -->` marker) for additional verifiers to use as their certification comment.
@@ -56,9 +118,36 @@ Many thanks to the following contributors to this release:
 - Automated provider model discovery CI (OpenRouter as single source of truth):
   - New workflow `.github/workflows/chore-update-provider-models.yml` that runs weekly (Sundays 05:00 UTC) and on `workflow_dispatch`. It queries OpenRouter's unified `/models` endpoint for each supported provider, compares the returned metadata with the static declarations in `*ProviderModels.cs`, and opens a PR that both auto-inserts new models and marks disappeared/expiring models as `Deprecated = true`.
   - New composite action `.github/actions/ai/fetch-models/action.yml` that invokes `tools/Update-ProviderModels.ps1` with an OpenRouter API key, passing the provider name and `update-file` flag.
-  - New PowerShell tool `tools/Update-ProviderModels.ps1` invoked by the workflow.  Accepts `-Provider`, `-ApiKey` (OpenRouter key), and an optional `-TargetFile`.  It queries OpenRouter, filters by provider prefix, maps `architecture.input_modalities`/`output_modalities` and `supported_parameters` to `AICapability` flags, auto-generates full `AIModelCapabilities` blocks for new models (with `ContextLimit`, `Verified=false`), and marks models with `expiration_date` < 1 year or absent from OpenRouter as `Deprecated = true`.  `Rank` values are auto-computed from OpenRouter `created` timestamp (newer models rank higher) and output pricing (cheapest first, considering `pricing.completion`, `pricing.image`, and `pricing.audio_output`).  Existing model capabilities, context limits, and ranks are refreshed on every run.  Emits a structured JSON report containing `newModels`, `deprecatedModels`, and `unchangedModels`.
+  - New PowerShell tool `tools/Update-ProviderModels.ps1` invoked by the workflow.  Accepts `-Provider`, `-OpenRouterApiKey` (OpenRouter key), and an optional `-TargetFile`.  It queries OpenRouter, filters by provider prefix, maps `architecture.input_modalities`/`output_modalities` and `supported_parameters` to `AICapability` flags, auto-generates full `AIModelCapabilities` blocks for new models (with `ContextLimit`, `Verified=false`), and marks models with `expiration_date` < 1 year or absent from OpenRouter as `Deprecated = true`.  `Rank` values are auto-computed from OpenRouter `created` timestamp (newer models rank higher) and output pricing (cheapest first, considering `pricing.completion`, `pricing.image`, and `pricing.audio_output`).  Existing model capabilities, context limits, and ranks are refreshed on every run.  Emits a structured JSON report containing `newModels`, `deprecatedModels`, and `unchangedModels`.
+- OpenAI now default to the new responses API
+- **OpenAI Responses API streaming support**:
+  - `OpenAIStreamingAdapter` now supports SSE streaming for the `/v1/responses` endpoint in addition to `/v1/chat/completions`.
+  - Handles semantic events: `response.output_text.delta` (text streaming), `response.completed` (usage + finish), `response.output_item.added` / `response.function_call_arguments.delta` / `response.output_item.done` (tool call streaming), and `error` (provider errors).
+  - Conditionally omits `stream_options.include_usage` for Responses API (not supported) while retaining it for Chat Completions.
+- **Additional GhJSON and GhPatch Grasshopper components** in the `SmartHopper > Grasshopper` tab:
+  - `SaveGhPatch` ("Save GhPatch") — saves a `.ghpatch` string to a file.
+  - `OpenGhPatch` ("Open GhPatch") — opens a `.ghpatch` file from disk with validation output.
+  - `GhValidateComponents` ("Validate GhJSON") — validates a GhJSON document against the official schema and performs structural checks.
+  - `GhPatchApplyToCanvasComponents` ("Apply GhPatch to Canvas") — applies a `.ghpatch` directly to the canvas with intelligent change detection.
+- `AIInputPayloadCodec` for `GH_AIInputPayload` serialization with stable checksums.
+- Audio viewer component icon and visualization improvements for audio and image components.
+- Missing component icons and reorganized components panel for better discoverability.
+- **OpenRouter provider**: Added vision input support via OpenAI-compatible `image_url` format.
+- **`script_generate` tool**: Added Python top-level return validation and improved error handling.
 
 ### Changed
+
+- **Prompt caching improvements**:
+  - **Anthropic provider**: `enable_caching` now also emits an explicit `cache_control` breakpoint on the system content block, so single-shot and batch requests sharing the same tools+system prefix get cache hits even when the user message varies (previously only top-level automatic caching was sent, which never produced cache reads for varying single-turn requests). Top-level automatic caching is kept for multi-turn conversation growth.
+  - **OpenRouter provider**: top-level `cache_control` is now only sent for `anthropic/*` models (it is Anthropic-specific and restricted OpenRouter routing for other models); `enable_caching` now also sends a stable `session_id` (hash of model + first system text) to activate provider sticky routing from the first request, keeping prompt caches warm.
+  - Updated `enable_caching` descriptors in both providers to accurately describe behavior, costs, and minimum-token/TTL conditions.
+- Time context keys renamed from `current-*` to `local-*` (e.g., `current-time` → `local-time`, `current-file_selected-count` → `local-file_selected-count`) for clarity.
+- `AIFileContext` renamed to `AIFileMetadata` and integrated with GhJSON serialization.
+- Codec logic refactored into a registry pattern with `IGooCodec` interface; documentation added for `GH_VersatileImage` and `GH_VersatileAudio` `SafeGooCodec` serialization.
+- `GhGetComponents` migrated to worker pattern and input-change optimization disabled to fix missing metrics outputs.
+- OpenAI and MistralAI providers: removed `n` (completions count) parameter.
+- AI coding rules migrated from `.windsurf` to `.devin` configuration directory.
+- Rhino compatiblity downgraded from `Rhino 8.24` to `Rhino 8.0`.
 
 - **AI model rebalancing**:
   - **OpenAI**: `gpt-5.4-mini` retains Rank 100 with `Default = ToolChat | Text2Json | ToolReasoningChat`; moved `Default = Text2Image | Image2Image` from `gpt-image-1-mini` to `gpt-image-2`; cleared `Default = Text2Image` from `dall-e-3` (Rank 80 → 70); demoted `gpt-image-1.5` Rank 75 → 65.
@@ -66,87 +155,151 @@ Many thanks to the following contributors to this release:
   - **DeepSeek**: cleared `Default` from `deepseek-chat` (Rank 90 → 70) and `deepseek-reasoner` (Rank 80 → 60); both aliased to `deepseek-v4-flash` per official docs.
   - **OpenRouter**: aligned mirrored OpenAI model `Default` flags with the native OpenAI provider entries — `openai/gpt-5.4-mini` and `openai/gpt-5-mini` now use `ToolChat | Text2Json | ToolReasoningChat`; cleared `Default` on `openai/gpt-5.4` to match native (no Default).
 
-- **`DataTreeProcessor.RunAsync` heterogeneous output support**: Added `RunAsync<T>` overload (delegates to `RunAsync<T, IGH_Goo>`) and `ExtractTypedTree<U>` helper so a single processing call can populate output channels of different concrete `IGH_Goo` types. Matching `RunProcessingAsync<T>` overload added to `StatefulComponentBase`.
-- **`FileToMdComponent` / `AIFileToMdComponent`**: Replaced manual `foreach` tree iteration with `RunProcessingAsync<GH_String>` + `ExtractTypedTree<U>`, gaining flat-tree broadcasting and consistent `ItemGraft` path management. `ComponentProcessingOptions` property added to both components.
+- **Refactored Timeout Configuration System**:
+  - **AIRequestBase.TimeoutSeconds** is now nullable (`int?`) to allow null/empty values
+  - **RequestTimeoutPolicy** now resolves timeout from settings when null:
+    - Reads `Timeout` from settings (with fallback to `HttpTimeoutSeconds` for backward compatibility)
+    - Uses `TimeoutDefaults.DefaultTimeoutSeconds` (300s) as final fallback
+  - **AISettingsComponent** now has "Timeout" input parameter (before "Extras") for custom timeout override
+    - **Breaking (saved files)**: Inserting `Timeout` before `Extras` shifts the `Extras` parameter index by one. Grasshopper persists wire connections by parameter index, so existing `.ghx`/`.gh` files with a wire into `Extras` will, after upgrade, resolve that wire to the new `Timeout` (integer) input. Because the source value (Extras JSON string) is type-incompatible with `Timeout`, the input is silently ignored and the previously wired provider-specific extras are lost on file load. Reconnect the `Extras` input on `AISettingsComponent` after upgrading.
+  - **AIStatefulAsyncComponentBase** additions:
+    - New `ConfigureRequestTimeout()` helper method - centralizes timeout configuration for both batch and regular paths
+  - **AIProvider** simplified - removed duplicate timeout resolution logic, now relies on RequestTimeoutPolicy
+  - **Renamed HTTP Timeout Setting** (UI label and setting key):
+    - `HTTP Timeout (Regular Calls)` → `Timeout` (setting key: `TimeoutSeconds`, default: 300s)
+    - Old setting keys (`HttpTimeoutSeconds`, `ResponseGenerationTimeoutSeconds`) automatically migrated for backward compatibility
+  - **Timeout resolution priority** (highest to lowest):
+    1. Custom timeout from AI Settings component input
+    2. Settings-based timeout (`TimeoutSeconds`)
+    3. Safe default (300s)
+  - **Unified default across layers**: introduced `SmartHopper.Infrastructure.AICall.Core.TimeoutDefaults` with `DefaultTimeoutSeconds = 300`, `MinTimeoutSeconds = 1`, `MaxTimeoutSeconds = 600`. The following call sites now reference these constants instead of hardcoded literals (previously: 300s policy, 600s provider/batch, 120s tool, 600s streaming idle):
+    - `RequestTimeoutPolicy` (default + bounds)
+    - `AIProvider.Call()` and `AIProvider.CreateBatchHttpClient()` (default + bounds)
+    - `AIToolCall.Exec()` (default + bounds)
+    - Streaming idle-timeout fallbacks in OpenAI, OpenRouter, MistralAI, DeepSeek, Anthropic, and Gemini providers
+    - `ProvidersSettingsPage` Timeout `NumericStepper` Value/Min/Max
+  - Behavior under normal flow is unchanged (policy always resolves first); this aligns the safety-net fallback when the policy pipeline is bypassed and ensures the settings UI bounds match the runtime clamp.
 
-### Fixed
+- Components can now mix different `IGH_Goo` types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values)
+- Foundation laid for future extensibility to support `GH_Integer`, `GH_Number`, `GH_Path`, and other Grasshopper data types
+- Existing `GH_String`-only workers remain compatible and can be migrated individually when needed
+- **`AIText2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
+  - `inputTree` field changed from `Dictionary<string, GH_Structure<GH_String>>` to `Dictionary<string, GH_Structure<IGH_Goo>>`
+  - Fallback input now stored natively as `GH_Boolean` without string conversion round-trip
+  - Uses `GHStructureConverter.ConvertToGooTree()` for type conversions
+  - Accesses results via `ProcessingResult<IGH_Goo>.Outputs` and `ExtractTypedTree<GH_String>()`
+
+- **`AIList2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
+  - Same structural changes as `AIText2BooleanComponent`
+  - Fallback input stored natively as `GH_Boolean`
+- **`AIFile2MdComponent` batch context persistence**: `_fileContexts` (base markdown + image slot metadata per file) is now serialized via `Write`/`Read` so batch results can be reconstructed after a Grasshopper file save/reload. A `_batchContextLost` flag prevents `GatherInput` from resetting `_fileContextsInitialized` while a batch is active, fixing a same-session overwrite bug where each poll tick re-initialized the context to empty before `OnBatchCompleted` could use it.
+- **`AIFile2MdComponent` batch image descriptions**: `OnBatchCompleted` now extracts image descriptions from `AIInteractionText.Content` (the actual batch response type) instead of `AIInteractionToolResult`, which was never produced in batch mode since `BuildDescribeRequest` bypasses the tool execute wrapper.
+- **`AIFile2MdComponent` batch metrics**: Per-slot image decode metrics are now accumulated manually and merged into `AIReturnSnapshot` after `ProcessBatchResults`, since `ProcessBatchResults` only sees the representative sentinel (one per file) and misses all non-first image slots.
+- **`img2text` AI Tool**: Extracted shared `BuildRequestBody` and `ExtractDescription` helpers so `DescribeImageAsync` (execute path) and `BuildDescribeRequest` (batch path) send identical requests and decode using the same logic. `ExtractDescription` reads from `AIInteractionText.Content` directly, making both paths consistent.
+- **`file2md` AI Tool**: `DescribeImageAsync` internal helper now reads `AIInteractionToolResult["description"]` with a clean single-expression return, removing a dead fallback that logged `assistantText.Content` but always returned `[Image could not be described]`.
+
+- **`AIFile2MdComponent`**: Reworked batch wiring so only the AI calls (image descriptions) are batched. File conversion and image extraction now run locally via `file2md` with `describeImages=false`; each image is then described via `CallAiToolAsync("img2text", ...)` which is batch-interceptable. `OnBatchCompleted` reassembles the final markdown from locally-stored per-file context and batch image description results. `UsingAiTools` updated from `file2md` to `img2text`. Format and Images outputs are computed locally and persisted immediately.
+- **`img2text` AI Tool**: Added `BuildRequest` delegate so the tool supports batch mode. The delegate mirrors the existing `DescribeImageAsync` request construction without executing it.
+
+- **`DataTreeProcessor.RunAsync` heterogeneous output support**: Added `RunAsync<T>` overload (delegates to `RunAsync<T, IGH_Goo>`) and `ExtractTypedTree<U>` helper so a single processing call can populate output channels of different concrete `IGH_Goo` types. Matching `RunProcessingAsync<T>` overload added to `StatefulComponentBase`.
+- **`File2MdComponent` / `AIFile2MdComponent`**: Replaced manual `foreach` tree iteration with `RunProcessingAsync<GH_String>` + `ExtractTypedTree<U>`, gaining flat-tree broadcasting and consistent `ItemGraft` path management. `ComponentProcessingOptions` property added to both components.
+
+#### 🛠️ New AI Tools and Components
+
+- **`text2json` AI Tool** + **`AIText2JsonComponent`**: Generate structured JSON from a prompt using a JSON Schema
+- **`img2text` AI Tool** + **`AIImg2TextComponent`**: Describe/analyze images using vision models
+- **`GH_ExtractedImage`**: New Grasshopper Goo type for extracted images with base64 data, MIME type, and metadata
+- **`OpenAIProvider` now always sends `reasoning_effort` for o-series / gpt-5 models** regardless of whether tools are present. A speculative `if (!hasTools)` guard — introduced in an unrelated timeout refactor with a comment citing a "gpt-5.4 incompatibility" — was silently stripping `reasoning_effort` from any tool-enabled request on reasoning models. This has no basis in OpenAI's official API reference or the GPT-5 cookbook, both of which document `reasoning_effort` + function calling as fully supported on o-series and gpt-5 families. Users on `gpt-5*` / `o3` / `o4-mini` with function calling will now get the configured reasoning effort as intended.
+- **HTTP error classification & streaming structured errors**: Non-success HTTP responses are now classified consistently across non-streaming and streaming paths via a new shared `AIProvider.ClassifyHttpError()` helper. 5xx, 408 and 429 are surfaced as network-style errors (`AIReturn.CreateNetworkError`), while 401/403/413 and other 4xx remain provider errors (`CreateProviderError`), restoring the prior Network/Provider distinction that was momentarily lost when `CallApi` switched from throwing to returning structured `AIReturn`. Streaming adapters (`OpenAI`, `OpenRouter`, `MistralAI`, `DeepSeek`, `Anthropic`, `Gemini`) now use the same classifier and yield a properly tagged `AIReturn` instead of generic provider errors. The base `AIProviderStreamingAdapter.ReadSseDataAsync` now throws a typed `ProviderHttpStatusException` (carrying status code + classification) for callers that don't pre-check status.
+- **`FinishReasonNormalizeResponsePolicy` null-`Body` hardening**: The policy now early-returns when `response.Body == null` instead of attempting `AIBodyBuilder.FromImmutable(null).ReplaceLast(...)`. This guards against the slightly more frequent null-body path now that HTTP errors return structured `AIReturn` (with no body) and flow through the response policy pipeline.
+- **`AIInteractionImage.SetResult(string, string, string)` silently dropped invalid URL when no image data**: when `imageUrl` was a non-null but invalid (non-absolute / malformed) URI string and `imageData` was `null`, the method returned without setting any image data and without throwing, masking the failure from callers. Now throws `ArgumentException` (paramName `imageUrl`) in that case; the legitimate "invalid URL but valid `imageData`" path still sets `ImageData` as before. Regression tests added in `AIInteractionImageTests`.
+- **`AIText2BooleanComponent` / `AIList2BooleanComponent` "Used Fallback" output always reported `false`** in non-batch mode when the fallback was actually applied. The components only forwarded `toolResult["result"]` (which after fallback contains a parseable boolean string like `"True"`) and re-inferred `usedFallback` from the string's parseability, masking the tool's authoritative `usedFallback` flag. `ProcessData` now emits parallel `Result` and `UsedFallback` `IGH_Goo` lists carrying both values from the tool result; `ConvertStringTreeToBoolean` consumes them directly instead of inferring the flag.
+- **`AIText2BooleanComponent` / `AIList2BooleanComponent` triple provider-Decode per batch item**: `OnBatchCompleted` was calling `ProcessBatchResults` twice (once for `Result`, once for `Used Fallback`), which iterated the sentinel tree twice and ran `provider.Decode` once internally per pass plus once inside the user lambda — three decodes per item. The second `ProcessBatchResults` call also overwrote `_persistedMetrics` and `AIReturnSnapshot` set by the first. Collapsed into a single `ProcessBatchResults` pass that populates `Result` directly and emits `Used Fallback` via a `TransformOutputs` override using the existing per-sentinel parse cache.
+- **`AIText2BooleanComponent` / `AIList2BooleanComponent` user fallback was silently lost in batch mode**: the batch path bypasses the `text2boolean` / `textlist2boolean` tool's execute body, so the parsing+fallback logic in those tools never ran on batch results, producing `null` outputs for unparseable AI responses even when the user had wired a Fallback value. Additionally, `ParseBooleanWithFallback` used strict `bool.TryParse` rather than the tool's lenient `AIResponseParser.ParseBooleanFromResponse`, so common AI replies like "yes"/"no" were rejected. Fixed by capturing the Fallback input value in `GatherInput` into a component field, passing it into `ParseBooleanWithFallback`, and switching the parser to `AIResponseParser.ParseBooleanFromResponse` so batch and non-batch paths now produce identical results.
+- **Batch output lost after file close/reopen during polling**: When a Grasshopper file was saved and reopened while a batch job was still in-flight, `_sentinelTrees` (the path layout + sentinel strings needed to reconstruct output trees) was lost because it was only kept in memory. On reload, `GetSentinelTree()` returned `null`, causing `OnBatchCompleted` to exit early and produce no output. Fixed by serializing the full sentinel tree structure (paths + sentinel strings per branch) in `Write()` via a new `BatchSentinelTrees` key, and restoring it in `Read()` before polling resumes. Added diagnostic logging to `GetSentinelTree()` to surface the null case.
+
+#### 📄 File and Web Processing
+
+- **`file2md` AI Tool** + **`File2MdComponent`**: Convert PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF to Markdown
+  - PDF layout intelligence (column detection, reading order, header/footer removal, table detection)
+  - Image extraction from PDF, DOCX, PPTX as `GH_ExtractedImage`
+  - Native .NET implementation (no Python dependencies)
+
+- **`GeminiProvider.Encode(AIRequestCall)` duplicated per-interaction encoding**: The full-request encoder re-implemented all part-building logic (text, tool call, tool result, image/URL fetch) inline instead of delegating to the existing single-interaction `EncodeToJToken`, creating a maintenance hazard where a fix to one path could miss the other (e.g. the recent image-fetch hardening). `Encode(AIRequestCall)` now loops and delegates to `EncodeToJToken`, which already returns `null` for System/Context (handled separately as `system_instruction`) and for UI-only `AIInteractionError`. Removes ~100 lines of duplication; no behavior change.
+
+- **`GeminiProvider` image URL fetch**: Replaced obsolete `System.Net.WebClient` (deprecated since .NET 6, `SYSLIB0014`) in `FetchImageFromUrl` with a shared `HttpClient`. Fetch is now bounded by `TimeoutDefaults.DefaultTimeoutSeconds` via a `CancellationTokenSource`, capped at 20 MB (Gemini's `inline_data` limit), and prefers the response `Content-Type` for the MIME type before falling back to the URL extension. Gemini's REST API still requires arbitrary HTTP(S) images to be inlined as base64 (its `file_data.file_uri` only accepts Gemini File API URIs or YouTube), so a download remains unavoidable on this path.
 
 - **CI automation**: Normalized license-header rewrites to UTF-8 without BOM and added no-PAT workflow dispatching so bot-authored PR updates still run the required PR checks.
 - **`AIImgToTextComponent`**: Fixed MistralAI (and other providers) receiving a placeholder string (`"Image [img-3] Page 13 (image/jpeg)"`) instead of actual base64 data when a `GH_ExtractedImage` was connected to the Image input. Changed input from `AddTextParameter` to `AddGenericParameter` and added explicit `GH_ExtractedImage` detection in the worker to extract `Base64Data` and `MimeType` directly, instead of relying on Grasshopper's string cast which calls `ToString()`.
 
-### Added
+- **`AIFile2MdComponent`**: AI-powered file conversion with image handling modes:
+  - `embed` (default): Base64 data URI with AI caption
+  - `describe`: AI text description replaces image
+  - `caption`: Short AI title replaces image
 
-- **Batch API Support**: Implemented `IAIBatchProvider` in OpenAI, Anthropic, and MistralAI providers
-  - **OpenAI**: Uploads a multi-request JSONL file to `/v1/files`, creates a batch via `/v1/batches`, polls status, downloads output from `/v1/files/{output_file_id}/content`, and cancels via `/v1/batches/{id}/cancel`
-  - **Anthropic**: Submits multiple items inline via `POST /v1/messages/batches`, polls `processing_status` on `GET /v1/messages/batches/{id}`, polls status, downloads JSONL results from `results_url`, and cancels via `POST /v1/messages/batches/{id}/cancel`
-  - **MistralAI**: Uses inline batching via `POST /v1/batch/jobs`, polls job status on `GET /v1/batch/jobs/{id}`, downloads output from `/v1/files/{output_file}/content`, and cancels via `POST /v1/batch/jobs/{id}/cancel`
-  - **Custom ID**: All providers generate per-item SmartHopper custom IDs (`sh-{yyyyMMddHHmmss}-{endpoint}-{NN}-{random8}`) used as `custom_id` in batch requests for traceability
-  - **Persistence**: `AIStatefulAsyncComponentBase` persists batch state (including `CustomIds` list and sentinel IDs) across file save/close/reopen cycles
-  - **Polling Loop**: `IsBatchRequest()`, `SubmitBatchAsync()`, timer-driven `PollBatchStatusAsync()`, and `OnBatchCompleted()` virtual hook. Poll interval driven by `SmartHopperSettings.BatchPollIntervalMinutes`
-  - **Save/Restore**: `AIStatefulAsyncComponentBase.Write`/`Read` persist pending batch ID, provider, and serialized request so polling resumes automatically after file close/reopen
-  - **Multi-item Queue**: `CallAiToolAsync` now intercepts calls in batch mode — when `BatchTier=true` and the tool has a `BuildRequest` delegate, the request is queued (sentinel placeholder returned) instead of executed immediately. After all items are processed, `SubmitBatchQueueAsync()` submits the entire queue in a single provider batch call
-  - **`ReconstructOutputTree<T>` helper**: Static utility method on `AIStatefulAsyncComponentBase` that replaces sentinel strings (`##SH_BATCH:{customId}##`) in a `GH_Structure<GH_String>` with decoded results, preserving tree paths and non-sentinel items
-  - **`AITextGenerate` batch completion**: Overrides `OnBatchCompleted` to decode each provider result body, reconstruct the output tree via `ReconstructOutputTree`, and re-render the component with real values
-- **`BatchTier` parameter in `AIRequestParameters`**: New dedicated `bool BatchTier` property replaces the former `service_tier=batch` Extras workaround. Exposed as a `Batch (B)` boolean input on `AISettingsComponent`. Fluent builder methods `WithBatchTier` / `ClearBatchTier` added to `AIRequestParametersBuilder`. Fully serialized in `GH_AIRequestParameters`.
-- **`AITool.BuildRequest` delegate**: New optional `Func<AIToolCall, AIRequestCall> BuildRequest` property on `AITool`. When set, the base class uses it to construct the provider request without executing it, enabling batch aggregation. `text_generate` implements `BuildGenerateRequest` and registers it.
-- **`IAIBatchProvider` interface** (`SmartHopper.Infrastructure`): Optional interface for providers that support async batch processing. Declares `SubmitBatchAsync`, `GetBatchStatusAsync`, and `CancelBatchAsync`.
-- **`SmartHopperSettings.BatchPollIntervalMinutes`** (default 2): Global setting controlling the minimum interval between batch status polls.
-- **Vision Input Support**: Added image input capabilities for AI vision models (image understanding/description)
-  - New `AIInteractionImage.CreateVisionInput()` and `CreateVisionInputFromBase64()` methods for vision input (distinct from image generation)
-  - New `MimeType` property on `AIInteractionImage` for base64-encoded image format identification
-  - New `AIBodyBuilder.AddImageInput()` and `AddImageInputFromBase64()` fluent methods for vision requests
-  - OpenAI provider: proper base64 data URI encoding for vision (`data:{mime};base64,{data}`)
-  - Anthropic provider: native vision encoding using `image` content blocks with `base64` and `url` source types
-  - MistralAI provider: OpenAI-compatible `image_url` content block encoding with data URI support
-  - New **`img_to_text`** AI tool (`SmartHopper.Core.Grasshopper/AITools/img_to_text.cs`) — describes or analyzes an image using a vision model; accepts `imageUrl` or `imageBase64` + optional `mimeType` and `prompt`; requires `AICapability.Image2Text`; returns `{ description }` with `ToolResultEnvelope`
-  - New **`GH_ExtractedImage`** Goo type (`SmartHopper.Core.Grasshopper/Types/GH_ExtractedImage.cs`) — Grasshopper wrapper for `ExtractedImage` carrying `Base64Data`, `MimeType`, `Id`, `Context`, and `PageOrSlide`; `ScriptVariable()` returns `Bitmap` for compatibility with `ImageViewerComponent`; casts to/from `GH_String` (base64), `Bitmap`, and raw `string`; fully serializable in GH files
-  - **`FileToMdComponent` `Images` output** — reverted to `StatefulComponentBase` (no AI required); now has single `File Path` input; always extracts embedded images from PDF/DOCX/PPTX and outputs them as `GH_ExtractedImage` tree on a new `Images` output alongside `Markdown` and `Format`
-  - New **`AIFileToMdComponent`** (`SmartHopper.Components/Knowledge/AIFileToMdComponent.cs`) — AI-powered variant; inputs: `File Path` (tree), `Image Mode` (text, optional), `Image Prompt` (text, optional); Image Modes: `embed` (default) — base64 data URI in markdown with short AI caption as alt text; `describe` — long AI text description replaces image; `caption` — short AI title replaces image; outputs `Markdown` and `Images` (`GH_ExtractedImage` tree)
-  - **`file_to_md` tool image modes** — replaced `inline` with `embed`; added `caption` mode; `imageMode` default changed to `embed`; added `DefaultImageCaptionPrompt` for `embed`/`caption` modes; tool now **always** returns raw `images` JArray regardless of `describeImages`, so both `FileToMdComponent` and `AIFileToMdComponent` share the same output format
-  - New **`AIImgToTextComponent`** (`SmartHopper.Components/Img/AIImgToTextComponent.cs`) — standalone Grasshopper component for describing images via vision AI; inputs: `Image` (tree: file path, URL, or base64/`GH_ExtractedImage`), `Prompt` (optional); outputs `Description` text tree
-- **Prompt-caching for AI providers**: `OpenAI`, `Anthropic` and `OpenRouter` now have some extra settings parameters to enable prompt caching.
-- **File-to-Markdown Conversion**: New `file_to_md` AI tool and `FileToMdComponent` for converting local files to Markdown
-  - Supports 12 formats: PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF
-  - PDF conversion with MinerU-inspired layout intelligence (column detection, reading order, header/footer removal, heading detection, scanned-page warnings)
-  - Office document conversion preserving headings, tables, lists, and formatting
-  - Native .NET implementation using PdfPig, DocumentFormat.OpenXml, MimeKit (no Python dependencies)
-  - Extensible `IFileConverter` plugin architecture with `FileConverterRegistry` dispatcher
-  - **Image Extraction**: `extractImages` parameter on `file_to_md` tool extracts embedded images from PDF, DOCX, and PPTX as base64 data
-    - PDF: Uses PdfPig `page.GetImages()` with PNG conversion via `TryGetPng`; JPEG magic-byte fallback for embedded JPEGs
-    - DOCX: Extracts from `MainDocumentPart.ImageParts` with MIME type preservation
-    - PPTX: Extracts from each `SlidePart.ImageParts` with slide number context
-    - New `ExtractedImage` class (`Id`, `Base64Data`, `MimeType`, `Context`, `PageOrSlide`)
-    - Images returned in tool result as `images` array with per-image metadata
-  - **PDF Converter Enhancements**: Improved layout analysis and table detection
-    - Replaced custom word extractor with `NearestNeighbourWordExtractor` and custom column detection with `RecursiveXYCut` page segmenter for accurate multi-column layout handling
-    - Added intelligent table detection via whitespace-gap analysis (2.5× median spacing threshold) and lattice-mode detection via PDF vector graphics paths
-    - Added caption detection for tables (`TABLE N`) and figures (`FIGURE N`, `Fig. N`) with automatic formatting and context-aware processing
-    - Added inline text styling preservation (**bold**, *italic*) with span-level merging for cleaner output
-    - Improved header/footer detection with expanded zones (12%/88%) and short-text repetition tracking across pages
-    - Added Markdown pipe-table rendering with GFM-compatible syntax, empty-cell quality gates, and code-block fallback for irregular structures
-    - Added boilerplate filters and targeted page-number suppression for cleaner output
-- **Web-to-Markdown Conversion**: New `web_to_md` tool and `WebToMdComponent` for converting web pages to Markdown
-  - New `UrlConverter` leverages same `IFileConverter` framework as `file_to_md`
+- **`web2md` AI Tool** + **`Web2MdComponent`**: Convert web pages to Markdown
   - Specialized handlers for Wikipedia, GitHub, GitLab, Discourse, Stack Exchange
-  - Falls back to `HtmlConverter` for generic pages with readability scoring
-  - New `WebToMdComponent` exposes URL-to-Markdown conversion directly on the Grasshopper canvas
-  - **Improved HTML Extraction**: Enhanced `web_generic_page_read` generic HTML fallback with magic-html-inspired readability scoring
-    - Content scoring by text density and link density
-    - Boilerplate removal (nav, header, footer, ads, etc.)
-    - Semantic container prioritization (article, main)
-- **AI Settings Components**:
-  - **`AISettingsComponent`**: New stateless component that assembles `AIRequestParameters` from universal cross-provider inputs (Model, Temperature, Max Tokens, Top P, Seed) and an optional Extras JSON object. Output `Settings (S)` wire connects to any AI component.
-  - **`AIExtraSettingsComponent`**: New stateless component with dynamically generated inputs driven by the selected provider's registered extra descriptors. Inputs rebuild automatically when the provider changes, preserving existing wire connections. Output JSON connects to `AISettingsComponent.Extras`.
-  - **`AIRequestParameters` record** (`SmartHopper.Infrastructure`): Immutable per-request AI configuration (Model, Temperature, MaxTokens, TopP, Seed, Extras). Fluent `AIRequestParametersBuilder` included. Supersedes the bare model-name string as the primary settings transport.
-  - **`GH_AIRequestParameters` type wrapper** (`SmartHopper.Core.Grasshopper`): Grasshopper `IGH_Goo` wrapper for `AIRequestParameters`. Accepts backwards-compatible cast from plain string (model name). Fully serialized in GH files.
-  - **`AIExtraDescriptor`** (`SmartHopper.Infrastructure`): Descriptor class for provider-specific extra parameters (key, display name, description, type, default, allowed values).
-  - **`IAIProvider.GetExtraDescriptors()`**: New interface method; base `AIProvider` returns empty list; all five providers (OpenAI, Anthropic, MistralAI, DeepSeek, OpenRouter) implement provider-specific extras.
-  - **`ProviderManager.GetExtraDescriptors(string)`**: Convenience method that delegates to the named provider.
+  - Readability scoring for generic pages
+
+#### ⚙️ Settings Components
+
+- **`AISettingsComponent`**: Assemble `AIRequestParameters` from universal inputs (Model, Temperature, Max Tokens, Top P, Seed, Timeout, Extras)
+- **`AIExtraSettingsComponent`**: Dynamically generated inputs based on selected provider's extra descriptors
+- **`AIRequestParameters`**: Immutable per-request configuration with fluent builder
+
+#### 📦 JSON Components (Non-AI)
+
+- **`JsonSchemaComponent`**: Build JSON Schema from property definitions with dot-notation support
+- **`JsonSchemaPropComponent`**, **`JsonSchemaPropObjectComponent`**, **`JsonSchemaPropArrayComponent`**: Visual schema builders
+- **`JsonObjectComponent`**, **`JsonArrayComponent`**: Create JSON from Grasshopper data
+- **`JsonArray2TextListComponent`**, **`JsonObject2TextComponent`**: Parse/serialize JSON
+- **`JsonGetValueComponent`**: Extract nested values via dot-notation paths
+- **`JsonMergeComponent`**: Shallow merge multiple JSON objects
+
+#### 🚀 Batch Processing
+
+- **Batch API Support** in OpenAI, Anthropic, and MistralAI providers
+  - Multi-item queue with `BatchTier` parameter on `AISettingsComponent`
+  - Live progress counter (`Processing batch (YY/XX)...`)
+  - Automatic save/restore of batch state across file close/reopen
+  - Order-based fallback for result loading when sentinel mapping unavailable
+  - Per-item custom IDs for traceability
+
+#### 🔧 Infrastructure
+
+- **`JsonFormatHelper`**: Centralized JSON formatting utility with automatic markdown code block extraction and added `JsonFormatHelper.SanitizeJsonString`, a best-effort sanitizer for common AI malformations — escapes unescaped control characters (newline, carriage return, tab, other C0) inside string literals, normalizes smart/curly quotes and zero-width spaces, strips trailing commas before `}` or `]`, closes unterminated string literals with a trailing `"`, and closes unbalanced `{` / `[` in LIFO order so truncated responses become structurally parseable. Wired as a final fallback in `AIResponseParser.ParseJsonObjectFromResponse`, so tools such as `text2json` recover from AI responses containing raw newlines inside JSON string values or prematurely cut off by token limits.
+- **HTTP Error Handling**: Structured error messages for 503, 429, 401/403 with actionable guidance
+- **Mixed-Type Data Tree Support**: Components can mix `IGH_Goo` types (e.g., `GH_String` + `GH_Boolean`)
+- **Unified Diagnostic Interaction** (`AIInteractionRuntimeMessage`): Single interaction type with `Severity`, `Origin`, `Code` replacing per-severity classes
+- **Centralized Runtime Message Collection**: Thread-safe message collection in `AsyncWorkerBase` with proper persistence across state transitions
 
 ### Changed
 
+- **Batch Processing UX**:
+  - Cancellation now shows immediate feedback ("Cancelling batch {id}..." → "Batch {id} cancelled successfully")
+  - Provider-agnostic batch result loading from files
+  - Progress messages distinguish queuing (`Preparing`) from execution (`Processing`)
+
+- **Timeout Configuration**:
+  - Consolidated timeout settings (single `Timeout` setting, default 600s)
+  - Resolution priority: Component input → Settings → Default
+
+- **Provider Parameter Resolution**: All providers now read from `request.Parameters` first, then fall back to global settings
+
+- **AI Components Migrated to Mixed-Type Pipeline**:
+  - `AIText2BooleanComponent`, `AIList2BooleanComponent` now use `IGH_Goo` trees with native `GH_Boolean` fallback storage
+
+### Fixed
+
+- **DeepSeek provider**: Fixed HTTP 400 "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'" when the model emits parallel tool calls in a single turn. The encoder now merges consecutive assistant `tool_calls` messages into a single message with all `tool_calls` aggregated, so the subsequent tool result messages satisfy DeepSeek's strict OpenAI-compatible ordering rule.
+
 - **Batch Processing**:
-  - **Progress messages**: Live progress counter now shown during batch processing
+  - Sentinel trees now survive file close/reopen and manual result loading
+  - Batch item errors properly surfaced as Grasshopper runtime messages
+  - HTTP timeout increased for large batch file upload/download (300s default)
+  - Order-based fallback for result loading when sentinel mapping unavailable
+
+- **Progress messages**: Live progress counter now shown during batch processing
     - On batch submission: message immediately shows `Processing batch (0/XX)...` instead of the static `Processing batch...`
     - During polling: counter updates live to `Processing batch (YY/XX)...` as items complete (OpenAI: `request_counts.completed`, MistralAI: `succeeded_requests`, Anthropic: `request_counts.succeeded`)
     - During data-tree collection phase (batch mode): progress message shows `Preparing X/X...` instead of `Processing X/X...` to distinguish queuing from actual execution
@@ -156,9 +309,13 @@ Many thanks to the following contributors to this release:
   - **`IAIBatchProvider.SubmitBatchAsync`**: Signature changed from single-item `(AIRequestCall, CancellationToken)` to multi-item `(IReadOnlyList<(string CustomId, AIRequestCall Request)>, CancellationToken)`. All three providers (Anthropic, OpenAI, MistralAI) updated accordingly. *(Breaking change for custom `IAIBatchProvider` implementations.)*
   - **`AIBatchSubmission`**: `CustomId` (single string) superseded by `CustomIds` (`IReadOnlyList<string>`); `CustomId` is now a compat shim returning the first element. `GenerateCustomId()` now accepts `endpoint` and `index` parameters for richer IDs.
   - **`OnBatchCompleted`**: Signature changed from `(AIReturn)` to `(IReadOnlyDictionary<string, JObject>)` to carry per-item results. *(Breaking change for components overriding this hook.)*
+
 - **`AIStatefulAsyncComponentBase`**: `Model (M)` generic text input replaced by `Settings (S)` generic parameter. Accepts `AIRequestParameters` (from `AISettingsComponent`) or a plain model name string for backwards compatibility. `GetModel()` now reads from `AIRequestParameters.Model` with the same provider-default fallback as before.
+
 - **All providers** (`OpenAI`, `Anthropic`, `MistralAI`, `DeepSeek`, `OpenRouter`): `Encode()` now performs per-property resolution — each parameter (Temperature, MaxTokens, TopP, Seed, and provider-specific extras) reads from `request.Parameters` first, falling back to global provider settings. Previously all providers read exclusively from global settings.
+
 - **`AIRequestBase`**: Added `AIRequestParameters Parameters { get; set; }` property.
+
 - chore(rules): clarified Windsurf rules and workflows to reduce overlap, stale platform assumptions, and ambiguous SmartHopper architecture guidance.
 - ci(pr-build-hash-validation): the `validate-no-manual-hash-edits` job now only blocks a PR when a changed file under `hashes/` differs from its counterpart on `main` (the source of truth). PRs that carry a hash commit verbatim from main (e.g., via branch update/rebase) are allowed.
 - ci(concurrency): added top-level `concurrency:` to 25 workflows to prevent race conditions and save runner minutes:
@@ -171,9 +328,64 @@ Many thanks to the following contributors to this release:
   - `chore-version-badge` gained a `paths: [Solution.props]` filter on its `push` trigger so it no longer runs on every unrelated push to `main`/`dev`; the version source of truth is the only relevant change.
   - Auto-PR workflows that follow the delete-and-recreate pattern (`chore-update-contributors`, `pr-anonymize-public-key`) and those built on `peter-evans/create-pull-request` (`chore-version-date`, `chore-version-badge`, `chore-version-main-release`) already reuse existing PRs and were verified as safe; no changes needed.
 
+- **DeepSeek Provider**: HTTP 400 "insufficient tool messages" caused by merging consecutive tool result messages
+
+- **`AIImgToTextComponent`**: Fixed placeholder string being sent instead of actual base64 data for `GH_ExtractedImage` inputs
+
+- **`text2json` tool**: JSON parsing now uses `AIResponseParser.ParseJsonObjectFromResponse` for robust extraction from markdown code blocks (e.g. fenced ```json blocks), prefatory text, and trailing content via brace-depth tracking. Previously failed when the model wrapped output in fences alongside other content.
+
+- **Runtime Messages**: Fixed error messages disappearing after state transitions due to premature list clearing
+
+- **`AI2Boolean`, `AI2Integer`, `AI2Number`**: Added optional `Fallback` (F) input and `Used Fallback` (UF) boolean output. When the AI response cannot be parsed, the component emits the user-supplied fallback (or `null` if none) and `UsedFallback = true`. Parsing is delegated to the centralized `BooleanResultResolver` / `IntegerResultResolver` / `NumberResultResolver` utilities to keep behavior aligned with the legacy `text2boolean` tool.
+- **`AI2Json`**: Added optional `Fallback` (F) text input (parsed as JSON object or array) and `Used Fallback` (UF) boolean output. Extraction now delegates to `JsonResultResolver.Resolve`, which handles markdown code-block wrapping (` ```json … ``` `), prefatory text, and brace-depth recovery — bringing parity with the `text2json` tool's robustness. Replaces the previous `JsonFormatHelper.JsonToString` extractor.
+
+- **`AI2*` output components**: Updated `UsingAiTools` references to current tool names after the v2 rename:
+  - `AI2Text`, `AI2Boolean`, `AI2Number`, `AI2Integer`, `AI2Markdown`: `text_generate` → `text2text`
+  - `AI2Json`: `text_generate` → `text2json`
+  - `AI2Img`: `img_generate` → `text2img`
+  - `AI2Script`: `script_new` → `script_generate`
+
+- `gh_put` no longer fails to replace components when Grasshopper is in edit mode.
+- Added defensive null checks, try-catch blocks, and enum string serialization for improved error-handling robustness.
+- `ScriptComponentRegistry` integration for robust script extraction in script-review workflow.
+
 ### Removed
 
-- **`service_tier` extra descriptor** removed from `OpenAIProvider`, `AnthropicProvider`, and `MistralAIProvider` `GetExtraDescriptors()`. Batch processing is now controlled exclusively via the dedicated `BatchTier` boolean on `AIRequestParameters`/`AISettingsComponent`. Existing `.ghx` files that wired `service_tier=batch` through `AIExtraSettingsComponent` will silently ignore the extra; reconnect the `Batch` input on `AISettingsComponent` instead.
+- **`boolean_classify` AI tool**: Removed orphaned tool (`SmartHopper.Core.Grasshopper/AITools/boolean_classify.cs`) and its companion `BooleanClassificationResolver` utility. Boolean classification is now handled directly by `AI2BooleanComponent` via `text2text` + local response parsing, removing the unused tool indirection.
+- **`integer_extract`, `number_extract`, `markdown_format` AI tools**: Removed orphaned tools with no consumers. Their roles are covered by the new `AI2Integer`, `AI2Number`, and `AI2Markdown` output components, which use `text2text` directly with local response parsing via `AIResponseParser`.
+- **`img_generate` AI tool**: Removed legacy tool — superseded by `text2img` (renamed in this release per BREAKING CHANGES). All image generation components now consume `text2img`.
+
+## [1.4.2-beta] - 2026-04-15
+
+Many thanks to the following contributors to this release:
+
+- [marc-romu](https://github.com/marc-romu)
+
+----
+
+### Added
+
+- ci(main-sync-to-dev): new workflow `.github/workflows/main-sync-to-dev.yml` that, on pushes to `main` (or manual dispatch), auto-opens/reuses a PR from `main` into `dev` and into every `dev-*` stabilization branch. For `dev` the PR is a plain `main → dev`. For each `dev-*`, the workflow maintains a `sync/main-to-<dev-*>` branch onto which it **cherry-picks only allow-listed files** from `main` (any change under `.github/`, `.windsurf/`, `.githooks/`, `hashes/`, plus *modifications* — not add/rename/delete — to existing `src/SmartHopper.Providers.*/*ProviderModels.cs`). Non-allow-listed files (feature source, docs, `CHANGELOG.md`, etc.) stay on `main` only, so a mixed commit on `main` still propagates its infra/model parts to stabilization lines; use `patch-propagate.yml` for targeted backports of the rest. Reuses an existing open PR per target instead of creating duplicates, and skips entirely when there is no effective allow-listed diff.
+- Community model verification flow:
+  - New issue template `.github/ISSUE_TEMPLATE/model-verification.yml` with tests grouped by location ("Components on the Grasshopper canvas" — `AITextGenerate`, `AITextListGenerate`, `AIImgToText`, `AIImgGenerate`, audio — and "Chat interface" — streaming, ToolChat/FunctionCalling, Reasoning, multi-turn `ConversationSession`), each test specifying the **exact prompt** to use and the expected behavior. The template also embeds a copy-paste codeblock (with a `/verify-confirm` header and a hidden `<!-- model-verification-confirm -->` marker) for additional verifiers to use as their certification comment.
+  - New workflow `.github/workflows/model-verification.yml` that triggers only when an issue comment starts with `/verify-confirm` (and contains the template marker) or `/verify-force`, tallies distinct GitHub users (issue author + valid `/verify-confirm` commenters), and opens a PR promoting the model to `Verified = true` once two distinct users have certified it. `/verify-force` is restricted to `OWNER`/`MEMBER`/`COLLABORATOR`.
+  - New helper `tools/Update-ModelVerified.ps1` that locates the matching `new AIModelCapabilities { Model = "..." }` block in `src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs` and flips `Verified = false` to `Verified = true` (or inserts the flag when missing).
+
+- Automated provider model discovery CI (OpenRouter as single source of truth):
+  - New workflow `.github/workflows/chore-update-provider-models.yml` that runs weekly (Sundays 05:00 UTC) and on `workflow_dispatch`. It queries OpenRouter's unified `/models` endpoint for each supported provider, compares the returned metadata with the static declarations in `*ProviderModels.cs`, and opens a PR that both auto-inserts new models and marks disappeared/expiring models as `Deprecated = true`.
+  - New composite action `.github/actions/ai/fetch-models/action.yml` that invokes `tools/Update-ProviderModels.ps1` with an OpenRouter API key, passing the provider name and `update-file` flag.
+  - New PowerShell tool `tools/Update-ProviderModels.ps1` invoked by the workflow.  Accepts `-Provider`, `-OpenRouterApiKey` (OpenRouter key), and an optional `-TargetFile`.  It queries OpenRouter, filters by provider prefix, maps `architecture.input_modalities`/`output_modalities` and `supported_parameters` to `AICapability` flags, auto-generates full `AIModelCapabilities` blocks for new models (with `ContextLimit`, `Verified=false`), and marks models with `expiration_date` < 1 year or absent from OpenRouter as `Deprecated = true`.  `Rank` values are auto-computed from OpenRouter `created` timestamp (newer models rank higher) and output pricing (cheapest first, considering `pricing.completion`, `pricing.image`, and `pricing.audio_output`).  Existing model capabilities, context limits, and ranks are refreshed on every run.  Emits a structured JSON report containing `newModels`, `deprecatedModels`, and `unchangedModels`.
+
+### Changed
+
+- **Infrastructure**: Migrated critical fixes including provider stability improvements, timeout policy refinements, and streaming adapter fixes
+- **Thread Safety**: `ProviderManager` now uses `ConcurrentDictionary` for all provider collections to improve concurrent access safety
+- **Code Quality**: Applied consistent code style with `this.` qualifiers and `ConfigureAwait()` patterns across Infrastructure and Providers
+
+### Fixed
+
+- `ProviderManager` now exposes `IsInfrastructureReady` flag to signal when provider infrastructure initialization completes
+- All AI providers (Anthropic, DeepSeek, MistralAI, OpenAI, OpenRouter) received stability improvements and extended known list of models
 
 ### Deprecated
 
@@ -232,7 +444,7 @@ Many thanks to the following contributors to this release:
 - fix(infrastructure): implement 15-minute manifest caching in `ProviderHashVerifier` using `ConcurrentDictionary` for thread safety, and centralize cache operations in `ReadHashManifest` method
 - fix(core): eliminate race condition in `ComponentStateManager.ProcessTransitionQueue()` where `isTransitioning` flag was cleared before event firing, potentially allowing concurrent queue processing on macOS. The flag now remains true until after all events are fired, preventing out-of-order event processing and concurrent event handler execution.
 - fix(tools): set GhJSON component `Id = 1` when `InstanceGuid` is null in `script_generate` and `script_edit` to satisfy GhJSON.Core validation requiring at least one identifier
-- fix(tools): add `SanitizeAndParseJson` to handle AI responses wrapped in markdown code blocks or non-JSON formatting in `script_generate` and `script_edit`
+- fix(tools): add `ParseJsonObjectFromResponse` to handle AI responses wrapped in markdown code blocks or non-JSON formatting in `script_generate` and `script_edit`
 - fix(infrastructure): improve `AIProvider.CallApi()` error messages for non-JSON API responses (e.g., HTML error pages from proxies)
 - fix(infrastructure): GitHub Pages deployment now correctly places `latest.json` and `versions.json` in the `hashes/` subdirectory instead of site root, fixing 404 errors when ProviderHashVerifier and the web UI attempt to fetch manifest files
 - fix(macOS): address mac compatibility issues (deadlock risk, GhJSON validation, and JSON parsing edge cases) tracked in [#389](https://github.com/architects-toolkit/SmartHopper/issues/389)
@@ -618,7 +830,7 @@ Many thanks to the following contributors to this release:
 - Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
 - Centralized error handling in AIReturn and tool calls.
 - Accurately aggregate metrics in Conversation Session. Cases with multiple tool calls, multiple interactions, etc. Calculate completion time per interaction.
-- Improved AI Tool descriptions with better guided instructions. Also added specialized wrappers for targeted tool calls (gh_get_selected, gh_get_errors, gh_get_locked, gh_get_hidden, gh_get_visible, gh_get_by_guid, gh_lock_selected, gh_unlock_selected, gh_hide_preview_selected, gh_show_preview_selected, gh_group_selected, gh_tidy_up_selected).
+- Improved AI Tool descriptions with better guided instructions. Also added specialized wrappers for targeted tool calls (gh_get_selected, gh_get_errors, gh_get_locked, gh_get_preview_off, gh_get_preview_on, gh_get_by_guid, gh_lock_selected, gh_unlock_selected, gh_hide_preview_selected, gh_show_preview_selected, gh_group_selected, gh_tidy_up_selected).
 - **BREAKING (Internal):** Reorganized `SmartHopper.Core.Grasshopper.Utils` namespace structure for better maintainability:
   - Created organized subfolders: `Canvas/`, `Serialization/`, `Parsing/`, `Rhino/`, `Internal/`
   - Renamed utility classes for clarity (e.g., `GHCanvasUtils` → `CanvasAccess`, `GHComponentUtils` → `ComponentManipulation`)
@@ -673,7 +885,7 @@ Many thanks to the following contributors to this release:
 - Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
 - Centralized error handling in AIReturn and tool calls.
 - Accurately aggregate metrics in Conversation Session. Cases with multiple tool calls, multiple interactions, etc. Calculate completion time per interaction.
-- Improved AI Tool descriptions with better guided instructions. Also added specialized wrappers for targeted tool calls (gh_get_selected, gh_get_errors, gh_get_locked, gh_get_hidden, gh_get_visible, gh_get_by_guid, gh_lock_selected, gh_unlock_selected, gh_hide_preview_selected, gh_show_preview_selected, gh_group_selected, gh_tidy_up_selected).
+- Improved AI Tool descriptions with better guided instructions. Also added specialized wrappers for targeted tool calls (gh_get_selected, gh_get_errors, gh_get_locked, gh_get_preview_off, gh_get_preview_on, gh_get_by_guid, gh_lock_selected, gh_unlock_selected, gh_hide_preview_selected, gh_show_preview_selected, gh_group_selected, gh_tidy_up_selected).
 - Enhanced `list_filter` tool prompts to explicitly distinguish between indices (positions/keys) and values (item content), and expanded capabilities to support filtering, sorting, reordering, selecting, and other list manipulation operations based on natural language criteria.
 - Added more predefined models in the provider's database.
 
@@ -1163,7 +1375,7 @@ Many thanks to the following contributors to this release:
 ### Removed
 
 - Removed unnecessary `GetModel` and `GetFormattedTools` methods in `OpenAIProvider`, `MistralAIProvider` and `TemplateProvider`
-- Removed `GetResponse` method from `AIStatefulAsyncComponentBase` in favor of `CallAiToolAsync`
+- Removed `GetResponse` method from `AIStatefulAsyncComponentBase` in favor of `CallAIToolAsync`
 
 ## [0.3.3-alpha] - 2025-06-23
 

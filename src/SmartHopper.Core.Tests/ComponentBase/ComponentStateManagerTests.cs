@@ -16,15 +16,17 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using SmartHopper.Core.ComponentBase;
-using Xunit;
-
 namespace SmartHopper.Core.Tests.ComponentBase
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using SmartHopper.Core.ComponentBase;
+    using SmartHopper.Core.ComponentBase.Cores;
+    using SmartHopper.Core.ComponentBase.State;
+    using Xunit;
+
     /// <summary>
     /// Unit tests for the ComponentStateManager class.
     /// Tests state transitions, debouncing, hash management, and file restoration scenarios.

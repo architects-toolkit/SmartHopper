@@ -22,12 +22,14 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Validation;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Tools
 {
@@ -36,18 +38,24 @@ namespace SmartHopper.Infrastructure.AICall.Tools
     /// </summary>
     public class AIToolCall : AIRequestBase
     {
-        // Timeout bounds for tool execution
-        private const int DEFAULT_TIMEOUT_SECONDS = 120;
-        private const int MIN_TIMEOUT_SECONDS = 1;
-        private const int MAX_TIMEOUT_SECONDS = 600;
+        // Timeout bounds for tool execution.
+        // Sourced from TimeoutDefaults to keep request, provider, and tool layers aligned.
+        private const int DEFAULT_TIMEOUT_SECONDS = TimeoutDefaults.DefaultTimeoutSeconds;
+        private const int MIN_TIMEOUT_SECONDS = TimeoutDefaults.MinTimeoutSeconds;
+        private const int MAX_TIMEOUT_SECONDS = TimeoutDefaults.MaxTimeoutSeconds;
+
+        /// <summary>
+        /// Gets or sets the cancellation token for this tool execution.
+        /// </summary>
+        public CancellationToken CancellationToken { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether the tool call is valid.
         /// </summary>
         /// <returns>A tuple containing a boolean indicating whether the tool call is valid and a list of structured messages.</returns>
-        public override (bool IsValid, List<AIRuntimeMessage> Errors) IsValid()
+        public override (bool IsValid, List<SHRuntimeMessage> Errors) IsValid()
         {
-            var messages = new List<AIRuntimeMessage>();
+            var messages = new List<SHRuntimeMessage>();
 
             var (baseValid, baseErrors) = base.IsValid();
             if (!baseValid)
@@ -59,9 +67,10 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             var pendingCount = this.Body?.PendingToolCallsCount() ?? 0;
             if (pendingCount != 1)
             {
-                messages.Add(new AIRuntimeMessage(
-                    AIRuntimeMessageSeverity.Error,
-                    AIRuntimeMessageOrigin.Validation,
+                messages.Add(new SHRuntimeMessage(
+                    SHRuntimeMessageSeverity.Error,
+                    SHRuntimeMessageOrigin.Validation,
+                    SHMessageCode.ToolValidationError,
                     "Body must have exactly one pending tool call"));
             }
             else
@@ -86,21 +95,27 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 }
             }
 
-            var hasErrors = messages.Count(m => m.Severity == AIRuntimeMessageSeverity.Error) > 0;
+            var hasErrors = messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error);
 
             return (!hasErrors, messages);
         }
 
         /// <inheritdoc/>
-        public override async Task<AIReturn> Exec()
+        public override async Task<AIReturn> Exec(CancellationToken cancellationToken = default)
         {
+            // If a token was provided to Exec, use it to update the property so the tool manager can use it
+            if (cancellationToken != default)
+            {
+                this.CancellationToken = cancellationToken;
+            }
+
             // Validate early
             var (ok, errors) = this.IsValid();
             if (!ok)
             {
                 // Build a detailed tool error including specific validation reasons
                 var ret = new AIReturn();
-                var errorTexts = (errors ?? new List<AIRuntimeMessage>())
+                var errorTexts = (errors ?? new List<SHRuntimeMessage>())
                     .Where(m => m != null && !string.IsNullOrWhiteSpace(m.Message))
                     .Select(m => m.Message)
                     .ToList();
@@ -124,15 +139,20 @@ namespace SmartHopper.Infrastructure.AICall.Tools
             {
                 // Respect per-request timeout. We cannot cancel the underlying work if the tool ignores cancellation,
                 // but we do return a standardized timeout error when exceeded.
-                var timeoutSec = this.TimeoutSeconds <= 0 ? DEFAULT_TIMEOUT_SECONDS : this.TimeoutSeconds;
+                // Resolution chain: explicit per-request value (when > 0) -> shared default.
+                // RequestTimeoutPolicy normally resolves this from settings before Exec() runs.
+                var timeoutSec = (this.TimeoutSeconds.HasValue && this.TimeoutSeconds.Value > 0)
+                    ? this.TimeoutSeconds.Value
+                    : DEFAULT_TIMEOUT_SECONDS;
+                var clampedTimeout = Math.Min(Math.Max(timeoutSec, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS);
                 var execTask = AIToolManager.ExecuteTool(this);
                 var completed = await Task.WhenAny(
                     execTask,
-                    Task.Delay(TimeSpan.FromSeconds(Math.Min(Math.Max(timeoutSec, MIN_TIMEOUT_SECONDS), MAX_TIMEOUT_SECONDS)))).ConfigureAwait(false);
+                    Task.Delay(TimeSpan.FromSeconds(clampedTimeout))).ConfigureAwait(false);
                 if (completed != execTask)
                 {
                     var timed = new AIReturn();
-                    timed.CreateToolError("Tool execution cancelled or timed out", this);
+                    timed.CreateToolError($"Tool execution exceeded {timeoutSec} seconds", this);
                     return timed;
                 }
 
@@ -145,7 +165,7 @@ namespace SmartHopper.Infrastructure.AICall.Tools
                 }
 
                 // If the tool didn't provide a body and no error messages, standardize it
-                if (result.Body == null && !result.Messages.Any(m => m.Severity == AIRuntimeMessageSeverity.Error))
+                if (result.Body == null && !result.Messages.Any(m => m.Severity == SHRuntimeMessageSeverity.Error))
                 {
                     result.CreateToolError("Tool execution returned no result", this);
                 }

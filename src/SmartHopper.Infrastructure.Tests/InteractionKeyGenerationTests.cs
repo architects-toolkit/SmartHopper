@@ -22,6 +22,7 @@ namespace SmartHopper.Infrastructure.Tests
     using Newtonsoft.Json.Linq;
     using SmartHopper.Infrastructure.AICall.Core.Base;
     using SmartHopper.Infrastructure.AICall.Core.Interactions;
+    using SmartHopper.Infrastructure.Diagnostics;
     using Xunit;
 
     /// <summary>
@@ -166,7 +167,7 @@ namespace SmartHopper.Infrastructure.Tests
             // Arrange
             var text = new AIInteractionText
             {
-                TurnId = "",
+                TurnId = string.Empty,
                 Agent = AIAgent.Assistant,
                 Content = "Test"
             };
@@ -468,21 +469,22 @@ namespace SmartHopper.Infrastructure.Tests
 
         #endregion
 
-        #region AIInteractionError Tests
+        #region AIInteractionRuntimeMessage (Error) Tests
 
         /// <summary>
-        /// Tests that AIInteractionError.GetStreamKey hashes content for unique identification.
+        /// Tests that an error-severity runtime-message interaction hashes content for unique identification.
         /// </summary>
 #if NET7_WINDOWS
-        [Fact(DisplayName = "AIInteractionError_GetStreamKey_ShouldHashContent [Windows]")]
+        [Fact(DisplayName = "AIInteractionRuntimeMessage_Error_GetStreamKey_ShouldHashContent [Windows]")]
 #else
-        [Fact(DisplayName = "AIInteractionError_GetStreamKey_ShouldHashContent [Core]")]
+        [Fact(DisplayName = "AIInteractionRuntimeMessage_Error_GetStreamKey_ShouldHashContent [Core]")]
 #endif
-        public void AIInteractionError_GetStreamKey_HashesContent()
+        public void AIInteractionRuntimeMessage_Error_GetStreamKey_HashesContent()
         {
             // Arrange
-            var error = new AIInteractionError
+            var error = new AIInteractionRuntimeMessage
             {
+                Severity = SHRuntimeMessageSeverity.Error,
                 TurnId = "abc123",
                 Content = "An error occurred"
             };
@@ -495,18 +497,19 @@ namespace SmartHopper.Infrastructure.Tests
         }
 
         /// <summary>
-        /// Tests that AIInteractionError.GetDedupKey equals GetStreamKey for errors.
+        /// Tests that an error-severity runtime-message interaction returns the same GetDedupKey as GetStreamKey.
         /// </summary>
 #if NET7_WINDOWS
-        [Fact(DisplayName = "AIInteractionError_GetDedupKey_ShouldEqualStreamKey [Windows]")]
+        [Fact(DisplayName = "AIInteractionRuntimeMessage_Error_GetDedupKey_ShouldEqualStreamKey [Windows]")]
 #else
-        [Fact(DisplayName = "AIInteractionError_GetDedupKey_ShouldEqualStreamKey [Core]")]
+        [Fact(DisplayName = "AIInteractionRuntimeMessage_Error_GetDedupKey_ShouldEqualStreamKey [Core]")]
 #endif
-        public void AIInteractionError_GetDedupKey_EqualsStreamKey()
+        public void AIInteractionRuntimeMessage_Error_GetDedupKey_EqualsStreamKey()
         {
             // Arrange
-            var error = new AIInteractionError
+            var error = new AIInteractionRuntimeMessage
             {
+                Severity = SHRuntimeMessageSeverity.Error,
                 TurnId = "abc123",
                 Content = "Test error"
             };
@@ -520,24 +523,26 @@ namespace SmartHopper.Infrastructure.Tests
         }
 
         /// <summary>
-        /// Tests that AIInteractionError.GetStreamKey produces same keys for identical content.
+        /// Tests that an error-severity runtime-message interaction produces the same key for identical content.
         /// </summary>
 #if NET7_WINDOWS
-        [Fact(DisplayName = "AIInteractionError_GetStreamKey_ShouldBeDeterministic [Windows]")]
+        [Fact(DisplayName = "AIInteractionRuntimeMessage_Error_GetStreamKey_ShouldBeDeterministic [Windows]")]
 #else
-        [Fact(DisplayName = "AIInteractionError_GetStreamKey_ShouldBeDeterministic [Core]")]
+        [Fact(DisplayName = "AIInteractionRuntimeMessage_Error_GetStreamKey_ShouldBeDeterministic [Core]")]
 #endif
-        public void AIInteractionError_GetStreamKey_SameContent_SameHash()
+        public void AIInteractionRuntimeMessage_Error_GetStreamKey_SameContent_SameHash()
         {
             // Arrange
-            var error1 = new AIInteractionError
+            var error1 = new AIInteractionRuntimeMessage
             {
+                Severity = SHRuntimeMessageSeverity.Error,
                 TurnId = "abc123",
                 Content = "Network timeout"
             };
 
-            var error2 = new AIInteractionError
+            var error2 = new AIInteractionRuntimeMessage
             {
+                Severity = SHRuntimeMessageSeverity.Error,
                 TurnId = "abc123",
                 Content = "Network timeout"
             };
@@ -661,7 +666,7 @@ namespace SmartHopper.Infrastructure.Tests
             var text = new AIInteractionText { Agent = AIAgent.User, Content = "Test" };
             var toolCall = new AIInteractionToolCall { Id = "call_1", Name = "test" };
             var toolResult = new AIInteractionToolResult { Id = "call_1" };
-            var error = new AIInteractionError { Content = "Error" };
+            var error = new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, Content = "Error" };
 
             // Act & Assert
             Assert.DoesNotContain("turn:", text.GetStreamKey());
@@ -686,7 +691,7 @@ namespace SmartHopper.Infrastructure.Tests
                 new AIInteractionText { TurnId = "t1", Agent = AIAgent.Assistant, Content = "Test" },
                 new AIInteractionToolCall { TurnId = "t1", Id = "c1", Name = "test" },
                 new AIInteractionToolResult { TurnId = "t1", Id = "c1" },
-                new AIInteractionError { TurnId = "t1", Content = "Error" },
+                new AIInteractionRuntimeMessage { Severity = SHRuntimeMessageSeverity.Error, TurnId = "t1", Content = "Error" },
                 new AIInteractionImage { TurnId = "t1", OriginalPrompt = "Test" }
             };
 
@@ -848,7 +853,7 @@ namespace SmartHopper.Infrastructure.Tests
             {
                 TurnId = "stable_turn",
                 Agent = AIAgent.Assistant,
-                Content = ""
+                Content = string.Empty
             };
 
             // Act - Get stream key with empty content

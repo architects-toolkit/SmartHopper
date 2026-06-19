@@ -1,6 +1,6 @@
 # SmartHopper - AI-Powered Tools and Assistant for Grasshopper3D
 
-[![Version](https://img.shields.io/badge/version-2.0.0--dev.260531-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0--dev.260619-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![Status](https://img.shields.io/badge/status-Unstable%20Development-brown?style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/releases)
 [![.NET CI](https://img.shields.io/github/actions/workflow/status/architects-toolkit/SmartHopper/.github/workflows/ci-dotnet-tests.yml?label=tests&logo=dotnet&style=for-the-badge)](https://github.com/architects-toolkit/SmartHopper/actions/workflows/ci-dotnet-tests.yml)
 [![Ready to use](https://img.shields.io/badge/ready_to_use-NO-brown?style=for-the-badge)](https://smarthopper.xyz/#installation)
@@ -35,6 +35,7 @@ SmartHopper brings a context‑aware AI assistant and a suite of AI‑powered co
   - ![DeepSeek](src/SmartHopper.Providers.DeepSeek/Resources/deepseek_icon.png) [DeepSeek](https://deepseek.com/)
   - ![Anthropic](src/SmartHopper.Providers.Anthropic/Resources/anthropic_icon.png) [Anthropic](https://anthropic.com/)
   - ![OpenRouter](src/SmartHopper.Providers.OpenRouter/Resources/openrouter_icon.png) [OpenRouter](https://openrouter.ai/)
+  - ![Gemini](src/SmartHopper.Providers.Gemini/Resources/gemini_icon.png) [Google Gemini](https://ai.google.dev/)
 
 - Open Source — and it will always be.
 
@@ -101,6 +102,26 @@ See [Releases](https://github.com/architects-toolkit/SmartHopper/releases) for a
 ## ⚖️ License
 
 This project is licensed under the GNU Lesser General Public License v3 (LGPL) - see the [LICENSE](LICENSE) file for details.
+
+## ™️ Trademark and Logo Usage Policy
+
+The SmartHopper name and logo are the property of the SmartHopper / architects-toolkit maintainers. The LGPL v3 license under which the source code is distributed does **not** grant rights in the SmartHopper name or logo.
+
+We allow use of the SmartHopper name and logo in the following contexts:
+
+- In blog posts, articles, tutorials, talks, or reviews that discuss or promote SmartHopper, provided the usage is accurate, fair, and does not imply endorsement by the SmartHopper maintainers.
+- In educational materials, courses, or presentations that accurately represent the project.
+- When referring to the unmodified, official SmartHopper plug-in as installed from the Rhino Package Manager.
+
+Please refrain from using the SmartHopper name and logo:
+
+- In promotional materials for paid services or commercial products that bundle, redistribute, or extend SmartHopper, without prior written permission.
+- In a manner that may cause confusion about the origin of a product or imply endorsement.
+- On forks, derivative works, or paid offerings derived from the SmartHopper source code — please choose a distinct name and logo for your fork, as is common open-source trademark practice.
+
+If you have any questions or wish to seek permission for other uses, please open an issue on this repository or contact the maintainers via [smarthopper.xyz](https://smarthopper.xyz).
+
+Thank you for your understanding and cooperation.
 
 ---
 

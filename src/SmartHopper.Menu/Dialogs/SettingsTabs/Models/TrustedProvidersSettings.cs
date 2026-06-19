@@ -28,7 +28,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
         /// <summary>
         /// Initializes a new instance of the TrustedProvidersSettings class
         /// </summary>
-        public TrustedProvidersSettings() : base()
+        public TrustedProvidersSettings()
+            : base()
         {
         }
 
@@ -36,7 +37,8 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs.Models
         /// Initializes a new instance of the TrustedProvidersSettings class with initial values
         /// </summary>
         /// <param name="dictionary">Initial trusted providers dictionary</param>
-        public TrustedProvidersSettings(IDictionary<string, bool> dictionary) : base(dictionary)
+        public TrustedProvidersSettings(IDictionary<string, bool> dictionary)
+            : base(dictionary)
         {
         }
     }

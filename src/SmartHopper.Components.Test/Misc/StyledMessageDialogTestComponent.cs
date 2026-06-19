@@ -48,7 +48,7 @@ namespace SmartHopper.Components.Test.Misc
         private int _testCase = 0;
 
         public StyledMessageDialogTestComponent()
-            : base("StyledMessageDialog Test", "DialogTest", "Test StyledMessageDialog rendering with various message types", "SmartHopper", "Test Internals")
+            : base("StyledMessageDialog Test", "DialogTest", "Test StyledMessageDialog rendering with various message types", "SmartHopper Tests", "Testing Base")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -65,7 +65,7 @@ namespace SmartHopper.Components.Test.Misc
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -76,12 +76,12 @@ namespace SmartHopper.Components.Test.Misc
             public Worker(StyledMessageDialogTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                DA.GetData(0, ref _parent._testCase);
+                DA.GetData(0, ref this._parent._testCase);
 
                 dataCount = 1;
             }
@@ -91,21 +91,24 @@ namespace SmartHopper.Components.Test.Misc
                 try
                 {
                     // Run dialog on UI thread
-                    await Task.Run(() => RhinoApp.InvokeOnUiThread(new Action(() =>
-                    {
-                        RunTest(_parent._testCase);
-                    })), token);
+                    await Task.Run(
+                        () => RhinoApp.InvokeOnUiThread(
+                            new Action(() =>
+                            {
+                                this.RunTest(this._parent._testCase);
+                            })),
+                        token).ConfigureAwait(false);
 
-                    _result = new GH_String($"Test case {_parent._testCase} completed");
+                    this._result = new GH_String($"Test case {this._parent._testCase} completed");
                 }
                 catch (OperationCanceledException)
                 {
-                    _result = new GH_String("Test cancelled");
+                    this._result = new GH_String("Test cancelled");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Test cancelled.");
                 }
                 catch (Exception ex)
                 {
-                    _result = new GH_String($"Error: {ex.Message}");
+                    this._result = new GH_String($"Error: {ex.Message}");
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
 
@@ -114,8 +117,8 @@ namespace SmartHopper.Components.Test.Misc
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _result, DA);
-                message = _result.Value ?? "Test completed";
+                this._parent.SetPersistentOutput("Result", this._result, DA);
+                message = this._result.Value ?? "Test completed";
             }
 
             private void RunTest(int testCase)

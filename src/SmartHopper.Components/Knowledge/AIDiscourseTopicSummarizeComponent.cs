@@ -40,9 +40,18 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("C204112B-AACD-4E4E-B4F1-5131719A57E2");
 
-        protected override Bitmap Icon => Resources.mcneeltopicsummarize;
+        protected override Bitmap Icon => Resources.discoursetopicsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIDiscourseTopicSumm",
+            "discourse_topic_summarize",
+            "Discourse Topic",
+            "Discourse Summary",
+            "Forum Topic Summary",
+        };
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "discourse_topic_summarize" };
@@ -51,11 +60,10 @@ namespace SmartHopper.Components.Knowledge
             : base(
                   "AI Discourse Topic Summarize",
                   "AIDiscourseTopicSumm",
-                  "Generate a concise summary of a Discourse forum topic by ID from any Discourse instance using the configured AI provider.",
+                  "Generate a concise summary of a Discourse forum topic (all posts) by topic ID from any Discourse instance using the configured AI provider.",
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -75,7 +83,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIDiscourseTopicSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIDiscourseTopicSummarizeWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIDiscourseTopicSummarizeWorker : AsyncWorkerBase
@@ -181,7 +189,7 @@ namespace SmartHopper.Components.Knowledge
                                         parameters["instructions"] = this.instructions;
                                     }
 
-                                    var toolResult = await this.parent.CallAiToolAsync("discourse_topic_summarize", parameters).ConfigureAwait(false);
+                                    var toolResult = await this.parent.CallAIToolAsync("discourse_topic_summarize", parameters, token).ConfigureAwait(false);
 
                                     if (toolResult == null)
                                     {
@@ -203,6 +211,7 @@ namespace SmartHopper.Components.Knowledge
                                                 }
                                             }
                                         }
+
                                         continue;
                                     }
 
@@ -234,14 +243,17 @@ namespace SmartHopper.Components.Knowledge
                     {
                         this.resultSummaries = summaryTree;
                     }
+
                     if (resultTrees.TryGetValue("Title", out var titleTree))
                     {
                         this.resultTitles = titleTree;
                     }
+
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;
                     }
+
                     if (resultTrees.TryGetValue("PostCount", out var postCountTree))
                     {
                         this.resultPostCounts = postCountTree;
@@ -260,6 +272,7 @@ namespace SmartHopper.Components.Knowledge
                 this.parent.SetPersistentOutput("Title", this.resultTitles ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("URL", this.resultUrls ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Post Count", this.resultPostCounts ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetMetricsOutput(DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
                 message = hasAnySummary ? "Topic(s) summarized" : "No summary available";

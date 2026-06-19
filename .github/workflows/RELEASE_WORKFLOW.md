@@ -216,10 +216,6 @@ Version is determined by the milestone title (e.g., milestone `1.2.0` → releas
 - **release-promotion.yml** — Scans open no-suffix milestones daily; promotes eligible staged releases; supports `promotion: freeze` label
 - **release-6-upload-yak.yml** — Uploads to Yak package manager (manual or dispatched by build)
 
-### Patch Propagation
-
-- **patch-propagate.yml** — Fan-out cherry-picks to multiple target branches; supports `auto-discover` to find all `dev`/`dev-*` branches, `include-main-branches` for critical fixes, and `exclude-branches` to skip specific targets
-
 ### Stabilization Workflows
 
 - **stabilization-0-init.yml** — Triggered on `milestone.created` for `X.Y.Z` titles; creates `dev-X.Y.Z` / `main-X.Y.Z` branches
@@ -297,12 +293,6 @@ All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-
 - The issue is updated daily with the latest blocking reason
 - Close the issue manually once the blocking condition is resolved
 
-**Patch propagation:**
-- Use `patch-propagate.yml` with `auto-discover: true` to fan out a fix to all `dev` and `dev-*` branches
-- Set `include-main-branches: true` for critical fixes that also need to reach `main-*` branches
-- Use `exclude-branches` to skip specific branches from auto-discovery
-- If any cherry-pick has conflicts, an issue is auto-created with the `status: needs-attention` label
-
 ### Regular Release Example
 
 **Goal:** Release version `1.2.0` with new AI features.
@@ -373,11 +363,11 @@ All CI checks (`ci-dotnet-tests`, `pr-validation`, `pr-version-validation`, `pr-
 
 **Problem:** Version badge not updated
 
-- **Solution:** Run `chore-version-badge.yml` workflow manually
+- **Solution:** Run `chore-version-sync.yml` workflow manually
 
 ## Related Workflows
 
-- **chore-version-badge.yml** - Updates README version badge
-- **chore-version-date.yml** - Updates version date in dev branch
+- **chore-version-sync.yml** - Unified version date + badge update
+- **chore-version-main-release.yml** - Strips date suffix for main release
 - **pr-validation.yml** - Validates all PRs
 - **ci-dotnet-tests.yml** - Runs .NET tests

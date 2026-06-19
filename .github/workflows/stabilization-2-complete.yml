@@ -6,7 +6,6 @@ name: Stabilization 2 - ✅ Complete Path
 #   - stabilization-2-complete.yml (completes stabilization)
 #   - hotfix-0-new-branch.yml (creates hotfix branch from main)
 #   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
-#   - main-sync-to-dev.yml (syncs main changes to dev and dev-* branches)
 
 # Description: Completes a stabilization path when a no-suffix milestone (e.g. "1.4.2") is closed
 # and no staged sub-milestones remain open (meaning the stable release was successfully shipped).

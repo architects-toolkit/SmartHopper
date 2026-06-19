@@ -29,6 +29,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Grasshopper
 {
@@ -43,21 +44,23 @@ namespace SmartHopper.Components.Grasshopper
         /// Initializes a new instance of the <see cref="GhTidyUpComponents"/> class.
         /// </summary>
         public GhTidyUpComponents()
-          : base("Tidy Up", "GhTidyUp",
-                 "Organize selected components into a tidy grid layout\n\n!!! THIS IS STILL EXPERIMENTAL, IT MIGHT MESS UP YOUR DOCUMENT !!!",
-                 "SmartHopper", "Grasshopper")
+            : base(
+                "Tidy Up",
+                "GhTidyUp",
+                "Organize selected components into a tidy grid layout",
+                "SmartHopper",
+                "Grasshopper")
         {
         }
 
-        /// <summary>
-        /// Gets the unique identifier for this component.
-        /// </summary>
-        public override Guid ComponentGuid => new Guid("D4C8A9E5-B123-4F67-8C90-1234567890AB");
+        /// <inheritdoc/>
+        public override Guid ComponentGuid => new Guid("8B6F904F-8B96-45F5-B4DE-80B53C4FBA10");
 
-        /// <summary>
-        /// Gets the component's icon.
-        /// </summary>
+        /// <inheritdoc/>
         protected override Bitmap Icon => Properties.Resources.tidyup;
+
+        /// <inheritdoc/>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <summary>
         /// Enables the selection mode for this component.
@@ -154,33 +157,25 @@ namespace SmartHopper.Components.Grasshopper
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 
-                var aiResult = toolCall.Exec().GetAwaiter().GetResult();
-                var toolResultInteraction = aiResult.Body.GetLastInteraction() as AIInteractionToolResult;
-                var toolResult = toolResultInteraction?.Result;
-                if (toolResult == null)
+                var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
+                if (toolResult.Result == null)
                 {
                     this.LastErrors.Add("Tool 'gh_tidy_up' returned invalid result");
                 }
-                else if (toolResult["success"]?.ToObject<bool>() == false)
+                else if (toolResult.Success == false)
                 {
-                    // Surface all error messages from the messages array
-                    var hasErrors = false;
-                    if (toolResult["messages"] is JArray msgs)
+                    var errors = toolResult.Messages
+                        .Where(m => m.Severity == SHRuntimeMessageSeverity.Error)
+                        .ToList();
+
+                    if (errors.Count > 0)
                     {
-                        foreach (var msg in msgs.Where(m => m["severity"]?.ToString() == "Error"))
+                        foreach (var msg in errors)
                         {
-                            var errorText = msg["message"]?.ToString();
-                            var origin = msg["origin"]?.ToString();
-                            if (!string.IsNullOrEmpty(errorText))
-                            {
-                                var prefix = !string.IsNullOrEmpty(origin) ? $"[{origin}] " : string.Empty;
-                                this.LastErrors.Add($"{prefix}{errorText}");
-                                hasErrors = true;
-                            }
+                            this.LastErrors.Add($"[{msg.Origin}] {msg.Message}");
                         }
                     }
-
-                    if (!hasErrors)
+                    else
                     {
                         this.LastErrors.Add("Unknown error");
                     }

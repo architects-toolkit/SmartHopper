@@ -4,7 +4,8 @@ name: 🏷️ Update Issue Labels on Close
 #   - github-issue-labels-close.yml (closes issue when close: label added)
 #   - github-issue-labels-on-close.yml (converts status→close labels on issue close)
 #   - github-labels-sync.yml (syncs label definitions from labels.yml)
-#   - issue-auto-tag.yml (auto-labels new issues based on content)
+#   - github-issue-label-version-from-template.yml (labels issues with version from bug report template)
+#   - github-issue-label-by-content.yml (labels issues based on title/body content)
 
 # Description: This workflow updates some issue labels when they are closed.
 # 1. Converts some status to close labels:

@@ -11,6 +11,8 @@
   - '(?i)\bDeepSeek\b'
 "provider: OpenRouter":
   - '(?i)\bOpenRouter\b'
+"provider: Gemini":
+  - '(?i)\bGemini\b'
 
 "os: Windows":
   - '(?i)\bWindows\b'

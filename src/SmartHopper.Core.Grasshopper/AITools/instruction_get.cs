@@ -46,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""topic"": {
                             ""type"": ""string"",
                             ""description"": ""Which instruction bundle to return."",
-                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility""]
+                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility"", ""mcneel-forum"", ""ladybug-forum"", ""discourse-forum"", ""research"", ""web"", ""python"", ""csharp"", ""vb""]
                         }
                     },
                     ""required"": [""topic""]
@@ -103,7 +103,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
 Canvas state reading:
 - Use gh_get_selected when the user refers to "this/these/selected".
 - Use gh_get_errors to locate broken definitions.
-- Use gh_get_locked / gh_get_hidden / gh_get_visible for quick filters.
+- Use gh_get_locked / gh_get_preview_off / gh_get_preview_on for quick attribute-based filters.
+- Use gh_get_visible when the user refers to components currently on screen (viewport-based).
 - Use gh_get_start / gh_get_end to get a wide view of data sources (startnodes) or outputs (endnodes).
 - Use gh_get_start_with_data / gh_get_end_with_data to inspect initial values or final outputs with runtime data.
 - Use gh_get_by_guid only when you already have GUIDs from prior steps.
@@ -138,14 +139,31 @@ Discovering available components:
 
                 case "knowledge":
                 case "mcneel-forum":
+                case "ladybug-forum":
+                case "discourse-forum":
                 case "research":
                 case "web":
                     return """
 Knowledge base workflow:
+
+For McNeel Discourse forum (discourse.mcneel.com):
 1) mcneel_forum_search: find candidate posts/topics.
 2) mcneel_forum_topic_get / mcneel_forum_post_get: retrieve the minimum useful content.
 3) mcneel_forum_topic_summarize / mcneel_forum_post_summarize: summarize and extract actionable steps.
-4) web2md: read docs/pages by URL before citing or relying on them.
+
+For Ladybug Tools Discourse forum (discourse.ladybug.tools):
+1) ladybug_forum_search: find candidate posts/topics.
+2) ladybug_forum_topic_get / ladybug_forum_post_get: retrieve the minimum useful content.
+3) ladybug_forum_topic_summarize / ladybug_forum_post_summarize: summarize and extract actionable steps.
+
+For any other Discourse forum (requires base_url parameter):
+1) discourse_forum_search: find candidate posts/topics (requires base_url).
+2) discourse_forum_topic_get / discourse_forum_post_get: retrieve content (requires base_url).
+3) discourse_forum_topic_summarize / discourse_forum_post_summarize: summarize (requires base_url).
+
+For general content:
+- web2md: read docs/pages by URL before citing or relying on them.
+- file2md: convert local files to Markdown given a file path.
 """;
 
                 case "scripting":
@@ -182,7 +200,7 @@ Required workflows:
 """;
 
                 default:
-                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web.";
+                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, ladybug-forum, discourse-forum, research, web.";
             }
         }
     }

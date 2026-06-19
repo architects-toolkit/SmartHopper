@@ -36,13 +36,18 @@ namespace SmartHopper.Components.Test.DataProcessor
     public class DataTreeProcessorDirectMatchPrecedenceTestComponent : StatefulComponentBase
     {
         public override Guid ComponentGuid => new Guid("77095C92-474F-4D5C-9EA6-6FE31FFFA710");
+
         protected override Bitmap Icon => null;
+
         public override GH_Exposure Exposure => GH_Exposure.quinary;
 
         public DataTreeProcessorDirectMatchPrecedenceTestComponent()
-            : base("Test Direct Match Precedence", "TEST-BC-DIRECT",
-                  "Tests direct {0} match taking precedence over deeper paths",
-                  "SmartHopper", "Testing Data")
+            : base(
+                "Test Direct Match Precedence",
+                "TEST-BC-DIRECT",
+                "Tests direct {0} match taking precedence over deeper paths",
+                "SmartHopper Tests",
+                "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;
         }
@@ -58,7 +63,7 @@ namespace SmartHopper.Components.Test.DataProcessor
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new Worker(this, AddRuntimeMessage);
+            return new Worker(this, this.AddRuntimeMessage);
         }
 
         private sealed class Worker : AsyncWorkerBase
@@ -71,7 +76,7 @@ namespace SmartHopper.Components.Test.DataProcessor
             public Worker(DataTreeProcessorDirectMatchPrecedenceTestComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
                 : base(parent, addRuntimeMessage)
             {
-                _parent = parent;
+                this._parent = parent;
             }
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
@@ -130,42 +135,42 @@ namespace SmartHopper.Components.Test.DataProcessor
                         progressCallback: null,
                         token: token).ConfigureAwait(false);
 
-                    if (result != null && result.TryGetValue("Result", out var outTree) && outTree != null)
-                        _resultTree = outTree;
+                    if (result != null && result.Outputs.TryGetValue("Result", out var outTree) && outTree != null)
+                        this._resultTree = outTree;
 
                     // Expected: A matches ONLY {0}, not {0;0} or {0;1}
                     // {0}: [99] + [1] = [99,1]
                     // {0;0}: [] + [2] = [2] (A doesn't broadcast here)
                     // {0;1}: [] + [3] = [3] (A doesn't broadcast here)
                     bool ok =
-                        _resultTree != null &&
-                        _resultTree.PathCount == 3 &&
-                        _resultTree.get_Branch(path0) != null && _resultTree.get_Branch(path0).Count == 2 &&
-                        _resultTree.get_Branch(path0)[0] is GH_Integer v00 && v00.Value == 99 &&
-                        _resultTree.get_Branch(path0)[1] is GH_Integer v01 && v01.Value == 1 &&
-                        _resultTree.get_Branch(path00) != null && _resultTree.get_Branch(path00).Count == 1 &&
-                        _resultTree.get_Branch(path00)[0] is GH_Integer v10 && v10.Value == 2 &&
-                        _resultTree.get_Branch(path01) != null && _resultTree.get_Branch(path01).Count == 1 &&
-                        _resultTree.get_Branch(path01)[0] is GH_Integer v20 && v20.Value == 3;
+                        this._resultTree != null &&
+                        this._resultTree.PathCount == 3 &&
+                        this._resultTree.get_Branch(path0) != null && this._resultTree.get_Branch(path0).Count == 2 &&
+                        this._resultTree.get_Branch(path0)[0] is GH_Integer v00 && v00.Value == 99 &&
+                        this._resultTree.get_Branch(path0)[1] is GH_Integer v01 && v01.Value == 1 &&
+                        this._resultTree.get_Branch(path00) != null && this._resultTree.get_Branch(path00).Count == 1 &&
+                        this._resultTree.get_Branch(path00)[0] is GH_Integer v10 && v10.Value == 2 &&
+                        this._resultTree.get_Branch(path01) != null && this._resultTree.get_Branch(path01).Count == 1 &&
+                        this._resultTree.get_Branch(path01)[0] is GH_Integer v20 && v20.Value == 3;
 
-                    _success = new GH_Boolean(ok);
-                    _messages.Add(new GH_String($"Case 9&10: A={{0}} [99], B={{0}} [1], {{0;0}} [2], {{0;1}} [3]. Expected: A matches only {{0}}, not deeper (Rule 4)."));
-                    _messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
+                    this._success = new GH_Boolean(ok);
+                    this._messages.Add(new GH_String($"Case 9&10: A={{0}} [99], B={{0}} [1], {{0;0}} [2], {{0;1}} [3]. Expected: A matches only {{0}}, not deeper (Rule 4)."));
+                    this._messages.Add(new GH_String(ok ? "Test succeeded." : "Test failed: unexpected result."));
                 }
                 catch (Exception ex)
                 {
-                    _success = new GH_Boolean(false);
-                    _messages.Add(new GH_String($"Exception: {ex.Message}"));
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Exception: {ex.Message}"));
                     this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
                 }
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                _parent.SetPersistentOutput("Result", _resultTree, DA);
-                _parent.SetPersistentOutput("Success", _success, DA);
-                _parent.SetPersistentOutput("Messages", _messages, DA);
-                message = _success.Value ? "Direct match precedence test passed" : "Test failed";
+                this._parent.SetPersistentOutput("Result", this._resultTree, DA);
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Direct match precedence test passed" : "Test failed";
             }
         }
     }

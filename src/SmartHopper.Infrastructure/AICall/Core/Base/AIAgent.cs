@@ -47,6 +47,15 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
         /// <summary>A runtime or api error.</summary>
         Error,
 
+        /// <summary>A non-fatal warning surfaced to the UI.</summary>
+        Warning,
+
+        /// <summary>An informational diagnostic surfaced to the UI.</summary>
+        Info,
+
+        /// <summary>A low-level debug diagnostic, typically hidden from end users.</summary>
+        Debug,
+
         /// <summary>Unknown agent.</summary>
         Unknown,
     }
@@ -73,6 +82,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
                 AIAgent.ToolResult => "tool_result",
                 AIAgent.Summary => "summary",
                 AIAgent.Error => "error",
+                AIAgent.Warning => "warning",
+                AIAgent.Info => "info",
+                AIAgent.Debug => "debug",
                 _ => "unknown",
             };
         }
@@ -94,6 +106,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
                 AIAgent.ToolResult => "Tool Result",
                 AIAgent.Summary => "Summary",
                 AIAgent.Error => "Error",
+                AIAgent.Warning => "Warning",
+                AIAgent.Info => "Info",
+                AIAgent.Debug => "Debug",
                 _ => "Unknown",
             };
         }
@@ -118,6 +133,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Base
                 "tool" => AIAgent.ToolResult,
                 "summary" => AIAgent.Summary,
                 "error" => AIAgent.Error,
+                "warning" => AIAgent.Warning,
+                "info" => AIAgent.Info,
+                "debug" => AIAgent.Debug,
                 _ => AIAgent.Unknown,
             };
             return result;

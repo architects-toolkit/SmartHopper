@@ -16,152 +16,102 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
-using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using Grasshopper;
 using Grasshopper.GUI;
 using Grasshopper.GUI.Canvas;
 using Grasshopper.Kernel;
-using Timer = System.Timers.Timer;
+using SmartHopper.Core.ComponentBase.Attributes;
+using SmartHopper.Core.ComponentBase.Contracts;
+using SmartHopper.Core.ComponentBase.Mixins;
 
 namespace SmartHopper.Core.ComponentBase
 {
+    /// <summary>
+    /// Combines <see cref="AIStatefulAsyncComponentBase"/> with the
+    /// "Select Components" button flow. Selection plumbing is delegated to a
+    /// composed <see cref="SelectingSupport"/>; this shell only wires lifecycle
+    /// overrides.
+    /// </summary>
     public abstract class AISelectingStatefulAsyncComponentBase : AIStatefulAsyncComponentBase, ISelectingComponent
     {
+        private readonly SelectingSupport selection;
+
         /// <summary>
-        /// Gets the currently selected Grasshopper objects for this component's selection mode.
-        /// Uses <see cref="IGH_DocumentObject"/> to support all object types including scribbles.
+        /// Initializes a new instance of the <see cref="AISelectingStatefulAsyncComponentBase"/> class.
         /// </summary>
-        public List<IGH_DocumentObject> SelectedObjects
-        {
-            get
-            {
-                this.PruneDeletedSelections();
-                return this.selectedObjects;
-            }
-        }
-
-        private readonly List<IGH_DocumentObject> selectedObjects = new List<IGH_DocumentObject>();
-        private readonly SelectingComponentCore selectionCore;
-
         protected AISelectingStatefulAsyncComponentBase(string name, string nickname, string description, string category, string subCategory)
             : base(name, nickname, description, category, subCategory)
         {
-            this.selectionCore = new SelectingComponentCore(this, this);
-            Instances.DocumentServer.DocumentAdded += this.OnDocumentAdded;
+            this.selection = new SelectingSupport(this, this);
         }
 
+        /// <inheritdoc/>
+        public List<IGH_DocumentObject> SelectedObjects => this.selection.SelectedObjects;
+
+        /// <inheritdoc/>
+        public void EnableSelectionMode() => this.selection.EnableSelectionMode();
+
+        /// <inheritdoc/>
         public override void RemovedFromDocument(GH_Document document)
         {
             base.RemovedFromDocument(document);
-            Instances.DocumentServer.DocumentAdded -= this.OnDocumentAdded;
+            this.selection.OnRemovedFromDocument();
         }
 
+        /// <inheritdoc/>
         public override void CreateAttributes()
         {
             this.m_attributes = new AISelectingComponentAttributes(this, this);
         }
 
-        public void EnableSelectionMode()
-        {
-            this.selectionCore.EnableSelectionMode();
-        }
-
+        /// <inheritdoc/>
         protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalComponentMenuItems(menu);
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
         }
 
+        /// <inheritdoc/>
         public override bool Write(GH_IO.Serialization.GH_IWriter writer)
         {
-            if (!base.Write(writer))
-            {
-                return false;
-            }
-
-            return this.selectionCore.Write(writer);
+            return base.Write(writer) && this.selection.Write(writer);
         }
 
+        /// <inheritdoc/>
         public override bool Read(GH_IO.Serialization.GH_IReader reader)
         {
-            if (!base.Read(reader))
-            {
-                return false;
-            }
-
-            return this.selectionCore.Read(reader);
-        }
-
-        private void OnDocumentAdded(GH_DocumentServer sender, GH_Document doc)
-        {
-            this.selectionCore.OnDocumentAdded(doc);
-        }
-
-        private void PruneDeletedSelections()
-        {
-            if (this.selectedObjects.Count == 0)
-            {
-                return;
-            }
-
-            var canvas = Instances.ActiveCanvas;
-            var doc = canvas?.Document;
-            if (doc == null)
-            {
-                return;
-            }
-
-            var removedAny = false;
-
-            for (int i = this.selectedObjects.Count - 1; i >= 0; i--)
-            {
-                if (this.selectedObjects[i] is IGH_DocumentObject docObj)
-                {
-                    var found = doc.FindObject(docObj.InstanceGuid, true);
-                    if (found == null)
-                    {
-                        this.selectedObjects.RemoveAt(i);
-                        removedAny = true;
-                    }
-                }
-            }
-
-            if (removedAny)
-            {
-                this.Message = $"{this.selectedObjects.Count} selected";
-            }
+            return base.Read(reader) && this.selection.Read(reader);
         }
     }
 
+    /// <summary>
+    /// Attributes class for AI components that also expose a selection button.
+    /// Inherits provider-badge rendering from <see cref="ComponentBadgesAttributes"/>
+    /// and delegates the selection-button state and events to
+    /// <see cref="SelectingButtonBehavior"/>, sharing that logic with
+    /// <c>SelectingComponentAttributes</c>.
+    /// </summary>
     public class AISelectingComponentAttributes : ComponentBadgesAttributes
     {
         private readonly AIProviderComponentBase owner;
-        private readonly ISelectingComponent selectingComponent;
-        private Rectangle buttonBounds;
-        private bool isHovering;
-        private bool isClicking;
+        private readonly SelectingButtonBehavior behavior;
 
-        // Timer-based auto-hide of the visual highlight for selected objects.
-        // Purpose: ensure the dashed highlight disappears after 5s even if the cursor stays hovered.
-        private Timer? selectDisplayTimer;
-        private bool selectAutoHidden;
-
-        // Cached bounds for selected objects during hover session.
-        // Computed once when hover starts, cleared when hover ends.
-        private Dictionary<Guid, RectangleF>? cachedSelectedBounds;
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AISelectingComponentAttributes"/> class.
+        /// </summary>
+        /// <param name="owner">The AI provider component that owns these attributes.</param>
+        /// <param name="selectingComponent">The selection-bearing contract
+        /// implemented by the owner.</param>
         public AISelectingComponentAttributes(AIProviderComponentBase owner, ISelectingComponent selectingComponent)
             : base(owner)
         {
             this.owner = owner;
-            this.selectingComponent = selectingComponent;
-            this.isHovering = false;
-            this.isClicking = false;
+            this.behavior = new SelectingButtonBehavior(owner, selectingComponent);
         }
 
+        /// <inheritdoc/>
         protected override void Layout()
         {
             base.Layout();
@@ -178,122 +128,48 @@ namespace SmartHopper.Core.ComponentBase
             var width = (int)this.Bounds.Width - (2 * margin);
             var x = (int)this.Bounds.X + margin;
             var y = (int)(providerTop - margin - buttonHeight);
-            this.buttonBounds = new Rectangle(x, y, width, buttonHeight);
+            this.behavior.ButtonBounds = new Rectangle(x, y, width, buttonHeight);
         }
 
+        /// <inheritdoc/>
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
             base.Render(canvas, graphics, channel);
             if (channel == GH_CanvasChannel.Objects)
             {
-                SelectingComponentCore.RenderSelectButton(
-                    canvas,
-                    graphics,
-                    this.buttonBounds,
-                    this.isHovering,
-                    this.isClicking,
-                    this.Selected,
-                    this.owner.Locked);
+                this.behavior.RenderButton(canvas, graphics, this.Selected, this.owner.Locked);
             }
             else if (channel == GH_CanvasChannel.Overlay)
             {
-                SelectingComponentCore.RenderSelectionOverlay(
-                    canvas,
-                    graphics,
-                    this.buttonBounds,
-                    this.cachedSelectedBounds,
-                    this.selectAutoHidden);
+                this.behavior.RenderOverlay(canvas, graphics);
 
                 // Draw the provider tooltip last so it stays above the button and selection overlays.
                 this.RenderDeferredProviderLabel(graphics);
             }
         }
 
+        /// <inheritdoc/>
         public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            if (e.Button == MouseButtons.Left && this.buttonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y))
-            {
-                this.isClicking = true;
-                this.owner.ExpireSolution(true);
-                this.selectingComponent.EnableSelectionMode();
-
-                // Refresh cache after selection completes
-                this.CacheSelectedBounds();
-                return GH_ObjectResponse.Handled;
-            }
-
-            return base.RespondToMouseDown(sender, e);
+            var response = this.behavior.OnMouseDown(e);
+            return response == GH_ObjectResponse.Handled ? response : base.RespondToMouseDown(sender, e);
         }
 
+        /// <inheritdoc/>
         public override GH_ObjectResponse RespondToMouseMove(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            var was = this.isHovering;
-            this.isHovering = this.buttonBounds.Contains((int)e.CanvasLocation.X, (int)e.CanvasLocation.Y);
-            if (was != this.isHovering)
-            {
-                // Start/stop 5s auto-hide timer based on hover transitions
-                if (this.isHovering)
-                {
-                    this.selectAutoHidden = false;
-                    this.CacheSelectedBounds();
-                    this.StartSelectDisplayTimer();
-                }
-                else
-                {
-                    this.StopSelectDisplayTimer();
-                    this.selectAutoHidden = false; // reset for next hover
-                    this.cachedSelectedBounds = null; // clear cache on hover end
-                }
-
-                // Use display invalidation for hover-only visual changes
-                this.owner.OnDisplayExpired(false);
-            }
-
+            this.behavior.OnMouseMove(e);
             return base.RespondToMouseMove(sender, e);
         }
 
+        /// <inheritdoc/>
         public override GH_ObjectResponse RespondToMouseUp(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            if (this.isClicking)
-            {
-                this.isClicking = false;
-                this.owner.ExpireSolution(true);
-            }
-
+            this.behavior.OnMouseUp(e);
             return base.RespondToMouseUp(sender, e);
         }
 
-        /// <summary>
-        /// Starts a one-shot 5s timer to auto-hide the selection highlight and request a repaint.
-        /// </summary>
-        private void StartSelectDisplayTimer()
-        {
-            SelectingComponentCore.RestartSelectDisplayTimer(
-                ref this.selectDisplayTimer,
-                () =>
-                {
-                    this.selectAutoHidden = true;
-                    try { this.owner?.OnDisplayExpired(false); } catch { /* ignore */ }
-                });
-        }
-
-        /// <summary>
-        /// Stops and disposes the selection display timer if active.
-        /// </summary>
-        private void StopSelectDisplayTimer()
-        {
-            SelectingComponentCore.StopSelectDisplayTimer(ref this.selectDisplayTimer);
-        }
-
-        /// <summary>
-        /// Caches the current bounds of all selected objects.
-        /// Called once when hover starts to get fresh positions.
-        /// </summary>
-        private void CacheSelectedBounds()
-        {
-            this.cachedSelectedBounds = SelectingComponentCore.BuildSelectedBounds(this.selectingComponent);
-        }
-
+        /// <inheritdoc/>
         protected override bool ShouldDeferProviderLabelRendering()
         {
             // Defer tooltip rendering so it draws over the Select button UI elements.

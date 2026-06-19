@@ -51,7 +51,7 @@ namespace SmartHopper.Components.Grasshopper
         }
 
         /// <inheritdoc/>
-        public override Guid ComponentGuid => new("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
+        public override Guid ComponentGuid => new ("25E07FD9-382C-48C0-8A97-8BFFAEAD8592");
 
         /// <inheritdoc/>
         protected override Bitmap Icon => Resources.ghput;
@@ -167,7 +167,7 @@ namespace SmartHopper.Components.Grasshopper
                                     .Select(msg => $"{msg.Severity}: {msg.Message}"));
                         }
 
-                        var errorInteraction = aiResult.Body?.GetLastInteraction(AIAgent.Error) as AIInteractionError;
+                        var errorInteraction = aiResult.Body?.GetLastInteraction(AIAgent.Error) as AIInteractionRuntimeMessage;
                         var errorPayload = errorInteraction?.Content;
                         if (!string.IsNullOrWhiteSpace(errorPayload))
                         {
@@ -181,8 +181,7 @@ namespace SmartHopper.Components.Grasshopper
                     }
 
                     // Success path: read tool result payload from gh_put
-                    var toolResultInteraction = aiResult.Body?.GetLastInteraction() as AIInteractionToolResult;
-                    var toolResult = toolResultInteraction?.Result;
+                    var toolResult = ToolCallResult.FromAIReturn(aiResult);
 
                     this.analysis = toolResult?["analysis"]?.ToString();
                     this.componentNames = toolResult?["components"]?.ToObject<List<string>>() ?? new List<string>();

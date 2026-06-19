@@ -98,8 +98,8 @@ jobs:
           ref: ${{ github.ref }}
       - name: Configure Git
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
       - name: Download trailing-whitespace patch
         uses: actions/download-artifact@v4
         with:

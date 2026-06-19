@@ -23,6 +23,7 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Requests
 {
@@ -70,17 +71,18 @@ namespace SmartHopper.Infrastructure.AICall.Core.Requests
         /// These are informational, warning, or error notes that should be surfaced by components.
         /// Expected format uses prefixes, e.g. "(Error) ...", "(Warning) ...", "(Info) ...".
         /// </summary>
-        List<AIRuntimeMessage> Messages { get; set; }
+        List<SHRuntimeMessage> Messages { get; set; }
 
         /// <summary>
         /// A value indicating whether the request is valid.
         /// </summary>
-        (bool IsValid, List<AIRuntimeMessage> Errors) IsValid();
+        (bool IsValid, List<SHRuntimeMessage> Errors) IsValid();
 
         /// <summary>
         /// Executes the request and gets the result.
         /// </summary>
+        /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
         /// <returns>The result of the request in <see cref="AIReturn"/> format.</returns>
-        Task<AIReturn> Exec();
+        Task<AIReturn> Exec(System.Threading.CancellationToken cancellationToken = default);
     }
 }

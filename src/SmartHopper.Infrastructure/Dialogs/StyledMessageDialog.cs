@@ -118,7 +118,7 @@ namespace SmartHopper.Infrastructure.Dialogs
                     prefixText = "Warning: "; prefixColor = Colors.DarkOrange;
                     break;
                 default:
-                    prefixText = ""; prefixColor = Colors.Black;
+                    prefixText = string.Empty; prefixColor = Colors.Black;
                     break;
             }
 

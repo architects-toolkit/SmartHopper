@@ -1,0 +1,221 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024-2026 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Core.ComponentBase;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Core.Requests;
+using SmartHopper.Infrastructure.AICall.Core.Returns;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
+
+namespace SmartHopper.Components.Test.Providers
+{
+    /// <summary>
+    /// Test component for Google Gemini message encoding.
+    /// </summary>
+    public class TestGeminiEncodeComponent : AIStatefulAsyncComponentBase
+    {
+
+        public override Guid ComponentGuid => new Guid("BFA00A8F-3DA2-4261-87A6-DBCE0E861188");
+
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
+
+        public TestGeminiEncodeComponent()
+            : base("Test Gemini Encode", "TEST-GEMINI-ENC", "Tests Gemini message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
+        {
+            this.RunOnlyOnInputChanges = false;
+            this.SetSelectedProviderName("Gemini");
+        }
+
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
+        {
+        }
+
+        protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddBooleanParameter("Success", "S", "Test passed", GH_ParamAccess.item);
+            pManager.AddTextParameter("Messages", "M", "Test messages", GH_ParamAccess.list);
+        }
+
+        protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
+        {
+            return new Worker(this, this.AddRuntimeMessage);
+        }
+
+        private sealed class Worker : AsyncWorkerBase
+        {
+            private GH_Boolean _success = new GH_Boolean(false);
+            private List<GH_String> _messages = new List<GH_String>();
+            private readonly TestGeminiEncodeComponent _parent;
+
+            public Worker(TestGeminiEncodeComponent parent, Action<GH_RuntimeMessageLevel, string> addRuntimeMessage)
+                : base(parent, addRuntimeMessage)
+            {
+                this._parent = parent;
+            }
+
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
+            {
+                dataCount = 1;
+            }
+
+            public override async Task DoWorkAsync(CancellationToken token)
+            {
+                try
+                {
+                    // Create test AIRequestCall with different message types using AIBodyBuilder
+                    var bodyBuilder = AIBodyBuilder.Create();
+
+                    // Add System message (maps to system_instruction in Gemini)
+                    bodyBuilder.Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.System,
+                        Content = "You are a helpful assistant."
+                    });
+
+                    // Add User message (maps to user in Gemini)
+                    bodyBuilder.Add(new AIInteractionText
+                    {
+                        Agent = AIAgent.User,
+                        Content = "Hello, how are you?"
+                    });
+
+                    // Add ToolCall message (Gemini uses function calls)
+                    bodyBuilder.Add(new AIInteractionToolCall
+                    {
+                        Id = "call_123",
+                        Name = "test_function",
+                        Arguments = JObject.Parse("{\"param\": \"value\"}")
+                    });
+
+                    // Add ToolResult message
+                    bodyBuilder.Add(new AIInteractionToolResult
+                    {
+                        Result = new JObject { ["content"] = "Tool result" },
+                        Id = "call_123"
+                    });
+
+                    var call = new AIRequestCall();
+                    call.Body = bodyBuilder.Build();
+                    call.Initialize("Gemini", "gemini-1.5-flash", call.Body, "/v1beta/models/gemini-1.5-flash:generateContent", AICapability.Text2Text);
+
+                    // Encode using provider from parent component
+                    var provider = this._parent.GetActualAIProvider();
+                    var encoded = provider.Encode(call);
+
+                    // Verify encoding
+                    if (string.IsNullOrEmpty(encoded))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Encoded message is empty"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for required role mappings (Gemini uses user, model, function)
+                    // System messages go in system_instruction field, not in contents array
+                    var json = JObject.Parse(encoded);
+                    var contents = json["contents"] as JArray;
+                    var roles = contents?.Select(c => c["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    if (!roles.Contains("user"))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing user role (User message)"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    if (!roles.Contains("model"))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing model role (ToolCall message)"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for system_instruction field (System messages)
+                    if (json["system_instruction"] == null)
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing system_instruction field (System message)"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for function calling encoding (Gemini uses functionCalls)
+                    var hasFunctionCalls = contents?.Any(c => c["parts"] is JArray parts && parts.Any(p => p["functionCall"] != null || p["functionCalls"] != null)) ?? false;
+                    if (!hasFunctionCalls)
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing function_calls in encoding"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for function/tool name in encoded output
+                    var hasFunctionName = contents?.Any(c => c.ToString().Contains("test_function")) ?? false;
+                    if (!hasFunctionName)
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Function name 'test_function' not found in encoding"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    // Check for function role (Gemini uses function for tool results)
+                    if (!roles.Contains("function"))
+                    {
+                        this._success = new GH_Boolean(false);
+                        this._messages.Add(new GH_String("Missing function role (ToolResult message)"));
+                        await Task.Yield();
+                        return;
+                    }
+
+                    this._success = new GH_Boolean(true);
+                    this._messages.Add(new GH_String("Gemini encoding successful"));
+                    this._messages.Add(new GH_String($"Encoded message length: {encoded.Length}"));
+                }
+                catch (Exception ex)
+                {
+                    this._success = new GH_Boolean(false);
+                    this._messages.Add(new GH_String($"Error: {ex.Message}"));
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                }
+
+                await Task.Yield();
+            }
+
+            public override void SetOutput(IGH_DataAccess DA, out string message)
+            {
+                this._parent.SetPersistentOutput("Success", this._success, DA);
+                this._parent.SetPersistentOutput("Messages", this._messages, DA);
+                message = this._success.Value ? "Gemini encoding test passed" : "Gemini encoding test failed";
+            }
+        }
+    }
+}

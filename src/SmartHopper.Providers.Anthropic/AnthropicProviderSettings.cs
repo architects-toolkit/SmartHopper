@@ -96,7 +96,10 @@ namespace SmartHopper.Providers.Anthropic
         /// <inheritdoc/>
         public override bool ValidateSettings(Dictionary<string, object> settings)
         {
-            if (settings == null) return false;
+            if (settings == null)
+            {
+                return false;
+            }
 
             var showErrorDialogs = true;
 
@@ -104,7 +107,6 @@ namespace SmartHopper.Providers.Anthropic
             string model = null;
             int? maxTokens = null;
             double? temperature = null;
-            string version = null;
 
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
@@ -125,7 +127,11 @@ namespace SmartHopper.Providers.Anthropic
 
                 if (maxTokens <= 0)
                 {
-                    if (showErrorDialogs) StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Max Tokens must be greater than 0.", "Validation Error");
+                    }
+
                     return false;
                 }
             }
@@ -139,7 +145,11 @@ namespace SmartHopper.Providers.Anthropic
 
                 if (temperature < 0.0 || temperature > 2.0)
                 {
-                    if (showErrorDialogs) StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                    }
+
                     return false;
                 }
             }

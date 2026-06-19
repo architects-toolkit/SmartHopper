@@ -27,7 +27,6 @@ namespace SmartHopper.Menu.Items
         /// Creates a new Settings menu item that shows the SettingsDialog when clicked
         /// </summary>
         /// <returns>A ToolStripMenuItem configured to show the settings dialog</returns>
-
         public static ToolStripMenuItem Create()
         {
             var item = new System.Windows.Forms.ToolStripMenuItem("Settings");

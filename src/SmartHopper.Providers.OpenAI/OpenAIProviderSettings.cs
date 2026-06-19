@@ -107,6 +107,14 @@ namespace SmartHopper.Providers.OpenAI
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Some models like o-series or gpt-5 do not support this parameter and it will be ignored.",
                 },
+                new SettingDescriptor
+                {
+                    Name = "ForceChatCompletions",
+                    Type = typeof(bool),
+                    DefaultValue = false,
+                    DisplayName = "Force Chat Completions",
+                    Description = "Force the legacy /v1/chat/completions endpoint instead of the default v1/responses. Only use this if you specifically need Chat Completions behavior. The Responses API is a superset and recommended by OpenAI for all new projects.",
+                },
             };
         }
 

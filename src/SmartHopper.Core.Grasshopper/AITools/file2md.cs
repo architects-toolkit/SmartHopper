@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
+using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -45,7 +46,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Default prompt used for <c>describe</c> mode: long, thorough description.
         /// </summary>
         private const string DefaultImageDescriptionPrompt =
-            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured.";
+            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured. Do not make assumptions. Do not suggest future actions. Stick to describing the image in a way that is useful for someone who cannot see it.";
 
         /// <summary>
         /// Default prompt used for <c>caption</c> and <c>embed</c> modes: short, one-sentence caption.
@@ -124,14 +125,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""imageDescriptionPrompt"": {
                             ""type"": ""string"",
                             ""description"": ""Custom prompt for AI image description. If omitted, a built-in detailed description prompt is used.""
+                        },
+                        ""HTMLreadabilityMode"": {
+                            ""type"": ""string"",
+                            ""enum"": [""auto"", ""smartreader"", ""heuristic"", ""off""],
+                            ""description"": ""HTML main-content extraction strategy (applies to .html/.htm and HTML parts of EPUB/EML). 'auto' (default): SmartReader with heuristic fallback. 'smartreader': force SmartReader. 'heuristic': force the magic-html-inspired extractor. 'off': skip extraction."",
+                            ""default"": ""auto""
+                        },
+                        ""includeLinks"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Keep hyperlinks in the Markdown output for HTML sources. Default: true."",
+                            ""default"": true
+                        },
+                        ""includeImages"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Keep inline image references in the Markdown output for HTML sources. Default: true."",
+                            ""default"": true
                         }
                     },
                     ""required"": [""filePath""]
                 }",
-                execute: this.FileToMdAsync);
+                execute: this.File2MdAsync);
         }
 
-        private async Task<AIReturn> FileToMdAsync(AIToolCall toolCall)
+        private async Task<AIReturn> File2MdAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -165,7 +182,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     RemoveHeadersFooters = args["removeHeadersFooters"]?.Value<bool>() ?? true,
                     ExtractImages = (args["extractImages"]?.Value<bool>() ?? false) || describeImages,
                     DetectHeadings = true,
-                    MaxContentLength = 0
+                    MaxContentLength = 0,
+                    HtmlReadabilityMode = ReadabilityModeExtensions.FromString(args["HTMLreadabilityMode"]?.ToString()),
+                    IncludeLinks = args["includeLinks"]?.Value<bool>() ?? true,
+                    IncludeImages = args["includeImages"]?.Value<bool>() ?? true,
                 };
 
                 // Convert the file
@@ -213,12 +233,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ["mimeType"] = image.MimeType,
                             ["context"] = image.Context,
                             ["pageOrSlide"] = image.PageOrSlide,
-                            ["base64Data"] = image.Base64Data,
+                            ["base64Data"] = image.RawValue,
                         });
                     }
 
                     toolResult["images"] = imagesArray;
                     toolResult["imageCount"] = result.Images.Count;
+
+                    // Insert image placeholders into markdown content for later substitution
+                    string annotatedContent = InsertImagePlaceholders(result.MarkdownContent, result.Images);
+                    toolResult["content"] = annotatedContent;
                 }
 
                 // Describe images via AI and append to markdown
@@ -255,7 +279,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             {
                                 imagesSb.AppendLine($"*{image.Context}*");
                                 imagesSb.AppendLine();
-                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.Base64Data})");
+                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.RawValue})");
                                 imagesSb.AppendLine();
                             }
                             else
@@ -293,7 +317,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[FileToMd] Error in FileToMdAsync: {ex.Message}");
+                Debug.WriteLine($"[File2Md] Error in File2MdAsync: {ex.Message}");
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
@@ -302,18 +326,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Calls the <c>img2text</c> tool to obtain a text description of an extracted image.
         /// </summary>
-        /// <param name="image">The extracted image to describe.</param>
+        /// <param name="imageSource">The image source containing base64 data and mime type.</param>
         /// <param name="prompt">The description prompt to send to the AI.</param>
         /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
         /// <returns>The AI-generated text description, or a fallback string on failure.</returns>
-        private static async Task<string> DescribeImageAsync(ExtractedImage image, string prompt, AIToolCall sourceToolCall)
+        private static async Task<string> DescribeImageAsync(VersatileImage imageSource, string prompt, AIToolCall sourceToolCall)
         {
             try
             {
                 var imgArgs = new JObject
                 {
-                    ["imageBase64"] = image.Base64Data,
-                    ["mimeType"] = image.MimeType,
+                    ["imageBase64"] = imageSource.RawValue,
+                    ["mimeType"] = "image/png",
                     ["prompt"] = prompt,
                 };
 
@@ -335,8 +359,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 imgToolCall.FromToolCallInteraction(imgInteraction);
 
                 var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
-                var toolResultInteraction = imgResult.Body?.GetLastInteraction(AIAgent.ToolResult) as AIInteractionToolResult;
-                return toolResultInteraction?.Result?["description"]?.ToString() ?? "[Image could not be described]";
+
+                var toolResult = ToolCallResult.FromAIReturn(imgResult);
+                return toolResult["description"]?.ToString() ?? "[Image could not be described]";
             }
             catch (Exception ex)
             {
@@ -344,5 +369,40 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return "[Image description failed]";
             }
         }
+
+        /// <summary>
+        /// Inserts image placeholders into the markdown content.
+        /// Adds an "## Images" section at the bottom with [image N] placeholders
+        /// for each extracted image to enable later substitution.
+        /// </summary>
+        /// <param name="markdown">The base markdown content.</param>
+        /// <param name="images">The list of extracted images with metadata.</param>
+        /// <returns>Annotated markdown with image placeholders.</returns>
+        private static string InsertImagePlaceholders(string markdown, IList<VersatileImage> images)
+        {
+            if (images == null || images.Count == 0)
+            {
+                return markdown;
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine(markdown);
+            sb.AppendLine();
+            sb.AppendLine("---");
+            sb.AppendLine();
+            sb.AppendLine("## Images");
+            sb.AppendLine();
+
+            for (int i = 0; i < images.Count; i++)
+            {
+                var image = images[i];
+                int imageNumber = i + 1;
+                sb.AppendLine($"*[image {imageNumber}] {image.Context}*");
+                sb.AppendLine();
+            }
+
+            return sb.ToString().Trim();
+        }
+
     }
 }

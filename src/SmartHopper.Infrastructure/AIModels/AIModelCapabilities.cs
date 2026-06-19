@@ -30,12 +30,12 @@ namespace SmartHopper.Infrastructure.AIModels
         /// <summary>
         /// Gets or sets the AI provider name (e.g., "openai", "anthropic").
         /// </summary>
-        public string Provider { get; set; } = "";
+        public string Provider { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the model name (e.g., "gpt-4", "claude-3-opus").
         /// </summary>
-        public string Model { get; set; } = "";
+        public string Model { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the capabilities supported by this model.
@@ -89,6 +89,18 @@ namespace SmartHopper.Infrastructure.AIModels
         /// When null, context limit is unknown and automatic summarization at threshold is skipped.
         /// </summary>
         public int? ContextLimit { get; set; }
+
+        /// <summary>
+        /// Gets or sets the date the model was published by its provider, as reported
+        /// by the authoritative source (OpenRouter). When null the creation date is unknown.
+        /// </summary>
+        public DateTime? Created { get; set; }
+
+        /// <summary>
+        /// Gets or sets the pricing information for this model in USD per unit.
+        /// When null no pricing is published by the source of truth.
+        /// </summary>
+        public AIModelPricing Pricing { get; set; }
 
         /// <summary>
         /// List of AI tool names for which this model is discouraged.

@@ -40,9 +40,17 @@ namespace SmartHopper.Components.Knowledge
     {
         public override Guid ComponentGuid => new Guid("6AA04A82-DD11-49B8-BF02-45CF5B9E98AE");
 
-        protected override Bitmap Icon => Resources.mcneelpostsummarize;
+        protected override Bitmap Icon => Resources.ladybugpostsummarize;
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AILadybugPostSumm",
+            "ladybug_forum_post_summarize",
+            "Ladybug Forum Post",
+            "Ladybug Post Summary",
+        };
 
         /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "ladybug_forum_post_summarize" };
@@ -55,7 +63,6 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
-            this.RunOnlyOnInputChanges = false;
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -72,7 +79,7 @@ namespace SmartHopper.Components.Knowledge
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AILadybugForumPostSummarizeWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AILadybugForumPostSummarizeWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AILadybugForumPostSummarizeWorker : AsyncWorkerBase
@@ -162,7 +169,7 @@ namespace SmartHopper.Components.Knowledge
                                     parameters["instructions"] = this.instructions;
                                 }
 
-                                var toolResult = await this.parent.CallAiToolAsync("ladybug_forum_post_summarize", parameters).ConfigureAwait(false);
+                                var toolResult = await this.parent.CallAIToolAsync("ladybug_forum_post_summarize", parameters, token).ConfigureAwait(false);
 
                                 if (toolResult == null)
                                 {
@@ -184,6 +191,7 @@ namespace SmartHopper.Components.Knowledge
                                             }
                                         }
                                     }
+
                                     continue;
                                 }
 
@@ -198,6 +206,7 @@ namespace SmartHopper.Components.Knowledge
                                         outputs["Summary"].Add(new GH_String(singleSummary));
                                         outputs["Url"].Add(new GH_String(singleUrl));
                                     }
+
                                     continue;
                                 }
 
@@ -225,6 +234,7 @@ namespace SmartHopper.Components.Knowledge
                     {
                         this.resultSummaries = summaryTree;
                     }
+
                     if (resultTrees.TryGetValue("Url", out var urlTree))
                     {
                         this.resultUrls = urlTree;
@@ -241,6 +251,7 @@ namespace SmartHopper.Components.Knowledge
             {
                 this.parent.SetPersistentOutput("Summary", this.resultSummaries ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("URL", this.resultUrls ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetMetricsOutput(DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
                 message = hasAnySummary ? "Post(s) summarized" : "No summary available";

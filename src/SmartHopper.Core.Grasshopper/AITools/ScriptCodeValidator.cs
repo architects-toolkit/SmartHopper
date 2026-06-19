@@ -16,6 +16,7 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
@@ -34,7 +35,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Patterns that indicate use of non-Rhino geometry libraries.
         /// Each entry contains: regex pattern, human-readable name, and suggested fix.
         /// </summary>
-        private static readonly List<(Regex Pattern, string LibraryName, string SuggestedFix)> BannedPatterns = new()
+        private static readonly List<(Regex Pattern, string LibraryName, string SuggestedFix)> BannedPatterns = new ()
         {
             // .NET generic geometry
             (SystemNumericsVector3Regex(), "System.Numerics.Vector3", "Use Rhino.Geometry.Vector3d or Point3d instead"),
@@ -105,6 +106,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
         [GeneratedRegex(@"MathNet\.Numerics\.(LinearAlgebra|Vector)", RegexOptions.IgnoreCase)]
         private static partial Regex MathNetNumericsRegex();
 
+        // Python script-mode: top-level return is invalid outside a function
+        [GeneratedRegex(@"^\s*return\b", RegexOptions.Multiline)]
+        private static partial Regex PythonTopLevelReturnRegex();
+
         // C# script structure patterns (detect method declarations that shouldn't be there)
         [GeneratedRegex(@"^\s*(private|public|protected|internal)\s+(void|static|async|object|string|int|double|bool|var)\s+\w+\s*\(", RegexOptions.Multiline)]
         private static partial Regex CSharpMethodDeclarationRegex();
@@ -132,7 +137,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             /// <summary>
             /// Gets the list of issues found in the script.
             /// </summary>
-            public List<string> Issues { get; init; } = new();
+            public List<string> Issues { get; init; } = new ();
 
             /// <summary>
             /// Gets a correction prompt to send back to the AI for self-healing.
@@ -173,6 +178,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             if (languageLower is "python" or "ironpython")
             {
+                // Check for top-level return in script mode
+                if (HasTopLevelReturn(scriptCode))
+                {
+                    issues.Add("Script uses 'return' at the top level. In Grasshopper script-mode, outputs must be assigned directly to variables (e.g., 'a = result', 'b = other_result'), not returned.");
+                }
+
                 // Check for missing Rhino.Geometry import when geometry types are used
                 if (UsesGeometryTypes(scriptCode) && !HasRhinoGeometryImport(scriptCode))
                 {
@@ -344,6 +355,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 **Input/Output (Script-Mode):**
                 - Inputs are accessed directly by parameter name (e.g., `x`, `points`, `curve`)
                 - Outputs are assigned to lowercase letters: `a = result`, `b = other_result`
+                - **Do NOT use `return` statements in script-mode.** Assign values directly to output variables instead of returning them.
 
                 **CRITICAL: Outputting lists in Python 3**
                 - Output parameters do NOT have 'access' (item/list/tree) settings like inputs.
@@ -438,6 +450,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 **Input/Output:**
                 - Inputs are accessed directly by parameter name
                 - Outputs are assigned to lowercase letters: `a = result`
+                - **Do NOT use `return` statements in script-mode.** Assign values directly to output variables instead of returning them.
 
                 **Assembly References:**
                 You can reference .NET assemblies using the `#r` directive:
@@ -659,6 +672,43 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 A = circles
                 ```
                 """;
+        }
+
+        /// <summary>
+        /// Determines whether the supplied Python code contains a <c>return</c> statement
+        /// that is outside any <c>def</c> or <c>class</c> block.
+        /// </summary>
+        private static bool HasTopLevelReturn(string code)
+        {
+            var lines = code.Split(new[] { '\n', '\r' }, StringSplitOptions.None);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var match = Regex.Match(lines[i], @"^(\s*)return\b");
+                if (!match.Success)
+                    continue;
+
+                int returnIndent = match.Groups[1].Length;
+                bool insideDef = false;
+
+                for (int j = i - 1; j >= 0; j--)
+                {
+                    var defMatch = Regex.Match(lines[j], @"^(\s*)(def\s|class\s)");
+                    if (!defMatch.Success)
+                        continue;
+
+                    int defIndent = defMatch.Groups[1].Length;
+                    if (defIndent < returnIndent)
+                    {
+                        insideDef = true;
+                        break;
+                    }
+                }
+
+                if (!insideDef)
+                    return true;
+            }
+
+            return false;
         }
 
         #endregion

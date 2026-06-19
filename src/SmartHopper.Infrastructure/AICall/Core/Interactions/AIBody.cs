@@ -18,8 +18,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Metrics;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Infrastructure.AICall.Core.Interactions
 {
@@ -29,19 +31,17 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
     /// - Suitable for stable hashing/fingerprints
     /// Construct via <see cref="AIBodyBuilder"/>.
     /// </summary>
-    public sealed record AIBody
-    (
+    public sealed record AIBody(
         IReadOnlyList<IAIInteraction> Interactions,
         string ToolFilter,
         string ContextFilter,
         string JsonOutputSchema,
-        List<int> InteractionsNew
-    )
+        List<int> InteractionsNew)
     {
         /// <summary>
         /// Gets an empty immutable body with defaults: ToolFilter="-*", ContextFilter="-*".
         /// </summary>
-        public static AIBody Empty { get; } = new(
+        public static AIBody Empty { get; } = new (
             Array.Empty<IAIInteraction>(),
             "-*",
             "-*",
@@ -84,6 +84,13 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                     }
                 }
 
+                // If interactions carried metrics but none declared an explicit iteration count,
+                // default to one iteration per body (one provider call).
+                if (m.IterationsCount == null && this.Interactions.Any(i => i?.Metrics != null))
+                {
+                    m.IterationsCount = 1;
+                }
+
                 return m;
             }
         }
@@ -92,11 +99,11 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         /// Gets aggregated structured messages from interaction-level details (e.g., tool/image validation).
         /// Body-level validation should be executed by policies/validators.
         /// </summary>
-        public List<AIRuntimeMessage> Messages
+        public List<SHRuntimeMessage> Messages
         {
             get
             {
-                var combined = new List<AIRuntimeMessage>();
+                var combined = new List<SHRuntimeMessage>();
                 var seen = new HashSet<string>(StringComparer.Ordinal);
 
                 if (this.Interactions != null)
@@ -107,6 +114,10 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                         {
                             AIInteractionToolResult tr => tr.Messages,
                             AIInteractionImage img => img.Messages,
+                            AIInteractionRuntimeMessage diag => new List<SHRuntimeMessage>
+                            {
+                                diag.ToRuntimeMessage(),
+                            },
                             _ => null
                         };
 

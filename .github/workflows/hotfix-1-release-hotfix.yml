@@ -6,7 +6,6 @@ name: 🔥 1 Prepare Hotfix Release
 #   - stabilization-2-complete.yml (completes stabilization)
 #   - hotfix-0-new-branch.yml (creates hotfix branch from main)
 #   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
-#   - main-sync-to-dev.yml (syncs main changes to dev and dev-* branches)
 
 # Description: This workflow prepares a hotfix release by updating version, changelog, and badges.
 # It creates a release/X.X.X-hotfix-description branch with a PR to main.
@@ -49,8 +48,8 @@ jobs:
 
       - name: Set up Git user
         run: |
-          git config user.name "github-actions"
-          git config user.email "action@github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Extract version from branch name
         id: extract-version
@@ -91,9 +90,10 @@ jobs:
       - name: Create release branch
         run: git checkout -b ${{ steps.set-branch.outputs.release_branch }}
 
-      - name: Update version in Solution.props
-        uses: ./.github/actions/versioning/update-version
+      - name: Update version
+        uses: ./.github/actions/versioning/version-manager
         with:
+          mode: set-version
           new-version: ${{ steps.extract-version.outputs.version }}
 
       - name: Include missing issues in changelog
@@ -107,10 +107,6 @@ jobs:
         with:
           action: create-release
           version: ${{ steps.extract-version.outputs.version }}
-          
-      - name: Update README badges
-        uses: ./.github/actions/documentation/update-badges
-        id: update-badges
 
       - name: Update Ready badge to YES (brightgreen)
         uses: ./.github/actions/documentation/update-ready-badge
@@ -309,8 +305,8 @@ jobs:
           echo "Updated README.md badges"
           
           # Commit and push changes
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+          git config --local user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
           git add Solution.props README.md
           git commit -m "chore: bump version to ${{ steps.check-dev.outputs.DEV_NEW_VERSION }} to avoid collision with hotfix ${{ steps.extract-version.outputs.version }}"
           git push origin $DEV_UPDATE_BRANCH

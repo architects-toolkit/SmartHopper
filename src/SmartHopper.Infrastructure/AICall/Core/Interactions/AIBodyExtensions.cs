@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AIModels;
 
@@ -76,6 +77,70 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
         }
 
         /// <summary>
+        /// Gets the text content of the last assistant message in the body.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The text content of the last assistant AIInteractionText, or null if no assistant text exists.</returns>
+        public static string GetLastAssistantText(this AIBody body)
+        {
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionText && i.Agent == AIAgent.Assistant) is AIInteractionText textInteraction
+                ? textInteraction.Content
+                : null;
+        }
+
+        /// <summary>
+        /// Parses the text content of the last assistant message as JSON.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The parsed JObject from the last assistant text, or null if parsing fails or no assistant text exists.</returns>
+        public static JObject GetLastAssistantJson(this AIBody body)
+        {
+            var lastText = body.GetLastAssistantText();
+            if (string.IsNullOrWhiteSpace(lastText))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JObject.Parse(lastText);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the last assistant image interaction in the body.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>The last assistant AIInteractionImage, or null if no assistant image exists.</returns>
+        public static AIInteractionImage GetLastAssistantImage(this AIBody body)
+        {
+            return body?.Interactions?.LastOrDefault(i => i is AIInteractionImage && i.Agent == AIAgent.Assistant) as AIInteractionImage;
+        }
+
+        /// <summary>
+        /// Gets all assistant text interactions in the body in order.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <returns>A list of all assistant text content in order, or empty list if none exist.</returns>
+        public static List<string> GetAllAssistantTexts(this AIBody body)
+        {
+            if (body?.Interactions == null || body.Interactions.Count == 0)
+            {
+                return new List<string>();
+            }
+
+            return body.Interactions
+                .OfType<AIInteractionText>()
+                .Where(i => i.Agent == AIAgent.Assistant)
+                .Select(i => i.Content)
+                .ToList();
+        }
+
+        /// <summary>
         /// Computes the number of pending tool calls by matching tool call Ids
         /// against tool result Ids in the interactions list.
         /// </summary>
@@ -115,6 +180,62 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
             var resultIds = new HashSet<string>(toolResults.Select(tr => tr.Id), StringComparer.Ordinal);
 
             return toolCalls.Where(tc => !resultIds.Contains(tc.Id)).ToList();
+        }
+
+        /// <summary>
+        /// Finds the last tool result matching the specified tool name in the body.
+        /// Searches interactions backwards to find the most recent matching result.
+        /// If toolName is null or empty, returns the last tool result regardless of name.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <param name="toolName">The tool name to match (case-sensitive). If null/empty, matches any tool.</param>
+        /// <returns>The matching AIInteractionToolResult, or null if not found.</returns>
+        public static AIInteractionToolResult GetLastToolResult(this AIBody body, string toolName)
+        {
+            if (body?.Interactions == null)
+                return null;
+
+            var hasToolNameFilter = !string.IsNullOrWhiteSpace(toolName);
+
+            for (int i = body.Interactions.Count - 1; i >= 0; i--)
+            {
+                if (body.Interactions[i] is AIInteractionToolResult toolResult)
+                {
+                    if (!hasToolNameFilter ||
+                        string.Equals(toolResult.Name, toolName, StringComparison.Ordinal))
+                    {
+                        return toolResult;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets all tool results matching the specified tool name in the body.
+        /// Returns results in chronological order (oldest first).
+        /// If toolName is null or empty, returns all tool results regardless of name.
+        /// </summary>
+        /// <param name="body">The AI body to query.</param>
+        /// <param name="toolName">The tool name to match (case-sensitive). If null/empty, returns all tools.</param>
+        /// <returns>A list of matching AIInteractionToolResult objects, or empty list if none found.</returns>
+        public static List<AIInteractionToolResult> GetAllToolResults(this AIBody body, string toolName)
+        {
+            if (body?.Interactions == null)
+                return new List<AIInteractionToolResult>();
+
+            var hasToolNameFilter = !string.IsNullOrWhiteSpace(toolName);
+
+            var results = body.Interactions
+                .OfType<AIInteractionToolResult>();
+
+            if (hasToolNameFilter)
+            {
+                results = results.Where(tr => string.Equals(tr.Name, toolName, StringComparison.Ordinal));
+            }
+
+            return results.ToList();
         }
 
         /// <summary>
@@ -300,10 +421,9 @@ namespace SmartHopper.Infrastructure.AICall.Core.Interactions
                             Debug.WriteLine($"[EstimateTokensFromInteractions] Tool call '{tc.Name}': {callChars} chars");
                             break;
 
-                        case AIInteractionError err:
-                            // Errors are typically output (provider/system errors)
-                            outputChars += (err.Content?.Length ?? 0);
-                            Debug.WriteLine($"[EstimateTokensFromInteractions] Error: {err.Content?.Length ?? 0} chars");
+                        case AIInteractionRuntimeMessage diag:
+                            // Diagnostics are UI-only and not sent to the provider; skip token accounting.
+                            Debug.WriteLine($"[EstimateTokensFromInteractions] Diagnostic ({diag.Severity}): {diag.Content?.Length ?? 0} chars (not counted)");
                             break;
 
                         default:

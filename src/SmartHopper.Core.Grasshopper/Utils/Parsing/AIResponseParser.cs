@@ -24,6 +24,7 @@ using System.Text.RegularExpressions;
 using Grasshopper.Kernel.Types;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.Utilities;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Parsing
 {
@@ -33,12 +34,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
     public static partial class AIResponseParser
     {
         #region Compiled Regex Patterns
-
-        /// <summary>
-        /// Regex pattern for extracting content from markdown code blocks.
-        /// </summary>
-        [GeneratedRegex(@"```(?:json|txt|text)?\s*\n?(.*?)\n?```", RegexOptions.Singleline)]
-        private static partial Regex MarkdownCodeBlockRegex();
 
         /// <summary>
         /// Regex pattern for extracting the first bracketed array from text.
@@ -83,6 +78,120 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
         }
 
         /// <summary>
+        /// Parses a number (double) value from the AI response.
+        /// Supports: JSON numbers, markdown code blocks, text-wrapped numbers, and regex fallback.
+        /// </summary>
+        /// <param name="response">Raw response from the AI.</param>
+        /// <returns>Parsed double value, or null if parsing fails.</returns>
+        public static double? ParseNumberFromResponse(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return null;
+            }
+
+            var trimmed = response.Trim();
+
+            // 1. Try direct parsing
+            if (double.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double result))
+            {
+                return result;
+            }
+
+            // 2. Extract from markdown code blocks
+            var codeBlockContent = JsonFormatHelper.ExtractFromMarkdownCodeBlock(trimmed);
+            if (!string.IsNullOrEmpty(codeBlockContent))
+            {
+                if (double.TryParse(codeBlockContent.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out result))
+                {
+                    return result;
+                }
+            }
+
+            // 3. Try extracting first numeric token via regex
+            var numericMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"-?\d+\.?\d*([eE][+-]?\d+)?");
+            if (numericMatch.Success)
+            {
+                if (double.TryParse(numericMatch.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out result))
+                {
+                    return result;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Parses an integer value from the AI response.
+        /// Supports: JSON integers, markdown code blocks, text-wrapped integers, and regex fallback.
+        /// </summary>
+        /// <param name="response">Raw response from the AI.</param>
+        /// <returns>Parsed integer value, or null if parsing fails.</returns>
+        public static int? ParseIntegerFromResponse(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return null;
+            }
+
+            var trimmed = response.Trim();
+
+            // 1. Try direct parsing
+            if (int.TryParse(trimmed, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int result))
+            {
+                return result;
+            }
+
+            // 2. Extract from markdown code blocks
+            var codeBlockContent = JsonFormatHelper.ExtractFromMarkdownCodeBlock(trimmed);
+            if (!string.IsNullOrEmpty(codeBlockContent))
+            {
+                if (int.TryParse(codeBlockContent.Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out result))
+                {
+                    return result;
+                }
+            }
+
+            // 3. Try extracting first numeric token via regex
+            var numericMatch = System.Text.RegularExpressions.Regex.Match(trimmed, @"-?\d+");
+            if (numericMatch.Success)
+            {
+                if (int.TryParse(numericMatch.Value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out result))
+                {
+                    return result;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Parses markdown content from the AI response.
+        /// Extracts content from markdown code blocks or returns the trimmed response.
+        /// </summary>
+        /// <param name="response">Raw response from the AI.</param>
+        /// <returns>Parsed markdown string, or null if response is empty.</returns>
+        public static string ParseMarkdownFromResponse(string response)
+        {
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return null;
+            }
+
+            var trimmed = response.Trim();
+
+            // Try extracting from markdown code blocks
+            var codeBlockContent = JsonFormatHelper.ExtractFromMarkdownCodeBlock(trimmed);
+            if (!string.IsNullOrEmpty(codeBlockContent))
+            {
+                return codeBlockContent;
+            }
+
+            // Return trimmed response as-is
+            return trimmed;
+        }
+
+        /// <summary>
         /// Parses a list of indices from the AI response.
         /// Supports: JSON arrays (numbers/strings), comma/space/newline-separated numbers,
         /// markdown code blocks, text-wrapped arrays, JSON objects with known keys,
@@ -108,7 +217,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             // 1. Extract from markdown code blocks
-            var codeBlockContent = ExtractFromMarkdownCodeBlock(trimmed);
+            var codeBlockContent = JsonFormatHelper.ExtractFromMarkdownCodeBlock(trimmed);
             if (!string.IsNullOrEmpty(codeBlockContent))
             {
                 trimmed = codeBlockContent;
@@ -194,15 +303,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             return DeduplicatePreserveOrder(indices);
-        }
-
-        /// <summary>
-        /// Extracts content from markdown code blocks (```json, ```txt, etc.).
-        /// </summary>
-        private static string ExtractFromMarkdownCodeBlock(string text)
-        {
-            var match = MarkdownCodeBlockRegex().Match(text);
-            return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
         }
 
         /// <summary>
@@ -361,7 +461,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
                 stringList.Add(item.ToString());
             }
 
-            var result = "";
+            var result = string.Empty;
             if (output.ToLowerInvariant() == "array" || output.ToLowerInvariant() == "arr")
             {
                 // Array format
@@ -547,62 +647,30 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
 
         #endregion
 
-        #region JSON Object Parsing
+        #region JSON Token Parsing
 
         /// <summary>
-        /// Attempts to extract and parse a JSON object from an AI response that may contain
-        /// markdown formatting, HTML tags, or other non-JSON wrapping.
-        /// Uses brace-depth tracking to correctly extract the first complete JSON object.
+        /// Parses and extracts a JSON token (object OR array root) from an AI response that may
+        /// contain markdown formatting, HTML tags, or other non-JSON wrapping. Delegates to
+        /// <see cref="JsonFormatHelper.TryRecoverJsonToken(string, out JToken, out List{string})"/>
+        /// for the full recovery pipeline (direct parse → strip markdown fences → depth-based
+        /// container extraction → sanitization).
         /// </summary>
         /// <param name="response">Raw response from the AI.</param>
-        /// <returns>Parsed <see cref="JObject"/>.</returns>
+        /// <returns>Parsed <see cref="JToken"/> — either a <see cref="JObject"/> or a <see cref="JArray"/>.</returns>
         /// <exception cref="JsonException">Thrown when the response cannot be parsed as JSON.</exception>
-        public static JObject SanitizeAndParseJson(string response)
+        public static JToken ParseJsonFromResponse(string response)
         {
             if (string.IsNullOrWhiteSpace(response))
             {
                 throw new JsonException("AI response is empty.");
             }
 
-            // Try direct parse first
-            try
+            if (JsonFormatHelper.TryRecoverJsonToken(response, out var recovered, out _))
             {
-                return JObject.Parse(response);
-            }
-            catch (JsonException)
-            {
-                // Continue with sanitization attempts
+                return recovered;
             }
 
-            // Try extracting JSON from markdown code blocks
-            var codeBlockContent = ExtractFromMarkdownCodeBlock(response);
-            if (!string.IsNullOrEmpty(codeBlockContent))
-            {
-                try
-                {
-                    return JObject.Parse(codeBlockContent);
-                }
-                catch (JsonException)
-                {
-                    // Continue with other extraction methods
-                }
-            }
-
-            // Try extracting the first complete JSON object by tracking brace depth
-            var jsonCandidate = ExtractFirstJsonObject(response);
-            if (!string.IsNullOrEmpty(jsonCandidate))
-            {
-                try
-                {
-                    return JObject.Parse(jsonCandidate);
-                }
-                catch (JsonException)
-                {
-                    // Continue
-                }
-            }
-
-            // All attempts failed - provide a descriptive error
             var preview = TruncateForDisplay(response);
             if (response.StartsWith("<", StringComparison.Ordinal))
             {
@@ -627,77 +695,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Parsing
             }
 
             return text.Substring(0, maxLength) + "...";
-        }
-
-        /// <summary>
-        /// Extracts the first complete JSON object from text by tracking brace depth.
-        /// Correctly handles nested objects and string literals with escape sequences.
-        /// </summary>
-        /// <param name="text">The text to search for a JSON object.</param>
-        /// <returns>The first complete JSON object string, or null if none found.</returns>
-        private static string ExtractFirstJsonObject(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-            {
-                return null;
-            }
-
-            bool inString = false;
-            bool escapeNext = false;
-            int braceDepth = 0;
-            int startIndex = -1;
-
-            for (int i = 0; i < text.Length; i++)
-            {
-                char c = text[i];
-
-                // Handle escape sequences within strings
-                if (escapeNext)
-                {
-                    escapeNext = false;
-                    continue;
-                }
-
-                if (c == '\\' && inString)
-                {
-                    escapeNext = true;
-                    continue;
-                }
-
-                // Toggle string state on unescaped quotes
-                if (c == '"')
-                {
-                    inString = !inString;
-                    continue;
-                }
-
-                // Skip everything inside strings
-                if (inString)
-                {
-                    continue;
-                }
-
-                // Track brace depth to find complete JSON objects
-                if (c == '{')
-                {
-                    if (braceDepth == 0)
-                    {
-                        startIndex = i;
-                    }
-
-                    braceDepth++;
-                }
-                else if (c == '}' && braceDepth > 0)
-                {
-                    braceDepth--;
-                    if (braceDepth == 0 && startIndex >= 0)
-                    {
-                        return text.Substring(startIndex, i - startIndex + 1);
-                    }
-                }
-            }
-
-            return null;
         }
 
         #endregion

@@ -34,50 +34,66 @@ using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AIProviders;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Text
 {
     public class AIText2TextComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
+        public override Guid ComponentGuid => new ("EB073C7A-A500-4265-A45B-B1BFB38BA58E");
 
         protected override Bitmap Icon => Resources.textgenerate;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AI Text Generate",
+            "AITextGenerate",
+            "text2text",
+            "Text Generate",
+            "Text Generator",
+            "Text Create",
+            "Text Creator",
+            "Text Modify",
+            "Text Alter",
+            "Text Edit",
+            "AI Write",
+            "AI Writer",
+            "AI Compose",
+            "Generate Text",
+            "Write Text",
+            "Create Text",
+            "Modify Text",
+            "Rephrase",
+            "Paraphrase",
+            "AI Response",
+            "LLM Text",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
-        /// <summary>Stores the sentinel result tree during batch submission, for later reconstruction.</summary>
-        private GH_Structure<GH_String> _sentinelResultTree;
-
-        /// <summary>Stores the reconstructed result tree after batch completion.</summary>
-        private GH_Structure<GH_String> _reconstructedResultTree;
-
         public AIText2TextComponent()
-            : base("AI Text To Text", "AIText2Text",
-                  "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
-                  "SmartHopper", "Text")
+            : base(
+                "AI Text To Text",
+                "AIText2Text",
+                "Generate text from natural language instructions. You can also use this component to modify or rephrase a text.\n\nIf a tree structure is provided, prompts and instructions will only match within the same branch paths.",
+                "SmartHopper",
+                "Text")
         {
         }
 
-        /// <summary>Returns true when batch mode is active and items have been collected.</summary>
-        private bool IsCurrentlyBatchMode() => this.IsBatchRequest() && this.HasBatchQueue;
-
-        /// <summary>Submits the collected batch queue; accessible to nested worker class.</summary>
-        private Task<bool> SubmitCurrentBatchAsync(CancellationToken ct) => this.SubmitBatchQueueAsync(ct);
-
-        /// <summary>Stores the sentinel tree for later reconstruction by <see cref="OnBatchCompleted"/>.</summary>
-        private void StoreSentinelTree(GH_Structure<GH_String> tree) => this._sentinelResultTree = tree;
-
         /// <inheritdoc/>
-        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results)
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
         {
-            if (results == null || this._sentinelResultTree == null) return;
+            var sentinel = this.GetSentinelTree("Result");
+            if (results == null || sentinel == null) return;
 
-            this._reconstructedResultTree = this.ProcessBatchResults<GH_String>(
+            // ProcessBatchResults automatically persists outputs and sets metrics
+            this.ProcessBatchResults<GH_String>(
                 "Result",
-                this._sentinelResultTree,
+                sentinel,
                 results,
                 (customId, resultBody) =>
                 {
@@ -90,7 +106,8 @@ namespace SmartHopper.Components.Text
                         .LastOrDefault(i => i.Agent == AIAgent.Assistant);
 
                     return new GH_String(lastText?.Content ?? string.Empty);
-                });
+                },
+                messages);
         }
 
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
@@ -106,7 +123,7 @@ namespace SmartHopper.Components.Text
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            return new AIText2TextWorker(this, this.AddRuntimeMessage, ComponentProcessingOptions);
+            return new AIText2TextWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
         }
 
         private sealed class AIText2TextWorker : AsyncWorkerBase
@@ -156,28 +173,26 @@ namespace SmartHopper.Components.Text
                     Debug.WriteLine($"[Worker] Input tree keys: {string.Join(", ", this.inputTree.Keys)}");
                     Debug.WriteLine($"[Worker] Input tree data counts: {string.Join(", ", this.inputTree.Select(kvp => $"{kvp.Key}: {kvp.Value.DataCount}"))}");
 
-                    this.parent._reconstructedResultTree = null;
-
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTree,
                         async (branches) =>
                         {
                             Debug.WriteLine($"[Worker] ProcessData called with {branches.Count} branches");
-                            return await ProcessData(branches, this.parent).ConfigureAwait(false);
+                            return await ProcessData(branches, this.parent, token).ConfigureAwait(false);
                         },
                         this.processingOptions,
                         token).ConfigureAwait(false);
 
                     // After all items processed: if batch mode, submit the collected queue
-                    if (this.parent.IsCurrentlyBatchMode())
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Result", this.result, token).ConfigureAwait(false);
+                    if (batchSubmitted)
                     {
-                        Debug.WriteLine($"[Worker] Batch mode active, submitting queue");
-                        var submitted = await this.parent.SubmitCurrentBatchAsync(token).ConfigureAwait(false);
-                        if (submitted && this.result.TryGetValue("Result", out var sentinelTree))
-                        {
-                            this.parent.StoreSentinelTree(sentinelTree);
-                            Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
-                        }
+                        Debug.WriteLine($"[Worker] Sentinel tree stored, batch submitted");
+                    }
+                    else if (this.result.TryGetValue("Result", out var resultTree))
+                    {
+                        // Non-batch: persist output and emit metrics via FinishResults
+                        this.parent.FinishResults("Result", resultTree);
                     }
 
                     Debug.WriteLine($"[Worker] Finished DoWorkAsync - Result keys: {string.Join(", ", this.result.Keys)}");
@@ -185,10 +200,11 @@ namespace SmartHopper.Components.Text
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[Worker] Error: {ex.Message}");
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, ex.Message);
                 }
             }
 
-            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIText2TextComponent parent)
+            private static async Task<Dictionary<string, List<GH_String>>> ProcessData(Dictionary<string, List<GH_String>> branches, AIText2TextComponent parent, CancellationToken cancellationToken)
             {
                 /*
                  * Inputs will be available as a dictionary
@@ -234,8 +250,8 @@ namespace SmartHopper.Components.Text
                         ["contextFilter"] = "-*",
                     };
 
-                    var toolResult = await parent.CallAiToolAsync(
-                        "text2text", parameters)
+                    var toolResult = await parent.CallAIToolAsync(
+                        "text2text", parameters, cancellationToken)
                         .ConfigureAwait(false);
 
                     string result = toolResult?["result"]?.ToString() ?? string.Empty;
@@ -248,25 +264,9 @@ namespace SmartHopper.Components.Text
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                Debug.WriteLine($"[Worker] Setting output - Available keys: {string.Join(", ", this.result.Keys)}");
-
-                // If batch completed and tree was reconstructed, use that
-                if (this.parent._reconstructedResultTree != null)
-                {
-                    this.parent.SetPersistentOutput("Result", this.parent._reconstructedResultTree, DA);
-                    this.parent._reconstructedResultTree = null;
-                    message = string.Empty;
-                    return;
-                }
-
-                if (!this.result.TryGetValue("Result", out GH_Structure<GH_String>? value))
-                {
-                    Debug.WriteLine("[Worker] Warning: Result key not found in output dictionary");
-                    message = "Error: No result available";
-                    return;
-                }
-
-                this.parent.SetPersistentOutput("Result", value, DA);
+                // Outputs and metrics are handled by FinishResults (non-batch) or
+                // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
+                // replays them to the canvas on the next solve.
                 message = string.Empty;
             }
         }

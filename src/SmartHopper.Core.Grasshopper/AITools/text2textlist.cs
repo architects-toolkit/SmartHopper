@@ -32,6 +32,7 @@ using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AIModels;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -59,11 +60,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Default batch size divisor (e.g., count / 3).
         /// </summary>
         private const int DefaultBatchDivisor = 3;
-
-        /// <summary>
-        /// Default timeout for AI requests.
-        /// </summary>
-        private const int DefaultTimeoutSeconds = 300;
 
         /// <summary>
         /// Defines the required capabilities for the AI tool provided by this class.
@@ -102,8 +98,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// User prompt for the AI tool provided by this class. Use <prompt> and <count> placeholders.
         /// </summary>
         private readonly string userPrompt =
-            "Generate exactly <count> items based on this prompt: \"<prompt>\"\n\n" +
-            "Return only the JSON array of strings.";
+            "PROMPT:\n\n---\n\n<prompt>\n\n---\n\n" +
+            "NUMBER OF ITEMS:\n\n---\n\n<count>\n\n---\n\n" +
+            "Generate exactly the specified number of items based on the prompt above. Return only the JSON array of strings.";
 
         /// <summary>
         /// Get all tools provided by this class.
@@ -262,7 +259,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Accumulate metrics across all iterations
                 var accumulatedMetrics = new AIMetrics();
-                var allMessages = new List<AIRuntimeMessage>();
+                var allMessages = new List<SHRuntimeMessage>();
 
                 // 1. Generate initial request
                 var initialUserPrompt = this.userPrompt;
@@ -285,10 +282,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     capability: this.toolCapabilityRequirements,
                     endpoint: endpoint,
                     body: requestBody);
-
-                // Set extended timeout for iterative list generation (5 minutes)
-                // The while loop may require multiple AI calls, each taking 20-40 seconds
-                request.TimeoutSeconds = DefaultTimeoutSeconds;
 
                 while (allItems.Count < count && iteration < maxIterations)
                 {
