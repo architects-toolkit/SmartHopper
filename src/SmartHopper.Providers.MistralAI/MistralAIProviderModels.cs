@@ -331,7 +331,7 @@ namespace SmartHopper.Providers.MistralAI
                     Verified = false,
                     Rank = 9910,
                     ContextLimit = 32000,
-                    Aliases = new List<string> { voxtral-mini-latest, "voxtral-mini-transcribe-2602" },
+                    Aliases = new List<string> { "voxtral-mini-latest", "voxtral-mini-transcribe-2602" },
                 },
 
                 new AIModelCapabilities
