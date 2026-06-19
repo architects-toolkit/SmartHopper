@@ -55,7 +55,7 @@ The canonical base for any component that talks to an AI provider through SmartH
 
 - `Settings` (`S`, `IGH_Goo`, optional, item) — accepts an `AIRequestParameters` (preferred) or any value cast to a model name string. Drives the `_requestParameters` field used for model, temperature, max tokens, batch tier, custom timeout and provider-specific extras.
 - `Run?` (`R`, bool, item, default `false`) — inherited from `StatefulComponentBase`.
-- `Metrics` (`M`, text, item) — JSON containing provider/model, all token counters, finish reason, completion time, context usage, data count and iteration count. See `SetMetricsOutput`.
+- `Metrics` (`M`, text, item) — JSON containing provider/model, all token counters, finish reason, completion time, context usage, data count and iteration count. See `SetMetricsOutput`. When processing multiple branches the payload is a JSON array with one entry per branch so downstream components (e.g. `Deconstruct Metrics`) can expand it into parallel lists.
 
 ### Capability-aware model selection
 
@@ -118,7 +118,9 @@ Two emission patterns:
 | Standard AI components | `FinishResults` (non-batch) or `ProcessBatchResults` → `FinishResults` (batch). |
 | Sync-output components (e.g. `AIChatComponent`) | Call `SetMetricsOutput(DA)` directly inside their `SolveInstance`; do not use `FinishResults`. |
 
-`OnSolveInstancePostSolve` does not call `SetMetricsOutput`. The single authoritative metrics instance is `_persistedMetrics`; `AIReturn.Metrics` re-aggregates on every read so writes to it are no-ops, hence the dedicated field.
+When the component processes multiple branches, emit one metric entry per branch. Non-batch workers accumulate entries via `CombineIntoPersistedMetrics`; batch workers collect them automatically in `ProcessBatchResults`. The resulting `AIMetricsList` is serialized as a single JSON object when all entries share the same provider/model, or as a JSON array when they differ (e.g. after modality fallback).
+
+`OnSolveInstancePostSolve` does not call `SetMetricsOutput`. The single authoritative metrics instance is `PersistedMetricsList`; `AIReturn.Metrics` re-aggregates on every read so writes to it are no-ops, hence the dedicated field.
 
 ### Batch features
 

@@ -66,13 +66,22 @@ namespace SmartHopper.Core.ComponentBase
         protected AIReturn CurrentAIReturnSnapshot => this.AIReturnSnapshot;
 
         /// <summary>
-        /// Sets the metrics output parameters (input tokens, output tokens, finish reason).
+        /// Sets the metrics output tree. Each branch contains the metric JSON string(s)
+        /// for the corresponding processing unit, preserving input topology.
         /// </summary>
         /// <param name="dA">The data access object.</param>
         protected void SetMetricsOutput(IGH_DataAccess dA)
         {
             Debug.WriteLine("[AIStatefulComponentBase] SetMetricsOutput - Start");
 
+            if (this._metricsTree != null && this._metricsTree.DataCount > 0)
+            {
+                this.SetPersistentOutput(WellKnownInputs.Metrics, this._metricsTree, dA);
+                Debug.WriteLine($"[AIStatefulComponentBase] SetMetricsOutput - Set metrics tree. Paths: {string.Join(", ", this._metricsTree.Paths.Select(p => p.ToString()))}");
+                return;
+            }
+
+            // Fallback for components that do not populate _metricsTree (legacy / sync paths)
             var metricsList = this._batchState.PersistedMetricsList;
             var fallbackMetrics = metricsList == null ? this.AIReturnSnapshot?.Metrics : null;
 
@@ -86,14 +95,14 @@ namespace SmartHopper.Core.ComponentBase
 
             if (metricsList != null && metricsList.Entries.Count > 0)
             {
-                if (metricsList.IsSingleProvider)
+                if (metricsList.Entries.Count == 1)
                 {
-                    // Single entry or all same provider/model → plain JObject (no breaking change)
+                    // Single entry → plain JObject (no breaking change)
                     metricsToken = this.SerializeMetricsEntry(metricsList.Entries[0]);
                 }
                 else
                 {
-                    // Multiple providers/models → JArray
+                    // Multiple entries (multi-branch or multi-provider) → JArray
                     var array = new JArray();
                     foreach (var entry in metricsList.Entries)
                     {
@@ -146,14 +155,7 @@ namespace SmartHopper.Core.ComponentBase
                 obj.Add("data_count", this.DataCount);
             }
 
-            if (metrics.IterationsCount.HasValue)
-            {
-                obj.Add("iterations_count", metrics.IterationsCount.Value);
-            }
-            else
-            {
-                obj.Add("iterations_count", this.ProgressInfo.Total);
-            }
+            obj.Add("iterations_count", metrics.IterationsCount ?? 0);
 
             return obj;
         }
@@ -207,6 +209,7 @@ namespace SmartHopper.Core.ComponentBase
             if (metrics == null) return;
             this._batchState.PersistedMetricsList ??= new Infrastructure.AICall.Metrics.AIMetricsList();
             this._batchState.PersistedMetricsList.Add(metrics, role);
+            this.AppendMetricToTree(metrics);
         }
 
         /// <summary>
@@ -240,15 +243,26 @@ namespace SmartHopper.Core.ComponentBase
                 }
             }
 
-            // Stamp CompletionTime into the first metrics entry (the main call).
+            // Stamp CompletionTime into every metrics entry (all branches share
+            // the same batch completion time; non-batch leaves it null).
             // AIReturn.Metrics is computed fresh on every access — writing to it is a no-op.
             if (this._batchState.CompletionTime.HasValue)
             {
                 var entries = this._batchState.PersistedMetricsList?.Entries;
                 if (entries != null && entries.Count > 0)
                 {
-                    entries[0].CompletionTime = this._batchState.CompletionTime.Value;
-                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchState.CompletionTime.Value:F2}s into PersistedMetricsList[0]");
+                    foreach (var entry in entries)
+                    {
+                        entry.CompletionTime = this._batchState.CompletionTime.Value;
+                    }
+
+                    Debug.WriteLine($"[AIStatefulAsync] FinishResults: stamped CompletionTime={this._batchState.CompletionTime.Value:F2}s into {entries.Count} metric(s)");
+                }
+
+                // Also stamp into the metrics tree by updating the serialized JSON strings
+                if (this._metricsTree != null)
+                {
+                    this.StampCompletionTimeIntoMetricsTree(this._batchState.CompletionTime.Value);
                 }
 
                 this._batchState.CompletionTime = null;
@@ -256,6 +270,38 @@ namespace SmartHopper.Core.ComponentBase
 
             // Always emit metrics (replaces the ShouldEmitMetricsInPostSolve pattern)
             this.SetMetricsOutput(null);
+        }
+
+        /// <summary>
+        /// Updates every serialized metric in <see cref="_metricsTree"/> with the given completion time.
+        /// Parses each JSON string, overwrites the "completion_time" property, and re-serializes.
+        /// </summary>
+        private void StampCompletionTimeIntoMetricsTree(double completionTime)
+        {
+            if (this._metricsTree == null) return;
+
+            var updatedTree = new GH_Structure<GH_String>();
+            foreach (var path in this._metricsTree.Paths)
+            {
+                var branch = this._metricsTree.get_Branch(path);
+                if (branch == null) continue;
+                foreach (GH_String item in branch)
+                {
+                    try
+                    {
+                        var obj = JObject.Parse(item.Value);
+                        obj["completion_time"] = completionTime;
+                        updatedTree.Append(new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)), path);
+                    }
+                    catch
+                    {
+                        // If parsing fails, keep the original
+                        updatedTree.Append(item, path);
+                    }
+                }
+            }
+
+            this._metricsTree = updatedTree;
         }
 
         #endregion
