@@ -93,6 +93,8 @@ param(
     [string]$ProviderDllPattern = "SmartHopper.Providers.*.dll"
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 # Set error action preference
 $ErrorActionPreference = "Stop"
 
@@ -318,7 +320,7 @@ if ([string]::IsNullOrWhiteSpace($OutputFile)) {
 
 # Convert to JSON and save
 $hashJson = $hashManifest | ConvertTo-Json -Depth 10
-Set-Content -Path $OutputFile -Value $hashJson -Encoding UTF8
+[System.IO.File]::WriteAllText($OutputFile, $hashJson, $utf8NoBom)
 
 Write-Host "=========================================="
 Write-Host "Hash Calculation Complete"

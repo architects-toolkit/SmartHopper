@@ -8,6 +8,8 @@ param(
 
 Set-Location (Resolve-Path $Root)
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 $currentYear = (Get-Date).Year
 $initialYear = 2024
 
@@ -47,7 +49,7 @@ try {
 
     if ($content -ne $originalContent) {
         if (-not $Check) {
-            [System.IO.File]::WriteAllText($path, $content, [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
             Write-Host "Updated copyright year to $newYears : $path"
         }
         $anyChanged = $true
@@ -88,7 +90,7 @@ try {
 
     if ($aboutContent -ne $originalAboutContent) {
         if (-not $Check) {
-            [System.IO.File]::WriteAllText($aboutPath, $aboutContent, [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText($aboutPath, $aboutContent, $utf8NoBom)
             Write-Host "Updated copyright year to $newYears : $aboutPath"
         }
         $anyChanged = $true

@@ -24,6 +24,8 @@ param(
     [switch]$Help
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 function Show-Help {
     Write-Host "Usage: .\Update-InternalsVisibleTo.ps1 [options]"
     Write-Host ""
@@ -186,7 +188,7 @@ try {
     $pattern = '(<SmartHopperPublicKey>)[^<]*(</SmartHopperPublicKey>)'
     if ($content -match $pattern) {
         $content = $content -replace $pattern, "`${1}$publicKeyHex`${2}"
-        [System.IO.File]::WriteAllText($CsprojPath, $content, [System.Text.Encoding]::UTF8)
+        [System.IO.File]::WriteAllText($CsprojPath, $content, $utf8NoBom)
         Write-Host "Successfully updated SmartHopperPublicKey in $CsprojPath"
     } else {
         Write-Error "Could not find SmartHopperPublicKey element in $CsprojPath"

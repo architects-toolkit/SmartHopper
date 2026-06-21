@@ -23,6 +23,7 @@ param(
     [Parameter(Mandatory = $false)][int] $MinMajor = -1
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
@@ -96,6 +97,6 @@ if ($newContent -eq $oldContent) {
     exit 0
 }
 
-[System.IO.File]::WriteAllText($TemplateFile, $newContent, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($TemplateFile, $newContent, $utf8NoBom)
 Write-Host "Updated $TemplateFile with $($optionLines.Count) version option(s)."
 exit 0

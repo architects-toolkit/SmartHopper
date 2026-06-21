@@ -12,6 +12,8 @@ param(
 
 Set-Location (Resolve-Path $RepoRoot)
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 $labelsPath = Resolve-Path ".github\labels.yml"
 $labelerPath = Resolve-Path ".github\labeler.yml"
 
@@ -246,7 +248,7 @@ if ($Check) {
 
 if ($Apply) {
     # Write labels.yml
-    [System.IO.File]::WriteAllText($labelsPath, $labelsContent, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($labelsPath, $labelsContent, $utf8NoBom)
     Write-Host "Updated $labelsPath" -ForegroundColor Green
 
     # Write labeler.yml
@@ -254,7 +256,7 @@ if ($Apply) {
     $componentSectionPattern = '(?ms)\n# --- Component labels ---.*?(?=\n# --- |\z)'
     $cleanContent = [regex]::Replace($existingContent, $componentSectionPattern, "")
     $newLabelerContent = $cleanContent + ($labelerEntries -join "`n")
-    [System.IO.File]::WriteAllText($labelerPath, $newLabelerContent, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($labelerPath, $newLabelerContent, $utf8NoBom)
     Write-Host "Updated $labelerPath with $($componentEntries.Count) component entries" -ForegroundColor Green
 
     exit 0

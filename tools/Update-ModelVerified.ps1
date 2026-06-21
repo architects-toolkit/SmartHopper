@@ -27,6 +27,7 @@ param(
     [Parameter(Mandatory = $true)][string] $Model
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
@@ -117,7 +118,7 @@ else {
 # Preserve original line endings (CRLF for .cs files in this repo)
 $content = ($lines -join "`r`n")
 if (-not $content.EndsWith("`r`n")) { $content += "`r`n" }
-[System.IO.File]::WriteAllText($file, $content)
+[System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
 
 Write-Host "Promoted '$Provider/$Model' to Verified = true in $file"
 exit 0

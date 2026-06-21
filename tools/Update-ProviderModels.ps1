@@ -95,6 +95,8 @@ param(
     [Parameter(Mandatory = $false)][switch] $PromptKeys
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 # ---------------------------------------------------------------------------
 # Help
 # ---------------------------------------------------------------------------
@@ -1777,7 +1779,7 @@ if ($UpdateFile) {
     $newListContent = ($newBlocks -join "`r`n`r`n")
     $newFileContent = $beforeList + $newListContent + "`r`n            };" + $afterList
 
-    [System.IO.File]::WriteAllText($TargetFile, $newFileContent, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($TargetFile, $newFileContent, $utf8NoBom)
     $fileUpdated = $true
     Write-Host "[$Provider] Wrote $($sorted.Count) model(s) to $TargetFile."
 }

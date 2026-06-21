@@ -57,6 +57,8 @@ param(
     [switch]$BadgesOnly
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 if ($Help) {
     Get-Help $PSCommandPath -Full
     exit 0
@@ -74,7 +76,7 @@ $today = (Get-Date).ToString("yyMMdd")
 # ---------------------------------------------------------------------------
 # Helper: Parse a semantic version string into components
 # ---------------------------------------------------------------------------
-function Parse-Version {
+function ConvertTo-VersionComponents {
     param([string]$Version)
 
     if ($Version -match '^(\d+)\.(\d+)\.(\d+)(-([A-Za-z]+)(\.(\d+))?)?$') {
@@ -133,7 +135,7 @@ $baseVersion = $null
 
 if ($Version) {
     # Validate the explicit version parameter
-    $versionParsed = Parse-Version $Version
+    $versionParsed = ConvertTo-VersionComponents $Version
     if (-not $versionParsed) {
         Write-Error "Invalid -Version parameter: '$Version'. Expected format: X.Y.Z"
         exit 1
@@ -172,7 +174,7 @@ $xml = [xml](Get-Content $solutionPropsPath -Raw)
 $currentVersion = $xml.Project.PropertyGroup.SolutionVersion
 Write-Host "Current version: $currentVersion"
 
-$parsed = Parse-Version $currentVersion
+$parsed = ConvertTo-VersionComponents $currentVersion
 if (-not $parsed) {
     Write-Error "Failed to parse current version: $currentVersion"
     exit 1
@@ -206,7 +208,7 @@ else {
     }
     elseif ($baseVersion) {
         # Use explicit or branch-detected version as the base
-        $baseParsed = Parse-Version $baseVersion
+        $baseParsed = ConvertTo-VersionComponents $baseVersion
         if ($baseParsed) {
             # Check if base version ends with exactly '-dev' (no date suffix)
             if ($baseVersion -match '-dev$') {
@@ -253,7 +255,12 @@ else {
     }
     else {
         $xml.Project.PropertyGroup.SolutionVersion = $newVersion
-        $xml.Save($solutionPropsPath)
+        $settings = New-Object System.Xml.XmlWriterSettings
+        $settings.Encoding = [System.Text.UTF8Encoding]::new($false)
+        $settings.Indent = $true
+        $writer = [System.Xml.XmlWriter]::Create($solutionPropsPath, $settings)
+        $xml.Save($writer)
+        $writer.Close()
         Write-Host "Updated Solution.props successfully."
     }
 }
@@ -288,7 +295,7 @@ else {
         Write-Host "[DRY RUN] Would update README.md badges." -ForegroundColor Yellow
     }
     else {
-        Set-Content -Path $readmePath -Value $readmeContent -NoNewline -Encoding utf8
+        [System.IO.File]::WriteAllText($readmePath, $readmeContent, $utf8NoBom)
         Write-Host "Updated README.md badges successfully."
     }
 }
@@ -318,7 +325,7 @@ if (-not $BadgesOnly) {
                 $changelogLines += ""
                 $changelogLines += "## [Unreleased]"
                 $changelogLines += ""
-                Set-Content -Path $changelogPath -Value $changelogLines -Encoding utf8
+                [System.IO.File]::WriteAllLines($changelogPath, $changelogLines, $utf8NoBom)
                 Write-Host "Added [Unreleased] section to CHANGELOG.md."
             }
             else {
@@ -336,7 +343,7 @@ if (-not $BadgesOnly) {
                 $before = $changelogLines[0..($firstHeadingIndex - 1)]
                 $after = $changelogLines[$firstHeadingIndex..($changelogLines.Count - 1)]
                 $changelogLines = $before + @("## [Unreleased]", "") + $after
-                Set-Content -Path $changelogPath -Value $changelogLines -Encoding utf8
+                [System.IO.File]::WriteAllLines($changelogPath, $changelogLines, $utf8NoBom)
                 Write-Host "Inserted [Unreleased] section in CHANGELOG.md."
             }
             else {
