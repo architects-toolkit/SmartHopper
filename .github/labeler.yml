@@ -1,4 +1,4 @@
-﻿# PR auto-labeling configuration for actions/labeler@v5
+# PR auto-labeling configuration for actions/labeler@v5
 # Maps file path patterns to labels applied automatically on PR open/sync.
 
 # --- Provider labels ---
