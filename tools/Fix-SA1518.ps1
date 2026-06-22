@@ -6,7 +6,7 @@ Fixes StyleCop SA1518 by removing blank lines at the end of files and ensuring a
 Traverses the target path (file or directory) and normalizes only the end-of-file region:
 - Removes any trailing blank lines and trailing whitespace at EOF
 - Ensures exactly one newline at EOF (preserves original newline style CRLF/LF)
-- Preserves UTF-8 BOM presence if the original file had it
+- Writes UTF-8 without BOM
 
 By default, it searches from the repository root (parent of the tools folder) for *.cs files, recursively,
 excluding common build and VCS folders (bin, obj, .git, .vs).
@@ -100,26 +100,16 @@ function Get-EolStyle {
     else { return "`r`n" }
 }
 
-function Write-ContentPreserveBom {
+function Write-ContentNoBom {
     <#
     .SYNOPSIS
-    Writes text preserving whether the original file had a UTF-8 BOM.
+    Writes text as UTF-8 without BOM.
     #>
     param(
         [Parameter(Mandatory)] [string]$Path,
         [Parameter(Mandatory)] [string]$Content
     )
-    $hasBom = $false
-    try {
-        $bytes = [System.IO.File]::ReadAllBytes($Path)
-        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-            $hasBom = $true
-        }
-    } catch {
-        # If file doesn't exist yet, default to no BOM
-        $hasBom = $false
-    }
-    $encoding = New-Object System.Text.UTF8Encoding($hasBom)
+    $encoding = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
@@ -146,7 +136,7 @@ foreach ($f in $files) {
     if ($updated -ne $original) {
         if ($PSCmdlet.ShouldProcess($f.FullName, "Normalize EOF (remove trailing blank lines, ensure single EOL)")) {
             try {
-                Write-ContentPreserveBom -Path $f.FullName -Content $updated
+                Write-ContentNoBom -Path $f.FullName -Content $updated
                 $fixed++
                 Write-Host "Modified: $($f.FullName)"
             } catch {
