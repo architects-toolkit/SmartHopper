@@ -436,6 +436,28 @@ namespace SmartHopper.Providers.Gemini
                 }
 
                 generationConfig["responseModalities"] = modalities;
+
+                // Extract image configuration from the image generation request interaction
+                var imageInteraction = request.Body.Interactions.FirstOrDefault(i => i is AIInteractionImage) as AIInteractionImage;
+                if (imageInteraction != null)
+                {
+                    var imageConfig = new JObject();
+                    if (!string.IsNullOrWhiteSpace(imageInteraction.AspectRatio))
+                    {
+                        imageConfig["aspectRatio"] = imageInteraction.AspectRatio;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(imageInteraction.ImageSize))
+                    {
+                        imageConfig["imageSize"] = imageInteraction.ImageSize;
+                    }
+
+                    if (imageConfig.Count > 0)
+                    {
+                        generationConfig["imageConfig"] = imageConfig;
+                        Debug.WriteLine($"[GeminiProvider] Image config: aspectRatio={imageInteraction.AspectRatio}, imageSize={imageInteraction.ImageSize}");
+                    }
+                }
             }
             else if (request.Capability.HasFlag(AICapability.SpeechOutput))
             {
