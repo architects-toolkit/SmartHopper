@@ -194,6 +194,8 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Preserve Tables", "PT", "Preserve table structure as Markdown tables. Default: true.", GH_ParamAccess.tree, true);
+            pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
             pManager.AddTextParameter("Image Mode", "IM", "How AI describes images in the output:\n'embed' (default) — embed image as base64 data URI with a short AI-generated caption as alt text.\n'describe' — replace image with a long, detailed AI text description.\n'caption' — replace image with a short AI-generated title/caption.", GH_ParamAccess.item, "embed");
             pManager[pManager.ParamCount - 1].Optional = true;
             pManager.AddTextParameter("Image Prompt", "IP", "Custom prompt for AI image description. Overrides the built-in prompt for the selected mode.", GH_ParamAccess.item);
@@ -435,6 +437,8 @@ namespace SmartHopper.Components.Knowledge
             private readonly AIFile2MdComponent parent;
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
+            private GH_Structure<GH_String> preserveTablesTree;
+            private GH_Structure<GH_String> removeHeadersTree;
             private bool hasWork;
 
             private string imageMode;
@@ -474,6 +478,15 @@ namespace SmartHopper.Components.Knowledge
 
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);
+
+                var preserveTree = new GH_Structure<GH_Boolean>();
+                DA.GetDataTree("Preserve Tables", out preserveTree);
+
+                var removeTree = new GH_Structure<GH_Boolean>();
+                DA.GetDataTree("Remove Headers", out removeTree);
+
+                this.preserveTablesTree = ConvertBoolTreeToString(preserveTree, "true");
+                this.removeHeadersTree = ConvertBoolTreeToString(removeTree, "true");
 
                 var imageModeParam = new GH_String();
                 DA.GetData("Image Mode", ref imageModeParam);
@@ -523,6 +536,8 @@ namespace SmartHopper.Components.Knowledge
                     var inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                     {
                         { "File Path", this.filePathTree },
+                        { "PreserveTables", this.preserveTablesTree },
+                        { "RemoveHeaders", this.removeHeadersTree },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
@@ -541,9 +556,21 @@ namespace SmartHopper.Components.Knowledge
                                 return outputs;
                             }
 
-                            foreach (var ghPath in pathBranch)
+                            var preserveBranch = branchInputs.TryGetValue("PreserveTables", out var pt) ? pt : new List<GH_String>();
+                            var removeBranch = branchInputs.TryGetValue("RemoveHeaders", out var rh) ? rh : new List<GH_String>();
+
+                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, preserveBranch, removeBranch });
+                            pathBranch = normalizedLists[0];
+                            preserveBranch = normalizedLists[1];
+                            removeBranch = normalizedLists[2];
+
+                            for (int i = 0; i < pathBranch.Count; i++)
                             {
                                 token.ThrowIfCancellationRequested();
+
+                                var ghPath = pathBranch[i];
+                                bool preserveTables = bool.TryParse(preserveBranch[i]?.Value, out var ptValue) ? ptValue : true;
+                                bool removeHeaders = bool.TryParse(removeBranch[i]?.Value, out var rhValue) ? rhValue : true;
 
                                 if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
@@ -558,8 +585,8 @@ namespace SmartHopper.Components.Knowledge
                                 var localParams = new JObject
                                 {
                                     ["filePath"] = filePath,
-                                    ["preserveTableStructure"] = true,
-                                    ["removeHeadersFooters"] = true,
+                                    ["preserveTableStructure"] = preserveTables,
+                                    ["removeHeadersFooters"] = removeHeaders,
                                     ["describeImages"] = false,
                                     ["extractImages"] = true,
                                 };
@@ -770,6 +797,26 @@ namespace SmartHopper.Components.Knowledge
                 // ProcessBatchResults → FinishResults (batch). RestorePersistentOutputs
                 // replays them to the canvas on the next solve.
                 errorMessage = null;
+            }
+
+            private static GH_Structure<GH_String> ConvertBoolTreeToString(GH_Structure<GH_Boolean> boolTree, string defaultValue)
+            {
+                var result = new GH_Structure<GH_String>();
+                foreach (var path in boolTree.Paths)
+                {
+                    var branch = boolTree.get_Branch(path);
+                    if (branch != null && branch.Count > 0)
+                    {
+                        var firstBool = branch[0] as GH_Boolean;
+                        result.Append(new GH_String(firstBool?.Value.ToString().ToLowerInvariant() ?? defaultValue), path);
+                    }
+                    else
+                    {
+                        result.Append(new GH_String(defaultValue), path);
+                    }
+                }
+
+                return result;
             }
         }
     }
