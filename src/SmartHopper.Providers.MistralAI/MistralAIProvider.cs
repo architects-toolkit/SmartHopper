@@ -368,11 +368,19 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     requestBody["safe_prompt"] = spToken;
                 }
+            }
 
-                if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
-                {
-                    requestBody["service_tier"] = stToken;
-                }
+            // Priority: 1) Extra settings per-request, 2) Global provider setting
+            var reasoningEffort = p?.Extras != null &&
+                                  p.Extras.TryGetValue("reasoning_effort", out var reToken) &&
+                                  reToken != null
+                                  ? reToken.ToString()
+                                  : this.GetSetting<string>("ReasoningEffort");
+
+            if (!string.IsNullOrWhiteSpace(reasoningEffort))
+            {
+                requestBody["reasoning_effort"] = reasoningEffort;
+                Debug.WriteLine($"[MistralAIProvider] Using reasoning effort: {reasoningEffort}");
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -1504,6 +1512,15 @@ namespace SmartHopper.Providers.MistralAI
         {
             return new[]
             {
+                // Mistral-specific parameters
+                new AIExtraDescriptor(
+                    "reasoning_effort",
+                    "Reasoning Effort",
+                    "Controls the depth of reasoning for supported models. Overrides global provider setting.",
+                    typeof(string),
+                    "medium",
+                    new[] { "none", "minimal", "low", "medium", "high", "xhigh" }),
+
                 // General parameters (shared across providers)
                 new AIExtraDescriptor(
                     "random_seed",
@@ -1536,12 +1553,6 @@ namespace SmartHopper.Providers.MistralAI
                     "Safe Prompt",
                     "Inject a safety system prompt before all conversations to reduce unsafe responses.",
                     typeof(bool),
-                    null),
-                new AIExtraDescriptor(
-                    "service_tier",
-                    "Service Tier",
-                    "Service tier for request processing. May affect speed/availability.",
-                    typeof(string),
                     null),
             };
         }

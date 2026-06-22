@@ -76,27 +76,9 @@ namespace SmartHopper.Providers.Gemini
                     type: typeof(string),
                     defaultValue: string.Empty),
                 new AIExtraDescriptor(
-                    key: "batch_priority",
-                    displayName: "Batch Priority",
-                    description: "Batch job priority (0=default, higher=higher priority)",
-                    type: typeof(int),
-                    defaultValue: 0),
-                new AIExtraDescriptor(
-                    key: "image_aspect_ratio",
-                    displayName: "Image Aspect Ratio",
-                    description: "Image generation aspect ratio (e.g., 16:9, 1:1)",
-                    type: typeof(string),
-                    defaultValue: string.Empty),
-                new AIExtraDescriptor(
-                    key: "image_size",
-                    displayName: "Image Size",
-                    description: "Image generation size (e.g., 1K, 2K, 4K)",
-                    type: typeof(string),
-                    defaultValue: string.Empty),
-                new AIExtraDescriptor(
-                    key: "top_k",
-                    displayName: "Top-K Sampling",
-                    description: "Top-K sampling parameter",
+                    key: "seed",
+                    displayName: "Random Seed",
+                    description: "Random seed for determinism",
                     type: typeof(int),
                     defaultValue: 0),
                 new AIExtraDescriptor(
@@ -106,9 +88,21 @@ namespace SmartHopper.Providers.Gemini
                     type: typeof(double),
                     defaultValue: 0.0),
                 new AIExtraDescriptor(
-                    key: "seed",
-                    displayName: "Random Seed",
-                    description: "Random seed for determinism",
+                    key: "top_k",
+                    displayName: "Top-K Sampling",
+                    description: "Top-K sampling parameter",
+                    type: typeof(int),
+                    defaultValue: 0),
+                new AIExtraDescriptor(
+                    key: "service_tier",
+                    displayName: "Service Tier",
+                    description: "Inference tier override: standard (default), flex (50% discount), priority (premium, lower latency). Overrides global provider setting.",
+                    type: typeof(string),
+                    defaultValue: string.Empty),
+                new AIExtraDescriptor(
+                    key: "batch_priority",
+                    displayName: "Batch Priority",
+                    description: "Batch job priority (0=default, higher=higher priority)",
                     type: typeof(int),
                     defaultValue: 0),
                 new AIExtraDescriptor(
@@ -117,12 +111,6 @@ namespace SmartHopper.Providers.Gemini
                     description: "Safety filter level",
                     type: typeof(string),
                     defaultValue: "BLOCK_MEDIUM_AND_ABOVE"),
-                new AIExtraDescriptor(
-                    key: "service_tier",
-                    displayName: "Service Tier",
-                    description: "Inference tier override: standard (default), flex (50% discount), priority (premium, lower latency). Overrides global provider setting.",
-                    type: typeof(string),
-                    defaultValue: string.Empty),
             };
         }
 
@@ -448,25 +436,6 @@ namespace SmartHopper.Providers.Gemini
                 }
 
                 generationConfig["responseModalities"] = modalities;
-
-                if (request.Parameters?.Extras != null)
-                {
-                    var imageConfig = new JObject();
-                    if (request.Parameters.Extras.TryGetValue("image_aspect_ratio", out var aspectRatio) && aspectRatio != null)
-                    {
-                        imageConfig["aspectRatio"] = aspectRatio.ToString();
-                    }
-
-                    if (request.Parameters.Extras.TryGetValue("image_size", out var imageSize) && imageSize != null)
-                    {
-                        imageConfig["imageSize"] = imageSize.ToString();
-                    }
-
-                    if (imageConfig.Count > 0)
-                    {
-                        generationConfig["imageConfig"] = imageConfig;
-                    }
-                }
             }
             else if (request.Capability.HasFlag(AICapability.SpeechOutput))
             {
