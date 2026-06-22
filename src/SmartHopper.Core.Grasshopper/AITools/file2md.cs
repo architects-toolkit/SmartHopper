@@ -245,7 +245,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult["content"] = annotatedContent;
                 }
 
-                // Describe images via AI and append to markdown
+                // Describe images via AI and replace inline [image N] placeholders
                 if (describeImages && result.Images.Count > 0)
                 {
                     string providerName = toolCall.Provider?.ToString();
@@ -264,35 +264,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ? defaultPrompt
                             : imageDescriptionPrompt;
 
-                        var imagesSb = new StringBuilder();
-                        imagesSb.AppendLine();
-                        imagesSb.AppendLine("---");
-                        imagesSb.AppendLine();
-                        imagesSb.AppendLine("## Document Images");
-                        imagesSb.AppendLine();
-
-                        foreach (var image in result.Images)
+                        // Replace each [image N] placeholder inline at the position emitted by the converter.
+                        var contentSb = new StringBuilder(result.MarkdownContent);
+                        for (int i = 0; i < result.Images.Count; i++)
                         {
+                            var image = result.Images[i];
+                            int imageNumber = i + 1;
+                            string placeholder = $"[image {imageNumber}]";
                             string aiText = await DescribeImageAsync(image, effectivePrompt, toolCall).ConfigureAwait(false);
 
-                            if (imageMode == "embed")
-                            {
-                                imagesSb.AppendLine($"*{image.Context}*");
-                                imagesSb.AppendLine();
-                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.RawValue})");
-                                imagesSb.AppendLine();
-                            }
-                            else
-                            {
-                                // describe or caption: text-only block
-                                imagesSb.AppendLine($"**[{image.Id} — {image.Context}]**");
-                                imagesSb.AppendLine();
-                                imagesSb.AppendLine(aiText);
-                                imagesSb.AppendLine();
-                            }
+                            string replacement = imageMode == "embed"
+                                ? $"![{aiText}](data:{image.MimeType};base64,{image.RawValue})"
+                                : $"**[{image.Id} — {image.Context}]**\n\n{aiText}";
+
+                            contentSb.Replace(placeholder, replacement);
                         }
 
-                        result.MarkdownContent += imagesSb.ToString();
+                        result.MarkdownContent = contentSb.ToString();
                         toolResult["content"] = result.MarkdownContent;
                     }
                 }
@@ -371,37 +359,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Inserts image placeholders into the markdown content.
-        /// Adds an "## Images" section at the bottom with [image N] placeholders
-        /// for each extracted image to enable later substitution.
+        /// No-op placeholder retained for call-site compatibility.
+        /// <para>
+        /// <c>[image N]</c> placeholders are now emitted inline by each converter at the actual
+        /// document position of the image (DOCX: exact paragraph; PDF/PPTX: end of page/slide).
+        /// The markdown returned by the converter already contains all placeholders in the right
+        /// positions, so no post-processing is needed here.
+        /// </para>
         /// </summary>
-        /// <param name="markdown">The base markdown content.</param>
-        /// <param name="images">The list of extracted images with metadata.</param>
-        /// <returns>Annotated markdown with image placeholders.</returns>
         private static string InsertImagePlaceholders(string markdown, IList<VersatileImage> images)
         {
-            if (images == null || images.Count == 0)
-            {
-                return markdown;
-            }
-
-            var sb = new StringBuilder();
-            sb.AppendLine(markdown);
-            sb.AppendLine();
-            sb.AppendLine("---");
-            sb.AppendLine();
-            sb.AppendLine("## Images");
-            sb.AppendLine();
-
-            for (int i = 0; i < images.Count; i++)
-            {
-                var image = images[i];
-                int imageNumber = i + 1;
-                sb.AppendLine($"*[image {imageNumber}] {image.Context}*");
-                sb.AppendLine();
-            }
-
-            return sb.ToString().Trim();
+            return markdown;
         }
 
     }

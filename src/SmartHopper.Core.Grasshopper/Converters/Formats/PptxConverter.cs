@@ -82,10 +82,17 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         var slidePart = (SlidePart)presentationPart.GetPartById(slideId.RelationshipId!);
                         ProcessSlide(slidePart, slideNumber, markdown);
 
-                        // Extract images from the slide when enabled
+                        // Extract images from the slide when enabled, then emit [image N] placeholders
+                        // after the slide's text content (PPTX does not expose inline image positions).
                         if (options.ExtractImages)
                         {
+                            int slideImageStart = result.Images.Count;
                             imageIndex = ExtractSlideImages(slidePart, slideNumber, imageIndex, result);
+                            for (int imgIdx = slideImageStart; imgIdx < result.Images.Count; imgIdx++)
+                            {
+                                markdown.AppendLine($"[image {imgIdx + 1}]");
+                                markdown.AppendLine();
+                            }
                         }
 
                         slideNumber++;

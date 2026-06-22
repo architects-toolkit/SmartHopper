@@ -150,7 +150,10 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                             result.Warnings.Add($"⚠️ Page {pageNumber} appears to be scanned; text may be missing.");
                         }
 
-                        // Extract images from the page when enabled
+                        // Extract images from the page when enabled.
+                        // Track where in the image list this page's images start so we can
+                        // emit [image N] placeholders after the page's text content.
+                        int pageImageStart = result.Images.Count;
                         if (options.ExtractImages)
                         {
                             imageIndex = ExtractPageImages(page, pageNumber, imageIndex, result);
@@ -158,6 +161,16 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                         if (blocks.Count == 0 || blocks.Sum(b => GetBlockText(b).Length) < 5)
                         {
+                            // No text on this page — emit image placeholders inline for any images found
+                            if (options.ExtractImages)
+                            {
+                                for (int imgIdx = pageImageStart; imgIdx < result.Images.Count; imgIdx++)
+                                {
+                                    markdown.AppendLine($"[image {imgIdx + 1}]");
+                                    markdown.AppendLine();
+                                }
+                            }
+
                             pageNumber++;
                             continue;
                         }
@@ -262,6 +275,18 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                             }
 
                             markdown.AppendLine();
+                        }
+
+                        // Emit [image N] placeholders for images extracted from this page,
+                        // placed after the page's text content (best approximation for PDF,
+                        // which does not expose inline image positions within a page).
+                        if (options.ExtractImages)
+                        {
+                            for (int imgIdx = pageImageStart; imgIdx < result.Images.Count; imgIdx++)
+                            {
+                                markdown.AppendLine($"[image {imgIdx + 1}]");
+                                markdown.AppendLine();
+                            }
                         }
 
                         pageNumber++;

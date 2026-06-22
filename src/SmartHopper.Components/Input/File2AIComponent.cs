@@ -27,16 +27,12 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.Diagnostics;
 
@@ -129,31 +125,11 @@ namespace SmartHopper.Components.Input
 
                 // Convert boolean trees to string trees for unified processing
                 this.inputTrees["FilePath"] = pathTree;
-                this.inputTrees["PreserveTables"] = ConvertBoolTreeToString(preserveTree, "true");
-                this.inputTrees["RemoveHeaders"] = ConvertBoolTreeToString(removeTree, "true");
-                this.inputTrees["ExtractImages"] = ConvertBoolTreeToString(extractTree, "false");
+                this.inputTrees["PreserveTables"] = File2MdToolResult.ConvertBoolTreeToString(preserveTree, "true");
+                this.inputTrees["RemoveHeaders"] = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
+                this.inputTrees["ExtractImages"] = File2MdToolResult.ConvertBoolTreeToString(extractTree, "false");
 
                 dataCount = 0;
-            }
-
-            private static GH_Structure<GH_String> ConvertBoolTreeToString(GH_Structure<GH_Boolean> boolTree, string defaultValue)
-            {
-                var result = new GH_Structure<GH_String>();
-                foreach (var path in boolTree.Paths)
-                {
-                    var branch = boolTree.get_Branch(path);
-                    if (branch != null && branch.Count > 0)
-                    {
-                        var firstBool = branch[0] as GH_Boolean;
-                        result.Append(new GH_String(firstBool?.Value.ToString().ToLowerInvariant() ?? defaultValue), path);
-                    }
-                    else
-                    {
-                        result.Append(new GH_String(defaultValue), path);
-                    }
-                }
-
-                return result;
             }
 
             public override async Task DoWorkAsync(CancellationToken token)
@@ -223,34 +199,9 @@ namespace SmartHopper.Components.Input
 
                     try
                     {
-                        var parameters = new JObject
-                        {
-                            ["filePath"] = filePath,
-                            ["preserveTableStructure"] = preserveTables,
-                            ["removeHeadersFooters"] = removeHeaders,
-                            ["extractImages"] = extractImages,
-                            ["describeImages"] = false,
-                        };
+                        var converted = await File2MdToolResult.CallAsync(filePath, preserveTables, removeHeaders, extractImages).ConfigureAwait(false);
 
-                        var toolCallInteraction = new AIInteractionToolCall
-                        {
-                            Name = "file2md",
-                            Arguments = parameters,
-                            Agent = AIAgent.Assistant,
-                        };
-
-                        var toolCall = new AIToolCall
-                        {
-                            Endpoint = "file2md",
-                        };
-
-                        toolCall.FromToolCallInteraction(toolCallInteraction);
-                        toolCall.SkipMetricsValidation = true;
-
-                        AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-                        var toolResult = ToolCallResult.FromAIReturn(aiResult);
-
-                        if (toolResult.Result == null)
+                        if (converted == null)
                         {
                             this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Tool 'file2md' returned no result for: {filePath}", SHRuntimeMessageOrigin.Tool);
                             outputs["Input >"].Add(new GH_AIInputPayload(null));
@@ -259,21 +210,18 @@ namespace SmartHopper.Components.Input
                             continue;
                         }
 
-                        string markdown = toolResult["content"]?.ToString() ?? string.Empty;
-                        string format = toolResult["originalFormat"]?.ToString() ?? "unknown";
-                        AIInputPayload payload = null;
+                        AIInputPayload payload = string.IsNullOrWhiteSpace(converted.Markdown)
+                            ? null
+                            : AIInputPayload.FromText(converted.Markdown);
 
-                        if (!string.IsNullOrWhiteSpace(markdown))
+                        foreach (var w in converted.Warnings)
                         {
-                            payload = AIInputPayload.FromText(markdown);
+                            this.CollectMessage(SHRuntimeMessageSeverity.Warning, w, SHRuntimeMessageOrigin.Tool);
                         }
 
-                        var toolMessages = RuntimeMessageUtility.ExtractMessages(toolResult);
-                        foreach (var m in toolMessages) this.CollectMessage(m);
-
                         outputs["Input >"].Add(new GH_AIInputPayload(payload));
-                        outputs["Markdown"].Add(new GH_String(markdown));
-                        outputs["Format"].Add(new GH_String(format));
+                        outputs["Markdown"].Add(new GH_String(converted.Markdown));
+                        outputs["Format"].Add(new GH_String(string.IsNullOrEmpty(converted.Format) ? "unknown" : converted.Format));
                     }
                     catch (Exception ex)
                     {

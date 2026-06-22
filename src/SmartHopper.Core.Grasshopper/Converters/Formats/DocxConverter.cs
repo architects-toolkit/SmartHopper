@@ -22,9 +22,13 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using SmartHopper.Core.Types;
+using A = DocumentFormat.OpenXml.Drawing;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
@@ -69,23 +73,21 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         result.Metadata["created"] = coreProps.Created.Value.ToString("yyyy-MM-dd");
                     }
 
-                    // Process each element in the body
+                    // Process each element in the body.
+                    // When ExtractImages is enabled, inline Drawing elements are detected during the
+                    // paragraph walk so that [image N] placeholders appear at their exact document position.
+                    int imageIndex = 0;
+                    var mainPart = doc.MainDocumentPart;
                     foreach (var element in body.Elements())
                     {
                         if (element is Paragraph paragraph)
                         {
-                            ProcessParagraph(paragraph, markdown, options);
+                            ProcessParagraph(paragraph, markdown, options, mainPart, result, ref imageIndex);
                         }
                         else if (element is Table table && options.PreserveTableStructure)
                         {
                             ProcessTable(table, markdown);
                         }
-                    }
-
-                    // Extract images when enabled
-                    if (options.ExtractImages)
-                    {
-                        ExtractImages(doc.MainDocumentPart, result);
                     }
 
                     result.MarkdownContent = markdown.ToString().Trim();
@@ -98,8 +100,65 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }).ConfigureAwait(false);
         }
 
-        private static void ProcessParagraph(Paragraph paragraph, StringBuilder markdown, FileConversionOptions options)
+        private static void ProcessParagraph(
+            Paragraph paragraph,
+            StringBuilder markdown,
+            FileConversionOptions options,
+            MainDocumentPart mainPart,
+            FileConversionResult result,
+            ref int imageIndex)
         {
+            // Detect inline Drawing elements before checking text content.
+            // A paragraph that contains only a Drawing (no text) would otherwise be silently skipped.
+            if (options.ExtractImages && mainPart != null)
+            {
+                foreach (var run in paragraph.Elements<Run>())
+                {
+                    foreach (var drawing in run.Elements<Drawing>())
+                    {
+                        // Resolve the image relationship ID from the pic:blipFill/a:blip r:embed attribute.
+                        var blip = drawing.Descendants<A.Blip>().FirstOrDefault();
+                        if (blip == null) continue;
+
+                        string embedId = blip.Embed?.Value;
+                        if (string.IsNullOrEmpty(embedId)) continue;
+
+                        try
+                        {
+                            var part = mainPart.GetPartById(embedId);
+                            if (part is ImagePart imagePart)
+                            {
+                                imageIndex++;
+                                using var stream = imagePart.GetStream();
+                                using var ms = new MemoryStream();
+                                stream.CopyTo(ms);
+                                var bytes = ms.ToArray();
+                                if (bytes.Length > 0)
+                                {
+                                    string mimeType = imagePart.ContentType ?? "image/png";
+                                    string base64Data = Convert.ToBase64String(bytes);
+                                    result.Images.Add(VersatileImage.FromExtractedDocument(
+                                        base64Data: base64Data,
+                                        mimeType: mimeType,
+                                        id: $"img-{imageIndex}",
+                                        context: "Document body",
+                                        pageOrSlide: 0,
+                                        sourceDocument: null));
+
+                                    markdown.AppendLine();
+                                    markdown.AppendLine($"[image {imageIndex}]");
+                                    markdown.AppendLine();
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Warnings.Add($"⚠️ Image {imageIndex}: could not extract: {ex.Message}");
+                        }
+                    }
+                }
+            }
+
             var text = GetParagraphText(paragraph);
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -245,58 +304,6 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
 
             markdown.AppendLine();
-        }
-
-        /// <summary>
-        /// Extracts embedded images from the DOCX document's main part.
-        /// </summary>
-        private static void ExtractImages(MainDocumentPart mainPart, FileConversionResult result)
-        {
-            if (mainPart == null)
-            {
-                return;
-            }
-
-            int imageIndex = 0;
-            try
-            {
-                foreach (var imagePart in mainPart.ImageParts)
-                {
-                    imageIndex++;
-                    try
-                    {
-                        using var stream = imagePart.GetStream();
-                        using var ms = new MemoryStream();
-                        stream.CopyTo(ms);
-                        var bytes = ms.ToArray();
-
-                        if (bytes.Length == 0)
-                        {
-                            continue;
-                        }
-
-                        string mimeType = imagePart.ContentType ?? "image/png";
-                        string base64Data = System.Convert.ToBase64String(bytes);
-
-                        var extracted = VersatileImage.FromExtractedDocument(
-                            base64Data: base64Data,
-                            mimeType: mimeType,
-                            id: $"img-{imageIndex}",
-                            context: "Document body",
-                            pageOrSlide: 0,
-                            sourceDocument: null);
-                        result.Images.Add(extracted);
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Warnings.Add($"\u26a0\ufe0f Image {imageIndex}: could not extract: {ex.Message}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                result.Warnings.Add($"\u26a0\ufe0f Image extraction failed: {ex.Message}");
-            }
         }
 
         private static string EscapeMarkdown(string text)

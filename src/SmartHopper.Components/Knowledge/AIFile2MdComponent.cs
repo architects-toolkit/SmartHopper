@@ -32,6 +32,7 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -593,7 +594,7 @@ namespace SmartHopper.Components.Knowledge
 
                                 var localResult = await this.parent.CallAIToolAsync("file2md", localParams, token).ConfigureAwait(false);
 
-                                if (localResult == null)
+                                if (localResult?.Result == null)
                                 {
                                     this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Tool 'file2md' returned no result for '{filePath}'.", SHRuntimeMessageOrigin.Tool);
                                     outputs["Markdown"].Add(new GH_String(string.Empty));
@@ -601,34 +602,22 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                string baseMarkdown = localResult["content"]?.ToString() ?? string.Empty;
-                                outputs["Format"].Add(new GH_String(localResult["originalFormat"]?.ToString() ?? string.Empty));
-
-                                var imagesArray = localResult["images"] as JArray;
+                                var converted = File2MdToolResult.Parse(localResult.Result, filePath);
+                                string baseMarkdown = converted.Markdown;
+                                outputs["Format"].Add(new GH_String(converted.Format));
 
                                 // Collect raw images for the Images output
-                                if (imagesArray != null)
+                                foreach (var img in converted.Images)
                                 {
-                                    foreach (var imgToken in imagesArray)
-                                    {
-                                        var imgObj = imgToken as JObject;
-                                        if (imgObj == null) continue;
-                                        var imageSource = VersatileImage.FromExtractedDocument(
-                                            base64Data: imgObj["base64Data"]?.ToString() ?? string.Empty,
-                                            mimeType: imgObj["mimeType"]?.ToString() ?? "image/png",
-                                            id: imgObj["id"]?.ToString() ?? "img",
-                                            context: imgObj["context"]?.ToString() ?? string.Empty,
-                                            pageOrSlide: imgObj["pageOrSlide"]?.Value<int>() ?? 0,
-                                            sourceDocument: ghPath.Value);
-                                        outputs["Images"].Add(new GH_VersatileImage(imageSource));
-                                    }
+                                    outputs["Images"].Add(new GH_VersatileImage(img));
                                 }
 
-                                var localMessages = RuntimeMessageUtility.ExtractMessages(localResult);
-                                foreach (var m in localMessages)
+                                foreach (var w in converted.Warnings)
                                 {
-                                    this.CollectMessage(m);
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Warning, w, SHRuntimeMessageOrigin.Tool);
                                 }
+
+                                var imagesArray = localResult["images"] as JArray;
 
                                 // Step 2: if no images, emit base markdown directly
                                 if (imagesArray == null || imagesArray.Count == 0)
