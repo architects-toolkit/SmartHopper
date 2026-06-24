@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
+
 ## [2.0.0-dev.260619] - 2026-06-19
 
 Many thanks to the following contributors to this release:
