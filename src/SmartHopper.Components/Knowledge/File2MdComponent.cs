@@ -69,8 +69,8 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
-            pManager.AddBooleanParameter("Preserve Tables", "PT", "Preserve table structure as Markdown tables. Default: true.", GH_ParamAccess.tree, true);
             pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
+            pManager.AddBooleanParameter("Preserve Formatting", "PF", "Preserve DOCX text colors, highlights, bold, italic, and comments as inline formatting. XLSX and PPTX preserve bold and italic. Default: true.", GH_ParamAccess.tree, true);
         }
 
         /// <inheritdoc/>
@@ -100,8 +100,8 @@ namespace SmartHopper.Components.Knowledge
             private readonly File2MdComponent parent;
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
-            private GH_Structure<GH_String> preserveTablesTree;
             private GH_Structure<GH_String> removeHeadersTree;
+            private GH_Structure<GH_String> preserveFormattingTree;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultMarkdown;
@@ -124,14 +124,14 @@ namespace SmartHopper.Components.Knowledge
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);
 
-                var preserveTree = new GH_Structure<GH_Boolean>();
-                DA.GetDataTree("Preserve Tables", out preserveTree);
-
                 var removeTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Remove Headers", out removeTree);
 
-                this.preserveTablesTree = File2MdToolResult.ConvertBoolTreeToString(preserveTree, "true");
+                var preserveFormattingTree = new GH_Structure<GH_Boolean>();
+                DA.GetDataTree("Preserve Formatting", out preserveFormattingTree);
+
                 this.removeHeadersTree = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
+                this.preserveFormattingTree = File2MdToolResult.ConvertBoolTreeToString(preserveFormattingTree, "true");
 
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
@@ -158,8 +158,8 @@ namespace SmartHopper.Components.Knowledge
                     var inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                     {
                         { "File Path", this.filePathTree },
-                        { "PreserveTables", this.preserveTablesTree },
                         { "RemoveHeaders", this.removeHeadersTree },
+                        { "PreserveFormatting", this.preserveFormattingTree },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
@@ -178,21 +178,21 @@ namespace SmartHopper.Components.Knowledge
                                 return outputs;
                             }
 
-                            var preserveBranch = branchInputs.TryGetValue("PreserveTables", out var pt) ? pt : new List<GH_String>();
                             var removeBranch = branchInputs.TryGetValue("RemoveHeaders", out var rh) ? rh : new List<GH_String>();
+                            var preserveFormattingBranch = branchInputs.TryGetValue("PreserveFormatting", out var pf) ? pf : new List<GH_String>();
 
-                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, preserveBranch, removeBranch });
+                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch, preserveFormattingBranch });
                             pathBranch = normalizedLists[0];
-                            preserveBranch = normalizedLists[1];
-                            removeBranch = normalizedLists[2];
+                            removeBranch = normalizedLists[1];
+                            preserveFormattingBranch = normalizedLists[2];
 
                             for (int i = 0; i < pathBranch.Count; i++)
                             {
                                 token.ThrowIfCancellationRequested();
 
                                 var ghPath = pathBranch[i];
-                                bool preserveTables = bool.TryParse(preserveBranch[i]?.Value, out var ptValue) ? ptValue : true;
                                 bool removeHeaders = bool.TryParse(removeBranch[i]?.Value, out var rhValue) ? rhValue : true;
+                                bool preserveFormatting = bool.TryParse(preserveFormattingBranch[i]?.Value, out var pfValue) ? pfValue : true;
 
                                 if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
@@ -201,7 +201,14 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                var converted = await File2MdToolResult.CallAsync(ghPath.Value, preserveTables, removeHeaders, extractImages: true).ConfigureAwait(false);
+                                var converted = await File2MdToolResult.CallAsync(
+                                    ghPath.Value,
+                                    removeHeaders,
+                                    extractImages: true,
+                                    preserveFormatting: preserveFormatting,
+                                    preserveComments: preserveFormatting,
+                                    preserveFootnotes: preserveFormatting,
+                                    preserveEndnotes: preserveFormatting).ConfigureAwait(false);
 
                                 if (converted == null)
                                 {

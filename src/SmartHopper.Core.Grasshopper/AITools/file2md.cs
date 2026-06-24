@@ -97,14 +97,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""string"",
                             ""description"": ""Absolute path to the file to convert.""
                         },
-                        ""preserveTableStructure"": {
-                            ""type"": ""boolean"",
-                            ""description"": ""Whether to preserve table structure as Markdown tables. Default: true."",
-                            ""default"": true
-                        },
                         ""removeHeadersFooters"": {
                             ""type"": ""boolean"",
                             ""description"": ""Whether to attempt to remove headers and footers (PDF, DOCX). Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveFormatting"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve inline text formatting. DOCX preserves colors, highlights, bold, and italic; XLSX and PPTX preserve bold and italic. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveComments"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve comments in DOCX files by appending them as blockquotes after the paragraph that contains them. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveFootnotes"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve footnotes in DOCX files. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveEndnotes"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve endnotes in DOCX files. Default: true."",
                             ""default"": true
                         },
                         ""extractImages"": {
@@ -178,8 +193,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var options = new FileConversionOptions
                 {
-                    PreserveTableStructure = args["preserveTableStructure"]?.Value<bool>() ?? true,
+                    PreserveTableStructure = true,
                     RemoveHeadersFooters = args["removeHeadersFooters"]?.Value<bool>() ?? true,
+                    PreserveFormatting = args["preserveFormatting"]?.Value<bool>() ?? true,
+                    PreserveComments = args["preserveComments"]?.Value<bool>() ?? true,
+                    PreserveFootnotes = args["preserveFootnotes"]?.Value<bool>() ?? true,
+                    PreserveEndnotes = args["preserveEndnotes"]?.Value<bool>() ?? true,
+                    PreserveHyperlinks = true,
+                    PreserveMath = true,
                     ExtractImages = (args["extractImages"]?.Value<bool>() ?? false) || describeImages,
                     DetectHeadings = true,
                     MaxContentLength = 0,

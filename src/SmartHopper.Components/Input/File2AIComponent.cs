@@ -63,8 +63,8 @@ namespace SmartHopper.Components.Input
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("File Path", "F", "Path(s) to the file(s) to convert and wrap into an AIInputPayload.", GH_ParamAccess.tree);
-            pManager.AddBooleanParameter("Preserve Tables", "PT", "Preserve table structure as Markdown tables. Default: true.", GH_ParamAccess.tree, true);
             pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
+            pManager.AddBooleanParameter("Preserve Formatting", "PF", "Preserve DOCX text colors, highlights, bold, italic, and comments as inline formatting. XLSX and PPTX preserve bold and italic. Default: true.", GH_ParamAccess.tree, true);
             pManager.AddBooleanParameter("Extract Images", "EI", "Extract embedded images as base64 data. Default: false.", GH_ParamAccess.tree, false);
         }
 
@@ -114,19 +114,19 @@ namespace SmartHopper.Components.Input
                 var pathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out pathTree);
 
-                var preserveTree = new GH_Structure<GH_Boolean>();
-                DA.GetDataTree("Preserve Tables", out preserveTree);
-
                 var removeTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Remove Headers", out removeTree);
+
+                var preserveFormattingTree = new GH_Structure<GH_Boolean>();
+                DA.GetDataTree("Preserve Formatting", out preserveFormattingTree);
 
                 var extractTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Extract Images", out extractTree);
 
                 // Convert boolean trees to string trees for unified processing
                 this.inputTrees["FilePath"] = pathTree;
-                this.inputTrees["PreserveTables"] = File2MdToolResult.ConvertBoolTreeToString(preserveTree, "true");
                 this.inputTrees["RemoveHeaders"] = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
+                this.inputTrees["PreserveFormatting"] = File2MdToolResult.ConvertBoolTreeToString(preserveFormattingTree, "true");
                 this.inputTrees["ExtractImages"] = File2MdToolResult.ConvertBoolTreeToString(extractTree, "false");
 
                 dataCount = 0;
@@ -162,22 +162,22 @@ namespace SmartHopper.Components.Input
                 };
 
                 var filePaths = branches["FilePath"];
-                var preserveList = branches["PreserveTables"];
                 var removeList = branches["RemoveHeaders"];
+                var preserveFormattingList = branches["PreserveFormatting"];
                 var extractList = branches["ExtractImages"];
 
                 // Normalize branch lengths to handle mismatched input trees
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { filePaths, preserveList, removeList, extractList });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { filePaths, removeList, preserveFormattingList, extractList });
                 filePaths = normalizedLists[0];
-                preserveList = normalizedLists[1];
-                removeList = normalizedLists[2];
+                removeList = normalizedLists[1];
+                preserveFormattingList = normalizedLists[2];
                 extractList = normalizedLists[3];
 
                 for (int i = 0; i < filePaths.Count; i++)
                 {
                     string filePath = filePaths[i]?.Value;
-                    bool preserveTables = bool.TryParse(preserveList[i]?.Value, out var pt) ? pt : true;
                     bool removeHeaders = bool.TryParse(removeList[i]?.Value, out var rh) ? rh : true;
+                    bool preserveFormatting = bool.TryParse(preserveFormattingList[i]?.Value, out var pf) ? pf : true;
                     bool extractImages = bool.TryParse(extractList[i]?.Value, out var ei) ? ei : false;
 
                     if (string.IsNullOrWhiteSpace(filePath))
@@ -199,7 +199,14 @@ namespace SmartHopper.Components.Input
 
                     try
                     {
-                        var converted = await File2MdToolResult.CallAsync(filePath, preserveTables, removeHeaders, extractImages).ConfigureAwait(false);
+                        var converted = await File2MdToolResult.CallAsync(
+                            filePath,
+                            removeHeaders,
+                            extractImages,
+                            preserveFormatting: preserveFormatting,
+                            preserveComments: preserveFormatting,
+                            preserveFootnotes: preserveFormatting,
+                            preserveEndnotes: preserveFormatting).ConfigureAwait(false);
 
                         if (converted == null)
                         {

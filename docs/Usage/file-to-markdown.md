@@ -36,9 +36,9 @@ This document explains how to convert documents to Markdown within Grasshopper, 
 | Format | Extension | Converter | Features |
 | --- | --- | --- |-----------|----------|
 | **PDF** | `.pdf` | PdfPig | Column detection, reading order, header/footer removal, heading detection, table recognition, scanned-page warnings |
-| **Word** | `.docx` | DocumentFormat.OpenXml | Headings (H1-H6), bold/italic, tables, lists, images (as placeholders), metadata |
-| **Excel** | `.xlsx` | DocumentFormat.OpenXml | Multi-sheet support, header rows, Markdown tables, metadata |
-| **PowerPoint** | `.pptx` | DocumentFormat.OpenXml | Slide titles, body text, bullet points, speaker notes, metadata |
+| **Word** | `.docx` | DocumentFormat.OpenXml | Headings (H1-H6), bold/italic, lists, tables, hyperlinks, footnotes/endnotes, Office Math, images (as placeholders), metadata |
+| **Excel** | `.xlsx` | DocumentFormat.OpenXml | Multi-sheet support, header rows, Markdown tables, cell formatting (bold/italic), metadata |
+| **PowerPoint** | `.pptx` | DocumentFormat.OpenXml | Slide titles, body text, bullet points, speaker notes, hyperlinks, Office Math, metadata |
 | **HTML** | `.html`, `.htm` | HtmlAgilityPack | Readability scoring, boilerplate removal, semantic content extraction |
 | **Email** | `.eml` | MimeKit | From/To/Subject/Date, HTML or plain text body, attachment list |
 | **EPUB** | `.epub` | Built-in | Chapter extraction in reading order, metadata |
@@ -105,9 +105,20 @@ AI: [Calls file2md tool with filePath: "C:\reports\Q4-2025.pdf"]
 #### Tool Parameters
 
 - **filePath** (required): Absolute path to the file
-- **preserveTableStructure** (optional, default: true): Convert tables to Markdown table format
 - **removeHeadersFooters** (optional, default: true): Attempt to remove headers/footers (PDF, DOCX)
 - **extractImages** (optional, default: false): Extract embedded images as base64 data (PDF, DOCX, PPTX)
+- **preserveFormatting** (optional, default: true): Preserve inline text formatting. DOCX preserves colors, highlights, bold, and italic; XLSX and PPTX preserve bold and italic
+- **preserveComments** (optional, default: true): Preserve comments in DOCX files
+- **preserveFootnotes** (optional, default: true): Expand footnote references and append note text (DOCX)
+- **preserveEndnotes** (optional, default: true): Expand endnote references and append note text (DOCX)
+- **describeImages** (optional, default: false): Use AI to describe each extracted image and embed the results in the markdown output
+- **imageMode** (optional, default: `"embed"`): Controls how described images appear in the markdown (`"embed"`, `"describe"`, `"caption"`)
+- **imageDescriptionPrompt** (optional): Custom prompt for AI image description
+- **HTMLreadabilityMode** (optional, default: `"auto"`): HTML main-content extraction strategy (`"auto"`, `"smartreader"`, `"heuristic"`, `"off"`)
+- **includeLinks** (optional, default: true): Keep hyperlinks in the Markdown output for HTML sources
+- **includeImages** (optional, default: true): Keep inline image references in the Markdown output for HTML sources
+
+> Table structure, hyperlinks, and Office Math are now always preserved and are no longer exposed as individual parameters.
 
 ### Image Extraction
 
@@ -216,6 +227,48 @@ Prioritizes content in:
 - `<main>` tags (+80 score bonus)
 - Elements with content-indicating classes: `content`, `main`, `article`, `post`, `entry`, `body` (+50 bonus)
 
+### OpenXML Converter Details
+
+DOCX, XLSX, and PPTX share the same OpenXML foundation, but each format applies Markdown output differently.
+
+#### Bold/Italic Handling
+
+- DOCX and PPTX emit run-level formatting as Markdown inline markers:
+  - Bold run → `**text**`
+  - Italic run → `*text*`
+  - Bold + italic run → `***text***`
+- If every run in a paragraph or table row is uniformly bold or italic, the markers are omitted to avoid noisy Markdown.
+
+#### Hyperlinks
+
+- When `PreserveHyperlinks` is enabled (default: `true`), external hyperlinks in DOCX and PPTX are converted to `[text](url)`.
+- The visible text is taken from the link runs; the URL is resolved from the document's hyperlink relationships.
+
+#### Footnotes & Endnotes
+
+- DOCX only.
+- When `PreserveFootnotes` / `PreserveEndnotes` are enabled (default: `true`), references are expanded to `[^fn1]` and `[^en1]` inline.
+- The footnote/endnote text is appended at the end of the document as a Markdown footnote list.
+
+#### Office Math
+
+- DOCX and PPTX.
+- When `PreserveMath` is enabled (default: `true`), OMML equations are converted to inline LaTeX `$...$`.
+- Conversion is best-effort; very complex equation layouts may require manual review.
+
+#### Lists
+
+- DOCX ordered and unordered lists are supported.
+- Indentation and numbering are preserved by translating each list level to the corresponding Markdown indentation/numbering.
+
+#### XLSX Cell Formatting
+
+- When converting sheets to Markdown tables, per-cell formatting is applied:
+  - Bold cells → `**value**`
+  - Italic cells → `*value*`
+  - Bold + italic cells → `***value***`
+- If an entire row is uniformly bold or italic, the markers are omitted for that row to avoid over-escaping the output.
+
 ### Dependencies
 
 All converters use native .NET libraries with MIT or Apache 2.0 licenses:
@@ -267,8 +320,7 @@ No Python or external runtime dependencies required.
 #### Poor Table Formatting
 
 
-- Set `preserveTableStructure: false` to get plain text instead of Markdown tables
-- Complex nested tables may require manual cleanup
+- Table structure is always preserved as Markdown tables; complex nested tables may require manual cleanup
 
 ### Related Components
 
@@ -308,6 +360,11 @@ No Python or external runtime dependencies required.
   - `PreserveTableStructure` (bool, default: true) — convert tables to Markdown format
   - `RemoveHeadersFooters` (bool, default: true) — attempt to remove headers/footers
   - `ExtractImages` (bool, default: false) — extract embedded images as base64
+  - `PreserveHyperlinks` (bool, default: true) — convert links to `[text](url)` (DOCX, PPTX)
+  - `PreserveFootnotes` (bool, default: true) — expand footnotes and append note text (DOCX)
+  - `PreserveEndnotes` (bool, default: true) — expand endnotes and append note text (DOCX)
+  - `PreserveMath` (bool, default: true) — convert OMML equations to LaTeX `$...$` (DOCX, PPTX)
+  - `PreserveFormatting` (bool, default: true) — preserve inline formatting: colors, highlights, bold, and italic (DOCX); bold and italic (XLSX, PPTX)
 
 #### FileConversionResult (output)
 
@@ -406,7 +463,12 @@ FileConverterRegistry (dispatcher)
 FileConversionOptions
 ├── PreserveTableStructure: bool
 ├── RemoveHeadersFooters: bool
-└── ExtractImages: bool
+├── ExtractImages: bool
+├── PreserveHyperlinks: bool
+├── PreserveFootnotes: bool
+├── PreserveEndnotes: bool
+├── PreserveMath: bool
+└── PreserveFormatting: bool
 
 FileConversionResult
 ├── MarkdownContent: string
@@ -421,6 +483,6 @@ FileConversionResult
 #### Design Principles
 
 - **Plugin Architecture**: New formats are added by implementing `IFileConverter` and registering with `FileConverterRegistry`
-- **Unified Options**: `FileConversionOptions` carries behavior flags (table preservation, header/footer removal, image extraction) to every converter
+- **Unified Options**: `FileConversionOptions` carries behavior flags (table preservation, header/footer removal, image extraction, hyperlinks, footnotes/endnotes, math, inline formatting) to every converter
 - **Structured Results**: `FileConversionResult` encapsulates content, metadata, warnings, and images so callers can inspect conversion quality
 - **Async Pipeline**: All conversions are async, allowing batch processing without blocking the Grasshopper canvas

@@ -69,28 +69,37 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// Builds and executes a <c>file2md</c> tool call, returning a typed result.
         /// </summary>
         /// <param name="filePath">Absolute path to the file to convert.</param>
-        /// <param name="preserveTableStructure">Whether to preserve table structure as Markdown tables.</param>
         /// <param name="removeHeadersFooters">Whether to attempt to remove headers and footers.</param>
         /// <param name="extractImages">Whether to extract embedded images.</param>
         /// <param name="sourceDocument">
         /// Value stored in <see cref="VersatileImage.SourceDocument"/> for each extracted image.
         /// Typically the file path.
         /// </param>
+        /// <param name="preserveFormatting">Whether to preserve inline text formatting. DOCX preserves colors, highlights, bold, and italic; XLSX and PPTX preserve bold and italic.</param>
+        /// <param name="preserveComments">Whether to preserve comments in DOCX files.</param>
+        /// <param name="preserveFootnotes">Whether to preserve footnotes in DOCX files.</param>
+        /// <param name="preserveEndnotes">Whether to preserve endnotes in DOCX files.</param>
         /// <returns>
         /// A <see cref="File2MdToolResult"/> on success, or <c>null</c> if the tool returned no result.
         /// </returns>
         public static async Task<File2MdToolResult> CallAsync(
             string filePath,
-            bool preserveTableStructure = true,
             bool removeHeadersFooters = true,
             bool extractImages = true,
-            string sourceDocument = null)
+            string sourceDocument = null,
+            bool preserveFormatting = true,
+            bool preserveComments = true,
+            bool preserveFootnotes = true,
+            bool preserveEndnotes = true)
         {
             var parameters = new JObject
             {
                 ["filePath"] = filePath,
-                ["preserveTableStructure"] = preserveTableStructure,
                 ["removeHeadersFooters"] = removeHeadersFooters,
+                ["preserveFormatting"] = preserveFormatting,
+                ["preserveComments"] = preserveComments,
+                ["preserveFootnotes"] = preserveFootnotes,
+                ["preserveEndnotes"] = preserveEndnotes,
                 ["extractImages"] = extractImages,
                 ["describeImages"] = false,
             };

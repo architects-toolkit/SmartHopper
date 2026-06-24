@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
 
+### Changed
+
+- Simplified the `file2md` AI tool parameter schema: `preserveTableStructure`, `preserveHyperlinks`, and `preserveMath` are now always enabled and are no longer exposed as parameters. `preserveColors` and `preserveHighlights` are replaced by a unified `preserveFormatting` parameter that controls colors and highlights in DOCX plus bold/italic in DOCX, XLSX, and PPTX. Updated `File2MdToolResult`, `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent` to match the new schema, and removed the `Preserve Tables` input from those components.
+
+### Fixed
+
+- Fixed `OpenXmlMarkdownHelper.GetCellFont` to count actual child elements instead of relying on the optional `Count` attribute, preventing `InvalidOperationException` when reading XLSX files with styles that omit the `count` attribute.
+- Fixed `OpenXmlConverterTests.PptxConverter_BoldItalic` by adding a non-bold run to the first paragraph so the bold formatting is not treated as uniform and is emitted as Markdown bold.
+- Fixed `OpenXmlConverterTests.XlsxConverter_CellFormatting` by building a complete, valid OpenXML stylesheet (`NumberingFormats`, `Fills`, `CellStyleFormats`, `CellStyles`, `DifferentialFormats`, `TableStyles`) so the workbook is loaded and converted successfully.
+
 ## [2.0.0-dev.260619] - 2026-06-19
 
 Many thanks to the following contributors to this release:
