@@ -20,7 +20,7 @@
     Use -OutErrors and/or -OutWarnings to restrict dotnet build console output to only compilation
     errors and/or warnings. These switches are useful for CI scenarios that need to inspect
     compilation results concisely. They may be used together with -Testing. When neither switch is
-    specified, the default output filter (Summary) is used.
+    specified, the default output filter (ErrorsOnly;Summary) is used.
 .PARAMETER Configuration
     Build configuration: Debug or Release (default: Debug).
 .PARAMETER PfxPassword
@@ -82,23 +82,23 @@ if (-not (Test-Path $pfxPath)) {
         $PfxPassword = Read-Host "Enter password for signing.pfx (will be used for Authenticode signing)" -AsSecureString
     }
 
-    Write-Host "signing.pfx not found. Generating new PFX at $pfxPath via Sign-Authenticode.ps1"
+    Write-Host "signing.pfx not found. Generating new PFX at $pfxPath via Sign-Authenticode.ps1" -ForegroundColor Cyan
     $generatePassword = if ($Testing) { $testPasswordPlain } else { Get-PlainPassword }
     & $signAuthScript -Generate -Password $generatePassword -PfxPath $pfxPath
 } else {
-    Write-Host "signing.pfx already exists at $pfxPath; skipping generation."
+    Write-Host "signing.pfx already exists at $pfxPath; skipping generation." -ForegroundColor DarkGray
 }
 
 # 2. Ensure signing.snk exists in solution root
 if (-not (Test-Path $snkPath)) {
-    Write-Host "signing.snk not found. Generating new SNK at $snkPath via Sign-StrongNames.ps1"
+    Write-Host "signing.snk not found. Generating new SNK at $snkPath via Sign-StrongNames.ps1" -ForegroundColor Cyan
     & $signStrongScript -Generate -SnkPath $snkPath
 } else {
-    Write-Host "signing.snk already exists at $snkPath; skipping generation."
+    Write-Host "signing.snk already exists at $snkPath; skipping generation." -ForegroundColor DarkGray
 }
 
 # 3. Update InternalsVisibleTo using Update-InternalsVisibleTo.ps1
-Write-Host "Updating InternalsVisibleTo entries using Update-InternalsVisibleTo.ps1"
+Write-Host "Updating InternalsVisibleTo entries using Update-InternalsVisibleTo.ps1" -ForegroundColor Cyan
 & $updateInternalsScript -SnkPath $snkPath
 
 # 4. Build the solution
@@ -113,18 +113,18 @@ if (Test-Path $solutionPropsPath) {
         $xml = [xml](Get-Content $solutionPropsPath -Raw)
         $solutionVersion = $xml.Project.PropertyGroup.SolutionVersion
         if ($solutionVersion) {
-            Write-Host "Detected SolutionVersion from Solution.props: $solutionVersion"
+            Write-Host "Detected SolutionVersion from Solution.props: $solutionVersion" -ForegroundColor Cyan
         }
     } catch {
         Write-Warning "Failed to read SolutionVersion from Solution.props: $_"
     }
 }
 
-Write-Host "Building solution $solutionPath with configuration '$Configuration'"
+Write-Host "Building solution $solutionPath with configuration '$Configuration'" -ForegroundColor Cyan
 $loggerParams = @()
 if ($OutErrors) { $loggerParams += "ErrorsOnly" }
 if ($OutWarnings) { $loggerParams += "WarningsOnly" }
-if ($loggerParams.Count -eq 0) { $loggerParams = @("Summary") }
+if ($loggerParams.Count -eq 0) { $loggerParams = @("ErrorsOnly", "Summary") }
 $clp = $loggerParams -join ";"
 & dotnet build $solutionPath -c $Configuration -clp:$clp
 if ($LASTEXITCODE -ne 0) {
@@ -145,7 +145,7 @@ if (-not (Test-Path $buildRoot)) {
 
 # 5. Authenticode-sign assemblies in build folder
 # Password prompting is handled by Sign-Authenticode.ps1 if not provided
-Write-Host "Authenticode-signing SmartHopper assemblies under '$buildRoot' using signing.pfx at $pfxPath"
+Write-Host "Authenticode-signing SmartHopper assemblies under '$buildRoot' using signing.pfx at $pfxPath" -ForegroundColor Cyan
 if ($PfxPassword) {
     & $signAuthScript -Sign $buildRoot -Password (Get-PlainPassword) -PfxPath $pfxPath
 } else {
@@ -156,4 +156,4 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-Write-Host "Build-Solution completed successfully."
+Write-Host "Build-Solution completed successfully." -ForegroundColor Green
