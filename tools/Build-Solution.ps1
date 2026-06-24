@@ -1,9 +1,57 @@
+<#
+.SYNOPSIS
+    Build the SmartHopper solution, update InternalsVisibleTo, and Authenticode-sign the output assemblies.
+.DESCRIPTION
+    This script orchestrates the full SmartHopper build pipeline:
+
+    - Generates or reuses a strong-name key (signing.snk).
+    - Generates or reuses a self-signed Authenticode PFX (signing.pfx).
+    - Updates InternalsVisibleTo entries with the public key.
+    - Builds the solution with the requested configuration.
+    - Authenticode-signs the built SmartHopper assemblies.
+
+    Use -Testing for fully automated, non-interactive builds in secure testing environments.
+    When -Testing is set:
+
+    - The PFX certificate is generated with password "test" if signing.pfx does not exist.
+    - The same password "test" is used for Authenticode signing.
+    - No password prompt is shown, and the entire compilation and signing pipeline runs unattended.
+
+    Use -OutErrors and/or -OutWarnings to restrict dotnet build console output to only compilation
+    errors and/or warnings. These switches are useful for CI scenarios that need to inspect
+    compilation results concisely. They may be used together with -Testing. When neither switch is
+    specified, the default output filter (Summary) is used.
+.PARAMETER Configuration
+    Build configuration: Debug or Release (default: Debug).
+.PARAMETER PfxPassword
+    SecureString password for the signing.pfx certificate. Ignored when -Testing is used.
+.PARAMETER Testing
+    Automated testing mode: creates the signing certificate with password "test" if missing and uses
+    that password for signing. No interactive prompts are shown.
+.PARAMETER OutErrors
+    Show only compilation errors from dotnet build.
+.PARAMETER OutWarnings
+    Show only compilation warnings from dotnet build.
+#>
 param(
     [string]$Configuration = "Debug",
-    [System.Security.SecureString]$PfxPassword
+    [System.Security.SecureString]$PfxPassword,
+    [switch]$Testing,
+    [switch]$OutErrors,
+    [switch]$OutWarnings
 )
 
 $ErrorActionPreference = "Stop"
+
+# In testing mode, force a predictable password and never prompt.
+if ($Testing) {
+    $testPasswordPlain = "test"
+    $PfxPassword = ConvertTo-SecureString -String $testPasswordPlain -AsPlainText -Force
+}
+
+function Get-PlainPassword {
+    return [System.Net.NetworkCredential]::new("", $PfxPassword).Password
+}
 
 $solutionRoot = Split-Path -Parent $PSScriptRoot
 $solutionPath = Join-Path $solutionRoot "SmartHopper.sln"
@@ -35,7 +83,8 @@ if (-not (Test-Path $pfxPath)) {
     }
 
     Write-Host "signing.pfx not found. Generating new PFX at $pfxPath via Sign-Authenticode.ps1"
-    & $signAuthScript -Generate -Password $PfxPassword -PfxPath $pfxPath
+    $generatePassword = if ($Testing) { $testPasswordPlain } else { Get-PlainPassword }
+    & $signAuthScript -Generate -Password $generatePassword -PfxPath $pfxPath
 } else {
     Write-Host "signing.pfx already exists at $pfxPath; skipping generation."
 }
@@ -72,7 +121,12 @@ if (Test-Path $solutionPropsPath) {
 }
 
 Write-Host "Building solution $solutionPath with configuration '$Configuration'"
-& dotnet build $solutionPath -c $Configuration -clp:"ErrorsOnly;Summary"
+$loggerParams = @()
+if ($OutErrors) { $loggerParams += "ErrorsOnly" }
+if ($OutWarnings) { $loggerParams += "WarningsOnly" }
+if ($loggerParams.Count -eq 0) { $loggerParams = @("Summary") }
+$clp = $loggerParams -join ";"
+& dotnet build $solutionPath -c $Configuration -clp:$clp
 if ($LASTEXITCODE -ne 0) {
     Write-Error "dotnet build failed with exit code $LASTEXITCODE"
     exit $LASTEXITCODE
@@ -93,7 +147,7 @@ if (-not (Test-Path $buildRoot)) {
 # Password prompting is handled by Sign-Authenticode.ps1 if not provided
 Write-Host "Authenticode-signing SmartHopper assemblies under '$buildRoot' using signing.pfx at $pfxPath"
 if ($PfxPassword) {
-    & $signAuthScript -Sign $buildRoot -Password $PfxPassword -PfxPath $pfxPath
+    & $signAuthScript -Sign $buildRoot -Password (Get-PlainPassword) -PfxPath $pfxPath
 } else {
     & $signAuthScript -Sign $buildRoot -PfxPath $pfxPath
 }
