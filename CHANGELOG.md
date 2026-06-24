@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added Devin CLI skills under `.devin/skills/` for each existing workflow, mapping Windsurf/Cascade-style workflow files to the Devin `SKILL.md` format so they can be invoked with `/skill-name` in Devin local sessions.
+- Added `changelog-summary` Devin CLI skill that derives its simplification instructions from `.github/workflows/chore-changelog-review.yml` and rewrites `[Unreleased]` (or a user-provided version) from `CHANGELOG.md` into a user-focused changelog summary.
 - Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
 
 ### Changed
