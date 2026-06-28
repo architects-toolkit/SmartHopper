@@ -310,32 +310,10 @@ namespace SmartHopper.Providers.Gemini
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "gemini-2.5-flash-lite-preview-09-2025",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Verified = false,
-                    Rank = 9935,
-                    ContextLimit = 1048576,
-                    Created = new DateTime(2025, 9, 25),
-                    Pricing = new AIModelPricing
-                    {
-                        Prompt = 0.0000001m,
-                        Completion = 0.0000004m,
-                        Image = 0.0000001m,
-                        Audio = 0.0000003m,
-                        InputCacheRead = 0.00000001m,
-                        InputCacheWrite = 0.00000008333333333333334m,
-                        InternalReasoning = 0.0000004m,
-                        WebSearch = 0.014m,
-                    },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
                     Model = "gemini-3-flash-preview",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     Verified = false,
-                    Rank = 9930,
+                    Rank = 9935,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 12, 17),
                     Pricing = new AIModelPricing
@@ -359,7 +337,7 @@ namespace SmartHopper.Providers.Gemini
                     Default = AICapability.Text2Image | AICapability.Image2Image,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9925,
+                    Rank = 9930,
                     ContextLimit = 65536,
                     Created = new DateTime(2025, 11, 20),
                     Pricing = new AIModelPricing
@@ -386,9 +364,31 @@ namespace SmartHopper.Providers.Gemini
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9920,
+                    Rank = 9925,
                     ContextLimit = 1048576,
                     Created = new DateTime(2025, 7, 22),
+                    Pricing = new AIModelPricing
+                    {
+                        Prompt = 0.0000001m,
+                        Completion = 0.0000004m,
+                        Image = 0.0000001m,
+                        Audio = 0.0000003m,
+                        InputCacheRead = 0.00000001m,
+                        InputCacheWrite = 0.00000008333333333333334m,
+                        InternalReasoning = 0.0000004m,
+                        WebSearch = 0.014m,
+                    },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "gemini-2.5-flash-lite-preview-09-2025",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.AudioInput | AICapability.VideoInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Verified = false,
+                    Rank = 9920,
+                    ContextLimit = 1048576,
+                    Created = new DateTime(2025, 9, 25),
                     Pricing = new AIModelPricing
                     {
                         Prompt = 0.0000001m,
