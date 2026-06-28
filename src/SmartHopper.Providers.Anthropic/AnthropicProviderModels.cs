@@ -297,30 +297,29 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-3-5-haiku-20241022",
+                    Model = "claude-3-haiku-20240307",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
                     Rank = -15,
                     ContextLimit = 200000,
-                    Created = new DateTime(2024, 11, 4),
-                    Aliases = new List<string> { "claude-3-5-haiku", "claude-3-5-haiku-latest" },
+                    Created = new DateTime(2024, 3, 13),
+                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-3-haiku-20240307",
+                    Model = "claude-3-5-haiku-20241022",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
                     Rank = -20,
                     ContextLimit = 200000,
-                    Created = new DateTime(2024, 3, 13),
-                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
+                    Aliases = new List<string> { "claude-3-5-haiku", "claude-3-5-haiku-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
 
