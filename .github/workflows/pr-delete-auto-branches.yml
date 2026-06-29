@@ -6,6 +6,7 @@ name: pr-delete-auto-branches
 # - update-branch/*
 # - chore/update-dev-version-date-*
 # - docs/update-version-badge-*
+# - devin/*
 #
 # Triggers:
 # - pull_request.types: closed
@@ -38,7 +39,8 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'bug/') ||
       startsWith(github.event.pull_request.head.ref, 'fix/') ||
       startsWith(github.event.pull_request.head.ref, 'hash-update/') ||
-      startsWith(github.event.pull_request.head.ref, 'patch/')
+      startsWith(github.event.pull_request.head.ref, 'patch/') ||
+      startsWith(github.event.pull_request.head.ref, 'devin/')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
