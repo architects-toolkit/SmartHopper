@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI:** Hash-manifest auto-merge in `release-4-build.yml` now uses `--rebase` instead of `--squash`. The `main` and `dev` branches only allow the rebase merge method (and use a rebase merge queue), so squash auto-merge requests could not complete.
+
 ## [2.0.0-dev.260619] - 2026-06-19
 
 Many thanks to the following contributors to this release:
