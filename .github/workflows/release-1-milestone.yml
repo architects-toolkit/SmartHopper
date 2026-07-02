@@ -97,6 +97,27 @@ jobs:
       - name: Create release branch
         run: git checkout -b release/${{ inputs.milestone-title }}
 
+      # The release content is taken from the (possibly stale) stabilization
+      # branch, but the composite actions used below must match THIS workflow
+      # definition, which runs from the dispatched ref. When CI tooling has been
+      # refactored on dev/main after a stabilization branch was cut (e.g. the
+      # `update-version` → `version-manager` consolidation), the checked-out base
+      # branch would not contain the referenced local action, breaking the run.
+      # Sync `.github/actions` from the workflow ref so `uses: ./...` always
+      # resolves the expected versions. These files are CI-only and are never
+      # staged by the commit step below, so release content is unaffected.
+      - name: Check out CI tooling from workflow ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .ci-tooling
+          fetch-depth: 1
+      - name: Sync composite actions from workflow ref
+        run: |
+          rm -rf .github/actions
+          cp -R .ci-tooling/.github/actions .github/actions
+          rm -rf .ci-tooling
+
       - name: Replace SmartHopperPublicKey with placeholder
         run: |
           csproj="src/SmartHopper.Infrastructure/SmartHopper.Infrastructure.csproj"

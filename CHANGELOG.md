@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CI:** Hash-manifest auto-merge in `release-4-build.yml` now uses `--rebase` instead of `--squash`. The `main` and `dev` branches only allow the rebase merge method (and use a rebase merge queue), so squash auto-merge requests could not complete.
+- **CI:** `release-1-milestone.yml` now syncs `.github/actions` from the dispatched workflow ref before running local composite actions. Releasing from a stabilization branch that predated a CI tooling refactor (e.g. the `update-version` → `version-manager` consolidation) previously failed because the checked-out base branch lacked the referenced local action.
 
 ## [2.0.0-dev.260619] - 2026-06-19
 
