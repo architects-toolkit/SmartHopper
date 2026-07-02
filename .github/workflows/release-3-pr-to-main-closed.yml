@@ -19,7 +19,8 @@ name: 🏁 3 Create Release on Release PR Close
 # Permissions:
 # - contents:write - Required to create GitHub releases
 # - issues:read - Required to read issue information for release notes
-# - pull-requests:read - Required to read PR information for release notes
+# - pull-requests:write - Required to read PR information for release notes and
+#                         create template update PRs via peter-evans/create-pull-request
 
 on:
   pull_request:
@@ -35,14 +36,14 @@ concurrency:
 
 jobs:
   create-release:
-    # Only run for release/hotfix/dev-* source branches (not chore/docs PRs)
+    # Only run for release/hotfix/dev source branches (not chore/docs/feature PRs)
     if: |
       (github.event_name == 'workflow_dispatch') ||
       (github.event.pull_request.merged == true && (
         startsWith(github.event.pull_request.head.ref, 'release/') ||
         startsWith(github.event.pull_request.head.ref, 'hotfix/') ||
         startsWith(github.event.pull_request.head.ref, 'dev-') ||
-        startsWith(github.event.pull_request.head.ref, 'dev')
+        github.event.pull_request.head.ref == 'dev'
       ))
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -50,7 +51,7 @@ jobs:
       actions: write
       contents: write
       issues: read
-      pull-requests: read
+      pull-requests: write
 
     steps:
       - name: Determine target branch
