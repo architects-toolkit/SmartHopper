@@ -35,7 +35,7 @@ This document explains how to convert documents to Markdown within Grasshopper, 
 
 | Format | Extension | Converter | Features |
 | --- | --- | --- |-----------|----------|
-| **PDF** | `.pdf` | PdfPig | Column detection, reading order, header/footer removal, heading detection, table recognition, scanned-page warnings |
+| **PDF** | `.pdf` | PdfPig | Column detection, reading order, header/footer removal, heading detection, **hyperlink extraction**, **list detection**, **inline image positioning**, table recognition, scanned-page warnings |
 | **Word** | `.docx` | DocumentFormat.OpenXml | Headings (H1-H6), bold/italic, lists, tables, hyperlinks, footnotes/endnotes, Office Math, images (as placeholders), metadata |
 | **Excel** | `.xlsx` | DocumentFormat.OpenXml | Multi-sheet support, header rows, Markdown tables, cell formatting (bold/italic), metadata |
 | **PowerPoint** | `.pptx` | DocumentFormat.OpenXml | Slide titles, body text, bullet points, speaker notes, hyperlinks, Office Math, metadata |
@@ -194,6 +194,25 @@ Detects headings by font size relative to body text:
 - Font size > median × 1.4 → `####` (H4)
 - Font size > median × 1.3 → `#####` (H5)
 
+#### Hyperlink Extraction
+
+Uses PdfPig's `page.GetHyperlinks()` to extract PDF link annotations. Any text that falls inside a hyperlink's bounding box is wrapped in Markdown link syntax (`[text](url)`). Respects the `preserveHyperlinks` option.
+
+#### List Detection
+
+Detects bullet and numbered list items by pattern-matching the start of each text block:
+
+- **Bullets**: `•`, `‣`, `◦`, `○`, `▪`, `▫`, `►`, `→`, `-`, `–`, `—`
+- **Numbered**: `1.`, `1)`, `a.`, `a)`, `i.`, `ii.`, etc.
+
+Indentation levels are inferred from the visual left margin of each list item relative to others on the same page.
+
+> Letter (`a)`) and Roman-numeral (`i.`) markers have no CommonMark equivalent and are normalized to a repeated `1.` marker per item. The final `MarkdownListRenumberer` cleanup pass (applied to every converter's output, see [Format Converters](#format-converters)) rewrites these into consecutive integers so the raw Markdown reads correctly.
+
+#### Inline Image Positioning
+
+When `extractImages` is enabled, extracted images are positioned inline based on their vertical location on the page rather than appended at the end. Images are interleaved with text blocks in top-to-bottom reading order.
+
 #### Scanned Page Detection
 
 Warns when a page contains fewer than 5 characters, indicating it may be a scanned image requiring OCR.
@@ -350,8 +369,23 @@ No Python or external runtime dependencies required.
   - `Register(converter)` — registers a single converter
   - `RegisterAll(converters)` — registers multiple converters
   - `IsSupported(extension)` — checks if extension is supported
-  - `ConvertAsync(filePath, options)` — dispatches to appropriate converter
+  - `ConvertAsync(filePath, options)` — dispatches to appropriate converter, then applies `MarkdownListRenumberer.Renumber()` and `MarkdownStyleCleanup.Cleanup()` to the successful result before returning
   - `SupportedExtensions` — returns all registered extensions
+
+#### MarkdownListRenumberer (post-processing)
+
+- Static utility applied by `FileConverterRegistry.ConvertAsync` to every successful conversion result, regardless of format
+- Rewrites consecutive ordered-list items (`1.`, `2.`, ...) to increasing integers, tracked per indentation level
+- Needed because converters normalize non-CommonMark list markers (lettered `a)`, Roman `i.`) to a repeated `1.` per item; this pass restores visually correct sequential numbering
+- A list at a given indentation ends on non-blank, non-list content, or is reset by a shallower-indented list item (which also clears deeper nested counters)
+
+#### MarkdownStyleCleanup (post-processing)
+
+- Static utility applied by `FileConverterRegistry.ConvertAsync` after `MarkdownListRenumberer`, to every successful conversion result
+- Trims trailing whitespace per line (2+ trailing spaces are a CommonMark hard line break and are usually unintentional artifacts of styled-text joins)
+- Ensures a blank line surrounds every ATX heading (`#` through `######`) so strict CommonMark parsers recognize them
+- Collapses runs of 2+ blank lines into a single blank line
+- Trims leading/trailing blank lines from the whole document
 
 #### FileConversionOptions (configuration)
 
@@ -386,7 +420,7 @@ All converters implement `IFileConverter` and are registered in `FileConverterRe
 
 | Converter | File | Extensions | Library | Features |
 | --- | --- | --- | --- | --- |
-| `PdfConverter` | `PdfConverter.cs` | `.pdf` | UglyToad.PdfPig | Column detection, reading order, header/footer removal, heading detection, table recognition, scanned-page warnings |
+| `PdfConverter` | `PdfConverter.cs` | `.pdf` | UglyToad.PdfPig | Column detection, reading order, header/footer removal, heading detection, **hyperlink extraction**, **list detection**, **inline image positioning**, table recognition, scanned-page warnings |
 | `DocxConverter` | `DocxConverter.cs` | `.docx` | DocumentFormat.OpenXml | Headings (H1-H6), bold/italic, tables, lists, images, metadata |
 | `XlsxConverter` | `XlsxConverter.cs` | `.xlsx` | DocumentFormat.OpenXml | Multi-sheet support, header rows, Markdown tables, metadata |
 | `PptxConverter` | `PptxConverter.cs` | `.pptx` | DocumentFormat.OpenXml | Slide titles, body text, bullet points, speaker notes, metadata |

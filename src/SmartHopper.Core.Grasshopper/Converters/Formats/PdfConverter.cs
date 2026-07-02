@@ -118,6 +118,14 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         /// <summary>Matches blocks whose entire text is a 1–4 digit number (used to detect large-font page-number glyphs).</summary>
         private static readonly Regex NumericOnlyPattern = new Regex(@"^\d{1,4}$", RegexOptions.Compiled);
 
+        /// <summary>Matches bullet list items: "• Item", "- Item", "→ Item", etc.</summary>
+        private static readonly Regex BulletListPattern =
+            new Regex(@"^(?:[•‣◦○▪▫►→▸▹›»]|\s*[\-–—])\s+", RegexOptions.Compiled);
+
+        /// <summary>Matches numbered list items: "1. Item", "a) Item", "i. Item", etc.</summary>
+        private static readonly Regex NumberedListPattern =
+            new Regex(@"^(?:(\d+)[.)]\s+|[a-zA-Z][.)]\s+|[ivxIVX]+[.)]\s+)", RegexOptions.Compiled);
+
         /// <inheritdoc/>
         public IEnumerable<string> SupportedExtensions => new[] { ".pdf" };
 
@@ -151,24 +159,23 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         }
 
                         // Extract images from the page when enabled.
-                        // Track where in the image list this page's images start so we can
-                        // emit [image N] placeholders after the page's text content.
                         int pageImageStart = result.Images.Count;
                         if (options.ExtractImages)
                         {
                             imageIndex = ExtractPageImages(page, pageNumber, imageIndex, result);
                         }
 
+                        var pageImages = options.ExtractImages
+                            ? GetPageImagePositions(page, pageImageStart, result)
+                            : new List<ImagePosition>();
+
                         if (blocks.Count == 0 || blocks.Sum(b => GetBlockText(b).Length) < 5)
                         {
                             // No text on this page — emit image placeholders inline for any images found
-                            if (options.ExtractImages)
+                            foreach (var img in pageImages)
                             {
-                                for (int imgIdx = pageImageStart; imgIdx < result.Images.Count; imgIdx++)
-                                {
-                                    markdown.AppendLine($"[image {imgIdx + 1}]");
-                                    markdown.AppendLine();
-                                }
+                                markdown.AppendLine($"[image {img.ImageNumber}]");
+                                markdown.AppendLine();
                             }
 
                             pageNumber++;
@@ -180,13 +187,31 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                             .Where(b => !headersFooters.Contains(GetBlockText(b)))
                             .ToList();
 
+                        var hyperlinks = options.PreserveHyperlinks
+                            ? page.GetHyperlinks()
+                            : Array.Empty<Hyperlink>();
+
                         double medianFontSize = GetMedianFontSize(content);
                         double headingThreshold = medianFontSize * 1.3;
 
                         bool nextBlockForceTable = false;
+                        var listLeftMarginLevels = new List<double>();
+                        int imagePtr = 0;
 
-                        foreach (var block in content)
+                        for (int bi = 0; bi < content.Count; bi++)
                         {
+                            var block = content[bi];
+
+                            // ---- Inline image placement ----
+                            // Emit images whose vertical top is above the current text block.
+                            double blockTopY = block.BoundingBox.Top;
+                            while (imagePtr < pageImages.Count && pageImages[imagePtr].TopY >= blockTopY)
+                            {
+                                markdown.AppendLine($"[image {pageImages[imagePtr].ImageNumber}]");
+                                markdown.AppendLine();
+                                imagePtr++;
+                            }
+
                             // Use unstyled text for pattern matching and caption detection
                             string text = GetBlockText(block);
 
@@ -236,6 +261,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                                     if (!string.IsNullOrWhiteSpace(table))
                                     {
                                         markdown.AppendLine(table);
+                                        listLeftMarginLevels.Clear();
                                         continue;
                                     }
 
@@ -247,6 +273,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                                         markdown.AppendLine("```text");
                                         markdown.AppendLine(GetBlockText(block));
                                         markdown.AppendLine("```");
+                                        listLeftMarginLevels.Clear();
                                         continue;
                                     }
                                 }
@@ -257,36 +284,52 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                             if (isTableCaption || isFigureCaption)
                             {
+                                listLeftMarginLevels.Clear();
+
                                 // Captions already bold via markdown wrapper; use styled text for inner content
-                                string styledCaption = GetBlockTextWithStyling(block);
-                                markdown.Append("**").Append(styledCaption.Replace("|", "\\|")).AppendLine("**");
+                                string styledCaption = GetBlockTextWithStylingAndLinks(block, hyperlinks).Replace("|", "\\|");
+
+                                // If the whole caption text is already wrapped in bold markers (e.g. the caption
+                                // font itself is bold), strip the inner markers to avoid producing "****text****".
+                                if (styledCaption.Length >= 4 && styledCaption.StartsWith("**", StringComparison.Ordinal) && styledCaption.EndsWith("**", StringComparison.Ordinal))
+                                {
+                                    styledCaption = styledCaption.Substring(2, styledCaption.Length - 4);
+                                }
+
+                                markdown.Append("**").Append(styledCaption).AppendLine("**");
                             }
                             else if (options.DetectHeadings && fontSize > headingThreshold)
                             {
+                                listLeftMarginLevels.Clear();
+
                                 // Headings use plain text (markdown heading syntax doesn't support inline styling)
                                 int level = GetHeadingLevel(fontSize, medianFontSize);
                                 markdown.Append(new string('#', level)).Append(' ').AppendLine(text);
                             }
+                            else if (TryDetectListItem(text, out string listMarker, out string listContent))
+                            {
+                                int indentLevel = GetListIndentLevel(block.BoundingBox.Left, listLeftMarginLevels);
+                                markdown.Append(new string(' ', indentLevel * 2))
+                                    .Append(listMarker).Append(' ').AppendLine(listContent);
+                            }
                             else
                             {
-                                // Body paragraphs: apply inline bold/italic styling
-                                string styledText = GetBlockTextWithStyling(block);
+                                listLeftMarginLevels.Clear();
+
+                                // Body paragraphs: apply inline bold/italic styling and hyperlink syntax
+                                string styledText = GetBlockTextWithStylingAndLinks(block, hyperlinks);
                                 markdown.AppendLine(styledText);
                             }
 
                             markdown.AppendLine();
                         }
 
-                        // Emit [image N] placeholders for images extracted from this page,
-                        // placed after the page's text content (best approximation for PDF,
-                        // which does not expose inline image positions within a page).
-                        if (options.ExtractImages)
+                        // Emit any remaining images for this page
+                        while (imagePtr < pageImages.Count)
                         {
-                            for (int imgIdx = pageImageStart; imgIdx < result.Images.Count; imgIdx++)
-                            {
-                                markdown.AppendLine($"[image {imgIdx + 1}]");
-                                markdown.AppendLine();
-                            }
+                            markdown.AppendLine($"[image {pageImages[imagePtr].ImageNumber}]");
+                            markdown.AppendLine();
+                            imagePtr++;
                         }
 
                         pageNumber++;
@@ -373,6 +416,49 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
 
             return imageIndex;
+        }
+
+        /// <summary>
+        /// Holds the vertical position of an extracted image for inline placement.
+        /// </summary>
+        private readonly struct ImagePosition
+        {
+            public readonly int ImageNumber;
+            public readonly double TopY;
+
+            public ImagePosition(int imageNumber, double topY)
+            {
+                ImageNumber = imageNumber;
+                TopY = topY;
+            }
+        }
+
+        /// <summary>
+        /// Returns the vertical positions of images extracted from a page so they can be
+        /// interleaved with text blocks in reading order.
+        /// </summary>
+        private static List<ImagePosition> GetPageImagePositions(Page page, int pageImageStart, FileConversionResult result)
+        {
+            var positions = new List<ImagePosition>();
+            var pageImages = page.GetImages().ToList();
+            if (pageImages.Count == 0)
+            {
+                return positions;
+            }
+
+            int idx = pageImageStart;
+            foreach (var image in pageImages)
+            {
+                idx++;
+                if (idx <= result.Images.Count)
+                {
+                    positions.Add(new ImagePosition(idx, image.Bounds.Top));
+                }
+            }
+
+            // Highest Y first = top of page first (PDF coordinates: Y increases upward)
+            positions.Sort((a, b) => b.TopY.CompareTo(a.TopY));
+            return positions;
         }
 
         private static void ExtractMetadata(PdfDocument document, FileConversionResult result)
@@ -507,6 +593,127 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         }
 
         /// <summary>
+        /// Finds the hyperlink (if any) whose bounding box intersects with the given word.
+        /// </summary>
+        private static Hyperlink? FindLinkForWord(Word word, IReadOnlyList<Hyperlink> hyperlinks)
+        {
+            var wb = word.BoundingBox;
+            foreach (var link in hyperlinks)
+            {
+                var lb = link.Bounds;
+                if (wb.Left < lb.Right && wb.Right > lb.Left
+                    && wb.Bottom < lb.Top && wb.Top > lb.Bottom)
+                {
+                    return link;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Extracts block text with inline Markdown styling (bold, italic) and wraps
+        /// words that fall inside hyperlink annotation regions in <c>[text](url)</c> syntax.
+        /// </summary>
+        private static string GetBlockTextWithStylingAndLinks(TextBlock block, IReadOnlyList<Hyperlink> hyperlinks)
+        {
+            var lines = block.TextLines.ToList();
+            if (lines.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var sb = new StringBuilder();
+            for (int li = 0; li < lines.Count; li++)
+            {
+                var line = lines[li];
+                if (li > 0)
+                {
+                    sb.Append(' ');
+                }
+
+                var words = line.Words.ToList();
+                int i = 0;
+                while (i < words.Count)
+                {
+                    var word = words[i];
+                    var link = FindLinkForWord(word, hyperlinks);
+
+                    if (link != null)
+                    {
+                        int j = i + 1;
+                        while (j < words.Count && FindLinkForWord(words[j], hyperlinks) == link)
+                        {
+                            j++;
+                        }
+
+                        if (sb.Length > 0 && sb[^1] != ' ')
+                        {
+                            sb.Append(' ');
+                        }
+
+                        string linkText = string.Join(" ", words.GetRange(i, j - i).Select(w => EscapeMarkdownChars(w.Text)));
+                        string linkUrl = string.IsNullOrWhiteSpace(link.Uri) ? string.Empty : EscapeMarkdownUrl(link.Uri);
+                        if (string.IsNullOrEmpty(linkUrl))
+                        {
+                            sb.Append(linkText);
+                        }
+                        else
+                        {
+                            sb.Append($"[{linkText}]({linkUrl})");
+                        }
+
+                        i = j;
+                    }
+                    else
+                    {
+                        var (isBold, isItalic) = GetWordStyle(word);
+
+                        // Extend run while the style is unchanged and next word is not linked
+                        int j = i + 1;
+                        while (j < words.Count)
+                        {
+                            var (nb, ni) = GetWordStyle(words[j]);
+                            if (nb != isBold || ni != isItalic || FindLinkForWord(words[j], hyperlinks) != null)
+                            {
+                                break;
+                            }
+
+                            j++;
+                        }
+
+                        string runText = string.Join(" ", words.GetRange(i, j - i).Select(w => EscapeMarkdownChars(w.Text)));
+                        if (sb.Length > 0 && sb[^1] != ' ')
+                        {
+                            sb.Append(' ');
+                        }
+
+                        if (isBold && isItalic)
+                        {
+                            sb.Append("***").Append(runText).Append("***");
+                        }
+                        else if (isBold)
+                        {
+                            sb.Append("**").Append(runText).Append("**");
+                        }
+                        else if (isItalic)
+                        {
+                            sb.Append('*').Append(runText).Append('*');
+                        }
+                        else
+                        {
+                            sb.Append(runText);
+                        }
+
+                        i = j;
+                    }
+                }
+            }
+
+            return sb.ToString().Trim();
+        }
+
+        /// <summary>
         /// Returns a single line of Markdown with style runs: consecutive words with identical
         /// bold/italic state are wrapped in one marker instead of one per word.
         /// </summary>
@@ -568,6 +775,68 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         private static string EscapeMarkdownChars(string text)
         {
             return text.Replace("*", "\\*").Replace("_", "\\_");
+        }
+
+        /// <summary>
+        /// Escapes characters that would break Markdown link destination syntax (parentheses and
+        /// whitespace). Does not escape '*' or '_' since those have no special meaning inside a
+        /// link destination and escaping them would corrupt the URL.
+        /// </summary>
+        private static string EscapeMarkdownUrl(string url)
+        {
+            return url.Replace("(", "%28").Replace(")", "%29").Replace(" ", "%20");
+        }
+
+        /// <summary>
+        /// Detects whether a text block starts with a bullet or numbered list marker.
+        /// When true, <paramref name="marker"/> receives the Markdown list marker ("-" or "1." etc.)
+        /// and <paramref name="content"/> receives the text after the original marker.
+        /// </summary>
+        private static bool TryDetectListItem(string text, out string marker, out string content)
+        {
+            var bulletMatch = BulletListPattern.Match(text);
+            if (bulletMatch.Success)
+            {
+                marker = "-";
+                content = text.Substring(bulletMatch.Length).TrimStart();
+                return true;
+            }
+
+            var numMatch = NumberedListPattern.Match(text);
+            if (numMatch.Success)
+            {
+                // Only digit markers ('1)', '2.') have a capturing group and can preserve their
+                // original number. Letter and Roman-numeral markers ('a)', 'i.') have no CommonMark
+                // equivalent, so they are normalized to a plain ordered-list marker; Markdown viewers
+                // renumber consecutive '1.' items automatically.
+                string? number = numMatch.Groups[1].Success ? numMatch.Groups[1].Value : null;
+                marker = string.IsNullOrEmpty(number) ? "1." : $"{number}.";
+                content = text.Substring(numMatch.Length).TrimStart();
+                return true;
+            }
+
+            marker = string.Empty;
+            content = string.Empty;
+            return false;
+        }
+
+        /// <summary>
+        /// Computes the indentation level for a list item based on its left margin relative
+        /// to previously-seen list-item left margins on the same page.
+        /// </summary>
+        private static int GetListIndentLevel(double leftMargin, List<double> leftMarginLevels, double tolerance = 18.0)
+        {
+            for (int i = 0; i < leftMarginLevels.Count; i++)
+            {
+                if (Math.Abs(leftMargin - leftMarginLevels[i]) < tolerance)
+                {
+                    return i;
+                }
+            }
+
+            leftMarginLevels.Add(leftMargin);
+            leftMarginLevels.Sort();
+            return leftMarginLevels.Count - 1;
         }
 
         private static double GetBlockFontSize(TextBlock block)

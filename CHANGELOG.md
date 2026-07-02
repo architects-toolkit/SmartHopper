@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **PDF hyperlink extraction**: `PdfConverter` now uses PdfPig `page.GetHyperlinks()` to detect link annotations and wraps intersecting text in Markdown `[text](url)` syntax. Respects the existing `PreserveHyperlinks` option.
+- **PDF list detection**: `PdfConverter` now detects bullet (`•`, `-`, `→`, etc.) and numbered (`1.`, `a)`, `i.`, etc.) list items by pattern-matching block text. Indentation levels are inferred from visual left margins.
+- **PDF inline image positioning**: `PdfConverter` now interleaves extracted images with text blocks in top-to-bottom reading order based on each image's vertical position, instead of appending all images at the end of the page.
+- **Markdown ordered-list renumbering**: `FileConverterRegistry.ConvertAsync` now applies a new `MarkdownListRenumberer` post-processing pass to every converter's output, rewriting consecutive ordered-list items (tracked per indentation level) to increasing integers. This fixes lists where a converter normalizes non-CommonMark markers (e.g. lettered `a)`/Roman `i.` list items, which have no Markdown equivalent) to a repeated `1.` marker per item, so raw Markdown text now reads correctly even without a renderer.
+- **Markdown style cleanup**: `FileConverterRegistry.ConvertAsync` now applies a new `MarkdownStyleCleanup` post-processing pass to every converter's output: trims trailing whitespace (which CommonMark otherwise interprets as a hard line break), ensures a blank line surrounds every ATX heading, collapses runs of 2+ blank lines into one, and trims leading/trailing blank lines from the document.
 - Added Devin CLI skills under `.devin/skills/` for each existing workflow, mapping Windsurf/Cascade-style workflow files to the Devin `SKILL.md` format so they can be invoked with `/skill-name` in Devin local sessions.
 - Added `changelog-summary` Devin CLI skill that derives its simplification instructions from `.github/workflows/chore-changelog-review.yml` and rewrites `[Unreleased]` (or a user-provided version) from `CHANGELOG.md` into a user-focused changelog summary.
 - Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
