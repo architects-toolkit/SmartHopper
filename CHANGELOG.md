@@ -9,59 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **CI**: Allow auto-generated `hash-update/*` PRs to add new `hashes/*.json` files while still blocking modifications to existing ones in `pr-build-hash-validation.yml`.
-
-## [2.0.0-dev.260705] - 2026-07-05
-
-Many thanks to the following contributors to this release:
-
-- [marc-romu](https://github.com/marc-romu)
-
-----
-
-### Added
-
-- **PDF-to-Markdown improvements**: PDF conversion now preserves hyperlinks, detects lists, interleaves inline images in reading order, and renumbers/cleans Markdown output.
-- **Web-to-Markdown image handling**: `web2md` supports `link`, `embed`, `describe`, and `caption` image modes; `File2AI` and `Web2AI` expose an `Image Mode` input.
-- **New web component**: Added `AIWeb2MdComponent` for AI-powered URL-to-Markdown conversion; the standard `Web2MdComponent` is now non-AI.
-- **Image generation**: `AIText2ImgComponent` now supports an `Aspect Ratio` input for Gemini image generation.
-- **MCP server**: Added a local HTTP/JSON-RPC MCP server and an opt-in `SmartHopperMcpServerComponent` to expose SmartHopper tools to external MCP clients.
-- **Canvas protection**: Components implementing `ICanvasProtectedComponent` (starting with the MCP server component) are protected from mutating AI tools.
-- **New canvas tools**: Added `gh_remove`, `gh_disconnect`, `gh_document_save`, `button_click`, and `gh_connect` tools.
-- **Canvas queries**: `gh_get` and `GhGetComponents` support pagination and `Count`/`pageSize` limits; responses can include live runtime data.
-- **Runtime data**: Live Grasshopper parameter values can be serialized as runtime data via the shared GhJSON library.
-- **Self-documenting tools**: Added `smarthopper_workflows` and `smarthopper_tool_help` to help MCP clients discover workflows and tool usage.
-- **Tool discoverability**: Every AI tool now exposes MCP metadata, JSON schemas, and read-only/mutating hints; experimental tools can be disabled with the `Enabled` flag.
-- **About dialog**: Added open-source package attribution.
-
-### Changed
-
-- **Provider settings**: Anthropic adds `ServiceTier` and `ReasoningEffort`; MistralAI and Gemini add `ReasoningEffort`; Gemini restricts `SafetyLevel` to allowed values.
-- **Provider models**: Refreshed model registries across Anthropic, DeepSeek, Gemini, MistralAI, OpenAI, and OpenRouter to match current API lineups.
-- **Tool descriptions**: Clarified `gh_get`, `gh_put`, `button_click`, and `web2md` descriptions.
-- **Readme tool**: `smarthopper_readme` now points to `smarthopper_workflows` instead of embedding numbered scripts.
-- **Tool help**: `smarthopper_tool_help` output field `all_tools` renamed to `similar_tools`.
-- **MCP server**: The component restarts automatically when port, bearer token, or mutating-tools inputs change.
-- **File conversion**: Simplified `file2md` AI tool parameters (`preserveFormatting` replaces several options; some are always enabled).
-- **List/query tool**: `gh_list_components` parameter `nameFilter` renamed to `query` (backward compatible).
-- **Patch workflow**: `gh_patch_apply` and `gh_patch_validate` reject `instanceGuid` in add operations and validate before applying.
-- **Canvas wiring**: Canvas connection and replacement logic is centralized, preserving external wires during component replacement.
-- **Canvas reads**: Canvas read helpers are centralized for consistent tool behavior.
-- **Output schema**: `gh_put` output schema updated to match the actual response shape.
-
-### Fixed
-
-- **Canvas operations**: `gh_put` reliably restores external connections, `button_click` forces downstream recalculation, and `gh_group` returns a correct response.
-- **Web-to-Markdown**: Fixed Wikipedia, Discourse, and generic HTML conversion edge cases.
-- **File conversion**: Fixed XLSX/PPTX formatting issues and Markdown list blank-line edge cases.
-- **Patch results**: `GhPatchApplyToCanvasComponents` outputs persist after the trigger button is released.
-- **Empty results**: `gh_get` and `gh_put` now surface clear warnings for empty results.
-- **Input handling**: `gh_put` accepts JSON strings and structured objects.
-- **CI**: Fixed provider-model alias classification, documentation labeler rule, and `AIToolManager` test parallelism.
-
-### Removed
-
-- Removed the obsolete `pr-dependency-validation` workflow.
+- **CI:** Hash-manifest auto-merge in `release-4-build.yml` now uses `--rebase` instead of `--squash`. The `main` and `dev` branches only allow the rebase merge method (and use a rebase merge queue), so squash auto-merge requests could not complete.
 
 ## [2.0.0-dev.260619] - 2026-06-19
 
