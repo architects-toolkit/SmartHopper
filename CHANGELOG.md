@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `web2md` Wikipedia handling by switching to the MediaWiki `action=parse` API so headings and tables are converted to proper Markdown instead of plain text with MediaWiki `== Heading ==` markup.
 - Fixed `web2md` Discourse handling so topic URLs return clean raw Markdown instead of noisy HTML-to-Markdown fallback output. Introduced a shared `DiscourseForumService` used by both `UrlConverter` and `DiscourseToolsBase`, fixed the topic-ID/post-ID confusion for `/t/slug/{topicId}` URLs, and added `include_raw=1` so the topic JSON includes the original post Markdown.
+- Fixed Markdown post-processing in `MarkdownStyleCleanup` to remove the extra blank line that converters emit before a nested ordered list starting with `1.` when the previous item is a parent list item.
 - Fixed `OpenXmlMarkdownHelper.GetCellFont` to count actual child elements instead of relying on the optional `Count` attribute, preventing `InvalidOperationException` when reading XLSX files with styles that omit the `count` attribute.
 - Fixed `OpenXmlConverterTests.PptxConverter_BoldItalic` by adding a non-bold run to the first paragraph so the bold formatting is not treated as uniform and is emitted as Markdown bold.
 - Fixed `OpenXmlConverterTests.XlsxConverter_CellFormatting` by building a complete, valid OpenXML stylesheet (`NumberingFormats`, `Fills`, `CellStyleFormats`, `CellStyles`, `DifferentialFormats`, `TableStyles`) so the workbook is loaded and converted successfully.

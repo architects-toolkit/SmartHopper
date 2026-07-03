@@ -132,11 +132,18 @@ namespace SmartHopper.Core.Grasshopper.Converters
         /// <summary>Matches an ATX heading line ("#" through "######").</summary>
         private static readonly Regex AtxHeadingPattern = new Regex(@"^(#{1,6})[ \t]+\S", RegexOptions.Compiled);
 
+        /// <summary>Matches a Markdown list item (ordered or unordered) and captures leading indentation.</summary>
+        private static readonly Regex ListItemPattern = new Regex(@"^(?<indent>[ \t]*)(?:(?<num>\d+)\.|(?<bullet>[-*+]))(?<sep>\s+)", RegexOptions.Compiled);
+
+        /// <summary>Matches a Markdown ordered-list item that starts with "1." and captures leading indentation.</summary>
+        private static readonly Regex OrderedStartPattern = new Regex(@"^(?<indent>[ \t]*)1\.(?<sep>\s+)", RegexOptions.Compiled);
+
         /// <summary>
         /// Applies Markdown hygiene fixes: normalizes line endings, trims trailing whitespace
         /// (which would otherwise be interpreted as a CommonMark hard line break), ensures a blank
         /// line surrounds every ATX heading, collapses runs of 2+ blank lines into a single blank
-        /// line, and trims leading/trailing blank lines from the document.
+        /// line, removes blank lines that separate a parent list item from a nested ordered list
+        /// starting with "1.", and trims leading/trailing blank lines from the document.
         /// </summary>
         /// <param name="markdown">The Markdown content to normalize.</param>
         /// <returns>Cleaned-up Markdown.</returns>
@@ -150,6 +157,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
             string normalized = markdown.Replace("\r\n", "\n").Replace("\r", "\n");
             normalized = TrailingWhitespacePattern.Replace(normalized, string.Empty);
             normalized = EnsureHeadingSpacing(normalized);
+            normalized = RemoveBlankLinesBeforeNestedOrderedLists(normalized);
             normalized = ExcessBlankLinesPattern.Replace(normalized, "\n\n");
 
             return normalized.Trim('\n');
@@ -186,6 +194,76 @@ namespace SmartHopper.Core.Grasshopper.Converters
             }
 
             return string.Join("\n", output);
+        }
+
+        /// <summary>
+        /// Removes blank lines between a parent list item and a nested ordered sublist that starts
+        /// with "1.", so converters that emit a blank line before every nested list don't produce
+        /// the visually broken spacing shown in the issue screenshot.
+        /// </summary>
+        private static string RemoveBlankLinesBeforeNestedOrderedLists(string markdown)
+        {
+            var lines = markdown.Split('\n');
+            var output = new List<string>(lines.Length);
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    int prevIndex = FindPreviousNonBlankLine(lines, i);
+                    int nextIndex = FindNextNonBlankLine(lines, i);
+
+                    if (prevIndex >= 0 && nextIndex >= 0)
+                    {
+                        var prevMatch = ListItemPattern.Match(lines[prevIndex]);
+                        var nextMatch = OrderedStartPattern.Match(lines[nextIndex]);
+
+                        if (prevMatch.Success && nextMatch.Success)
+                        {
+                            int prevIndent = prevMatch.Groups["indent"].Length;
+                            int nextIndent = nextMatch.Groups["indent"].Length;
+
+                            if (nextIndent > prevIndent)
+                            {
+                                // Skip the blank line between a parent list item and the start of
+                                // its nested ordered list.
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                output.Add(line);
+            }
+
+            return string.Join("\n", output);
+        }
+
+        private static int FindPreviousNonBlankLine(string[] lines, int startIndex)
+        {
+            for (int i = startIndex - 1; i >= 0; i--)
+            {
+                if (!string.IsNullOrWhiteSpace(lines[i]))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private static int FindNextNonBlankLine(string[] lines, int startIndex)
+        {
+            for (int i = startIndex + 1; i < lines.Length; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(lines[i]))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
     }
 }

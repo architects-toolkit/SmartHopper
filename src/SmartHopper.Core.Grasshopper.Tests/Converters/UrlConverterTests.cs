@@ -457,5 +457,67 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             Assert.Contains("# G2 Feature Requests", result.MarkdownContent);
             Assert.Contains("First post", result.MarkdownContent);
         }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "UrlConverter_WikipediaUrl_ReturnsMarkdownWithHeadingsAndTables [Windows]")]
+#else
+        [Fact(DisplayName = "UrlConverter_WikipediaUrl_ReturnsMarkdownWithHeadingsAndTables [Core]")]
+#endif
+        public async Task UrlConverter_WikipediaUrl_ReturnsMarkdownWithHeadingsAndTables()
+        {
+            var htmlContent =
+                "<div class=\"mw-parser-output\">" +
+                "<h2><span class=\"mw-headline\" id=\"Goals\">Goals</span></h2>\n" +
+                "<p>General goals overview.</p>\n" +
+                "<h3><span class=\"mw-headline\" id=\"Reasoning\">Reasoning and problem-solving</span></h3>\n" +
+                "<p>Reasoning content.</p>\n" +
+                "<table>\n" +
+                "<tr><th>Technique</th><th>Description</th></tr>\n" +
+                "<tr><td>Search</td><td>Finds paths</td></tr>\n" +
+                "</table>\n" +
+                "</div>";
+
+            var parseJson = new JObject
+            {
+                ["parse"] = new JObject
+                {
+                    ["title"] = "Artificial intelligence",
+                    ["text"] = new JObject
+                    {
+                        ["*"] = htmlContent,
+                    },
+                },
+            };
+
+            var converter = CreateConverterWithStubbedResponder(request =>
+            {
+                if (request.RequestUri!.AbsolutePath.EndsWith("/robots.txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                }
+
+                if (request.RequestUri.AbsolutePath.Contains("/api.php"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(parseJson.ToString(), Encoding.UTF8, "application/json"),
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            });
+
+            var result = await converter.ConvertAsync(
+                "https://en.wikipedia.org/wiki/Artificial_intelligence",
+                new FileConversionOptions());
+
+            Assert.True(result.IsSuccess);
+            Assert.Contains("# Artificial intelligence", result.MarkdownContent);
+            Assert.Contains("## Goals", result.MarkdownContent);
+            Assert.Contains("### Reasoning and problem-solving", result.MarkdownContent);
+            Assert.Contains("| Technique | Description |", result.MarkdownContent);
+            Assert.Contains("| Search | Finds paths |", result.MarkdownContent);
+            Assert.DoesNotContain("== Goals ==", result.MarkdownContent);
+        }
     }
 }

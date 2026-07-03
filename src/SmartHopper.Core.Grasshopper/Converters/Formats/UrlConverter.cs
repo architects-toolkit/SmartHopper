@@ -130,11 +130,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 // Try specialized fetchers first
                 if (IsWikimediaHost(uri))
                 {
-                    textContent = await TryFetchWikimediaPlainTextAsync(uri, httpClient).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(textContent))
-                    {
-                        contentFormat = "plain_text";
-                    }
+                    textContent = await this.TryFetchWikimediaMarkdownAsync(uri, httpClient, effectiveOptions).ConfigureAwait(false);
                 }
 
                 if (string.IsNullOrWhiteSpace(textContent))
@@ -391,14 +387,14 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
         #region Specialized Fetchers
 
-        private static async Task<string?> TryFetchWikimediaPlainTextAsync(Uri pageUri, HttpClient httpClient)
+        private async Task<string?> TryFetchWikimediaMarkdownAsync(Uri pageUri, HttpClient httpClient, FileConversionOptions options)
         {
             if (!TryExtractWikimediaTitle(pageUri, out string? title))
             {
                 return null;
             }
 
-            var apiUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles={Uri.EscapeDataString(title)}");
+            var apiUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}/w/api.php?action=parse&page={Uri.EscapeDataString(title)}&prop=text&format=json");
             try
             {
                 var response = await httpClient.GetAsync(apiUri).ConfigureAwait(false);
@@ -409,28 +405,42 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                 var payload = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var json = JObject.Parse(payload);
-                var pagesToken = json.SelectToken("query.pages");
-                if (pagesToken == null)
+                var html = json.SelectToken("parse.text.*")?.ToString();
+                if (string.IsNullOrWhiteSpace(html))
                 {
                     return null;
                 }
 
-                foreach (var page in pagesToken.Children<JProperty>())
-                {
-                    var extract = page.Value?["extract"]?.ToString();
-                    if (!string.IsNullOrWhiteSpace(extract))
-                    {
-                        var titleValue = page.Value?["title"]?.ToString();
-                        var builder = new StringBuilder();
-                        if (!string.IsNullOrWhiteSpace(titleValue))
-                        {
-                            builder.Append('#').Append(' ').Append(titleValue.Trim()).AppendLine().AppendLine();
-                        }
+                var titleValue = json.SelectToken("parse.title")?.ToString();
 
-                        builder.Append(extract.Trim());
-                        return builder.ToString();
-                    }
+                // Wrap the parsed content in a minimal HTML document so the converter can process it.
+                var encodedTitle = System.Net.WebUtility.HtmlEncode(titleValue ?? title);
+                var wrappedHtml = $"<html><head><title>{encodedTitle}</title></head><body>{html}</body></html>";
+
+                var htmlOptions = new FileConversionOptions
+                {
+                    PreserveTableStructure = options.PreserveTableStructure,
+                    IncludeLinks = options.IncludeLinks,
+                    IncludeImages = options.IncludeImages,
+                    HtmlReadabilityMode = ReadabilityMode.Off,
+                    MaxContentLength = options.MaxContentLength,
+                    MinContentLength = options.MinContentLength,
+                    MaxDownloadBytes = options.MaxDownloadBytes,
+                };
+
+                var htmlResult = await this.htmlConverter.ConvertHtmlStringAsync(wrappedHtml, htmlOptions).ConfigureAwait(false);
+                var markdown = htmlResult.MarkdownContent?.Trim();
+                if (string.IsNullOrWhiteSpace(markdown))
+                {
+                    return null;
                 }
+
+                if (!string.IsNullOrWhiteSpace(titleValue))
+                {
+                    markdown = $"# {titleValue.Trim()}\n\n{markdown}";
+                }
+
+                return markdown;
             }
             catch (HttpRequestException)
             {
@@ -444,8 +454,6 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 return null;
             }
-
-            return null;
         }
 
         private static async Task<string?> TryFetchDiscourseRawContentAsync(Uri uri, HttpClient httpClient)
