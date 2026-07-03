@@ -252,7 +252,10 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     return FileConversionResult.Failure("url", message, reason);
                 }
 
-                result.MarkdownContent = textContent!;
+                // Apply the same Markdown post-processing that FileConverterRegistry uses for files,
+                // so web URLs also get clean ordered-list numbering and heading/list spacing.
+                result.MarkdownContent = MarkdownListRenumberer.Renumber(textContent!);
+                result.MarkdownContent = MarkdownStyleCleanup.Cleanup(result.MarkdownContent);
                 result.Metadata["source"] = url;
                 result.Metadata["format"] = contentFormat;
                 result.IsSuccess = true;
@@ -412,6 +415,8 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 }
 
                 var titleValue = json.SelectToken("parse.title")?.ToString();
+
+                html = CleanupWikimediaHtml(html);
 
                 // Wrap the parsed content in a minimal HTML document so the converter can process it.
                 var encodedTitle = System.Net.WebUtility.HtmlEncode(titleValue ?? title);
@@ -603,6 +608,50 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Removes Wikipedia chrome from the parsed HTML before Markdown conversion:
+        /// section edit links, navigation templates, metadata/authority boxes, and hatnotes.
+        /// </summary>
+        private static string CleanupWikimediaHtml(string html)
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            var selectors = new[]
+            {
+                "//span[contains(@class,'mw-editsection')]",
+                "//table[contains(@class,'navbox')]",
+                "//table[contains(@class,'metadata')]",
+                "//div[contains(@class,'hatnote')]",
+                "//span[contains(@class,'mw-empty-elt')]",
+                "//sup[contains(@class,'reference')]",
+            };
+
+            foreach (var xpath in selectors)
+            {
+                var nodes = doc.DocumentNode.SelectNodes(xpath);
+                if (nodes != null)
+                {
+                    foreach (var node in nodes.ToList())
+                    {
+                        node.Remove();
+                    }
+                }
+            }
+
+            // Remove empty paragraphs that are left behind after removing the elements above.
+            var emptyParagraphs = doc.DocumentNode.SelectNodes("//p[not(node()) or normalize-space(.)='']");
+            if (emptyParagraphs != null)
+            {
+                foreach (var p in emptyParagraphs.ToList())
+                {
+                    p.Remove();
+                }
+            }
+
+            return doc.DocumentNode.InnerHtml;
         }
 
         #endregion

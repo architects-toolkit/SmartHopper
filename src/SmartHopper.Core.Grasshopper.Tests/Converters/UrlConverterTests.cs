@@ -467,14 +467,16 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         {
             var htmlContent =
                 "<div class=\"mw-parser-output\">" +
-                "<h2><span class=\"mw-headline\" id=\"Goals\">Goals</span></h2>\n" +
+                "<h2><span class=\"mw-headline\" id=\"Goals\">Goals</span><span class=\"mw-editsection\">[<a href=\"/w/...\">edit</a>]</span></h2>\n" +
                 "<p>General goals overview.</p>\n" +
-                "<h3><span class=\"mw-headline\" id=\"Reasoning\">Reasoning and problem-solving</span></h3>\n" +
-                "<p>Reasoning content.</p>\n" +
+                "<h3><span class=\"mw-headline\" id=\"Reasoning\">Reasoning and problem-solving</span><span class=\"mw-editsection\">[<a href=\"/w/...\">edit</a>]</span></h3>\n" +
+                "<p>Reasoning content.<sup class=\"reference\"><a href=\"#cite_note-1\">[1]</a></sup></p>\n" +
                 "<table>\n" +
                 "<tr><th>Technique</th><th>Description</th></tr>\n" +
                 "<tr><td>Search</td><td>Finds paths</td></tr>\n" +
                 "</table>\n" +
+                "<div class=\"hatnote\">For other uses, see Test.</div>\n" +
+                "<table class=\"navbox\"><tr><td>Navbox content</td></tr></table>\n" +
                 "</div>";
 
             var parseJson = new JObject
@@ -518,6 +520,9 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             Assert.Contains("| Technique | Description |", result.MarkdownContent);
             Assert.Contains("| Search | Finds paths |", result.MarkdownContent);
             Assert.DoesNotContain("== Goals ==", result.MarkdownContent);
+            Assert.DoesNotContain("[edit]", result.MarkdownContent);
+            Assert.DoesNotContain("Navbox content", result.MarkdownContent);
+            Assert.DoesNotContain("For other uses", result.MarkdownContent);
         }
     }
 }
