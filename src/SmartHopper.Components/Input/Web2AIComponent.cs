@@ -30,6 +30,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
@@ -66,6 +67,9 @@ namespace SmartHopper.Components.Input
         protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("URL", "U", "Web URL(s) to fetch and convert to Markdown.", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Include Links", "IL", "Keep hyperlinks in the Markdown output. Default: true.", GH_ParamAccess.tree, true);
+            pManager.AddBooleanParameter("Include Images", "II", "Keep inline image references in the Markdown output. Default: true.", GH_ParamAccess.tree, true);
+            pManager.AddTextParameter("Image Mode", "IM", "How images appear in the Markdown. 'link' (default): keep remote image URLs as Markdown links. 'embed': download and embed as base64 data URIs with short AI captions. 'describe': replace with a long AI text description. 'caption': replace with a short AI-generated title. Requires an AI provider for embed/describe/caption.", GH_ParamAccess.tree, "link");
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -112,7 +116,19 @@ namespace SmartHopper.Components.Input
                 var urlTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("URL", out urlTree);
 
+                var includeLinksTree = new GH_Structure<GH_Boolean>();
+                DA.GetDataTree("Include Links", out includeLinksTree);
+
+                var includeImagesTree = new GH_Structure<GH_Boolean>();
+                DA.GetDataTree("Include Images", out includeImagesTree);
+
+                var imageModeTree = new GH_Structure<GH_String>();
+                DA.GetDataTree("Image Mode", out imageModeTree);
+
                 this.inputTrees["URL"] = urlTree;
+                this.inputTrees["IncludeLinks"] = File2MdToolResult.ConvertBoolTreeToString(includeLinksTree, "true");
+                this.inputTrees["IncludeImages"] = File2MdToolResult.ConvertBoolTreeToString(includeImagesTree, "true");
+                this.inputTrees["ImageMode"] = imageModeTree ?? new GH_Structure<GH_String>();
 
                 // Data count will be calculated by RunProcessingAsync
                 dataCount = 0;
@@ -147,10 +163,27 @@ namespace SmartHopper.Components.Input
                 };
 
                 var urlList = branches["URL"];
+                var includeLinksList = branches["IncludeLinks"];
+                var includeImagesList = branches["IncludeImages"];
+                var imageModeList = branches["ImageMode"];
 
-                foreach (var urlItem in urlList)
+                // Normalize branch lengths to handle mismatched input trees
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { urlList, includeLinksList, includeImagesList, imageModeList });
+                urlList = normalizedLists[0];
+                includeLinksList = normalizedLists[1];
+                includeImagesList = normalizedLists[2];
+                imageModeList = normalizedLists[3];
+
+                for (int i = 0; i < urlList.Count; i++)
                 {
-                    string url = urlItem?.Value;
+                    string url = urlList[i]?.Value;
+                    bool includeLinks = bool.TryParse(includeLinksList[i]?.Value, out var il) ? il : true;
+                    bool includeImages = bool.TryParse(includeImagesList[i]?.Value, out var ii) ? ii : true;
+                    string imageMode = imageModeList?[i]?.Value?.ToLowerInvariant() ?? "link";
+                    if (imageMode != "link" && imageMode != "embed" && imageMode != "describe" && imageMode != "caption")
+                    {
+                        imageMode = "link";
+                    }
 
                     if (string.IsNullOrWhiteSpace(url))
                     {
@@ -174,6 +207,9 @@ namespace SmartHopper.Components.Input
                         var parameters = new JObject
                         {
                             ["url"] = url,
+                            ["includeLinks"] = includeLinks,
+                            ["includeImages"] = includeImages,
+                            ["imageMode"] = imageMode,
                         };
 
                         var toolCallInteraction = new AIInteractionToolCall

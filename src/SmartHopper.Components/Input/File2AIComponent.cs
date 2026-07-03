@@ -64,7 +64,8 @@ namespace SmartHopper.Components.Input
         {
             pManager.AddTextParameter("File Path", "F", "Path(s) to the file(s) to convert and wrap into an AIInputPayload.", GH_ParamAccess.tree);
             pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
-            pManager.AddBooleanParameter("Extract Images", "EI", "Extract embedded images as base64 data. Default: false.", GH_ParamAccess.tree, false);
+            pManager.AddBooleanParameter("Extract Images", "EI", "Extract embedded images and describe them according to Image Mode. Default: false.", GH_ParamAccess.tree, false);
+            pManager.AddTextParameter("Image Mode", "IM", "How extracted images appear in the Markdown. 'embed' (default): embed as base64 data URI with a short AI caption. 'describe': replace with a long AI text description. 'caption': replace with a short AI-generated title. Requires an AI provider.", GH_ParamAccess.tree, "embed");
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -119,10 +120,14 @@ namespace SmartHopper.Components.Input
                 var extractTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Extract Images", out extractTree);
 
+                var imageModeTree = new GH_Structure<GH_String>();
+                DA.GetDataTree("Image Mode", out imageModeTree);
+
                 // Convert boolean trees to string trees for unified processing
                 this.inputTrees["FilePath"] = pathTree;
                 this.inputTrees["RemoveHeaders"] = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
                 this.inputTrees["ExtractImages"] = File2MdToolResult.ConvertBoolTreeToString(extractTree, "false");
+                this.inputTrees["ImageMode"] = imageModeTree ?? new GH_Structure<GH_String>();
 
                 dataCount = 0;
             }
@@ -159,18 +164,25 @@ namespace SmartHopper.Components.Input
                 var filePaths = branches["FilePath"];
                 var removeList = branches["RemoveHeaders"];
                 var extractList = branches["ExtractImages"];
+                var imageModeList = branches["ImageMode"];
 
                 // Normalize branch lengths to handle mismatched input trees
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { filePaths, removeList, extractList });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { filePaths, removeList, extractList, imageModeList });
                 filePaths = normalizedLists[0];
                 removeList = normalizedLists[1];
                 extractList = normalizedLists[2];
+                imageModeList = normalizedLists[3];
 
                 for (int i = 0; i < filePaths.Count; i++)
                 {
                     string filePath = filePaths[i]?.Value;
                     bool removeHeaders = bool.TryParse(removeList[i]?.Value, out var rh) ? rh : true;
                     bool extractImages = bool.TryParse(extractList[i]?.Value, out var ei) ? ei : false;
+                    string imageMode = imageModeList?[i]?.Value?.ToLowerInvariant() ?? "embed";
+                    if (imageMode != "embed" && imageMode != "describe" && imageMode != "caption")
+                    {
+                        imageMode = "embed";
+                    }
 
                     if (string.IsNullOrWhiteSpace(filePath))
                     {
@@ -198,7 +210,9 @@ namespace SmartHopper.Components.Input
                             preserveFormatting: true,
                             preserveComments: true,
                             preserveFootnotes: true,
-                            preserveEndnotes: true).ConfigureAwait(false);
+                            preserveEndnotes: true,
+                            describeImages: extractImages,
+                            imageMode: imageMode).ConfigureAwait(false);
 
                         if (converted == null)
                         {

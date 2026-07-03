@@ -79,6 +79,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="preserveComments">Whether to preserve comments in DOCX files.</param>
         /// <param name="preserveFootnotes">Whether to preserve footnotes in DOCX files.</param>
         /// <param name="preserveEndnotes">Whether to preserve endnotes in DOCX files.</param>
+        /// <param name="describeImages">Whether to use AI to describe extracted images and embed the result in the Markdown.</param>
+        /// <param name="imageMode">Image handling mode: 'embed', 'describe', or 'caption'. Only used when <paramref name="describeImages"/> is true.</param>
         /// <returns>
         /// A <see cref="File2MdToolResult"/> on success, or <c>null</c> if the tool returned no result.
         /// </returns>
@@ -90,7 +92,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
             bool preserveFormatting = true,
             bool preserveComments = true,
             bool preserveFootnotes = true,
-            bool preserveEndnotes = true)
+            bool preserveEndnotes = true,
+            bool describeImages = false,
+            string imageMode = "embed")
         {
             var parameters = new JObject
             {
@@ -101,7 +105,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 ["preserveFootnotes"] = preserveFootnotes,
                 ["preserveEndnotes"] = preserveEndnotes,
                 ["extractImages"] = extractImages,
-                ["describeImages"] = false,
+                ["describeImages"] = describeImages,
+                ["imageMode"] = imageMode,
             };
 
             var toolCallInteraction = new AIInteractionToolCall
