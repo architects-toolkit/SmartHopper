@@ -34,13 +34,16 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
+using SmartHopper.Infrastructure.Utils;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
@@ -52,10 +55,29 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
     public sealed class UrlConverter : IFileConverter
     {
         private readonly HtmlConverter htmlConverter;
+        private readonly Func<HttpClient> httpClientFactory;
 
         public UrlConverter()
+            : this(CreateDefaultHttpClient)
+        {
+        }
+
+        /// <summary>
+        /// Creates a converter with a custom <see cref="HttpClient"/> factory. Intended for unit testing
+        /// with a mocked <see cref="HttpMessageHandler"/>; production code should use the parameterless constructor.
+        /// </summary>
+        internal UrlConverter(Func<HttpClient> httpClientFactory)
         {
             this.htmlConverter = new HtmlConverter();
+            this.httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        }
+
+        private static HttpClient CreateDefaultHttpClient()
+        {
+            var client = new HttpClient();
+            string version = VersionHelper.GetDisplayVersion();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd($"SmartHopper/{version} (+https://github.com/architects-toolkit/SmartHopper)");
+            return client;
         }
 
         public IEnumerable<string> SupportedExtensions => new[] { ".url" }; // Pseudo-extension for URL handling
@@ -65,15 +87,19 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             // For UrlConverter, filePath is actually a URL
             var url = filePath;
 
-            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+            if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ||
+                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
             {
-                return FileConversionResult.Failure("url", $"Invalid URL: {url}");
+                return FileConversionResult.Failure("url", $"Invalid URL: {url}", FileConversionFailureReason.InvalidInput);
             }
+
+            var effectiveOptions = options ?? new FileConversionOptions();
+            var maxDownloadBytes = effectiveOptions.MaxDownloadBytes > 0 ? effectiveOptions.MaxDownloadBytes : FileConversionOptions.DefaultMaxDownloadBytes;
+            var minContentLength = effectiveOptions.MinContentLength > 0 ? effectiveOptions.MinContentLength : FileConversionOptions.DefaultMinContentLength;
 
             try
             {
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("SmartHopper/1.5 (+https://github.com/architects-toolkit/SmartHopper)");
+                using var httpClient = this.httpClientFactory();
 
                 // Check robots.txt
                 Uri robotsUri = new (uri.GetLeftPart(UriPartial.Authority) + "/robots.txt");
@@ -86,7 +112,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         var robots = new WebUtilities(robotsContent);
                         if (!robots.IsPathAllowed(uri.PathAndQuery))
                         {
-                            return FileConversionResult.Failure("url", $"Access to '{uri}' is disallowed by robots.txt.");
+                            return FileConversionResult.Failure("url", $"Access to '{uri}' is disallowed by robots.txt.", FileConversionFailureReason.Other);
                         }
                     }
                 }
@@ -97,6 +123,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                 string? textContent = null;
                 string contentFormat = "markdown";
+                bool sawPasswordField = false;
                 var result = new FileConversionResult { DetectedFormat = "url" };
 
                 // Try specialized fetchers first
@@ -142,11 +169,60 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 // Fallback to generic HTML conversion using HtmlConverter
                 if (string.IsNullOrWhiteSpace(textContent))
                 {
-                    var html = await httpClient.GetStringAsync(uri).ConfigureAwait(false);
+                    using var response = await httpClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"Access to '{uri}' requires authentication (HTTP {(int)response.StatusCode} {response.StatusCode}).",
+                            FileConversionFailureReason.LoginRequired);
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"Failed to fetch '{uri}': HTTP {(int)response.StatusCode} {response.StatusCode}.",
+                            FileConversionFailureReason.NetworkError);
+                    }
+
+                    var (html, tooLarge) = await ReadBoundedContentAsync(response, maxDownloadBytes).ConfigureAwait(false);
+                    if (tooLarge)
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"Page content at '{uri}' exceeds the maximum allowed size ({maxDownloadBytes / 1_000_000}MB).",
+                            FileConversionFailureReason.ContentTooLarge);
+                    }
+
+                    if (html == null)
+                    {
+                        return FileConversionResult.Failure("url", $"Failed to read content from '{uri}'.", FileConversionFailureReason.NetworkError);
+                    }
+
                     Debug.WriteLine($"[UrlConverter] Fetched HTML from {url}. Length: {html.Length}");
 
+                    sawPasswordField = HasPasswordField(html);
+
+                    if (LooksLikeBotChallenge(html))
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"The page at '{uri}' returned a bot/human-verification challenge instead of content.",
+                            FileConversionFailureReason.BotChallenge);
+                    }
+
+                    if (sawPasswordField && HasLoginPhrase(html))
+                    {
+                        return FileConversionResult.Failure(
+                            "url",
+                            $"The page at '{uri}' requires authentication (login wall) and did not return readable content.",
+                            FileConversionFailureReason.LoginRequired);
+                    }
+
                     // Pass the fetched URL as base URL so relative links/images become absolute.
-                    var htmlOptions = options?.Clone() ?? new FileConversionOptions();
+                    var htmlOptions = effectiveOptions.Clone();
                     htmlOptions.BaseUrl = uri.ToString();
 
                     // Save HTML to temp file for HtmlConverter
@@ -169,24 +245,148 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(textContent))
+                var trimmedLength = textContent?.Trim().Length ?? 0;
+                if (trimmedLength < minContentLength)
                 {
-                    return FileConversionResult.Failure("url", "The requested page did not return any readable content.");
+                    var reason = sawPasswordField ? FileConversionFailureReason.LoginRequired : FileConversionFailureReason.EmptyContent;
+                    var message = sawPasswordField
+                        ? $"The page at '{uri}' appears to require authentication and returned too little content ({trimmedLength} characters) to be considered a successful conversion."
+                        : $"The page at '{uri}' returned too little content ({trimmedLength} characters) to be considered a successful conversion.";
+                    return FileConversionResult.Failure("url", message, reason);
                 }
 
-                result.MarkdownContent = textContent;
+                result.MarkdownContent = textContent!;
                 result.Metadata["source"] = url;
                 result.Metadata["format"] = contentFormat;
                 result.IsSuccess = true;
+                result.FailureReason = FileConversionFailureReason.None;
 
                 return result;
+            }
+            catch (HttpRequestException ex)
+            {
+                Debug.WriteLine($"[UrlConverter] Network error: {ex.Message}");
+                return FileConversionResult.Failure("url", $"Network error fetching URL: {ex.Message}", FileConversionFailureReason.NetworkError);
+            }
+            catch (TaskCanceledException ex)
+            {
+                Debug.WriteLine($"[UrlConverter] Timeout: {ex.Message}");
+                return FileConversionResult.Failure("url", $"Timed out fetching URL: {url}", FileConversionFailureReason.NetworkError);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[UrlConverter] Error: {ex.Message}");
-                return FileConversionResult.Failure("url", $"Error fetching URL: {ex.Message}");
+                return FileConversionResult.Failure("url", $"Error fetching URL: {ex.Message}", FileConversionFailureReason.Other);
             }
         }
+
+        /// <summary>
+        /// Reads the response body up to <paramref name="maxBytes"/>. Returns (null, true) if the declared
+        /// or actual content length exceeds the limit, so oversized pages fail fast without buffering
+        /// unbounded content in memory.
+        /// </summary>
+        private static async Task<(string? Content, bool TooLarge)> ReadBoundedContentAsync(HttpResponseMessage response, long maxBytes)
+        {
+            var declaredLength = response.Content.Headers.ContentLength;
+            if (declaredLength.HasValue && declaredLength.Value > maxBytes)
+            {
+                return (null, true);
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var memoryStream = new MemoryStream();
+            var buffer = new byte[81920];
+            long totalRead = 0;
+            int bytesRead;
+            while ((bytesRead = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length)).ConfigureAwait(false)) > 0)
+            {
+                totalRead += bytesRead;
+                if (totalRead > maxBytes)
+                {
+                    return (null, true);
+                }
+
+                memoryStream.Write(buffer, 0, bytesRead);
+            }
+
+            memoryStream.Position = 0;
+            using var reader = new StreamReader(memoryStream, Encoding.UTF8);
+            var content = await reader.ReadToEndAsync().ConfigureAwait(false);
+            return (content, false);
+        }
+
+        /// <summary>
+        /// Detects common bot/human-verification challenge signatures (CAPTCHA providers and
+        /// anti-bot vendor interstitials) in raw HTML, so challenge markup is never mistaken for content.
+        /// </summary>
+        private static bool LooksLikeBotChallenge(string html)
+        {
+            foreach (var signature in BotChallengeSignatures)
+            {
+                if (html.Contains(signature, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasPasswordField(string html)
+        {
+            return PasswordFieldRegex.IsMatch(html);
+        }
+
+        private static bool HasLoginPhrase(string html)
+        {
+            foreach (var phrase in LoginPhraseSignatures)
+            {
+                if (html.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static readonly Regex PasswordFieldRegex = new (@"type\s*=\s*[""']?password[""']?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly string[] BotChallengeSignatures =
+        {
+            "g-recaptcha",
+            "recaptcha/api.js",
+            "www.google.com/recaptcha",
+            "hcaptcha.com",
+            "h-captcha",
+            "cf-turnstile",
+            "challenges.cloudflare.com/turnstile",
+            "just a moment...",
+            "attention required! | cloudflare",
+            "checking your browser before accessing",
+            "cf-chl-",
+            "captcha-delivery.com",
+            "_datadome",
+            "px-captcha",
+            "perimeterx",
+            "geetest",
+        };
+
+        private static readonly string[] LoginPhraseSignatures =
+        {
+            "please log in",
+            "please sign in",
+            "you must be logged in",
+            "you must log in",
+            "log in to continue",
+            "sign in to continue",
+            "login required",
+            "members only",
+            "subscribers only",
+            "this content is only available to subscribers",
+            "you need to sign in",
+            "create an account to continue",
+        };
 
         #region Specialized Fetchers
 

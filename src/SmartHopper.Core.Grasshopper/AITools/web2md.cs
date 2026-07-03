@@ -107,7 +107,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string url = args["url"]?.ToString();
                 if (string.IsNullOrWhiteSpace(url))
                 {
-                    output.CreateError("Missing 'url' parameter.");
+                    output.CreateError($"[{FileConversionFailureReason.InvalidInput}] Missing 'url' parameter.");
                     return output;
                 }
 
@@ -132,7 +132,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     var errorMessage = result.Warnings.Count > 0
                         ? string.Join("; ", result.Warnings)
                         : "Conversion failed.";
-                    output.CreateError(errorMessage);
+
+                    // Prefix with the classified failure reason so callers/agents can distinguish
+                    // failure shapes (invalid URL, login wall, bot challenge, oversized page, empty
+                    // content, etc.) without having to parse free-text messages.
+                    output.CreateError($"[{result.FailureReason}] {errorMessage}");
                     return output;
                 }
 
