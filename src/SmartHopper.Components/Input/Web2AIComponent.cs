@@ -235,7 +235,7 @@ namespace SmartHopper.Components.Input
                 var urlTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("URL", out urlTree);
 
-                GH_Structure<GH_String> imageModeTree;
+                var imageModeTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("Image Mode", out imageModeTree);
 
                 this.inputTrees["URL"] = urlTree;

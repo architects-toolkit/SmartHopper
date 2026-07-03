@@ -250,7 +250,7 @@ namespace SmartHopper.Components.Input
                 var removeTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Remove Headers", out removeTree);
 
-                GH_Structure<GH_String> imageModeTree;
+                var imageModeTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("Image Mode", out imageModeTree);
 
                 this.inputTrees["FilePath"] = pathTree;

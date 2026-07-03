@@ -31,7 +31,6 @@ namespace SmartHopper.Infrastructure.Tests
     /// <summary>
     /// Unit tests for the <see cref="AIToolManager.ExecuteTool"/> method.
     /// </summary>
-    [Collection("AIToolManager")]
     public class AIToolManagerExecutionTests
     {
         #region ExecuteTool Validation
