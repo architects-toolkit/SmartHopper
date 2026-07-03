@@ -19,8 +19,11 @@
 namespace SmartHopper.Core.Grasshopper.Utils.Internal
 {
     using System;
+    using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Linq;
     using System.Net.Http;
+    using System.Text;
     using System.Threading.Tasks;
     using Newtonsoft.Json.Linq;
     using SmartHopper.Core.Types;
@@ -188,8 +191,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
         /// <param name="imageMode">The image mode: <c>link</c>, <c>embed</c>, <c>describe</c>, or <c>caption</c>.</param>
         /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
         /// <param name="httpClient">Optional HTTP client for downloading web images.</param>
+        /// <param name="prompt">Optional custom prompt for AI image description. If null, the default prompt for the mode is used.</param>
         /// <returns>The Markdown replacement string.</returns>
-        public static async Task<string> ProcessImageItemAsync(ImageProcessingItem item, string imageMode, AIToolCall sourceToolCall, HttpClient? httpClient = null)
+        public static async Task<string> ProcessImageItemAsync(ImageProcessingItem item, string imageMode, AIToolCall sourceToolCall, HttpClient? httpClient = null, string? prompt = null)
         {
             if (imageMode == "link")
             {
@@ -211,9 +215,58 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
                 return BuildMarkdownReplacement("link", string.Empty, item.AltText, item.Url, null, null, item.Id, item.Context);
             }
 
-            string prompt = GetDefaultPrompt(imageMode);
-            string aiText = await DescribeImageAsync(base64Data, mimeType, prompt, sourceToolCall).ConfigureAwait(false);
+            string effectivePrompt = prompt ?? GetDefaultPrompt(imageMode);
+            string aiText = await DescribeImageAsync(base64Data, mimeType, effectivePrompt, sourceToolCall).ConfigureAwait(false);
             return BuildMarkdownReplacement(imageMode, aiText, item.AltText, item.Url, mimeType, base64Data, item.Id, item.Context);
+        }
+
+        /// <summary>
+        /// Processes every image in <paramref name="items"/> and replaces each matching
+        /// <see cref="ImageProcessingItem.Placeholder"/> in the Markdown with the formatted
+        /// result for the requested <paramref name="imageMode"/>. This is the single shared
+        /// pipeline used by both <c>file2md</c> and <c>web2md</c>.
+        /// </summary>
+        /// <param name="markdown">The Markdown content containing image placeholders.</param>
+        /// <param name="items">The image items to process, each carrying its own placeholder.</param>
+        /// <param name="imageMode">The image mode: <c>link</c>, <c>embed</c>, <c>describe</c>, or <c>caption</c>.</param>
+        /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
+        /// <param name="httpClient">Optional HTTP client for downloading web images.</param>
+        /// <param name="prompt">Optional custom prompt for AI image description. If null, the default prompt for the mode is used.</param>
+        /// <returns>The Markdown content with all image placeholders replaced.</returns>
+        public static async Task<string> ProcessMarkdownImagesAsync(
+            string markdown,
+            IEnumerable<ImageProcessingItem> items,
+            string imageMode,
+            AIToolCall sourceToolCall,
+            HttpClient? httpClient = null,
+            string? prompt = null)
+        {
+            var replacements = new List<(int MatchIndex, string Original, string Replacement)>();
+
+            foreach (var item in items)
+            {
+                if (string.IsNullOrEmpty(item.Placeholder))
+                {
+                    continue;
+                }
+
+                string replacement = await ProcessImageItemAsync(item, imageMode, sourceToolCall, httpClient, prompt).ConfigureAwait(false);
+                int index = markdown.IndexOf(item.Placeholder, StringComparison.Ordinal);
+                if (index >= 0)
+                {
+                    replacements.Add((index, item.Placeholder, replacement));
+                }
+            }
+
+            // Rebuild the Markdown from the end so earlier indices remain valid.
+            var sb = new StringBuilder(markdown);
+            foreach (var (matchIndex, original, replacement) in replacements.OrderByDescending(r => r.MatchIndex))
+            {
+                sb.Remove(matchIndex, original.Length);
+                sb.Insert(matchIndex, replacement);
+            }
+
+            return sb.ToString();
         }
     }
 
@@ -239,5 +292,12 @@ namespace SmartHopper.Core.Grasshopper.Utils.Internal
 
         /// <summary>Gets or sets the alt text or caption text.</summary>
         public string AltText { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the exact substring in the Markdown that this image replaces.
+        /// For file images this is typically <c>[image N]</c>; for web images it is
+        /// the original <c>![alt](url)</c> reference.
+        /// </summary>
+        public string Placeholder { get; set; } = string.Empty;
     }
 }

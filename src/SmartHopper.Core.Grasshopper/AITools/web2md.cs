@@ -21,7 +21,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -221,8 +220,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         }
 
         /// <summary>
-        /// Finds all inline Markdown image references in the content, downloads the remote images,
-        /// and replaces them according to the selected <paramref name="imageMode"/>.
+        /// Finds all inline Markdown image references in the content and replaces them according to
+        /// the selected <paramref name="imageMode"/> through the shared <see cref="ImageProcessingService"/>.
         /// </summary>
         private static async Task<string> ProcessWebImagesAsync(string markdownContent, string imageMode, AIToolCall toolCall)
         {
@@ -233,35 +232,21 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
 
             using var httpClient = new HttpClient();
-            var replacements = new List<(int MatchIndex, string Original, string Replacement)>();
-            int imageIndex = 1;
-            foreach (Match match in matches)
+            var items = matches.OfType<Match>().Select((match, i) => new ImageProcessingItem
             {
-                string altText = match.Groups[1].Value;
-                string imageUrl = match.Groups[2].Value;
+                Id = $"web-img-{i + 1}",
+                Context = match.Groups[2].Value,
+                AltText = match.Groups[1].Value,
+                Url = match.Groups[2].Value,
+                Placeholder = match.Value,
+            }).ToList();
 
-                var item = new ImageProcessingItem
-                {
-                    Id = $"web-img-{imageIndex}",
-                    Context = imageUrl,
-                    AltText = altText,
-                    Url = imageUrl,
-                };
-
-                string replacement = await ImageProcessingService.ProcessImageItemAsync(item, imageMode, toolCall, httpClient).ConfigureAwait(false);
-                replacements.Add((match.Index, match.Value, replacement));
-                imageIndex++;
-            }
-
-            // Rebuild the markdown from the end so indices remain valid.
-            var contentSb = new StringBuilder(markdownContent);
-            foreach (var (matchIndex, original, replacement) in replacements.OrderByDescending(r => r.MatchIndex))
-            {
-                contentSb.Remove(matchIndex, original.Length);
-                contentSb.Insert(matchIndex, replacement);
-            }
-
-            return contentSb.ToString();
+            return await ImageProcessingService.ProcessMarkdownImagesAsync(
+                markdownContent,
+                items,
+                imageMode,
+                toolCall,
+                httpClient).ConfigureAwait(false);
         }
     }
 }

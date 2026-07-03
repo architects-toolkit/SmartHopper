@@ -54,9 +54,13 @@ This document explains how to convert documents to Markdown within Grasshopper, 
 
 1. Add the **File2Md** component from the **SmartHopper → Knowledge** panel
 2. Connect a file path (absolute path) to the **File Path** input
-3. The component outputs:
+3. Use **Remove Headers** to toggle header/footer removal (default: `true`)
+4. The component outputs:
    - **Markdown**: Converted Markdown content
+   - **Images**: Extracted images (when present) as `VersatileImage` objects
    - **Format**: Detected original format (e.g., "pdf", "docx")
+
+> **Note:** Preserve Formatting is always enabled in the `File2Md` component. The `preserveFormatting` tool parameter remains available for direct `file2md` tool calls and for AI components that wrap `file2md`.
 
 #### Example
 
@@ -119,6 +123,19 @@ AI: [Calls file2md tool with filePath: "C:\reports\Q4-2025.pdf"]
 - **includeImages** (optional, default: true): Keep inline image references in the Markdown output for HTML sources
 
 > Table structure, hyperlinks, and Office Math are now always preserved and are no longer exposed as individual parameters.
+
+### Image Mode in AI Components
+
+AI file components (`AIFile2Md`, `File2AI`) expose an **Image Mode** input that controls how images are handled after `file2md` extracts them:
+
+| Mode | Behavior | Needs AI provider |
+| --- | --- | --- |
+| `embed` (AIFile2Md default) | Embed the image as a base64 data URI with a short AI caption | Yes |
+| `describe` | Replace the image with a long AI text description | Yes |
+| `caption` | Replace the image with a short AI-generated title | Yes |
+| `skip` (File2AI default) | Do not extract images; only convert the document text | No |
+
+`File2AI` maps `skip` to `extractImages=false`; all other modes extract images and then use `img2text` for AI descriptions.
 
 ### Image Extraction
 

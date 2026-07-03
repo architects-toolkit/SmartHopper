@@ -70,7 +70,6 @@ namespace SmartHopper.Components.Knowledge
         {
             pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
             pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
-            pManager.AddBooleanParameter("Preserve Formatting", "PF", "Preserve DOCX text colors, highlights, bold, italic, and comments as inline formatting. XLSX and PPTX preserve bold and italic. Default: true.", GH_ParamAccess.tree, true);
         }
 
         /// <inheritdoc/>
@@ -101,7 +100,6 @@ namespace SmartHopper.Components.Knowledge
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
             private GH_Structure<GH_String> removeHeadersTree;
-            private GH_Structure<GH_String> preserveFormattingTree;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultMarkdown;
@@ -127,11 +125,7 @@ namespace SmartHopper.Components.Knowledge
                 var removeTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Remove Headers", out removeTree);
 
-                var preserveFormattingTree = new GH_Structure<GH_Boolean>();
-                DA.GetDataTree("Preserve Formatting", out preserveFormattingTree);
-
                 this.removeHeadersTree = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
-                this.preserveFormattingTree = File2MdToolResult.ConvertBoolTreeToString(preserveFormattingTree, "true");
 
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
@@ -159,7 +153,6 @@ namespace SmartHopper.Components.Knowledge
                     {
                         { "File Path", this.filePathTree },
                         { "RemoveHeaders", this.removeHeadersTree },
-                        { "PreserveFormatting", this.preserveFormattingTree },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
@@ -179,12 +172,10 @@ namespace SmartHopper.Components.Knowledge
                             }
 
                             var removeBranch = branchInputs.TryGetValue("RemoveHeaders", out var rh) ? rh : new List<GH_String>();
-                            var preserveFormattingBranch = branchInputs.TryGetValue("PreserveFormatting", out var pf) ? pf : new List<GH_String>();
 
-                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch, preserveFormattingBranch });
+                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch });
                             pathBranch = normalizedLists[0];
                             removeBranch = normalizedLists[1];
-                            preserveFormattingBranch = normalizedLists[2];
 
                             for (int i = 0; i < pathBranch.Count; i++)
                             {
@@ -192,7 +183,6 @@ namespace SmartHopper.Components.Knowledge
 
                                 var ghPath = pathBranch[i];
                                 bool removeHeaders = bool.TryParse(removeBranch[i]?.Value, out var rhValue) ? rhValue : true;
-                                bool preserveFormatting = bool.TryParse(preserveFormattingBranch[i]?.Value, out var pfValue) ? pfValue : true;
 
                                 if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
@@ -201,14 +191,15 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
+                                const bool PreserveFormatting = true;
                                 var converted = await File2MdToolResult.CallAsync(
                                     ghPath.Value,
                                     removeHeaders,
                                     extractImages: true,
-                                    preserveFormatting: preserveFormatting,
-                                    preserveComments: preserveFormatting,
-                                    preserveFootnotes: preserveFormatting,
-                                    preserveEndnotes: preserveFormatting).ConfigureAwait(false);
+                                    preserveFormatting: PreserveFormatting,
+                                    preserveComments: PreserveFormatting,
+                                    preserveFootnotes: PreserveFormatting,
+                                    preserveEndnotes: PreserveFormatting).ConfigureAwait(false);
 
                                 if (converted == null)
                                 {

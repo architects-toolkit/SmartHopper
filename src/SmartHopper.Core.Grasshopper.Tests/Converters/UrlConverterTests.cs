@@ -524,5 +524,60 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             Assert.DoesNotContain("Navbox content", result.MarkdownContent);
             Assert.DoesNotContain("For other uses", result.MarkdownContent);
         }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "UrlConverter_WikipediaUrl_ConvertsRelativeLinksToAbsolute [Windows]")]
+#else
+        [Fact(DisplayName = "UrlConverter_WikipediaUrl_ConvertsRelativeLinksToAbsolute [Core]")]
+#endif
+        public async Task UrlConverter_WikipediaUrl_ConvertsRelativeLinksToAbsolute()
+        {
+            var htmlContent =
+                "<div class=\"mw-parser-output\">" +
+                "<p>See <a href=\"/wiki/Computer_vision\" title=\"Computer vision\">computer vision</a> and " +
+                "<a href=\"//en.wikipedia.org/wiki/Machine_learning\">machine learning</a>.</p>" +
+                "<img src=\"/wiki/Special:FilePath/Sample.png\" alt=\"sample\" />" +
+                "</div>";
+
+            var parseJson = new JObject
+            {
+                ["parse"] = new JObject
+                {
+                    ["title"] = "Artificial intelligence",
+                    ["text"] = new JObject
+                    {
+                        ["*"] = htmlContent,
+                    },
+                },
+            };
+
+            var converter = CreateConverterWithStubbedResponder(request =>
+            {
+                if (request.RequestUri!.AbsolutePath.EndsWith("/robots.txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                }
+
+                if (request.RequestUri.AbsolutePath.Contains("/api.php"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(parseJson.ToString(), Encoding.UTF8, "application/json"),
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            });
+
+            var result = await converter.ConvertAsync(
+                "https://en.wikipedia.org/wiki/Artificial_intelligence",
+                new FileConversionOptions());
+
+            Assert.True(result.IsSuccess);
+            Assert.Contains("https://en.wikipedia.org/wiki/Computer_vision", result.MarkdownContent);
+            Assert.Contains("https://en.wikipedia.org/wiki/Machine_learning", result.MarkdownContent);
+            Assert.Contains("https://en.wikipedia.org/wiki/Special:FilePath/Sample.png", result.MarkdownContent);
+            Assert.DoesNotContain("href=\"/wiki/Computer_vision\"", result.MarkdownContent);
+        }
     }
 }

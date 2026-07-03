@@ -19,14 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
 - Added `web2md` image modes: `link` (default), `embed`, `describe`, and `caption`. The new `imageMode` parameter lets web pages keep image URLs, embed downloaded images as base64 data URIs, or replace them with AI-generated captions/descriptions.
 - Added a shared `ImageProcessingService` in `SmartHopper.Core.Grasshopper.Utils.Internal` used by both `file2md` and `web2md` for downloading, describing, and formatting Markdown image replacements consistently across file and web conversion paths.
-- Added `Image Mode` inputs to `File2AIComponent` and `Web2AIComponent`, matching the `file2md` and `web2md` tool parameters. `Web2AIComponent` also gains `Include Links` and `Include Images` inputs.
+- Added `Image Mode` inputs to `File2AIComponent`, `Web2AIComponent`, and `Web2MdComponent`. `File2AIComponent` defaults to `skip` (no image extraction); `Web2AIComponent` and `Web2MdComponent` default to `link` (keep remote image URLs). AI is used only when the mode is `embed`, `describe`, or `caption`.
+- Migrated `File2AIComponent` and `Web2AIComponent` to `AIStatefulAsyncComponentBase` so they can batch AI image-description calls through the same infrastructure used by `AIFile2MdComponent`.
+- Added shared `MarkdownImageBatchProcessor` in `SmartHopper.Core.Grasshopper.Utils.Internal` to centralize image slot extraction, batch sentinel generation, and Markdown reconstruction for all file and web components that use AI image descriptions.
 - **`web2md` failure-shape handling**: `UrlConverter` now explicitly classifies and reports failure cases instead of risking a false success with empty/misleading content: invalid or non-HTTP URLs, HTTP 401/403 and other non-success responses, login-wall pages (password field + login phrase, or thin content behind a password field), bot/human-verification challenge pages (reCAPTCHA, hCaptcha, Cloudflare Turnstile/"Just a moment...", DataDome, PerimeterX, GeeTest signatures), oversized pages (new `FileConversionOptions.MaxDownloadBytes`, default 10 MB, enforced via `Content-Length` and bounded streaming reads), and empty/thin pages (new `FileConversionOptions.MinContentLength`, default 40 characters). Added `FileConversionResult.FailureReason` (`FileConversionFailureReason` enum) so callers can distinguish failure shapes programmatically; the `web2md` tool now prefixes its error message with the classified reason (e.g. `[LoginRequired]`, `[BotChallenge]`).
 
 ### Changed
 
 - Simplified the `file2md` AI tool parameter schema: `preserveTableStructure`, `preserveHyperlinks`, and `preserveMath` are now always enabled and are no longer exposed as parameters. `preserveColors` and `preserveHighlights` are replaced by a unified `preserveFormatting` parameter that controls colors and highlights in DOCX plus bold/italic in DOCX, XLSX, and PPTX. Updated `File2MdToolResult`, `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent` to match the new schema, and removed the `Preserve Tables` input from those components.
-- Removed the `Preserve Formatting` input from `AIFile2MdComponent` and `File2AIComponent`; formatting is now always preserved.
+- Removed the `Preserve Formatting` input from `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent`; formatting is now always preserved.
 - Removed the `Image Prompt` input from `AIFile2MdComponent`; the component now always uses the built-in default prompt for the selected image mode.
+- Removed the `Include Links` and `Include Images` inputs from `Web2AIComponent`; both are now always `true`.
+- `web2md` Wikipedia/MediaWiki conversion now converts relative `href`/`src` links to absolute URLs using the source page's scheme and host, so output Markdown points to `https://<host>/wiki/...` instead of `/wiki/...`.
 - `file2md` now delegates AI image description and Markdown replacement formatting to the shared `ImageProcessingService`.
 
 ### Fixed
@@ -36,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Markdown post-processing in `MarkdownStyleCleanup` to remove the extra blank line that converters emit before a nested ordered list starting with `1.` when the previous item is a parent list item.
 - Fixed `OpenXmlMarkdownHelper.GetCellFont` to count actual child elements instead of relying on the optional `Count` attribute, preventing `InvalidOperationException` when reading XLSX files with styles that omit the `count` attribute.
 - Fixed `OpenXmlConverterTests.PptxConverter_BoldItalic` by adding a non-bold run to the first paragraph so the bold formatting is not treated as uniform and is emitted as Markdown bold.
+- Fixed `web2md` generic HTML conversion so headings nested inside links (e.g. WAI-ARIA pattern sidebars) are flattened to plain text before Markdown conversion, preventing invalid Markdown like `[## Title](url)` and preserving only the readable title as the link text.
 - Fixed `OpenXmlConverterTests.XlsxConverter_CellFormatting` by building a complete, valid OpenXML stylesheet (`NumberingFormats`, `Fills`, `CellStyleFormats`, `CellStyles`, `DifferentialFormats`, `TableStyles`) so the workbook is loaded and converted successfully.
 
 ## [2.0.0-dev.260619] - 2026-06-19

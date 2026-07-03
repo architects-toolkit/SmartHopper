@@ -19,7 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
@@ -264,28 +264,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ? ImageProcessingService.GetDefaultPrompt(imageMode)
                                 : imageDescriptionPrompt;
 
-                            var contentSb = new StringBuilder(result.MarkdownContent);
-                            for (int i = 0; i < result.Images.Count; i++)
+                            var items = result.Images.Select((image, i) => new ImageProcessingItem
                             {
-                                var image = result.Images[i];
-                                int imageNumber = i + 1;
-                                string placeholder = $"[image {imageNumber}]";
-                                string aiText = await ImageProcessingService.DescribeImageAsync(image.RawValue, image.MimeType, prompt, toolCall).ConfigureAwait(false);
+                                Id = image.Id,
+                                Context = image.Context,
+                                MimeType = image.MimeType,
+                                Base64Data = image.RawValue,
+                                AltText = image.Context,
+                                Placeholder = $"[image {i + 1}]",
+                            }).ToList();
 
-                                string replacement = ImageProcessingService.BuildMarkdownReplacement(
-                                    imageMode,
-                                    aiText,
-                                    aiText,
-                                    url: null,
-                                    image.MimeType,
-                                    image.RawValue,
-                                    image.Id,
-                                    image.Context);
-
-                                contentSb.Replace(placeholder, replacement);
-                            }
-
-                            result.MarkdownContent = contentSb.ToString();
+                            result.MarkdownContent = await ImageProcessingService.ProcessMarkdownImagesAsync(
+                                result.MarkdownContent,
+                                items,
+                                imageMode,
+                                toolCall,
+                                prompt: prompt).ConfigureAwait(false);
                             toolResult["content"] = result.MarkdownContent;
                         }
                     }

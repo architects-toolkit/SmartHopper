@@ -27,12 +27,17 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.AITools;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
+using SmartHopper.Infrastructure.AICall.Core.Base;
+using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Utilities;
 using SmartHopper.Infrastructure.Diagnostics;
 
@@ -41,20 +46,58 @@ namespace SmartHopper.Components.Input
     /// <summary>
     /// Reads a file using the file2md AI tool and wraps its Markdown content into an AIInputPayload.
     /// Supports PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, and more.
+    /// AI is used only for image description when Image Mode is set to embed, describe, or caption.
     /// </summary>
-    public class File2AIComponent : StatefulComponentBase
+    public class File2AIComponent : AIStatefulAsyncComponentBase
     {
+        /// <summary>
+        /// Per-file context stored during DoWorkAsync so <see cref="OnBatchCompleted"/> can
+        /// reconstruct the final Markdown once all batch image descriptions are available.
+        /// </summary>
+        private Dictionary<string, MarkdownImageBatchContext> _fileContexts;
+
+        /// <summary>
+        /// Flag to prevent clearing <see cref="_fileContexts"/> during polling re-runs.
+        /// </summary>
+        private bool _fileContextsInitialized;
+
+        /// <summary>
+        /// Set to true when the batch is active but <see cref="_fileContexts"/> could not be restored.
+        /// </summary>
+        private bool _batchContextLost;
+
+        /// <summary>
+        /// Local Markdown tree produced during DoWorkAsync; used to build the AIInputPayload output.
+        /// </summary>
+        private GH_Structure<GH_String> _localMarkdown;
+
+        /// <summary>
+        /// Local Format tree produced during DoWorkAsync; does not need AI so it is always available.
+        /// </summary>
+        private GH_Structure<GH_String> _localFormat;
+
         public override Guid ComponentGuid => new Guid("AC2DDCD0-B4E9-4B99-80DA-CA9F9BBCD4C9");
 
         protected override Bitmap Icon => Resources.toaifile;
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
+        /// <inheritdoc/>
+        protected override IReadOnlyList<string> UsingAiTools => new[] { "file2md", "img2text" };
+
+        /// <inheritdoc/>
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.BranchToBranch,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
+
         public File2AIComponent()
             : base(
                 "File to AI",
                 "File2AI",
-                "Reads a file and converts it to Markdown using file2md AI tool, wrapping the content into an AIInputPayload.",
+                "Reads a file and converts it to Markdown using the file2md AI tool, wrapping the content into an AIInputPayload. AI is used only for image description when Image Mode is not 'skip'.",
                 "SmartHopper",
                 "B. Input")
         {
@@ -64,8 +107,7 @@ namespace SmartHopper.Components.Input
         {
             pManager.AddTextParameter("File Path", "F", "Path(s) to the file(s) to convert and wrap into an AIInputPayload.", GH_ParamAccess.tree);
             pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
-            pManager.AddBooleanParameter("Extract Images", "EI", "Extract embedded images and describe them according to Image Mode. Default: false.", GH_ParamAccess.tree, false);
-            pManager.AddTextParameter("Image Mode", "IM", "How extracted images appear in the Markdown. 'embed' (default): embed as base64 data URI with a short AI caption. 'describe': replace with a long AI text description. 'caption': replace with a short AI-generated title. Requires an AI provider.", GH_ParamAccess.tree, "embed");
+            pManager.AddTextParameter("Image Mode", "IM", "How extracted images appear in the Markdown. 'skip' (default): do not extract images. 'embed': embed as base64 data URI with a short AI caption. 'describe': replace with a long AI text description. 'caption': replace with a short AI-generated title. Requires an AI provider for embed/describe/caption.", GH_ParamAccess.tree, "skip");
         }
 
         protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
@@ -75,12 +117,98 @@ namespace SmartHopper.Components.Input
             pManager.AddTextParameter("Format", "F", "Detected source format of the file.", GH_ParamAccess.tree);
         }
 
-        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        protected override void OnEnteringNeedsRun()
         {
-            Topology = ProcessingTopology.BranchToBranch,
-            OnlyMatchingPaths = false,
-            GroupIdenticalBranches = true,
-        };
+            base.OnEnteringNeedsRun();
+            this._fileContexts = null;
+            this._fileContextsInitialized = false;
+            this._batchContextLost = false;
+            this._localMarkdown = null;
+            this._localFormat = null;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnBatchCompleted(IReadOnlyDictionary<string, JObject> results, IReadOnlyList<SHRuntimeMessage> messages = null)
+        {
+            var sentinel = this.GetSentinelTree("Markdown");
+            if (results == null || sentinel == null) return;
+
+            var allSlotMetrics = new List<AIMetrics>();
+
+            var reconstructedMarkdown = this.ProcessBatchResults<GH_String>(
+                "Markdown",
+                sentinel,
+                results,
+                (representativeSentinelId, _) =>
+                {
+                    if (this._fileContexts == null ||
+                        !this._fileContexts.TryGetValue(representativeSentinelId, out var fileCtx))
+                    {
+                        Debug.WriteLine($"[File2AI] OnBatchCompleted: File context missing for sentinel {representativeSentinelId}");
+                        return new GH_String("[File context missing]");
+                    }
+
+                    var markdown = MarkdownImageBatchProcessor.Reconstruct(
+                        fileCtx,
+                        results,
+                        this.GetActualAIProviderName(),
+                        metrics: null,
+                        onImageResolved: (slotSentinelId, body, assistantText, description) =>
+                        {
+                            if (assistantText?.Metrics != null && slotSentinelId != representativeSentinelId)
+                            {
+                                if (string.IsNullOrEmpty(assistantText.Metrics.Provider))
+                                {
+                                    assistantText.Metrics.Provider = this.GetActualAIProviderName();
+                                }
+
+                                if (string.IsNullOrEmpty(assistantText.Metrics.Model))
+                                {
+                                    assistantText.Metrics.Model = this.GetModel();
+                                }
+
+                                allSlotMetrics.Add(assistantText.Metrics);
+                            }
+                        });
+
+                    return new GH_String(markdown);
+                },
+                messages);
+
+            if (allSlotMetrics.Count > 0)
+            {
+                foreach (var m in allSlotMetrics)
+                {
+                    this.CombineIntoPersistedMetrics(m, "tool:img2text");
+                }
+
+                Debug.WriteLine($"[File2AI] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics via CombineIntoPersistedMetrics");
+                this.SetMetricsOutput(null);
+            }
+
+            // Build Input > tree from the reconstructed Markdown
+            var inputPayloadTree = new GH_Structure<IGH_Goo>();
+            foreach (var path in reconstructedMarkdown.Paths)
+            {
+                var branch = reconstructedMarkdown.get_Branch(path);
+                if (branch == null) continue;
+                foreach (var item in branch)
+                {
+                    if (item is GH_String gs)
+                    {
+                        var payload = string.IsNullOrWhiteSpace(gs.Value) ? null : AIInputPayload.FromText(gs.Value);
+                        inputPayloadTree.Append(new GH_AIInputPayload(payload), path);
+                    }
+                }
+            }
+
+            this.SetPersistentOutput("Input >", inputPayloadTree, null);
+
+            if (this._localFormat != null)
+            {
+                this.SetPersistentOutput("Format", this._localFormat, null);
+            }
+        }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
@@ -109,6 +237,11 @@ namespace SmartHopper.Components.Input
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
+                if (!this.parent.HasActiveBatchSubmission || this.parent._batchContextLost)
+                {
+                    this.parent._fileContextsInitialized = false;
+                }
+
                 this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>();
 
                 var pathTree = new GH_Structure<GH_String>();
@@ -117,16 +250,11 @@ namespace SmartHopper.Components.Input
                 var removeTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Remove Headers", out removeTree);
 
-                var extractTree = new GH_Structure<GH_Boolean>();
-                DA.GetDataTree("Extract Images", out extractTree);
-
                 var imageModeTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("Image Mode", out imageModeTree);
 
-                // Convert boolean trees to string trees for unified processing
                 this.inputTrees["FilePath"] = pathTree;
                 this.inputTrees["RemoveHeaders"] = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
-                this.inputTrees["ExtractImages"] = File2MdToolResult.ConvertBoolTreeToString(extractTree, "false");
                 this.inputTrees["ImageMode"] = imageModeTree ?? new GH_Structure<GH_String>();
 
                 dataCount = 0;
@@ -134,16 +262,53 @@ namespace SmartHopper.Components.Input
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
+                this.result = new Dictionary<string, GH_Structure<IGH_Goo>>
+                {
+                    { "Input >", new GH_Structure<IGH_Goo>() },
+                    { "Markdown", new GH_Structure<IGH_Goo>() },
+                    { "Format", new GH_Structure<IGH_Goo>() },
+                };
+
+                if (!this.parent._fileContextsInitialized)
+                {
+                    this.parent._fileContexts = new Dictionary<string, MarkdownImageBatchContext>();
+                    this.parent._fileContextsInitialized = true;
+                }
+
+                this.parent._localMarkdown = null;
+                this.parent._localFormat = null;
+
                 try
                 {
                     this.result = await this.parent.RunProcessingAsync(
                         this.inputTrees,
-                        async (branches) =>
-                        {
-                            return await this.ProcessBranches(branches).ConfigureAwait(false);
-                        },
+                        async branches => await this.ProcessBranches(branches, token).ConfigureAwait(false),
                         this.processingOptions,
                         token).ConfigureAwait(false);
+
+                    var markdownTree = DataTreeProcessor.ExtractTypedTree<GH_String>(this.result, "Markdown");
+                    var formatTree = DataTreeProcessor.ExtractTypedTree<GH_String>(this.result, "Format");
+
+                    this.parent._localMarkdown = markdownTree;
+                    this.parent._localFormat = formatTree;
+
+                    var markdownDict = new Dictionary<string, GH_Structure<GH_String>>
+                    {
+                        { "Markdown", markdownTree },
+                    };
+                    var batchSubmitted = await this.parent.TrySubmitBatchAsync("Markdown", markdownDict, token).ConfigureAwait(false);
+                    if (batchSubmitted)
+                    {
+                        Debug.WriteLine("[File2AI] Sentinel tree stored, batch submitted");
+                    }
+                    else
+                    {
+                        this.parent.FinishResults(
+                            "Markdown",
+                            markdownTree ?? new GH_Structure<GH_String>(),
+                            ("Input >", (object)(this.result["Input >"] ?? new GH_Structure<IGH_Goo>())),
+                            ("Format", (object)(formatTree ?? new GH_Structure<GH_String>())));
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -152,7 +317,7 @@ namespace SmartHopper.Components.Input
                 }
             }
 
-            private async Task<Dictionary<string, List<IGH_Goo>>> ProcessBranches(Dictionary<string, List<GH_String>> branches)
+            private async Task<Dictionary<string, List<IGH_Goo>>> ProcessBranches(Dictionary<string, List<GH_String>> branches, CancellationToken token)
             {
                 var outputs = new Dictionary<string, List<IGH_Goo>>
                 {
@@ -163,25 +328,21 @@ namespace SmartHopper.Components.Input
 
                 var filePaths = branches["FilePath"];
                 var removeList = branches["RemoveHeaders"];
-                var extractList = branches["ExtractImages"];
                 var imageModeList = branches["ImageMode"];
 
-                // Normalize branch lengths to handle mismatched input trees
-                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { filePaths, removeList, extractList, imageModeList });
+                var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { filePaths, removeList, imageModeList });
                 filePaths = normalizedLists[0];
                 removeList = normalizedLists[1];
-                extractList = normalizedLists[2];
-                imageModeList = normalizedLists[3];
+                imageModeList = normalizedLists[2];
 
                 for (int i = 0; i < filePaths.Count; i++)
                 {
                     string filePath = filePaths[i]?.Value;
                     bool removeHeaders = bool.TryParse(removeList[i]?.Value, out var rh) ? rh : true;
-                    bool extractImages = bool.TryParse(extractList[i]?.Value, out var ei) ? ei : false;
-                    string imageMode = imageModeList?[i]?.Value?.ToLowerInvariant() ?? "embed";
-                    if (imageMode != "embed" && imageMode != "describe" && imageMode != "caption")
+                    string imageMode = imageModeList?[i]?.Value?.ToLowerInvariant() ?? "skip";
+                    if (imageMode != "skip" && imageMode != "embed" && imageMode != "describe" && imageMode != "caption")
                     {
-                        imageMode = "embed";
+                        imageMode = "skip";
                     }
 
                     if (string.IsNullOrWhiteSpace(filePath))
@@ -203,6 +364,7 @@ namespace SmartHopper.Components.Input
 
                     try
                     {
+                        bool extractImages = imageMode != "skip";
                         var converted = await File2MdToolResult.CallAsync(
                             filePath,
                             removeHeaders,
@@ -211,7 +373,7 @@ namespace SmartHopper.Components.Input
                             preserveComments: true,
                             preserveFootnotes: true,
                             preserveEndnotes: true,
-                            describeImages: extractImages,
+                            describeImages: false,
                             imageMode: imageMode).ConfigureAwait(false);
 
                         if (converted == null)
@@ -223,9 +385,50 @@ namespace SmartHopper.Components.Input
                             continue;
                         }
 
-                        AIInputPayload payload = string.IsNullOrWhiteSpace(converted.Markdown)
+                        string markdown = converted.Markdown;
+                        bool isBatch = this.parent.IsBatchRequest();
+
+                        var imageSlots = new List<MarkdownImageSlot>();
+                        if (extractImages)
+                        {
+                            int idx = 1;
+                            foreach (var img in converted.Images)
+                            {
+                                imageSlots.Add(new MarkdownImageSlot
+                                {
+                                    Index = idx,
+                                    ImageId = img.Id ?? "img",
+                                    ImageMode = imageMode,
+                                    ImageContext = img.Context ?? string.Empty,
+                                    MimeType = img.MimeType ?? "image/png",
+                                    Base64Data = img.RawValue ?? string.Empty,
+                                    Placeholder = $"[image {idx}]",
+                                });
+                                idx++;
+                            }
+                        }
+
+                        var processingResult = await MarkdownImageBatchProcessor.ProcessAsync(
+                            markdown,
+                            imageSlots,
+                            imageMode,
+                            async parameters =>
+                            {
+                                var result = await this.parent.CallAIToolAsync("img2text", parameters, token).ConfigureAwait(false);
+                                return result?["result"]?.ToString() ?? result?["description"]?.ToString() ?? string.Empty;
+                            },
+                            isBatch).ConfigureAwait(false);
+                        string processedMarkdown = processingResult.Markdown;
+                        MarkdownImageBatchContext batchContext = processingResult.BatchContext;
+
+                        if (batchContext != null)
+                        {
+                            this.parent._fileContexts[batchContext.Images[0].SentinelId] = batchContext;
+                        }
+
+                        var payload = string.IsNullOrWhiteSpace(processedMarkdown)
                             ? null
-                            : AIInputPayload.FromText(converted.Markdown);
+                            : AIInputPayload.FromText(processedMarkdown);
 
                         foreach (var w in converted.Warnings)
                         {
@@ -233,7 +436,7 @@ namespace SmartHopper.Components.Input
                         }
 
                         outputs["Input >"].Add(new GH_AIInputPayload(payload));
-                        outputs["Markdown"].Add(new GH_String(converted.Markdown));
+                        outputs["Markdown"].Add(new GH_String(processedMarkdown));
                         outputs["Format"].Add(new GH_String(string.IsNullOrEmpty(converted.Format) ? "unknown" : converted.Format));
                     }
                     catch (Exception ex)
@@ -250,42 +453,7 @@ namespace SmartHopper.Components.Input
 
             public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                if (this.result.TryGetValue("Input >", out var payloadTree) && payloadTree != null)
-                {
-                    this.parent.SetPersistentOutput("Input >", payloadTree, DA);
-                }
-
-                if (this.result.TryGetValue("Markdown", out var markdownTree) && markdownTree != null)
-                {
-                    this.parent.SetPersistentOutput("Markdown", markdownTree, DA);
-                }
-
-                if (this.result.TryGetValue("Format", out var formatTree) && formatTree != null)
-                {
-                    this.parent.SetPersistentOutput("Format", formatTree, DA);
-                }
-
-                int successCount = 0;
-                if (this.result.TryGetValue("Markdown", out var tree) && tree != null)
-                {
-                    foreach (var path in tree.Paths)
-                    {
-                        var branch = tree.get_Branch(path);
-                        if (branch != null)
-                        {
-                            foreach (var item in branch)
-                            {
-                                if (item is GH_String gs && !string.IsNullOrWhiteSpace(gs.Value))
-                                {
-                                    successCount++;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                int totalCount = this.inputTrees?.Values.FirstOrDefault()?.DataCount ?? 0;
-                message = $"Processed {successCount}/{totalCount} file(s)";
+                message = null;
             }
         }
     }

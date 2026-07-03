@@ -416,7 +416,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
                 var titleValue = json.SelectToken("parse.title")?.ToString();
 
-                html = CleanupWikimediaHtml(html);
+                html = CleanupWikimediaHtml(html, pageUri);
 
                 // Wrap the parsed content in a minimal HTML document so the converter can process it.
                 var encodedTitle = System.Net.WebUtility.HtmlEncode(titleValue ?? title);
@@ -613,8 +613,9 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         /// <summary>
         /// Removes Wikipedia chrome from the parsed HTML before Markdown conversion:
         /// section edit links, navigation templates, metadata/authority boxes, and hatnotes.
+        /// Also converts relative wiki links and image sources to absolute URLs.
         /// </summary>
-        private static string CleanupWikimediaHtml(string html)
+        private static string CleanupWikimediaHtml(string html, Uri pageUri)
         {
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
@@ -638,6 +639,38 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     {
                         node.Remove();
                     }
+                }
+            }
+
+            // Convert relative wiki links and image sources to absolute URLs.
+            var baseUri = new Uri($"{pageUri.Scheme}://{pageUri.Host}");
+            foreach (var node in doc.DocumentNode.SelectNodes("//a[@href] | //img[@src]")?.ToList() ?? Enumerable.Empty<HtmlNode>())
+            {
+                var attribute = node.Name == "img" ? "src" : "href";
+                var value = node.GetAttributeValue(attribute, null);
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                // Avoid touching already-absolute URLs, mailto/tel, and javascript links.
+                if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("tel:", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var absoluteUri = new Uri(baseUri, value);
+                    node.SetAttributeValue(attribute, absoluteUri.ToString());
+                }
+                catch (UriFormatException)
+                {
+                    // Leave malformed URIs untouched.
                 }
             }
 

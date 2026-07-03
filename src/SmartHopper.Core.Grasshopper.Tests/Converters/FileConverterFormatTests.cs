@@ -271,6 +271,33 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
         }
 
 #if NET7_WINDOWS
+        [Fact(DisplayName = "ConvertAsync_HeadingInsideAnchor_FlattensHeadingToLinkText [Windows]")]
+#else
+        [Fact(DisplayName = "ConvertAsync_HeadingInsideAnchor_FlattensHeadingToLinkText [Core]")]
+#endif
+        public async Task ConvertAsync_HeadingInsideAnchor_FlattensHeadingToLinkText()
+        {
+            var converter = new HtmlConverter();
+            var filePath = Path.Combine(this._tempDir, "heading-in-anchor.html");
+            var html =
+                "<html><body>" +
+                "<ul>" +
+                "<li><a href=\"https://example.com/pattern\">" +
+                "<h2>Accordion (Sections With Show/Hide Functionality)</h2>" +
+                "</a></li>" +
+                "</ul>" +
+                "</body></html>";
+
+            File.WriteAllText(filePath, html);
+            var options = new FileConversionOptions { HtmlReadabilityMode = ReadabilityMode.Off };
+            var result = await converter.ConvertAsync(filePath, options);
+
+            Assert.True(result.IsSuccess);
+            Assert.Contains("[Accordion (Sections With Show/Hide Functionality)](https://example.com/pattern)", result.MarkdownContent);
+            Assert.DoesNotContain("[##", result.MarkdownContent);
+        }
+
+#if NET7_WINDOWS
         [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Windows]")]
 #else
         [Fact(DisplayName = "ConvertAsync_MissingFile_ReturnsFailure [Core]")]

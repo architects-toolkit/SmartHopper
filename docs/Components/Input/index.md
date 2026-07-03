@@ -85,6 +85,9 @@ A: Yes. Connect multiple input components to the same output component. They wil
 **Q: What file formats does File2AI support?**
 A: PDF, DOCX, XLSX, PPTX, HTML, EML, and EPUB. See [File to Markdown](../../Usage/file-to-markdown.md) for details.
 
+**Q: What does the `Image Mode` input do in File2AI and Web2AI?**
+A: It controls how extracted images are represented in the Markdown payload. `skip`/`link` keeps the raw image references (File2AI skips image extraction entirely); `embed`, `describe`, and `caption` use AI to generate captions or descriptions and require a configured AI provider.
+
 **Q: Do I need a specific model for image or audio input?**
 A: Yes. The model must support the corresponding capability (e.g., `ImageInput` for images). See [AI Capabilities](../../Providers/AICapability.md).
 
@@ -94,7 +97,7 @@ A: Yes. The model must support the corresponding capability (e.g., `ImageInput` 
 
 ### Base Class
 
-All input components inherit from `AIInputAdapterBase`, a synchronous adapter that builds `AIInputPayload`:
+: Most input components inherit from `AIInputAdapterBase`, a synchronous adapter that builds `AIInputPayload`. `File2AIComponent` and `Web2AIComponent` inherit from `AIStatefulAsyncComponentBase` so they can perform AI-powered image descriptions through the batch system.
 
 ```csharp
 public abstract class AIInputAdapterBase : GH_Component
@@ -104,7 +107,7 @@ public abstract class AIInputAdapterBase : GH_Component
 
 ```
 
-See [AIInputAdapterBase](../ComponentBase/AIInputAdapterBase.md) for the full API.
+See [AIInputAdapterBase](../ComponentBase/AIInputAdapterBase.md) for the synchronous adapter API and [AIStatefulAsyncComponentBase](../ComponentBase/AIStatefulAsyncComponentBase.md) for the async/batch base class.
 
 ### Creating a Custom Input Adapter
 
@@ -136,8 +139,8 @@ public class MyData2AIComponent : AIInputAdapterBase
 | `BooleanList2AIComponent` | BooleanList2AI | Boolean | Wraps a list of boolean values into an AIInputPayload |
 | `Img2AIComponent` | Img2AI | Images | Wraps image files or URLs for vision processing |
 | `Audio2AIComponent` | Audio2AI | Audio | Wraps audio files for speech-to-text processing |
-| `File2AIComponent` | File2AI | Files | Converts local files to markdown and wraps into payload |
-| `Web2AIComponent` | Web2AI | Web | Fetches web content and wraps into payload |
+| `File2AIComponent` | File2AI | Files | Converts local files to markdown and wraps into payload; `Image Mode` selects skip/embed/describe/caption |
+| `Web2AIComponent` | Web2AI | Web | Fetches web content and wraps into payload; `Image Mode` selects link/embed/describe/caption; links and images are always kept |
 | `Json2AIComponent` | Json2AI | JSON | Wraps JSON data into an AIInputPayload |
 | `GhJSON2AIComponent` | GhJSON2AI | Grasshopper | Wraps Grasshopper JSON into an AIInputPayload |
 | `AIPromptComponent` | AI Prompt | Prompts | Creates a structured AI prompt with system/user roles |
