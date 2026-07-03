@@ -93,7 +93,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.GenerateJson,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                buildRequest: this.BuildGenerateRequest);
+                buildRequest: this.BuildGenerateRequest, mutatesCanvas: false);
         }
 
         /// <summary>

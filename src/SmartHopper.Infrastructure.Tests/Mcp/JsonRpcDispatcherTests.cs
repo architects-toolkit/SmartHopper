@@ -176,7 +176,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                     description: $"Test tool {name}",
                     category: "Test",
                     parametersSchema: schema,
-                    execute: _ => Task.FromResult(new AIReturn()));
+                    execute: _ => Task.FromResult(new AIReturn()),
+                    mutatesCanvas: false);
             }
 
             var adapter = new AIToolMcpAdapter(options, () => catalog, executor);

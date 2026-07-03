@@ -133,7 +133,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""guid""]
                 }",
                 execute: this.ScriptReviewToolAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput, mutatesCanvas: false);
         }
 
         /// <summary>

@@ -79,7 +79,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhRetrieveToolAsync);
+                execute: this.GhRetrieveToolAsync, mutatesCanvas: false);
         }
 
         /// <summary>

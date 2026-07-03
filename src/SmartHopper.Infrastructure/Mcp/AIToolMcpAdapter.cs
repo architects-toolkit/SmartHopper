@@ -81,7 +81,7 @@ namespace SmartHopper.Infrastructure.Mcp
 
         /// <summary>
         /// Builds the list of MCP tool descriptors to expose, applying the configured
-        /// allow-list and mutating-tools filter.
+        /// allow-list and per-tool mutability filter.
         /// </summary>
         public IReadOnlyList<McpToolDescriptor> BuildDescriptors()
         {
@@ -104,11 +104,17 @@ namespace SmartHopper.Infrastructure.Mcp
         }
 
         /// <summary>
-        /// Returns whether the named tool is currently exposed (allow-list + mutating filter).
+        /// Returns whether the named tool is currently exposed (allow-list + per-tool mutability).
         /// </summary>
         public bool IsExposed(string toolName)
         {
             if (string.IsNullOrWhiteSpace(toolName))
+            {
+                return false;
+            }
+
+            var tool = this.toolSource().TryGetValue(toolName, out var resolvedTool) ? resolvedTool : null;
+            if (tool == null)
             {
                 return false;
             }
@@ -119,7 +125,7 @@ namespace SmartHopper.Infrastructure.Mcp
                     string.Equals(t, toolName, StringComparison.OrdinalIgnoreCase));
             }
 
-            if (!this.options.ExposeMutatingTools && IsMutating(toolName))
+            if (!this.options.ExposeMutatingTools && tool.MutatesCanvas)
             {
                 return false;
             }
@@ -172,19 +178,6 @@ namespace SmartHopper.Infrastructure.Mcp
             }
 
             return BuildResult(toolName, result);
-        }
-
-        private static bool IsMutating(string toolName)
-        {
-            foreach (var prefix in McpServerOptions.MutatingToolPrefixes)
-            {
-                if (toolName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static JObject ParseSchema(string parametersSchema)

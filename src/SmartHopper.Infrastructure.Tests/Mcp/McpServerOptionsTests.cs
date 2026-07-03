@@ -31,13 +31,6 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         }
 
         [Fact]
-        public void MutatingToolPrefixes_AreNonEmpty()
-        {
-            Assert.NotEmpty(McpServerOptions.MutatingToolPrefixes);
-            Assert.Contains("gh_put", McpServerOptions.MutatingToolPrefixes);
-        }
-
-        [Fact]
         public void Clone_ProducesIndependentCopy()
         {
             var original = new McpServerOptions

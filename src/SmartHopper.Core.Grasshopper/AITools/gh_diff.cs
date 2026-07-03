@@ -61,7 +61,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""left"", ""right""]
                 }",
-                execute: this.GhDiffToolAsync);
+                execute: this.GhDiffToolAsync, mutatesCanvas: false);
         }
 
         private async Task<AIReturn> GhDiffToolAsync(AIToolCall toolCall)

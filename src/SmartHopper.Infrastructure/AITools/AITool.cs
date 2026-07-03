@@ -69,6 +69,13 @@ namespace SmartHopper.Infrastructure.AITools
         public Func<AIToolCall, AIRequestCall> BuildRequest { get; }
 
         /// <summary>
+        /// Gets a value indicating whether invoking this tool alters the Grasshopper canvas or
+        /// document state. Defaults to <c>true</c>; read-only or query-style tools should set this
+        /// to <c>false</c>.
+        /// </summary>
+        public bool MutatesCanvas { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AITool"/> class.
         /// Creates a new AI tool.
         /// </summary>
@@ -79,7 +86,8 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="execute">Function to execute the tool with given parameters.</param>
         /// <param name="requiredCapabilities">Array of capabilities required by this tool (optional, defaults to no requirements).</param>
         /// <param name="buildRequest">Optional function to build an <see cref="AIRequestCall"/> without executing it, for batch mode support. Null means sync-only.</param>
-        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIReturn>> execute, AICapability requiredCapabilities = AICapability.None, Func<AIToolCall, AIRequestCall> buildRequest = null)
+        /// <param name="mutatesCanvas">Whether invoking the tool mutates the Grasshopper canvas or document state. Defaults to <c>true</c>.</param>
+        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIReturn>> execute, AICapability requiredCapabilities = AICapability.None, Func<AIToolCall, AIRequestCall> buildRequest = null, bool mutatesCanvas = true)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));
@@ -88,6 +96,7 @@ namespace SmartHopper.Infrastructure.AITools
             this.Execute = execute ?? throw new ArgumentNullException(nameof(execute));
             this.RequiredCapabilities = requiredCapabilities;
             this.BuildRequest = buildRequest;
+            this.MutatesCanvas = mutatesCanvas;
         }
     }
 }

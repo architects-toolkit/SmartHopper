@@ -105,7 +105,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_selected
             yield return new AITool(
@@ -122,7 +122,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_selected_with_data
             yield return new AITool(
@@ -139,7 +139,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, true));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, true), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_by_guid
             yield return new AITool(
@@ -162,7 +162,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guidFilter""]
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_by_guid_with_data
             yield return new AITool(
@@ -185,7 +185,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guidFilter""]
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, true));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, true), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_errors
             yield return new AITool(
@@ -202,7 +202,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_errors_with_data
             yield return new AITool(
@@ -219,7 +219,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, true));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, true), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_locked
             yield return new AITool(
@@ -236,7 +236,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }, null, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }, null, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_preview_off (formerly gh_get_hidden)
             yield return new AITool(
@@ -253,7 +253,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }, null, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }, null, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_preview_on (formerly gh_get_visible)
             yield return new AITool(
@@ -270,7 +270,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }, null, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }, null, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_visible — viewport-based filter
             yield return new AITool(
@@ -287,7 +287,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false, forceViewportOnly: true));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false, forceViewportOnly: true), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_start
             yield return new AITool(
@@ -304,7 +304,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_start_with_data
             yield return new AITool(
@@ -321,7 +321,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, true));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, true), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_end
             yield return new AITool(
@@ -338,7 +338,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, false));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, false), mutatesCanvas: false);
 
             // Specialized wrapper: gh_get_end_with_data
             yield return new AITool(
@@ -355,7 +355,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, true));
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, true), mutatesCanvas: false);
         }
 
         /// <summary>

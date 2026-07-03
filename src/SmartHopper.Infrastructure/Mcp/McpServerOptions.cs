@@ -45,15 +45,15 @@ namespace SmartHopper.Infrastructure.Mcp
         /// <summary>
         /// Gets or sets an allow-list of tool names. When non-empty, only listed tools are
         /// exposed via <c>tools/list</c> / <c>tools/call</c>. When null or empty, every
-        /// non-mutating tool is exposed and mutating tools are kept off (see
-        /// <see cref="MutatingToolPrefixes"/>).
+        /// non-mutating tool is exposed and mutating tools are kept off by the per-tool
+        /// <see cref="SmartHopper.Infrastructure.AITools.AITool.MutatesCanvas"/> flag.
         /// </summary>
         public IReadOnlyCollection<string>? EnabledTools { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether tools whose name starts with one of the
-        /// <see cref="MutatingToolPrefixes"/> are exposed. Defaults to <c>false</c> so the
-        /// default surface is read-only.
+        /// Gets or sets a value indicating whether tools marked with
+        /// <see cref="SmartHopper.Infrastructure.AITools.AITool.MutatesCanvas"/> are exposed.
+        /// Defaults to <c>false</c> so the default surface is read-only.
         /// </summary>
         public bool ExposeMutatingTools { get; set; }
 
@@ -67,24 +67,6 @@ namespace SmartHopper.Infrastructure.Mcp
         /// the dispatcher falls back to the assembly informational version.
         /// </summary>
         public string? ServerVersion { get; set; }
-
-        /// <summary>
-        /// Gets the case-insensitive set of tool-name prefixes considered "mutating".
-        /// Tools matching one of these are off by default per the design doc's
-        /// security baseline (§8 of <c>docs/Architecture/mcp-server.md</c>).
-        /// </summary>
-        public static IReadOnlyCollection<string> MutatingToolPrefixes { get; } = new[]
-        {
-            "gh_put",
-            "gh_move",
-            "gh_group",
-            "gh_merge",
-            "gh_tidy_up",
-            "gh_component_lock",
-            "gh_component_preview",
-            "script_edit",
-            "script_generate",
-        };
 
         /// <summary>
         /// Returns a defensive shallow copy.

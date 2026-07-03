@@ -78,7 +78,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.RhinoGetGeometryToolAsync);
+                execute: this.RhinoGetGeometryToolAsync, mutatesCanvas: false);
         }
 
         /// <summary>

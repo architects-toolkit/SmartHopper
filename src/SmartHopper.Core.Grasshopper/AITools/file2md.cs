@@ -149,7 +149,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""filePath""]
                 }",
-                execute: this.File2MdAsync);
+                execute: this.File2MdAsync, mutatesCanvas: false);
         }
 
         private async Task<AIReturn> File2MdAsync(AIToolCall toolCall)

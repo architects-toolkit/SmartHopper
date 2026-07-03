@@ -102,7 +102,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""list"", ""criteria""]
                 }",
                 execute: this.FilterList,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements, mutatesCanvas: false);
         }
 
         /// <summary>

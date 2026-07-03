@@ -51,7 +51,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""topic""]
                 }",
-                execute: this.ExecuteAsync);
+                execute: this.ExecuteAsync, mutatesCanvas: false);
         }
 
         private Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

@@ -80,7 +80,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""text""]
                 }",
                 execute: this.GenerateSpeechToolWrapper,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements, mutatesCanvas: false);
         }
 
         /// <summary>

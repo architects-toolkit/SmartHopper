@@ -189,7 +189,7 @@ Settings persisted via the existing `SmartHopper.Infrastructure.Settings` surfac
 - **Bind address.** `HttpListener` prefix is hard-coded to `http://127.0.0.1:<port>/` and `http://[::1]:<port>/`. No LAN exposure in phase 1.
 - **Origin guard.** `Origin` header is checked against an allow-list (`http://127.0.0.1*`, `http://localhost*`, `vscode-webview://*`, `claude://*`). Other origins receive `403`.
 - **Authentication.** Optional static bearer token (`Authorization: Bearer …`). When the user sets `BearerToken`, requests without it are rejected with `401`.
-- **Allow-list of tools.** `McpSettings.EnabledTools` may pin the subset of `AIToolManager` tools to expose. Defaults to "all read-only tools enabled, all mutating tools disabled" — the user must opt mutating tools (`gh_put`, `gh_move`, `gh_group`, `script_edit`, …) in.
+- **Allow-list of tools.** `McpSettings.EnabledTools` may pin the subset of `AIToolManager` tools to expose. Defaults to "all read-only tools enabled, all mutating tools disabled" — the user must opt mutating tools in via each tool's `AITool.MutatesCanvas` flag.
 - **No file-system / shell access from MCP.** Phase 1 only exposes tools that already exist in `IAIToolProvider`. Adding new tools requires going through `IAIToolProvider` and its review.
 - **Logging.** Every accepted request gets a structured `Debug.WriteLine` entry (`[Mcp] tool=<name> sessionId=<id> ok=<bool>`). No payload bodies are logged to avoid leaking GhJSON containing sensitive geometry.
 
@@ -241,7 +241,7 @@ Attribution is recorded in `THIRD_PARTY_NOTICES.md` and in per-file headers unde
 
 - [x] **Project placement.** Phase 1 ships under `SmartHopper.Infrastructure/Mcp/` rather than a standalone `SmartHopper.Mcp` project, to avoid adding a new project until cross-host reuse is needed. Revisit if/when out-of-process hosting (CLI, sidecar) is required.
 - [x] **Default port `26929`** (Cordyceps default) — kept to ease documentation parity and reduce confusion for users running both servers.
-- [x] **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false`; prefix-based detection (`gh_put`, `gh_move`, `script_*`, …) suppresses mutating tools from `tools/list` and `tools/call`.
+- [x] **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false`; per-tool `AITool.MutatesCanvas` flags suppress mutating tools from `tools/list` and `tools/call`.
 - [x] **Component path** `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
 - [x] **Attribution surface** is `THIRD_PARTY_NOTICES.md` plus per-file headers under `src/SmartHopper.Infrastructure/Mcp/`.
 

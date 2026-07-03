@@ -97,7 +97,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""url""]
                 }",
-                execute: this.Web2MdAsync);
+                execute: this.Web2MdAsync, mutatesCanvas: false);
         }
 
         private async Task<AIReturn> Web2MdAsync(AIToolCall toolCall)

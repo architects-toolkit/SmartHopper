@@ -82,7 +82,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateImageToolWrapper,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements, mutatesCanvas: false);
         }
 
         /// <summary>

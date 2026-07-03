@@ -53,7 +53,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""patch""]
                 }",
-                execute: this.GhPatchValidateToolAsync);
+                execute: this.GhPatchValidateToolAsync, mutatesCanvas: false);
         }
 
         private async Task<AIReturn> GhPatchValidateToolAsync(AIToolCall toolCall)

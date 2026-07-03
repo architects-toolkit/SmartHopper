@@ -40,8 +40,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         public void BuildDescriptors_OmitsMutatingToolsByDefault()
         {
             var tools = BuildCatalog(
-                ("gh_get", ReadOnlySchema),
-                ("gh_put", ReadOnlySchema));
+                ("gh_get", ReadOnlySchema, false),
+                ("gh_put", ReadOnlySchema, true));
             var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
 
             var descriptors = adapter.BuildDescriptors();
@@ -54,8 +54,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         public void BuildDescriptors_IncludesMutatingToolsWhenOptedIn()
         {
             var tools = BuildCatalog(
-                ("gh_get", ReadOnlySchema),
-                ("gh_put", ReadOnlySchema));
+                ("gh_get", ReadOnlySchema, false),
+                ("gh_put", ReadOnlySchema, true));
             var adapter = new AIToolMcpAdapter(
                 new McpServerOptions { ExposeMutatingTools = true },
                 () => tools,
@@ -72,9 +72,9 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         public void BuildDescriptors_AllowListNarrowsExposedTools()
         {
             var tools = BuildCatalog(
-                ("gh_get", ReadOnlySchema),
-                ("script_review", ReadOnlySchema),
-                ("script_generate", ReadOnlySchema));
+                ("gh_get", ReadOnlySchema, false),
+                ("script_review", ReadOnlySchema, false),
+                ("script_generate", ReadOnlySchema, true));
             var adapter = new AIToolMcpAdapter(
                 new McpServerOptions { EnabledTools = new[] { "gh_get" } },
                 () => tools,
@@ -89,7 +89,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         [Fact]
         public void BuildDescriptors_AllowListOverridesMutatingFilter()
         {
-            var tools = BuildCatalog(("gh_put", ReadOnlySchema));
+            var tools = BuildCatalog(("gh_put", ReadOnlySchema, true));
             var adapter = new AIToolMcpAdapter(
                 new McpServerOptions { EnabledTools = new[] { "gh_put" } },
                 () => tools,
@@ -104,7 +104,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         [Fact]
         public void BuildDescriptors_ParsesParametersSchemaIntoJObject()
         {
-            var tools = BuildCatalog(("gh_get", ReadOnlySchema));
+            var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
             var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
 
             var descriptors = adapter.BuildDescriptors();
@@ -117,7 +117,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         [Fact]
         public void BuildDescriptors_BadSchemaFallsBackToObject()
         {
-            var tools = BuildCatalog(("gh_get", "not-json"));
+            var tools = BuildCatalog(("gh_get", "not-json", false));
             var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
 
             var descriptors = adapter.BuildDescriptors();
@@ -143,7 +143,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         [Fact]
         public async Task ExecuteAsync_ReturnsErrorWhenToolHidden()
         {
-            var tools = BuildCatalog(("gh_put", ReadOnlySchema));
+            var tools = BuildCatalog(("gh_put", ReadOnlySchema, true));
             var adapter = new AIToolMcpAdapter(
                 new McpServerOptions(),
                 () => tools,
@@ -159,7 +159,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         [Fact]
         public async Task ExecuteAsync_PassesArgumentsToExecutorAndReturnsToolResult()
         {
-            var tools = BuildCatalog(("gh_get", ReadOnlySchema));
+            var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
 
             JObject? observedArgs = null;
             Task<AIReturn> Executor(AIToolCall call)
@@ -196,7 +196,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         [Fact]
         public async Task ExecuteAsync_ConvertsToolErrorIntoErrorResult()
         {
-            var tools = BuildCatalog(("gh_get", ReadOnlySchema));
+            var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
             Task<AIReturn> Executor(AIToolCall call)
             {
                 var ret = new AIReturn
@@ -217,17 +217,18 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.Contains("boom", result.ErrorMessage!);
         }
 
-        private static IReadOnlyDictionary<string, AITool> BuildCatalog(params (string name, string schema)[] entries)
+        private static IReadOnlyDictionary<string, AITool> BuildCatalog(params (string name, string schema, bool mutatesCanvas)[] entries)
         {
             var dict = new Dictionary<string, AITool>();
-            foreach (var (name, schema) in entries)
+            foreach (var (name, schema, mutatesCanvas) in entries)
             {
                 dict[name] = new AITool(
                     name: name,
                     description: $"Test tool {name}",
                     category: "Test",
                     parametersSchema: schema,
-                    execute: _ => Task.FromResult(new AIReturn()));
+                    execute: _ => Task.FromResult(new AIReturn()),
+                    mutatesCanvas: mutatesCanvas);
             }
 
             return dict;

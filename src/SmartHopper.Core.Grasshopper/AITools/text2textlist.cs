@@ -122,7 +122,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt"", ""count"", ""type""]
                 }",
                 execute: this.GenerateList,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements, mutatesCanvas: false);
         }
 
         /// <summary>

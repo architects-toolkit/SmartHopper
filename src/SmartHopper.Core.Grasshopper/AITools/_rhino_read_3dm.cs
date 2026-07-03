@@ -75,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""filePath""]
                 }",
-                execute: this.RhinoRead3dmToolAsync);
+                execute: this.RhinoRead3dmToolAsync, mutatesCanvas: false);
         }
 
         /// <summary>
