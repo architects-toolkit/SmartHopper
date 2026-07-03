@@ -62,8 +62,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         public async Task Dispatch_ToolsList_ReturnsExposedToolsOnly()
         {
             var dispatcher = BuildDispatcher(new McpServerOptions(),
-                ("gh_get", ReadOnlySchema),
-                ("gh_put", ReadOnlySchema));
+                ("gh_get", ReadOnlySchema, false),
+                ("gh_put", ReadOnlySchema, true));
 
             var raw = await dispatcher.DispatchAsync(
                 "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}");
@@ -95,7 +95,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                     }));
                     return Task.FromResult(ret);
                 },
-                tools: ("gh_get", ReadOnlySchema));
+                tools: ("gh_get", ReadOnlySchema, false));
 
             var raw = await dispatcher.DispatchAsync(
                 "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"gh_get\",\"arguments\":{\"path\":\"/foo\"}}}");
@@ -158,7 +158,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
 
         private static JsonRpcDispatcher BuildDispatcher(
             McpServerOptions options,
-            params (string name, string schema)[] tools)
+            params (string name, string schema, bool mutatesCanvas)[] tools)
         {
             return BuildDispatcher(options, _ => Task.FromResult(new AIReturn()), tools);
         }
@@ -166,10 +166,10 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         private static JsonRpcDispatcher BuildDispatcher(
             McpServerOptions options,
             System.Func<AIToolCall, Task<AIReturn>> executor,
-            params (string name, string schema)[] tools)
+            params (string name, string schema, bool mutatesCanvas)[] tools)
         {
             var catalog = new Dictionary<string, AITool>();
-            foreach (var (name, schema) in tools)
+            foreach (var (name, schema, mutatesCanvas) in tools)
             {
                 catalog[name] = new AITool(
                     name: name,
@@ -177,7 +177,7 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                     category: "Test",
                     parametersSchema: schema,
                     execute: _ => Task.FromResult(new AIReturn()),
-                    mutatesCanvas: false);
+                    mutatesCanvas: mutatesCanvas);
             }
 
             var adapter = new AIToolMcpAdapter(options, () => catalog, executor);
