@@ -2895,6 +2895,15 @@ namespace SmartHopper.Providers.OpenAI
         {
             return new[]
             {
+                // OpenAI-specific parameters
+                new AIExtraDescriptor(
+                    "reasoning_effort",
+                    "Reasoning Effort",
+                    "Reasoning token budget for o-series and gpt-5 models. 'low' is fastest, 'high' is most thorough.",
+                    typeof(string),
+                    "medium",
+                    new[] { "low", "medium", "high" }),
+
                 // General parameters (shared across providers)
                 new AIExtraDescriptor(
                     "top_p",
@@ -2903,19 +2912,17 @@ namespace SmartHopper.Providers.OpenAI
                     typeof(double),
                     null),
                 new AIExtraDescriptor(
-                    "presence_penalty",
-                    "Presence Penalty",
-                    "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
-                    typeof(double),
-                    null),
-                new AIExtraDescriptor(
                     "frequency_penalty",
                     "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
                     typeof(double),
                     null),
-
-                // OpenAI-specific parameters
+                new AIExtraDescriptor(
+                    "presence_penalty",
+                    "Presence Penalty",
+                    "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double),
+                    null),
                 new AIExtraDescriptor(
                     "logprobs",
                     "Log Probabilities",
@@ -2928,13 +2935,6 @@ namespace SmartHopper.Providers.OpenAI
                     "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
                     typeof(int),
                     null),
-                new AIExtraDescriptor(
-                    "reasoning_effort",
-                    "Reasoning Effort",
-                    "Reasoning token budget for o-series and gpt-5 models. 'low' is fastest, 'high' is most thorough.",
-                    typeof(string),
-                    "medium",
-                    new[] { "low", "medium", "high" }),
 
                 // OpenAI prompt caching parameters
                 new AIExtraDescriptor(

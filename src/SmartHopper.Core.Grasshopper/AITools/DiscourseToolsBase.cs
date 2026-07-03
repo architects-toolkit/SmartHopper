@@ -665,11 +665,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private async Task<JObject> FetchPostAsync(string baseUrl, int id)
         {
             using var httpClient = new HttpClient();
-            var postUri = new Uri($"{baseUrl}/posts/{id}.json");
-            var response = await httpClient.GetAsync(postUri).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            return JObject.Parse(content);
+            return await DiscourseForumService.FetchPostAsync(httpClient, baseUrl, id).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -687,49 +683,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// </summary>
         private async Task<JObject> FetchTopicAsync(string baseUrl, int topicId)
         {
-            return await this.FetchTopicWithQueryAsync(baseUrl, topicId, includeRaw: true, print: false).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Helper method to fetch a topic with query parameters.
-        /// </summary>
-        private async Task<JObject> FetchTopicWithQueryAsync(string baseUrl, int topicId, bool includeRaw, bool print)
-        {
             using var httpClient = new HttpClient();
-
-            var queryParts = new List<string>();
-            if (includeRaw)
-            {
-                queryParts.Add("include_raw=1");
-            }
-
-            if (print)
-            {
-                queryParts.Add("print=true");
-            }
-
-            var builder = new StringBuilder($"{baseUrl}/t/{topicId}.json");
-            if (queryParts.Count > 0)
-            {
-                builder.Append('?');
-                builder.Append(string.Join("&", queryParts));
-            }
-
-            var topicUri = new Uri(builder.ToString());
-            var response = await httpClient.GetAsync(topicUri).ConfigureAwait(false);
-            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                string serverMessage = DiscourseUtils.ExtractDiscourseErrorMessage(content);
-                string errorMessage = string.IsNullOrWhiteSpace(serverMessage)
-                    ? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}"
-                    : $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {serverMessage}";
-
-                throw new HttpRequestException(errorMessage);
-            }
-
-            return JObject.Parse(content);
+            return await DiscourseForumService.FetchTopicAsync(httpClient, baseUrl, topicId, includeRaw: true).ConfigureAwait(false);
         }
 
         /// <summary>

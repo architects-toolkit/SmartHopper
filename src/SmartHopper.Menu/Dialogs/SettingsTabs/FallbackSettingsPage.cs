@@ -16,10 +16,14 @@
  * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
  */
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Eto.Drawing;
 using Eto.Forms;
 using SmartHopper.Infrastructure.AICall.Fallback;
+using SmartHopper.Infrastructure.AIModels;
+using SmartHopper.Infrastructure.AIProviders;
 
 namespace SmartHopper.Menu.Dialogs.SettingsTabs
 {
@@ -32,18 +36,22 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         private readonly Panel _pinsContainer;
         private readonly Dictionary<string, DropDown> _providerDropDowns = new();
         private readonly Dictionary<string, DropDown> _modelDropDowns = new();
+        private readonly Dictionary<string, IModalityFallback> _fallbacks = new();
+        private readonly IAIProvider[] _providers;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FallbackSettingsPage"/> class.
         /// </summary>
-        public FallbackSettingsPage()
+        /// <param name="providers">Available AI providers.</param>
+        public FallbackSettingsPage(IAIProvider[] providers)
         {
+            this._providers = providers;
+
             this._modeDropDown = new DropDown();
             this._modeDropDown.Items.Add(new ListItem { Text = "Disabled", Key = "0" });
             this._modeDropDown.Items.Add(new ListItem { Text = "Configured Provider", Key = "1" });
             this._modeDropDown.Items.Add(new ListItem { Text = "Any Provider", Key = "2" });
-
-            this._pinsContainer = new Panel();
+            this._modeDropDown.SelectedIndexChanged += this.OnModeChanged;
 
             var layout = new DynamicLayout { Spacing = new Size(5, 5), Padding = new Padding(10) };
 
@@ -68,14 +76,16 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             layout.Add(new Panel { Height = 10 });
 
-            // Provider pins sub-section
-            layout.Add(new Label
+            // Build the pins container with title, description and rows
+            var pinsLayout = new DynamicLayout { Spacing = new Size(5, 5) };
+
+            pinsLayout.Add(new Label
             {
                 Text = "Fallback Model Overrides",
                 Font = new Font(SystemFont.Bold, 12),
             });
 
-            layout.Add(new Label
+            pinsLayout.Add(new Label
             {
                 Text = "Optionally pin a specific provider/model for each fallback conversion. " +
                        "Leave as 'Auto' to let the resolver choose automatically.",
@@ -85,19 +95,31 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                 Width = 500,
             });
 
-            layout.Add(new Panel { Height = 5 });
+            pinsLayout.Add(new Panel { Height = 5 });
 
             // Build pin rows for registered fallbacks
             ModalityFallbackResolver.EnsureInitialized();
             var fallbacks = ModalityFallbackResolver.GetRegisteredFallbacks();
 
-            var pinsLayout = new DynamicLayout { Spacing = new Size(5, 5) };
+            var rowsLayout = new DynamicLayout { Spacing = new Size(5, 5) };
 
             foreach (var fb in fallbacks)
             {
+                this._fallbacks[fb.Name] = fb;
+
                 var providerDropDown = new DropDown();
                 providerDropDown.Items.Add(new ListItem { Text = "Auto", Key = "" });
+
+                foreach (var provider in this._providers.OrderBy(p => p.Name))
+                {
+                    if (provider.IsEnabled && fb.IsAvailable(provider.Name))
+                    {
+                        providerDropDown.Items.Add(new ListItem { Text = provider.Name, Key = provider.Name });
+                    }
+                }
+
                 this._providerDropDowns[fb.Name] = providerDropDown;
+                providerDropDown.SelectedIndexChanged += (sender, e) => this.OnProviderChanged(fb.Name);
 
                 var modelDropDown = new DropDown();
                 modelDropDown.Items.Add(new ListItem { Text = "Auto", Key = "" });
@@ -109,13 +131,66 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
                     new TableCell(new Label { Text = fb.Description, VerticalAlignment = VerticalAlignment.Center, Width = 250 }, false),
                     new TableCell(providerDropDown, true),
                     new TableCell(modelDropDown, true)));
-                pinsLayout.Add(row);
+                rowsLayout.Add(row);
             }
 
-            layout.Add(pinsLayout);
-            layout.Add(null); // spacer at bottom
+            pinsLayout.Add(rowsLayout);
+            pinsLayout.Add(null);
+
+            this._pinsContainer = new Panel { Content = pinsLayout };
+            layout.Add(this._pinsContainer);
+            layout.Add(null);
 
             this.Content = layout;
+
+            this.UpdatePinsVisibility();
+        }
+
+        private void OnModeChanged(object sender, EventArgs e)
+        {
+            this.UpdatePinsVisibility();
+        }
+
+        private void UpdatePinsVisibility()
+        {
+            var mode = (ModalityFallbackMode)(this._modeDropDown.SelectedIndex >= 0 ? this._modeDropDown.SelectedIndex : 0);
+            this._pinsContainer.Visible = mode != ModalityFallbackMode.Disabled;
+        }
+
+        private void OnProviderChanged(string fallbackName)
+        {
+            if (!this._providerDropDowns.TryGetValue(fallbackName, out var providerDD) ||
+                !this._modelDropDowns.TryGetValue(fallbackName, out var modelDD) ||
+                !this._fallbacks.TryGetValue(fallbackName, out var fallback))
+            {
+                return;
+            }
+
+            var selectedProvider = providerDD.SelectedKey;
+
+            modelDD.Items.Clear();
+            modelDD.Items.Add(new ListItem { Text = "Auto", Key = "" });
+
+            if (string.IsNullOrEmpty(selectedProvider))
+            {
+                modelDD.Enabled = false;
+                modelDD.SelectedIndex = 0;
+                return;
+            }
+
+            modelDD.Enabled = true;
+
+            var models = ModelManager.Instance.GetProviderModels(selectedProvider)
+                .Where(m => m.HasCapability(fallback.RequiresCapability))
+                .OrderBy(m => m.Model)
+                .ToList();
+
+            foreach (var model in models)
+            {
+                modelDD.Items.Add(new ListItem { Text = model.Model, Key = model.Model });
+            }
+
+            modelDD.SelectedIndex = 0;
         }
 
         /// <summary>
@@ -124,19 +199,34 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
         public void LoadSettings(ModalityFallbackMode mode, Dictionary<string, FallbackProviderPin> pins)
         {
             this._modeDropDown.SelectedIndex = (int)mode;
+            this.UpdatePinsVisibility();
 
             if (pins != null)
             {
                 foreach (var kvp in pins)
                 {
-                    if (this._providerDropDowns.TryGetValue(kvp.Key, out var provDD) && kvp.Value != null)
+                    if (!this._providerDropDowns.TryGetValue(kvp.Key, out var provDD) || kvp.Value == null)
                     {
-                        // Try to find the provider in the dropdown; if not, stay at Auto
-                        for (int i = 0; i < provDD.Items.Count; i++)
+                        continue;
+                    }
+
+                    for (int i = 0; i < provDD.Items.Count; i++)
+                    {
+                        if (provDD.Items[i].Key == (kvp.Value.Provider ?? ""))
                         {
-                            if (provDD.Items[i].Key == (kvp.Value.Provider ?? ""))
+                            provDD.SelectedIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(kvp.Value.Model) &&
+                        this._modelDropDowns.TryGetValue(kvp.Key, out var modelDD))
+                    {
+                        for (int i = 0; i < modelDD.Items.Count; i++)
+                        {
+                            if (modelDD.Items[i].Key == kvp.Value.Model)
                             {
-                                provDD.SelectedIndex = i;
+                                modelDD.SelectedIndex = i;
                                 break;
                             }
                         }
@@ -155,14 +245,18 @@ namespace SmartHopper.Menu.Dialogs.SettingsTabs
 
             foreach (var kvp in this._providerDropDowns)
             {
-                var selectedKey = kvp.Value.SelectedKey;
-                if (!string.IsNullOrEmpty(selectedKey))
+                var selectedProviderKey = kvp.Value.SelectedKey;
+                if (!string.IsNullOrEmpty(selectedProviderKey))
                 {
-                    var pin = new FallbackProviderPin { Provider = selectedKey };
+                    var pin = new FallbackProviderPin { Provider = selectedProviderKey };
 
-                    if (this._modelDropDowns.TryGetValue(kvp.Key, out var modelDD) && !string.IsNullOrEmpty(modelDD.SelectedKey))
+                    if (this._modelDropDowns.TryGetValue(kvp.Key, out var modelDD))
                     {
-                        pin.Model = modelDD.SelectedKey;
+                        var selectedModelKey = modelDD.SelectedKey;
+                        if (!string.IsNullOrEmpty(selectedModelKey))
+                        {
+                            pin.Model = selectedModelKey;
+                        }
                     }
 
                     pins[kvp.Key] = pin;

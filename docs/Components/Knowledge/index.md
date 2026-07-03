@@ -38,7 +38,7 @@ Knowledge components bridge external data sources — such as local files, web p
 | --- | --- | --- | --- |
 | `File2MdComponent` | File2Md | Files | Converts local files to Markdown and extracts embedded images (non-AI) |
 | `AIFile2MdComponent` | AIFile2Md | Files | AI-powered file-to-markdown conversion with image description |
-| `Web2MdComponent` | Web2Md | Web | Converts web pages to Markdown (non-AI) |
+| `Web2MdComponent` | Web2Md | Web | Converts web pages to Markdown; AI is used only for image descriptions when Image Mode is not `link` |
 | `AIWeb2MdComponent` | AIWeb2Md | Web | AI-powered web-to-markdown conversion with content summarization |
 | `DiscourseSearchComponent` | Discourse Search | Forums | Searches Discourse forum posts and topics |
 | `DiscoursePostGetComponent` | Discourse Post Get | Forums | Retrieves a specific Discourse forum post |
@@ -111,8 +111,10 @@ foreach (var path in results.Paths)
 ## Architecture & Design
 
 - Knowledge components bridge external data sources with AI processing
-- Non-AI variants (`File2Md`, `Web2Md`) use file converters for content extraction
-- AI variants leverage AI providers for intelligent summarization and content enhancement
+- `File2Md` uses file converters for content extraction (non-AI)
+- `Web2Md` fetches web content with a local tool; AI is used only for image descriptions when Image Mode is not `link`
+- `AIFile2Md` uses AI providers for file content and image description
+- `AIWeb2Md` leverages AI providers for intelligent summarization and content enhancement
 - Forum components integrate with Discourse, Ladybug, and McNeel community platforms
 - All components support data tree processing for batch operations
 
