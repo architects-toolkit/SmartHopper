@@ -42,6 +42,7 @@ using System.Threading.Tasks;
 using HtmlAgilityPack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.Utils;
 
@@ -449,79 +450,27 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
 
         private static async Task<string?> TryFetchDiscourseRawContentAsync(Uri uri, HttpClient httpClient)
         {
-            if (!LooksLikeDiscourse(uri))
+            if (!DiscourseForumService.IsDiscourseUrl(uri))
             {
                 return null;
             }
 
-            Uri? jsonUri = null;
-            if (TryGetDiscoursePostId(uri, out int postId))
-            {
-                jsonUri = new Uri($"{uri.Scheme}://{uri.Host}/posts/{postId}.json");
-            }
-            else
-            {
-                jsonUri = BuildDiscourseJsonUri(uri);
-            }
-
-            if (jsonUri == null)
-            {
-                return null;
-            }
+            string baseUrl = $"{uri.Scheme}://{uri.Host}";
 
             try
             {
-                var jsonResponse = await httpClient.GetAsync(jsonUri).ConfigureAwait(false);
-                if (!jsonResponse.IsSuccessStatusCode)
+                if (DiscourseForumService.TryParsePostUrl(uri, out int postId))
                 {
-                    return null;
+                    var postJson = await DiscourseForumService.FetchPostAsync(httpClient, baseUrl, postId).ConfigureAwait(false);
+                    var markdown = DiscourseForumService.FormatPostAsMarkdown(postJson, baseUrl);
+                    return string.IsNullOrWhiteSpace(markdown) ? null : markdown;
                 }
 
-                var contentText = await jsonResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var jsonObj = JObject.Parse(contentText);
-
-                if (jsonObj["raw"] != null)
+                if (DiscourseForumService.TryParseTopicUrl(uri, out int topicId, out int? _))
                 {
-                    return jsonObj["raw"]?.ToString();
-                }
-
-                var posts = jsonObj.SelectToken("post_stream.posts") as JArray;
-                if (posts != null && posts.Count > 0)
-                {
-                    var builder = new StringBuilder();
-                    foreach (var post in posts)
-                    {
-                        var username = post?["username"]?.ToString();
-                        var created = post?["created_at"]?.ToString();
-                        var raw = post?["raw"]?.ToString();
-                        if (string.IsNullOrWhiteSpace(raw))
-                        {
-                            continue;
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(username) || !string.IsNullOrWhiteSpace(created))
-                        {
-                            builder.Append("## ");
-                            if (!string.IsNullOrWhiteSpace(username))
-                            {
-                                builder.Append(username);
-                            }
-
-                            if (!string.IsNullOrWhiteSpace(created))
-                            {
-                                builder.Append(" – ").Append(created);
-                            }
-
-                            builder.AppendLine();
-                        }
-
-                        builder.AppendLine();
-                        builder.AppendLine(raw.Trim());
-                        builder.AppendLine();
-                    }
-
-                    var combined = builder.ToString().Trim();
-                    return string.IsNullOrWhiteSpace(combined) ? null : combined;
+                    var topicJson = await DiscourseForumService.FetchTopicAsync(httpClient, baseUrl, topicId, includeRaw: true).ConfigureAwait(false);
+                    var markdown = DiscourseForumService.FormatTopicAsMarkdown(topicJson, baseUrl);
+                    return string.IsNullOrWhiteSpace(markdown) ? null : markdown;
                 }
 
                 return null;
@@ -651,51 +600,6 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         #endregion
 
         #region Helper Methods
-
-        private static bool LooksLikeDiscourse(Uri uri)
-        {
-            return uri.Host.Contains("discourse", StringComparison.OrdinalIgnoreCase)
-                   || uri.Host.Contains("mcneel", StringComparison.OrdinalIgnoreCase)
-                   || uri.AbsolutePath.StartsWith("/t/", StringComparison.OrdinalIgnoreCase)
-                   || uri.AbsolutePath.StartsWith("/p/", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool TryGetDiscoursePostId(Uri uri, out int postId)
-        {
-            postId = 0;
-            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length >= 2)
-            {
-                if (segments[0].Equals("p", StringComparison.OrdinalIgnoreCase) || segments[0].Equals("posts", StringComparison.OrdinalIgnoreCase))
-                {
-                    return int.TryParse(segments[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out postId);
-                }
-            }
-
-            if (segments.Length >= 3 && segments[0].Equals("t", StringComparison.OrdinalIgnoreCase))
-            {
-                if (int.TryParse(segments[^1], NumberStyles.Integer, CultureInfo.InvariantCulture, out postId))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static Uri? BuildDiscourseJsonUri(Uri uri)
-        {
-            if (uri.AbsolutePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-            {
-                return uri;
-            }
-
-            var builder = new UriBuilder(uri)
-            {
-                Path = uri.AbsolutePath.TrimEnd('/') + ".json",
-            };
-            return builder.Uri;
-        }
 
         private static bool LooksLikeGitHost(Uri uri)
         {

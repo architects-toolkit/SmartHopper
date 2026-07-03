@@ -25,6 +25,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Newtonsoft.Json.Linq;
     using SmartHopper.Core.Grasshopper.Converters;
     using SmartHopper.Core.Grasshopper.Converters.Formats;
     using Xunit;
@@ -73,6 +74,20 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             }
 
             var handler = new StubHttpMessageHandler(Responder);
+            var factory = new Func<HttpClient>(() => new HttpClient(handler));
+
+            var ctor = typeof(UrlConverter).GetConstructor(
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                new[] { typeof(Func<HttpClient>) },
+                null);
+
+            return (UrlConverter)ctor!.Invoke(new object[] { factory });
+        }
+
+        private static UrlConverter CreateConverterWithStubbedResponder(Func<HttpRequestMessage, HttpResponseMessage> responder)
+        {
+            var handler = new StubHttpMessageHandler(responder);
             var factory = new Func<HttpClient>(() => new HttpClient(handler));
 
             var ctor = typeof(UrlConverter).GetConstructor(
@@ -287,6 +302,160 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             Assert.True(result.IsSuccess);
             Assert.Equal(FileConversionFailureReason.None, result.FailureReason);
             Assert.NotEmpty(result.MarkdownContent);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "UrlConverter_DiscourseTopicUrl_ReturnsRawMarkdown [Windows]")]
+#else
+        [Fact(DisplayName = "UrlConverter_DiscourseTopicUrl_ReturnsRawMarkdown [Core]")]
+#endif
+        public async Task UrlConverter_DiscourseTopicUrl_ReturnsRawMarkdown()
+        {
+            var topicJson = new JObject
+            {
+                ["id"] = 204893,
+                ["title"] = "G2 Feature Requests: Grasshopper2 Icon Editor",
+                ["slug"] = "g2-feature-requests-grasshopper2-icon-editor",
+                ["post_stream"] = new JObject
+                {
+                    ["posts"] = new JArray
+                    {
+                        new JObject
+                        {
+                            ["username"] = "archinate1",
+                            ["created_at"] = "2025-05-22T14:50:51.740Z",
+                            ["raw"] = "I have been working with the Icon editor...",
+                        },
+                    },
+                },
+            };
+
+            var converter = CreateConverterWithStubbedResponder(request =>
+            {
+                if (request.RequestUri!.AbsolutePath.EndsWith("/robots.txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                }
+
+                if (request.RequestUri.AbsolutePath.EndsWith(".json"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(topicJson.ToString(), Encoding.UTF8, "application/json"),
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            });
+
+            var result = await converter.ConvertAsync(
+                "https://discourse.mcneel.com/t/g2-feature-requests-grasshopper2-icon-editor/204893",
+                new FileConversionOptions());
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(FileConversionFailureReason.None, result.FailureReason);
+            Assert.Contains("# G2 Feature Requests: Grasshopper2 Icon Editor", result.MarkdownContent);
+            Assert.Contains("## archinate1 – 2025-05-22T14:50:51.740Z", result.MarkdownContent);
+            Assert.Contains("I have been working with the Icon editor...", result.MarkdownContent);
+            Assert.DoesNotContain("Related topics", result.MarkdownContent);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "UrlConverter_DiscoursePostUrl_ReturnsRawMarkdown [Windows]")]
+#else
+        [Fact(DisplayName = "UrlConverter_DiscoursePostUrl_ReturnsRawMarkdown [Core]")]
+#endif
+        public async Task UrlConverter_DiscoursePostUrl_ReturnsRawMarkdown()
+        {
+            var postJson = new JObject
+            {
+                ["id"] = 1073507,
+                ["username"] = "archinate1",
+                ["created_at"] = "2025-05-22T14:50:51.740Z",
+                ["raw"] = "I have been working with the Icon editor...",
+                ["topic_id"] = 204893,
+                ["topic_slug"] = "g2-feature-requests-grasshopper2-icon-editor",
+                ["post_number"] = 1,
+            };
+
+            var converter = CreateConverterWithStubbedResponder(request =>
+            {
+                if (request.RequestUri!.AbsolutePath.EndsWith("/robots.txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                }
+
+                if (request.RequestUri.AbsolutePath.Contains("/posts/"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(postJson.ToString(), Encoding.UTF8, "application/json"),
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            });
+
+            var result = await converter.ConvertAsync(
+                "https://discourse.mcneel.com/posts/1073507",
+                new FileConversionOptions());
+
+            Assert.True(result.IsSuccess);
+            Assert.Contains("## archinate1 – 2025-05-22T14:50:51.740Z", result.MarkdownContent);
+            Assert.Contains("I have been working with the Icon editor...", result.MarkdownContent);
+        }
+
+#if NET7_WINDOWS
+        [Fact(DisplayName = "UrlConverter_DiscourseTopicUrlWithPostNumber_ReturnsRawMarkdown [Windows]")]
+#else
+        [Fact(DisplayName = "UrlConverter_DiscourseTopicUrlWithPostNumber_ReturnsRawMarkdown [Core]")]
+#endif
+        public async Task UrlConverter_DiscourseTopicUrlWithPostNumber_ReturnsRawMarkdown()
+        {
+            var topicJson = new JObject
+            {
+                ["id"] = 204893,
+                ["title"] = "G2 Feature Requests",
+                ["slug"] = "g2-feature-requests",
+                ["post_stream"] = new JObject
+                {
+                    ["posts"] = new JArray
+                    {
+                        new JObject
+                        {
+                            ["username"] = "archinate1",
+                            ["created_at"] = "2025-05-22T14:50:51.740Z",
+                            ["raw"] = "First post",
+                        },
+                    },
+                },
+            };
+
+            var converter = CreateConverterWithStubbedResponder(request =>
+            {
+                if (request.RequestUri!.AbsolutePath.EndsWith("/robots.txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.NotFound);
+                }
+
+                if (request.RequestUri.AbsolutePath.EndsWith("/t/204893.json"))
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(topicJson.ToString(), Encoding.UTF8, "application/json"),
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            });
+
+            var result = await converter.ConvertAsync(
+                "https://discourse.mcneel.com/t/g2-feature-requests/204893/1",
+                new FileConversionOptions());
+
+            Assert.True(result.IsSuccess);
+            Assert.Contains("# G2 Feature Requests", result.MarkdownContent);
+            Assert.Contains("First post", result.MarkdownContent);
         }
     }
 }
