@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -41,18 +42,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
     {
         private readonly string toolName = "file2md";
         private static FileConverterRegistry? registry;
-
-        /// <summary>
-        /// Default prompt used for <c>describe</c> mode: long, thorough description.
-        /// </summary>
-        private const string DefaultImageDescriptionPrompt =
-            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured. Do not make assumptions. Do not suggest future actions. Stick to describing the image in a way that is useful for someone who cannot see it.";
-
-        /// <summary>
-        /// Default prompt used for <c>caption</c> and <c>embed</c> modes: short, one-sentence caption.
-        /// </summary>
-        private const string DefaultImageCaptionPrompt =
-            "Write a concise, descriptive caption for this image in one sentence.";
 
         /// <summary>
         /// Gets or creates the converter registry with all built-in converters.
@@ -261,48 +250,44 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult["images"] = imagesArray;
                     toolResult["imageCount"] = result.Images.Count;
 
-                    // Insert image placeholders into markdown content for later substitution
-                    string annotatedContent = InsertImagePlaceholders(result.MarkdownContent, result.Images);
-                    toolResult["content"] = annotatedContent;
-                }
-
-                // Describe images via AI and replace inline [image N] placeholders
-                if (describeImages && result.Images.Count > 0)
-                {
-                    string providerName = toolCall.Provider?.ToString();
-                    if (string.IsNullOrWhiteSpace(providerName))
+                    // Describe images via AI and replace inline [image N] placeholders
+                    if (describeImages)
                     {
-                        result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
-                    }
-                    else
-                    {
-                        // Select default prompt based on mode
-                        string defaultPrompt = (imageMode == "describe")
-                            ? DefaultImageDescriptionPrompt
-                            : DefaultImageCaptionPrompt;
-
-                        string effectivePrompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
-                            ? defaultPrompt
-                            : imageDescriptionPrompt;
-
-                        // Replace each [image N] placeholder inline at the position emitted by the converter.
-                        var contentSb = new StringBuilder(result.MarkdownContent);
-                        for (int i = 0; i < result.Images.Count; i++)
+                        string providerName = toolCall.Provider?.ToString();
+                        if (string.IsNullOrWhiteSpace(providerName))
                         {
-                            var image = result.Images[i];
-                            int imageNumber = i + 1;
-                            string placeholder = $"[image {imageNumber}]";
-                            string aiText = await DescribeImageAsync(image, effectivePrompt, toolCall).ConfigureAwait(false);
-
-                            string replacement = imageMode == "embed"
-                                ? $"![{aiText}](data:{image.MimeType};base64,{image.RawValue})"
-                                : $"**[{image.Id} — {image.Context}]**\n\n{aiText}";
-
-                            contentSb.Replace(placeholder, replacement);
+                            result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
                         }
+                        else
+                        {
+                            string prompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
+                                ? ImageProcessingService.GetDefaultPrompt(imageMode)
+                                : imageDescriptionPrompt;
 
-                        result.MarkdownContent = contentSb.ToString();
-                        toolResult["content"] = result.MarkdownContent;
+                            var contentSb = new StringBuilder(result.MarkdownContent);
+                            for (int i = 0; i < result.Images.Count; i++)
+                            {
+                                var image = result.Images[i];
+                                int imageNumber = i + 1;
+                                string placeholder = $"[image {imageNumber}]";
+                                string aiText = await ImageProcessingService.DescribeImageAsync(image.RawValue, image.MimeType, prompt, toolCall).ConfigureAwait(false);
+
+                                string replacement = ImageProcessingService.BuildMarkdownReplacement(
+                                    imageMode,
+                                    aiText,
+                                    aiText,
+                                    url: null,
+                                    image.MimeType,
+                                    image.RawValue,
+                                    image.Id,
+                                    image.Context);
+
+                                contentSb.Replace(placeholder, replacement);
+                            }
+
+                            result.MarkdownContent = contentSb.ToString();
+                            toolResult["content"] = result.MarkdownContent;
+                        }
                     }
                 }
 
@@ -330,67 +315,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
-        }
-
-        /// <summary>
-        /// Calls the <c>img2text</c> tool to obtain a text description of an extracted image.
-        /// </summary>
-        /// <param name="imageSource">The image source containing base64 data and mime type.</param>
-        /// <param name="prompt">The description prompt to send to the AI.</param>
-        /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
-        /// <returns>The AI-generated text description, or a fallback string on failure.</returns>
-        private static async Task<string> DescribeImageAsync(VersatileImage imageSource, string prompt, AIToolCall sourceToolCall)
-        {
-            try
-            {
-                var imgArgs = new JObject
-                {
-                    ["imageBase64"] = imageSource.RawValue,
-                    ["mimeType"] = "image/png",
-                    ["prompt"] = prompt,
-                };
-
-                var imgInteraction = new AIInteractionToolCall
-                {
-                    Name = "img2text",
-                    Arguments = imgArgs,
-                    Agent = AIAgent.Assistant,
-                };
-
-                var imgToolCall = new AIToolCall
-                {
-                    Endpoint = "img2text",
-                    Provider = sourceToolCall.Provider,
-                    Model = sourceToolCall.Model,
-                    Parameters = sourceToolCall.Parameters,
-                };
-
-                imgToolCall.FromToolCallInteraction(imgInteraction);
-
-                var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
-
-                var toolResult = ToolCallResult.FromAIReturn(imgResult);
-                return toolResult["description"]?.ToString() ?? "[Image could not be described]";
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[file2md] DescribeImageAsync failed: {ex.Message}");
-                return "[Image description failed]";
-            }
-        }
-
-        /// <summary>
-        /// No-op placeholder retained for call-site compatibility.
-        /// <para>
-        /// <c>[image N]</c> placeholders are now emitted inline by each converter at the actual
-        /// document position of the image (DOCX: exact paragraph; PDF/PPTX: end of page/slide).
-        /// The markdown returned by the converter already contains all placeholders in the right
-        /// positions, so no post-processing is needed here.
-        /// </para>
-        /// </summary>
-        private static string InsertImagePlaceholders(string markdown, IList<VersatileImage> images)
-        {
-            return markdown;
         }
 
     }

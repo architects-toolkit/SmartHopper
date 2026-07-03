@@ -17,11 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Devin CLI skills under `.devin/skills/` for each existing workflow, mapping Windsurf/Cascade-style workflow files to the Devin `SKILL.md` format so they can be invoked with `/skill-name` in Devin local sessions.
 - Added `changelog-summary` Devin CLI skill that derives its simplification instructions from `.github/workflows/chore-changelog-review.yml` and rewrites `[Unreleased]` (or a user-provided version) from `CHANGELOG.md` into a user-focused changelog summary.
 - Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
+- Added `web2md` image modes: `link` (default), `embed`, `describe`, and `caption`. The new `imageMode` parameter lets web pages keep image URLs, embed downloaded images as base64 data URIs, or replace them with AI-generated captions/descriptions.
+- Added a shared `ImageProcessingService` in `SmartHopper.Core.Grasshopper.Utils.Internal` used by both `file2md` and `web2md` for downloading, describing, and formatting Markdown image replacements consistently across file and web conversion paths.
 - **`web2md` failure-shape handling**: `UrlConverter` now explicitly classifies and reports failure cases instead of risking a false success with empty/misleading content: invalid or non-HTTP URLs, HTTP 401/403 and other non-success responses, login-wall pages (password field + login phrase, or thin content behind a password field), bot/human-verification challenge pages (reCAPTCHA, hCaptcha, Cloudflare Turnstile/"Just a moment...", DataDome, PerimeterX, GeeTest signatures), oversized pages (new `FileConversionOptions.MaxDownloadBytes`, default 10 MB, enforced via `Content-Length` and bounded streaming reads), and empty/thin pages (new `FileConversionOptions.MinContentLength`, default 40 characters). Added `FileConversionResult.FailureReason` (`FileConversionFailureReason` enum) so callers can distinguish failure shapes programmatically; the `web2md` tool now prefixes its error message with the classified reason (e.g. `[LoginRequired]`, `[BotChallenge]`).
 
 ### Changed
 
 - Simplified the `file2md` AI tool parameter schema: `preserveTableStructure`, `preserveHyperlinks`, and `preserveMath` are now always enabled and are no longer exposed as parameters. `preserveColors` and `preserveHighlights` are replaced by a unified `preserveFormatting` parameter that controls colors and highlights in DOCX plus bold/italic in DOCX, XLSX, and PPTX. Updated `File2MdToolResult`, `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent` to match the new schema, and removed the `Preserve Tables` input from those components.
+- Removed the `Preserve Formatting` input from `AIFile2MdComponent` and `File2AIComponent`; formatting is now always preserved.
+- Removed the `Image Prompt` input from `AIFile2MdComponent`; the component now always uses the built-in default prompt for the selected image mode.
+- `file2md` now delegates AI image description and Markdown replacement formatting to the shared `ImageProcessingService`.
 
 ### Fixed
 

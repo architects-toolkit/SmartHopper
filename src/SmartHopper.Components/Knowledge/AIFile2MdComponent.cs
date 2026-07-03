@@ -33,6 +33,7 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.AITools;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -196,10 +197,7 @@ namespace SmartHopper.Components.Knowledge
         {
             pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
             pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
-            pManager.AddBooleanParameter("Preserve Formatting", "PF", "Preserve DOCX text colors, highlights, bold, italic, and comments as inline formatting. XLSX and PPTX preserve bold and italic. Default: true.", GH_ParamAccess.tree, true);
             pManager.AddTextParameter("Image Mode", "IM", "How AI describes images in the output:\n'embed' (default) — embed image as base64 data URI with a short AI-generated caption as alt text.\n'describe' — replace image with a long, detailed AI text description.\n'caption' — replace image with a short AI-generated title/caption.", GH_ParamAccess.item, "embed");
-            pManager[pManager.ParamCount - 1].Optional = true;
-            pManager.AddTextParameter("Image Prompt", "IP", "Custom prompt for AI image description. Overrides the built-in prompt for the selected mode.", GH_ParamAccess.item);
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
@@ -377,9 +375,15 @@ namespace SmartHopper.Components.Knowledge
                         }
 
                         string placeholder = $"[image {slot.Index}]";
-                        string replacement = slot.ImageMode == "embed"
-                            ? $"![{description}](data:{slot.MimeType};base64,{slot.Base64Data})"
-                            : $"**[{slot.ImageId} — {slot.ImageContext}]**\n\n{description}";
+                        string replacement = ImageProcessingService.BuildMarkdownReplacement(
+                            slot.ImageMode,
+                            description,
+                            description,
+                            url: null,
+                            slot.MimeType,
+                            slot.Base64Data,
+                            slot.ImageId,
+                            slot.ImageContext);
 
                         sb.Replace(placeholder, replacement);
                     }
@@ -439,21 +443,13 @@ namespace SmartHopper.Components.Knowledge
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
             private GH_Structure<GH_String> removeHeadersTree;
-            private GH_Structure<GH_String> preserveFormattingTree;
             private bool hasWork;
 
             private string imageMode;
-            private string imagePrompt;
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
             private GH_Structure<GH_VersatileImage> resultImages;
-
-            private const string DefaultImageDescriptionPrompt =
-                "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured.";
-
-            private const string DefaultImageCaptionPrompt =
-                "Write a concise, descriptive caption for this image in one sentence.";
 
             public AIFile2MdWorker(
                 AIFile2MdComponent parent,
@@ -483,19 +479,11 @@ namespace SmartHopper.Components.Knowledge
                 var removeTree = new GH_Structure<GH_Boolean>();
                 DA.GetDataTree("Remove Headers", out removeTree);
 
-                var preserveFormattingTree = new GH_Structure<GH_Boolean>();
-                DA.GetDataTree("Preserve Formatting", out preserveFormattingTree);
-
                 this.removeHeadersTree = ConvertBoolTreeToString(removeTree, "true");
-                this.preserveFormattingTree = ConvertBoolTreeToString(preserveFormattingTree, "true");
 
                 var imageModeParam = new GH_String();
                 DA.GetData("Image Mode", ref imageModeParam);
                 this.imageMode = imageModeParam?.Value ?? "embed";
-
-                var imagePromptParam = new GH_String();
-                DA.GetData("Image Prompt", ref imagePromptParam);
-                this.imagePrompt = imagePromptParam?.Value;
 
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
@@ -528,9 +516,7 @@ namespace SmartHopper.Components.Knowledge
                     return;
                 }
 
-                string effectivePrompt = string.IsNullOrWhiteSpace(this.imagePrompt)
-                    ? (this.imageMode == "describe" ? DefaultImageDescriptionPrompt : DefaultImageCaptionPrompt)
-                    : this.imagePrompt;
+                string effectivePrompt = ImageProcessingService.GetDefaultPrompt(this.imageMode);
 
                 try
                 {
@@ -538,7 +524,6 @@ namespace SmartHopper.Components.Knowledge
                     {
                         { "File Path", this.filePathTree },
                         { "RemoveHeaders", this.removeHeadersTree },
-                        { "PreserveFormatting", this.preserveFormattingTree },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
@@ -558,12 +543,10 @@ namespace SmartHopper.Components.Knowledge
                             }
 
                             var removeBranch = branchInputs.TryGetValue("RemoveHeaders", out var rh) ? rh : new List<GH_String>();
-                            var preserveFormattingBranch = branchInputs.TryGetValue("PreserveFormatting", out var pf) ? pf : new List<GH_String>();
 
-                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch, preserveFormattingBranch });
+                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch });
                             pathBranch = normalizedLists[0];
                             removeBranch = normalizedLists[1];
-                            preserveFormattingBranch = normalizedLists[2];
 
                             for (int i = 0; i < pathBranch.Count; i++)
                             {
@@ -571,7 +554,6 @@ namespace SmartHopper.Components.Knowledge
 
                                 var ghPath = pathBranch[i];
                                 bool removeHeaders = bool.TryParse(removeBranch[i]?.Value, out var rhValue) ? rhValue : true;
-                                bool preserveFormatting = bool.TryParse(preserveFormattingBranch[i]?.Value, out var pfValue) ? pfValue : true;
 
                                 if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
@@ -587,8 +569,10 @@ namespace SmartHopper.Components.Knowledge
                                 {
                                     ["filePath"] = filePath,
                                     ["removeHeadersFooters"] = removeHeaders,
-                                    ["preserveFormatting"] = preserveFormatting,
-                                    ["preserveComments"] = preserveFormatting,
+                                    ["preserveFormatting"] = true,
+                                    ["preserveComments"] = true,
+                                    ["preserveFootnotes"] = true,
+                                    ["preserveEndnotes"] = true,
                                     ["describeImages"] = false,
                                     ["extractImages"] = true,
                                 };
@@ -716,17 +700,15 @@ namespace SmartHopper.Components.Knowledge
                                         descIdx++;
 
                                         string placeholder = $"[image {imageIdx}]";
-                                        string replacement;
-
-                                        if (this.imageMode == "embed")
-                                        {
-                                            replacement = $"![{aiText}](data:{imgObj2["mimeType"]};base64,{imgObj2["base64Data"]})";
-                                        }
-                                        else
-                                        {
-                                            // describe or caption: text-only block
-                                            replacement = $"**[{imgObj2["id"]} \u2014 {imgObj2["context"]}]**\n\n{aiText}";
-                                        }
+                                        string replacement = ImageProcessingService.BuildMarkdownReplacement(
+                                            this.imageMode,
+                                            aiText,
+                                            aiText,
+                                            url: null,
+                                            imgObj2["mimeType"]?.ToString() ?? "image/png",
+                                            imgObj2["base64Data"]?.ToString() ?? string.Empty,
+                                            imgObj2["id"]?.ToString() ?? "img",
+                                            imgObj2["context"]?.ToString() ?? string.Empty);
 
                                         sb.Replace(placeholder, replacement);
                                         imageIdx++;
