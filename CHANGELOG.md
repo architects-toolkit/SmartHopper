@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Many thanks to the following contributors to this release:
+
+- [marc-romu](https://github.com/marc-romu)
+
+----
+
 ### Added
 
 - **PDF hyperlink extraction**: `PdfConverter` now uses PdfPig `page.GetHyperlinks()` to detect link annotations and wraps intersecting text in Markdown `[text](url)` syntax. Respects the existing `PreserveHyperlinks` option.
@@ -42,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `OpenXmlConverterTests.PptxConverter_BoldItalic` by adding a non-bold run to the first paragraph so the bold formatting is not treated as uniform and is emitted as Markdown bold.
 - Fixed `web2md` generic HTML conversion so headings nested inside links (e.g. WAI-ARIA pattern sidebars) are flattened to plain text before Markdown conversion, preventing invalid Markdown like `[## Title](url)` and preserving only the readable title as the link text.
 - Fixed `OpenXmlConverterTests.XlsxConverter_CellFormatting` by building a complete, valid OpenXML stylesheet (`NumberingFormats`, `Fills`, `CellStyleFormats`, `CellStyles`, `DifferentialFormats`, `TableStyles`) so the workbook is loaded and converted successfully.
+- **CI:** Hash-manifest auto-merge in `release-4-build.yml` now uses `--rebase` instead of `--squash`. The `main` and `dev` branches only allow the rebase merge method (and use a rebase merge queue), so squash auto-merge requests could not complete.
+- **CI:** `release-1-milestone.yml` now syncs `.github/actions` from the dispatched workflow ref before running local composite actions. Releasing from a stabilization branch that predated a CI tooling refactor (e.g. the `update-version` → `version-manager` consolidation) previously failed because the checked-out base branch lacked the referenced local action.
 
 ## [2.0.0-dev.260619] - 2026-06-19
 
