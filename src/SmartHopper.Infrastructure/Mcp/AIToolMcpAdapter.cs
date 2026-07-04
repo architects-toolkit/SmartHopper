@@ -232,15 +232,11 @@ namespace SmartHopper.Infrastructure.Mcp
                 return McpToolCallResult.Ok(lastToolResult.Result);
             }
 
-            // Otherwise look for an explicit tool/provider/network error on the return.
-            // We deliberately ignore Origin.Return and Origin.Validation: those reflect
-            // shape/metrics checks (e.g. metrics required) that the MCP adapter does
-            // not surface as tool failures.
+            // Otherwise surface any explicit error. Previously Origin.Return and
+            // Origin.Validation were ignored, which caused AI tools that call
+            // CreateError (e.g., from gh_get) to silently return an empty object.
             var firstError = result.Messages?
-                .FirstOrDefault(m => m?.Severity == SHRuntimeMessageSeverity.Error
-                    && (m.Origin == SHRuntimeMessageOrigin.Tool
-                        || m.Origin == SHRuntimeMessageOrigin.Provider
-                        || m.Origin == SHRuntimeMessageOrigin.Network));
+                .FirstOrDefault(m => m?.Severity == SHRuntimeMessageSeverity.Error);
             if (firstError != null)
             {
                 return McpToolCallResult.Error(firstError.Message ?? $"Tool '{toolName}' failed");
