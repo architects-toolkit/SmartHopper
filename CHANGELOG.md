@@ -32,6 +32,7 @@ Many thanks to the following contributors to this release:
 - Added `Image Mode` inputs to `File2AIComponent` and `Web2AIComponent`. `File2AIComponent` defaults to `skip` (no image extraction); `Web2AIComponent` defaults to `link` (keep remote image URLs). AI is used only when the mode is `embed`, `describe`, or `caption`.
 - Added `AIWeb2MdComponent` in `SmartHopper.Components.Knowledge` for AI-powered URL-to-Markdown conversion with configurable `Image Mode` (defaults to `link`).
 - Added pagination support to all `gh_get` tool variants via `page` and `pageSize` parameters (defaults: page 1, page size 25). The serialized document is still complete, but the returned `ghjson` contains only the requested page; response includes `pagination` metadata.
+- Added `Count` parameter to `GhGetComponents` (default 100) to limit the number of components retrieved; maps to `gh_get` `pageSize` and always returns page 1. Emits an info message when the result is truncated.
 - Added new `gh_remove` tool that removes canvas objects by instance GUID and records a single undo event so the action is reversible.
 - Exposed `GhJsonGrasshopper.Delete` and `GhJsonGrasshopper.Clear` facade methods in `ghjson-dotnet` so consumers can remove canvas objects through the same UI-thread-safe, undo-batched deletion logic used by `gh_remove`.
 - Added new `button_click` tool that simulates a 100 ms momentary press on Grasshopper boolean button parameters.
