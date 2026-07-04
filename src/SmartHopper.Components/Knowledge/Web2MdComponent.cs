@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -191,13 +192,21 @@ namespace SmartHopper.Components.Knowledge
                 {
                     if (ghUrl == null || string.IsNullOrWhiteSpace(ghUrl.Value))
                     {
-                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, "Skipping empty or null URL.", SHRuntimeMessageOrigin.Worker);
                         outputs["Markdown"].Add(new GH_String(string.Empty));
                         outputs["Format"].Add(new GH_String(string.Empty));
                         continue;
                     }
 
                     string url = ghUrl.Value;
+
+                    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                        (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid HTTP(S) URL: {url}");
+                        outputs["Markdown"].Add(new GH_String(string.Empty));
+                        outputs["Format"].Add(new GH_String(string.Empty));
+                        continue;
+                    }
 
                     try
                     {
@@ -230,7 +239,7 @@ namespace SmartHopper.Components.Knowledge
                     }
                     catch (Exception ex)
                     {
-                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Error converting {url}: {ex.Message}", SHRuntimeMessageOrigin.Worker);
+                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Error fetching {url}: {ex.Message}");
                         outputs["Markdown"].Add(new GH_String(string.Empty));
                         outputs["Format"].Add(new GH_String(string.Empty));
                     }
@@ -258,7 +267,22 @@ namespace SmartHopper.Components.Knowledge
                 toolCall.CancellationToken = token;
 
                 AIReturn aiResult = await toolCall.Exec(token).ConfigureAwait(false);
-                return ToolCallResult.FromAIReturn(aiResult);
+
+                var toolResultInteraction = aiResult.Body?.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                if (toolResultInteraction?.Result != null)
+                {
+                    return new ToolCallResult(aiResult.Success, toolResultInteraction.Result, aiResult.Messages);
+                }
+
+                var fallbackPayload = new JObject
+                {
+                    ["success"] = aiResult.Success,
+                    ["messages"] = JArray.FromObject(aiResult.Messages),
+                };
+                return new ToolCallResult(aiResult.Success, fallbackPayload, aiResult.Messages);
             }
 
             public override void SetOutput(IGH_DataAccess DA, out string message)

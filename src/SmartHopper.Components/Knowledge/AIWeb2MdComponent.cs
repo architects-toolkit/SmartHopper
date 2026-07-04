@@ -448,13 +448,21 @@ namespace SmartHopper.Components.Knowledge
                 {
                     if (ghUrl == null || string.IsNullOrWhiteSpace(ghUrl.Value))
                     {
-                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, "Skipping empty or null URL.", SHRuntimeMessageOrigin.Worker);
                         outputs["Markdown"].Add(new GH_String(string.Empty));
                         outputs["Format"].Add(new GH_String(string.Empty));
                         continue;
                     }
 
                     string url = ghUrl.Value;
+
+                    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                        (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid HTTP(S) URL: {url}");
+                        outputs["Markdown"].Add(new GH_String(string.Empty));
+                        outputs["Format"].Add(new GH_String(string.Empty));
+                        continue;
+                    }
 
                     try
                     {
@@ -513,7 +521,7 @@ namespace SmartHopper.Components.Knowledge
                     }
                     catch (Exception ex)
                     {
-                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Error converting {url}: {ex.Message}", SHRuntimeMessageOrigin.Worker);
+                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Error fetching {url}: {ex.Message}");
                         outputs["Markdown"].Add(new GH_String(string.Empty));
                         outputs["Format"].Add(new GH_String(string.Empty));
                     }
