@@ -76,8 +76,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ""input_schema"": { ""type"": ""object"" },
                         ""output_schema"": { ""type"": ""object"" },
-                        ""all_tools"": {
+                        ""similar_tools"": {
                             ""type"": ""array"",
+                            ""description"": ""Tools related to the requested tool. When the tool is found, this contains all tools in the same category; otherwise it contains the full catalog for discovery."",
                             ""items"": {
                                 ""type"": ""object"",
                                 ""properties"": {
@@ -110,7 +111,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var tools = AIToolManager.GetTools();
                 var found = tools.TryGetValue(requestedName, out var targetTool);
 
-                var allTools = tools.Values
+                var toolCatalog = tools.Values
                     .OrderBy(t => t.Name)
                     .Select(t => new JObject
                     {
@@ -118,7 +119,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["description"] = t.RichDescription,
                         ["category"] = t.Category,
                         ["tags"] = new JArray(t.Tags),
-                    });
+                    })
+                    .ToList();
+
+                var similarTools = (found && targetTool != null)
+                    ? toolCatalog.Where(t => t["category"]?.ToString() == targetTool.Category)
+                    : toolCatalog;
 
                 JObject result;
                 if (found && targetTool != null)
@@ -141,7 +147,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         },
                         ["input_schema"] = JToken.Parse(targetTool.ParametersSchema),
                         ["output_schema"] = JToken.Parse(targetTool.OutputSchema),
-                        ["all_tools"] = new JArray(allTools),
+                        ["similar_tools"] = new JArray(similarTools),
                     };
                 }
                 else
@@ -151,7 +157,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["tool_name"] = requestedName,
                         ["found"] = false,
                         ["description"] = $"Tool '{requestedName}' is not registered.",
-                        ["all_tools"] = new JArray(allTools),
+                        ["similar_tools"] = new JArray(similarTools),
                     };
                 }
 

@@ -48,7 +48,7 @@ Returns a JSON object containing:
 - `annotations` (object with MCP hints)
 - `input_schema` (object)
 - `output_schema` (object)
-- `all_tools` (array of all registered tools with name, description, category, and tags)
+- `similar_tools` (array of related tools with name, description, category, and tags; when the requested tool is found, this is filtered to its category; when not found, this contains the full catalog)
 
 ---
 
