@@ -213,7 +213,6 @@ The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMc
 - **Default port.** `26929` is kept for parity with Cordyceps.
 - **Mutating tools off by default.** `McpServerOptions.ExposeMutatingTools = false` and `AITool.MutatesCanvas` control exposure.
 - **Component path.** The component lives at `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs`.
-- **Attribution surface.** Attribution lives in `THIRD_PARTY_NOTICES.md` and per-file headers under `src/SmartHopper.Infrastructure/Mcp/`.
 - **Component-name aliasing.** The orchestration layer already handles aliasing through `ComponentNameAliases` in `SmartHopper.Core.Grasshopper.Utils.Canvas`; no extra MCP-side alias layer is introduced.
 
 ### Relationship to GhJSON and Cordyceps

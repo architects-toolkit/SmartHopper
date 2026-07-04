@@ -21,8 +21,7 @@
  * (https://github.com/brookstalley/cordyceps, McpServer.cs). SmartHopper does not
  * use [McpServerTool] reflection: tools are already discoverable through
  * AIToolManager, so the adapter projects that catalog into MCP descriptors instead.
- * Copyright (c) 2026 Brooks Talley. Licensed under the MIT License. See
- * THIRD_PARTY_NOTICES.md.
+ * Copyright (c) 2026 Brooks Talley. Licensed under the MIT License.
  */
 
 using System;

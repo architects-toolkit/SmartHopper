@@ -19,8 +19,7 @@
 /*
  * JSON-RPC dispatch shape and MCP method names structurally adapted from Cordyceps
  * (https://github.com/brookstalley/cordyceps, McpServer.cs).
- * Copyright (c) 2026 Brooks Talley. Licensed under the MIT License. See
- * THIRD_PARTY_NOTICES.md.
+ * Copyright (c) 2026 Brooks Talley. Licensed under the MIT License.
  */
 
 using System;

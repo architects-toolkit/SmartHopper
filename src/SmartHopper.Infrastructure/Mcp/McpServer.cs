@@ -20,8 +20,7 @@
  * HTTP/JSON-RPC transport skeleton structurally adapted from Cordyceps
  * (https://github.com/brookstalley/cordyceps, McpServer.cs), simplified for
  * SmartHopper: loopback bind, no SSE, single shared dispatcher.
- * Copyright (c) 2026 Brooks Talley. Licensed under the MIT License. See
- * THIRD_PARTY_NOTICES.md.
+ * Copyright (c) 2026 Brooks Talley. Licensed under the MIT License.
  */
 
 using System;
