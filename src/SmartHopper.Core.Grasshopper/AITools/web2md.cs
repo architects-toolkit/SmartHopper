@@ -100,7 +100,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.Web2MdAsync,
                 mutatesCanvas: false,
                 tags: new[] { "web", "knowledge", "text", "read-only", "external" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""text"": { ""type"": ""string"", ""description"": ""Markdown representation of the web page."" }, ""title"": { ""type"": ""string"" }, ""url"": { ""type"": ""string"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""content"": { ""type"": ""string"", ""description"": ""Markdown representation of the web page."" }, ""source"": { ""type"": ""string"", ""description"": ""The URL that was fetched."" }, ""retrievedAt"": { ""type"": ""string"", ""format"": ""date-time"", ""description"": ""UTC ISO 8601 timestamp when the page was retrieved."" }, ""metadata"": { ""type"": ""object"" }, ""warnings"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
@@ -183,6 +183,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["content"] = markdownContent,
                     ["source"] = url,
+                    ["retrievedAt"] = DateTime.UtcNow.ToString("O"),
                 };
 
                 // Add metadata if present
