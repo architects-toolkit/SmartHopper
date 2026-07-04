@@ -67,9 +67,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 tags.Add("data-intensive");
             }
 
-            var outputSchema = includeInternalizedData
-                ? @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"" } } }"
-                : @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"" } } }";
+            var outputSchema = @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"" } } }";
 
             var schema = includePagination ? AddPaginationToSchema(parametersSchema) : parametersSchema;
 
@@ -156,7 +154,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""includeInternalizedData"": {
                             ""type"": ""boolean"",
                             ""default"": false,
-                            ""description"": ""Whether to include runtime/volatile data (actual values currently flowing through component outputs). Useful for inspecting computed results. Default is false. This is token-expansive!""
+                            ""description"": ""Whether to include internalized (persistent) data stored in parameters, such as panel text or slider values. Default is false. This is token-expansive!""
+                        },
+                        ""includeRuntimeData"": {
+                            ""type"": ""boolean"",
+                            ""default"": false,
+                            ""description"": ""Whether to include runtime (volatile) data - actual values currently flowing through component outputs. Useful for inspecting computed results. Default is false. This is token-expansive!""
                         },
                         ""viewportOnly"": {
                             ""type"": ""boolean"",
@@ -416,11 +419,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <param name="toolCall">The tool call containing parameters.</param>
         /// <param name="predefinedAttrFilters">Predefined attribute filters to apply (used by wrapper tools).</param>
         /// <param name="predefinedTypeFilters">Predefined type filters to apply (used by wrapper tools).</param>
-        /// <param name="forceincludeInternalizedData">When true, forces inclusion of runtime data regardless of parameter value.</param>
+        /// <param name="forceIncludeData">When true, forces inclusion of both internalized and runtime data regardless of parameter value.</param>
         /// <param name="forceViewportOnly">When true, restricts results to components visible in the canvas viewport regardless of parameter value.</param>
         /// <param name="includeMessages">When true, forces inclusion of runtime messages (errors/warnings/remarks) regardless of parameter value.</param>
         /// <returns>Task that returns the result of the operation.</returns>
-        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceincludeInternalizedData = false, bool forceViewportOnly = false, bool includeMessages = false)
+        private Task<AIReturn> GhGetToolAsync(AIToolCall toolCall, string[] predefinedAttrFilters = null, string[] predefinedTypeFilters = null, bool forceIncludeData = false, bool forceViewportOnly = false, bool includeMessages = false)
         {
             var output = new AIReturn() { Request = toolCall };
 
@@ -434,12 +437,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Parse parameters
                 var connectionDepth = args["connectionDepth"]?.ToObject<int>() ?? 0;
-                var includeInternalizedData = forceincludeInternalizedData || (args["includeInternalizedData"]?.ToObject<bool>() ?? false);
+                var includeInternalizedData = forceIncludeData || (args["includeInternalizedData"]?.ToObject<bool>() ?? false);
+                var includeRuntimeData = forceIncludeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var viewportOnly = forceViewportOnly || (args["viewportOnly"]?.ToObject<bool>() ?? false);
                 var page = args["page"]?.ToObject<int>() ?? 1;
                 var pageSize = args["pageSize"]?.ToObject<int>() ?? 25;
-                Debug.WriteLine($"[gh_get] includeInternalizedData: {includeInternalizedData}, includeMessages: {includeMessages}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}");
+                Debug.WriteLine($"[gh_get] includeInternalizedData: {includeInternalizedData}, includeRuntimeData: {includeRuntimeData}, includeMessages: {includeMessages}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}");
 
                 // Build the query using CanvasSelector
                 var selector = CanvasSelector.FromActiveCanvas();
@@ -517,6 +521,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     IncludeConnections = true,
                     IncludeGroups = true,
                     IncludeInternalizedData = includeInternalizedData,
+                    IncludeRuntimeData = includeRuntimeData,
                     IncludeRuntimeMessages = includeMessages,
                     IncludeSelectedState = false,
                     AssignSequentialIds = true,
@@ -627,6 +632,34 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ["referencedPlugins"] = JArray.FromObject(missingPlugins),
                     },
                 };
+
+                if (includeRuntimeData)
+                {
+                    var runtimeData = new JObject();
+                    foreach (var comp in document.Components)
+                    {
+                        if (!comp.InstanceGuid.HasValue || comp.OutputSettings == null)
+                        {
+                            continue;
+                        }
+
+                        var compRuntimeData = new JObject();
+                        foreach (var setting in comp.OutputSettings)
+                        {
+                            if (setting.RuntimeData != null && setting.RuntimeData.Count > 0)
+                            {
+                                compRuntimeData[setting.ParameterName] = JObject.FromObject(setting.RuntimeData);
+                            }
+                        }
+
+                        if (compRuntimeData.Count > 0)
+                        {
+                            runtimeData[comp.InstanceGuid.Value.ToString()] = compRuntimeData;
+                        }
+                    }
+
+                    toolResult["runtimeData"] = runtimeData;
+                }
 
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)
