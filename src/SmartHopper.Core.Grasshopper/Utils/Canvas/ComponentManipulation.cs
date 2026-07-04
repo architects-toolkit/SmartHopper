@@ -19,8 +19,10 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 {
@@ -136,6 +138,64 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             else
             {
                 Debug.WriteLine("[ComponentManipulation] Object is neither a GH_Component nor a GH_Param");
+            }
+        }
+
+        /// <summary>
+        /// Simulates a momentary button press on a Grasshopper boolean parameter or button
+        /// component by setting its persistent data to true, expiring the solution, waiting 100 ms,
+        /// then setting it back to false. Records a single undo event for the operation.
+        /// </summary>
+        /// <param name="guid">GUID of the button parameter to press.</param>
+        /// <returns>True if the object was found and pressed; otherwise false.</returns>
+        public static bool ButtonClick(Guid guid)
+        {
+            var obj = CanvasAccess.FindInstance(guid);
+            if (obj == null)
+            {
+                Debug.WriteLine($"[ComponentManipulation] ButtonClick: object not found {guid}");
+                return false;
+            }
+
+            if (!(obj is IGH_Param param))
+            {
+                Debug.WriteLine($"[ComponentManipulation] ButtonClick: object {guid} is not a parameter");
+                return false;
+            }
+
+            // Record undo for the parameter change
+            obj.RecordUndoEvent("[SH] Button Click");
+
+            try
+            {
+                var setMethod = param.GetType().GetMethod("SetPersistentData", new[] { typeof(object) })
+                    ?? param.GetType().GetMethod("SetPersistentData", new[] { typeof(bool) });
+                if (setMethod == null)
+                {
+                    Debug.WriteLine($"[ComponentManipulation] ButtonClick: parameter {guid} does not expose SetPersistentData");
+                    return false;
+                }
+
+                setMethod.Invoke(param, new object[] { true });
+                param.ExpireSolution(true);
+
+                Task.Run(async () =>
+                {
+                    await Task.Delay(100).ConfigureAwait(false);
+
+                    global::Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        setMethod.Invoke(param, new object[] { false });
+                        param.ExpireSolution(true);
+                    });
+                });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ComponentManipulation] ButtonClick failed for {guid}: {ex.Message}");
+                return false;
             }
         }
 

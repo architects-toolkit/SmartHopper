@@ -31,6 +31,12 @@ Many thanks to the following contributors to this release:
 - Added a shared `ImageProcessingService` in `SmartHopper.Core.Grasshopper.Utils.Internal` used by both `file2md` and `web2md` for downloading, describing, and formatting Markdown image replacements consistently across file and web conversion paths.
 - Added `Image Mode` inputs to `File2AIComponent` and `Web2AIComponent`. `File2AIComponent` defaults to `skip` (no image extraction); `Web2AIComponent` defaults to `link` (keep remote image URLs). AI is used only when the mode is `embed`, `describe`, or `caption`.
 - Added `AIWeb2MdComponent` in `SmartHopper.Components.Knowledge` for AI-powered URL-to-Markdown conversion with configurable `Image Mode` (defaults to `link`).
+- Added pagination support to all `gh_get` tool variants via `page` and `pageSize` parameters (defaults: page 1, page size 25). The serialized document is still complete, but the returned `ghjson` contains only the requested page; response includes `pagination` metadata.
+- Added new `gh_remove` tool that removes canvas objects by instance GUID and records a single undo event so the action is reversible.
+- Exposed `GhJsonGrasshopper.Delete` and `GhJsonGrasshopper.Clear` facade methods in `ghjson-dotnet` so consumers can remove canvas objects through the same UI-thread-safe, undo-batched deletion logic used by `gh_remove`.
+- Added new `button_click` tool that simulates a 100 ms momentary press on Grasshopper boolean button parameters.
+- Added new `gh_document_save` tool that saves the active Grasshopper document to a given path or to its existing file path.
+- Added `autoOffset` parameter to `gh_put` so callers can control whether placed components are offset to avoid overlaps.
 - Migrated `File2AIComponent` and `Web2AIComponent` to `AIStatefulAsyncComponentBase` so they can batch AI image-description calls through the same infrastructure used by `AIFile2MdComponent`.
 - Added shared `MarkdownImageBatchProcessor` in `SmartHopper.Core.Grasshopper.Utils.Internal` to centralize image slot extraction, batch sentinel generation, and Markdown reconstruction for all file and web components that use AI image descriptions.
 - **`web2md` failure-shape handling**: `UrlConverter` now explicitly classifies and reports failure cases instead of risking a false success with empty/misleading content: invalid or non-HTTP URLs, HTTP 401/403 and other non-success responses, login-wall pages (password field + login phrase, or thin content behind a password field), bot/human-verification challenge pages (reCAPTCHA, hCaptcha, Cloudflare Turnstile/"Just a moment...", DataDome, PerimeterX, GeeTest signatures), oversized pages (new `FileConversionOptions.MaxDownloadBytes`, default 10 MB, enforced via `Content-Length` and bounded streaming reads), and empty/thin pages (new `FileConversionOptions.MinContentLength`, default 40 characters). Added `FileConversionResult.FailureReason` (`FileConversionFailureReason` enum) so callers can distinguish failure shapes programmatically; the `web2md` tool now prefixes its error message with the classified reason (e.g. `[LoginRequired]`, `[BotChallenge]`).
@@ -50,6 +56,9 @@ Many thanks to the following contributors to this release:
 - Renamed `instruction_get` tool to `smarthopper_readme` to clarify its purpose as a general readme/instructions tool distinct from `smarthopper_tool_help`. Updated `CanvasButton` system prompt, test component, and documentation to match.
 - Renamed tool `McpDescription` to `RichDescription` and exposed it to every LLM-facing tool list, including inside-Smarthopper provider calls and the `smarthopper_tool_help` tool. `Description` remains the canonical source description; `RichDescription` adds the `[Read-only]`/`[Mutates canvas]` prefix plus tags.
 - Updated `web2md` tool description to clarify that it should be used when the URL is known and knowledge needs to be retrieved from the web.
+- Renamed `gh_list_components` parameter `nameFilter` to `query` for consistency; the old `nameFilter` key is still accepted for backward compatibility.
+- Updated `gh_put` output schema to match the actual response shape (`components`, `instanceGuids`, `analysis`).
+- Refactored `gh_remove` and `CanvasAccess.RemoveInstances` to delegate deletion to `GhJsonGrasshopper.Delete` so undo batching and UI-thread scheduling are handled by the shared `ghjson-dotnet` `CanvasDeleter`.
 
 ### Fixed
 
@@ -63,6 +72,8 @@ Many thanks to the following contributors to this release:
 - Fixed `OpenXmlConverterTests.XlsxConverter_CellFormatting` by building a complete, valid OpenXML stylesheet (`NumberingFormats`, `Fills`, `CellStyleFormats`, `CellStyles`, `DifferentialFormats`, `TableStyles`) so the workbook is loaded and converted successfully.
 - **CI:** Hash-manifest auto-merge in `release-4-build.yml` now uses `--rebase` instead of `--squash`. The `main` and `dev` branches only allow the rebase merge method (and use a rebase merge queue), so squash auto-merge requests could not complete.
 - **CI:** `release-1-milestone.yml` now syncs `.github/actions` from the dispatched workflow ref before running local composite actions. Releasing from a stabilization branch that predated a CI tooling refactor (e.g. the `update-version` → `version-manager` consolidation) previously failed because the checked-out base branch lacked the referenced local action.
+- Improved error surfacing for empty results in `gh_get` and `gh_put` so callers receive a clear warning instead of an empty object.
+- Improved `gh_put` input handling so it accepts the `ghjson` argument as either a JSON string or a structured JSON object/array.
 
 ## [2.0.0-dev.260619] - 2026-06-19
 

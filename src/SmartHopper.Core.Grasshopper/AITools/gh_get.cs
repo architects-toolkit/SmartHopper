@@ -28,6 +28,7 @@ using GhJSON.Grasshopper.Query;
 using GhJSON.Grasshopper.Serialization;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
@@ -57,7 +58,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
             string description,
             string parametersSchema,
             Func<AIToolCall, Task<AIReturn>> execute,
-            bool includeRuntimeData = false)
+            bool includeRuntimeData = false,
+            bool includePagination = true)
         {
             var tags = new List<string> { "canvas", "components", "read-only", "ghjson" };
             if (includeRuntimeData)
@@ -66,19 +68,46 @@ namespace SmartHopper.Core.Grasshopper.AITools
             }
 
             var outputSchema = includeRuntimeData
-                ? @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" } } }"
-                : @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" } } }";
+                ? @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"" } } }"
+                : @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""pagination"": { ""type"": ""object"", ""description"": ""Pagination metadata."" }, ""serializationQuality"": { ""type"": ""object"" } } }";
+
+            var schema = includePagination ? AddPaginationToSchema(parametersSchema) : parametersSchema;
 
             return new AITool(
                 name: name,
                 description: description,
                 category: "Components",
-                parametersSchema: parametersSchema,
+                parametersSchema: schema,
                 execute: execute,
                 mutatesCanvas: false,
                 tags: tags,
                 outputSchema: outputSchema,
                 annotations: new AIToolAnnotations(readOnlyHint: true));
+        }
+
+        /// <summary>
+        /// Adds pagination parameters to a JSON schema when they are not already present.
+        /// </summary>
+        private static string AddPaginationToSchema(string parametersSchema)
+        {
+            var obj = JObject.Parse(parametersSchema);
+            var properties = obj["properties"] as JObject;
+            if (properties == null)
+            {
+                return parametersSchema;
+            }
+
+            if (!properties.ContainsKey("page"))
+            {
+                properties["page"] = JObject.Parse(@"{ ""type"": ""integer"", ""default"": 1, ""minimum"": 1, ""description"": ""One-based page index for paginated results. Default is 1."" }");
+            }
+
+            if (!properties.ContainsKey("pageSize"))
+            {
+                properties["pageSize"] = JObject.Parse(@"{ ""type"": ""integer"", ""default"": 25, ""minimum"": 1, ""description"": ""Number of components per page. Default is 25."" }");
+            }
+
+            return obj.ToString(Formatting.None);
         }
 
         /// <summary>
@@ -136,6 +165,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
+                includePagination: true,
                 execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
 
             // Specialized wrapper: gh_get_selected
@@ -406,7 +436,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var includeRuntimeData = forceIncludeRuntimeData || (args["includeRuntimeData"]?.ToObject<bool>() ?? false);
                 var includeMetadata = args["includeMetadata"]?.ToObject<bool>() ?? false;
                 var viewportOnly = forceViewportOnly || (args["viewportOnly"]?.ToObject<bool>() ?? false);
-                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}");
+                var page = args["page"]?.ToObject<int>() ?? 1;
+                var pageSize = args["pageSize"]?.ToObject<int>() ?? 25;
+                Debug.WriteLine($"[gh_get] includeRuntimeData: {includeRuntimeData}, connectionDepth: {connectionDepth}, includeMetadata: {includeMetadata}, viewportOnly: {viewportOnly}, page: {page}, pageSize: {pageSize}");
 
                 // Build the query using CanvasSelector
                 var selector = CanvasSelector.FromActiveCanvas();
@@ -488,6 +520,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     IncludeSelectedState = false,
                     AssignSequentialIds = true,
                     IncludeMetadata = includeMetadata,
+                    Page = page,
+                    PageSize = pageSize,
                 };
 
                 // Apply user-defined metadata overrides from the file context provider
@@ -564,14 +598,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Distinct()
                     .ToList();
 
+                var totalComponents = resultObjects.Count;
+                var pageCount = pageSize > 0 ? (int)Math.Ceiling((double)totalComponents / pageSize) : 1;
+
+                if (document.Components.Count == 0)
+                {
+                    output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, "No components matched the requested filters. Try relaxing filters or adjusting pagination.");
+                }
+
                 var toolResult = new JObject
                 {
                     ["names"] = JArray.FromObject(names),
                     ["guids"] = JArray.FromObject(guidList),
                     ["ghjson"] = json,
+                    ["pagination"] = new JObject
+                    {
+                        ["page"] = page,
+                        ["pageSize"] = pageSize,
+                        ["totalComponents"] = totalComponents,
+                        ["pageCount"] = pageCount,
+                        ["returnedComponents"] = document.Components.Count,
+                    },
                     ["serializationQuality"] = new JObject
                     {
-                        ["totalComponents"] = document.Components.Count,
+                        ["totalComponents"] = totalComponents,
                         ["thinComponents"] = JArray.FromObject(thinComponents),
                         ["referencedPlugins"] = JArray.FromObject(missingPlugins),
                     },

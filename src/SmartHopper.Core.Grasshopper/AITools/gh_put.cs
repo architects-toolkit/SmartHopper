@@ -28,12 +28,14 @@ using GhJSON.Grasshopper;
 using GhJSON.Grasshopper.PutOperations;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -62,14 +64,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {
                         ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string"" },
-                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, existing components on canvas will be replaced. User will be prompted for confirmation."" }
+                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, existing components on canvas will be replaced. User will be prompted for confirmation."" },
+                        ""autoOffset"": { ""type"": ""boolean"", ""default"": true, ""description"": ""When true, newly placed components are offset on the canvas so they do not overlap existing objects. In edit mode this defaults to false."" }
                     },
                     ""required"": [""ghjson""]
                 }",
                 execute: this.GhPutToolAsync,
                 mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "ghjson" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""ghjson"": { ""type"": ""string"", ""description"": ""Resulting GhJSON after the operation."" }, ""warnings"": { ""type"": ""array"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, error, or warning summary. Null when nothing notable happened."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
@@ -90,8 +93,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
-                var json = args["ghjson"]?.ToString() ?? string.Empty;
+                var json = ExtractGhJsonString(args["ghjson"]);
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
+                var autoOffset = args["autoOffset"]?.ToObject<bool>() ?? !editMode;
 
                 GhJson.IsValid(json, out analysisMsg);
                 var document = GhJson.FromJson(json);
@@ -501,7 +505,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             CreateGroups = true,
                             SelectPlacedObjects = true,
                             SkipInvalidComponents = true,
-                            AutoOffset = !editMode,
+                            AutoOffset = autoOffset,
                         };
 
                         putResult = GhJsonGrasshopper.Put(document, putOptions);
@@ -604,6 +608,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["analysis"] = combinedAnalysis,
                 };
 
+                if (placedGuids.Count == 0)
+                {
+                    var emptyMessage = string.IsNullOrWhiteSpace(combinedAnalysis)
+                        ? "No components could be placed. The GhJSON may be empty, all components may be invalid, or the document may already be up to date."
+                        : combinedAnalysis;
+
+                    output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, emptyMessage);
+                }
+
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)
                     .Build();
@@ -622,6 +635,32 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError(combined);
                 return output;
             }
+        }
+
+        /// <summary>
+        /// Extracts the GhJSON string from the tool argument. Handles cases where the model
+        /// passes the JSON as a string value, an object, or an array.
+        /// </summary>
+        /// <param name="token">The JToken containing the ghjson argument.</param>
+        /// <returns>The GhJSON string, or an empty string if the argument is missing.</returns>
+        private static string ExtractGhJsonString(JToken token)
+        {
+            if (token == null)
+            {
+                return string.Empty;
+            }
+
+            if (token.Type == JTokenType.String)
+            {
+                return token.Value<string>() ?? string.Empty;
+            }
+
+            if (token.Type == JTokenType.Object || token.Type == JTokenType.Array)
+            {
+                return token.ToString(Formatting.None);
+            }
+
+            return token.ToString();
         }
 
         /// <summary>

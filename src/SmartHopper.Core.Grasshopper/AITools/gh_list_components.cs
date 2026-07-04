@@ -60,9 +60,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""items"": { ""type"": ""string"" },
                             ""description"": ""Optionally filter components by category. '+' includes, '-' excludes. Most common categories: Params, Maths, Vector, Curve, Surface, Mesh, Intersect, Transform, Sets, Display, Rhino, Kangaroo. E.g. ['+Maths','-Params']. (note: use the tool 'gh_categories' to get the full list of available categories)""
                         },
-                        ""nameFilter"": {
+                        ""query"": {
                             ""type"": ""string"",
-                            ""description"": ""Partial name matching filter. Returns components whose name or nickname contains this text (case-insensitive)""
+                            ""description"": ""Partial name matching filter. Returns components whose name or nickname contains this text (case-insensitive).""
                         },
                         ""includeDetails"": {
                             ""type"": ""array"",
@@ -107,7 +107,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var args = toolInfo.Arguments ?? new JObject();
                 var server = Instances.ComponentServer;
                 var categoryFilters = args["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
-                var nameFilter = args["nameFilter"]?.ToString() ?? string.Empty;
+                var query = args["query"]?.ToString() ?? args["nameFilter"]?.ToString() ?? string.Empty;
                 var includeDetails = args["includeDetails"]?.ToObject<List<string>>() ?? new List<string>();
                 var maxResults = args["maxResults"]?.ToObject<int>() ?? 100;
                 var (includeCats, excludeCats) = FilterParser.ParseIncludeExclude(categoryFilters, FilterParser.CategorySynonyms);
@@ -127,10 +127,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         .ToList();
                 }
 
-                // Apply name filter if provided
-                if (!string.IsNullOrEmpty(nameFilter))
+                // Apply query filter if provided
+                if (!string.IsNullOrEmpty(query))
                 {
-                    var filterLower = nameFilter.ToLowerInvariant();
+                    var filterLower = query.ToLowerInvariant();
                     proxies = proxies.Where(p =>
                         p.Desc.Name.ToLowerInvariant().Contains(filterLower) ||
                         p.Desc.NickName.ToLowerInvariant().Contains(filterLower)).ToList();
