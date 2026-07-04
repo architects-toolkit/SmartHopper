@@ -17,9 +17,9 @@
  */
 
 /*
- * TestInstructionGetComponent: Test component for the instruction_get AI tool.
+ * TestSmarthopperReadmeComponent: Test component for the smarthopper_readme AI tool.
  *
- * Tool: instruction_get
+ * Tool: smarthopper_readme
  *   Inputs:  topic (string, required) – one of:
  *              canvas, ghjson, selected, errors, locks, visibility,
  *              discovery, scripting, python, csharp, vb,
@@ -38,10 +38,10 @@ using SmartHopper.Infrastructure.AICall.Tools;
 namespace SmartHopper.Components.Test.AiTools
 {
     /// <summary>
-    /// Test component for the instruction_get AI tool.
+    /// Test component for the smarthopper_readme AI tool.
     /// Returns the instruction bundle for the given topic.
     /// </summary>
-    public class TestInstructionGetComponent : GH_Component
+    public class TestSmarthopperReadmeComponent : GH_Component
     {
         /// <inheritdoc />
         public override Guid ComponentGuid => new Guid("9BCF1E9D-0FDE-49EB-8BE6-7B0881350CBB");
@@ -53,13 +53,13 @@ namespace SmartHopper.Components.Test.AiTools
         public override GH_Exposure Exposure => GH_Exposure.hidden;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="TestInstructionGetComponent"/> class.
+        /// Initializes a new instance of the <see cref="TestSmarthopperReadmeComponent"/> class.
         /// </summary>
-        public TestInstructionGetComponent()
+        public TestSmarthopperReadmeComponent()
             : base(
-                "Test instruction_get",
-                "TEST-INSTR-GET",
-                "Tests the instruction_get AI tool. Returns detailed operational instructions for a given SmartHopper topic.",
+                "Test smarthopper_readme",
+                "TEST-README",
+                "Tests the smarthopper_readme AI tool. Returns detailed operational instructions for a given SmartHopper topic.",
                 "SmartHopper Tests",
                 "Testing AiTools")
         {
@@ -80,7 +80,7 @@ namespace SmartHopper.Components.Test.AiTools
             pManager.AddBooleanParameter(
                 "Run?",
                 "R",
-                "Set to True to execute instruction_get.",
+                "Set to True to execute smarthopper_readme.",
                 GH_ParamAccess.item,
                 false);
         }
@@ -108,7 +108,7 @@ namespace SmartHopper.Components.Test.AiTools
             DA.GetData(1, ref run);
             if (!run)
             {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute instruction_get.");
+                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to execute smarthopper_readme.");
                 return;
             }
 
@@ -128,13 +128,13 @@ namespace SmartHopper.Components.Test.AiTools
 
                 var toolCallInteraction = new AIInteractionToolCall
                 {
-                    Name = "instruction_get",
+                    Name = "smarthopper_readme",
                     Arguments = parameters,
                     Agent = AIAgent.Assistant,
                 };
 
                 var toolCall = new AIToolCall();
-                toolCall.Endpoint = "instruction_get";
+                toolCall.Endpoint = "smarthopper_readme";
                 toolCall.FromToolCallInteraction(toolCallInteraction);
                 toolCall.SkipMetricsValidation = true;
 
@@ -142,7 +142,7 @@ namespace SmartHopper.Components.Test.AiTools
 
                 if (toolResult.Result == null)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'instruction_get' did not return a valid result.");
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'smarthopper_readme' did not return a valid result.");
                     return;
                 }
 

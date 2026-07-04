@@ -124,7 +124,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas).",
+                description: "Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas). Example: script_generate({ instructions: 'Create a circle from a radius', language: 'python' }).",
                 category: "Hidden",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -142,12 +142,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instructions""]
                 }",
                 execute: this.ExecuteAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                mutatesCanvas: false,
+                tags: new[] { "scripting", "script", "ghjson", "read-only", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON string representing the generated script component."" }, ""language"": { ""type"": ""string"" }, ""nickname"": { ""type"": ""string"" }, ""summary"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
 
             // Wrapper tool that generates and places the component on canvas in one call.
             yield return new AITool(
                 name: this.wrapperToolName,
-                description: "Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation.",
+                description: "Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation. Example: script_generate_and_place_on_canvas({ instructions: 'Create a circle from a radius' }).",
                 category: "Scripting",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -165,7 +169,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instructions""]
                 }",
                 execute: this.ExecuteGenerateAndPlaceAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                mutatesCanvas: true,
+                tags: new[] { "scripting", "script", "canvas", "mutating", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON of the placed component."" }, ""instanceGuid"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

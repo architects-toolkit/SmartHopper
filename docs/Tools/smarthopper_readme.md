@@ -1,4 +1,4 @@
-# instruction_get
+# smarthopper_readme
 
 AI tool that returns detailed operational guidance to the agent on demand.
 
@@ -8,9 +8,9 @@ AI tool that returns detailed operational guidance to the agent on demand.
 
 | Property | Value |
 | --- | --- |
-| **Source Code** | `src/SmartHopper.Core.Grasshopper/AITools/instruction_get.cs` |
+| **Source Code** | `src/SmartHopper.Core.Grasshopper/AITools/smarthopper_readme.cs` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-06-14 |
+| **Last Updated** | 2026-07-04 |
 | **Documentation Maintainer** | Devin AI |
 
 _Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
@@ -19,14 +19,15 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 
 ## Why Read This?
 
-`instruction_get` enables a *tool-as-documentation* pattern where the chat system prompt stays short and stable, while domain-specific workflows and edge-case constraints are pulled only when needed. This reduces token usage and makes system prompts easier to iterate on.
+`smarthopper_readme` enables a *tool-as-documentation* pattern where the chat system prompt stays short and stable, while domain-specific workflows and edge-case constraints are pulled only when needed. This reduces token usage and makes system prompts easier to iterate on.
 
 **You should read this if you:**
 
-- Need canonical sequences of tools for a given task
-- Want safety/UX constraints without bloating the system prompt
+- Want safety/UX constraints and operational conventions without bloating the system prompt
 - Want the assistant to follow consistent internal conventions
 - Are working with canvas inspection, GhJSON workflows, scripting, or knowledge searches
+
+For **canonical sequences of tool calls**, use `smarthopper_workflows` instead.
 
 ---
 
@@ -34,11 +35,12 @@ _Note: This documentation was written by AI on its own. It may contain some mist
 
 ### When to Use
 
-Call `instruction_get` **before** executing domain-specific workflows, especially when:
+Call `smarthopper_readme` **before** executing domain-specific workflows, especially when:
 
-- You need the canonical sequence of tools for a given task.
-- You need safety/UX constraints (edge cases) without bloating the system prompt.
+- You need the operational rules, safety/UX constraints, or conventions for a domain.
 - You want the assistant to follow consistent internal conventions.
+
+For the canonical sequence of tool calls, call `smarthopper_workflows` after retrieving the relevant domain guidance.
 
 This is particularly valuable for:
 
@@ -74,12 +76,12 @@ The response is returned as a tool result interaction (so it becomes part of the
 
 ### Tool Registration Pattern
 
-When registering `instruction_get` in the tool manager, it is typically exposed as a local tool that does not require provider or model metrics:
+When registering `smarthopper_readme` in the tool manager, it is typically exposed as a local tool that does not require provider or model metrics:
 
 ```csharp
-public class InstructionGetTool : AIToolBase
+public class SmarthopperReadmeTool : AIToolBase
 {
-    public override string Name => "instruction_get";
+    public override string Name => "smarthopper_readme";
 
     public override AIToolSchema GetSchema()
     {
@@ -126,7 +128,7 @@ public class InstructionGetTool : AIToolBase
 var body = new AIBody();
 body.AddInteraction(AIAgent.System, "You are a helpful assistant.");
 body.AddInteraction(AIAgent.User, "Help me inspect the Grasshopper canvas.");
-body.ToolFilter = "instruction_get";
+body.ToolFilter = "smarthopper_readme";
 
 var req = new AIRequestCall();
 req.Initialize(provider: "OpenAI", model: "gpt-5-mini", body: body, endpoint: "/v1/chat/completions", capability: AICapability.Text2Text);
@@ -135,7 +137,7 @@ var session = new ConversationSession(req);
 var result = await session.RunToStableResult(new SessionOptions { ProcessTools = true });
 
 var last = result.Body.GetLastInteraction(AIAgent.Assistant);
-// The assistant will have called instruction_get with topic "canvas" and received guidance.
+// The assistant will have called smarthopper_readme with topic "canvas" and received guidance.
 
 ```
 
@@ -150,13 +152,14 @@ var last = result.Body.GetLastInteraction(AIAgent.Assistant);
 #### Recommended Usage Pattern
 
 1. Identify which domain the user's request falls into.
-2. Call `instruction_get` with the relevant topic.
-3. Follow the returned steps as the authoritative workflow.
+2. Call `smarthopper_readme` with the relevant topic to retrieve operational rules and constraints.
+3. If the task has a canonical tool sequence, call `smarthopper_workflows` for the named workflow (e.g., `create_script`, `edit_script`, `debug_script`).
+4. Follow the returned steps as the authoritative workflow.
 
 ---
 
 ## Architecture & Design
 
-`instruction_get` is intentionally **local** and does not require provider/model metrics. Instruction text may include edge-case constraints (for example, scripting-specific "do not paste entire scripts"). The tool acts as a centralized knowledge repository that the AI can query dynamically, allowing the system prompt to remain generic while still enforcing domain-specific operational rules.
+`smarthopper_readme` is intentionally **local** and does not require provider/model metrics. Instruction text may include edge-case constraints (for example, scripting-specific "do not paste entire scripts"). The tool acts as a centralized knowledge repository for operational rules and conventions; canonical step-by-step workflows are owned by `smarthopper_workflows`.
 
 The returned instructions are formatted as markdown so they can be directly consumed by the AI as context. Because the result is returned as a tool result interaction, it becomes part of the chat trace and can be referenced in subsequent turns if needed.

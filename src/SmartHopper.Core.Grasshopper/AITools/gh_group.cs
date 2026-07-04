@@ -71,7 +71,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guids""]
                 }",
-                execute: this.GhGroupAsync);
+                execute: this.GhGroupAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "organization" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""groupGuid"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_group_selected
             yield return new AITool(
@@ -91,7 +95,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhGroupSelectedAsync);
+                execute: this.GhGroupSelectedAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "organization" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""groupGuid"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private Task<AIReturn> GhGroupAsync(AIToolCall toolCall)

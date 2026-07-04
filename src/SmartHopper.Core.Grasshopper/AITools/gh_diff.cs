@@ -61,7 +61,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""left"", ""right""]
                 }",
-                execute: this.GhDiffToolAsync, mutatesCanvas: false);
+                execute: this.GhDiffToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "canvas", "components", "diff", "patch", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""patch"": { ""type"": ""object"", ""description"": ""Structured patch document describing differences."" }, ""base"": { ""type"": ""string"" }, ""target"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         private async Task<AIReturn> GhDiffToolAsync(AIToolCall toolCall)

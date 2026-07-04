@@ -14,7 +14,7 @@ This document aggregates development-facing information.
 ### Components
 
 | Component | Category | Planned | In Progress | Testing | Released 🎉 |
-|-----------|----------|:-------:|:-----------:|:-------:|:------------------------:|
+| --------- | -------- | :-------: | :-----------: | :-------: | :------------------------: |
 | Get GhJSON (GhGet)<br><sub>Read the current Grasshopper file and convert it to GhJSON format. Filter by runtime messages, component state, preview, type, category, and more.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Place GhJSON (GhPut)<br><sub>Place components on the canvas from a GhJSON format</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
 | Merge GhJSON (GhMerge)<br><sub>Merge two GhJSON documents into one, with the target document taking priority on conflicts.</sub> | Grasshopper | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -70,11 +70,13 @@ This document aggregates development-facing information.
 
 ### AI Tools
 
-AI Tools are the interface between AI and Grasshopper, allowing to, for example, read your selected components, get the available Grasshopper components, or write a new script. All these tools are available to the provider to use while chatting in the AI Chat component.
+AI Tools are the interface between AI and Grasshopper, allowing to, for example,
+read your selected components, get the available Grasshopper components, or write
+a new script. All these tools are available to the provider to use while chatting
+in the AI Chat component.
 
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released 🎉 |
-| Tool Name | Category | Description | Planned | In Progress | Testing | Released |
-|-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|
+| --------- | -------- | ----------- | :-------: | :-----------: | :-------: | :--------: |
 | `text2boolean` | DataProcessing | Evaluates a text against a true/false question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2text` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2img` | ImageProcessing | Generates an image based on a text prompt using AI image generation models | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -90,7 +92,9 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 | `script_generate_and_place_on_canvas` | Scripting | Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_edit` | Hidden | Edit an existing Grasshopper script component based on instructions. Takes GhJSON input and returns updated GhJSON (does not modify canvas). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_edit_and_replace_on_canvas` | Scripting | Edit an existing Grasshopper script component by instance GUID and replace it on the canvas. This wrapper automatically retrieves the component GhJSON (gh_get_by_guid), calls script_edit, and then gh_put with editMode=true. | ⚪ | 🟡 | 🟠 | 🟢 |
-| `instruction_get` | Instructions | Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `smarthopper_readme` | Instructions | Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `smarthopper_workflows` | Instructions | Documents common SmartHopper tool sequences and workflows for the AI assistant. Use this to discover recommended tool call patterns for tasks like auditing the canvas, editing scripts, or retrieving web knowledge. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `smarthopper_tool_help` | Instructions | Provides detailed usage help for other SmartHopper tools, including parameter descriptions, output shape, and hints. Use this to understand how to call a specific tool correctly. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `web2md` | Knowledge | Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you need to read the contents of a web page. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `file2md` | Knowledge | Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `discourse_forum_search` | Knowledge | Search Discourse forum posts by query and return matching results. | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -165,7 +169,7 @@ AI Tools are the interface between AI and Grasshopper, allowing to, for example,
 Notes:
 
 - **`web2md`** supports dedicated flows for Wikipedia/Wikimedia APIs, Discourse raw markdown (`/posts/{id}.json`), GitHub/GitLab raw files, and Stack Exchange questions via the public API. Use it for AI-friendly text without extra HTML cleanup.
-- **`instruction_get`** is an internal tool that provides operational instructions to the AI agent by topic. It is always available.
+- **`smarthopper_readme`** is an internal tool that provides operational instructions to the AI agent by topic. It is always available.
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
 

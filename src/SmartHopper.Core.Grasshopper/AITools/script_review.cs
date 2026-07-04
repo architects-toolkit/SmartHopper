@@ -116,7 +116,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Return a code review for the script component specified by its GUID.",
+                description: "Return a code review for the script component specified by its GUID. Example: script_review({ guid: '...', question: 'Are there performance issues?' }). See also: gh_get_by_guid, gh_get_selected.",
                 category: "Scripting",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -133,7 +133,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""guid""]
                 }",
                 execute: this.ScriptReviewToolAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput, mutatesCanvas: false);
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput,
+                mutatesCanvas: false,
+                tags: new[] { "scripting", "script", "review", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""review"": { ""type"": ""string"", ""description"": ""AI-generated code review."" }, ""warnings"": { ""type"": ""array"" }, ""errors"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>

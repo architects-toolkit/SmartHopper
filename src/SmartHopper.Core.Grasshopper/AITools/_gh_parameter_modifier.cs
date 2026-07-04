@@ -61,7 +61,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.FlattenParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "gh_parameter_data_mapping_graft",
@@ -77,7 +82,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.GraftParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "gh_parameter_reverse",
@@ -94,7 +104,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.ReverseParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "gh_parameter_simplify",
@@ -111,7 +126,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.SimplifyParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> FlattenParameterAsync(AIToolCall toolCall)

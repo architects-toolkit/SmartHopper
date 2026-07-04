@@ -94,8 +94,15 @@ namespace SmartHopper.Infrastructure.Mcp
                     continue;
                 }
 
-                JObject schema = ParseSchema(tool.ParametersSchema);
-                descriptors.Add(new McpToolDescriptor(tool.Name, tool.Description, schema));
+                JObject inputSchema = ParseSchema(tool.ParametersSchema);
+                JObject outputSchema = ParseSchema(tool.OutputSchema);
+                descriptors.Add(new McpToolDescriptor(
+                    tool.Name,
+                    tool.RichDescription,
+                    inputSchema,
+                    tool.Tags,
+                    outputSchema,
+                    tool.Annotations));
             }
 
             descriptors.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
@@ -114,6 +121,11 @@ namespace SmartHopper.Infrastructure.Mcp
 
             var tool = this.toolSource().TryGetValue(toolName, out var resolvedTool) ? resolvedTool : null;
             if (tool == null)
+            {
+                return false;
+            }
+
+            if (!tool.Enabled)
             {
                 return false;
             }

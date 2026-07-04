@@ -65,7 +65,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates text based on a prompt and optional instructions",
+                description: "Generates text based on a prompt and optional instructions. Example: text2text({ prompt: 'Name three pavilion forms', instructions: 'use architectural terms' }).",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -83,7 +83,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.GenerateText,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                buildRequest: this.BuildGenerateRequest, mutatesCanvas: false);
+                buildRequest: this.BuildGenerateRequest,
+                mutatesCanvas: false,
+                tags: new[] { "text", "data-processing", "read-only", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Generated text response."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>

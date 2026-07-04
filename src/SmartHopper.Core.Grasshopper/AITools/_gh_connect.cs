@@ -82,7 +82,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""connections""]
                 }",
-                execute: this.GhConnectToolAsync);
+                execute: this.GhConnectToolAsync,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "canvas", "components", "mutating", "connections" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""createdConnections"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         /// <summary>

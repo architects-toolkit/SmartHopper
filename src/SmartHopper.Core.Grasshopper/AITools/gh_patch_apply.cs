@@ -59,7 +59,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""base"", ""patch""]
                 }",
-                execute: this.GhPatchApplyToolAsync);
+                execute: this.GhPatchApplyToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "canvas", "components", "patch", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"" }, ""ghjson"": { ""type"": ""string"", ""description"": ""Resulting GhJSON after applying the patch."" }, ""conflicts"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         private async Task<AIReturn> GhPatchApplyToolAsync(AIToolCall toolCall)

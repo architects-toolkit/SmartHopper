@@ -87,7 +87,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""components""]
                 }",
-                execute: this.GhGenerateToolAsync, mutatesCanvas: false);
+                execute: this.GhGenerateToolAsync,
+                mutatesCanvas: false,
+                enabled: false,
+                tags: new[] { "canvas", "components", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Generated GhJSON document."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>

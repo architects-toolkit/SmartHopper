@@ -53,7 +53,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""patch""]
                 }",
-                execute: this.GhPatchValidateToolAsync, mutatesCanvas: false);
+                execute: this.GhPatchValidateToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "canvas", "components", "patch", "validation", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""valid"": { ""type"": ""boolean"" }, ""errors"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         private async Task<AIReturn> GhPatchValidateToolAsync(AIToolCall toolCall)

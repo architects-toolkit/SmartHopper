@@ -30,9 +30,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
     /// <summary>
     /// Provides instruction bundles to the agent so the system prompt can remain short.
     /// </summary>
-    public class instruction_get : IAIToolProvider
+    public class smarthopper_readme : IAIToolProvider
     {
-        private const string ToolName = "instruction_get";
+        private const string ToolName = "smarthopper_readme";
 
         public IEnumerable<AITool> GetTools()
         {
@@ -51,7 +51,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""topic""]
                 }",
-                execute: this.ExecuteAsync, mutatesCanvas: false);
+                execute: this.ExecuteAsync,
+                mutatesCanvas: false,
+                tags: new[] { "instructions", "readme", "read-only" },
+                outputSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""topic"": { ""type"": ""string"" },
+                        ""instructions"": { ""type"": ""string"", ""description"": ""Markdown-formatted operational guidance for the agent."" }
+                    },
+                    ""required"": [""topic"", ""instructions""]
+                }");
         }
 
         private Task<AIReturn> ExecuteAsync(AIToolCall toolCall)
@@ -119,8 +129,8 @@ Node types terminology:
 Quick actions on selected components (no GUIDs needed):
 - gh_group_selected
 - gh_tidy_up_selected
-- gh_lock_selected / gh_unlock_selected
-- gh_hide_preview_selected / gh_show_preview_selected
+- gh_component_lock_selected / gh_component_unlock_selected
+- gh_component_hide_preview_selected / gh_component_show_preview_selected
 
 Modifying canvas:
 - gh_group, gh_move, gh_tidy_up, gh_component_toggle_lock, gh_component_toggle_preview
@@ -181,26 +191,18 @@ Scripting rules:
 
 Tools:
 - script_generate: generate a new script component as GhJSON (not placed).
+- script_generate_and_place_on_canvas: generate a new script component and place it on the canvas in one call.
 - script_review: review an existing script component by GUID.
 - script_edit_and_replace_on_canvas: edit an existing script and replace it on the canvas in one call.
 
-Required workflows:
-- Create NEW script:
-  1) script_generate
-  2) gh_put (editMode=false)
-
-- Edit EXISTING script:
-  1) gh_get_selected (preferred) or gh_get_by_guid
-  2) script_edit_and_replace_on_canvas
-
-- Fix BUGS in script:
-  1) gh_get_errors (or gh_get with categoryFilter=['+Script'])
-  2) script_review
-  3) script_edit_and_replace_on_canvas
+For canonical step-by-step workflows (create, edit, debug), call smarthopper_workflows with:
+- workflow: create_script
+- workflow: edit_script
+- workflow: debug_script
 """;
 
                 default:
-                    return "Unknown topic. Call the `instruction_get` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, ladybug-forum, discourse-forum, research, web.";
+                    return "Unknown topic. Call the `smarthopper_readme` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, ladybug-forum, discourse-forum, research, web. For canonical step-by-step workflows, call `smarthopper_workflows`.";
             }
         }
     }

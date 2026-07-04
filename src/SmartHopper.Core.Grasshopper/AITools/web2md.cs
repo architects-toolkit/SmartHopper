@@ -62,7 +62,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you need to read the contents of a web page.",
+                description: "Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you know the URL and need to retrieve knowledge from the web or read the contents of a web page. Example: web2md({ url: 'https://en.wikipedia.org/wiki/Tensile_structure' }).",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -97,7 +97,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""url""]
                 }",
-                execute: this.Web2MdAsync, mutatesCanvas: false);
+                execute: this.Web2MdAsync,
+                mutatesCanvas: false,
+                tags: new[] { "web", "knowledge", "text", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""text"": { ""type"": ""string"", ""description"": ""Markdown representation of the web page."" }, ""title"": { ""type"": ""string"" }, ""url"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         private async Task<AIReturn> Web2MdAsync(AIToolCall toolCall)

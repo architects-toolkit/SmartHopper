@@ -13,6 +13,8 @@ Loopback-only MCP transport that exposes SmartHopper's existing `AITool` catalog
 | **Last Updated** | 2026-07-04 |
 | **Documentation Maintainer** | Devin AI |
 
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
 ---
 
 ## Why Read This?
@@ -61,7 +63,8 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - **Loopback peer guard.** Requests from non-loopback IP addresses are rejected (defence in depth even though the listener is already bound to loopback).
 - **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401.
 - **Read-only by default.** Tools that alter the canvas are hidden unless `ExposeMutatingTools` is enabled.
-- **Allow-list overrides everything.** If `EnabledTools` is set, only those tools are exposed.
+- **Disabled tools are never exposed.** If `AITool.Enabled` is `false`, the tool is hidden from MCP regardless of the allow-list or mutating-tool policy.
+- **Allow-list overrides the mutating filter.** If `EnabledTools` is set, only those tools are exposed; this overrides `ExposeMutatingTools` but not the `Enabled` flag.
 - **No file-system or shell access.** MCP only exposes existing `IAIToolProvider` tools.
 - **No payload logging.** Requests are logged without GhJSON payload contents.
 
@@ -75,6 +78,10 @@ A tool is considered mutating when its `AITool.MutatesCanvas` flag is `true`.
 
 That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `gh_diff`, `gh_patch_validate`, `script_review`, `text2json`, `img2text`, `web2md`, and the Discourse readers stay visible by default, while canvas-changing tools remain hidden unless explicitly enabled.
 
+### What Enabled Means
+
+A tool is considered enabled when its `AITool.Enabled` flag is `true` (the default). Tools marked `enabled: false` are hidden from both the in-process provider tool list and the MCP `tools/list` endpoint. This is used for experimental or unsupported tools, such as those in the `NotTested` category.
+
 ## Developer Reference
 
 ### Tool Mapping
@@ -84,12 +91,30 @@ That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `
 | MCP method | SmartHopper behavior |
 | --- | --- |
 | `initialize` | Returns protocol version `2025-03-26`, server name, version, and supported capabilities. |
-| `tools/list` | Uses `AIToolMcpAdapter.BuildDescriptors()` to project the `AIToolManager` catalog. |
+| `tools/list` | Uses `AIToolMcpAdapter.BuildDescriptors()` to project the `AIToolManager` catalog. Each tool descriptor includes `inputSchema`, `outputSchema`, `tags`, and MCP `annotations`. |
 | `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP `text` content. |
 | `notifications/initialized` | Acknowledged as a notification. |
 | `ping` | Lightweight health check. |
 | `resources/*` and `prompts/*` | Reserved for later phases. |
 | `GET /health` | HTTP-only endpoint returning `{"status":"ok"}`; not a JSON-RPC method. |
+
+### Tool Metadata
+
+Every `AITool` now carries metadata that the adapter projects into the MCP `tools/list` response:
+
+| Field | Source | Purpose |
+| --- | --- | --- |
+| `description` | `AITool.Description` | Prefixed with `[Read-only]` or `[Mutates canvas]` and appended with category tags for broad client compatibility. |
+| `inputSchema` | `AITool.ParametersSchema` | JSON schema for tool arguments. |
+| `outputSchema` | `AITool.OutputSchema` | JSON schema describing the tool's result payload. |
+| `tags` | `AITool.Tags` | Category and behavior tags (e.g., `canvas`, `scripting`, `read-only`, `mutating`). |
+| `annotations` | `AITool.Annotations` | MCP hints: `readOnlyHint`, `destructiveHint`, `openWorldHint`, `idempotentHint`, `title`. |
+
+Two self-documenting tools help clients discover the surface:
+
+- `smarthopper_readme` — returns topic-based operational instructions (renamed from `instruction_get`).
+- `smarthopper_workflows` — returns canonical tool chains for common tasks.
+- `smarthopper_tool_help` — returns metadata for a specific tool by name.
 
 ### `tools/call` Payload Contract
 
@@ -97,7 +122,7 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 
 1. MCP sends `{"method":"tools/call","params":{"name":"gh_get","arguments":{...}}}`.
 2. `JsonRpcDispatcher` resolves the tool by name.
-3. `AIToolMcpAdapter` checks `EnabledTools` first, then `ExposeMutatingTools`, then `AITool.MutatesCanvas`.
+3. `AIToolMcpAdapter` checks the tool exists, then `AITool.Enabled`, then `EnabledTools`, then `ExposeMutatingTools`/`AITool.MutatesCanvas`.
 4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
 5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
 
@@ -141,7 +166,8 @@ finally
 - `AIToolMcpAdapter.IsExposed(string toolName)` returns `false` for unknown tools.
 - `BuildDescriptors()` sorts descriptors by name after filtering.
 - `ExecuteAsync()` returns a tool error if the adapter cannot resolve or run the requested tool.
-- `McpServerOptions.EnabledTools` is an allow-list; when non-empty, it overrides the mutating-tool policy.
+- `AITool.Enabled` is the master on/off switch; disabled tools are never exposed via MCP or in-process provider calls.
+- `McpServerOptions.EnabledTools` is an allow-list; when non-empty, it overrides the mutating-tool policy but not the `Enabled` flag.
 - Mutating-tool gating comes from `AITool.MutatesCanvas`, not from tool-name prefixes.
 - `ParseSchema()` falls back to a minimal `{"type":"object"}` schema when a tool's `ParametersSchema` is missing or invalid.
 - `McpServer` rejects request bodies larger than 256 KiB.

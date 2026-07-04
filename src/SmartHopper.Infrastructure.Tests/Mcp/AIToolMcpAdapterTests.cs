@@ -115,6 +115,23 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
         }
 
         [Fact]
+        public void BuildDescriptors_OmitsDisabledTools()
+        {
+            var tools = BuildCatalog(
+                ("gh_get", ReadOnlySchema, false, true),
+                ("gh_put", ReadOnlySchema, true, false));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Single(descriptors);
+            Assert.Equal("gh_get", descriptors[0].Name);
+        }
+
+        [Fact]
         public void BuildDescriptors_BadSchemaFallsBackToObject()
         {
             var tools = BuildCatalog(("gh_get", "not-json", false));
@@ -217,10 +234,79 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
             Assert.Contains("boom", result.ErrorMessage!);
         }
 
+        [Fact]
+        public void BuildDescriptors_PrefixesDescriptionWithMutability()
+        {
+            var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+
+            Assert.Single(descriptors);
+            Assert.StartsWith("[Read-only]", descriptors[0].Description);
+        }
+
+        [Fact]
+        public void BuildDescriptors_RendersTagsAndOutputSchema()
+        {
+            var tools = BuildCatalog(
+                ("gh_get", ReadOnlySchema, false),
+                ("gh_put", ReadOnlySchema, true));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+            var ghGet = descriptors.First(d => d.Name == "gh_get");
+
+            Assert.Contains("test", ghGet.Tags);
+            Assert.Contains("read-only", ghGet.Tags);
+            Assert.Equal("object", (string?)ghGet.OutputSchema["type"]);
+        }
+
+        [Fact]
+        public void BuildDescriptors_RendersAnnotations()
+        {
+            var tools = BuildCatalog(
+                ("gh_get", ReadOnlySchema, false),
+                ("gh_put", ReadOnlySchema, true));
+            var adapter = new AIToolMcpAdapter(
+                new McpServerOptions { ExposeMutatingTools = true },
+                () => tools,
+                _ => Task.FromResult(new AIReturn()));
+
+            var descriptors = adapter.BuildDescriptors();
+            var ghGet = descriptors.First(d => d.Name == "gh_get");
+            var ghPut = descriptors.First(d => d.Name == "gh_put");
+
+            Assert.True(ghGet.Annotations.ReadOnlyHint);
+            Assert.True(ghPut.Annotations.DestructiveHint);
+        }
+
+        [Fact]
+        public void BuildDescriptors_McpJsonIncludesMetadata()
+        {
+            var tools = BuildCatalog(("gh_get", ReadOnlySchema, false));
+            var adapter = new AIToolMcpAdapter(new McpServerOptions(), () => tools, _ => Task.FromResult(new AIReturn()));
+
+            var json = adapter.BuildDescriptors()[0].ToMcpJson();
+
+            Assert.Equal("object", (string?)json["outputSchema"]?["type"]);
+            Assert.Equal("test", (string?)json["tags"]?.First);
+            Assert.True((bool?)json["annotations"]?["readOnlyHint"]);
+        }
+
         private static IReadOnlyDictionary<string, AITool> BuildCatalog(params (string name, string schema, bool mutatesCanvas)[] entries)
         {
+            var enabledEntries = entries.Select(e => (e.name, e.schema, e.mutatesCanvas, true)).ToArray();
+            return BuildCatalog(enabledEntries);
+        }
+
+        private static IReadOnlyDictionary<string, AITool> BuildCatalog(params (string name, string schema, bool mutatesCanvas, bool enabled)[] entries)
+        {
             var dict = new Dictionary<string, AITool>();
-            foreach (var (name, schema, mutatesCanvas) in entries)
+            foreach (var (name, schema, mutatesCanvas, enabled) in entries)
             {
                 dict[name] = new AITool(
                     name: name,
@@ -228,7 +314,8 @@ namespace SmartHopper.Infrastructure.Tests.Mcp
                     category: "Test",
                     parametersSchema: schema,
                     execute: _ => Task.FromResult(new AIReturn()),
-                    mutatesCanvas: mutatesCanvas);
+                    mutatesCanvas: mutatesCanvas,
+                    enabled: enabled);
             }
 
             return dict;

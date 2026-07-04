@@ -79,7 +79,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhRetrieveToolAsync, mutatesCanvas: false);
+                execute: this.GhRetrieveToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "components-retrieval", "components", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""description"": ""List of matching Grasshopper component definitions."" }, ""count"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>

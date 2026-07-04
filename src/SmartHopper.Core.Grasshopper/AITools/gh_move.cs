@@ -76,7 +76,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""targets"" ]
                 }",
-                execute: this.GhMoveObjAsync);
+                execute: this.GhMoveObjAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "layout" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> GhMoveObjAsync(AIToolCall toolCall)

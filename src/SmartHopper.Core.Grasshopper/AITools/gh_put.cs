@@ -56,7 +56,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections.",
+                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Example: gh_put({ ghjson: '...' }). See also: gh_get, script_generate_and_place_on_canvas.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -66,7 +66,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""ghjson""]
                 }",
-                execute: this.GhPutToolAsync);
+                execute: this.GhPutToolAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""ghjson"": { ""type"": ""string"", ""description"": ""Resulting GhJSON after the operation."" }, ""warnings"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> GhPutToolAsync(AIToolCall toolCall)

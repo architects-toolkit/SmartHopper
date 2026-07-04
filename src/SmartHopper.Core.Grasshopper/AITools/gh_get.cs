@@ -50,16 +50,47 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly string toolName = "gh_get";
 
         /// <summary>
+        /// Common metadata for all gh_get variants.
+        /// </summary>
+        private AITool CreateGhGetTool(
+            string name,
+            string description,
+            string parametersSchema,
+            Func<AIToolCall, Task<AIReturn>> execute,
+            bool includeRuntimeData = false)
+        {
+            var tags = new List<string> { "canvas", "components", "read-only", "ghjson" };
+            if (includeRuntimeData)
+            {
+                tags.Add("data-intensive");
+            }
+
+            var outputSchema = includeRuntimeData
+                ? @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" }, ""runtimeData"": { ""type"": ""object"", ""description"": ""Volatile data values for requested components."" } } }"
+                : @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Serialized Grasshopper document in GhJSON format."" } } }";
+
+            return new AITool(
+                name: name,
+                description: description,
+                category: "Components",
+                parametersSchema: parametersSchema,
+                execute: execute,
+                mutatesCanvas: false,
+                tags: tags,
+                outputSchema: outputSchema,
+                annotations: new AIToolAnnotations(readOnlyHint: true));
+        }
+
+        /// <summary>
         /// Returns a list of AI tools provided by this plugin.
         /// </summary>
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
             // Generic gh_get tool with all options
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: this.toolName,
-                description: "Read the current Grasshopper file with optional filters. By default, it returns all components. Returns a GhJSON structure of the file.",
-                category: "Components",
+                description: "Read the current Grasshopper file with optional filters. By default, it returns all components. Returns a GhJSON structure of the file. Example: gh_get({ categoryFilter: ['+Script'] }). See also: gh_get_selected, gh_get_errors.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -105,13 +136,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
 
             // Specialized wrapper: gh_get_selected
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_selected",
-                description: "Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Returns a GhJSON structure.",
-                category: "Components",
+                description: "Read only the selected components from the Grasshopper canvas. Use this when the user asks about 'selected', 'this', or 'these' components. Returns a GhJSON structure. Example: gh_get_selected({ connectionDepth: 1 }).",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -122,13 +152,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, false));
 
             // Specialized wrapper: gh_get_selected_with_data
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_selected_with_data",
                 description: "Read selected components WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results, count items, or check actual output values. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive!",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -139,13 +168,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, true), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+selected" }, null, true),
+                includeRuntimeData: true);
 
             // Specialized wrapper: gh_get_by_guid
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_by_guid",
-                description: "Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Returns a GhJSON structure.",
-                category: "Components",
+                description: "Read specific components by their GUIDs. Use this when you have component GUIDs from a previous query. Returns a GhJSON structure. Example: gh_get_by_guid({ guidFilter: ['...'], connectionDepth: 1 }).",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -162,13 +191,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guidFilter""]
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false));
 
             // Specialized wrapper: gh_get_by_guid_with_data
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_by_guid_with_data",
                 description: "Read specific components by GUID WITH their runtime data (volatile data - actual values flowing through outputs). Use this when you need to inspect computed results from known components. Returns GhJSON with an additional 'runtimeData' object. This is token-expansive!",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -185,13 +213,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""guidFilter""]
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, true), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, true),
+                includeRuntimeData: true);
 
             // Specialized wrapper: gh_get_errors
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_errors",
-                description: "Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Returns a GhJSON structure.",
-                category: "Components",
+                description: "Read only components that have error messages. Use this when debugging or when the user asks about errors or broken components. Returns a GhJSON structure. Example: gh_get_errors({ connectionDepth: 1 }). See also: gh_get, script_review.",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -202,13 +230,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, false));
 
             // Specialized wrapper: gh_get_errors_with_data
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_errors_with_data",
                 description: "Read only components that have error messages WITH their runtime data (volatile data - actual values flowing through outputs). Use this when debugging broken components and you also need to inspect their computed results. Returns GhJSON plus a 'runtimeData' object. This is token-expansive!",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -219,13 +246,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, true), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+error" }, null, true),
+                includeRuntimeData: true);
 
             // Specialized wrapper: gh_get_locked
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_locked",
                 description: "Read only locked (disabled) components from the Grasshopper canvas. Use this when the user asks about locked or disabled components. Returns a GhJSON structure.",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -236,13 +263,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }, null, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+disabled" }, null, false));
 
             // Specialized wrapper: gh_get_preview_off (formerly gh_get_hidden)
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_preview_off",
                 description: "Read only components with preview turned off (hidden geometry). Use this when the user asks about hidden components or components with disabled preview. Returns a GhJSON structure.",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -253,13 +279,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }, null, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewoff" }, null, false));
 
             // Specialized wrapper: gh_get_preview_on (formerly gh_get_visible)
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_preview_on",
                 description: "Read only components with preview turned on (visible geometry). Use this when the user asks about visible components or components with enabled preview. Returns a GhJSON structure.",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -270,13 +295,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }, null, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, new[] { "+previewon" }, null, false));
 
             // Specialized wrapper: gh_get_visible — viewport-based filter
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_visible",
                 description: "Read only components currently visible in the canvas viewport. Use this when the user refers to 'on screen', 'visible', or 'what I can see'. Returns a GhJSON structure.",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -287,13 +311,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false, forceViewportOnly: true), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, null, false, forceViewportOnly: true));
 
             // Specialized wrapper: gh_get_start
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_start",
                 description: "Read only start nodes (components with no incoming connections - data sources like parameters, sliders, panels with internalized data). Use this to get a wide view of where data originates in the definition. Returns a GhJSON structure.",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -304,13 +327,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, false));
 
             // Specialized wrapper: gh_get_start_with_data
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_start_with_data",
                 description: "Read start nodes (data sources) WITH their runtime data. Use this to inspect what initial values are feeding into the definition. Returns GhJSON with 'runtimeData'. This is token-expansive!",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -321,13 +343,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, true), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+startnodes" }, true),
+                includeRuntimeData: true);
 
             // Specialized wrapper: gh_get_end
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_end",
                 description: "Read only end nodes (components with no outgoing connections - data sinks like panels, preview components, bake components). Use this to get a wide view of the definition's outputs. Returns a GhJSON structure.",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -338,13 +360,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, false), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, false));
 
             // Specialized wrapper: gh_get_end_with_data
-            yield return new AITool(
+            yield return this.CreateGhGetTool(
                 name: "gh_get_end_with_data",
                 description: "Read end nodes (data sinks) WITH their runtime data. Use this to inspect the final computed outputs of the definition. Returns GhJSON with 'runtimeData'. This is token-expansive!",
-                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
@@ -355,7 +376,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, true), mutatesCanvas: false);
+                execute: (toolCall) => this.GhGetToolAsync(toolCall, null, new[] { "+endnodes" }, true),
+                includeRuntimeData: true);
         }
 
         /// <summary>

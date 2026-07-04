@@ -65,7 +65,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"", ""locked"" ]
                 }",
-                execute: this.GhToggleLockAsync);
+                execute: this.GhToggleLockAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "state" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_lock_selected
             yield return new AITool(
@@ -76,7 +80,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {}
                 }",
-                execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: true));
+                execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: true),
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "state" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_unlock_selected
             yield return new AITool(
@@ -87,7 +95,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {}
                 }",
-                execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: false));
+                execute: (toolCall) => this.GhToggleLockSelectedAsync(toolCall, locked: false),
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "state" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> GhToggleLockAsync(AIToolCall toolCall)

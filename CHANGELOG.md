@@ -15,6 +15,7 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- Added `WorkflowToolReferenceTests` in `SmartHopper.Core.Grasshopper.Tests` to validate that every tool name referenced in `smarthopper_workflows` step strings is a registered tool.
 - **PDF hyperlink extraction**: `PdfConverter` now uses PdfPig `page.GetHyperlinks()` to detect link annotations and wraps intersecting text in Markdown `[text](url)` syntax. Respects the existing `PreserveHyperlinks` option.
 - **PDF list detection**: `PdfConverter` now detects bullet (`•`, `-`, `→`, etc.) and numbered (`1.`, `a)`, `i.`, etc.) list items by pattern-matching block text. Indentation levels are inferred from visual left margins.
 - **PDF inline image positioning**: `PdfConverter` now interleaves extracted images with text blocks in top-to-bottom reading order based on each image's vertical position, instead of appending all images at the end of the page.
@@ -22,6 +23,9 @@ Many thanks to the following contributors to this release:
 - **Markdown style cleanup**: `FileConverterRegistry.ConvertAsync` now applies a new `MarkdownStyleCleanup` post-processing pass to every converter's output: trims trailing whitespace (which CommonMark otherwise interprets as a hard line break), ensures a blank line surrounds every ATX heading, collapses runs of 2+ blank lines into one, and trims leading/trailing blank lines from the document.
 - Added Devin CLI skills under `.devin/skills/` for each existing workflow, mapping Windsurf/Cascade-style workflow files to the Devin `SKILL.md` format so they can be invoked with `/skill-name` in Devin local sessions.
 - Added `changelog-summary` Devin CLI skill that derives its simplification instructions from `.github/workflows/chore-changelog-review.yml` and rewrites `[Unreleased]` (or a user-provided version) from `CHANGELOG.md` into a user-focused changelog summary.
+- Added `smarthopper_workflows` and `smarthopper_tool_help` self-documenting tools to help MCP clients discover common workflows and per-tool usage without reading source code.
+- Added MCP metadata to all `AITool` registrations: category tags, output JSON schemas, and MCP tool annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`). The MCP adapter now prefixes tool descriptions with `[Read-only]` or `[Mutates canvas]` for broad client compatibility.
+- Added `Enabled` flag to `AITool` so individual tools can be disabled and hidden from AI models. All tools in the `NotTested` category now default to `Enabled = false`; the provider tool list and MCP adapter both filter them out.
 - Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
 - Added `web2md` image modes: `link` (default), `embed`, `describe`, and `caption`. The new `imageMode` parameter lets web pages keep image URLs, embed downloaded images as base64 data URIs, or replace them with AI-generated captions/descriptions.
 - Added a shared `ImageProcessingService` in `SmartHopper.Core.Grasshopper.Utils.Internal` used by both `file2md` and `web2md` for downloading, describing, and formatting Markdown image replacements consistently across file and web conversion paths.
@@ -32,6 +36,7 @@ Many thanks to the following contributors to this release:
 
 ### Changed
 
+- `smarthopper_readme` no longer embeds numbered scripting workflows; it now points callers to `smarthopper_workflows` for canonical `create_script`, `edit_script`, and `debug_script` sequences. Updated documentation accordingly.
 - **`SmartHopperMcpServerComponent` input-change handling**: the MCP server component now tracks the effective `Port`, `BearerToken`, and `ExposeMutatingTools` values. If any of these inputs change while the server is enabled, the component releases and re-acquires the server so the updated configuration is applied.
 - Simplified the `file2md` AI tool parameter schema: `preserveTableStructure`, `preserveHyperlinks`, and `preserveMath` are now always enabled and are no longer exposed as parameters. `preserveColors` and `preserveHighlights` are replaced by a unified `preserveFormatting` parameter that controls colors and highlights in DOCX plus bold/italic in DOCX, XLSX, and PPTX. Updated `File2MdToolResult`, `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent` to match the new schema, and removed the `Preserve Tables` input from those components.
 - Removed the `Preserve Formatting` input from `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent`; formatting is now always preserved.
@@ -39,9 +44,13 @@ Many thanks to the following contributors to this release:
 - Removed the `Include Links` and `Include Images` inputs from `Web2AIComponent`; both are now always `true`.
 - `web2md` Wikipedia/MediaWiki conversion now converts relative `href`/`src` links to absolute URLs using the source page's scheme and host, so output Markdown points to `https://<host>/wiki/...` instead of `/wiki/...`.
 - `file2md` now delegates AI image description and Markdown replacement formatting to the shared `ImageProcessingService`.
+- Renamed `instruction_get` tool to `smarthopper_readme` to clarify its purpose as a general readme/instructions tool distinct from `smarthopper_tool_help`. Updated `CanvasButton` system prompt, test component, and documentation to match.
+- Renamed tool `McpDescription` to `RichDescription` and exposed it to every LLM-facing tool list, including inside-Smarthopper provider calls and the `smarthopper_tool_help` tool. `Description` remains the canonical source description; `RichDescription` adds the `[Read-only]`/`[Mutates canvas]` prefix plus tags.
+- Updated `web2md` tool description to clarify that it should be used when the URL is known and knowledge needs to be retrieved from the web.
 
 ### Fixed
 
+- Fixed `smarthopper_workflows` typos and ambiguous steps: corrected "componetns" in `organize_canvas`, replaced "Select the components" with concrete tool calls, made `inspect_canvas` steps explicit, and added the missing `gh_put` final step to `apply_patch`.
 - Fixed `web2md` Wikipedia handling by switching to the MediaWiki `action=parse` API so headings and tables are converted to proper Markdown instead of plain text with MediaWiki `== Heading ==` markup.
 - Fixed `web2md` Discourse handling so topic URLs return clean raw Markdown instead of noisy HTML-to-Markdown fallback output. Introduced a shared `DiscourseForumService` used by both `UrlConverter` and `DiscourseToolsBase`, fixed the topic-ID/post-ID confusion for `/t/slug/{topicId}` URLs, and added `include_raw=1` so the topic JSON includes the original post Markdown.
 - Fixed Markdown post-processing in `MarkdownStyleCleanup` to remove the extra blank line that converters emit before a nested ordered list starting with `1.` when the previous item is a parent list item.
@@ -352,17 +361,17 @@ Many thanks to the following contributors to this release:
   - Batch item errors properly surfaced as Grasshopper runtime messages
   - HTTP timeout increased for large batch file upload/download (300s default)
   - Order-based fallback for result loading when sentinel mapping unavailable
-
-- **Progress messages**: Live progress counter now shown during batch processing
-    - On batch submission: message immediately shows `Processing batch (0/XX)...` instead of the static `Processing batch...`
-    - During polling: counter updates live to `Processing batch (YY/XX)...` as items complete (OpenAI: `request_counts.completed`, MistralAI: `succeeded_requests`, Anthropic: `request_counts.succeeded`)
-    - During data-tree collection phase (batch mode): progress message shows `Preparing X/X...` instead of `Processing X/X...` to distinguish queuing from actual execution
-    - On new run: stale progress count and `ProgressInfo` are reset so old values never bleed into the next run
-    - **Fixed**: `GetStateMessage()` now checks `CurrentState` and returns base message for terminal states (Completed, Error, Cancelled, Waiting), preventing stale batch progress messages (e.g., `Processing batch (84/84)...`) from persisting after batch completion or failure
   - **`AIBatchStatus`**: Added optional `CompletedCount` property to non-completed status for in-progress progress reporting; `ResultBody` (single `JObject`) replaced by `Results` (`IReadOnlyDictionary<string, JObject>`) mapping each custom ID to its provider response body. *(Breaking change for custom `IAIBatchProvider` implementations.)*
   - **`IAIBatchProvider.SubmitBatchAsync`**: Signature changed from single-item `(AIRequestCall, CancellationToken)` to multi-item `(IReadOnlyList<(string CustomId, AIRequestCall Request)>, CancellationToken)`. All three providers (Anthropic, OpenAI, MistralAI) updated accordingly. *(Breaking change for custom `IAIBatchProvider` implementations.)*
   - **`AIBatchSubmission`**: `CustomId` (single string) superseded by `CustomIds` (`IReadOnlyList<string>`); `CustomId` is now a compat shim returning the first element. `GenerateCustomId()` now accepts `endpoint` and `index` parameters for richer IDs.
   - **`OnBatchCompleted`**: Signature changed from `(AIReturn)` to `(IReadOnlyDictionary<string, JObject>)` to carry per-item results. *(Breaking change for components overriding this hook.)*
+
+- **Progress messages**: Live progress counter now shown during batch processing
+  - On batch submission: message immediately shows `Processing batch (0/XX)...` instead of the static `Processing batch...`
+  - During polling: counter updates live to `Processing batch (YY/XX)...` as items complete (OpenAI: `request_counts.completed`, MistralAI: `succeeded_requests`, Anthropic: `request_counts.succeeded`)
+  - During data-tree collection phase (batch mode): progress message shows `Preparing X/X...` instead of `Processing X/X...` to distinguish queuing from actual execution
+  - On new run: stale progress count and `ProgressInfo` are reset so old values never bleed into the next run
+  - **Fixed**: `GetStateMessage()` now checks `CurrentState` and returns base message for terminal states (Completed, Error, Cancelled, Waiting), preventing stale batch progress messages (e.g., `Processing batch (84/84)...`) from persisting after batch completion or failure
 
 - **`AIStatefulAsyncComponentBase`**: `Model (M)` generic text input replaced by `Settings (S)` generic parameter. Accepts `AIRequestParameters` (from `AISettingsComponent`) or a plain model name string for backwards compatibility. `GetModel()` now reads from `AIRequestParameters.Model` with the same provider-default fallback as before.
 
