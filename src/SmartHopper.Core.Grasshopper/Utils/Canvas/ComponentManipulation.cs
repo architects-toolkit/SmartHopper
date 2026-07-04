@@ -19,9 +19,11 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Special;
 using Rhino;
 
 namespace SmartHopper.Core.Grasshopper.Utils.Canvas
@@ -142,42 +144,54 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         }
 
         /// <summary>
-        /// Simulates a momentary button press on a Grasshopper boolean parameter or button
-        /// component by setting its persistent data to true, expiring the solution, waiting 100 ms,
-        /// then setting it back to false. Records a single undo event for the operation.
+        /// Simulates a momentary button press on a Grasshopper Button component by setting its
+        /// <c>ButtonDown</c> state to true, expiring the solution, waiting 100 ms, then setting it
+        /// back to false. Records a single undo event for the operation.
         /// </summary>
-        /// <param name="guid">GUID of the button parameter to press.</param>
-        /// <returns>True if the object was found and pressed; otherwise false.</returns>
+        /// <param name="guid">GUID of the Button component to press.</param>
+        /// <returns>True if the Button was found and pressed; otherwise false.</returns>
         public static bool ButtonClick(Guid guid)
         {
-            var obj = CanvasAccess.FindInstance(guid);
-            if (obj == null)
-            {
-                Debug.WriteLine($"[ComponentManipulation] ButtonClick: object not found {guid}");
-                return false;
-            }
+            bool found = false;
+            bool clicked = false;
 
-            if (!(obj is IGH_Param param))
+            InvokeOnUiThreadAndWait(() =>
             {
-                Debug.WriteLine($"[ComponentManipulation] ButtonClick: object {guid} is not a parameter");
-                return false;
-            }
+                var obj = CanvasAccess.FindInstance(guid);
+                if (obj == null)
+                {
+                    Debug.WriteLine($"[ComponentManipulation] ButtonClick: object not found {guid}");
+                    return;
+                }
 
-            // Record undo for the parameter change
+                found = true;
+
+                // Grasshopper Button components expose a ButtonDown property.
+                if (obj is GH_ButtonObject button)
+                {
+                    clicked = PressAndRelease(
+                        guid,
+                        button,
+                        press: () => button.ButtonDown = true,
+                        release: () => button.ButtonDown = false);
+                }
+                else
+                {
+                    Debug.WriteLine($"[ComponentManipulation] ButtonClick: object {guid} is not a Grasshopper Button");
+                }
+            });
+
+            return found && clicked;
+        }
+
+        private static bool PressAndRelease(Guid guid, IGH_ActiveObject obj, Action press, Action release)
+        {
             obj.RecordUndoEvent("[SH] Button Click");
 
             try
             {
-                var setMethod = param.GetType().GetMethod("SetPersistentData", new[] { typeof(object) })
-                    ?? param.GetType().GetMethod("SetPersistentData", new[] { typeof(bool) });
-                if (setMethod == null)
-                {
-                    Debug.WriteLine($"[ComponentManipulation] ButtonClick: parameter {guid} does not expose SetPersistentData");
-                    return false;
-                }
-
-                setMethod.Invoke(param, new object[] { true });
-                param.ExpireSolution(true);
+                press();
+                obj.ExpireSolution(true);
 
                 Task.Run(async () =>
                 {
@@ -185,8 +199,8 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
                     global::Rhino.RhinoApp.InvokeOnUiThread(() =>
                     {
-                        setMethod.Invoke(param, new object[] { false });
-                        param.ExpireSolution(true);
+                        release();
+                        obj.ExpireSolution(true);
                     });
                 });
 
@@ -213,6 +227,50 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             }
 
             return RectangleF.Empty;
+        }
+
+        /// <summary>
+        /// Queues <paramref name="action"/> on the Rhino UI thread and blocks until it
+        /// returns (or 30 seconds elapse). If we are already on the UI thread the action runs inline.
+        /// </summary>
+        private static void InvokeOnUiThreadAndWait(Action action)
+        {
+            if (global::Rhino.RhinoApp.InvokeRequired == false)
+            {
+                action();
+                return;
+            }
+
+            Exception? captured = null;
+            using var done = new ManualResetEventSlim(false);
+
+            global::Rhino.RhinoApp.InvokeOnUiThread(new Action(() =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    captured = ex;
+                }
+                finally
+                {
+                    done.Set();
+                }
+            }));
+
+            if (!done.Wait(TimeSpan.FromSeconds(30)))
+            {
+                throw new TimeoutException(
+                    "Grasshopper UI thread did not process the button click within 30 s.");
+            }
+
+            if (captured != null)
+            {
+                throw new InvalidOperationException(
+                    "Button click on the Grasshopper UI thread failed.", captured);
+            }
         }
     }
 }

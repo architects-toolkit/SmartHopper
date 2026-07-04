@@ -81,19 +81,29 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <returns>The matching document object or null if not found.</returns>
         public static IGH_DocumentObject FindInstance(Guid guid)
         {
-            IGH_DocumentObject obj = GetCurrentObjects().FirstOrDefault(o => o.InstanceGuid == guid);
-
-            if (obj is IGH_Component)
+            var doc = GetCurrentCanvas();
+            if (doc == null)
             {
-                IGH_Component component = obj as IGH_Component;
+                return null;
+            }
 
+            IGH_DocumentObject obj;
+            try
+            {
+                obj = doc.Objects.FirstOrDefault(o => o.InstanceGuid == guid);
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (obj is IGH_Component component)
+            {
                 // Debug.WriteLine("The object is an IGH_Component.");
                 return component;
             }
-            else if (obj is IGH_Param)
+            else if (obj is IGH_Param param)
             {
-                IGH_Param param = obj as IGH_Param;
-
                 // Debug.WriteLine("The object is an IGH_Param.");
                 return param;
             }

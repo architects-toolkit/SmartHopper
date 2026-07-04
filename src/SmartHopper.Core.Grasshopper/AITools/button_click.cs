@@ -48,7 +48,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Simulate a momentary click on Grasshopper button parameters. The button is pressed for 100 ms, then released. Useful for triggering button components or boolean toggles that expect a short pulse. Provide the instance GUIDs of the button parameters.",
+                description: "Simulate a momentary click on Grasshopper Button components. The button is pressed for 100 ms, then released. Useful for triggering button components that expect a short pulse. Provide the instance GUIDs of the Button components.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -56,7 +56,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""instanceGuids"": {
                             ""type"": ""array"",
                             ""items"": { ""type"": ""string"", ""pattern"": ""^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$"" },
-                            ""description"": ""List of button parameter instance GUIDs to click.""
+                            ""description"": ""List of Button component instance GUIDs to click.""
                         }
                     },
                     ""required"": [""instanceGuids""]
