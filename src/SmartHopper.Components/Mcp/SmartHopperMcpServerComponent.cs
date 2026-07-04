@@ -38,6 +38,8 @@ namespace SmartHopper.Components.Mcp
     {
         private int currentPort = McpServerOptions.DefaultPort;
         private bool acquired;
+        private string? lastToken;
+        private bool lastExposeMutating;
         private string? lastStatus;
 
         /// <summary>
@@ -147,6 +149,8 @@ namespace SmartHopper.Components.Mcp
 
         private void ApplyToggle(bool enable, int port, string token, bool exposeMutating)
         {
+            string? normalizedToken = string.IsNullOrWhiteSpace(token) ? null : token;
+
             if (!enable)
             {
                 this.ReleaseIfHeld();
@@ -154,24 +158,30 @@ namespace SmartHopper.Components.Mcp
                 return;
             }
 
-            if (this.acquired && this.currentPort == port)
+            if (this.acquired &&
+                this.currentPort == port &&
+                this.lastToken == normalizedToken &&
+                this.lastExposeMutating == exposeMutating)
             {
                 this.lastStatus = $"Running on {McpServerLifecycle.Find(port)?.Url}";
                 return;
             }
 
-            // Port or first-time acquisition: release any previous holder before starting fresh.
+            // Port or input values changed: release any previous holder before re-acquiring
+            // so the server starts with the updated configuration.
             this.ReleaseIfHeld();
 
             var options = new McpServerOptions
             {
                 Port = port,
-                BearerToken = string.IsNullOrWhiteSpace(token) ? null : token,
+                BearerToken = normalizedToken,
                 ExposeMutatingTools = exposeMutating,
             };
             var server = McpServerLifecycle.Acquire(this, options);
             this.acquired = true;
             this.currentPort = port;
+            this.lastToken = normalizedToken;
+            this.lastExposeMutating = exposeMutating;
             this.lastStatus = $"Running on {server.Url}";
         }
 

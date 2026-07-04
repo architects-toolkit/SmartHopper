@@ -32,6 +32,7 @@ Many thanks to the following contributors to this release:
 
 ### Changed
 
+- **`SmartHopperMcpServerComponent` input-change handling**: the MCP server component now tracks the effective `Port`, `BearerToken`, and `ExposeMutatingTools` values. If any of these inputs change while the server is enabled, the component releases and re-acquires the server so the updated configuration is applied.
 - Simplified the `file2md` AI tool parameter schema: `preserveTableStructure`, `preserveHyperlinks`, and `preserveMath` are now always enabled and are no longer exposed as parameters. `preserveColors` and `preserveHighlights` are replaced by a unified `preserveFormatting` parameter that controls colors and highlights in DOCX plus bold/italic in DOCX, XLSX, and PPTX. Updated `File2MdToolResult`, `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent` to match the new schema, and removed the `Preserve Tables` input from those components.
 - Removed the `Preserve Formatting` input from `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent`; formatting is now always preserved.
 - Removed the `Image Prompt` input from `AIFile2MdComponent`; the component now always uses the built-in default prompt for the selected image mode.
