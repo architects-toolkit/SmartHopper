@@ -74,7 +74,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhGroupAsync,
                 mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "organization" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""groupGuid"": { ""type"": ""string"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""group"": { ""type"": ""string"", ""description"": ""Instance GUID of the created group."" }, ""grouped"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the components that were added to the group."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_group_selected
@@ -98,11 +98,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhGroupSelectedAsync,
                 mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "organization" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""groupGuid"": { ""type"": ""string"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""group"": { ""type"": ""string"", ""description"": ""Instance GUID of the created group."" }, ""grouped"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the components that were added to the group."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
-        private Task<AIReturn> GhGroupAsync(AIToolCall toolCall)
+        private async Task<AIReturn> GhGroupAsync(AIToolCall toolCall)
         {
             // Prepare the output
             var output = new AIReturn()
@@ -134,83 +134,94 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!validGuids.Any())
                 {
                     output.CreateError("No valid GUIDs provided for grouping.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 GH_Group group = null;
 
-                // Combine UI operations and result resolution in a single UI thread callback
-                var tcs = new TaskCompletionSource<object>();
+                // Combine UI operations and result resolution in a single UI thread callback.
+                // RhinoApp.InvokeOnUiThread posts to the UI thread; await the TCS so the
+                // AIReturn body is populated before we return.
+                var tcs = new TaskCompletionSource<AIReturn>();
                 Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
-                    // Parse color if provided
-                    var groupColor = System.Drawing.Color.Empty;
-                    if (!string.IsNullOrEmpty(colorStr))
+                    try
                     {
-                        try
+                        // Parse color if provided
+                        var groupColor = System.Drawing.Color.Empty;
+                        if (!string.IsNullOrEmpty(colorStr))
                         {
-                            groupColor = StringConverter.StringToColor(colorStr);
-                            Debug.WriteLine($"[gh_group] Group color set to {groupColor}");
+                            try
+                            {
+                                groupColor = StringConverter.StringToColor(colorStr);
+                                Debug.WriteLine($"[gh_group] Group color set to {groupColor}");
+                            }
+                            catch
+                            {
+                                // Invalid color string, ignoring
+                            }
                         }
-                        catch
+                        else
                         {
-                            // Invalid color string, ignoring
+                            groupColor = System.Drawing.Color.FromArgb(255, 0, 200, 0);
+                            Debug.WriteLine("[gh_group] No color provided, using default color");
                         }
-                    }
-                    else
-                    {
-                        groupColor = System.Drawing.Color.FromArgb(255, 0, 200, 0);
-                        Debug.WriteLine("[gh_group] No color provided, using default color");
-                    }
 
-                    // Create group
-                    group = new GH_Group();
-                    group.NickName = groupName;
-                    group.Colour = groupColor;
+                        // Create group
+                        group = new GH_Group();
+                        group.NickName = groupName;
+                        group.Colour = groupColor;
 
-                    // Add objects to group
-                    foreach (var guid in validGuids)
-                    {
-                        group.AddObject(guid);
-                    }
-
-                    // Add group to document
-                    var canvas = Instances.ActiveCanvas;
-                    if (canvas?.Document != null)
-                    {
-                        canvas.Document.AddObject(group, false);
-                    }
-
-                    // Update UI
-                    Instances.RedrawCanvas();
-
-                    // Resolve task result
-                    if (group != null)
-                    {
-                        var toolResult = new JObject
+                        // Add objects to group
+                        foreach (var guid in validGuids)
                         {
-                            ["group"] = group.InstanceGuid.ToString(),
-                            ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString())),
-                        };
+                            group.AddObject(guid);
+                        }
 
-                        var body = AIBodyBuilder.Create()
-                            .AddToolResult(toolResult)
-                            .Build();
+                        // Add group to document
+                        var canvas = Instances.ActiveCanvas;
+                        if (canvas?.Document != null)
+                        {
+                            canvas.Document.AddObject(group, false);
+                        }
 
-                        output.CreateSuccess(body, toolCall);
+                        // Update UI
+                        Instances.RedrawCanvas();
+
+                        // Resolve task result
+                        if (group != null)
+                        {
+                            var toolResult = new JObject
+                            {
+                                ["group"] = group.InstanceGuid.ToString(),
+                                ["grouped"] = JArray.FromObject(validGuids.Select(g => g.ToString())),
+                            };
+
+                            var body = AIBodyBuilder.Create()
+                                .AddToolResult(toolResult)
+                                .Build();
+
+                            output.CreateSuccess(body, toolCall);
+                        }
+                        else
+                        {
+                            output.CreateError("Failed to create group.");
+                        }
+
+                        tcs.SetResult(output);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        output.CreateError("Failed to create group.");
+                        tcs.SetException(ex);
                     }
                 });
 
-                return Task.FromResult(output);
+                return await tcs.Task.ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error: {ex.Message}");
-                return Task.FromResult(output);
+                return output;
             }
         }
 

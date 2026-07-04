@@ -20,3 +20,5 @@ While using mcp tools, if you identify issues in SmartHopper or GhJson .NET code
 - Suggest a fix for the root cause of the issue
 
 Do not commit or stage changes. I'll do it manually.
+
+Remember that, after making changes in code, I have to manually turn the program off, build the solution again and trigger the debugging environment. Notify me when you need this.

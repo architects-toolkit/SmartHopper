@@ -190,8 +190,11 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
             try
             {
+                var doc = Instances.ActiveCanvas?.Document;
+
                 press();
                 obj.ExpireSolution(true);
+                doc?.NewSolution(false);
 
                 Task.Run(async () =>
                 {
@@ -201,6 +204,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                     {
                         release();
                         obj.ExpireSolution(true);
+                        doc?.NewSolution(false);
                     });
                 });
 

@@ -75,6 +75,7 @@ Many thanks to the following contributors to this release:
 - **CI:** `release-1-milestone.yml` now syncs `.github/actions` from the dispatched workflow ref before running local composite actions. Releasing from a stabilization branch that predated a CI tooling refactor (e.g. the `update-version` → `version-manager` consolidation) previously failed because the checked-out base branch lacked the referenced local action.
 - Improved error surfacing for empty results in `gh_get` and `gh_put` so callers receive a clear warning instead of an empty object.
 - Improved `gh_put` input handling so it accepts the `ghjson` argument as either a JSON string or a structured JSON object/array.
+- Fixed `gh_group` returning an empty error response (`"Either body or messages must be set"`) while still creating the group on the canvas. The UI-thread callback is now awaited via a `TaskCompletionSource`, and the tool output schema now matches the actual `group`/`grouped` payload.
 
 ## [2.0.0-dev.260619] - 2026-06-19
 
