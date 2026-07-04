@@ -352,6 +352,9 @@ documentation:
 "component: SaveGhPatch":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/SaveGhPatchComponent.cs'
+"component: SmartHopperMcpServer":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs'
 "component: Text2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Text2AIComponent.cs'

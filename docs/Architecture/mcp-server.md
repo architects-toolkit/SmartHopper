@@ -10,10 +10,8 @@ Loopback-only MCP transport that exposes SmartHopper's existing `AITool` catalog
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Infrastructure/Mcp/` |
 | **Since Version** | ? |
-| **Last Updated** | 2026-07-03 |
+| **Last Updated** | 2026-07-04 |
 | **Documentation Maintainer** | Devin AI |
-
-_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
 
 ---
 
@@ -44,7 +42,6 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 - Outputs:
   - `Url` — the MCP endpoint when the server is running.
   - `Status` — a short status string.
-  - `LastCall` — the most recent successful tool call name.
 
 ### Default Configuration
 
@@ -56,13 +53,13 @@ The user-facing component is `SmartHopperMcpServerComponent` in `src/SmartHopper
 | Expose mutating tools | `false` | Mutating tools stay hidden unless explicitly allowed. |
 | Server name | `smarthopper` | Reported during MCP `initialize`. |
 | Server version | assembly informational version fallback | Can be overridden from options. |
-| Bind address | loopback only | `127.0.0.1` and `[::1]` only in phase 1. |
+| Bind address | loopback only | `127.0.0.1` only in phase 1. IPv6 loopback is not registered. |
 
 ### Security Posture
 
-- **Loopback only.** The server binds to `127.0.0.1` and `[::1]` only.
-- **Origin guard.** Requests from unexpected origins are rejected.
-- **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected.
+- **Loopback only.** The server binds to `127.0.0.1` only.
+- **Loopback peer guard.** Requests from non-loopback IP addresses are rejected (defence in depth even though the listener is already bound to loopback).
+- **Bearer token optional.** If a token is configured, requests without `Authorization: Bearer ...` are rejected with HTTP 401.
 - **Read-only by default.** Tools that alter the canvas are hidden unless `ExposeMutatingTools` is enabled.
 - **Allow-list overrides everything.** If `EnabledTools` is set, only those tools are exposed.
 - **No file-system or shell access.** MCP only exposes existing `IAIToolProvider` tools.
@@ -86,12 +83,13 @@ That means tools such as `gh_get`, `gh_list_components`, `gh_list_categories`, `
 
 | MCP method | SmartHopper behavior |
 | --- | --- |
-| `initialize` | Returns the server name, version, and supported capabilities. |
+| `initialize` | Returns protocol version `2025-03-26`, server name, version, and supported capabilities. |
 | `tools/list` | Uses `AIToolMcpAdapter.BuildDescriptors()` to project the `AIToolManager` catalog. |
-| `tools/call` | Resolves the named tool, builds `AIToolCall`, and executes it on the UI thread. |
+| `tools/call` | Resolves the named tool, builds `AIToolCall`, executes it through the adapter, and wraps the result in MCP `text` content. |
 | `notifications/initialized` | Acknowledged as a notification. |
 | `ping` | Lightweight health check. |
 | `resources/*` and `prompts/*` | Reserved for later phases. |
+| `GET /health` | HTTP-only endpoint returning `{"status":"ok"}`; not a JSON-RPC method. |
 
 ### `tools/call` Payload Contract
 
@@ -100,12 +98,12 @@ The adapter expects MCP clients to send a tool name and a JSON object of argumen
 1. MCP sends `{"method":"tools/call","params":{"name":"gh_get","arguments":{...}}}`.
 2. `JsonRpcDispatcher` resolves the tool by name.
 3. `AIToolMcpAdapter` checks `EnabledTools` first, then `ExposeMutatingTools`, then `AITool.MutatesCanvas`.
-4. `AIToolCall.Exec()` runs on the Grasshopper UI thread.
-5. `AIReturn.Body` becomes the MCP response payload.
+4. `AIToolMcpAdapter` builds an `AIToolCall` and invokes it through the configured executor (`AIToolCall.Exec()` by default).
+5. The adapter extracts the last `AIInteractionToolResult` from `AIReturn.Body` and returns it as the MCP response payload; if no tool result is present, the adapter falls back to the first Tool/Provider/Network error or an empty object.
 
-### Thread Safety and UI Marshalling
+### Thread Safety and Concurrency
 
-Canvas/document work must be serialized. The MCP layer does that with a shared lifecycle object and a UI-thread marshaller.
+Canvas/document work must be serialized. `JsonRpcDispatcher` serializes JSON-RPC requests with a `SemaphoreSlim` so only one MCP request runs at a time. The actual UI thread marshalling, when required by a tool, is handled by the tool's execution path (the default executor invokes `AIToolCall.Exec()`).
 
 ```csharp
 var options = new McpServerOptions
@@ -144,7 +142,9 @@ finally
 - `BuildDescriptors()` sorts descriptors by name after filtering.
 - `ExecuteAsync()` returns a tool error if the adapter cannot resolve or run the requested tool.
 - `McpServerOptions.EnabledTools` is an allow-list; when non-empty, it overrides the mutating-tool policy.
-- Mutating-tool gating now comes from `AITool.MutatesCanvas`, not from tool-name prefixes.
+- Mutating-tool gating comes from `AITool.MutatesCanvas`, not from tool-name prefixes.
+- `ParseSchema()` falls back to a minimal `{"type":"object"}` schema when a tool's `ParametersSchema` is missing or invalid.
+- `McpServer` rejects request bodies larger than 256 KiB.
 
 ### Representative API Usage
 
@@ -187,7 +187,7 @@ The main design goals are:
 
 Phase 1 is implemented under `src/SmartHopper.Infrastructure/Mcp/` rather than a separate project.
 
-- `McpServer.cs` — loopback HTTP transport, origin guard, bearer-token auth, request limits
+- `McpServer.cs` — loopback HTTP transport, loopback peer guard, bearer-token auth, request limits
 - `JsonRpcDispatcher.cs` — MCP method dispatch and result shaping
 - `AIToolMcpAdapter.cs` — projects `AIToolManager` into MCP descriptors and calls
 - `McpServerOptions.cs` — port, token, allow-list, and mutating-tool settings
@@ -226,10 +226,10 @@ The component entry point lives in `src/SmartHopper.Components/Mcp/SmartHopperMc
 ### Open Questions
 
 1. **Tool namespacing.** The current plan keeps tool names unchanged in phase 1.
-2. **Tool schema source.** `AITool.ParametersSchema` is already a JSON Schema string and is parsed into a JSON object for MCP.
+2. **Tool schema source.** `AITool.ParametersSchema` is already a JSON Schema string and is parsed into a JSON object for MCP (resolved in phase 1).
 3. **GhJSON responses.** A future phase may add a `mimeType` for GhJSON payloads.
 4. **Settings UI.** Port and token inputs are surfaced via the component first; a centralized settings UI can come later.
-5. **CI coverage.** Infrastructure tests cover the adapter and dispatcher; the HTTP listener path remains an integration concern.
+5. **CI coverage.** Infrastructure tests cover the adapter, dispatcher, and options; the HTTP listener path remains an integration concern.
 
 ### References
 

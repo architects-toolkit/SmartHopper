@@ -66,7 +66,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// for aggregated submission. <c>null</c> means the tool does not support batch mode
         /// and will always be executed synchronously.
         /// </summary>
-        public Func<AIToolCall, AIRequestCall> BuildRequest { get; }
+        public Func<AIToolCall, AIRequestCall>? BuildRequest { get; }
 
         /// <summary>
         /// Gets a value indicating whether invoking this tool alters the Grasshopper canvas or
@@ -87,7 +87,7 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="requiredCapabilities">Array of capabilities required by this tool (optional, defaults to no requirements).</param>
         /// <param name="buildRequest">Optional function to build an <see cref="AIRequestCall"/> without executing it, for batch mode support. Null means sync-only.</param>
         /// <param name="mutatesCanvas">Whether invoking the tool mutates the Grasshopper canvas or document state. Defaults to <c>true</c>.</param>
-        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIReturn>> execute, AICapability requiredCapabilities = AICapability.None, Func<AIToolCall, AIRequestCall> buildRequest = null, bool mutatesCanvas = true)
+        public AITool(string name, string description, string category, string parametersSchema, Func<AIToolCall, Task<AIReturn>> execute, AICapability requiredCapabilities = AICapability.None, Func<AIToolCall, AIRequestCall>? buildRequest = null, bool mutatesCanvas = true)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Description = description ?? throw new ArgumentNullException(nameof(description));
