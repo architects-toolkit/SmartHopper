@@ -83,7 +83,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhTidyUpAsync,
                 mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""moved"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved."" }, ""affectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved (alias for moved)."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_tidy_up_selected
@@ -112,7 +112,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhTidyUpSelectedAsync,
                 mutatesCanvas: true,
                 tags: new[] { "canvas", "components", "mutating", "layout" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""moved"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved."" }, ""affectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved (alias for moved)."" } } }",
                 annotations: new AIToolAnnotations(destructiveHint: false));
         }
 

@@ -64,7 +64,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhDiffToolAsync,
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "diff", "patch", "read-only", "ghjson" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""patch"": { ""type"": ""object"", ""description"": ""Structured patch document describing differences."" }, ""base"": { ""type"": ""string"" }, ""target"": { ""type"": ""string"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghpatch"": { ""type"": ""string"", ""description"": ""Serialized `.ghpatch` document describing differences."" }, ""hasChanges"": { ""type"": ""boolean"" }, ""componentOpCount"": { ""type"": ""integer"" }, ""connectionOpCount"": { ""type"": ""integer"" }, ""groupOpCount"": { ""type"": ""integer"" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 

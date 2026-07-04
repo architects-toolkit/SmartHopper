@@ -62,7 +62,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 execute: this.GhPatchApplyToolAsync,
                 mutatesCanvas: false,
                 tags: new[] { "canvas", "components", "patch", "read-only", "ghjson" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"" }, ""ghjson"": { ""type"": ""string"", ""description"": ""Resulting GhJSON after applying the patch."" }, ""conflicts"": { ""type"": ""array"" } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Resulting GhJSON after applying the patch."" }, ""success"": { ""type"": ""boolean"" }, ""hasConflicts"": { ""type"": ""boolean"" }, ""conflicts"": { ""type"": ""array"" }, ""componentsAdded"": { ""type"": ""integer"" }, ""componentsRemoved"": { ""type"": ""integer"" }, ""componentsModified"": { ""type"": ""integer"" }, ""connectionsAdded"": { ""type"": ""integer"" }, ""connectionsRemoved"": { ""type"": ""integer"" }, ""groupsAdded"": { ""type"": ""integer"" }, ""groupsRemoved"": { ""type"": ""integer"" }, ""groupsModified"": { ""type"": ""integer"" } } }",
                 annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
