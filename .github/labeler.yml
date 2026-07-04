@@ -196,6 +196,9 @@ documentation:
 "component: AI Text2TextList":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Text/AIText2TextListComponent.cs'
+"component: AI Web2Md":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIWeb2MdComponent.cs'
 "component: Audio2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Audio2AIComponent.cs'
