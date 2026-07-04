@@ -21,6 +21,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
+using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Special;
@@ -190,7 +191,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
 
             try
             {
-                var doc = Instances.ActiveCanvas?.Document;
+                var doc = GhJsonGrasshopper.GetActiveDocument();
 
                 press();
                 obj.ExpireSolution(true);

@@ -475,7 +475,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
-                        var ghDoc = Instances.ActiveCanvas?.Document;
+                        var ghDoc = GhJsonGrasshopper.GetActiveDocument();
 
                         // Remove existing components that will be replaced
                         // Keep document enabled - disabling causes "object expired" errors
@@ -525,7 +525,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             {
                                 try
                                 {
-                                    var success = ConnectByNickName(
+                                    var success = GhJsonGrasshopper.Connect(
                                         conn.sourceGuid,
                                         conn.targetGuid,
                                         conn.sourceParam,
@@ -543,6 +543,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             }
 
                             Debug.WriteLine($"[gh_put] Restored {restored}/{capturedConnections.Count} external connections");
+
+                            if (restored > 0)
+                            {
+                                ghDoc.NewSolution(false);
+                                Instances.RedrawCanvas();
+                            }
                         }
 
                         placeTcs.SetResult(true);
@@ -697,63 +703,5 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return JToken.DeepEquals(incomingJObj, existingJObj);
         }
 
-        /// <summary>
-        /// Connects two components on the active canvas by matching parameter NickNames.
-        /// Replaces the removed ConnectionBuilder.ConnectComponents() utility.
-        /// </summary>
-        /// <param name="sourceGuid">Instance GUID of the source component.</param>
-        /// <param name="targetGuid">Instance GUID of the target component.</param>
-        /// <param name="sourceParamName">NickName of the source output parameter.</param>
-        /// <param name="targetParamName">NickName of the target input parameter.</param>
-        /// <returns><c>true</c> if the connection was created successfully.</returns>
-        private static bool ConnectByNickName(Guid sourceGuid, Guid targetGuid, string sourceParamName, string targetParamName)
-        {
-            var ghDoc = Instances.ActiveCanvas?.Document;
-            if (ghDoc == null)
-            {
-                return false;
-            }
-
-            var sourceObj = ghDoc.FindObject(sourceGuid, true);
-            var targetObj = ghDoc.FindObject(targetGuid, true);
-            if (sourceObj == null || targetObj == null)
-            {
-                return false;
-            }
-
-            IGH_Param sourceParam = null;
-            IGH_Param targetParam = null;
-
-            // Resolve source output parameter
-            if (sourceObj is IGH_Component sourceComp)
-            {
-                sourceParam = sourceComp.Params.Output
-                    .FirstOrDefault(p => string.Equals(p.NickName, sourceParamName, StringComparison.OrdinalIgnoreCase));
-            }
-            else if (sourceObj is IGH_Param sp)
-            {
-                sourceParam = sp;
-            }
-
-            // Resolve target input parameter
-            if (targetObj is IGH_Component targetComp)
-            {
-                targetParam = targetComp.Params.Input
-                    .FirstOrDefault(p => string.Equals(p.NickName, targetParamName, StringComparison.OrdinalIgnoreCase));
-            }
-            else if (targetObj is IGH_Param tp)
-            {
-                targetParam = tp;
-            }
-
-            if (sourceParam == null || targetParam == null)
-            {
-                Debug.WriteLine($"[gh_put] ConnectByNickName: Could not resolve params - source '{sourceParamName}' on {sourceGuid}, target '{targetParamName}' on {targetGuid}");
-                return false;
-            }
-
-            targetParam.AddSource(sourceParam);
-            return true;
-        }
     }
 }

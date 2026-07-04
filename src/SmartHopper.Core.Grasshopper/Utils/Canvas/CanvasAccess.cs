@@ -43,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             GH_Document doc = null;
             try
             {
-                doc = Instances.ActiveCanvas?.Document;
+                doc = GhJsonGrasshopper.GetActiveDocument();
             }
             catch
             {
@@ -90,7 +90,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             IGH_DocumentObject obj;
             try
             {
-                obj = doc.Objects.FirstOrDefault(o => o.InstanceGuid == guid);
+                obj = GhJsonGrasshopper.FindObject(doc, guid);
             }
             catch
             {
