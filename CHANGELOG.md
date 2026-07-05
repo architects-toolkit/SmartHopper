@@ -75,6 +75,7 @@ Many thanks to the following contributors to this release:
 
 - Fixed `smarthopper_workflows` typos and ambiguous steps: corrected "componetns" in `organize_canvas`, replaced "Select the components" with concrete tool calls, made `inspect_canvas` steps explicit, and added the missing `gh_put` final step to `apply_patch`.
 - Fixed `button_click` to force a full Grasshopper solution while the button is pressed and after it is released, so downstream components actually recalculate.
+- Fixed `GhPatchApplyToCanvasComponents` to use `SetPersistentOutput` for all outputs, so result values (Success, Conflicts, component/connection/group counts) survive after the trigger button is released.
 - Fixed `gh_put` component replacement so external connections are reliably restored: parameter matching now falls back from nickname to parameter name (and then to index), and the canvas is redrawn after reconnecting.
 - Fixed `web2md` Wikipedia handling by switching to the MediaWiki `action=parse` API so headings and tables are converted to proper Markdown instead of plain text with MediaWiki `== Heading ==` markup.
 - Fixed `web2md` Discourse handling so topic URLs return clean raw Markdown instead of noisy HTML-to-Markdown fallback output. Introduced a shared `DiscourseForumService` used by both `UrlConverter` and `DiscourseToolsBase`, fixed the topic-ID/post-ID confusion for `/t/slug/{topicId}` URLs, and added `include_raw=1` so the topic JSON includes the original post Markdown.
