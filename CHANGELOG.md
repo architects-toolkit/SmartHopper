@@ -93,6 +93,9 @@ Many thanks to the following contributors to this release:
 - Improved error surfacing for empty results in `gh_get` and `gh_put` so callers receive a clear warning instead of an empty object.
 - Improved `gh_put` input handling so it accepts the `ghjson` argument as either a JSON string or a structured JSON object/array.
 - Fixed `gh_group` returning an empty error response (`"Either body or messages must be set"`) while still creating the group on the canvas. The UI-thread callback is now awaited via a `TaskCompletionSource`, and the tool output schema now matches the actual `group`/`grouped` payload.
+- **CI:** The provider-model update report (`Update-ProviderModels.ps1`) no longer mislabels rolling alias ids (e.g. `gpt-5-pro`, an alias of `gpt-5-pro-2025-10-06`) as `New` models. The `New`/`Unchanged` diff is now computed from the merged canonical entries and treats a model as known when its canonical id or any of its aliases already existed in the source file, matching what is actually written to the `*ProviderModels.cs` file.
+- **CI:** Fixed the `documentation` PR auto-label rule in `.github/labeler.yml`. The rule previously contained a second `changed-files` matcher (`all-globs-to-all-files: ['!CHANGELOG*']`) that `actions/labeler` OR-combines, so `documentation` was applied to essentially every PR that did not touch `CHANGELOG`. The label now applies only when `docs/**` or `.github/ISSUE_TEMPLATE/**` files change.
+- **CI:** Grouped the `AIToolManager` test classes into a shared `AIToolManager` xUnit collection so they no longer run in parallel. Both classes mutate the static `AIToolManager` tool registry via `ResetTools()`/`RegisterTool()`, which caused intermittent Windows test failures (e.g. `ExecuteTool` returning `null`) when a parallel class reset the registry mid-test.
 
 ## [2.0.0-dev.260619] - 2026-06-19
 
