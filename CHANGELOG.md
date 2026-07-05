@@ -94,6 +94,10 @@ Many thanks to the following contributors to this release:
 - Improved `gh_put` input handling so it accepts the `ghjson` argument as either a JSON string or a structured JSON object/array.
 - Fixed `gh_group` returning an empty error response (`"Either body or messages must be set"`) while still creating the group on the canvas. The UI-thread callback is now awaited via a `TaskCompletionSource`, and the tool output schema now matches the actual `group`/`grouped` payload.
 
+### Removed
+
+- **CI:** Removed the `pr-dependency-validation.yml` workflow. The GhJSON ProjectReference check is no longer needed because `.csproj` references now use `Condition="Exists(...)"` to fall back to local projects during development and PackageReference in CI/production builds.
+
 ## [2.0.0-dev.260619] - 2026-06-19
 
 Many thanks to the following contributors to this release:
@@ -417,7 +421,7 @@ Many thanks to the following contributors to this release:
 - ci(concurrency): added top-level `concurrency:` to 25 workflows to prevent race conditions and save runner minutes:
   - Auto-commit / auto-PR workflows grouped per ref with `cancel-in-progress: false` (queue, never interrupt a push-back): `chore-version-date`, `chore-update-contributors`, `chore-version-badge`, `pr-anonymize-public-key`, `dev-update-manifest`, `github-labels-sync`, `chore-version-main-release`, `pr-license-headers`, `stabilization-0-init`.
   - Entity-scoped workflows grouped per issue/milestone/release/PR with `cancel-in-progress: false`: `model-verification`, `github-issue-labels-on-close`, `github-issue-labels-close`, `milestone-management`, `release-4-build`, `release-2-pr-to-dev-closed`, `release-3-pr-to-main-closed`. `release-5-deploy-pages` uses the standard `pages` group with `cancel-in-progress: true`.
-  - PR validation workflows grouped per PR with `cancel-in-progress: true` so superseded pushes are cancelled: `ci-dotnet-tests`, `pr-validation`, `pr-build-hash-validation`, `pr-version-validation`, `pr-manifest-validation`, `pr-dependency-validation`, `pr-block-dev-to-main`, `pr-milestone`.
+  - PR validation workflows grouped per PR with `cancel-in-progress: true` so superseded pushes are cancelled: `ci-dotnet-tests`, `pr-validation`, `pr-build-hash-validation`, `pr-version-validation`, `pr-manifest-validation`, `pr-dependency-validation`, `pr-block-dev-to-main`, `pr-milestone`. (`pr-manifest-validation` and `pr-dependency-validation` were later removed.)
 - ci(auto-commit hardening): belt-and-braces against external commits landing between fetch and push.
   - `dev-update-manifest` now does `git pull --rebase --autostash origin dev` with retry (×3) before pushing to `dev`.
   - `pr-license-headers` now does `git pull --rebase --autostash` with retry (×3) before pushing back to the PR head branch (handles the contributor pushing a new commit mid-run).
