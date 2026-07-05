@@ -140,10 +140,6 @@ namespace SmartHopper.Components.Grasshopper
                     {
                         this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"GhJSON valid with {this._warnings.Count} warning(s)");
                     }
-                    else
-                    {
-                        this.CollectMessage(SHRuntimeMessageSeverity.Info, "GhJSON is valid");
-                    }
 
                     foreach (var error in this._errors)
                     {
