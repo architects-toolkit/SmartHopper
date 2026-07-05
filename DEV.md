@@ -76,7 +76,8 @@ a new script. All these tools are available to the provider to use while chattin
 in the AI Chat component.
 
 | Tool Name | Category | Description | Planned | In Progress | Testing | Released 🎉 |
-| --------- | -------- | ----------- | :-------: | :-----------: | :-------: | :--------: |
+| Tool Name | Category | Description | Planned | In Progress | Testing | Released |
+|-----------|----------|-------------|:-------:|:-----------:|:-------:|:--------:|
 | `text2boolean` | DataProcessing | Evaluates a text against a true/false question with optional fallback value | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2text` | DataProcessing | Generates text based on a prompt and optional instructions | ⚪ | 🟡 | 🟠 | 🟢 |
 | `text2img` | ImageProcessing | Generates an image based on a text prompt using AI image generation models | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -166,6 +167,9 @@ in the AI Chat component.
 | `script_set_principal_input` | NotTested | Set which input parameter drives the component's iteration | ⚪ | 🟡 | - | - |
 | `script_parameter_set_optional` | NotTested | Set whether a script input parameter is required or optional | ⚪ | 🟡 | - | - |
 | `speech_generate` | Speech | Generates speech audio from text input | - | - | - | - |
+| `button_click` | Components | Simulate a momentary click on Grasshopper Buttons (not Boolean Toggles). The button is pressed for 100 ms, then released. Provide the instance GUIDs of the buttons. | - | - | - | - |
+| `gh_document_save` | Document | Save the current Grasshopper document. If no filePath is provided, the document is saved to its existing location. Provide a full file path to save a copy or unnamed document. | - | - | - | - |
+| `gh_remove` | Components | Remove components from the Grasshopper canvas by their instance GUIDs. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools. | - | - | - | - |
 
 Notes:
 
