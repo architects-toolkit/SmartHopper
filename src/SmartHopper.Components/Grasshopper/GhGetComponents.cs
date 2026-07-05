@@ -67,6 +67,7 @@ namespace SmartHopper.Components.Grasshopper
             pManager.AddTextParameter("Category Filter", "C", "Optional list of category filters by Grasshopper category or subcategory (e.g. 'Maths', 'Params', 'Script'). Use '+name' to include and '-name' to exclude.", GH_ParamAccess.list, string.Empty);
             pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, string.Empty);
             pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
+            pManager.AddIntegerParameter("Count", "Ct", "Maximum number of components to retrieve. Default is 100.", GH_ParamAccess.item, 100);
             pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Include Runtime Data", "Dt", "Include runtime/volatile data (actual values flowing through outputs). This is token-expansive!", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Viewport Only", "V", "Only include components visible in the current canvas viewport", GH_ParamAccess.item, false);
@@ -92,6 +93,7 @@ namespace SmartHopper.Components.Grasshopper
             private List<string> categoryFilters = new List<string>();
             private List<string> attrFilters = new List<string>();
             private int connectionDepth;
+            private int count;
             private bool includeMetadata;
             private bool includeRuntimeData;
 
@@ -116,9 +118,10 @@ namespace SmartHopper.Components.Grasshopper
                 DA.GetDataList(1, this.categoryFilters);
                 DA.GetDataList(2, this.attrFilters);
                 DA.GetData(3, ref this.connectionDepth);
-                DA.GetData(4, ref this.includeMetadata);
-                DA.GetData(5, ref this.includeRuntimeData);
-                DA.GetData(6, ref this.viewportOnly);
+                DA.GetData(4, ref this.count);
+                DA.GetData(5, ref this.includeMetadata);
+                DA.GetData(6, ref this.includeRuntimeData);
+                DA.GetData(7, ref this.viewportOnly);
                 this.selectedObjects = new List<IGH_DocumentObject>(this.parent.SelectedObjects);
             }
 
@@ -132,6 +135,8 @@ namespace SmartHopper.Components.Grasshopper
                         ["typeFilter"] = JArray.FromObject(this.typeFilters),
                         ["categoryFilter"] = JArray.FromObject(this.categoryFilters),
                         ["connectionDepth"] = this.connectionDepth,
+                        ["pageSize"] = this.count,
+                        ["page"] = 1,
                         ["includeMetadata"] = this.includeMetadata,
                         ["guidFilter"] = JArray.FromObject(this.selectedObjects.Select(o => o.InstanceGuid.ToString())),
                         ["includeRuntimeData"] = this.includeRuntimeData,
@@ -162,6 +167,20 @@ namespace SmartHopper.Components.Grasshopper
                     foreach (var msg in aiReturn.Messages.Where(m => m?.Severity != SHRuntimeMessageSeverity.Error))
                     {
                         this.CollectMessage(msg.Severity, msg.Message);
+                    }
+
+                    // Surface pagination info so users know when the output is truncated
+                    var pagination = toolResult["pagination"] as JObject;
+                    if (pagination != null)
+                    {
+                        var returned = pagination["returnedComponents"]?.ToObject<int?>() ?? 0;
+                        var total = pagination["totalComponents"]?.ToObject<int?>() ?? 0;
+                        var page = pagination["page"]?.ToObject<int?>() ?? 1;
+                        var pageCount = pagination["pageCount"]?.ToObject<int?>() ?? 1;
+                        if (total > returned && total > 0)
+                        {
+                            this.CollectMessage(SHRuntimeMessageSeverity.Info, $"Returning {returned} of {total} components (page {page} of {pageCount}). Boundary connections to components outside this page are preserved.");
+                        }
                     }
 
                     this.names = toolResult["names"]?.ToObject<List<string>>() ?? new List<string>();

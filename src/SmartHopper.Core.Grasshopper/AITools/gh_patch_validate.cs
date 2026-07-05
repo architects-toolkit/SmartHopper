@@ -44,7 +44,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Structurally validate a `.ghpatch` document. Checks the patch kind, that components/groups in remove/modify ops carry at least one identity field, and that connections have valid endpoints.",
+                description: "Structurally validate a `.ghpatch` document. Checks the patch kind, that components/groups in remove/modify ops carry at least one identity field, that new components/groups in add ops do NOT specify instanceGuid, and that connections have valid endpoints.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -53,7 +53,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""patch""]
                 }",
-                execute: this.GhPatchValidateToolAsync);
+                execute: this.GhPatchValidateToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "canvas", "components", "patch", "validation", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""isValid"": { ""type"": ""boolean"" }, ""errors"": { ""type"": ""array"" }, ""warnings"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         private async Task<AIReturn> GhPatchValidateToolAsync(AIToolCall toolCall)

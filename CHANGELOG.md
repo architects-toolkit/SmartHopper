@@ -15,6 +15,7 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
+- Added `WorkflowToolReferenceTests` in `SmartHopper.Core.Grasshopper.Tests` to validate that every tool name referenced in `smarthopper_workflows` step strings is a registered tool.
 - **PDF hyperlink extraction**: `PdfConverter` now uses PdfPig `page.GetHyperlinks()` to detect link annotations and wraps intersecting text in Markdown `[text](url)` syntax. Respects the existing `PreserveHyperlinks` option.
 - **PDF list detection**: `PdfConverter` now detects bullet (`•`, `-`, `→`, etc.) and numbered (`1.`, `a)`, `i.`, etc.) list items by pattern-matching block text. Indentation levels are inferred from visual left margins.
 - **PDF inline image positioning**: `PdfConverter` now interleaves extracted images with text blocks in top-to-bottom reading order based on each image's vertical position, instead of appending all images at the end of the page.
@@ -22,25 +23,64 @@ Many thanks to the following contributors to this release:
 - **Markdown style cleanup**: `FileConverterRegistry.ConvertAsync` now applies a new `MarkdownStyleCleanup` post-processing pass to every converter's output: trims trailing whitespace (which CommonMark otherwise interprets as a hard line break), ensures a blank line surrounds every ATX heading, collapses runs of 2+ blank lines into one, and trims leading/trailing blank lines from the document.
 - Added Devin CLI skills under `.devin/skills/` for each existing workflow, mapping Windsurf/Cascade-style workflow files to the Devin `SKILL.md` format so they can be invoked with `/skill-name` in Devin local sessions.
 - Added `changelog-summary` Devin CLI skill that derives its simplification instructions from `.github/workflows/chore-changelog-review.yml` and rewrites `[Unreleased]` (or a user-provided version) from `CHANGELOG.md` into a user-focused changelog summary.
+- Added `smarthopper_workflows` and `smarthopper_tool_help` self-documenting tools to help MCP clients discover common workflows and per-tool usage without reading source code.
+- Added MCP metadata to all `AITool` registrations: category tags, output JSON schemas, and MCP tool annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`). The MCP adapter now prefixes tool descriptions with `[Read-only]` or `[Mutates canvas]` for broad client compatibility.
+- Added `Enabled` flag to `AITool` so individual tools can be disabled and hidden from AI models. All tools in the `NotTested` category now default to `Enabled = false`; the provider tool list and MCP adapter both filter them out.
 - Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
 - Added `web2md` image modes: `link` (default), `embed`, `describe`, and `caption`. The new `imageMode` parameter lets web pages keep image URLs, embed downloaded images as base64 data URIs, or replace them with AI-generated captions/descriptions.
 - Added a shared `ImageProcessingService` in `SmartHopper.Core.Grasshopper.Utils.Internal` used by both `file2md` and `web2md` for downloading, describing, and formatting Markdown image replacements consistently across file and web conversion paths.
-- Added `Image Mode` inputs to `File2AIComponent`, `Web2AIComponent`, and `Web2MdComponent`. `File2AIComponent` defaults to `skip` (no image extraction); `Web2AIComponent` and `Web2MdComponent` default to `link` (keep remote image URLs). AI is used only when the mode is `embed`, `describe`, or `caption`.
+- Added `Image Mode` inputs to `File2AIComponent` and `Web2AIComponent`. `File2AIComponent` defaults to `skip` (no image extraction); `Web2AIComponent` defaults to `link` (keep remote image URLs). AI is used only when the mode is `embed`, `describe`, or `caption`.
+- Added `AIWeb2MdComponent` in `SmartHopper.Components.Knowledge` for AI-powered URL-to-Markdown conversion with configurable `Image Mode` (defaults to `link`).
+- Added pagination support to all `gh_get` tool variants via `page` and `pageSize` parameters (defaults: page 1, page size 25). The serialized document is still complete, but the returned `ghjson` contains only the requested page; response includes `pagination` metadata.
+- Added `Count` parameter to `GhGetComponents` (default 100) to limit the number of components retrieved; maps to `gh_get` `pageSize` and always returns page 1. Emits an info message when the result is truncated.
+- Added new `gh_remove` tool that removes canvas objects by instance GUID and records a single undo event so the action is reversible.
+- Exposed `GhJsonGrasshopper.Delete` and `GhJsonGrasshopper.Clear` facade methods in `ghjson-dotnet` so consumers can remove canvas objects through the same UI-thread-safe, undo-batched deletion logic used by `gh_remove`.
+- Added new `button_click` tool that simulates a 100 ms momentary press on Grasshopper boolean button parameters.
+- Added new `gh_document_save` tool that saves the active Grasshopper document to a given path or to its existing file path.
+- Added new `gh_disconnect` tool that removes wires between Grasshopper components by instance GUID and parameter name, records a single undo event, and recomputes the solution.
+- Added `autoOffset` parameter to `gh_put` so callers can control whether placed components are offset to avoid overlaps.
+- `gh_put` tool now accepts an absolute file path to a `.ghjson` file in the `ghjson` parameter, with the extension restricted to `.ghjson` for safety.
+- `GhPutComponents` input parameter now documents that the `JSON` input also accepts a `.ghjson` file path.
+- Added runtime (volatile) data serialization to `ghjson-dotnet`: `SerializationOptions.IncludeRuntimeData` and `GhJsonParameterSettings.RuntimeData` expose the live values flowing through parameter outputs.
+- Added `includeRuntimeData` parameter to `gh_get` and all `gh_get_*_with_data` variants; the response now includes a top-level `runtimeData` object mapping component GUIDs to their output parameter values when runtime data is requested.
 - Migrated `File2AIComponent` and `Web2AIComponent` to `AIStatefulAsyncComponentBase` so they can batch AI image-description calls through the same infrastructure used by `AIFile2MdComponent`.
 - Added shared `MarkdownImageBatchProcessor` in `SmartHopper.Core.Grasshopper.Utils.Internal` to centralize image slot extraction, batch sentinel generation, and Markdown reconstruction for all file and web components that use AI image descriptions.
 - **`web2md` failure-shape handling**: `UrlConverter` now explicitly classifies and reports failure cases instead of risking a false success with empty/misleading content: invalid or non-HTTP URLs, HTTP 401/403 and other non-success responses, login-wall pages (password field + login phrase, or thin content behind a password field), bot/human-verification challenge pages (reCAPTCHA, hCaptcha, Cloudflare Turnstile/"Just a moment...", DataDome, PerimeterX, GeeTest signatures), oversized pages (new `FileConversionOptions.MaxDownloadBytes`, default 10 MB, enforced via `Content-Length` and bounded streaming reads), and empty/thin pages (new `FileConversionOptions.MinContentLength`, default 40 characters). Added `FileConversionResult.FailureReason` (`FileConversionFailureReason` enum) so callers can distinguish failure shapes programmatically; the `web2md` tool now prefixes its error message with the classified reason (e.g. `[LoginRequired]`, `[BotChallenge]`).
 
 ### Changed
 
+- `gh_get` and `gh_put` tool descriptions now note that component-specific state is returned/preserved under `componentState.extensions`, with the Number Slider format (`current<min~max>`, e.g. `10<5~50>`) as an example.
+- `button_click` tool description corrected to state that it only works on Grasshopper button parameters, not boolean toggles.
+- `smarthopper_readme` no longer embeds numbered scripting workflows; it now points callers to `smarthopper_workflows` for canonical `create_script`, `edit_script`, and `debug_script` sequences. Updated documentation accordingly.
+- Renamed `smarthopper_tool_help` output field `all_tools` to `similar_tools`. When the requested tool is found, `similar_tools` now lists only tools in the same category; when the tool is not found, it still returns the full catalog for discovery.
+- **`SmartHopperMcpServerComponent` input-change handling**: the MCP server component now tracks the effective `Port`, `BearerToken`, and `ExposeMutatingTools` values. If any of these inputs change while the server is enabled, the component releases and re-acquires the server so the updated configuration is applied.
 - Simplified the `file2md` AI tool parameter schema: `preserveTableStructure`, `preserveHyperlinks`, and `preserveMath` are now always enabled and are no longer exposed as parameters. `preserveColors` and `preserveHighlights` are replaced by a unified `preserveFormatting` parameter that controls colors and highlights in DOCX plus bold/italic in DOCX, XLSX, and PPTX. Updated `File2MdToolResult`, `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent` to match the new schema, and removed the `Preserve Tables` input from those components.
 - Removed the `Preserve Formatting` input from `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent`; formatting is now always preserved.
 - Removed the `Image Prompt` input from `AIFile2MdComponent`; the component now always uses the built-in default prompt for the selected image mode.
 - Removed the `Include Links` and `Include Images` inputs from `Web2AIComponent`; both are now always `true`.
+- `Web2MdComponent` is now a non-AI component under `StatefulComponentBase`, exposing only the URL input (plus the auto-generated Run input). Images are always kept as remote Markdown links; use `AIWeb2MdComponent` for AI-powered image description.
 - `web2md` Wikipedia/MediaWiki conversion now converts relative `href`/`src` links to absolute URLs using the source page's scheme and host, so output Markdown points to `https://<host>/wiki/...` instead of `/wiki/...`.
 - `file2md` now delegates AI image description and Markdown replacement formatting to the shared `ImageProcessingService`.
+- Renamed `instruction_get` tool to `smarthopper_readme` to clarify its purpose as a general readme/instructions tool distinct from `smarthopper_tool_help`. Updated `CanvasButton` system prompt, test component, and documentation to match.
+- Renamed tool `McpDescription` to `RichDescription` and exposed it to every LLM-facing tool list, including inside-Smarthopper provider calls and the `smarthopper_tool_help` tool. `Description` remains the canonical source description; `RichDescription` adds the `[Read-only]`/`[Mutates canvas]` prefix plus tags.
+- Updated `web2md` tool description to clarify that it should be used when the URL is known and knowledge needs to be retrieved from the web.
+- Renamed `gh_list_components` parameter `nameFilter` to `query` for consistency; the old `nameFilter` key is still accepted for backward compatibility.
+- Updated `gh_put` output schema to match the actual response shape (`components`, `instanceGuids`, `analysis`).
+- Refactored `gh_remove` and `CanvasAccess.RemoveInstances` to delegate deletion to `GhJsonGrasshopper.Delete` so undo batching and UI-thread scheduling are handled by the shared `ghjson-dotnet` `CanvasDeleter`.
+- Centralized canvas wiring logic in `GhJSON.Grasshopper`: `gh_connect` and `gh_put` now use the shared `GhJsonGrasshopper.Connect` façade, which runs on the Rhino UI thread and records undo events. `gh_put` also uses `GhJsonGrasshopper.CaptureExternalConnections()` to preserve external wires when replacing components.
+- Renamed the WIP `_gh_connect` AI tool to `gh_connect`, enabled it, fixed its output schema to match the actual response, and moved it to the `Components` category.
+- Centralized canvas read helpers in `GhJSON.Grasshopper`: `GetActiveDocument` and `FindObject` now live in `CanvasReader` and are exposed via the `GhJsonGrasshopper` façade; all internal GhJSON callers and SmartHopper canvas tools now use them instead of scattered `Instances.ActiveCanvas?.Document` / `doc.Objects.FirstOrDefault(...)` lookups.
+- **GhPatch tools and components now reject `instanceGuid` in add operations.**
+  - `gh_patch_apply` now validates the patch document before applying and returns an error when `components.add` or `groups.add` entries include `instanceGuid`.
+  - `gh_patch_validate` now also checks that new components and groups do not specify `instanceGuid`.
+  - Tool description for `gh_patch_apply` now specifies the `instanceGuid` restriction.
 
 ### Fixed
 
+- Fixed `smarthopper_workflows` typos and ambiguous steps: corrected "componetns" in `organize_canvas`, replaced "Select the components" with concrete tool calls, made `inspect_canvas` steps explicit, and added the missing `gh_put` final step to `apply_patch`.
+- Fixed `button_click` to force a full Grasshopper solution while the button is pressed and after it is released, so downstream components actually recalculate.
+- Fixed `GhPatchApplyToCanvasComponents` to use `SetPersistentOutput` for all outputs, so result values (Success, Conflicts, component/connection/group counts) survive after the trigger button is released.
+- Fixed `gh_put` component replacement so external connections are reliably restored: parameter matching now falls back from nickname to parameter name (and then to index), and the canvas is redrawn after reconnecting.
 - Fixed `web2md` Wikipedia handling by switching to the MediaWiki `action=parse` API so headings and tables are converted to proper Markdown instead of plain text with MediaWiki `== Heading ==` markup.
 - Fixed `web2md` Discourse handling so topic URLs return clean raw Markdown instead of noisy HTML-to-Markdown fallback output. Introduced a shared `DiscourseForumService` used by both `UrlConverter` and `DiscourseToolsBase`, fixed the topic-ID/post-ID confusion for `/t/slug/{topicId}` URLs, and added `include_raw=1` so the topic JSON includes the original post Markdown.
 - Fixed Markdown post-processing in `MarkdownStyleCleanup` to remove the extra blank line that converters emit before a nested ordered list starting with `1.` when the previous item is a parent list item.
@@ -50,6 +90,16 @@ Many thanks to the following contributors to this release:
 - Fixed `OpenXmlConverterTests.XlsxConverter_CellFormatting` by building a complete, valid OpenXML stylesheet (`NumberingFormats`, `Fills`, `CellStyleFormats`, `CellStyles`, `DifferentialFormats`, `TableStyles`) so the workbook is loaded and converted successfully.
 - **CI:** Hash-manifest auto-merge in `release-4-build.yml` now uses `--rebase` instead of `--squash`. The `main` and `dev` branches only allow the rebase merge method (and use a rebase merge queue), so squash auto-merge requests could not complete.
 - **CI:** `release-1-milestone.yml` now syncs `.github/actions` from the dispatched workflow ref before running local composite actions. Releasing from a stabilization branch that predated a CI tooling refactor (e.g. the `update-version` → `version-manager` consolidation) previously failed because the checked-out base branch lacked the referenced local action.
+- Improved error surfacing for empty results in `gh_get` and `gh_put` so callers receive a clear warning instead of an empty object.
+- Improved `gh_put` input handling so it accepts the `ghjson` argument as either a JSON string or a structured JSON object/array.
+- Fixed `gh_group` returning an empty error response (`"Either body or messages must be set"`) while still creating the group on the canvas. The UI-thread callback is now awaited via a `TaskCompletionSource`, and the tool output schema now matches the actual `group`/`grouped` payload.
+- **CI:** The provider-model update report (`Update-ProviderModels.ps1`) no longer mislabels rolling alias ids (e.g. `gpt-5-pro`, an alias of `gpt-5-pro-2025-10-06`) as `New` models. The `New`/`Unchanged` diff is now computed from the merged canonical entries and treats a model as known when its canonical id or any of its aliases already existed in the source file, matching what is actually written to the `*ProviderModels.cs` file.
+- **CI:** Fixed the `documentation` PR auto-label rule in `.github/labeler.yml`. The rule previously contained a second `changed-files` matcher (`all-globs-to-all-files: ['!CHANGELOG*']`) that `actions/labeler` OR-combines, so `documentation` was applied to essentially every PR that did not touch `CHANGELOG`. The label now applies only when `docs/**` or `.github/ISSUE_TEMPLATE/**` files change.
+- **CI:** Grouped the `AIToolManager` test classes into a shared `AIToolManager` xUnit collection so they no longer run in parallel. Both classes mutate the static `AIToolManager` tool registry via `ResetTools()`/`RegisterTool()`, which caused intermittent Windows test failures (e.g. `ExecuteTool` returning `null`) when a parallel class reset the registry mid-test.
+
+### Removed
+
+- **CI:** Removed the `pr-dependency-validation.yml` workflow. The GhJSON ProjectReference check is no longer needed because `.csproj` references now use `Condition="Exists(...)"` to fall back to local projects during development and PackageReference in CI/production builds.
 
 ## [2.0.0-dev.260619] - 2026-06-19
 
@@ -110,6 +160,11 @@ Many thanks to the following contributors to this release:
   - All operations route through the new `GhJSON.Core.DiffOperations` façade endpoints (`GhJson.Diff`, `GhJson.ApplyPatch`, `GhJson.PatchFromJson/ToJson`, `GhJson.ValidatePatch`) and require `GhJSON.Core` 1.1.0 or later.
 - **DEV.md provider model sync automation**: added `tools/Update-DevProviderModels.ps1` and a GitHub workflow that validates provider model documentation on PRs and opens sync PRs after protected-branch provider registry updates.
 - **README Trademark and Logo Usage Policy**: explicit policy clarifying that the SmartHopper name and logo are not licensed under LGPL, listing permitted uses (articles, tutorials, educational materials, references to the unmodified official plug-in) and uses requiring prior written permission (commercial bundling, forks, materials that may imply endorsement).
+- **MCP server architecture design doc** (`docs/Architecture/mcp-server.md`): opt-in design proposal for exposing SmartHopper's existing `IAIToolProvider` tools to external Model Context Protocol clients (Claude Desktop, Cursor, VS Code, Claude Code, etc.) over local HTTP/JSON-RPC. Documents method mapping onto `AIToolManager`, `SemaphoreSlim`-protected request serialization, loopback-only/bearer-token security model, mutating-tools-off-by-default policy, phased rollout, and open decision points. Reuses `architects-toolkit/ghjson-dotnet` as the sole source of GhJSON schema; no schema re-implementation. Adapted from `brookstalley/cordyceps` (MIT) as architectural reference, with attribution.
+- **MCP server phase 1 implementation** (loopback HTTP/JSON-RPC, opt-in):
+  - `SmartHopper.Infrastructure/Mcp/`: `McpServer` (HttpListener on `127.0.0.1` / `[::1]`, origin guard, optional bearer token, 256 KB request limit, no payload logging), `JsonRpcDispatcher` (`initialize`, `tools/list`, `tools/call`, `notifications/initialized`, `ping`; method-not-found stubs for `resources/*` and `prompts/*`), `AIToolMcpAdapter` (bridges `AIToolManager` to MCP tool descriptors, mutating-tools-off allow-list, executes via `AIToolCall`), `McpServerLifecycle` (ref-counted singleton per port), `McpServerOptions` / `McpToolDescriptor` / `McpToolCallResult` configuration types. Mutating-tool gating now uses each tool's `AITool.MutatesCanvas` flag instead of the earlier name-prefix list.
+  - `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent`: opt-in Grasshopper component with `Enable`, `Port`, `BearerToken`, `ExposeMutatingTools` inputs and `Url` / `Status` outputs. Disabled by default.
+  - `SmartHopper.Infrastructure.Tests/Mcp/`: xUnit coverage for adapter (allow-list + mutating filter + schema parsing + executor wiring + error propagation), dispatcher (`initialize` / `tools/list` / `tools/call` / unknown method / invalid JSON / notifications), and options (defaults + `Clone`).
 
 #### 📋 List I/O components
 
@@ -346,17 +401,17 @@ Many thanks to the following contributors to this release:
   - Batch item errors properly surfaced as Grasshopper runtime messages
   - HTTP timeout increased for large batch file upload/download (300s default)
   - Order-based fallback for result loading when sentinel mapping unavailable
-
-- **Progress messages**: Live progress counter now shown during batch processing
-    - On batch submission: message immediately shows `Processing batch (0/XX)...` instead of the static `Processing batch...`
-    - During polling: counter updates live to `Processing batch (YY/XX)...` as items complete (OpenAI: `request_counts.completed`, MistralAI: `succeeded_requests`, Anthropic: `request_counts.succeeded`)
-    - During data-tree collection phase (batch mode): progress message shows `Preparing X/X...` instead of `Processing X/X...` to distinguish queuing from actual execution
-    - On new run: stale progress count and `ProgressInfo` are reset so old values never bleed into the next run
-    - **Fixed**: `GetStateMessage()` now checks `CurrentState` and returns base message for terminal states (Completed, Error, Cancelled, Waiting), preventing stale batch progress messages (e.g., `Processing batch (84/84)...`) from persisting after batch completion or failure
   - **`AIBatchStatus`**: Added optional `CompletedCount` property to non-completed status for in-progress progress reporting; `ResultBody` (single `JObject`) replaced by `Results` (`IReadOnlyDictionary<string, JObject>`) mapping each custom ID to its provider response body. *(Breaking change for custom `IAIBatchProvider` implementations.)*
   - **`IAIBatchProvider.SubmitBatchAsync`**: Signature changed from single-item `(AIRequestCall, CancellationToken)` to multi-item `(IReadOnlyList<(string CustomId, AIRequestCall Request)>, CancellationToken)`. All three providers (Anthropic, OpenAI, MistralAI) updated accordingly. *(Breaking change for custom `IAIBatchProvider` implementations.)*
   - **`AIBatchSubmission`**: `CustomId` (single string) superseded by `CustomIds` (`IReadOnlyList<string>`); `CustomId` is now a compat shim returning the first element. `GenerateCustomId()` now accepts `endpoint` and `index` parameters for richer IDs.
   - **`OnBatchCompleted`**: Signature changed from `(AIReturn)` to `(IReadOnlyDictionary<string, JObject>)` to carry per-item results. *(Breaking change for components overriding this hook.)*
+
+- **Progress messages**: Live progress counter now shown during batch processing
+  - On batch submission: message immediately shows `Processing batch (0/XX)...` instead of the static `Processing batch...`
+  - During polling: counter updates live to `Processing batch (YY/XX)...` as items complete (OpenAI: `request_counts.completed`, MistralAI: `succeeded_requests`, Anthropic: `request_counts.succeeded`)
+  - During data-tree collection phase (batch mode): progress message shows `Preparing X/X...` instead of `Processing X/X...` to distinguish queuing from actual execution
+  - On new run: stale progress count and `ProgressInfo` are reset so old values never bleed into the next run
+  - **Fixed**: `GetStateMessage()` now checks `CurrentState` and returns base message for terminal states (Completed, Error, Cancelled, Waiting), preventing stale batch progress messages (e.g., `Processing batch (84/84)...`) from persisting after batch completion or failure
 
 - **`AIStatefulAsyncComponentBase`**: `Model (M)` generic text input replaced by `Settings (S)` generic parameter. Accepts `AIRequestParameters` (from `AISettingsComponent`) or a plain model name string for backwards compatibility. `GetModel()` now reads from `AIRequestParameters.Model` with the same provider-default fallback as before.
 
@@ -369,7 +424,7 @@ Many thanks to the following contributors to this release:
 - ci(concurrency): added top-level `concurrency:` to 25 workflows to prevent race conditions and save runner minutes:
   - Auto-commit / auto-PR workflows grouped per ref with `cancel-in-progress: false` (queue, never interrupt a push-back): `chore-version-date`, `chore-update-contributors`, `chore-version-badge`, `pr-anonymize-public-key`, `dev-update-manifest`, `github-labels-sync`, `chore-version-main-release`, `pr-license-headers`, `stabilization-0-init`.
   - Entity-scoped workflows grouped per issue/milestone/release/PR with `cancel-in-progress: false`: `model-verification`, `github-issue-labels-on-close`, `github-issue-labels-close`, `milestone-management`, `release-4-build`, `release-2-pr-to-dev-closed`, `release-3-pr-to-main-closed`. `release-5-deploy-pages` uses the standard `pages` group with `cancel-in-progress: true`.
-  - PR validation workflows grouped per PR with `cancel-in-progress: true` so superseded pushes are cancelled: `ci-dotnet-tests`, `pr-validation`, `pr-build-hash-validation`, `pr-version-validation`, `pr-manifest-validation`, `pr-dependency-validation`, `pr-block-dev-to-main`, `pr-milestone`.
+  - PR validation workflows grouped per PR with `cancel-in-progress: true` so superseded pushes are cancelled: `ci-dotnet-tests`, `pr-validation`, `pr-build-hash-validation`, `pr-version-validation`, `pr-manifest-validation`, `pr-dependency-validation`, `pr-block-dev-to-main`, `pr-milestone`. (`pr-manifest-validation` and `pr-dependency-validation` were later removed.)
 - ci(auto-commit hardening): belt-and-braces against external commits landing between fetch and push.
   - `dev-update-manifest` now does `git pull --rebase --autostash origin dev` with retry (×3) before pushing to `dev`.
   - `pr-license-headers` now does `git pull --rebase --autostash` with retry (×3) before pushing back to the PR head branch (handles the contributor pushing a new commit mid-run).

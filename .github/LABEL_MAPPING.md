@@ -35,6 +35,8 @@ For a folder like `src/SmartHopper.Core/AIContext/`:
 
 - Folder name in Title Case → **`scope: AIContext`**
 
+Example: `src/SmartHopper.Infrastructure/Mcp/` → `scope: Mcp` (also auto-tagged when issue/PR content mentions MCP, McpServer, or SmartHopperMcpServer).
+
 ## provider: Naming Rule
 
 For a folder like `src/SmartHopper.Providers.OpenAI/`:

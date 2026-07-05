@@ -18,9 +18,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Rhino;
@@ -41,7 +43,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
             GH_Document doc = null;
             try
             {
-                doc = Instances.ActiveCanvas?.Document;
+                doc = GhJsonGrasshopper.GetActiveDocument();
             }
             catch
             {
@@ -79,19 +81,29 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
         /// <returns>The matching document object or null if not found.</returns>
         public static IGH_DocumentObject FindInstance(Guid guid)
         {
-            IGH_DocumentObject obj = GetCurrentObjects().FirstOrDefault(o => o.InstanceGuid == guid);
-
-            if (obj is IGH_Component)
+            var doc = GetCurrentCanvas();
+            if (doc == null)
             {
-                IGH_Component component = obj as IGH_Component;
+                return null;
+            }
 
+            IGH_DocumentObject obj;
+            try
+            {
+                obj = GhJsonGrasshopper.FindObject(doc, guid);
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (obj is IGH_Component component)
+            {
                 // Debug.WriteLine("The object is an IGH_Component.");
                 return component;
             }
-            else if (obj is IGH_Param)
+            else if (obj is IGH_Param param)
             {
-                IGH_Param param = obj as IGH_Param;
-
                 // Debug.WriteLine("The object is an IGH_Param.");
                 return param;
             }
@@ -243,6 +255,62 @@ namespace SmartHopper.Core.Grasshopper.Utils.Canvas
                 });
             });
             return moved;
+        }
+
+        /// <summary>
+        /// Removes the document objects with the specified instance GUIDs and records
+        /// a single undo event so the operation can be reversed with Ctrl+Z.
+        /// </summary>
+        /// <param name="guids">The GUIDs of the objects to remove.</param>
+        /// <returns>The list of GUIDs that were successfully removed.</returns>
+        public static List<Guid> RemoveInstances(IEnumerable<Guid> guids)
+        {
+            var result = GhJsonGrasshopper.Delete(guids);
+            return result.Deleted;
+        }
+
+        /// <summary>
+        /// Saves the current Grasshopper document to the specified file path.
+        /// If no file path is provided, the document is saved to its current location.
+        /// Returns the path to which the document was saved, or null if saving failed.
+        /// </summary>
+        /// <param name="filePath">Optional destination file path. If null, the document's current file path is used.</param>
+        /// <returns>The file path where the document was saved, or null.</returns>
+        public static string SaveDocument(string filePath = null)
+        {
+            var doc = GetCurrentCanvas();
+            if (doc == null)
+            {
+                return null;
+            }
+
+            var targetPath = filePath;
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                targetPath = doc.FilePath;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                var writer = new GH_DocumentIO(doc);
+                if (writer.SaveQuiet(targetPath))
+                {
+                    return targetPath;
+                }
+
+                Debug.WriteLine("[CanvasAccess] SaveDocument returned false.");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CanvasAccess] SaveDocument failed: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>

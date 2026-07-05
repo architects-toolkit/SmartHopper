@@ -57,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates speech audio from text input",
+                description: "Generates speech audio from text input. Example: speech_generate({ text: 'The pavilion is 12 meters wide.', voice: 'nova', speed: '1.0' }).",
                 category: "Speech",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -80,7 +80,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""text""]
                 }",
                 execute: this.GenerateSpeechToolWrapper,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: false,
+                tags: new[] { "audio", "speech", "ai-generation", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""audio"": { ""type"": ""string"", ""description"": ""Base64-encoded audio data or URL."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         /// <summary>

@@ -3,6 +3,8 @@
 SmartHopper is an AI-powered plugin for Grasshopper 3D. This documentation covers usage, APIs, and architecture.
 
 ---
+- [Architecture overview](Architecture.md)
+- [Architecture deep dives](Architecture/) — focused design docs (e.g. [MCP server](Architecture/mcp-server.md))
 
 ## Metadata
 

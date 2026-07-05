@@ -63,7 +63,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhCategoriesToolAsync);
+                execute: this.GhCategoriesToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "components-retrieval", "components", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""categories"": { ""type"": ""array"", ""description"": ""List of available Grasshopper component categories."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>

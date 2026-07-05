@@ -15,6 +15,7 @@ description: Information about the Tool Manager (AITools)
     - Parameters: `ParametersSchema` (JSON schema string).
     - Execution: Execute (`Func<AIToolCall, Task<AIReturn>>`).
     - Compatibility: `RequiredCapabilities` (`AICapability`) for upstream checks.
+    - `Enabled` defaults to `true`; disabled tools are filtered out of provider tool lists and MCP exposure.
   - IAIToolProvider (IAIToolProvider.cs)
     - Contract for tool sets discoverable at runtime.
     - GetTools() returns an `IEnumerable<AITool>`.

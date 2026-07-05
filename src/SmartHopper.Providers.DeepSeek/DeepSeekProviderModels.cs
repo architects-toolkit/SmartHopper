@@ -48,7 +48,7 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between March 2026 and June 2026
+                // Released between April 2026 and July 2026
 
                 new AIModelCapabilities
                 {
@@ -65,7 +65,7 @@ namespace SmartHopper.Providers.DeepSeek
                     {
                         Prompt = 0.00000009m,
                         Completion = 0.00000018m,
-                        InputCacheRead = 0.00000002m,
+                        InputCacheRead = 0.000000018m,
                     },
                 },
 

@@ -26,6 +26,7 @@ namespace SmartHopper.Infrastructure.Tests
     /// <summary>
     /// Tests for the AIToolManager functionality.
     /// </summary>
+    [Collection("AIToolManager")]
     public class AIToolManagerTests
     {
 #if NET7_WINDOWS
@@ -66,6 +67,26 @@ namespace SmartHopper.Infrastructure.Tests
             AIToolManager.ResetTools();
             var tools = AIToolManager.GetTools();
             Assert.Empty(tools);
+        }
+
+#if NET7_WINDOWS
+        /// <summary>
+        /// Tests that AITool.Enabled defaults to true and can be set to false.
+        /// </summary>
+        [Fact(DisplayName = "AITool Enabled DefaultsToTrue AndCanBeDisabled [Windows]")]
+#else
+        /// <summary>
+        /// Tests that AITool.Enabled defaults to true and can be set to false.
+        /// </summary>
+        [Fact(DisplayName = "AITool Enabled DefaultsToTrue AndCanBeDisabled [Core]")]
+#endif
+        public void AITool_Enabled_DefaultsToTrue_AndCanBeDisabled()
+        {
+            var enabledTool = new AITool("EnabledTool", "Description", "Category", "{}", _ => Task.FromResult(new AIReturn()));
+            var disabledTool = new AITool("DisabledTool", "Description", "Category", "{}", _ => Task.FromResult(new AIReturn()), enabled: false);
+
+            Assert.True(enabledTool.Enabled);
+            Assert.False(disabledTool.Enabled);
         }
     }
 }

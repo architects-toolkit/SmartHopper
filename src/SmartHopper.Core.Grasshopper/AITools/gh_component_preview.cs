@@ -65,7 +65,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"", ""previewOn"" ]
                 }",
-                execute: this.GhTogglePreviewAsync);
+                execute: this.GhTogglePreviewAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_hide_preview_selected
             yield return new AITool(
@@ -76,7 +80,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {}
                 }",
-                execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: false));
+                execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: false),
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_show_preview_selected
             yield return new AITool(
@@ -87,7 +95,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""type"": ""object"",
                     ""properties"": {}
                 }",
-                execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: true));
+                execute: (toolCall) => this.GhTogglePreviewSelectedAsync(toolCall, previewOn: true),
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "preview", "viewport" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""affectedGuids"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> GhTogglePreviewAsync(AIToolCall toolCall)

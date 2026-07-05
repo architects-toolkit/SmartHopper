@@ -55,7 +55,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""target"", ""source""]
                 }",
-                execute: this.GhMergeToolAsync);
+                execute: this.GhMergeToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "canvas", "components", "merge", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Merged GhJSON document."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         private async Task<AIReturn> GhMergeToolAsync(AIToolCall toolCall)

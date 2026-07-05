@@ -140,10 +140,6 @@ namespace SmartHopper.Components.Grasshopper
                     {
                         this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"GhJSON valid with {this._warnings.Count} warning(s)");
                     }
-                    else
-                    {
-                        this.CollectMessage(SHRuntimeMessageSeverity.Info, "GhJSON is valid");
-                    }
 
                     foreach (var error in this._errors)
                     {
@@ -172,7 +168,7 @@ namespace SmartHopper.Components.Grasshopper
                 DA.SetDataList(1, this._errors);
                 DA.SetDataList(2, this._warnings);
                 DA.SetDataList(3, this._info);
-                message = this._isValid ? "GhJSON is valid" : $"GhJSON validation failed with {this._errors.Count} error(s)";
+                message = this._isValid ? "GhJSON is valid" : "GhJSON validation failed";
             }
         }
     }

@@ -169,12 +169,12 @@ namespace SmartHopper.Components.Grasshopper
             {
                 if (!string.IsNullOrWhiteSpace(this.savedPath))
                 {
-                    DA.SetData(0, new GH_String(this.savedPath));
+                    this.parent.SetPersistentOutput("Saved Path", this.savedPath, DA);
                     message = "Saved";
                 }
                 else
                 {
-                    DA.SetData(0, null);
+                    this.parent.SetPersistentOutput("Saved Path", string.Empty, DA);
                     message = "Not saved";
                 }
             }
