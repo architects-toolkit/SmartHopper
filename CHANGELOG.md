@@ -70,6 +70,10 @@ Many thanks to the following contributors to this release:
 - Centralized canvas wiring logic in `GhJSON.Grasshopper`: `gh_connect` and `gh_put` now use the shared `GhJsonGrasshopper.Connect` façade, which runs on the Rhino UI thread and records undo events. `gh_put` also uses `GhJsonGrasshopper.CaptureExternalConnections()` to preserve external wires when replacing components.
 - Renamed the WIP `_gh_connect` AI tool to `gh_connect`, enabled it, fixed its output schema to match the actual response, and moved it to the `Components` category.
 - Centralized canvas read helpers in `GhJSON.Grasshopper`: `GetActiveDocument` and `FindObject` now live in `CanvasReader` and are exposed via the `GhJsonGrasshopper` façade; all internal GhJSON callers and SmartHopper canvas tools now use them instead of scattered `Instances.ActiveCanvas?.Document` / `doc.Objects.FirstOrDefault(...)` lookups.
+- **GhPatch tools and components now reject `instanceGuid` in add operations.**
+  - `gh_patch_apply` now validates the patch document before applying and returns an error when `components.add` or `groups.add` entries include `instanceGuid`.
+  - `gh_patch_validate` now also checks that new components and groups do not specify `instanceGuid`.
+  - Tool description for `gh_patch_apply` now specifies the `instanceGuid` restriction.
 
 ### Fixed
 
