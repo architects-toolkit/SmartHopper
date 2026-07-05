@@ -49,6 +49,12 @@
           - '**/*Authenticode*'
           - '.hashes/**'
 
+"scope: Mcp":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/SmartHopper.Infrastructure/Mcp/**'
+          - 'src/SmartHopper.Infrastructure.Tests/Mcp/**'
+
 # --- OS labels ---
 "os: Windows":
   - changed-files:

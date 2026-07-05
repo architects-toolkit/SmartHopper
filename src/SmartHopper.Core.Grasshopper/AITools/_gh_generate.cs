@@ -159,7 +159,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         Name = name,
                         InstanceGuid = instanceGuid,
-                        Pivot = position.HasValue ? new GhJsonPivot(position.Value.X, position.Value.Y) : null,
+                        Pivot = position.HasValue ? new GhJsonPivot((int)position.Value.X, (int)position.Value.Y) : null,
                     };
 
                     // Store any ad-hoc parameters as extension data (best-effort).
