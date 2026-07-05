@@ -151,7 +151,8 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         continue;
                     }
 
-                    // Use centralized GhJSON connector
+                    // Use centralized GhJSON connector. The caller handles a single
+                    // solution recompute and canvas redraw after all connections are created.
                     bool success = GhJsonGrasshopper.Connect(sourceGuid, targetGuid, sourceParamName, targetParamName);
 
                     if (success)

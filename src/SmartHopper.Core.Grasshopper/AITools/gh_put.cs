@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.ConnectionOperations;
 using GhJSON.Grasshopper.PutOperations;
 using Grasshopper;
 using Grasshopper.Kernel;
@@ -111,7 +112,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 HashSet<Guid> unchangedGuids = null;
 
                 // Captured external connections: source/target component + parameter names
-                var capturedConnections = new List<(Guid sourceGuid, string sourceParam, Guid targetGuid, string targetParam)>();
+                var capturedConnections = new List<ConnectionInfo>();
 
                 if (editMode && document?.Components != null)
                 {
@@ -225,190 +226,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             unchangedGuids = existingComponents.Keys.ToHashSet();
                         }
 
-                        // Capture external connections for replaced components (on UI thread, before removal)
+                        // Capture external connections for replaced components before removal
                         if (componentsToReplace.Count > 0)
                         {
-                            var captureTcs = new TaskCompletionSource<bool>();
-                            Rhino.RhinoApp.InvokeOnUiThread(() =>
-                            {
-                                try
-                                {
-                                    var allObjects = CanvasAccess.GetCurrentObjects();
-                                    var replaceSet = new HashSet<Guid>(componentsToReplace);
-
-                                    // Cache for mapping parameters to their owning document objects
-                                    var ownerCache = new Dictionary<IGH_Param, IGH_DocumentObject>();
-
-                                    IGH_DocumentObject FindOwner(IGH_Param param)
-                                    {
-                                        if (param == null)
-                                        {
-                                            return null;
-                                        }
-
-                                        if (ownerCache.TryGetValue(param, out var cached))
-                                        {
-                                            return cached;
-                                        }
-
-                                        // Stand-alone parameters appear directly in the active object list
-                                        IGH_DocumentObject owner = allObjects.FirstOrDefault(o => ReferenceEquals(o, param));
-
-                                        // Otherwise, look for a component that owns this parameter
-                                        owner ??= allObjects
-                                            .OfType<IGH_Component>()
-                                            .FirstOrDefault(comp => comp.Params.Input.Contains(param) || comp.Params.Output.Contains(param));
-
-                                        ownerCache[param] = owner;
-                                        return owner;
-                                    }
-
-                                    var seen = new HashSet<(Guid, string, Guid, string)>();
-
-                                    foreach (var guid in componentsToReplace)
-                                    {
-                                        if (!existingComponents.TryGetValue(guid, out var existing))
-                                        {
-                                            continue;
-                                        }
-
-                                        if (existing is IGH_Component comp)
-                                        {
-                                            // Outgoing connections: component -> external targets
-                                            foreach (var outParam in comp.Params.Output)
-                                            {
-                                                var sourceParamName = outParam.NickName;
-                                                foreach (var recipient in outParam.Recipients)
-                                                {
-                                                    var targetOwner = FindOwner(recipient);
-                                                    if (targetOwner == null)
-                                                    {
-                                                        continue;
-                                                    }
-
-                                                    var targetGuid = targetOwner.InstanceGuid;
-
-                                                    // Only keep external connections
-                                                    if (replaceSet.Contains(targetGuid))
-                                                    {
-                                                        continue;
-                                                    }
-
-                                                    var key = (guid, sourceParamName, targetGuid, recipient.NickName);
-                                                    if (seen.Add(key))
-                                                    {
-                                                        capturedConnections.Add((
-                                                            sourceGuid: guid,
-                                                            sourceParam: sourceParamName,
-                                                            targetGuid: targetGuid,
-                                                            targetParam: recipient.NickName));
-                                                    }
-                                                }
-                                            }
-
-                                            // Incoming connections: external sources -> component
-                                            foreach (var inParam in comp.Params.Input)
-                                            {
-                                                var targetParamName = inParam.NickName;
-                                                foreach (var source in inParam.Sources)
-                                                {
-                                                    var sourceOwner = FindOwner(source);
-                                                    if (sourceOwner == null)
-                                                    {
-                                                        continue;
-                                                    }
-
-                                                    var sourceGuid = sourceOwner.InstanceGuid;
-
-                                                    if (replaceSet.Contains(sourceGuid))
-                                                    {
-                                                        continue;
-                                                    }
-
-                                                    var key = (sourceGuid, source.NickName, guid, targetParamName);
-                                                    if (seen.Add(key))
-                                                    {
-                                                        capturedConnections.Add((
-                                                            sourceGuid: sourceGuid,
-                                                            sourceParam: source.NickName,
-                                                            targetGuid: guid,
-                                                            targetParam: targetParamName));
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        else if (existing is IGH_Param param)
-                                        {
-                                            // Stand-alone parameter being replaced
-                                            var thisGuid = param.InstanceGuid;
-
-                                            // Sources -> this parameter
-                                            foreach (var source in param.Sources)
-                                            {
-                                                var sourceOwner = FindOwner(source);
-                                                if (sourceOwner == null)
-                                                {
-                                                    continue;
-                                                }
-
-                                                var sourceGuid2 = sourceOwner.InstanceGuid;
-
-                                                if (replaceSet.Contains(sourceGuid2))
-                                                {
-                                                    continue;
-                                                }
-
-                                                var key = (sourceGuid2, source.NickName, thisGuid, param.NickName);
-                                                if (seen.Add(key))
-                                                {
-                                                    capturedConnections.Add((
-                                                        sourceGuid: sourceGuid2,
-                                                        sourceParam: source.NickName,
-                                                        targetGuid: thisGuid,
-                                                        targetParam: param.NickName));
-                                                }
-                                            }
-
-                                            // This parameter -> recipients
-                                            foreach (var recipient in param.Recipients)
-                                            {
-                                                var targetOwner = FindOwner(recipient);
-                                                if (targetOwner == null)
-                                                {
-                                                    continue;
-                                                }
-
-                                                var targetGuid = targetOwner.InstanceGuid;
-
-                                                if (replaceSet.Contains(targetGuid))
-                                                {
-                                                    continue;
-                                                }
-
-                                                var key = (thisGuid, param.NickName, targetGuid, recipient.NickName);
-                                                if (seen.Add(key))
-                                                {
-                                                    capturedConnections.Add((
-                                                        sourceGuid: thisGuid,
-                                                        sourceParam: param.NickName,
-                                                        targetGuid: targetGuid,
-                                                        targetParam: recipient.NickName));
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Debug.WriteLine($"[gh_put] Captured {capturedConnections.Count} external connections");
-                                    captureTcs.SetResult(true);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.WriteLine($"[gh_put] Error capturing connections: {ex.Message}");
-                                    captureTcs.SetResult(false);
-                                }
-                            });
-
-                            await captureTcs.Task.ConfigureAwait(false);
+                            capturedConnections = GhJsonGrasshopper.CaptureExternalConnections(componentsToReplace).ToList();
+                            Debug.WriteLine($"[gh_put] Captured {capturedConnections.Count} external connections");
                         }
                     }
 
@@ -526,10 +348,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 try
                                 {
                                     var success = GhJsonGrasshopper.Connect(
-                                        conn.sourceGuid,
-                                        conn.targetGuid,
-                                        conn.sourceParam,
-                                        conn.targetParam);
+                                        conn.SourceGuid,
+                                        conn.TargetGuid,
+                                        conn.SourceParamName,
+                                        conn.TargetParamName);
 
                                     if (success)
                                     {
@@ -538,7 +360,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[gh_put] Error restoring connection {conn.sourceGuid}.{conn.sourceParam} -> {conn.targetGuid}.{conn.targetParam}: {ex.Message}");
+                                    Debug.WriteLine($"[gh_put] Error restoring connection {conn.SourceGuid}.{conn.SourceParamName} -> {conn.TargetGuid}.{conn.TargetParamName}: {ex.Message}");
                                 }
                             }
 
@@ -546,7 +368,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                             if (restored > 0)
                             {
-                                ghDoc.NewSolution(false);
+                                ghDoc?.NewSolution(false);
                                 Instances.RedrawCanvas();
                             }
                         }

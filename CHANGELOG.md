@@ -62,7 +62,7 @@ Many thanks to the following contributors to this release:
 - Renamed `gh_list_components` parameter `nameFilter` to `query` for consistency; the old `nameFilter` key is still accepted for backward compatibility.
 - Updated `gh_put` output schema to match the actual response shape (`components`, `instanceGuids`, `analysis`).
 - Refactored `gh_remove` and `CanvasAccess.RemoveInstances` to delegate deletion to `GhJsonGrasshopper.Delete` so undo batching and UI-thread scheduling are handled by the shared `ghjson-dotnet` `CanvasDeleter`.
-- Centralized canvas wiring logic in `GhJSON.Grasshopper`: `gh_connect` and `gh_put` now use the shared `GhJsonGrasshopper.Connect` façade instead of their own local wire helpers.
+- Centralized canvas wiring logic in `GhJSON.Grasshopper`: `gh_connect` and `gh_put` now use the shared `GhJsonGrasshopper.Connect` façade, which runs on the Rhino UI thread and records undo events. `gh_put` also uses `GhJsonGrasshopper.CaptureExternalConnections()` to preserve external wires when replacing components.
 - Renamed the WIP `_gh_connect` AI tool to `gh_connect`, enabled it, fixed its output schema to match the actual response, and moved it to the `Components` category.
 - Centralized canvas read helpers in `GhJSON.Grasshopper`: `GetActiveDocument` and `FindObject` now live in `CanvasReader` and are exposed via the `GhJsonGrasshopper` façade; all internal GhJSON callers and SmartHopper canvas tools now use them instead of scattered `Instances.ActiveCanvas?.Document` / `doc.Objects.FirstOrDefault(...)` lookups.
 
