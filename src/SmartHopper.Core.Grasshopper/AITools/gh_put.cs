@@ -580,6 +580,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 existingState.Remove("selected");
             }
 
+            // Remove runtime data from parameter settings. Runtime data is computed by the
+            // canvas and is not part of the component's structural definition, so including
+            // it makes every existing component look different from an incoming definition.
+            static void RemoveRuntimeData(JObject jObj)
+            {
+                foreach (var settingsKey in new[] { "inputSettings", "outputSettings" })
+                {
+                    if (jObj[settingsKey] is JArray settingsArray)
+                    {
+                        foreach (var item in settingsArray)
+                        {
+                            if (item is JObject itemObj)
+                            {
+                                itemObj.Remove("runtimeData");
+                            }
+                        }
+                    }
+                }
+            }
+
+            RemoveRuntimeData(incomingJObj);
+            RemoveRuntimeData(existingJObj);
+
             return JToken.DeepEquals(incomingJObj, existingJObj);
         }
 
