@@ -1324,15 +1324,15 @@ namespace SmartHopper.Providers.DeepSeek
                     typeof(double),
                     null),
                 new AIExtraDescriptor(
-                    "presence_penalty",
-                    "Presence Penalty",
-                    "Penalizes tokens already present in the text (-2.0 to 2.0). Positive values encourage new topics.",
-                    typeof(double),
-                    null),
-                new AIExtraDescriptor(
                     "frequency_penalty",
                     "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "presence_penalty",
+                    "Presence Penalty",
+                    "Penalizes tokens already present in the text (-2.0 to 2.0). Positive values encourage new topics.",
                     typeof(double),
                     null),
 

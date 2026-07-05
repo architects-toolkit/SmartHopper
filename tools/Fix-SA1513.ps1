@@ -12,7 +12,7 @@ This aligns with SA1513 while keeping brace blocks and control clauses attached 
 
 Additional behaviors:
 - Preserves the original EOL style (CRLF/LF) and final-EOL presence.
-- Preserves UTF-8 BOM if the original file had it.
+- Writes UTF-8 without BOM.
 - Honors -WhatIf / -Confirm via SupportsShouldProcess.
 
 .PARAMETER Path
@@ -100,25 +100,16 @@ function Get-EolStyle {
     else { return "`r`n" }
 }
 
-function Write-ContentPreserveBom {
+function Write-ContentNoBom {
     <#
     .SYNOPSIS
-    Writes text preserving whether the original file had a UTF-8 BOM.
+    Writes text as UTF-8 without BOM.
     #>
     param(
         [Parameter(Mandatory)] [string]$Path,
         [Parameter(Mandatory)] [string]$Content
     )
-    $hasBom = $false
-    try {
-        $bytes = [System.IO.File]::ReadAllBytes($Path)
-        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-            $hasBom = $true
-        }
-    } catch {
-        $hasBom = $false
-    }
-    $encoding = New-Object System.Text.UTF8Encoding($hasBom)
+    $encoding = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
@@ -196,7 +187,7 @@ function Repair-SA1513File {
 
     if ($PSCmdlet.ShouldProcess($FilePath, "Insert blank line(s) after closing brace(s) per SA1513")) {
         try {
-            Write-ContentPreserveBom -Path $FilePath -Content $newText
+            Write-ContentNoBom -Path $FilePath -Content $newText
             Write-Host "Modified: $FilePath"
             return $true
         } catch {

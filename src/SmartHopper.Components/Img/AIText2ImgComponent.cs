@@ -97,9 +97,10 @@ namespace SmartHopper.Components.Img
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Prompt", "P", "Text prompt describing the desired image", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Size", "S", "Image size (e.g., '1024x1024', '1792x1024', '1024x1792')", GH_ParamAccess.tree, "1024x1024");
-            pManager.AddTextParameter("Quality", "Q", "Image quality ('standard' or 'hd')", GH_ParamAccess.tree, "standard");
-            pManager.AddTextParameter("Style", "St", "Image style ('vivid' or 'natural')", GH_ParamAccess.tree, "vivid");
+            pManager.AddTextParameter("Size", "S", "Image size (e.g., '1024x1024', '1792x1024', '1024x1792', '1K', '2K', '4K'). Not all providers accept all sizes.", GH_ParamAccess.tree, "1024x1024");
+            pManager.AddTextParameter("Quality", "Q", "Image quality ('standard' or 'hd'). Used by OpenAI image generation.", GH_ParamAccess.tree, "standard");
+            pManager.AddTextParameter("Style", "St", "Image style ('vivid' or 'natural'). Used by OpenAI image generation.", GH_ParamAccess.tree, "vivid");
+            pManager.AddTextParameter("Aspect Ratio", "AR", "Image aspect ratio (e.g., '1:1', '16:9', '4:3'). Used by Gemini image generation.", GH_ParamAccess.tree, string.Empty);
         }
 
         /// <inheritdoc/>
@@ -150,12 +151,14 @@ namespace SmartHopper.Components.Img
                 var sizes = new GH_Structure<GH_String>();
                 var qualities = new GH_Structure<GH_String>();
                 var styles = new GH_Structure<GH_String>();
+                var aspectRatios = new GH_Structure<GH_String>();
 
                 // Parameter indices:
                 // 0: Prompt (tree access)
                 // 1: Size (tree access)
                 // 2: Quality (tree access)
                 // 3: Style (tree access)
+                // 4: Aspect Ratio (tree access)
 
                 // Prompt parameter index
                 if (!DA.GetDataTree(0, out prompts))
@@ -189,12 +192,21 @@ namespace SmartHopper.Components.Img
                     styles.Append(new GH_String("vivid"), new GH_Path(0));
                 }
 
+                // Aspect Ratio parameter index
+                if (!DA.GetDataTree(4, out aspectRatios) || aspectRatios == null || aspectRatios.DataCount == 0)
+                {
+                    // Use default if not provided
+                    aspectRatios = new GH_Structure<GH_String>();
+                    aspectRatios.Append(new GH_String(string.Empty), new GH_Path(0));
+                }
+
                 this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Prompt", prompts },
                     { "Size", sizes },
                     { "Quality", qualities },
                     { "Style", styles },
+                    { "AspectRatio", aspectRatios },
                 };
 
                 this.hasWork = prompts != null && prompts.DataCount > 0;
@@ -251,6 +263,7 @@ namespace SmartHopper.Components.Img
                             branchInputs.TryGetValue("Size", out var sizeBranch);
                             branchInputs.TryGetValue("Quality", out var qualityBranch);
                             branchInputs.TryGetValue("Style", out var styleBranch);
+                            branchInputs.TryGetValue("AspectRatio", out var aspectRatioBranch);
 
                             var normalized = DataTreeProcessor.NormalizeBranchLengths(
                                 new List<List<GH_String>>
@@ -259,12 +272,14 @@ namespace SmartHopper.Components.Img
                                     sizeBranch ?? new List<GH_String>(),
                                     qualityBranch ?? new List<GH_String>(),
                                     styleBranch ?? new List<GH_String>(),
+                                    aspectRatioBranch ?? new List<GH_String>(),
                                 });
 
                             var prompts = normalized[0];
                             var sizes = normalized[1];
                             var qualities = normalized[2];
                             var styles = normalized[3];
+                            var aspectRatios = normalized[4];
 
                             for (int i = 0; i < prompts.Count; i++)
                             {
@@ -274,6 +289,7 @@ namespace SmartHopper.Components.Img
                                 var size = sizes[i]?.Value ?? "1024x1024";
                                 var quality = qualities[i]?.Value ?? "standard";
                                 var style = styles[i]?.Value ?? "vivid";
+                                var aspectRatio = aspectRatios[i]?.Value ?? string.Empty;
 
                                 if (string.IsNullOrEmpty(prompt))
                                 {
@@ -291,6 +307,7 @@ namespace SmartHopper.Components.Img
                                         ["size"] = size,
                                         ["quality"] = quality,
                                         ["style"] = style,
+                                        ["aspect_ratio"] = aspectRatio,
                                     };
 
                                     var toolResult = await this.parent.CallAIToolAsync(

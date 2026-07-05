@@ -25,17 +25,13 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.DataTree;
+using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Parameters;
 using SmartHopper.Core.Types;
-using SmartHopper.Infrastructure.AICall.Core.Base;
-using SmartHopper.Infrastructure.AICall.Core.Interactions;
-using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
@@ -73,6 +69,7 @@ namespace SmartHopper.Components.Knowledge
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
+            pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
         }
 
         /// <inheritdoc/>
@@ -102,6 +99,7 @@ namespace SmartHopper.Components.Knowledge
             private readonly File2MdComponent parent;
             private readonly ProcessingOptions processingOptions;
             private GH_Structure<GH_String> filePathTree;
+            private GH_Structure<GH_String> removeHeadersTree;
             private bool hasWork;
 
             private GH_Structure<GH_String> resultMarkdown;
@@ -123,6 +121,11 @@ namespace SmartHopper.Components.Knowledge
             {
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);
+
+                var removeTree = new GH_Structure<GH_Boolean>();
+                DA.GetDataTree("Remove Headers", out removeTree);
+
+                this.removeHeadersTree = File2MdToolResult.ConvertBoolTreeToString(removeTree, "true");
 
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
@@ -149,6 +152,7 @@ namespace SmartHopper.Components.Knowledge
                     var inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                     {
                         { "File Path", this.filePathTree },
+                        { "RemoveHeaders", this.removeHeadersTree },
                     };
 
                     var resultTrees = await this.parent.RunProcessingAsync<GH_String>(
@@ -167,9 +171,18 @@ namespace SmartHopper.Components.Knowledge
                                 return outputs;
                             }
 
-                            foreach (var ghPath in pathBranch)
+                            var removeBranch = branchInputs.TryGetValue("RemoveHeaders", out var rh) ? rh : new List<GH_String>();
+
+                            var normalizedLists = DataTreeProcessor.NormalizeBranchLengths(new List<List<GH_String>> { pathBranch, removeBranch });
+                            pathBranch = normalizedLists[0];
+                            removeBranch = normalizedLists[1];
+
+                            for (int i = 0; i < pathBranch.Count; i++)
                             {
                                 token.ThrowIfCancellationRequested();
+
+                                var ghPath = pathBranch[i];
+                                bool removeHeaders = bool.TryParse(removeBranch[i]?.Value, out var rhValue) ? rhValue : true;
 
                                 if (ghPath == null || string.IsNullOrWhiteSpace(ghPath.Value))
                                 {
@@ -178,17 +191,33 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                var (markdown, format, images, warnings) = await ConvertFileAsync(ghPath.Value).ConfigureAwait(false);
+                                const bool PreserveFormatting = true;
+                                var converted = await File2MdToolResult.CallAsync(
+                                    ghPath.Value,
+                                    removeHeaders,
+                                    extractImages: true,
+                                    preserveFormatting: PreserveFormatting,
+                                    preserveComments: PreserveFormatting,
+                                    preserveFootnotes: PreserveFormatting,
+                                    preserveEndnotes: PreserveFormatting).ConfigureAwait(false);
 
-                                outputs["Markdown"].Add(new GH_String(markdown));
-                                outputs["Format"].Add(new GH_String(format));
+                                if (converted == null)
+                                {
+                                    this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Tool 'file2md' returned no result for '{ghPath.Value}'.", SHRuntimeMessageOrigin.Tool);
+                                    outputs["Markdown"].Add(new GH_String(string.Empty));
+                                    outputs["Format"].Add(new GH_String(string.Empty));
+                                    continue;
+                                }
 
-                                foreach (var img in images)
+                                outputs["Markdown"].Add(new GH_String(converted.Markdown));
+                                outputs["Format"].Add(new GH_String(converted.Format));
+
+                                foreach (var img in converted.Images)
                                 {
                                     outputs["Images"].Add(new GH_VersatileImage(img));
                                 }
 
-                                foreach (var w in warnings)
+                                foreach (var w in converted.Warnings)
                                 {
                                     this.CollectMessage(SHRuntimeMessageSeverity.Warning, w, SHRuntimeMessageOrigin.Tool);
                                 }
@@ -223,102 +252,6 @@ namespace SmartHopper.Components.Knowledge
                 errorMessage = null;
             }
 
-            private static async Task<(string markdown, string format, List<VersatileImage> images, List<string> warnings)> ConvertFileAsync(string filePath)
-            {
-                var parameters = new JObject
-                {
-                    ["filePath"] = filePath,
-                    ["preserveTableStructure"] = true,
-                    ["removeHeadersFooters"] = true,
-                    ["extractImages"] = true,
-                };
-
-                var toolCallInteraction = new AIInteractionToolCall
-                {
-                    Name = "file2md",
-                    Arguments = parameters,
-                    Agent = AIAgent.Assistant,
-                };
-
-                var toolCall = new AIToolCall
-                {
-                    Endpoint = "file2md",
-                };
-
-                toolCall.FromToolCallInteraction(toolCallInteraction);
-                toolCall.SkipMetricsValidation = true;
-
-                Debug.WriteLine($"[File2Md] Calling file2md tool for: {filePath}");
-                AIReturn aiResult = await toolCall.Exec().ConfigureAwait(false);
-
-                Debug.WriteLine($"[File2Md] AIReturn status: {aiResult?.Status}");
-                Debug.WriteLine($"[File2Md] AIReturn has Body: {aiResult?.Body != null}");
-                Debug.WriteLine($"[File2Md] AIReturn Metrics: {(aiResult?.Metrics != null ? $"InputTokens={aiResult.Metrics.InputTokens}, OutputTokens={aiResult.Metrics.OutputTokens}" : "NULL")}");
-
-                if (aiResult?.Body != null)
-                {
-                    Debug.WriteLine($"[File2Md] Body interaction count: {aiResult.Body.Interactions.Count}");
-                    foreach (var interaction in aiResult.Body.Interactions)
-                    {
-                        Debug.WriteLine($"[File2Md]   - Interaction: Agent={interaction.Agent}, Type={interaction.GetType().Name}");
-                    }
-                }
-
-                var toolResult = ToolCallResult.FromAIReturn(aiResult);
-
-                Debug.WriteLine($"[File2Md] ToolCallResult.Success={toolResult.Success}, Result is {(toolResult.Result == null ? "null" : "non-null")}");
-
-                if (toolResult.Result == null)
-                {
-                    Debug.WriteLine($"[File2Md] ERROR: No tool result found. Checking for assistant text response...");
-                    var assistantText = aiResult?.Body?.GetLastInteraction(AIAgent.Assistant) as AIInteractionText;
-                    if (assistantText != null)
-                    {
-                        Debug.WriteLine($"[File2Md] Found assistant text instead: {assistantText.Content?.Substring(0, Math.Min(100, assistantText.Content?.Length ?? 0))}...");
-                    }
-
-                    return (string.Empty, string.Empty, new List<VersatileImage>(), new List<string> { $"Tool 'file2md' returned no result for '{filePath}'." });
-                }
-
-                string content = toolResult["content"]?.ToString() ?? string.Empty;
-                string format = toolResult["originalFormat"]?.ToString() ?? string.Empty;
-
-                Debug.WriteLine($"[File2Md] Extracted content length: {content.Length}, format: {format}");
-
-                var images = new List<VersatileImage>();
-                var imagesArray = toolResult["images"] as JArray;
-                if (imagesArray != null)
-                {
-                    Debug.WriteLine($"[File2Md] Found {imagesArray.Count} images");
-                    foreach (var imgToken in imagesArray)
-                    {
-                        var imgObj = imgToken as JObject;
-                        if (imgObj == null) continue;
-                        var imageSource = VersatileImage.FromExtractedDocument(
-                            imgObj["base64Data"]?.ToString() ?? string.Empty,
-                            imgObj["mimeType"]?.ToString() ?? "image/png",
-                            imgObj["id"]?.ToString() ?? "img",
-                            imgObj["context"]?.ToString() ?? string.Empty,
-                            imgObj["pageOrSlide"]?.Value<int>() ?? 0,
-                            filePath);
-                        images.Add(imageSource);
-                    }
-                }
-
-                var warnings = new List<string>();
-                var warningsArray = toolResult["warnings"] as JArray;
-                if (warningsArray != null)
-                {
-                    Debug.WriteLine($"[File2Md] Found {warningsArray.Count} warnings");
-                    foreach (var w in warningsArray)
-                    {
-                        warnings.Add(w.ToString());
-                    }
-                }
-
-                Debug.WriteLine($"[File2Md] ConvertFileAsync complete: content={content.Length} chars, {images.Count} images, {warnings.Count} warnings");
-                return (content, format, images, warnings);
-            }
         }
     }
 }

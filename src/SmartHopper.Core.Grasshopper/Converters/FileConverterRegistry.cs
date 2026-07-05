@@ -149,6 +149,17 @@ namespace SmartHopper.Core.Grasshopper.Converters
             {
                 var result = await converter.ConvertAsync(filePath, conversionOptions).ConfigureAwait(false);
 
+                // Final Markdown post-processing, applied to all file formats:
+                // 1. Normalize ordered-list numbering (e.g. converters emitting repeated "1." markers
+                //    for non-CommonMark list styles like lettered/Roman markers) so the raw Markdown
+                //    reads correctly even without a renderer.
+                // 2. General style cleanup: trailing whitespace, heading spacing, excess blank lines.
+                if (result.IsSuccess)
+                {
+                    result.MarkdownContent = MarkdownListRenumberer.Renumber(result.MarkdownContent);
+                    result.MarkdownContent = MarkdownStyleCleanup.Cleanup(result.MarkdownContent);
+                }
+
                 // Apply max content length if specified
                 if (conversionOptions.MaxContentLength > 0 && result.MarkdownContent.Length > conversionOptions.MaxContentLength)
                 {

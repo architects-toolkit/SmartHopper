@@ -94,6 +94,15 @@ namespace SmartHopper.Providers.MistralAI
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–3.0). Higher values like 2.0 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
                 },
+                new SettingDescriptor
+                {
+                    Name = "ReasoningEffort",
+                    Type = typeof(string),
+                    DefaultValue = "medium",
+                    DisplayName = "Reasoning Effort",
+                    Description = "Controls the depth of reasoning for supported models. Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "none", "minimal", "low", "medium", "high", "xhigh" },
+                },
             };
         }
 
@@ -171,6 +180,21 @@ namespace SmartHopper.Providers.MistralAI
                         StyledMessageDialog.ShowError(
                             "Temperature for MistralAI models must be between 0.0 and 3.0.",
                             "Validation Error");
+                    }
+
+                    return false;
+                }
+            }
+
+            if (settings.TryGetValue("ReasoningEffort", out var reasoningEffortObj) && reasoningEffortObj != null)
+            {
+                var reasoningEffort = reasoningEffortObj.ToString();
+
+                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "none", "minimal", "low", "medium", "high", "xhigh" }.Contains(reasoningEffort))
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Reasoning effort must be none, minimal, low, medium, high, or xhigh.", "Validation Error");
                     }
 
                     return false;

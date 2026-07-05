@@ -60,3 +60,7 @@ design/icons/source/*
 
 # Local libraries
 lib/*
+
+# Devin skills named after build configurations
+!.devin/skills/debug/
+!.devin/skills/debug/SKILL.md
