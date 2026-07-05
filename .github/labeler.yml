@@ -49,6 +49,12 @@
           - '**/*Authenticode*'
           - '.hashes/**'
 
+"scope: Mcp":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/SmartHopper.Infrastructure/Mcp/**'
+          - 'src/SmartHopper.Infrastructure.Tests/Mcp/**'
+
 # --- OS labels ---
 "os: Windows":
   - changed-files:
@@ -193,6 +199,9 @@ documentation:
 "component: AI Text2TextList":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Text/AIText2TextListComponent.cs'
+"component: AI Web2Md":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIWeb2MdComponent.cs'
 "component: Audio2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Audio2AIComponent.cs'
@@ -349,6 +358,9 @@ documentation:
 "component: SaveGhPatch":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/SaveGhPatchComponent.cs'
+"component: SmartHopperMcpServer":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs'
 "component: Text2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Text2AIComponent.cs'

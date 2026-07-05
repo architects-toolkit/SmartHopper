@@ -159,7 +159,7 @@ namespace SmartHopper.Components.Grasshopper
 
                     if (!this.isValid)
                     {
-                        this.CollectMessage(SHRuntimeMessageSeverity.Error, $"GhJSON validation failed with {this.errors.Count} error(s).");
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, $"GhJSON validation failed with {this.errors.Count} error(s): {string.Join("; ", this.errors)}");
                     }
                 }
                 catch (OperationCanceledException)
@@ -176,16 +176,16 @@ namespace SmartHopper.Components.Grasshopper
             {
                 if (!string.IsNullOrWhiteSpace(this.ghJson))
                 {
-                    DA.SetData(0, new GH_String(this.ghJson));
-                    DA.SetData(1, this.isValid);
-                    DA.SetDataList(2, this.errors);
+                    this.parent.SetPersistentOutput("GhJSON", this.ghJson, DA);
+                    this.parent.SetPersistentOutput("Valid", this.isValid, DA);
+                    this.parent.SetPersistentOutput("Errors", this.errors, DA);
                     message = this.isValid ? "Valid" : "Invalid";
                 }
                 else
                 {
-                    DA.SetData(0, null);
-                    DA.SetData(1, false);
-                    DA.SetDataList(2, new List<string>());
+                    this.parent.SetPersistentOutput("GhJSON", string.Empty, DA);
+                    this.parent.SetPersistentOutput("Valid", false, DA);
+                    this.parent.SetPersistentOutput("Errors", new List<string>(), DA);
                     message = "Not loaded";
                 }
             }

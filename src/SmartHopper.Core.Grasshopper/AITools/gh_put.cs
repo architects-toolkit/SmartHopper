@@ -20,20 +20,24 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Grasshopper;
+using GhJSON.Grasshopper.ConnectionOperations;
 using GhJSON.Grasshopper.PutOperations;
 using Grasshopper;
 using Grasshopper.Kernel;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 using SmartHopper.Infrastructure.Dialogs;
 
 namespace SmartHopper.Core.Grasshopper.AITools
@@ -56,17 +60,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections.",
+                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). See also: gh_get, script_generate_and_place_on_canvas.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string"" },
-                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, existing components on canvas will be replaced. User will be prompted for confirmation."" }
+                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string, or an absolute file path to a .ghjson file containing the document."" },
+                        ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, existing components on canvas will be replaced. User will be prompted for confirmation."" },
+                        ""autoOffset"": { ""type"": ""boolean"", ""default"": true, ""description"": ""When true, newly placed components are offset on the canvas so they do not overlap existing objects. In edit mode this defaults to false."" }
                     },
                     ""required"": [""ghjson""]
                 }",
-                execute: this.GhPutToolAsync);
+                execute: this.GhPutToolAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""components"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Names of the placed or replaced components."" }, ""instanceGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of the placed or replaced components."" }, ""analysis"": { ""type"": [""string"", ""null""], ""description"": ""Validation, error, or warning summary. Null when nothing notable happened."" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> GhPutToolAsync(AIToolCall toolCall)
@@ -86,8 +95,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
                 var args = toolInfo.Arguments ?? new JObject();
-                var json = args["ghjson"]?.ToString() ?? string.Empty;
+                var json = ExtractGhJsonString(args["ghjson"]);
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
+                var autoOffset = args["autoOffset"]?.ToObject<bool>() ?? !editMode;
 
                 GhJson.IsValid(json, out analysisMsg);
                 var document = GhJson.FromJson(json);
@@ -96,6 +106,54 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var fixResult = GhJson.Fix(document);
                 document = fixResult.Document;
 
+                // Remove any components that are currently protected (enabled MCP server or wired to it)
+                // from the incoming document so they are never modified or re-placed.
+                var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
+                var protectedPutGuids = new List<Guid>();
+
+                if (protectedGuids.Count > 0 && document?.Components != null)
+                {
+                    protectedPutGuids = document.Components
+                        .Where(c => c.InstanceGuid.HasValue && protectedGuids.Contains(c.InstanceGuid.Value))
+                        .Select(c => c.InstanceGuid.Value)
+                        .ToList();
+
+                    if (protectedPutGuids.Count > 0)
+                    {
+                        var protectedIds = document.Components
+                            .Where(c => c.InstanceGuid.HasValue && protectedGuids.Contains(c.InstanceGuid.Value))
+                            .Select(c => c.Id)
+                            .Where(id => id.HasValue)
+                            .Select(id => id.Value)
+                            .ToHashSet();
+
+                        var filteredComponents = document.Components
+                            .Where(c => !(c.InstanceGuid.HasValue && protectedGuids.Contains(c.InstanceGuid.Value)))
+                            .ToList();
+
+                        var remainingIds = new HashSet<int>(filteredComponents.Where(c => c.Id.HasValue).Select(c => c.Id.Value));
+
+                        var filteredConnections = document.Connections?.Where(conn =>
+                            remainingIds.Contains(conn.From.Id) && remainingIds.Contains(conn.To.Id)).ToList();
+
+                        var filteredGroups = document.Groups?.Select(g => new GhJsonGroup
+                        {
+                            Id = g.Id,
+                            InstanceGuid = g.InstanceGuid,
+                            Name = g.Name,
+                            Color = g.Color,
+                            Members = g.Members?.Where(m => remainingIds.Contains(m)).ToList() ?? new List<int>(),
+                        }).Where(g => g.Members.Count > 0).ToList();
+
+                        document = new GhJsonDocument(
+                            document.Schema,
+                            document.Metadata,
+                            filteredComponents,
+                            filteredConnections,
+                            filteredGroups);
+                    }
+                }
+
                 // In edit mode, check for existing components that match instanceGuids
                 var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();
                 var existingPositions = new Dictionary<Guid, PointF>();
@@ -103,7 +161,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 HashSet<Guid> unchangedGuids = null;
 
                 // Captured external connections: source/target component + parameter names
-                var capturedConnections = new List<(Guid sourceGuid, string sourceParam, Guid targetGuid, string targetParam)>();
+                var capturedConnections = new List<ConnectionInfo>();
 
                 if (editMode && document?.Components != null)
                 {
@@ -217,190 +275,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             unchangedGuids = existingComponents.Keys.ToHashSet();
                         }
 
-                        // Capture external connections for replaced components (on UI thread, before removal)
+                        // Capture external connections for replaced components before removal
                         if (componentsToReplace.Count > 0)
                         {
-                            var captureTcs = new TaskCompletionSource<bool>();
-                            Rhino.RhinoApp.InvokeOnUiThread(() =>
-                            {
-                                try
-                                {
-                                    var allObjects = CanvasAccess.GetCurrentObjects();
-                                    var replaceSet = new HashSet<Guid>(componentsToReplace);
-
-                                    // Cache for mapping parameters to their owning document objects
-                                    var ownerCache = new Dictionary<IGH_Param, IGH_DocumentObject>();
-
-                                    IGH_DocumentObject FindOwner(IGH_Param param)
-                                    {
-                                        if (param == null)
-                                        {
-                                            return null;
-                                        }
-
-                                        if (ownerCache.TryGetValue(param, out var cached))
-                                        {
-                                            return cached;
-                                        }
-
-                                        // Stand-alone parameters appear directly in the active object list
-                                        IGH_DocumentObject owner = allObjects.FirstOrDefault(o => ReferenceEquals(o, param));
-
-                                        // Otherwise, look for a component that owns this parameter
-                                        owner ??= allObjects
-                                            .OfType<IGH_Component>()
-                                            .FirstOrDefault(comp => comp.Params.Input.Contains(param) || comp.Params.Output.Contains(param));
-
-                                        ownerCache[param] = owner;
-                                        return owner;
-                                    }
-
-                                    var seen = new HashSet<(Guid, string, Guid, string)>();
-
-                                    foreach (var guid in componentsToReplace)
-                                    {
-                                        if (!existingComponents.TryGetValue(guid, out var existing))
-                                        {
-                                            continue;
-                                        }
-
-                                        if (existing is IGH_Component comp)
-                                        {
-                                            // Outgoing connections: component -> external targets
-                                            foreach (var outParam in comp.Params.Output)
-                                            {
-                                                var sourceParamName = outParam.NickName;
-                                                foreach (var recipient in outParam.Recipients)
-                                                {
-                                                    var targetOwner = FindOwner(recipient);
-                                                    if (targetOwner == null)
-                                                    {
-                                                        continue;
-                                                    }
-
-                                                    var targetGuid = targetOwner.InstanceGuid;
-
-                                                    // Only keep external connections
-                                                    if (replaceSet.Contains(targetGuid))
-                                                    {
-                                                        continue;
-                                                    }
-
-                                                    var key = (guid, sourceParamName, targetGuid, recipient.NickName);
-                                                    if (seen.Add(key))
-                                                    {
-                                                        capturedConnections.Add((
-                                                            sourceGuid: guid,
-                                                            sourceParam: sourceParamName,
-                                                            targetGuid: targetGuid,
-                                                            targetParam: recipient.NickName));
-                                                    }
-                                                }
-                                            }
-
-                                            // Incoming connections: external sources -> component
-                                            foreach (var inParam in comp.Params.Input)
-                                            {
-                                                var targetParamName = inParam.NickName;
-                                                foreach (var source in inParam.Sources)
-                                                {
-                                                    var sourceOwner = FindOwner(source);
-                                                    if (sourceOwner == null)
-                                                    {
-                                                        continue;
-                                                    }
-
-                                                    var sourceGuid = sourceOwner.InstanceGuid;
-
-                                                    if (replaceSet.Contains(sourceGuid))
-                                                    {
-                                                        continue;
-                                                    }
-
-                                                    var key = (sourceGuid, source.NickName, guid, targetParamName);
-                                                    if (seen.Add(key))
-                                                    {
-                                                        capturedConnections.Add((
-                                                            sourceGuid: sourceGuid,
-                                                            sourceParam: source.NickName,
-                                                            targetGuid: guid,
-                                                            targetParam: targetParamName));
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        else if (existing is IGH_Param param)
-                                        {
-                                            // Stand-alone parameter being replaced
-                                            var thisGuid = param.InstanceGuid;
-
-                                            // Sources -> this parameter
-                                            foreach (var source in param.Sources)
-                                            {
-                                                var sourceOwner = FindOwner(source);
-                                                if (sourceOwner == null)
-                                                {
-                                                    continue;
-                                                }
-
-                                                var sourceGuid2 = sourceOwner.InstanceGuid;
-
-                                                if (replaceSet.Contains(sourceGuid2))
-                                                {
-                                                    continue;
-                                                }
-
-                                                var key = (sourceGuid2, source.NickName, thisGuid, param.NickName);
-                                                if (seen.Add(key))
-                                                {
-                                                    capturedConnections.Add((
-                                                        sourceGuid: sourceGuid2,
-                                                        sourceParam: source.NickName,
-                                                        targetGuid: thisGuid,
-                                                        targetParam: param.NickName));
-                                                }
-                                            }
-
-                                            // This parameter -> recipients
-                                            foreach (var recipient in param.Recipients)
-                                            {
-                                                var targetOwner = FindOwner(recipient);
-                                                if (targetOwner == null)
-                                                {
-                                                    continue;
-                                                }
-
-                                                var targetGuid = targetOwner.InstanceGuid;
-
-                                                if (replaceSet.Contains(targetGuid))
-                                                {
-                                                    continue;
-                                                }
-
-                                                var key = (thisGuid, param.NickName, targetGuid, recipient.NickName);
-                                                if (seen.Add(key))
-                                                {
-                                                    capturedConnections.Add((
-                                                        sourceGuid: thisGuid,
-                                                        sourceParam: param.NickName,
-                                                        targetGuid: targetGuid,
-                                                        targetParam: recipient.NickName));
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Debug.WriteLine($"[gh_put] Captured {capturedConnections.Count} external connections");
-                                    captureTcs.SetResult(true);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.WriteLine($"[gh_put] Error capturing connections: {ex.Message}");
-                                    captureTcs.SetResult(false);
-                                }
-                            });
-
-                            await captureTcs.Task.ConfigureAwait(false);
+                            capturedConnections = GhJsonGrasshopper.CaptureExternalConnections(componentsToReplace).ToList();
+                            Debug.WriteLine($"[gh_put] Captured {capturedConnections.Count} external connections");
                         }
                     }
 
@@ -467,7 +346,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     try
                     {
-                        var ghDoc = Instances.ActiveCanvas?.Document;
+                        var ghDoc = GhJsonGrasshopper.GetActiveDocument();
 
                         // Remove existing components that will be replaced
                         // Keep document enabled - disabling causes "object expired" errors
@@ -497,7 +376,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             CreateGroups = true,
                             SelectPlacedObjects = true,
                             SkipInvalidComponents = true,
-                            AutoOffset = !editMode,
+                            AutoOffset = autoOffset,
                         };
 
                         putResult = GhJsonGrasshopper.Put(document, putOptions);
@@ -515,13 +394,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                             foreach (var conn in capturedConnections)
                             {
+                                if (protectedGuids.Contains(conn.SourceGuid) || protectedGuids.Contains(conn.TargetGuid))
+                                {
+                                    continue;
+                                }
+
                                 try
                                 {
-                                    var success = ConnectByNickName(
-                                        conn.sourceGuid,
-                                        conn.targetGuid,
-                                        conn.sourceParam,
-                                        conn.targetParam);
+                                    var success = GhJsonGrasshopper.Connect(
+                                        conn.SourceGuid,
+                                        conn.TargetGuid,
+                                        conn.SourceParamName,
+                                        conn.TargetParamName);
 
                                     if (success)
                                     {
@@ -530,11 +414,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 }
                                 catch (Exception ex)
                                 {
-                                    Debug.WriteLine($"[gh_put] Error restoring connection {conn.sourceGuid}.{conn.sourceParam} -> {conn.targetGuid}.{conn.targetParam}: {ex.Message}");
+                                    Debug.WriteLine($"[gh_put] Error restoring connection {conn.SourceGuid}.{conn.SourceParamName} -> {conn.TargetGuid}.{conn.TargetParamName}: {ex.Message}");
                                 }
                             }
 
                             Debug.WriteLine($"[gh_put] Restored {restored}/{capturedConnections.Count} external connections");
+
+                            if (restored > 0)
+                            {
+                                ghDoc?.NewSolution(false);
+                                Instances.RedrawCanvas();
+                            }
                         }
 
                         placeTcs.SetResult(true);
@@ -565,6 +455,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!string.IsNullOrWhiteSpace(analysisMsg))
                 {
                     analysisSections.Add(analysisMsg);
+                }
+
+                if (protectedPutGuids.Count > 0)
+                {
+                    analysisSections.Add(CanvasProtection.FormatProtectionMessage(protectedPutGuids));
                 }
 
                 if (putResult.FailedComponents != null && putResult.FailedComponents.Count > 0)
@@ -600,6 +495,15 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["analysis"] = combinedAnalysis,
                 };
 
+                if (placedGuids.Count == 0)
+                {
+                    var emptyMessage = string.IsNullOrWhiteSpace(combinedAnalysis)
+                        ? "No components could be placed. The GhJSON may be empty, all components may be invalid, or the document may already be up to date."
+                        : combinedAnalysis;
+
+                    output.AddRuntimeMessage(SHRuntimeMessageSeverity.Warning, SHRuntimeMessageOrigin.Tool, emptyMessage);
+                }
+
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)
                     .Build();
@@ -618,6 +522,53 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError(combined);
                 return output;
             }
+        }
+
+        /// <summary>
+        /// Extracts the GhJSON string from the tool argument. Handles cases where the model
+        /// passes the JSON as a string value, an object, or an array.
+        /// </summary>
+        /// <param name="token">The JToken containing the ghjson argument.</param>
+        /// <returns>The GhJSON string, or an empty string if the argument is missing.</returns>
+        private static string ExtractGhJsonString(JToken token)
+        {
+            if (token == null)
+            {
+                return string.Empty;
+            }
+
+            if (token.Type == JTokenType.Object || token.Type == JTokenType.Array)
+            {
+                return token.ToString(Formatting.None);
+            }
+
+            if (token.Type == JTokenType.String)
+            {
+                var value = token.Value<string>() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    try
+                    {
+                        var path = value.Trim();
+                        if (File.Exists(path))
+                        {
+                            var extension = Path.GetExtension(path);
+                            if (string.Equals(extension, ".ghjson", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return File.ReadAllText(path);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Not a valid path; fall back to returning the literal value.
+                    }
+                }
+
+                return value;
+            }
+
+            return token.ToString();
         }
 
         /// <summary>
@@ -651,66 +602,31 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 existingState.Remove("selected");
             }
 
+            // Remove runtime data from parameter settings. Runtime data is computed by the
+            // canvas and is not part of the component's structural definition, so including
+            // it makes every existing component look different from an incoming definition.
+            static void RemoveRuntimeData(JObject jObj)
+            {
+                foreach (var settingsKey in new[] { "inputSettings", "outputSettings" })
+                {
+                    if (jObj[settingsKey] is JArray settingsArray)
+                    {
+                        foreach (var item in settingsArray)
+                        {
+                            if (item is JObject itemObj)
+                            {
+                                itemObj.Remove("runtimeData");
+                            }
+                        }
+                    }
+                }
+            }
+
+            RemoveRuntimeData(incomingJObj);
+            RemoveRuntimeData(existingJObj);
+
             return JToken.DeepEquals(incomingJObj, existingJObj);
         }
 
-        /// <summary>
-        /// Connects two components on the active canvas by matching parameter NickNames.
-        /// Replaces the removed ConnectionBuilder.ConnectComponents() utility.
-        /// </summary>
-        /// <param name="sourceGuid">Instance GUID of the source component.</param>
-        /// <param name="targetGuid">Instance GUID of the target component.</param>
-        /// <param name="sourceParamName">NickName of the source output parameter.</param>
-        /// <param name="targetParamName">NickName of the target input parameter.</param>
-        /// <returns><c>true</c> if the connection was created successfully.</returns>
-        private static bool ConnectByNickName(Guid sourceGuid, Guid targetGuid, string sourceParamName, string targetParamName)
-        {
-            var ghDoc = Instances.ActiveCanvas?.Document;
-            if (ghDoc == null)
-            {
-                return false;
-            }
-
-            var sourceObj = ghDoc.FindObject(sourceGuid, true);
-            var targetObj = ghDoc.FindObject(targetGuid, true);
-            if (sourceObj == null || targetObj == null)
-            {
-                return false;
-            }
-
-            IGH_Param sourceParam = null;
-            IGH_Param targetParam = null;
-
-            // Resolve source output parameter
-            if (sourceObj is IGH_Component sourceComp)
-            {
-                sourceParam = sourceComp.Params.Output
-                    .FirstOrDefault(p => string.Equals(p.NickName, sourceParamName, StringComparison.OrdinalIgnoreCase));
-            }
-            else if (sourceObj is IGH_Param sp)
-            {
-                sourceParam = sp;
-            }
-
-            // Resolve target input parameter
-            if (targetObj is IGH_Component targetComp)
-            {
-                targetParam = targetComp.Params.Input
-                    .FirstOrDefault(p => string.Equals(p.NickName, targetParamName, StringComparison.OrdinalIgnoreCase));
-            }
-            else if (targetObj is IGH_Param tp)
-            {
-                targetParam = tp;
-            }
-
-            if (sourceParam == null || targetParam == null)
-            {
-                Debug.WriteLine($"[gh_put] ConnectByNickName: Could not resolve params - source '{sourceParamName}' on {sourceGuid}, target '{targetParamName}' on {targetGuid}");
-                return false;
-            }
-
-            targetParam.AddSource(sourceParam);
-            return true;
-        }
     }
 }

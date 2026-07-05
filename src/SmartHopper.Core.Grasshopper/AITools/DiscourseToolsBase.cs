@@ -102,7 +102,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 description: $"Retrieve a filtered {this.ForumName} forum post by ID (username, date, title, raw markdown).",
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum post to fetch.\" }} }}, \"required\": [{baseUrlRequired}\"id\"] }}",
-                execute: this.GetPostAsync);
+                execute: this.GetPostAsync,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""post"": { ""type"": ""object"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: summarizePostToolName,
@@ -110,14 +114,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"ids\": {{ \"type\": \"array\", \"items\": {{ \"type\": \"integer\" }}, \"description\": \"ID or list of forum post IDs to summarize.\" }}, \"instructions\": {{ \"type\": \"string\", \"description\": \"Optional targeted summary instructions to focus on a specific question, target, or concern.\" }} }}, \"required\": [{baseUrlRequired}\"ids\"] }}",
                 execute: this.SummarizePostAsync,
-                requiredCapabilities: this.SummarizeCapabilityRequirements);
+                requiredCapabilities: this.SummarizeCapabilityRequirements,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "read-only", "external", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""summary"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: getTopicToolName,
                 description: $"Retrieve all posts in a {this.ForumName} forum topic by topic ID (title, URL, posts array).",
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"topic_id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum topic to fetch.\" }}, \"max_posts\": {{ \"type\": \"integer\", \"description\": \"Optional maximum number of posts to return. If omitted, all available posts are returned up to the server limit.\" }} }}, \"required\": [{baseUrlRequired}\"topic_id\"] }}",
-                execute: this.GetTopicAsync);
+                execute: this.GetTopicAsync,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""topic"": { ""type"": ""object"" }, ""posts"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: summarizeTopicToolName,
@@ -125,14 +137,22 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"topic_id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum topic to summarize.\" }}, \"max_posts\": {{ \"type\": \"integer\", \"description\": \"Optional maximum number of posts to include in the summary input (default: 50).\" }}, \"instructions\": {{ \"type\": \"string\", \"description\": \"Optional targeted summary instructions to focus on a specific question, target, or concern.\" }} }}, \"required\": [{baseUrlRequired}\"topic_id\"] }}",
                 execute: this.SummarizeTopicAsync,
-                requiredCapabilities: this.SummarizeCapabilityRequirements);
+                requiredCapabilities: this.SummarizeCapabilityRequirements,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "read-only", "external", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""summary"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: searchToolName,
                 description: $"Search {this.ForumName} forum posts by query and return matching results.",
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"query\": {{ \"type\": \"string\", \"description\": \"Search query for the forum.\" }} }}, \"required\": [{baseUrlRequired}\"query\"] }}",
-                execute: this.SearchAsync);
+                execute: this.SearchAsync,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "search", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""results"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         /// <summary>

@@ -120,7 +120,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Edit an existing Grasshopper script component based on instructions. Takes GhJSON input and returns updated GhJSON (does not modify canvas).",
+                description: "Edit an existing Grasshopper script component based on instructions. Takes GhJSON input and returns updated GhJSON (does not modify canvas). Example: script_edit({ ghjson: '...', instructions: 'Add error handling' }).",
                 category: "Hidden",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -137,13 +137,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""ghjson"", ""instructions""]
                 }",
                 execute: this.ExecuteAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                mutatesCanvas: false,
+                tags: new[] { "scripting", "script", "ghjson", "read-only", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Updated GhJSON string representing the edited script component."" }, ""changesSummary"": { ""type"": ""string"" }, ""nickname"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
 
             // Wrapper tool that edits and replaces the component on canvas in one call.
             // Uses instanceGuid to automatically retrieve GhJSON, call script_edit, and then gh_put.
             yield return new AITool(
                 name: this.wrapperToolName,
-                description: "Edit an existing Grasshopper script component by instance GUID and replace it on the canvas. This wrapper automatically retrieves the component GhJSON (gh_get_by_guid), calls script_edit, and then gh_put with editMode=true.",
+                description: "Edit an existing Grasshopper script component by instance GUID and replace it on the canvas. This wrapper automatically retrieves the component GhJSON (gh_get_by_guid), calls script_edit, and then gh_put with editMode=true. Example: script_edit_and_replace_on_canvas({ instanceGuid: '...', instructions: 'Add error handling' }).",
                 category: "Scripting",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -160,7 +164,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instanceGuid"", ""instructions""]
                 }",
                 execute: this.ExecuteEditAndReplaceAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                mutatesCanvas: true,
+                tags: new[] { "scripting", "script", "canvas", "mutating", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON of the updated component."" }, ""instanceGuid"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)

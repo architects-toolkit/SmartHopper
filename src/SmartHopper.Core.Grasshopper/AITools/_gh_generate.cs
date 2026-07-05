@@ -87,7 +87,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""components""]
                 }",
-                execute: this.GhGenerateToolAsync);
+                execute: this.GhGenerateToolAsync,
+                mutatesCanvas: false,
+                enabled: false,
+                tags: new[] { "canvas", "components", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Generated GhJSON document."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>
@@ -154,7 +159,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     {
                         Name = name,
                         InstanceGuid = instanceGuid,
-                        Pivot = position.HasValue ? new GhJsonPivot(position.Value.X, position.Value.Y) : null,
+                        Pivot = position.HasValue ? new GhJsonPivot((int)position.Value.X, (int)position.Value.Y) : null,
                     };
 
                     // Store any ad-hoc parameters as extension data (best-effort).

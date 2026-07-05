@@ -75,7 +75,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""filePath""]
                 }",
-                execute: this.RhinoRead3dmToolAsync);
+                execute: this.RhinoRead3dmToolAsync,
+                mutatesCanvas: false,
+                enabled: false,
+                tags: new[] { "not-tested", "rhino", "3dm", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""summary"": { ""type"": ""string"" }, ""layers"": { ""type"": ""array"" }, ""objects"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>

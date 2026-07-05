@@ -318,16 +318,16 @@ namespace SmartHopper.Components.Grasshopper
                     return;
                 }
 
-                DA.SetData(0, this.success);
-                DA.SetData(1, this.conflictsSummary);
-                DA.SetData(2, this.componentsAdded);
-                DA.SetData(3, this.componentsRemoved);
-                DA.SetData(4, this.componentsModified);
-                DA.SetData(5, this.connectionsAdded);
-                DA.SetData(6, this.connectionsRemoved);
-                DA.SetData(7, this.groupsAdded);
-                DA.SetData(8, this.groupsRemoved);
-                DA.SetData(9, this.groupsModified);
+                this.parent.SetPersistentOutput("Success", this.success, DA);
+                this.parent.SetPersistentOutput("Conflicts", this.conflictsSummary, DA);
+                this.parent.SetPersistentOutput("Components+", this.componentsAdded, DA);
+                this.parent.SetPersistentOutput("Components-", this.componentsRemoved, DA);
+                this.parent.SetPersistentOutput("Components~", this.componentsModified, DA);
+                this.parent.SetPersistentOutput("Connections+", this.connectionsAdded, DA);
+                this.parent.SetPersistentOutput("Connections-", this.connectionsRemoved, DA);
+                this.parent.SetPersistentOutput("Groups+", this.groupsAdded, DA);
+                this.parent.SetPersistentOutput("Groups-", this.groupsRemoved, DA);
+                this.parent.SetPersistentOutput("Groups~", this.groupsModified, DA);
             }
 
             /// <summary>

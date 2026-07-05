@@ -91,7 +91,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Manipulates a list based on natural language criteria: filter, sort, reorder, select, shuffle, expand, or rearrange items",
+                description: "Manipulates a list based on natural language criteria: filter, sort, reorder, select, shuffle, expand, or rearrange items. Example: list_filter({ list: ['beam', 'column', 'slab'], criteria: 'select structural elements only' }).",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -102,7 +102,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""list"", ""criteria""]
                 }",
                 execute: this.FilterList,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: false,
+                tags: new[] { "list", "text", "data-processing", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""array"", ""items"": { ""type"": ""integer"" }, ""description"": ""Zero-based indices of selected or reordered items."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>

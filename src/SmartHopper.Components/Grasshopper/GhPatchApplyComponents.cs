@@ -17,25 +17,27 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
+using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Components.Grasshopper
 {
     /// <summary>
     /// Grasshopper component for applying a `.ghpatch` to a base GhJSON document.
     /// </summary>
-    public class GhPatchApplyComponents : GH_Component
+    public class GhPatchApplyComponents : StatefulComponentBase
     {
-        private string lastResultJson = string.Empty;
-        private bool lastSuccess;
-        private string lastConflictsSummary = string.Empty;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="GhPatchApplyComponents"/> class.
         /// </summary>
@@ -47,161 +49,208 @@ namespace SmartHopper.Components.Grasshopper
                 "SmartHopper",
                 "Grasshopper")
         {
+            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("C5E0D4B3-6F2A-4B7C-9E8D-A1F2B3C4D5E6");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.ghjsonpatch;
-
-        /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <inheritdoc/>
-        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        protected override Bitmap Icon => Resources.ghjsonpatch;
+
+        /// <inheritdoc/>
+        protected override void RegisterAdditionalInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Base", "B", "Base GhJSON document to apply the patch to.", GH_ParamAccess.item);
             pManager.AddTextParameter("Patch", "P", "GhPatch document.", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Verify Base", "V", "Refuse to apply on base checksum mismatch. Defaults to true.", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("Run?", "X", "Run this component?", GH_ParamAccess.item, false);
         }
 
-        /// <summary>
-        /// Registers the output parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register outputs with.</param>
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        /// <inheritdoc/>
+        protected override void RegisterAdditionalOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Result", "R", "Resulting GhJSON document with the patch applied", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Success", "S", "Whether the apply succeeded with no fatal conflicts", GH_ParamAccess.item);
             pManager.AddTextParameter("Conflicts", "C", "Summary of conflicts encountered during apply", GH_ParamAccess.item);
         }
 
-        /// <summary>
-        /// Solves the component for the given data access.
-        /// </summary>
-        /// <param name="DA">The data access object for input/output operations.</param>
-        protected override void SolveInstance(IGH_DataAccess DA)
+        /// <inheritdoc/>
+        protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
-            // 1. Read "Run?" switch
-            bool run = false;
-            if (!DA.GetData(3, ref run))
+            return new GhPatchApplyWorker(this, this.AddRuntimeMessage, progressReporter);
+        }
+
+        /// <summary>
+        /// Worker that applies a ghpatch to a base GhJSON document asynchronously.
+        /// </summary>
+        private class GhPatchApplyWorker : AsyncWorkerBase
+        {
+            private readonly GhPatchApplyComponents parent;
+            private readonly Action<string> progressReporter;
+
+            // Input data
+            private string baseJson;
+            private string patchJson;
+            private bool verifyBase;
+
+            // Output data
+            private string resultJson = string.Empty;
+            private bool success;
+            private string conflictsSummary = string.Empty;
+            private string error;
+
+            public GhPatchApplyWorker(
+                GhPatchApplyComponents parent,
+                Action<GH_RuntimeMessageLevel, string> addRuntimeMessage,
+                Action<string> progressReporter)
+                : base(parent, addRuntimeMessage)
             {
-                return;
+                this.parent = parent;
+                this.progressReporter = progressReporter;
             }
 
-            if (!run)
+            /// <inheritdoc/>
+            public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                if (!string.IsNullOrEmpty(this.lastResultJson))
-                {
-                    DA.SetData(0, this.lastResultJson);
-                    DA.SetData(1, this.lastSuccess);
-                    DA.SetData(2, this.lastConflictsSummary);
-                }
-                else
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Set Run to True to apply patch");
-                }
+                this.baseJson = null;
+                this.patchJson = null;
+                this.verifyBase = true;
 
-                return;
+                DA.GetData(0, ref this.baseJson);
+                DA.GetData(1, ref this.patchJson);
+                DA.GetData(2, ref this.verifyBase);
+
+                dataCount = !string.IsNullOrWhiteSpace(this.baseJson) && !string.IsNullOrWhiteSpace(this.patchJson) ? 1 : 0;
             }
 
-            // 2. Clear previous results
-            this.lastResultJson = string.Empty;
-            this.lastSuccess = false;
-            this.lastConflictsSummary = string.Empty;
-
-            // 3. Get inputs
-            string baseJson = null;
-            string patchJson = null;
-            bool verifyBase = true;
-
-            if (!DA.GetData(0, ref baseJson) || string.IsNullOrEmpty(baseJson))
+            /// <inheritdoc/>
+            public override async Task DoWorkAsync(CancellationToken token)
             {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base GhJSON is required");
-                return;
-            }
+                this.resultJson = string.Empty;
+                this.success = false;
+                this.conflictsSummary = string.Empty;
 
-            if (!DA.GetData(1, ref patchJson) || string.IsNullOrEmpty(patchJson))
-            {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Patch document is required");
-                return;
-            }
-
-            DA.GetData(2, ref verifyBase);
-
-            try
-            {
-                // 4. Call the AI tool
-                var parameters = new JObject
+                if (string.IsNullOrWhiteSpace(this.baseJson) || string.IsNullOrWhiteSpace(this.patchJson))
                 {
-                    ["base"] = baseJson,
-                    ["patch"] = patchJson,
-                    ["verifyBase"] = verifyBase,
-                };
-
-                var toolCallInteraction = new AIInteractionToolCall
-                {
-                    Name = "gh_patch_apply",
-                    Arguments = parameters,
-                    Agent = AIAgent.Assistant,
-                };
-
-                var toolCall = new AIToolCall();
-                toolCall.Endpoint = "gh_patch_apply";
-                toolCall.FromToolCallInteraction(toolCallInteraction);
-                toolCall.SkipMetricsValidation = true;
-
-                var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
-
-                if (toolResult.Result == null)
-                {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tool 'gh_patch_apply' did not return a valid result");
+                    this.error = "Base GhJSON and Patch document are required";
                     return;
                 }
 
-                // 5. Extract results
-                var resultJson = toolResult["ghjson"]?.ToString() ?? string.Empty;
-                var success = toolResult["success"]?.ToObject<bool>() ?? false;
-                var conflictsArray = toolResult["conflicts"] as JArray;
+                this.progressReporter?.Invoke("Applying patch...");
 
-                var conflictsSummary = string.Empty;
-                if (conflictsArray != null && conflictsArray.Count > 0)
+                try
                 {
-                    var lines = new System.Collections.Generic.List<string>();
-                    foreach (var c in conflictsArray)
+                    token.ThrowIfCancellationRequested();
+
+                    var parameters = new JObject
                     {
-                        var kind = c["kind"]?.ToString() ?? "?";
-                        var message = c["message"]?.ToString() ?? string.Empty;
-                        var path = c["path"]?.ToString() ?? string.Empty;
-                        lines.Add(string.IsNullOrEmpty(path) ? $"[{kind}] {message}" : $"[{kind}] {message} ({path})");
+                        ["base"] = this.baseJson,
+                        ["patch"] = this.patchJson,
+                        ["verifyBase"] = this.verifyBase,
+                    };
+
+                    var toolCallInteraction = new AIInteractionToolCall
+                    {
+                        Name = "gh_patch_apply",
+                        Arguments = parameters,
+                        Agent = AIAgent.Assistant,
+                    };
+
+                    var toolCall = new AIToolCall();
+                    toolCall.Endpoint = "gh_patch_apply";
+                    toolCall.FromToolCallInteraction(toolCallInteraction);
+                    toolCall.SkipMetricsValidation = true;
+
+                    var aiResult = await toolCall.Exec().ConfigureAwait(false);
+
+                    token.ThrowIfCancellationRequested();
+
+                    if (!aiResult.Success)
+                    {
+                        var parts = new List<string>();
+                        if (aiResult.Messages != null)
+                        {
+                            parts.AddRange(
+                                aiResult.Messages
+                                    .Where(msg => !string.IsNullOrWhiteSpace(msg?.Message))
+                                    .Select(msg => $"{msg.Severity}: {msg.Message}"));
+                        }
+
+                        var errorInteraction = aiResult.Body?.GetLastInteraction(AIAgent.Error) as AIInteractionRuntimeMessage;
+                        var errorPayload = errorInteraction?.Content;
+                        if (!string.IsNullOrWhiteSpace(errorPayload))
+                        {
+                            parts.Add(errorPayload);
+                        }
+
+                        this.error = parts.Count > 0 ? string.Join(" \n", parts) : "gh_patch_apply execution failed";
+                        return;
                     }
 
-                    conflictsSummary = string.Join("\n", lines);
+                    var toolResult = ToolCallResult.FromAIReturn(aiResult);
+
+                    if (toolResult.Result == null)
+                    {
+                        this.error = "Tool 'gh_patch_apply' did not return a valid result";
+                        return;
+                    }
+
+                    this.resultJson = toolResult["ghjson"]?.ToString() ?? string.Empty;
+                    this.success = toolResult["success"]?.ToObject<bool>() ?? false;
+                    var conflictsArray = toolResult["conflicts"] as JArray;
+
+                    if (conflictsArray != null && conflictsArray.Count > 0)
+                    {
+                        var lines = new List<string>();
+                        foreach (var c in conflictsArray)
+                        {
+                            var kind = c["kind"]?.ToString() ?? "?";
+                            var message = c["message"]?.ToString() ?? string.Empty;
+                            var path = c["path"]?.ToString() ?? string.Empty;
+                            lines.Add(string.IsNullOrEmpty(path) ? $"[{kind}] {message}" : $"[{kind}] {message} ({path})");
+                        }
+
+                        this.conflictsSummary = string.Join("\n", lines);
+                    }
+
+                    if (!this.success)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Patch apply reported failure ({conflictsArray?.Count ?? 0} conflict(s))");
+                    }
+                    else if (conflictsArray != null && conflictsArray.Count > 0)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Info, $"{conflictsArray.Count} non-fatal conflict(s)");
+                    }
                 }
-
-                this.lastResultJson = resultJson;
-                this.lastSuccess = success;
-                this.lastConflictsSummary = conflictsSummary;
-
-                if (!success)
+                catch (OperationCanceledException)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Patch apply reported failure ({conflictsArray?.Count ?? 0} conflict(s))");
+                    this.error = "Operation cancelled";
                 }
-                else if (conflictsArray != null && conflictsArray.Count > 0)
+                catch (Exception ex)
                 {
-                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"{conflictsArray.Count} non-fatal conflict(s)");
+                    this.error = ex.Message;
                 }
-
-                // 6. Set outputs
-                DA.SetData(0, resultJson);
-                DA.SetData(1, success);
-                DA.SetData(2, conflictsSummary);
             }
-            catch (Exception ex)
+
+            /// <inheritdoc/>
+            public override void SetOutput(IGH_DataAccess DA, out string message)
             {
-                this.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+                message = null;
+
+                if (!string.IsNullOrEmpty(this.error))
+                {
+                    this.CollectMessage(SHRuntimeMessageSeverity.Error, this.error);
+                    return;
+                }
+
+                this.parent.SetPersistentOutput("Result", this.resultJson, DA);
+                this.parent.SetPersistentOutput("Success", this.success, DA);
+                this.parent.SetPersistentOutput("Conflicts", this.conflictsSummary, DA);
+
+                message = this.success ? "Applied" : "Apply failed";
             }
         }
     }
