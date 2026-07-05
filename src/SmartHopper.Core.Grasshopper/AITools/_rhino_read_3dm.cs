@@ -96,7 +96,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var filePath = args["filePath"]?.ToString();
                 var includeDetails = args["includeObjectDetails"]?.ToObject<bool>() ?? false;
                 var maxObjects = args["maxObjects"]?.ToObject<int>() ?? 100;

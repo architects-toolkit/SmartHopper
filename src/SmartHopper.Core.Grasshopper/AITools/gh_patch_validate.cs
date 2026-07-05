@@ -73,7 +73,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var patchJson = args["patch"]?.ToString() ?? string.Empty;
 
                 Debug.WriteLine("[gh_patch_validate] Validating patch...");

@@ -104,7 +104,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var server = Instances.ComponentServer;
                 var categoryFilters = args["categoryFilter"]?.ToObject<List<string>>() ?? new List<string>();
                 var query = args["query"]?.ToString() ?? args["nameFilter"]?.ToString() ?? string.Empty;

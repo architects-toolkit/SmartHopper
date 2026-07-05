@@ -99,7 +99,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildGenerateRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
             string prompt = args["prompt"]?.ToString();
             string instructions = args["instructions"]?.ToString();
             string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
@@ -142,7 +142,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
 
                 if (string.IsNullOrEmpty(prompt))

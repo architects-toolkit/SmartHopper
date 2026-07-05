@@ -115,7 +115,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var previewOn = args["previewOn"]?.ToObject<bool>() ?? false;
                 Debug.WriteLine($"[GhObjTools] GhTogglePreviewAsync: previewOn={previewOn}, guids count={guids.Count}");

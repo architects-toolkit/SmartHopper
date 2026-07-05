@@ -95,7 +95,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var targetsObj = args["targets"] as JObject;
                 if (targetsObj == null)
                 {

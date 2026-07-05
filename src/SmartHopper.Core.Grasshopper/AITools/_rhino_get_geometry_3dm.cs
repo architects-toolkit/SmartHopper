@@ -99,7 +99,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var filter = args["filter"]?.ToString() ?? "selected";
                 var layerName = args["layerName"]?.ToString();
                 var objectTypeStr = args["objectType"]?.ToString();

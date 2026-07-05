@@ -183,7 +183,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 var toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var instructions = args["instructions"]?.ToString();
                 var preferredLanguage = args["language"]?.ToString();
                 var providerName = toolCall.Provider;

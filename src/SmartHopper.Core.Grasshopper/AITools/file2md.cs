@@ -170,7 +170,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string filePath = args["filePath"]?.ToString();
                 if (string.IsNullOrWhiteSpace(filePath))

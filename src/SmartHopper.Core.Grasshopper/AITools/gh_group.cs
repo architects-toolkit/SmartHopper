@@ -117,7 +117,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var guidStrings = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var groupName = args["groupName"]?.ToString();
                 var colorStr = args["color"]?.ToString();
@@ -245,7 +245,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
             // Create a modified tool call with the selected GUIDs
             var toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
             var modifiedArgs = new JObject
             {
                 ["guids"] = JArray.FromObject(selectedGuids)

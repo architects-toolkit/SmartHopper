@@ -236,7 +236,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
                 int count = args["count"]?.ToObject<int>() ?? 0;
                 string? type = args["type"]?.ToString();

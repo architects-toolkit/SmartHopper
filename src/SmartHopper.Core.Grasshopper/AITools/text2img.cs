@@ -110,7 +110,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
                 string size = args["size"]?.ToString() ?? "1024x1024";
                 string quality = args["quality"]?.ToString() ?? "standard";

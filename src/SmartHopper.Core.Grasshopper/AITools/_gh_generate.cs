@@ -108,7 +108,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var componentsArray = args["components"] as JArray;
 
                 if (componentsArray == null || !componentsArray.Any())

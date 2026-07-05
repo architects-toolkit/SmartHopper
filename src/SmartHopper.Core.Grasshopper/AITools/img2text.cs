@@ -143,7 +143,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildDescribeRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
 
             var request = new AIRequestCall();
             request.Initialize(
@@ -174,7 +174,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[{this.toolName}] Running DescribeImageAsync tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string imageUrl = args["imageUrl"]?.ToString();
                 string imageBase64 = args["imageBase64"]?.ToString();

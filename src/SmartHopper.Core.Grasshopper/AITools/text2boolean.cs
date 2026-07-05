@@ -101,7 +101,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildEvaluateRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
             string text = args["text"]?.ToString();
             string question = args["question"]?.ToString();
             string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
@@ -147,7 +147,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[TextTools] Running Text2Boolean tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? text = args["text"]?.ToString();
                 string? question = args["question"]?.ToString();
 

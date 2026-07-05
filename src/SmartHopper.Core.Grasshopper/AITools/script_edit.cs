@@ -178,7 +178,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 var toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var ghJsonInput = args["ghjson"]?.ToString();
                 var instructions = args["instructions"]?.ToString();
                 var providerName = toolCall.Provider;

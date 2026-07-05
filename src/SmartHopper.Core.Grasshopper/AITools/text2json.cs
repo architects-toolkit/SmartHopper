@@ -109,7 +109,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildGenerateRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
             string prompt = args["prompt"]?.ToString();
             string instructions = args["instructions"]?.ToString();
             string jsonSchema = args["jsonSchema"]?.ToString();
@@ -151,7 +151,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[JsonTools] Running GenerateJson tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
                 string? instructions = args["instructions"]?.ToString();
                 string? jsonSchema = args["jsonSchema"]?.ToString();

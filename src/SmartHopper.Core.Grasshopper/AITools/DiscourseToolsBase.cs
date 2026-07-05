@@ -200,7 +200,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -256,7 +256,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string endpoint = $"{this.ToolPrefix}_forum_post_summarize";
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -412,7 +412,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -493,7 +493,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string endpoint = $"{this.ToolPrefix}_forum_topic_summarize";
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -643,7 +643,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))

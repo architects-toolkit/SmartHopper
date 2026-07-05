@@ -96,7 +96,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildGenerateSpeechRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
             string text = args["text"]?.ToString();
 
             // Get voice from args, extra settings, or default
@@ -165,7 +165,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[SpeechTools] Running GenerateSpeech tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string text = args["text"]?.ToString();
 
                 if (string.IsNullOrEmpty(text))
