@@ -633,34 +633,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                 };
 
-                if (includeRuntimeData)
-                {
-                    var runtimeData = new JObject();
-                    foreach (var comp in document.Components)
-                    {
-                        if (!comp.InstanceGuid.HasValue || comp.OutputSettings == null)
-                        {
-                            continue;
-                        }
-
-                        var compRuntimeData = new JObject();
-                        foreach (var setting in comp.OutputSettings)
-                        {
-                            if (setting.RuntimeData != null && setting.RuntimeData.Count > 0)
-                            {
-                                compRuntimeData[setting.ParameterName] = JObject.FromObject(setting.RuntimeData);
-                            }
-                        }
-
-                        if (compRuntimeData.Count > 0)
-                        {
-                            runtimeData[comp.InstanceGuid.Value.ToString()] = compRuntimeData;
-                        }
-                    }
-
-                    toolResult["runtimeData"] = runtimeData;
-                }
-
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult)
                     .Build();

@@ -94,7 +94,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         /// <summary>
         /// Executes the GH connect tool.
         /// </summary>
-        private Task<AIReturn> GhConnectToolAsync(AIToolCall toolCall)
+        private async Task<AIReturn> GhConnectToolAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -110,14 +110,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (connectionsArray == null || !connectionsArray.Any())
                 {
                     output.CreateError("The 'connections' array is required and must contain at least one connection specification.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var doc = GhJsonGrasshopper.GetActiveDocument();
                 if (doc == null)
                 {
                     output.CreateError("No active Grasshopper document found.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
                 var successfulConnections = new List<JObject>();
@@ -176,11 +176,25 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                // Redraw once after all connections
+                // Recompute the solution on the UI thread after all connections.
                 if (successfulConnections.Any())
                 {
-                    doc.NewSolution(false);
-                    Instances.RedrawCanvas();
+                    var solutionTcs = new TaskCompletionSource<bool>();
+                    Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        try
+                        {
+                            doc.NewSolution(false);
+                            Instances.RedrawCanvas();
+                            solutionTcs.SetResult(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            solutionTcs.SetException(ex);
+                        }
+                    });
+
+                    await solutionTcs.Task.ConfigureAwait(false);
                 }
 
                 var toolResult = new JObject
@@ -196,12 +210,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(body, toolCall);
-                return Task.FromResult(output);
+                return output;
             }
             catch (Exception ex)
             {
                 output.CreateError($"Error connecting components: {ex.Message}");
-                return Task.FromResult(output);
+                return output;
             }
         }
 
