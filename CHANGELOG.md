@@ -25,12 +25,15 @@ Many thanks to the following contributors to this release:
 - Added `changelog-summary` Devin CLI skill that derives its simplification instructions from `.github/workflows/chore-changelog-review.yml` and rewrites `[Unreleased]` (or a user-provided version) from `CHANGELOG.md` into a user-focused changelog summary.
 - Added `smarthopper_workflows` and `smarthopper_tool_help` self-documenting tools to help MCP clients discover common workflows and per-tool usage without reading source code.
 - Added MCP metadata to all `AITool` registrations: category tags, output JSON schemas, and MCP tool annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`). The MCP adapter now prefixes tool descriptions with `[Read-only]` or `[Mutates canvas]` for broad client compatibility.
+- Added MCP server and `SmartHopperMcpServerComponent`: a local HTTP/JSON-RPC Model Context Protocol server that exposes SmartHopper's AI tools to external MCP clients, with an opt-in Grasshopper component to enable, configure, and monitor the server.
+- Added canvas protection guard: components implementing `ICanvasProtectedComponent` (starting with `SmartHopperMcpServerComponent`) mark themselves and any directly wired components as protected, so mutating AI tools (`gh_put`, `gh_remove`, `gh_disconnect`, `gh_component_lock`, `button_click`, etc.) skip them and report the skipped GUIDs instead of modifying them.
 - Added `Enabled` flag to `AITool` so individual tools can be disabled and hidden from AI models. All tools in the `NotTested` category now default to `Enabled = false`; the provider tool list and MCP adapter both filter them out.
 - Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
 - Added `web2md` image modes: `link` (default), `embed`, `describe`, and `caption`. The new `imageMode` parameter lets web pages keep image URLs, embed downloaded images as base64 data URIs, or replace them with AI-generated captions/descriptions.
 - Added a shared `ImageProcessingService` in `SmartHopper.Core.Grasshopper.Utils.Internal` used by both `file2md` and `web2md` for downloading, describing, and formatting Markdown image replacements consistently across file and web conversion paths.
 - Added `Image Mode` inputs to `File2AIComponent` and `Web2AIComponent`. `File2AIComponent` defaults to `skip` (no image extraction); `Web2AIComponent` defaults to `link` (keep remote image URLs). AI is used only when the mode is `embed`, `describe`, or `caption`.
 - Added `AIWeb2MdComponent` in `SmartHopper.Components.Knowledge` for AI-powered URL-to-Markdown conversion with configurable `Image Mode` (defaults to `link`).
+- Added `Aspect Ratio` input to `AIText2ImgComponent` for Gemini image generation, allowing callers to specify aspect ratios such as `1:1`, `16:9`, or `4:3`.
 - Added pagination support to all `gh_get` tool variants via `page` and `pageSize` parameters (defaults: page 1, page size 25). The serialized document is still complete, but the returned `ghjson` contains only the requested page; response includes `pagination` metadata.
 - Added `Count` parameter to `GhGetComponents` (default 100) to limit the number of components retrieved; maps to `gh_get` `pageSize` and always returns page 1. Emits an info message when the result is truncated.
 - Added new `gh_remove` tool that removes canvas objects by instance GUID and records a single undo event so the action is reversible.
@@ -74,6 +77,8 @@ Many thanks to the following contributors to this release:
   - `gh_patch_apply` now validates the patch document before applying and returns an error when `components.add` or `groups.add` entries include `instanceGuid`.
   - `gh_patch_validate` now also checks that new components and groups do not specify `instanceGuid`.
   - Tool description for `gh_patch_apply` now specifies the `instanceGuid` restriction.
+- Updated provider settings and per-request extras: Anthropic now exposes `ServiceTier` and `ReasoningEffort` settings; MistralAI and Gemini expose `ReasoningEffort`; Gemini `SafetyLevel` now uses a restricted allowed-values list; per-request extras (`effort`, `service_tier`, `reasoning_effort`) were updated to match.
+- Refreshed provider model registries across Anthropic, DeepSeek, Gemini, MistralAI, OpenAI, and OpenRouter to match current official/API model lineups and capabilities.
 
 ### Fixed
 
