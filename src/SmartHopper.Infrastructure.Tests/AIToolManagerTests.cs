@@ -26,6 +26,7 @@ namespace SmartHopper.Infrastructure.Tests
     /// <summary>
     /// Tests for the AIToolManager functionality.
     /// </summary>
+    [Collection("AIToolManager")]
     public class AIToolManagerTests
     {
 #if NET7_WINDOWS
