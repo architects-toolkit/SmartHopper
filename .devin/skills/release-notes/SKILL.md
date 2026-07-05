@@ -35,7 +35,7 @@ Repeat features as necessary for the release.
 
 - Rhino 8.0 or above is required
 - Windows 10/11 or macOS
-- Valid API keys for MistralAI, OpenAI, DeepSeek, Anthropic or OpenRouter
+- Valid API keys for MistralAI, OpenAI, DeepSeek, Anthropic, Gemini or OpenRouter
 
 ## ⚠️ Important Notes
 
