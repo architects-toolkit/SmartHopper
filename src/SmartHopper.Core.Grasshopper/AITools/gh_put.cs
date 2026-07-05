@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core;
@@ -59,12 +60,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }). See also: gh_get, script_generate_and_place_on_canvas.",
+                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }) or gh_put({ ghjson: 'C:/path/to/file.ghjson' }). See also: gh_get, script_generate_and_place_on_canvas.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
-                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string"" },
+                        ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON document string, or an absolute file path to a .ghjson file containing the document."" },
                         ""editMode"": { ""type"": ""boolean"", ""description"": ""When true, existing components on canvas will be replaced. User will be prompted for confirmation."" },
                         ""autoOffset"": { ""type"": ""boolean"", ""default"": true, ""description"": ""When true, newly placed components are offset on the canvas so they do not overlap existing objects. In edit mode this defaults to false."" }
                     },
@@ -536,14 +537,35 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 return string.Empty;
             }
 
-            if (token.Type == JTokenType.String)
-            {
-                return token.Value<string>() ?? string.Empty;
-            }
-
             if (token.Type == JTokenType.Object || token.Type == JTokenType.Array)
             {
                 return token.ToString(Formatting.None);
+            }
+
+            if (token.Type == JTokenType.String)
+            {
+                var value = token.Value<string>() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    try
+                    {
+                        var path = value.Trim();
+                        if (File.Exists(path))
+                        {
+                            var extension = Path.GetExtension(path);
+                            if (string.Equals(extension, ".ghjson", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return File.ReadAllText(path);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Not a valid path; fall back to returning the literal value.
+                    }
+                }
+
+                return value;
             }
 
             return token.ToString();

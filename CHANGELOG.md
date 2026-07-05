@@ -39,6 +39,8 @@ Many thanks to the following contributors to this release:
 - Added new `gh_document_save` tool that saves the active Grasshopper document to a given path or to its existing file path.
 - Added new `gh_disconnect` tool that removes wires between Grasshopper components by instance GUID and parameter name, records a single undo event, and recomputes the solution.
 - Added `autoOffset` parameter to `gh_put` so callers can control whether placed components are offset to avoid overlaps.
+- `gh_put` tool now accepts an absolute file path to a `.ghjson` file in the `ghjson` parameter, with the extension restricted to `.ghjson` for safety.
+- `GhPutComponents` input parameter now documents that the `JSON` input also accepts a `.ghjson` file path.
 - Added runtime (volatile) data serialization to `ghjson-dotnet`: `SerializationOptions.IncludeRuntimeData` and `GhJsonParameterSettings.RuntimeData` expose the live values flowing through parameter outputs.
 - Added `includeRuntimeData` parameter to `gh_get` and all `gh_get_*_with_data` variants; the response now includes a top-level `runtimeData` object mapping component GUIDs to their output parameter values when runtime data is requested.
 - Migrated `File2AIComponent` and `Web2AIComponent` to `AIStatefulAsyncComponentBase` so they can batch AI image-description calls through the same infrastructure used by `AIFile2MdComponent`.
