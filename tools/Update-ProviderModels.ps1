@@ -1688,9 +1688,32 @@ $allModelNames = $mergedModels.Keys | Sort-Object
 $apiModelNamesList = $apiModelNames | Sort-Object
 $sourceModelNamesList = $existingModels.Keys | Sort-Object
 
-$newModels        = $apiModelNamesList | Where-Object { $_ -notin $sourceModelNamesList }
+# A model is considered already known when its canonical id OR any of its
+# aliases was present in the source file before this run. Comparing against
+# the raw provider-API id list would mis-flag alias ids (e.g. the rolling
+# "gpt-5-pro" alias of "gpt-5-pro-2025-10-06") as brand-new models, because
+# aliases are folded into a canonical entry's Aliases list rather than added
+# as standalone entries. Diffing on canonical entries keeps the report in
+# sync with what is actually written to the source file.
+$sourceModelSet = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]$sourceModelNamesList,
+    [System.StringComparer]::OrdinalIgnoreCase)
+
+function Test-KnownInSource($model) {
+    if ($sourceModelSet.Contains([string]$model.Model)) { return $true }
+    if ($model.Aliases) {
+        foreach ($alias in @($model.Aliases)) {
+            if (-not [string]::IsNullOrWhiteSpace($alias) -and $sourceModelSet.Contains([string]$alias)) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+$newModels        = @($mergedModels.Values | Where-Object { -not (Test-KnownInSource $_) } | ForEach-Object { $_.Model } | Sort-Object)
 $deprecatedModels = $allModelNames     | Where-Object { $mergedModels[$_].Deprecated -eq 'true' -and ($_ -in $sourceModelNamesList) }
-$unchangedModels  = $apiModelNamesList | Where-Object { $_ -in $sourceModelNamesList -and $mergedModels[$_].Deprecated -ne 'true' }
+$unchangedModels  = @($mergedModels.Values | Where-Object { (Test-KnownInSource $_) -and $_.Deprecated -ne 'true' } | ForEach-Object { $_.Model } | Sort-Object)
 
 $validation = Test-ProviderModelValidation @($mergedModels.Values)
 
