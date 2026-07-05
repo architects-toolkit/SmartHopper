@@ -9,6 +9,9 @@ Returns metadata, usage guidance, and relationship hints for any SmartHopper too
 | Property | Value |
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Core.Grasshopper/AITools/smarthopper_tool_help.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-07-05 |
+| **Documentation Maintainer** | Devin AI |
 | **Category** | Instructions |
 | **Tags** | `instructions`, `meta`, `read-only` |
 
@@ -54,12 +57,40 @@ Returns a JSON object containing:
 
 ## Developer Reference
 
-### Example
+### Example Request
 
 ```json
 {
   "tool_name": "gh_get"
 }
+```
+
+### Looking Up a Tool
+
+```csharp
+var arguments = new JObject
+{
+    ["tool_name"] = "gh_get"
+};
+
+var result = await AIToolManager.ExecuteAsync("smarthopper_tool_help", arguments, context);
+
+// result is a tool result interaction containing the tool metadata,
+// input schema, output schema, and related tools.
+```
+
+### Filtering the Tool Catalog
+
+```csharp
+var arguments = new JObject
+{
+    ["tool_name"] = "unknown_tool"
+};
+
+var result = await AIToolManager.ExecuteAsync("smarthopper_tool_help", arguments, context);
+
+// Because the tool was not found, the response includes the full catalog
+// in similar_tools so the caller can discover available tools.
 ```
 
 ---

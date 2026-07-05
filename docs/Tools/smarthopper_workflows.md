@@ -9,6 +9,9 @@ Returns canonical SmartHopper tool workflows so an MCP client can discover how t
 | Property | Value |
 | --- | --- |
 | **Source Code** | `src/SmartHopper.Core.Grasshopper/AITools/smarthopper_workflows.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-07-05 |
+| **Documentation Maintainer** | Devin AI |
 | **Category** | Instructions |
 | **Tags** | `instructions`, `workflow`, `read-only` |
 
@@ -88,6 +91,30 @@ Returns an array of workflows, each with:
 ```
 
 Every step is a concrete tool call. Use `smarthopper_tool_help` to look up the exact parameters of any tool.
+
+### Calling the Tool
+
+```csharp
+var arguments = new JObject
+{
+    ["workflow"] = "apply_patch"
+};
+
+var result = await AIToolManager.ExecuteAsync("smarthopper_workflows", arguments, context);
+
+// result contains the named workflow with its description and ordered steps.
+```
+
+### Listing All Workflows
+
+```csharp
+var arguments = new JObject(); // no workflow filter
+
+var result = await AIToolManager.ExecuteAsync("smarthopper_workflows", arguments, context);
+
+// result contains every available workflow so the caller can present a menu
+// or pick the most relevant one for the current task.
+```
 
 ---
 
