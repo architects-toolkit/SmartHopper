@@ -94,7 +94,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var json = ExtractGhJsonString(args["ghjson"]);
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
                 var autoOffset = args["autoOffset"]?.ToObject<bool>() ?? !editMode;

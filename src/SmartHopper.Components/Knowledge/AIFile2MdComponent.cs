@@ -408,7 +408,7 @@ namespace SmartHopper.Components.Knowledge
                 this.filePathTree = new GH_Structure<GH_String>();
                 DA.GetDataTree("File Path", out this.filePathTree);
 
-                var removeTree = new GH_Structure<GH_Boolean>();
+                GH_Structure<GH_Boolean> removeTree;
                 DA.GetDataTree("Remove Headers", out removeTree);
 
                 this.removeHeadersTree = ConvertBoolTreeToString(removeTree, "true");

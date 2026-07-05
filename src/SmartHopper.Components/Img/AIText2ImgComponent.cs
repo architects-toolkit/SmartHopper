@@ -151,7 +151,7 @@ namespace SmartHopper.Components.Img
                 var sizes = new GH_Structure<GH_String>();
                 var qualities = new GH_Structure<GH_String>();
                 var styles = new GH_Structure<GH_String>();
-                var aspectRatios = new GH_Structure<GH_String>();
+                GH_Structure<GH_String> aspectRatios;
 
                 // Parameter indices:
                 // 0: Prompt (tree access)

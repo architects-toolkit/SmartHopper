@@ -105,7 +105,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 var toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var requestedName = args["tool_name"]?.ToString() ?? string.Empty;
 
                 var tools = AIToolManager.GetTools();
