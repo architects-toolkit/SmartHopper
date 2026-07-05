@@ -247,8 +247,8 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 {
                     var reason = sawPasswordField ? FileConversionFailureReason.LoginRequired : FileConversionFailureReason.EmptyContent;
                     var message = sawPasswordField
-                        ? $"The page at '{uri}' appears to require authentication and returned too little content ({trimmedLength} characters) to be considered a successful conversion."
-                        : $"The page at '{uri}' returned too little content ({trimmedLength} characters) to be considered a successful conversion.";
+                        ? $"The page at '{uri}' appears to require authentication and returned too little content ({trimmedLength} characters). This is not considered a successful conversion."
+                        : $"The page at '{uri}' returned too little content ({trimmedLength} characters). This is not considered a successful conversion.";
                     return FileConversionResult.Failure("url", message, reason);
                 }
 

@@ -77,7 +77,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.GetArgumentsOrEmpty();
+                var args = toolInfo.Arguments ?? new JObject();
                 var guidArray = args["instanceGuids"] as JArray;
 
                 if (guidArray == null || guidArray.Count == 0)
@@ -86,10 +86,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
-                var requestedGuids = guidArray
-                    .Select(token => Guid.TryParse(token.ToString(), out var g) && g != Guid.Empty ? (Guid?)g : null)
-                    .OfType<Guid>()
-                    .ToList();
+                var requestedGuids = new List<Guid>();
+                foreach (var token in guidArray)
+                {
+                    if (Guid.TryParse(token.ToString(), out var g) && g != Guid.Empty)
+                    {
+                        requestedGuids.Add(g);
+                    }
+                }
 
                 if (requestedGuids.Count == 0)
                 {

@@ -94,7 +94,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.GetArgumentsOrEmpty();
+                var args = toolInfo.Arguments ?? new JObject();
                 var json = ExtractGhJsonString(args["ghjson"]);
                 var editMode = args["editMode"]?.ToObject<bool>() ?? false;
                 var autoOffset = args["autoOffset"]?.ToObject<bool>() ?? !editMode;
@@ -120,6 +120,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (protectedPutGuids.Count > 0)
                     {
+                        var protectedIds = document.Components
+                            .Where(c => c.InstanceGuid.HasValue && protectedGuids.Contains(c.InstanceGuid.Value))
+                            .Select(c => c.Id)
+                            .Where(id => id.HasValue)
+                            .Select(id => id.Value)
+                            .ToHashSet();
+
                         var filteredComponents = document.Components
                             .Where(c => !(c.InstanceGuid.HasValue && protectedGuids.Contains(c.InstanceGuid.Value)))
                             .ToList();
