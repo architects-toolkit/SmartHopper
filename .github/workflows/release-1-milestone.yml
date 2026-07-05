@@ -85,8 +85,8 @@ jobs:
 
       - name: Set up Git user
         run: |
-          git config user.name "github-actions"
-          git config user.email "action@github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Remove existing release branch if it exists
         run: |
@@ -228,5 +228,5 @@ jobs:
               repo: context.repo.repo,
               title,
               body,
-              labels: ['automated', 'needs-attention'],
+              labels: ['automated', 'status: needs attention'],
             });
