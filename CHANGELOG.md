@@ -15,96 +15,47 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
-- Added `WorkflowToolReferenceTests` in `SmartHopper.Core.Grasshopper.Tests` to validate that every tool name referenced in `smarthopper_workflows` step strings is a registered tool.
-- **PDF hyperlink extraction**: `PdfConverter` now uses PdfPig `page.GetHyperlinks()` to detect link annotations and wraps intersecting text in Markdown `[text](url)` syntax. Respects the existing `PreserveHyperlinks` option.
-- **PDF list detection**: `PdfConverter` now detects bullet (`•`, `-`, `→`, etc.) and numbered (`1.`, `a)`, `i.`, etc.) list items by pattern-matching block text. Indentation levels are inferred from visual left margins.
-- **PDF inline image positioning**: `PdfConverter` now interleaves extracted images with text blocks in top-to-bottom reading order based on each image's vertical position, instead of appending all images at the end of the page.
-- **Markdown ordered-list renumbering**: `FileConverterRegistry.ConvertAsync` now applies a new `MarkdownListRenumberer` post-processing pass to every converter's output, rewriting consecutive ordered-list items (tracked per indentation level) to increasing integers. This fixes lists where a converter normalizes non-CommonMark markers (e.g. lettered `a)`/Roman `i.` list items, which have no Markdown equivalent) to a repeated `1.` marker per item, so raw Markdown text now reads correctly even without a renderer.
-- **Markdown style cleanup**: `FileConverterRegistry.ConvertAsync` now applies a new `MarkdownStyleCleanup` post-processing pass to every converter's output: trims trailing whitespace (which CommonMark otherwise interprets as a hard line break), ensures a blank line surrounds every ATX heading, collapses runs of 2+ blank lines into one, and trims leading/trailing blank lines from the document.
-- Added Devin CLI skills under `.devin/skills/` for each existing workflow, mapping Windsurf/Cascade-style workflow files to the Devin `SKILL.md` format so they can be invoked with `/skill-name` in Devin local sessions.
-- Added `changelog-summary` Devin CLI skill that derives its simplification instructions from `.github/workflows/chore-changelog-review.yml` and rewrites `[Unreleased]` (or a user-provided version) from `CHANGELOG.md` into a user-focused changelog summary.
-- Added `smarthopper_workflows` and `smarthopper_tool_help` self-documenting tools to help MCP clients discover common workflows and per-tool usage without reading source code.
-- Added MCP metadata to all `AITool` registrations: category tags, output JSON schemas, and MCP tool annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`). The MCP adapter now prefixes tool descriptions with `[Read-only]` or `[Mutates canvas]` for broad client compatibility.
-- Added MCP server and `SmartHopperMcpServerComponent`: a local HTTP/JSON-RPC Model Context Protocol server that exposes SmartHopper's AI tools to external MCP clients, with an opt-in Grasshopper component to enable, configure, and monitor the server.
-- Added canvas protection guard: components implementing `ICanvasProtectedComponent` (starting with `SmartHopperMcpServerComponent`) mark themselves and any directly wired components as protected, so mutating AI tools (`gh_put`, `gh_remove`, `gh_disconnect`, `gh_component_lock`, `button_click`, etc.) skip them and report the skipped GUIDs instead of modifying them.
-- Added `Enabled` flag to `AITool` so individual tools can be disabled and hidden from AI models. All tools in the `NotTested` category now default to `Enabled = false`; the provider tool list and MCP adapter both filter them out.
-- Added attribution for all open source packages explicitly imported as SmartHopper references to the About dialog.
-- Added `web2md` image modes: `link` (default), `embed`, `describe`, and `caption`. The new `imageMode` parameter lets web pages keep image URLs, embed downloaded images as base64 data URIs, or replace them with AI-generated captions/descriptions.
-- Added a shared `ImageProcessingService` in `SmartHopper.Core.Grasshopper.Utils.Internal` used by both `file2md` and `web2md` for downloading, describing, and formatting Markdown image replacements consistently across file and web conversion paths.
-- Added `Image Mode` inputs to `File2AIComponent` and `Web2AIComponent`. `File2AIComponent` defaults to `skip` (no image extraction); `Web2AIComponent` defaults to `link` (keep remote image URLs). AI is used only when the mode is `embed`, `describe`, or `caption`.
-- Added `AIWeb2MdComponent` in `SmartHopper.Components.Knowledge` for AI-powered URL-to-Markdown conversion with configurable `Image Mode` (defaults to `link`).
-- Added `Aspect Ratio` input to `AIText2ImgComponent` for Gemini image generation, allowing callers to specify aspect ratios such as `1:1`, `16:9`, or `4:3`.
-- Added pagination support to all `gh_get` tool variants via `page` and `pageSize` parameters (defaults: page 1, page size 25). The serialized document is still complete, but the returned `ghjson` contains only the requested page; response includes `pagination` metadata.
-- Added `Count` parameter to `GhGetComponents` (default 100) to limit the number of components retrieved; maps to `gh_get` `pageSize` and always returns page 1. Emits an info message when the result is truncated.
-- Added new `gh_remove` tool that removes canvas objects by instance GUID and records a single undo event so the action is reversible.
-- Exposed `GhJsonGrasshopper.Delete` and `GhJsonGrasshopper.Clear` facade methods in `ghjson-dotnet` so consumers can remove canvas objects through the same UI-thread-safe, undo-batched deletion logic used by `gh_remove`.
-- Added new `button_click` tool that simulates a 100 ms momentary press on Grasshopper boolean button parameters.
-- Added new `gh_document_save` tool that saves the active Grasshopper document to a given path or to its existing file path.
-- Added new `gh_disconnect` tool that removes wires between Grasshopper components by instance GUID and parameter name, records a single undo event, and recomputes the solution.
-- Added `autoOffset` parameter to `gh_put` so callers can control whether placed components are offset to avoid overlaps.
-- `gh_put` tool now accepts an absolute file path to a `.ghjson` file in the `ghjson` parameter, with the extension restricted to `.ghjson` for safety.
-- `GhPutComponents` input parameter now documents that the `JSON` input also accepts a `.ghjson` file path.
-- Added runtime (volatile) data serialization to `ghjson-dotnet`: `SerializationOptions.IncludeRuntimeData` and `GhJsonParameterSettings.RuntimeData` expose the live values flowing through parameter outputs.
-- Added `includeRuntimeData` parameter to `gh_get` and all `gh_get_*_with_data` variants; the response now includes a top-level `runtimeData` object mapping component GUIDs to their output parameter values when runtime data is requested.
-- Migrated `File2AIComponent` and `Web2AIComponent` to `AIStatefulAsyncComponentBase` so they can batch AI image-description calls through the same infrastructure used by `AIFile2MdComponent`.
-- Added shared `MarkdownImageBatchProcessor` in `SmartHopper.Core.Grasshopper.Utils.Internal` to centralize image slot extraction, batch sentinel generation, and Markdown reconstruction for all file and web components that use AI image descriptions.
-- **`web2md` failure-shape handling**: `UrlConverter` now explicitly classifies and reports failure cases instead of risking a false success with empty/misleading content: invalid or non-HTTP URLs, HTTP 401/403 and other non-success responses, login-wall pages (password field + login phrase, or thin content behind a password field), bot/human-verification challenge pages (reCAPTCHA, hCaptcha, Cloudflare Turnstile/"Just a moment...", DataDome, PerimeterX, GeeTest signatures), oversized pages (new `FileConversionOptions.MaxDownloadBytes`, default 10 MB, enforced via `Content-Length` and bounded streaming reads), and empty/thin pages (new `FileConversionOptions.MinContentLength`, default 40 characters). Added `FileConversionResult.FailureReason` (`FileConversionFailureReason` enum) so callers can distinguish failure shapes programmatically; the `web2md` tool now prefixes its error message with the classified reason (e.g. `[LoginRequired]`, `[BotChallenge]`).
+- **PDF-to-Markdown improvements**: PDF conversion now preserves hyperlinks, detects lists, interleaves inline images in reading order, and renumbers/cleans Markdown output.
+- **Web-to-Markdown image handling**: `web2md` supports `link`, `embed`, `describe`, and `caption` image modes; `File2AI` and `Web2AI` expose an `Image Mode` input.
+- **New web component**: Added `AIWeb2MdComponent` for AI-powered URL-to-Markdown conversion; the standard `Web2MdComponent` is now non-AI.
+- **Image generation**: `AIText2ImgComponent` now supports an `Aspect Ratio` input for Gemini image generation.
+- **MCP server**: Added a local HTTP/JSON-RPC MCP server and an opt-in `SmartHopperMcpServerComponent` to expose SmartHopper tools to external MCP clients.
+- **Canvas protection**: Components implementing `ICanvasProtectedComponent` (starting with the MCP server component) are protected from mutating AI tools.
+- **New canvas tools**: Added `gh_remove`, `gh_disconnect`, `gh_document_save`, `button_click`, and `gh_connect` tools.
+- **Canvas queries**: `gh_get` and `GhGetComponents` support pagination and `Count`/`pageSize` limits; responses can include live runtime data.
+- **Runtime data**: Live Grasshopper parameter values can be serialized as runtime data via the shared GhJSON library.
+- **Self-documenting tools**: Added `smarthopper_workflows` and `smarthopper_tool_help` to help MCP clients discover workflows and tool usage.
+- **Tool discoverability**: Every AI tool now exposes MCP metadata, JSON schemas, and read-only/mutating hints; experimental tools can be disabled with the `Enabled` flag.
+- **About dialog**: Added open-source package attribution.
 
 ### Changed
 
-- `gh_get` and `gh_put` tool descriptions now note that component-specific state is returned/preserved under `componentState.extensions`, with the Number Slider format (`current<min~max>`, e.g. `10<5~50>`) as an example.
-- `button_click` tool description corrected to state that it only works on Grasshopper button parameters, not boolean toggles.
-- `smarthopper_readme` no longer embeds numbered scripting workflows; it now points callers to `smarthopper_workflows` for canonical `create_script`, `edit_script`, and `debug_script` sequences. Updated documentation accordingly.
-- Renamed `smarthopper_tool_help` output field `all_tools` to `similar_tools`. When the requested tool is found, `similar_tools` now lists only tools in the same category; when the tool is not found, it still returns the full catalog for discovery.
-- **`SmartHopperMcpServerComponent` input-change handling**: the MCP server component now tracks the effective `Port`, `BearerToken`, and `ExposeMutatingTools` values. If any of these inputs change while the server is enabled, the component releases and re-acquires the server so the updated configuration is applied.
-- Simplified the `file2md` AI tool parameter schema: `preserveTableStructure`, `preserveHyperlinks`, and `preserveMath` are now always enabled and are no longer exposed as parameters. `preserveColors` and `preserveHighlights` are replaced by a unified `preserveFormatting` parameter that controls colors and highlights in DOCX plus bold/italic in DOCX, XLSX, and PPTX. Updated `File2MdToolResult`, `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent` to match the new schema, and removed the `Preserve Tables` input from those components.
-- Removed the `Preserve Formatting` input from `File2MdComponent`, `AIFile2MdComponent`, and `File2AIComponent`; formatting is now always preserved.
-- Removed the `Image Prompt` input from `AIFile2MdComponent`; the component now always uses the built-in default prompt for the selected image mode.
-- Removed the `Include Links` and `Include Images` inputs from `Web2AIComponent`; both are now always `true`.
-- `Web2MdComponent` is now a non-AI component under `StatefulComponentBase`, exposing only the URL input (plus the auto-generated Run input). Images are always kept as remote Markdown links; use `AIWeb2MdComponent` for AI-powered image description.
-- `web2md` Wikipedia/MediaWiki conversion now converts relative `href`/`src` links to absolute URLs using the source page's scheme and host, so output Markdown points to `https://<host>/wiki/...` instead of `/wiki/...`.
-- `file2md` now delegates AI image description and Markdown replacement formatting to the shared `ImageProcessingService`.
-- Renamed `instruction_get` tool to `smarthopper_readme` to clarify its purpose as a general readme/instructions tool distinct from `smarthopper_tool_help`. Updated `CanvasButton` system prompt, test component, and documentation to match.
-- Renamed tool `McpDescription` to `RichDescription` and exposed it to every LLM-facing tool list, including inside-Smarthopper provider calls and the `smarthopper_tool_help` tool. `Description` remains the canonical source description; `RichDescription` adds the `[Read-only]`/`[Mutates canvas]` prefix plus tags.
-- Updated `web2md` tool description to clarify that it should be used when the URL is known and knowledge needs to be retrieved from the web.
-- Renamed `gh_list_components` parameter `nameFilter` to `query` for consistency; the old `nameFilter` key is still accepted for backward compatibility.
-- Updated `gh_put` output schema to match the actual response shape (`components`, `instanceGuids`, `analysis`).
-- Refactored `gh_remove` and `CanvasAccess.RemoveInstances` to delegate deletion to `GhJsonGrasshopper.Delete` so undo batching and UI-thread scheduling are handled by the shared `ghjson-dotnet` `CanvasDeleter`.
-- Centralized canvas wiring logic in `GhJSON.Grasshopper`: `gh_connect` and `gh_put` now use the shared `GhJsonGrasshopper.Connect` façade, which runs on the Rhino UI thread and records undo events. `gh_put` also uses `GhJsonGrasshopper.CaptureExternalConnections()` to preserve external wires when replacing components.
-- Renamed the WIP `_gh_connect` AI tool to `gh_connect`, enabled it, fixed its output schema to match the actual response, and moved it to the `Components` category.
-- Centralized canvas read helpers in `GhJSON.Grasshopper`: `GetActiveDocument` and `FindObject` now live in `CanvasReader` and are exposed via the `GhJsonGrasshopper` façade; all internal GhJSON callers and SmartHopper canvas tools now use them instead of scattered `Instances.ActiveCanvas?.Document` / `doc.Objects.FirstOrDefault(...)` lookups.
-- **GhPatch tools and components now reject `instanceGuid` in add operations.**
-  - `gh_patch_apply` now validates the patch document before applying and returns an error when `components.add` or `groups.add` entries include `instanceGuid`.
-  - `gh_patch_validate` now also checks that new components and groups do not specify `instanceGuid`.
-  - Tool description for `gh_patch_apply` now specifies the `instanceGuid` restriction.
-- Updated provider settings and per-request extras: Anthropic now exposes `ServiceTier` and `ReasoningEffort` settings; MistralAI and Gemini expose `ReasoningEffort`; Gemini `SafetyLevel` now uses a restricted allowed-values list; per-request extras (`effort`, `service_tier`, `reasoning_effort`) were updated to match.
-- Refreshed provider model registries across Anthropic, DeepSeek, Gemini, MistralAI, OpenAI, and OpenRouter to match current official/API model lineups and capabilities.
+- **Provider settings**: Anthropic adds `ServiceTier` and `ReasoningEffort`; MistralAI and Gemini add `ReasoningEffort`; Gemini restricts `SafetyLevel` to allowed values.
+- **Provider models**: Refreshed model registries across Anthropic, DeepSeek, Gemini, MistralAI, OpenAI, and OpenRouter to match current API lineups.
+- **Tool descriptions**: Clarified `gh_get`, `gh_put`, `button_click`, and `web2md` descriptions.
+- **Readme tool**: `smarthopper_readme` now points to `smarthopper_workflows` instead of embedding numbered scripts.
+- **Tool help**: `smarthopper_tool_help` output field `all_tools` renamed to `similar_tools`.
+- **MCP server**: The component restarts automatically when port, bearer token, or mutating-tools inputs change.
+- **File conversion**: Simplified `file2md` AI tool parameters (`preserveFormatting` replaces several options; some are always enabled).
+- **List/query tool**: `gh_list_components` parameter `nameFilter` renamed to `query` (backward compatible).
+- **Patch workflow**: `gh_patch_apply` and `gh_patch_validate` reject `instanceGuid` in add operations and validate before applying.
+- **Canvas wiring**: Canvas connection and replacement logic is centralized, preserving external wires during component replacement.
+- **Canvas reads**: Canvas read helpers are centralized for consistent tool behavior.
+- **Output schema**: `gh_put` output schema updated to match the actual response shape.
 
 ### Fixed
 
-- Fixed `smarthopper_workflows` typos and ambiguous steps: corrected "componetns" in `organize_canvas`, replaced "Select the components" with concrete tool calls, made `inspect_canvas` steps explicit, and added the missing `gh_put` final step to `apply_patch`.
-- Fixed `button_click` to force a full Grasshopper solution while the button is pressed and after it is released, so downstream components actually recalculate.
-- Fixed `GhPatchApplyToCanvasComponents` to use `SetPersistentOutput` for all outputs, so result values (Success, Conflicts, component/connection/group counts) survive after the trigger button is released.
-- Fixed `gh_put` component replacement so external connections are reliably restored: parameter matching now falls back from nickname to parameter name (and then to index), and the canvas is redrawn after reconnecting.
-- Fixed `web2md` Wikipedia handling by switching to the MediaWiki `action=parse` API so headings and tables are converted to proper Markdown instead of plain text with MediaWiki `== Heading ==` markup.
-- Fixed `web2md` Discourse handling so topic URLs return clean raw Markdown instead of noisy HTML-to-Markdown fallback output. Introduced a shared `DiscourseForumService` used by both `UrlConverter` and `DiscourseToolsBase`, fixed the topic-ID/post-ID confusion for `/t/slug/{topicId}` URLs, and added `include_raw=1` so the topic JSON includes the original post Markdown.
-- Fixed Markdown post-processing in `MarkdownStyleCleanup` to remove the extra blank line that converters emit before a nested ordered list starting with `1.` when the previous item is a parent list item.
-- Fixed `OpenXmlMarkdownHelper.GetCellFont` to count actual child elements instead of relying on the optional `Count` attribute, preventing `InvalidOperationException` when reading XLSX files with styles that omit the `count` attribute.
-- Fixed `OpenXmlConverterTests.PptxConverter_BoldItalic` by adding a non-bold run to the first paragraph so the bold formatting is not treated as uniform and is emitted as Markdown bold.
-- Fixed `web2md` generic HTML conversion so headings nested inside links (e.g. WAI-ARIA pattern sidebars) are flattened to plain text before Markdown conversion, preventing invalid Markdown like `[## Title](url)` and preserving only the readable title as the link text.
-- Fixed `OpenXmlConverterTests.XlsxConverter_CellFormatting` by building a complete, valid OpenXML stylesheet (`NumberingFormats`, `Fills`, `CellStyleFormats`, `CellStyles`, `DifferentialFormats`, `TableStyles`) so the workbook is loaded and converted successfully.
-- **CI:** Hash-manifest auto-merge in `release-4-build.yml` now uses `--rebase` instead of `--squash`. The `main` and `dev` branches only allow the rebase merge method (and use a rebase merge queue), so squash auto-merge requests could not complete.
-- **CI:** `release-1-milestone.yml` now syncs `.github/actions` from the dispatched workflow ref before running local composite actions. Releasing from a stabilization branch that predated a CI tooling refactor (e.g. the `update-version` → `version-manager` consolidation) previously failed because the checked-out base branch lacked the referenced local action.
-- Improved error surfacing for empty results in `gh_get` and `gh_put` so callers receive a clear warning instead of an empty object.
-- Improved `gh_put` input handling so it accepts the `ghjson` argument as either a JSON string or a structured JSON object/array.
-- Fixed `gh_group` returning an empty error response (`"Either body or messages must be set"`) while still creating the group on the canvas. The UI-thread callback is now awaited via a `TaskCompletionSource`, and the tool output schema now matches the actual `group`/`grouped` payload.
-- **CI:** The provider-model update report (`Update-ProviderModels.ps1`) no longer mislabels rolling alias ids (e.g. `gpt-5-pro`, an alias of `gpt-5-pro-2025-10-06`) as `New` models. The `New`/`Unchanged` diff is now computed from the merged canonical entries and treats a model as known when its canonical id or any of its aliases already existed in the source file, matching what is actually written to the `*ProviderModels.cs` file.
-- **CI:** Fixed the `documentation` PR auto-label rule in `.github/labeler.yml`. The rule previously contained a second `changed-files` matcher (`all-globs-to-all-files: ['!CHANGELOG*']`) that `actions/labeler` OR-combines, so `documentation` was applied to essentially every PR that did not touch `CHANGELOG`. The label now applies only when `docs/**` or `.github/ISSUE_TEMPLATE/**` files change.
-- **CI:** Grouped the `AIToolManager` test classes into a shared `AIToolManager` xUnit collection so they no longer run in parallel. Both classes mutate the static `AIToolManager` tool registry via `ResetTools()`/`RegisterTool()`, which caused intermittent Windows test failures (e.g. `ExecuteTool` returning `null`) when a parallel class reset the registry mid-test.
+- **Canvas operations**: `gh_put` reliably restores external connections, `button_click` forces downstream recalculation, and `gh_group` returns a correct response.
+- **Web-to-Markdown**: Fixed Wikipedia, Discourse, and generic HTML conversion edge cases.
+- **File conversion**: Fixed XLSX/PPTX formatting issues and Markdown list blank-line edge cases.
+- **Patch results**: `GhPatchApplyToCanvasComponents` outputs persist after the trigger button is released.
+- **Empty results**: `gh_get` and `gh_put` now surface clear warnings for empty results.
+- **Input handling**: `gh_put` accepts JSON strings and structured objects.
+- **CI**: Fixed provider-model alias classification, documentation labeler rule, and `AIToolManager` test parallelism.
 
 ### Removed
 
-- **CI:** Removed the `pr-dependency-validation.yml` workflow. The GhJSON ProjectReference check is no longer needed because `.csproj` references now use `Condition="Exists(...)"` to fall back to local projects during development and PackageReference in CI/production builds.
+- Removed the obsolete `pr-dependency-validation` workflow.
 
 ## [2.0.0-dev.260619] - 2026-06-19
 
@@ -114,354 +65,86 @@ Many thanks to the following contributors to this release:
 
 ----
 
-> This release reimagines SmartHopper's component surface with a unified `*2*` naming convention, introduces a complete family of typed AI I/O components with graceful fallback handling, adds GhJSON diff/patch operations for versioned Grasshopper workflows, and brings speech and music support across OpenAI, MistralAI and Google Gemini. Breaking changes include renamed tools/components, new `Settings` input replacing `Model`, batch API signature changes, and a deep `ComponentBase` refactor.
+> This release reimagines SmartHopper with a unified `*2*` naming convention, typed AI I/O components, GhJSON diff/patch, speech/music support, and breaking changes to tools, components, and settings.
 
 ### ⚠️ BREAKING CHANGES
 
-- **Renamed AI Tools** (old → new):
-  - `text_generate` → `text2text`
-  - `text_evaluate` → `text2boolean`
-  - `list_generate` → `text2textlist`
-  - `list_evaluate` → `textlist2boolean`
-  - `img_generate` → `text2img`
-  - `img_to_text` → `img2text`
-  - `file_to_md` → `file2md`
-  - `web_to_md` → `web2md`
-  - `web_generic_page_read` → **REMOVED** (use `web2md` instead)
-
-- **Renamed Components** (class and file names changed):
-  - `AITextGenerate` → `AIText2TextComponent`
-  - `AITextEvaluate` → `AIText2BooleanComponent`
-  - `AITextListGenerate` → `AIText2TextListComponent`
-  - `AIListEvaluate` → `AIList2BooleanComponent`
-  - `AIImgGenerateComponent` → `AIText2ImgComponent`
-  - `AIImgToTextComponent` → `AIImg2TextComponent`
-  - `AIFileToMdComponent` → `AIFile2MdComponent`
-  - `WebPageReadComponent` → **REMOVED** (use `Web2MdComponent` instead)
-  - `AIInstructionsComponent` → `AIPromptComponent`
-
-- **Batch API breaking changes** (for custom `IAIBatchProvider` implementations):
-  - `AIBatchStatus.ResultBody` replaced by `Results` (dictionary mapping custom ID to response body)
-  - `IAIBatchProvider.SubmitBatchAsync` signature changed to accept multiple items
-  - `OnBatchCompleted` signature changed from `(AIReturn)` to `(IReadOnlyDictionary<string, JObject>)`
-
-- **Settings input change**: `AIStatefulAsyncComponentBase` `Model (M)` input replaced by `Settings (S)` parameter accepting `AIRequestParameters` or plain model name string
-
-- **Removed `service_tier` extra descriptor** from OpenAI, Anthropic, and MistralAI providers. Use the dedicated `Batch` input on `AISettingsComponent` instead.
-
-- **Removed legacy interaction classes**: `AIInteractionError`, `AIInteractionInfo`, `AIInteractionWarning`, `AIInteractionDebug`, `AIInteractionDiagnosticBase`. Use `AIInteractionRuntimeMessage` with explicit `Severity` instead.
-
-- **`ComponentBase` deep refactor** (`src/SmartHopper.Core/ComponentBase/`):
-  - `IProviderComponent.HasProviderChanged()` removed — its accessor mutated state on read. Replace with the new `ProviderSelectionCore.ProviderChanged` event and idempotent `IsProviderChangedSinceLastCommit()`/`CommitProviderChange()` methods. `ProviderComponentHelper` was folded into `ProviderSelectionCore`.
-  - `AIStatefulAsyncComponentBase.SetAIReturnSnapshot` is now `protected` (was `public`); `_persistedMetrics` is now `private` (was `protected`) — derived classes must use the new `protected SetPersistedMetrics(AIMetrics)` setter or `CombineIntoPersistedMetrics`.
-  - Inner attributes classes `SelectingComponentAttributes` and `AISelectingComponentAttributes` retained but now thin shells over the new `internal SelectingButtonBehavior` helper.
-  - **Legacy `Value_*` / `Type_*` persistence reader removed** along with `PersistenceConstants.EnableLegacyRestore`. Files saved with the V2 schema (anything from the public release line) restore unchanged; pre-V2 alpha files lose persistent outputs on first open and must be re-run once.
+- **Renamed AI Tools** (old → new): `text_generate` → `text2text`, `text_evaluate` → `text2boolean`, `list_generate` → `text2textlist`, `list_evaluate` → `textlist2boolean`, `img_generate` → `text2img`, `img_to_text` → `img2text`, `file_to_md` → `file2md`, `web_to_md` → `web2md`; `web_generic_page_read` removed.
+- **Renamed Components**: `AITextGenerate` → `AIText2TextComponent`, `AITextEvaluate` → `AIText2BooleanComponent`, `AITextListGenerate` → `AIText2TextListComponent`, `AIListEvaluate` → `AIList2BooleanComponent`, `AIImgGenerateComponent` → `AIText2ImgComponent`, `AIImgToTextComponent` → `AIImg2TextComponent`, `AIFileToMdComponent` → `AIFile2MdComponent`, `WebPageReadComponent` → removed, `AIInstructionsComponent` → `AIPromptComponent`.
+- **Batch API**: Custom `IAIBatchProvider` implementations must update to multi-item submission, `Results` dictionary, and `OnBatchCompleted` signature changes.
+- **Settings input**: `AIStatefulAsyncComponentBase` now uses `Settings (S)` instead of `Model (M)`; accepts `AIRequestParameters` or a plain model name.
+- **Removed `service_tier` descriptor** from OpenAI, Anthropic, and MistralAI providers; use the `Batch` input on `AISettingsComponent` instead.
+- **Removed legacy interaction classes**: `AIInteractionError`, `AIInteractionInfo`, `AIInteractionWarning`, `AIInteractionDebug`, `AIInteractionDiagnosticBase`. Use `AIInteractionRuntimeMessage` with `Severity`.
+- **`ComponentBase` refactor**: `IProviderComponent.HasProviderChanged()` removed; use `ProviderSelectionCore` events and idempotent methods. `SetAIReturnSnapshot` and `_persistedMetrics` visibility changed; use `SetPersistedMetrics` or `CombineIntoPersistedMetrics`. Legacy pre-V2 alpha file persistence removed; V2 files restore unchanged.
 
 ### Added
 
-- **GhJSON diff and patch** (`.ghpatch` sibling profile from [ghjson-spec](https://architects-toolkit.github.io/ghjson-spec/)):
-  - New AI tools: `gh_diff` (produces a `.ghpatch` from two `.ghjson` documents), `gh_patch_apply` (applies a `.ghpatch` to a base `.ghjson`, refusing on base checksum mismatch by default), `gh_patch_validate` (structural patch validation).
-  - New Grasshopper components: `GhDiffComponents` ("Diff GhJSON") and `GhPatchApplyComponents` ("Apply GhPatch") in the `SmartHopper > Grasshopper` tab, exposing the new operations on the canvas.
-  - All operations route through the new `GhJSON.Core.DiffOperations` façade endpoints (`GhJson.Diff`, `GhJson.ApplyPatch`, `GhJson.PatchFromJson/ToJson`, `GhJson.ValidatePatch`) and require `GhJSON.Core` 1.1.0 or later.
-- **DEV.md provider model sync automation**: added `tools/Update-DevProviderModels.ps1` and a GitHub workflow that validates provider model documentation on PRs and opens sync PRs after protected-branch provider registry updates.
-- **README Trademark and Logo Usage Policy**: explicit policy clarifying that the SmartHopper name and logo are not licensed under LGPL, listing permitted uses (articles, tutorials, educational materials, references to the unmodified official plug-in) and uses requiring prior written permission (commercial bundling, forks, materials that may imply endorsement).
-- **MCP server architecture design doc** (`docs/Architecture/mcp-server.md`): opt-in design proposal for exposing SmartHopper's existing `IAIToolProvider` tools to external Model Context Protocol clients (Claude Desktop, Cursor, VS Code, Claude Code, etc.) over local HTTP/JSON-RPC. Documents method mapping onto `AIToolManager`, `SemaphoreSlim`-protected request serialization, loopback-only/bearer-token security model, mutating-tools-off-by-default policy, phased rollout, and open decision points. Reuses `architects-toolkit/ghjson-dotnet` as the sole source of GhJSON schema; no schema re-implementation. Adapted from `brookstalley/cordyceps` (MIT) as architectural reference, with attribution.
-- **MCP server phase 1 implementation** (loopback HTTP/JSON-RPC, opt-in):
-  - `SmartHopper.Infrastructure/Mcp/`: `McpServer` (HttpListener on `127.0.0.1` / `[::1]`, origin guard, optional bearer token, 256 KB request limit, no payload logging), `JsonRpcDispatcher` (`initialize`, `tools/list`, `tools/call`, `notifications/initialized`, `ping`; method-not-found stubs for `resources/*` and `prompts/*`), `AIToolMcpAdapter` (bridges `AIToolManager` to MCP tool descriptors, mutating-tools-off allow-list, executes via `AIToolCall`), `McpServerLifecycle` (ref-counted singleton per port), `McpServerOptions` / `McpToolDescriptor` / `McpToolCallResult` configuration types. Mutating-tool gating now uses each tool's `AITool.MutatesCanvas` flag instead of the earlier name-prefix list.
-  - `SmartHopper.Components/Mcp/SmartHopperMcpServerComponent`: opt-in Grasshopper component with `Enable`, `Port`, `BearerToken`, `ExposeMutatingTools` inputs and `Url` / `Status` outputs. Disabled by default.
-  - `SmartHopper.Infrastructure.Tests/Mcp/`: xUnit coverage for adapter (allow-list + mutating filter + schema parsing + executor wiring + error propagation), dispatcher (`initialize` / `tools/list` / `tools/call` / unknown method / invalid JSON / notifications), and options (defaults + `Clone`).
-
-#### 📋 List I/O components
-
-- **Typed list adapters** (8 new components) that collapse / expand JSON arrays per branch:
-  - **Inputs (`SmartHopper > Input`)**: `TextList2AI`, `NumberList2AI`, `IntegerList2AI`, `BooleanList2AI` — read a typed `GH_ParamAccess.list` and emit a single `GH_AIInputPayload` whose payload text is a `JsonConvert.SerializeObject(list)` JSON array. One payload per branch.
-  - **Outputs (`SmartHopper > Output`)**: `AI2TextList`, `AI2NumberList`, `AI2IntegerList`, `AI2BooleanList` — instruct the model to return a JSON array of the requested type, then expand each parsed element into the output branch (`GH_ParamAccess.list`). Each gains an optional `Fallback` (F) typed list input and `Used Fallback` (UF) boolean output: when the AI response is unparseable or yields zero parseable items, the fallback list is emitted (or empty if not provided) and `UsedFallback=true`. Built on the unified `OutputMapping.Extractor` enumerable contract.
-- **`OutputMapping.Extractor` unified**: single `Func<AIReturn, IEnumerable<IGH_Goo>>` covers both scalar and list outputs. Replaces the prior scalar `Func<AIReturn, IGH_Goo>` and the short-lived `ListExtractor` field. Scalar callsites use the new `OutputMapping.Single(...)` helper. **Breaking** for any external `OutputMapping` consumer — migration is a 1-line wrap.
-- **`AIOutputAdapterBase` batch ↔ non-batch parity**: both legs now route mapping decoding through a single private `DecodeAllMappings(...)` helper. New mapping-aware `ProcessMappingsBatchResults` walks the primary sentinel tree, decodes each branch's `AIReturn` once via `provider.Decode`, and `AppendRange`'s the per-mapping items at the sentinel's path — so list-shaped outputs (e.g. `AI2*List`) work transparently in batch mode. The `AIOutputAdapterBase`-level override of `SentinelTransformOutputs` was removed; the virtual hook remains on `AIStatefulAsyncComponentBase` for legacy non-adapter components (`AIText2BooleanComponent`, `AIList2BooleanComponent`).
-- **`AIInputAdapterBase` output centralization**: the standard `Input >` output is now sealed-registered by the base class. Subclasses no longer duplicate the registration; they may tailor the tooltip via the new `PayloadOutputDescription` virtual property and add extra outputs via the new `RegisterAdditionalOutputParams` hook. Refactored `Text2AI`, `Img2AI`, `Audio2AI`, `Json2AI`, `AIInstructions`, and the four `*List2AI` components.
-
-#### 🆕 New AI Providers and Models
-
-- **AI model registry refresh** across providers, aligned with official documentation (Apr 2026):
-  - **Anthropic**: kept first-party Claude API IDs, retained existing defaults, and added `ToolChat`/`Image2Text` defaults to `claude-haiku-4-5`.
-  - **OpenAI**: added `gpt-5.4-mini` and `gpt-image-2`, completed default assignments for text, tools, reasoning, JSON, image, and audio capabilities, and excluded realtime endpoint models from the chat model registry.
-  - **DeepSeek**: kept first-party API model IDs `deepseek-v4-pro`, `deepseek-v4-flash`, `deepseek-chat`, and `deepseek-reasoner`; did not add OpenRouter-only release IDs to the DeepSeek provider list. `deepseek-v4-flash` remains the default for text, tool, reasoning, tool-reasoning, and JSON chat.
-  - **MistralAI**: added dated aliases `mistral-medium-3-1-25-08`, `mistral-small-3-2-25-06`, `magistral-medium-1-2-25-09`, `magistral-small-1-2-25-09`, `voxtral-mini-transcribe-26-02`, and new `devstral-2-25-12` code-agent model. Kept `*-latest` aliases (Mistral repoints them automatically).
-  - **OpenRouter**: added `openai/gpt-5.5`, `anthropic/claude-opus-4-7`, `deepseek/deepseek-v4-flash`, `mistralai/mistral-small-4`.
-
-- **Centralized JSON Formatting Utility** (`JsonFormatHelper`):
-  - New utility class in `SmartHopper.Infrastructure.Utilities` for consistent JSON formatting
-  - Core methods: `JsonToString()` (JToken/string to minified JSON), `StringToJson()` (string to JToken), `IsValidJson()` (validation with optional parsing)
-  - All methods support optional error handling via `out string error` parameter
-  - **Automatic markdown code block extraction**: String-based methods automatically extract JSON from ` ```json ... ``` `, ` ```txt ... ``` `, ` ```text ... ``` `, and ` ``` ... ``` ` blocks before processing
-  - Ensures all JSON output is minified (no unnecessary whitespace) across all JSON components and tools
-  - Provides graceful error handling with detailed error messages for invalid JSON
-  - Integrates seamlessly with existing `JsonPathHelper` for error messaging
-  - Follows `AIResponseParser` patterns for consistency with existing response parsing logic
-  - **`JsonSanitizerComponent`** (`SmartHopper > JSON > JSON Sanitizer`): sync component that recovers a valid JSON object from a malformed / AI-generated string. Runs the full recovery pipeline (direct parse → strip markdown fences → brace-depth extraction → sanitization), outputs a minified single-line JSON plus a human-readable summary of the steps performed. Supports tree input with preserved path/branch structure on both outputs.
-  - **`JsonFormatHelper.TryRecoverJsonToken`** / **`TryRecoverJsonObject`** and **`ExtractFirstJsonContainer`** / **`ExtractFirstJsonObject`**: centralized JSON recovery utilities. Token-level recovery preserves JSON **array** roots (`[...]`) in addition to objects; object-only wrapper rejects array roots for callers that need object semantics. `AIResponseParser.ParseJsonObjectFromResponse` now delegates to `TryRecoverJsonObject` instead of re-implementing the recovery pipeline. `JsonSanitizerComponent` uses `TryRecoverJsonToken` so array inputs round-trip as arrays.
-
-- **Google Gemini Provider**: Full integration of Google's Gemini AI models
-  - Support for Gemini 3.1, 2.5, 2.0, and 1.5 models
-  - Text generation with streaming support
-  - Image generation, structured outputs, tool calling
-  - Extended thinking/reasoning with configurable levels
-  - Batch processing with priority support
-  - Service tier selection (`standard`, `flex`, `priority`)
-
-- **Phase 8 Audio Support (OpenAI, MistralAI, Gemini)**:
-  - Speech-to-Text (STT) and Text-to-Speech (TTS) API endpoints
-  - OpenAI: `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` for STT; `tts-1`, `tts-1-hd` for TTS
-  - MistralAI: `voxtral-small-latest`, `voxtral-mini-latest` for STT; `voxtral-tts-26-03` for TTS
-  - Gemini: Native audio input; `gemini-2.5-flash/preview-tts` for TTS; `lyria-3-clip/pro` for music generation
-
-- Community model verification flow:
-  - New issue template `.github/ISSUE_TEMPLATE/model-verification.yml` with tests grouped by location ("Components on the Grasshopper canvas" — `AITextGenerate`, `AITextListGenerate`, `AIImgToText`, `AIImgGenerate`, audio — and "Chat interface" — streaming, ToolChat/FunctionCalling, Reasoning, multi-turn `ConversationSession`), each test specifying the **exact prompt** to use and the expected behavior. The template also embeds a copy-paste codeblock (with a `/verify-confirm` header and a hidden `<!-- model-verification-confirm -->` marker) for additional verifiers to use as their certification comment.
-  - New workflow `.github/workflows/model-verification.yml` that triggers only when an issue comment starts with `/verify-confirm` (and contains the template marker) or `/verify-force`, tallies distinct GitHub users (issue author + valid `/verify-confirm` commenters), and opens a PR promoting the model to `Verified = true` once two distinct users have certified it. `/verify-force` is restricted to `OWNER`/`MEMBER`/`COLLABORATOR`.
-  - New helper `tools/Update-ModelVerified.ps1` that locates the matching `new AIModelCapabilities { Model = "..." }` block in `src/SmartHopper.Providers.<Provider>/<Provider>ProviderModels.cs` and flips `Verified = false` to `Verified = true` (or inserts the flag when missing).
-
-- ci(main-sync-to-dev): new workflow `.github/workflows/main-sync-to-dev.yml` that, on pushes to `main` (or manual dispatch), auto-opens a PR from `main` into every `dev` / `dev-*` branch to keep promotional branches in sync with direct-to-main commits (workflows, hashes). Reuses an existing open PR (head=`main`, base=`dev*`) per target when present instead of creating duplicates, and skips targets already up-to-date.
-- ci(main-sync-to-dev): new workflow `.github/workflows/main-sync-to-dev.yml` that, on pushes to `main` (or manual dispatch), auto-opens/reuses a PR from `main` into `dev` and into every `dev-*` stabilization branch. For `dev-*` targets the diff is allow-listed to: any change under `.github/`, `.windsurf/`, `.githooks/`, `hashes/`, plus *modifications* (not additions/renames/removals) to existing `src/SmartHopper.Providers.*/*ProviderModels.cs` files so model verification, deprecations, and provider model-list updates propagate to frozen lines. If any file outside the allow-list lands on `main`, the sync to that `dev-*` is skipped with a warning (use `patch-propagate.yml` for targeted backports). Reuses an existing open PR per target instead of creating duplicates, and skips entirely when there is no effective file diff.
-
-- Automated provider model discovery CI (OpenRouter as single source of truth):
-  - New workflow `.github/workflows/chore-update-provider-models.yml` that runs weekly (Sundays 05:00 UTC) and on `workflow_dispatch`. It queries OpenRouter's unified `/models` endpoint for each supported provider, compares the returned metadata with the static declarations in `*ProviderModels.cs`, and opens a PR that both auto-inserts new models and marks disappeared/expiring models as `Deprecated = true`.
-  - New composite action `.github/actions/ai/fetch-models/action.yml` that invokes `tools/Update-ProviderModels.ps1` with an OpenRouter API key, passing the provider name and `update-file` flag.
-  - New PowerShell tool `tools/Update-ProviderModels.ps1` invoked by the workflow.  Accepts `-Provider`, `-OpenRouterApiKey` (OpenRouter key), and an optional `-TargetFile`.  It queries OpenRouter, filters by provider prefix, maps `architecture.input_modalities`/`output_modalities` and `supported_parameters` to `AICapability` flags, auto-generates full `AIModelCapabilities` blocks for new models (with `ContextLimit`, `Verified=false`), and marks models with `expiration_date` < 1 year or absent from OpenRouter as `Deprecated = true`.  `Rank` values are auto-computed from OpenRouter `created` timestamp (newer models rank higher) and output pricing (cheapest first, considering `pricing.completion`, `pricing.image`, and `pricing.audio_output`).  Existing model capabilities, context limits, and ranks are refreshed on every run.  Emits a structured JSON report containing `newModels`, `deprecatedModels`, and `unchangedModels`.
-- OpenAI now default to the new responses API
-- **OpenAI Responses API streaming support**:
-  - `OpenAIStreamingAdapter` now supports SSE streaming for the `/v1/responses` endpoint in addition to `/v1/chat/completions`.
-  - Handles semantic events: `response.output_text.delta` (text streaming), `response.completed` (usage + finish), `response.output_item.added` / `response.function_call_arguments.delta` / `response.output_item.done` (tool call streaming), and `error` (provider errors).
-  - Conditionally omits `stream_options.include_usage` for Responses API (not supported) while retaining it for Chat Completions.
-- **Additional GhJSON and GhPatch Grasshopper components** in the `SmartHopper > Grasshopper` tab:
-  - `SaveGhPatch` ("Save GhPatch") — saves a `.ghpatch` string to a file.
-  - `OpenGhPatch` ("Open GhPatch") — opens a `.ghpatch` file from disk with validation output.
-  - `GhValidateComponents` ("Validate GhJSON") — validates a GhJSON document against the official schema and performs structural checks.
-  - `GhPatchApplyToCanvasComponents` ("Apply GhPatch to Canvas") — applies a `.ghpatch` directly to the canvas with intelligent change detection.
-- `AIInputPayloadCodec` for `GH_AIInputPayload` serialization with stable checksums.
-- Audio viewer component icon and visualization improvements for audio and image components.
-- Missing component icons and reorganized components panel for better discoverability.
-- **OpenRouter provider**: Added vision input support via OpenAI-compatible `image_url` format.
-- **`script_generate` tool**: Added Python top-level return validation and improved error handling.
+- **GhJSON diff and patch**: New `gh_diff`, `gh_patch_apply`, and `gh_patch_validate` AI tools plus `GhDiffComponents` and `GhPatchApplyComponents` Grasshopper components for versioning Grasshopper workflows.
+- **Provider model sync automation**: Added tooling and workflow to validate and sync provider model documentation.
+- **Trademark policy**: README now clarifies SmartHopper name/logo usage under LGPL.
+- **MCP server**: Opt-in local HTTP/JSON-RPC server exposing SmartHopper tools to external MCP clients, with `SmartHopperMcpServerComponent` and security controls.
+- **List I/O components**: 8 new typed list adapters (`TextList2AI`, `NumberList2AI`, `IntegerList2AI`, `BooleanList2AI`, `AI2TextList`, `AI2NumberList`, `AI2IntegerList`, `AI2BooleanList`) with fallback handling.
+- **Output mapping**: Unified scalar and list output extraction for consistent batch and non-batch behavior.
+- **AI model refresh**: Updated registries across Anthropic, OpenAI, DeepSeek, MistralAI, and OpenRouter.
+- **JSON utilities**: `JsonFormatHelper` and `JsonSanitizerComponent` for robust JSON formatting and recovery from malformed AI output.
+- **Google Gemini provider**: Full integration with text, image, structured output, tool calling, reasoning, batch, and service tier support.
+- **Audio support**: Speech-to-text and text-to-speech across OpenAI, MistralAI, and Gemini, plus music generation with Gemini.
+- **Model verification**: Community issue template and workflow to certify new models.
+- **Main-to-dev sync**: Workflow to keep dev and stabilization branches in sync with main.
+- **Automated provider model discovery**: Weekly CI sync against OpenRouter to add new models and deprecate vanished ones.
+- **OpenAI Responses API**: Default API with streaming support.
+- **Additional GhJSON components**: `SaveGhPatch`, `OpenGhPatch`, `GhValidateComponents`, and `GhPatchApplyToCanvasComponents`.
+- **AI input payload codec**: Stable serialization for `GH_AIInputPayload`.
+- **OpenRouter vision**: Image input support via OpenAI-compatible format.
+- **New tools and components**: `text2json` + `AIText2JsonComponent`, `img2text` + `AIImg2TextComponent`, `GH_ExtractedImage` type, improved Python script validation.
+- **File and web processing**: `file2md` and `web2md` tools with PDF layout intelligence, image extraction, and site-specific handlers.
+- **Settings components**: `AISettingsComponent`, `AIExtraSettingsComponent`, and immutable `AIRequestParameters`.
+- **JSON components**: Schema builders, object/array builders, parsers, and merge component.
+- **Batch processing**: Multi-item batch support with progress, persistence, and per-item custom IDs in OpenAI, Anthropic, and MistralAI.
+- **Infrastructure**: Centralized JSON recovery, structured HTTP errors, mixed-type data tree support, and unified diagnostic messages.
+- **Reasoning effort**: OpenAI now consistently sends `reasoning_effort` for o-series and gpt-5 models, even with tool calling.
+- **HTTP error classification**: 5xx, 408, and 429 are now surfaced as network errors; 4xx remain provider errors across streaming and non-streaming paths.
+- **Fallback outputs**: `AI2Boolean`, `AI2Integer`, `AI2Number`, and `AI2Json` components now expose `Fallback` and `Used Fallback` outputs.
 
 ### Changed
 
-- **Prompt caching improvements**:
-  - **Anthropic provider**: `enable_caching` now also emits an explicit `cache_control` breakpoint on the system content block, so single-shot and batch requests sharing the same tools+system prefix get cache hits even when the user message varies (previously only top-level automatic caching was sent, which never produced cache reads for varying single-turn requests). Top-level automatic caching is kept for multi-turn conversation growth.
-  - **OpenRouter provider**: top-level `cache_control` is now only sent for `anthropic/*` models (it is Anthropic-specific and restricted OpenRouter routing for other models); `enable_caching` now also sends a stable `session_id` (hash of model + first system text) to activate provider sticky routing from the first request, keeping prompt caches warm.
-  - Updated `enable_caching` descriptors in both providers to accurately describe behavior, costs, and minimum-token/TTL conditions.
-- Time context keys renamed from `current-*` to `local-*` (e.g., `current-time` → `local-time`, `current-file_selected-count` → `local-file_selected-count`) for clarity.
-- `AIFileContext` renamed to `AIFileMetadata` and integrated with GhJSON serialization.
-- Codec logic refactored into a registry pattern with `IGooCodec` interface; documentation added for `GH_VersatileImage` and `GH_VersatileAudio` `SafeGooCodec` serialization.
-- `GhGetComponents` migrated to worker pattern and input-change optimization disabled to fix missing metrics outputs.
-- OpenAI and MistralAI providers: removed `n` (completions count) parameter.
-- AI coding rules migrated from `.windsurf` to `.devin` configuration directory.
-- Rhino compatiblity downgraded from `Rhino 8.24` to `Rhino 8.0`.
-
-- **AI model rebalancing**:
-  - **OpenAI**: `gpt-5.4-mini` retains Rank 100 with `Default = ToolChat | Text2Json | ToolReasoningChat`; moved `Default = Text2Image | Image2Image` from `gpt-image-1-mini` to `gpt-image-2`; cleared `Default = Text2Image` from `dall-e-3` (Rank 80 → 70); demoted `gpt-image-1.5` Rank 75 → 65.
-  - **Anthropic**: demoted `claude-opus-4-6` Rank 80 → 75 (superseded by `claude-opus-4-7`).
-  - **DeepSeek**: cleared `Default` from `deepseek-chat` (Rank 90 → 70) and `deepseek-reasoner` (Rank 80 → 60); both aliased to `deepseek-v4-flash` per official docs.
-  - **OpenRouter**: aligned mirrored OpenAI model `Default` flags with the native OpenAI provider entries — `openai/gpt-5.4-mini` and `openai/gpt-5-mini` now use `ToolChat | Text2Json | ToolReasoningChat`; cleared `Default` on `openai/gpt-5.4` to match native (no Default).
-
-- **Refactored Timeout Configuration System**:
-  - **AIRequestBase.TimeoutSeconds** is now nullable (`int?`) to allow null/empty values
-  - **RequestTimeoutPolicy** now resolves timeout from settings when null:
-    - Reads `Timeout` from settings (with fallback to `HttpTimeoutSeconds` for backward compatibility)
-    - Uses `TimeoutDefaults.DefaultTimeoutSeconds` (300s) as final fallback
-  - **AISettingsComponent** now has "Timeout" input parameter (before "Extras") for custom timeout override
-    - **Breaking (saved files)**: Inserting `Timeout` before `Extras` shifts the `Extras` parameter index by one. Grasshopper persists wire connections by parameter index, so existing `.ghx`/`.gh` files with a wire into `Extras` will, after upgrade, resolve that wire to the new `Timeout` (integer) input. Because the source value (Extras JSON string) is type-incompatible with `Timeout`, the input is silently ignored and the previously wired provider-specific extras are lost on file load. Reconnect the `Extras` input on `AISettingsComponent` after upgrading.
-  - **AIStatefulAsyncComponentBase** additions:
-    - New `ConfigureRequestTimeout()` helper method - centralizes timeout configuration for both batch and regular paths
-  - **AIProvider** simplified - removed duplicate timeout resolution logic, now relies on RequestTimeoutPolicy
-  - **Renamed HTTP Timeout Setting** (UI label and setting key):
-    - `HTTP Timeout (Regular Calls)` → `Timeout` (setting key: `TimeoutSeconds`, default: 300s)
-    - Old setting keys (`HttpTimeoutSeconds`, `ResponseGenerationTimeoutSeconds`) automatically migrated for backward compatibility
-  - **Timeout resolution priority** (highest to lowest):
-    1. Custom timeout from AI Settings component input
-    2. Settings-based timeout (`TimeoutSeconds`)
-    3. Safe default (300s)
-  - **Unified default across layers**: introduced `SmartHopper.Infrastructure.AICall.Core.TimeoutDefaults` with `DefaultTimeoutSeconds = 300`, `MinTimeoutSeconds = 1`, `MaxTimeoutSeconds = 600`. The following call sites now reference these constants instead of hardcoded literals (previously: 300s policy, 600s provider/batch, 120s tool, 600s streaming idle):
-    - `RequestTimeoutPolicy` (default + bounds)
-    - `AIProvider.Call()` and `AIProvider.CreateBatchHttpClient()` (default + bounds)
-    - `AIToolCall.Exec()` (default + bounds)
-    - Streaming idle-timeout fallbacks in OpenAI, OpenRouter, MistralAI, DeepSeek, Anthropic, and Gemini providers
-    - `ProvidersSettingsPage` Timeout `NumericStepper` Value/Min/Max
-  - Behavior under normal flow is unchanged (policy always resolves first); this aligns the safety-net fallback when the policy pipeline is bypassed and ensures the settings UI bounds match the runtime clamp.
-
-- Components can now mix different `IGH_Goo` types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values)
-- Foundation laid for future extensibility to support `GH_Integer`, `GH_Number`, `GH_Path`, and other Grasshopper data types
-- Existing `GH_String`-only workers remain compatible and can be migrated individually when needed
-- **`AIText2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
-  - `inputTree` field changed from `Dictionary<string, GH_Structure<GH_String>>` to `Dictionary<string, GH_Structure<IGH_Goo>>`
-  - Fallback input now stored natively as `GH_Boolean` without string conversion round-trip
-  - Uses `GHStructureConverter.ConvertToGooTree()` for type conversions
-  - Accesses results via `ProcessingResult<IGH_Goo>.Outputs` and `ExtractTypedTree<GH_String>()`
-
-- **`AIList2BooleanComponent`**: Migrated to mixed-type IGH_Goo processing pipeline
-  - Same structural changes as `AIText2BooleanComponent`
-  - Fallback input stored natively as `GH_Boolean`
-- **`AIFile2MdComponent` batch context persistence**: `_fileContexts` (base markdown + image slot metadata per file) is now serialized via `Write`/`Read` so batch results can be reconstructed after a Grasshopper file save/reload. A `_batchContextLost` flag prevents `GatherInput` from resetting `_fileContextsInitialized` while a batch is active, fixing a same-session overwrite bug where each poll tick re-initialized the context to empty before `OnBatchCompleted` could use it.
-- **`AIFile2MdComponent` batch image descriptions**: `OnBatchCompleted` now extracts image descriptions from `AIInteractionText.Content` (the actual batch response type) instead of `AIInteractionToolResult`, which was never produced in batch mode since `BuildDescribeRequest` bypasses the tool execute wrapper.
-- **`AIFile2MdComponent` batch metrics**: Per-slot image decode metrics are now accumulated manually and merged into `AIReturnSnapshot` after `ProcessBatchResults`, since `ProcessBatchResults` only sees the representative sentinel (one per file) and misses all non-first image slots.
-- **`img2text` AI Tool**: Extracted shared `BuildRequestBody` and `ExtractDescription` helpers so `DescribeImageAsync` (execute path) and `BuildDescribeRequest` (batch path) send identical requests and decode using the same logic. `ExtractDescription` reads from `AIInteractionText.Content` directly, making both paths consistent.
-- **`file2md` AI Tool**: `DescribeImageAsync` internal helper now reads `AIInteractionToolResult["description"]` with a clean single-expression return, removing a dead fallback that logged `assistantText.Content` but always returned `[Image could not be described]`.
-
-- **`AIFile2MdComponent`**: Reworked batch wiring so only the AI calls (image descriptions) are batched. File conversion and image extraction now run locally via `file2md` with `describeImages=false`; each image is then described via `CallAiToolAsync("img2text", ...)` which is batch-interceptable. `OnBatchCompleted` reassembles the final markdown from locally-stored per-file context and batch image description results. `UsingAiTools` updated from `file2md` to `img2text`. Format and Images outputs are computed locally and persisted immediately.
-- **`img2text` AI Tool**: Added `BuildRequest` delegate so the tool supports batch mode. The delegate mirrors the existing `DescribeImageAsync` request construction without executing it.
-
-- **`DataTreeProcessor.RunAsync` heterogeneous output support**: Added `RunAsync<T>` overload (delegates to `RunAsync<T, IGH_Goo>`) and `ExtractTypedTree<U>` helper so a single processing call can populate output channels of different concrete `IGH_Goo` types. Matching `RunProcessingAsync<T>` overload added to `StatefulComponentBase`.
-- **`File2MdComponent` / `AIFile2MdComponent`**: Replaced manual `foreach` tree iteration with `RunProcessingAsync<GH_String>` + `ExtractTypedTree<U>`, gaining flat-tree broadcasting and consistent `ItemGraft` path management. `ComponentProcessingOptions` property added to both components.
-
-#### 🛠️ New AI Tools and Components
-
-- **`text2json` AI Tool** + **`AIText2JsonComponent`**: Generate structured JSON from a prompt using a JSON Schema
-- **`img2text` AI Tool** + **`AIImg2TextComponent`**: Describe/analyze images using vision models
-- **`GH_ExtractedImage`**: New Grasshopper Goo type for extracted images with base64 data, MIME type, and metadata
-- **`OpenAIProvider` now always sends `reasoning_effort` for o-series / gpt-5 models** regardless of whether tools are present. A speculative `if (!hasTools)` guard — introduced in an unrelated timeout refactor with a comment citing a "gpt-5.4 incompatibility" — was silently stripping `reasoning_effort` from any tool-enabled request on reasoning models. This has no basis in OpenAI's official API reference or the GPT-5 cookbook, both of which document `reasoning_effort` + function calling as fully supported on o-series and gpt-5 families. Users on `gpt-5*` / `o3` / `o4-mini` with function calling will now get the configured reasoning effort as intended.
-- **HTTP error classification & streaming structured errors**: Non-success HTTP responses are now classified consistently across non-streaming and streaming paths via a new shared `AIProvider.ClassifyHttpError()` helper. 5xx, 408 and 429 are surfaced as network-style errors (`AIReturn.CreateNetworkError`), while 401/403/413 and other 4xx remain provider errors (`CreateProviderError`), restoring the prior Network/Provider distinction that was momentarily lost when `CallApi` switched from throwing to returning structured `AIReturn`. Streaming adapters (`OpenAI`, `OpenRouter`, `MistralAI`, `DeepSeek`, `Anthropic`, `Gemini`) now use the same classifier and yield a properly tagged `AIReturn` instead of generic provider errors. The base `AIProviderStreamingAdapter.ReadSseDataAsync` now throws a typed `ProviderHttpStatusException` (carrying status code + classification) for callers that don't pre-check status.
-- **`FinishReasonNormalizeResponsePolicy` null-`Body` hardening**: The policy now early-returns when `response.Body == null` instead of attempting `AIBodyBuilder.FromImmutable(null).ReplaceLast(...)`. This guards against the slightly more frequent null-body path now that HTTP errors return structured `AIReturn` (with no body) and flow through the response policy pipeline.
-- **`AIInteractionImage.SetResult(string, string, string)` silently dropped invalid URL when no image data**: when `imageUrl` was a non-null but invalid (non-absolute / malformed) URI string and `imageData` was `null`, the method returned without setting any image data and without throwing, masking the failure from callers. Now throws `ArgumentException` (paramName `imageUrl`) in that case; the legitimate "invalid URL but valid `imageData`" path still sets `ImageData` as before. Regression tests added in `AIInteractionImageTests`.
-- **`AIText2BooleanComponent` / `AIList2BooleanComponent` "Used Fallback" output always reported `false`** in non-batch mode when the fallback was actually applied. The components only forwarded `toolResult["result"]` (which after fallback contains a parseable boolean string like `"True"`) and re-inferred `usedFallback` from the string's parseability, masking the tool's authoritative `usedFallback` flag. `ProcessData` now emits parallel `Result` and `UsedFallback` `IGH_Goo` lists carrying both values from the tool result; `ConvertStringTreeToBoolean` consumes them directly instead of inferring the flag.
-- **`AIText2BooleanComponent` / `AIList2BooleanComponent` triple provider-Decode per batch item**: `OnBatchCompleted` was calling `ProcessBatchResults` twice (once for `Result`, once for `Used Fallback`), which iterated the sentinel tree twice and ran `provider.Decode` once internally per pass plus once inside the user lambda — three decodes per item. The second `ProcessBatchResults` call also overwrote `_persistedMetrics` and `AIReturnSnapshot` set by the first. Collapsed into a single `ProcessBatchResults` pass that populates `Result` directly and emits `Used Fallback` via a `TransformOutputs` override using the existing per-sentinel parse cache.
-- **`AIText2BooleanComponent` / `AIList2BooleanComponent` user fallback was silently lost in batch mode**: the batch path bypasses the `text2boolean` / `textlist2boolean` tool's execute body, so the parsing+fallback logic in those tools never ran on batch results, producing `null` outputs for unparseable AI responses even when the user had wired a Fallback value. Additionally, `ParseBooleanWithFallback` used strict `bool.TryParse` rather than the tool's lenient `AIResponseParser.ParseBooleanFromResponse`, so common AI replies like "yes"/"no" were rejected. Fixed by capturing the Fallback input value in `GatherInput` into a component field, passing it into `ParseBooleanWithFallback`, and switching the parser to `AIResponseParser.ParseBooleanFromResponse` so batch and non-batch paths now produce identical results.
-- **Batch output lost after file close/reopen during polling**: When a Grasshopper file was saved and reopened while a batch job was still in-flight, `_sentinelTrees` (the path layout + sentinel strings needed to reconstruct output trees) was lost because it was only kept in memory. On reload, `GetSentinelTree()` returned `null`, causing `OnBatchCompleted` to exit early and produce no output. Fixed by serializing the full sentinel tree structure (paths + sentinel strings per branch) in `Write()` via a new `BatchSentinelTrees` key, and restoring it in `Read()` before polling resumes. Added diagnostic logging to `GetSentinelTree()` to surface the null case.
-
-#### 📄 File and Web Processing
-
-- **`file2md` AI Tool** + **`File2MdComponent`**: Convert PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF to Markdown
-  - PDF layout intelligence (column detection, reading order, header/footer removal, table detection)
-  - Image extraction from PDF, DOCX, PPTX as `GH_ExtractedImage`
-  - Native .NET implementation (no Python dependencies)
-
-- **`GeminiProvider.Encode(AIRequestCall)` duplicated per-interaction encoding**: The full-request encoder re-implemented all part-building logic (text, tool call, tool result, image/URL fetch) inline instead of delegating to the existing single-interaction `EncodeToJToken`, creating a maintenance hazard where a fix to one path could miss the other (e.g. the recent image-fetch hardening). `Encode(AIRequestCall)` now loops and delegates to `EncodeToJToken`, which already returns `null` for System/Context (handled separately as `system_instruction`) and for UI-only `AIInteractionError`. Removes ~100 lines of duplication; no behavior change.
-
-- **`GeminiProvider` image URL fetch**: Replaced obsolete `System.Net.WebClient` (deprecated since .NET 6, `SYSLIB0014`) in `FetchImageFromUrl` with a shared `HttpClient`. Fetch is now bounded by `TimeoutDefaults.DefaultTimeoutSeconds` via a `CancellationTokenSource`, capped at 20 MB (Gemini's `inline_data` limit), and prefers the response `Content-Type` for the MIME type before falling back to the URL extension. Gemini's REST API still requires arbitrary HTTP(S) images to be inlined as base64 (its `file_data.file_uri` only accepts Gemini File API URIs or YouTube), so a download remains unavoidable on this path.
-
-- **CI automation**: Normalized license-header rewrites to UTF-8 without BOM and added no-PAT workflow dispatching so bot-authored PR updates still run the required PR checks.
-- **`AIImgToTextComponent`**: Fixed MistralAI (and other providers) receiving a placeholder string (`"Image [img-3] Page 13 (image/jpeg)"`) instead of actual base64 data when a `GH_ExtractedImage` was connected to the Image input. Changed input from `AddTextParameter` to `AddGenericParameter` and added explicit `GH_ExtractedImage` detection in the worker to extract `Base64Data` and `MimeType` directly, instead of relying on Grasshopper's string cast which calls `ToString()`.
-
-- **`AIFile2MdComponent`**: AI-powered file conversion with image handling modes:
-  - `embed` (default): Base64 data URI with AI caption
-  - `describe`: AI text description replaces image
-  - `caption`: Short AI title replaces image
-
-- **`web2md` AI Tool** + **`Web2MdComponent`**: Convert web pages to Markdown
-  - Specialized handlers for Wikipedia, GitHub, GitLab, Discourse, Stack Exchange
-  - Readability scoring for generic pages
-
-#### ⚙️ Settings Components
-
-- **`AISettingsComponent`**: Assemble `AIRequestParameters` from universal inputs (Model, Temperature, Max Tokens, Top P, Seed, Timeout, Extras)
-- **`AIExtraSettingsComponent`**: Dynamically generated inputs based on selected provider's extra descriptors
-- **`AIRequestParameters`**: Immutable per-request configuration with fluent builder
-
-#### 📦 JSON Components (Non-AI)
-
-- **`JsonSchemaComponent`**: Build JSON Schema from property definitions with dot-notation support
-- **`JsonSchemaPropComponent`**, **`JsonSchemaPropObjectComponent`**, **`JsonSchemaPropArrayComponent`**: Visual schema builders
-- **`JsonObjectComponent`**, **`JsonArrayComponent`**: Create JSON from Grasshopper data
-- **`JsonArray2TextListComponent`**, **`JsonObject2TextComponent`**: Parse/serialize JSON
-- **`JsonGetValueComponent`**: Extract nested values via dot-notation paths
-- **`JsonMergeComponent`**: Shallow merge multiple JSON objects
-
-#### 🚀 Batch Processing
-
-- **Batch API Support** in OpenAI, Anthropic, and MistralAI providers
-  - Multi-item queue with `BatchTier` parameter on `AISettingsComponent`
-  - Live progress counter (`Processing batch (YY/XX)...`)
-  - Automatic save/restore of batch state across file close/reopen
-  - Order-based fallback for result loading when sentinel mapping unavailable
-  - Per-item custom IDs for traceability
-
-#### 🔧 Infrastructure
-
-- **`JsonFormatHelper`**: Centralized JSON formatting utility with automatic markdown code block extraction and added `JsonFormatHelper.SanitizeJsonString`, a best-effort sanitizer for common AI malformations — escapes unescaped control characters (newline, carriage return, tab, other C0) inside string literals, normalizes smart/curly quotes and zero-width spaces, strips trailing commas before `}` or `]`, closes unterminated string literals with a trailing `"`, and closes unbalanced `{` / `[` in LIFO order so truncated responses become structurally parseable. Wired as a final fallback in `AIResponseParser.ParseJsonObjectFromResponse`, so tools such as `text2json` recover from AI responses containing raw newlines inside JSON string values or prematurely cut off by token limits.
-- **HTTP Error Handling**: Structured error messages for 503, 429, 401/403 with actionable guidance
-- **Mixed-Type Data Tree Support**: Components can mix `IGH_Goo` types (e.g., `GH_String` + `GH_Boolean`)
-- **Unified Diagnostic Interaction** (`AIInteractionRuntimeMessage`): Single interaction type with `Severity`, `Origin`, `Code` replacing per-severity classes
-- **Centralized Runtime Message Collection**: Thread-safe message collection in `AsyncWorkerBase` with proper persistence across state transitions
-
-### Changed
-
-- **Batch Processing UX**:
-  - Cancellation now shows immediate feedback ("Cancelling batch {id}..." → "Batch {id} cancelled successfully")
-  - Provider-agnostic batch result loading from files
-  - Progress messages distinguish queuing (`Preparing`) from execution (`Processing`)
-
-- **Timeout Configuration**:
-  - Consolidated timeout settings (single `Timeout` setting, default 600s)
-  - Resolution priority: Component input → Settings → Default
-
-- **Provider Parameter Resolution**: All providers now read from `request.Parameters` first, then fall back to global settings
-
-- **AI Components Migrated to Mixed-Type Pipeline**:
-  - `AIText2BooleanComponent`, `AIList2BooleanComponent` now use `IGH_Goo` trees with native `GH_Boolean` fallback storage
+- **Prompt caching**: Improved Anthropic and OpenRouter cache behavior and routing.
+- **Context keys**: Renamed `current-*` to `local-*` for clarity.
+- **AI file context**: Renamed `AIFileContext` to `AIFileMetadata` and integrated with GhJSON.
+- **Codec registry**: Refactored into `IGooCodec` pattern with documentation.
+- **GhGetComponents**: Migrated to worker pattern.
+- **Provider parameters**: Removed `n` completions count from OpenAI and MistralAI.
+- **AI rules**: Migrated from `.windsurf` to `.devin`.
+- **Rhino compatibility**: Downgraded minimum requirement from Rhino 8.24 to Rhino 8.0.
+- **AI model rebalancing**: Adjusted default and rank assignments across OpenAI, Anthropic, DeepSeek, and OpenRouter.
+- **Timeout configuration**: Consolidated into a single `Timeout` setting with component input override; default 300s. **Breaking for saved files**: `AISettingsComponent` `Extras` input index shifted due to new `Timeout` parameter; reconnect `Extras` after upgrade.
+- **Mixed-type trees**: Components can now mix `IGH_Goo` types (e.g., `GH_String` and `GH_Boolean`).
+- **`AIFile2MdComponent`**: Reworked batch wiring so only image descriptions are batched; file conversion runs locally.
+- **`img2text` tool**: Unified request building and decoding for execute and batch paths.
+- **`file2md` tool**: Simplified image description handling.
+- **`DataTreeProcessor`**: Added heterogeneous output support for different `IGH_Goo` types in one processing call.
+- **`File2MdComponent` / `AIFile2MdComponent`**: Migrated to `RunProcessingAsync` for consistent tree handling.
+- **Batch UX**: Cancellation feedback, progress counters, and queuing vs. execution messaging.
+- **All providers**: Parameters now read from `request.Parameters` first, falling back to global settings.
+- **`AIStatefulAsyncComponentBase`**: `Model` input replaced by `Settings` input; `GetModel()` reads from `AIRequestParameters`.
+- **`AIRequestBase`**: Added `AIRequestParameters Parameters` property.
 
 ### Fixed
 
-- **DeepSeek provider**: Fixed HTTP 400 "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'" when the model emits parallel tool calls in a single turn. The encoder now merges consecutive assistant `tool_calls` messages into a single message with all `tool_calls` aggregated, so the subsequent tool result messages satisfy DeepSeek's strict OpenAI-compatible ordering rule.
-
-- **Batch Processing**:
-  - Sentinel trees now survive file close/reopen and manual result loading
-  - Batch item errors properly surfaced as Grasshopper runtime messages
-  - HTTP timeout increased for large batch file upload/download (300s default)
-  - Order-based fallback for result loading when sentinel mapping unavailable
-  - **`AIBatchStatus`**: Added optional `CompletedCount` property to non-completed status for in-progress progress reporting; `ResultBody` (single `JObject`) replaced by `Results` (`IReadOnlyDictionary<string, JObject>`) mapping each custom ID to its provider response body. *(Breaking change for custom `IAIBatchProvider` implementations.)*
-  - **`IAIBatchProvider.SubmitBatchAsync`**: Signature changed from single-item `(AIRequestCall, CancellationToken)` to multi-item `(IReadOnlyList<(string CustomId, AIRequestCall Request)>, CancellationToken)`. All three providers (Anthropic, OpenAI, MistralAI) updated accordingly. *(Breaking change for custom `IAIBatchProvider` implementations.)*
-  - **`AIBatchSubmission`**: `CustomId` (single string) superseded by `CustomIds` (`IReadOnlyList<string>`); `CustomId` is now a compat shim returning the first element. `GenerateCustomId()` now accepts `endpoint` and `index` parameters for richer IDs.
-  - **`OnBatchCompleted`**: Signature changed from `(AIReturn)` to `(IReadOnlyDictionary<string, JObject>)` to carry per-item results. *(Breaking change for components overriding this hook.)*
-
-- **Progress messages**: Live progress counter now shown during batch processing
-  - On batch submission: message immediately shows `Processing batch (0/XX)...` instead of the static `Processing batch...`
-  - During polling: counter updates live to `Processing batch (YY/XX)...` as items complete (OpenAI: `request_counts.completed`, MistralAI: `succeeded_requests`, Anthropic: `request_counts.succeeded`)
-  - During data-tree collection phase (batch mode): progress message shows `Preparing X/X...` instead of `Processing X/X...` to distinguish queuing from actual execution
-  - On new run: stale progress count and `ProgressInfo` are reset so old values never bleed into the next run
-  - **Fixed**: `GetStateMessage()` now checks `CurrentState` and returns base message for terminal states (Completed, Error, Cancelled, Waiting), preventing stale batch progress messages (e.g., `Processing batch (84/84)...`) from persisting after batch completion or failure
-
-- **`AIStatefulAsyncComponentBase`**: `Model (M)` generic text input replaced by `Settings (S)` generic parameter. Accepts `AIRequestParameters` (from `AISettingsComponent`) or a plain model name string for backwards compatibility. `GetModel()` now reads from `AIRequestParameters.Model` with the same provider-default fallback as before.
-
-- **All providers** (`OpenAI`, `Anthropic`, `MistralAI`, `DeepSeek`, `OpenRouter`): `Encode()` now performs per-property resolution — each parameter (Temperature, MaxTokens, TopP, Seed, and provider-specific extras) reads from `request.Parameters` first, falling back to global provider settings. Previously all providers read exclusively from global settings.
-
-- **`AIRequestBase`**: Added `AIRequestParameters Parameters { get; set; }` property.
-
-- chore(rules): clarified Windsurf rules and workflows to reduce overlap, stale platform assumptions, and ambiguous SmartHopper architecture guidance.
-- ci(pr-build-hash-validation): the `validate-no-manual-hash-edits` job now only blocks a PR when a changed file under `hashes/` differs from its counterpart on `main` (the source of truth). PRs that carry a hash commit verbatim from main (e.g., via branch update/rebase) are allowed.
-- ci(concurrency): added top-level `concurrency:` to 25 workflows to prevent race conditions and save runner minutes:
-  - Auto-commit / auto-PR workflows grouped per ref with `cancel-in-progress: false` (queue, never interrupt a push-back): `chore-version-date`, `chore-update-contributors`, `chore-version-badge`, `pr-anonymize-public-key`, `dev-update-manifest`, `github-labels-sync`, `chore-version-main-release`, `pr-license-headers`, `stabilization-0-init`.
-  - Entity-scoped workflows grouped per issue/milestone/release/PR with `cancel-in-progress: false`: `model-verification`, `github-issue-labels-on-close`, `github-issue-labels-close`, `milestone-management`, `release-4-build`, `release-2-pr-to-dev-closed`, `release-3-pr-to-main-closed`. `release-5-deploy-pages` uses the standard `pages` group with `cancel-in-progress: true`.
-  - PR validation workflows grouped per PR with `cancel-in-progress: true` so superseded pushes are cancelled: `ci-dotnet-tests`, `pr-validation`, `pr-build-hash-validation`, `pr-version-validation`, `pr-manifest-validation`, `pr-dependency-validation`, `pr-block-dev-to-main`, `pr-milestone`. (`pr-manifest-validation` and `pr-dependency-validation` were later removed.)
-- ci(auto-commit hardening): belt-and-braces against external commits landing between fetch and push.
-  - `dev-update-manifest` now does `git pull --rebase --autostash origin dev` with retry (×3) before pushing to `dev`.
-  - `pr-license-headers` now does `git pull --rebase --autostash` with retry (×3) before pushing back to the PR head branch (handles the contributor pushing a new commit mid-run).
-  - `chore-version-badge` gained a `paths: [Solution.props]` filter on its `push` trigger so it no longer runs on every unrelated push to `main`/`dev`; the version source of truth is the only relevant change.
-  - Auto-PR workflows that follow the delete-and-recreate pattern (`chore-update-contributors`, `pr-anonymize-public-key`) and those built on `peter-evans/create-pull-request` (`chore-version-date`, `chore-version-badge`, `chore-version-main-release`) already reuse existing PRs and were verified as safe; no changes needed.
-
-- **DeepSeek Provider**: HTTP 400 "insufficient tool messages" caused by merging consecutive tool result messages
-
-- **`AIImgToTextComponent`**: Fixed placeholder string being sent instead of actual base64 data for `GH_ExtractedImage` inputs
-
-- **`text2json` tool**: JSON parsing now uses `AIResponseParser.ParseJsonObjectFromResponse` for robust extraction from markdown code blocks (e.g. fenced ```json blocks), prefatory text, and trailing content via brace-depth tracking. Previously failed when the model wrapped output in fences alongside other content.
-
-- **Runtime Messages**: Fixed error messages disappearing after state transitions due to premature list clearing
-
-- **`AI2Boolean`, `AI2Integer`, `AI2Number`**: Added optional `Fallback` (F) input and `Used Fallback` (UF) boolean output. When the AI response cannot be parsed, the component emits the user-supplied fallback (or `null` if none) and `UsedFallback = true`. Parsing is delegated to the centralized `BooleanResultResolver` / `IntegerResultResolver` / `NumberResultResolver` utilities to keep behavior aligned with the legacy `text2boolean` tool.
-- **`AI2Json`**: Added optional `Fallback` (F) text input (parsed as JSON object or array) and `Used Fallback` (UF) boolean output. Extraction now delegates to `JsonResultResolver.Resolve`, which handles markdown code-block wrapping (` ```json … ``` `), prefatory text, and brace-depth recovery — bringing parity with the `text2json` tool's robustness. Replaces the previous `JsonFormatHelper.JsonToString` extractor.
-
-- **`AI2*` output components**: Updated `UsingAiTools` references to current tool names after the v2 rename:
-  - `AI2Text`, `AI2Boolean`, `AI2Number`, `AI2Integer`, `AI2Markdown`: `text_generate` → `text2text`
-  - `AI2Json`: `text_generate` → `text2json`
-  - `AI2Img`: `img_generate` → `text2img`
-  - `AI2Script`: `script_new` → `script_generate`
-
-- `gh_put` no longer fails to replace components when Grasshopper is in edit mode.
-- Added defensive null checks, try-catch blocks, and enum string serialization for improved error-handling robustness.
-- `ScriptComponentRegistry` integration for robust script extraction in script-review workflow.
+- **DeepSeek provider**: Fixed tool-call message ordering errors with parallel tool calls.
+- **Batch processing**: Sentinel trees now survive file close/reopen; item errors surface as runtime messages; order-based fallback for result loading.
+- **Progress messages**: Live batch progress counter and proper terminal-state message handling.
+- **`AIImgToTextComponent`**: Fixed placeholder string being sent instead of base64 for extracted images.
+- **`text2json` tool**: Robust JSON extraction from markdown fences and prefatory text.
+- **Runtime messages**: Fixed messages disappearing after state transitions.
+- **`gh_put`**: No longer fails when replacing components in Grasshopper edit mode.
+- **General**: Added defensive null checks and error-handling improvements.
 
 ### Removed
 
-- **`boolean_classify` AI tool**: Removed orphaned tool (`SmartHopper.Core.Grasshopper/AITools/boolean_classify.cs`) and its companion `BooleanClassificationResolver` utility. Boolean classification is now handled directly by `AI2BooleanComponent` via `text2text` + local response parsing, removing the unused tool indirection.
-- **`integer_extract`, `number_extract`, `markdown_format` AI tools**: Removed orphaned tools with no consumers. Their roles are covered by the new `AI2Integer`, `AI2Number`, and `AI2Markdown` output components, which use `text2text` directly with local response parsing via `AIResponseParser`.
-- **`img_generate` AI tool**: Removed legacy tool — superseded by `text2img` (renamed in this release per BREAKING CHANGES). All image generation components now consume `text2img`.
+- **`boolean_classify` AI tool**: Removed unused tool; boolean classification now handled locally by `AI2BooleanComponent`.
+- **`integer_extract`, `number_extract`, `markdown_format` AI tools**: Removed orphaned tools; functionality covered by new output components.
+- **`img_generate` AI tool**: Removed legacy tool superseded by `text2img`.
 
 ## [1.4.2-beta] - 2026-04-15
 
@@ -840,151 +523,46 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
-- **VB Script Serialization Support**: Complete implementation of 3-section VB Script serialization/deserialization:
-  - **VBScriptCode Model**: New model class with separate properties for `imports`, `script`, and `additional` code sections
-  - **ComponentState Enhancement**: Added `vbCode` property to support VB Script 3-section structure alongside existing `value` property
-  - **GhJsonSerializer**: Extracts VB Script 3 sections separately via reflection using ScriptSource properties (UsingCode, ScriptCode, AdditionalCode)
-  - **GhJsonDeserializer**: Restores VB Script 3 sections to correct ScriptSource properties with proper section mapping
-  - **VB Parameter Management**: Implements IGH_VariableParameterComponent interface for proper parameter creation/destruction
-  - Parameter settings applied via CreateParameter/DestroyParameter with VariableParameterMaintenance() call
-  - Full support for custom input/output parameters with names, optional/required flags, and modifiers
-  - **UI Thread Safety**: All VB Script parameter and code operations wrapped in `RhinoApp.InvokeOnUiThread()` to prevent UI blocking
- - **New AI Tools for parameter and script modification**:
-   - Parameter tools: `gh_parameter_flatten`, `gh_parameter_graft`, `gh_parameter_reset_mapping`, `gh_parameter_reverse`, `gh_parameter_simplify`, `gh_parameter_bulk_inputs`, `gh_parameter_bulk_outputs`
-   - Script tools: `script_parameter_add_input`, `script_parameter_add_output`, `script_parameter_remove_input`, `script_parameter_remove_output`, `script_parameter_set_type_input`, `script_parameter_set_type_output`, `script_parameter_set_access`, `script_toggle_std_output`, `script_set_principal_input`, `script_parameter_set_optional`
- - **McNeel Forum AI Tools Enhancement**:
-  - `mcneel_forum_search`: Enhanced search tool with configurable result limit (1-50 posts), returning matching posts as raw JSON objects
-  - `mcneel_forum_post_get`: Renamed from `web_rhino_forum_read_post` for consistency, retrieves full forum post by ID
-  - `mcneel_forum_post_summarize`: New subtool that generates AI-powered summaries of forum posts using default provider/model
-- New Knowledge components for McNeel forum and web sources, enabling search, retrieval, and summarization workflows directly in Grasshopper.
-- **web_generic_page_read Enhancements**: Tool now delivers clean text for Wikipedia/Wikimedia articles, Discourse forums (raw markdown), GitHub/GitLab file URLs (raw/plain/markdown), and Stack Exchange questions via official APIs.
-- **Property Management System V2**: Complete refactoring of property management with modern, maintainable architecture:
-  - **PropertyManagerV2**: New property management system with clean separation of concerns between filtering, extraction, and application
-  - **PropertyFilter**: Intelligent property filtering based on object type and serialization context
-  - **PropertyHandlers**: Specialized handlers for different property types (PersistentData, SliderCurrentValue, Expression, etc.)
-  - **PropertyFilterConfig**: Centralized configuration for property whitelists, blacklists, and category-specific properties
-  - **SerializationContext**: Support for different contexts (AIOptimized, FullSerialization, CompactSerialization, ParametersOnly)
-  - **ComponentCategory**: Proper categorization of components (Panel, Slider, Script, etc.) for targeted property extraction
-  - **PropertyManagerFactory**: Factory methods for creating PropertyManagerV2 instances with common configurations
-- **GhJSON Optimization**: Reduced irrelevant data in serialization output:
-  - Groups now only include members present in the current GhJSON components selection
-  - Removed runtime-only properties: `VolatileData`, `IsValid`, `IsValidWhyNot`, `TypeDescription`, `TypeName`, `Boundingbox`, `ClippingBox`, `ReferenceID`, `IsReferencedGeometry`, `IsGeometryLoaded`, `QC_Type`
-  - Fixed contradictory property handling where `VolatileData` and `DataType` were in both omitted and whitelist
-  - Fixed `IsPropertyInWhitelist()` method to properly check omitted properties before whitelist
-  - Removed `Type` and `HumanReadable` properties from `ComponentProperty` model to reduce JSON size
-- **Enhanced GhJSON Schema**: Implemented component schema improvements following complete property reference specification:
-  - **Parameter Properties**: `parameterName`, `dataMapping`, `simplify`, `reverse`, `invert`, `unitize`, `expression`, `variableName`, `isPrincipal`, `locked`
-  - **Component Properties**: `locked`, `hidden`, universal `value` property with type-specific mapping
-  - **Value Consolidation**: Number Slider (`currentValue` → `value`), Panel (`userText` → `value`), Scribble (`text` → `value`), Script (`script` → `value`), Value List (`listItems` → `value`)
-  - **Removed Properties**: `expressionContent` (use `expression`), `access`, `description`, `optional`, `type`, `objectType` (excluded as implicit/redundant), `humanReadable`, redundant slider properties
-  - Extended `ComponentProperties` with new schema properties: `Id`, `Params`, `InputSettings`, `OutputSettings`, `ComponentState`
-  - **BREAKING**: New schema format is now the default for all `gh_get` and `gh_put` operations
-  - Kept legacy `Pivot` format for compactness and compatibility
-- New AI Tools for component generation and connection:
-  - `gh_generate`: Generate GhJSON from component specifications (name + parameters), returns valid GhJSON for gh_put.
-  - `gh_connect`: Connect Grasshopper components by creating wires between outputs and inputs using component GUIDs.
-- New AI Tool for script editing and creation:
-  - `script_generator`: Unified tool that creates or edits Grasshopper script components based on natural language instructions and an optional component GUID. Replaces legacy `script_new` and `script_edit` tools.
-- New utility classes for centralized Grasshopper operations:
-  - `GHConnectionUtils`: Connect components by creating wires between parameters.
-  - `GHGenerateUtils`: Generate GhJSON component specifications.
-  - `RhinoFileUtils`: Read and analyze .3dm files.
-  - `RhinoGeometryUtils`: Extract geometry information from active Rhino document.
-- New AI Tools for Rhino 3DM file analysis:
-  - `rhino_read_3dm`: Analyze .3dm files and extract metadata, object counts, layer information, and detailed object properties.
-  - `rhino_get_geometry`: Extract detailed geometry information from the active Rhino document (selected objects, by layer, or by type).
-- New test project `SmartHopper.Core.Grasshopper.Tests` with comprehensive unit test coverage:
-  - `AIResponseParserTests`: 40+ tests for parsing edge cases (JSON arrays, markdown blocks, ranges, text formats)
-  - `PropertyManagerTests`: 30+ tests for type conversion, property setting, and persistent data handling
-- **SelectingComponentBase Persistence**: Selected objects list now persists when saving and loading Grasshopper files
-  - Stores selected object GUIDs during write operations
-  - Restores selected objects by GUID lookup during read operations
-  - Updates component message to reflect restored selection count
-  - Handles missing objects gracefully (objects deleted after selection)
-- New hotfix workflow system for emergency production fixes:
-  - **hotfix-0-new-branch.yml** - Creates `hotfix/X.X.X-description` branch from main with automatic patch version increment
-  - **hotfix-1-release-hotfix.yml** - Prepares `release/X.X.X-hotfix-description` branch with version updates, changelog, and PR to main
-  - Automatic version conflict resolution:
-    - All milestones with patch ≥ hotfix patch are incremented (updated from highest to lowest to prevent collisions)
-    - Dev branch version is bumped via PR if it conflicts (respects protected branch)
-  - Hotfix PRs trigger all existing validations (version check, code style, tests) before merging
-  - After merge to main, existing release workflows (release-3, release-4, release-5) handle GitHub Release creation, build, and Yak upload
-  - Comprehensive documentation in `.github/workflows/HOTFIX_WORKFLOW.md`
-- Comprehensive workflow documentation:
-  - **RELEASE_WORKFLOW.md** - Complete guide for regular milestone-based releases
-  - **HOTFIX_WORKFLOW.md** - Complete guide for emergency hotfix releases
+- **VB Script support**: VB Script components now serialize and deserialize their three code sections, custom parameters, and settings correctly.
+- **Parameter and script AI tools**: Added `gh_parameter_*` and `script_parameter_*` tools to flatten, graft, simplify, reverse, and manage script/component parameters via AI.
+- **McNeel forum tools**: Enhanced `mcneel_forum_search`, `mcneel_forum_post_get`, and added `mcneel_forum_post_summarize` for AI-powered forum summaries.
+- **Knowledge components**: New components for McNeel forum and web sources to search, retrieve, and summarize content directly in Grasshopper.
+- **Web page reading**: `web_generic_page_read` now produces clean text for Wikipedia, Discourse, GitHub/GitLab files, and Stack Exchange.
+- **Property management**: Introduced a new property-management system for more reliable GhJSON serialization of component parameters, values, and metadata.
+- **GhJSON optimization**: Reduced irrelevant data in serialized Grasshopper documents, producing smaller, cleaner JSON.
+- **GhJSON schema v2**: Improved component schema with consolidated `value` properties and extended parameter settings. This is now the default format for `gh_get` and `gh_put` and may affect saved GhJSON files.
+- **Component generation and wiring**: New `gh_generate` and `gh_connect` AI tools to create component specifications and wire components automatically.
+- **Script generator**: Added `script_generator` AI tool to create or edit Grasshopper script components from natural-language instructions.
+- **Rhino 3DM analysis**: New `rhino_read_3dm` and `rhino_get_geometry` AI tools to analyze .3dm files and extract geometry from the active document.
+- **Selection persistence**: Components based on `SelectingComponentBase` now remember their selected objects when saving and loading Grasshopper files.
+- **CI/CD**: Added hotfix workflow system and release workflow documentation for emergency and regular releases.
 
 ### Changed
 
-- Renamed AI Tools:
-  - `gh_toggle_preview` to `gh_component_toggle_preview`
-  - `gh_toggle_lock` to `gh_component_toggle_lock`
-  - `gh_lock_selected` to `gh_component_lock_selected`
-  - `gh_unlock_selected` to `gh_component_unlock_selected`
-  - `gh_hide_preview_selected` to `gh_component_hide_preview_selected`
-  - `gh_show_preview_selected` to `gh_component_show_preview_selected`
-- **Script Component "out" Parameter Handling**: The standard output/error parameter ("out") in script components is no longer serialized as a regular output parameter. Instead, its visibility state is controlled by the new `showStandardOutput` property in `ComponentState`, which maps to the component's `UsingStandardOutputParam` property. This prevents signature changes after deserialization.
-- **ComponentProperty JSON Serialization**: Simple types (bool, int, string, double, etc.) now serialize directly without the `{"value": ...}` wrapper for cleaner, more compact JSON output. Complex types retain the wrapper structure for backward compatibility.
-- **Empty String Omission**: Empty string properties (e.g., group `name`, component `nickName`) are now omitted from JSON output for cleaner, more compact serialization. Only non-empty values are included.
-- **Document Metadata Improvements**:
-  - Fixed Grasshopper version detection (now reads from Instances assembly instead of settings)
-  - Added `schemaVersion` property (set to "1.0") to GrasshopperDocument
-  - Added `rhinoVersion` property to track Rhino version
-  - Added `parameterCount` property to track standalone parameters separately from components
-  - Changed `createdAt` to `created` for consistency
-  - Default document `version` to "1"
-  - Added `dependencies` array to track plugin dependencies (excludes system assemblies)
-- More robust GhJson schema, serialization and deserialization methods.
-- Model capability validation now bypasses checks for unregistered models, allowing users to use any model name even if not explicitly listed in the provider's model registry.
-- Centralized error handling in AIReturn and tool calls.
-- Accurately aggregate metrics in Conversation Session. Cases with multiple tool calls, multiple interactions, etc. Calculate completion time per interaction.
-- Improved AI Tool descriptions with better guided instructions. Also added specialized wrappers for targeted tool calls (gh_get_selected, gh_get_errors, gh_get_locked, gh_get_preview_off, gh_get_preview_on, gh_get_by_guid, gh_lock_selected, gh_unlock_selected, gh_hide_preview_selected, gh_show_preview_selected, gh_group_selected, gh_tidy_up_selected).
-- **BREAKING (Internal):** Reorganized `SmartHopper.Core.Grasshopper.Utils` namespace structure for better maintainability:
-  - Created organized subfolders: `Canvas/`, `Serialization/`, `Parsing/`, `Rhino/`, `Internal/`
-  - Renamed utility classes for clarity (e.g., `GHCanvasUtils` → `CanvasAccess`, `GHComponentUtils` → `ComponentManipulation`)
-  - Updated all internal references to use new organized namespaces
-  - **Note:** This is an internal refactoring with no impact on public APIs or plugin functionality
-- Extended PR validation and CI test workflows to run on `hotfix/**` and `release/**` branches
-- **user-security-patch.yml** workflow is now obsolete, removed from workflows
+- **Renamed AI tools**: `gh_toggle_preview`, `gh_toggle_lock`, `gh_lock_selected`, `gh_unlock_selected`, `gh_hide_preview_selected`, and `gh_show_preview_selected` now use the `gh_component_*` prefix.
+- **Script component output**: Script components no longer serialize the standard `out` parameter as a regular output; its visibility is controlled by a new `showStandardOutput` property to keep signatures stable.
+- **JSON serialization**: Simple property values now serialize directly, empty strings are omitted, and document metadata includes schema version, Rhino version, and plugin dependencies.
+- **Model validation**: Unregistered model names are now accepted, letting you use any provider model even if it is not yet in the built-in registry.
+- **Error handling**: Errors from AI calls and tool execution are now surfaced more consistently in `AIReturn` and `ConversationSession`.
+- **AI tool descriptions**: Improved descriptions and added specialized wrapper tools for common queries and actions.
+- **CI/CD**: Extended PR validation and test workflows to cover `hotfix/**` and `release/**` branches; removed the obsolete `user-security-patch.yml` workflow.
 
 ### Removed
 
-- **Legacy PropertyManager**: Removed obsolete `PropertyManager.cs` and all references to the old property management system:
-  - Removed `PropertyManager.IsPropertyInWhitelist()`, `PropertyManager.SetProperties()`, `PropertyManager.IsPropertyOmitted()`, and `PropertyManager.GetChildProperties()` methods
-  - Updated `DocumentIntrospection.cs` to use `PropertyManagerV2` with `PropertyManagerFactory.CreateForAI()`
-  - Updated `GhJsonPlacer.cs` to use `PropertyManagerV2` for property application
-  - Updated `PropertyManagerTests.cs` to test the new `PropertyManagerV2` system instead of the old `PropertyManager`
-
-- **Legacy script tools and components**:
-  - Removed `script_new` and `script_edit` AI tools in favor of the unified `script_generator` tool.
-  - Removed `AIScriptNewComponent` and `AIScriptEditComponent` Grasshopper components in favor of `AIScriptGenerateComponent`.
+- **Legacy property manager**: Removed the old `PropertyManager` and migrated serialization/placement to the new `PropertyManagerV2`.
+- **Legacy script tools**: Replaced `script_new` and `script_edit` with the unified `script_generator` tool; removed the corresponding `AIScriptNewComponent` and `AIScriptEditComponent` components.
 
 ### Fixed
 
-- **DataTreeProcessor Bug Fixes**:
-  - Fixed `GetBranchFromTree` incorrectly returning branches from different paths when tree had single path (flat tree fallback bug). Now strictly returns only branches matching the requested path.
-  - Fixed `BranchFlatten` topology creating one processing unit per path instead of flattening all branches together. Now correctly creates single processing unit with all items from all branches flattened into one list.
-- Fixed model badge display: show "invalid model" badge when provider has no capable model instead of "model replaced" ([#332](https://github.com/architects-toolkit/SmartHopper/issues/332)).
-- Fixed provider errors (e.g., HTTP 400, token limit exceeded) not surfacing to WebChat UI: `ConversationSession` now surfaces `AIInteractionError` from error AIReturn bodies to observers before calling `OnError`, ensuring full error messages are displayed in the chat interface ([#334](https://github.com/architects-toolkit/SmartHopper/issues/334)).
-- **Rectangle Serialization**: Fixed Rectangle3d serialization/deserialization to use center-based format (`rectangleCXY`) instead of origin-based (`rectangleOXY`), ensuring correct position and orientation after round-trip. Uses interval-based constructor to guarantee proper reconstruction.
-- **IsPrincipal Property Cleanup**: Removed `IsPrincipal` from appearing as a top-level property on standalone parameter components (Colour, Number, Text, etc.). It now only appears in `inputSettings`/`outputSettings` `additionalSettings` when set to `true`, reducing JSON clutter.
-- **Script Component Null Reference**: Fixed `ArgumentNullException` in `gh_get` tool when processing script components. Added null check in `ScriptComponentHelper.GetScriptLanguageType()` method before calling `.Contains()` on potentially null language name string.
-- **Stand-Alone Parameter Serialization**: Fixed `GhJsonSerializer` to properly serialize stand-alone parameters (e.g., `Param_Colour`, `Param_Number`, `Param_Box`, etc.). Previously only `IGH_Component` objects were serialized; now both `IGH_Component` and `IGH_Param` objects are processed. Stand-alone parameters (those without a parent component) are now included in the serialization output and their connections are properly extracted.
-- **PersistentData Deserialization**: Fixed `GhJsonDeserializer` to properly deserialize internalized data (PersistentData) for stand-alone parameters. The deserializer now uses `PropertyManagerV2` instead of simple reflection, which correctly handles the nested data tree structure and type-specific conversions for all parameter types (Color, Point, Vector, Line, Plane, Circle, Arc, Box, Rectangle, Interval, Number, Integer, Boolean, Text).
-- **Connection Matching by Index**: Fixed connection serialization/deserialization to use parameter index instead of parameter name. Connections now include `paramIndex` property for reliable matching regardless of display name settings (full names vs nicknames). The deserializer uses index-based matching with fallback to name-based matching for backward compatibility. Fixed stand-alone parameter to stand-alone parameter connections to properly set `paramIndex` to 0 (single input).
-- **Group InstanceGuid**: Fixed group serialization to include the actual `InstanceGuid` instead of all zeros. Groups now properly serialize their unique identifier for correct reconstruction.
-- **InstanceGuid Generation**: Fixed deserialization to always generate new InstanceGuids instead of reusing GUIDs from JSON. This prevents "An item with the same key has already been added" errors when placing components that already exist in the document. Grasshopper now automatically generates unique GUIDs for all deserialized components.
-- **Stand-Alone Parameter Connections**: Fixed `ConnectionManager` to support connections between stand-alone parameters (e.g., Colour → Panel). Previously only component-to-component and parameter-to-component connections were supported.
-- **Smart Pivot Handling in gh_put**: Improved component placement logic to intelligently handle positions:
-  - When pivots are present in GhJSON: Components are placed with their relative positions preserved, offset to prevent overlap with existing canvas components (positioned below the lowest existing component with 100px spacing)
-  - When pivots are absent: Uses `DependencyGraphUtils.CreateComponentGrid` algorithm (same as `gh_tidy_up`) to automatically calculate optimal grid layout based on component connections
-  - Removed `RecalculatePivots` option from `DeserializationOptions` and `gh_put` tool - pivot handling is now automatic based on GhJSON content
-- **Parameter Modifier Serialization**: Fixed `ParameterMapper` to properly extract and apply parameter modifiers (`Reverse`, `Simplify`, `Locked`) and `DataMapping` for component parameters. These settings are now serialized in the `additionalSettings` object and correctly restored during deserialization. Note: The `Invert` property does not exist in the `IGH_Param` interface and is reserved in `AdditionalParameterSettings` for future use or specific parameter type extensions.
-- **Removed Optional Property**: Removed redundant `optional` property from `ParameterSettings` model as it provides no useful information for serialization/deserialization.
-- **Script Component Parameter Modifiers**: Fixed issue where parameter modifiers (Reverse, Simplify, Locked, Invert) were not being serialized/deserialized for script component parameters. `ScriptParameterMapper.ExtractSettings()` now extracts `AdditionalSettings` just like regular `ParameterMapper`, ensuring modifiers are preserved during round-trip serialization.
-- **Script Component Type Hint Normalization**: Type hints with value "object" (case-insensitive) are no longer serialized or deserialized, as "object" is the default/generic type hint. This reduces JSON size, avoids case sensitivity issues (Object vs object), and eliminates redundant data.
-- **Generic Type Hint Handling**: Improved handling of generic type hints (e.g., `DataTree<Object>`, `List<Curve>`) by detecting `<>` syntax and extracting base types before applying, preventing `TypeHints.Select()` exceptions and reducing log noise.
-- (automatically added) Fixes "script_edit tool freezes the script editor" ([#209](https://github.com/architects-toolkit/SmartHopper/issues/209)).
+- **Data tree processing**: Fixed `GetBranchFromTree` and `BranchFlatten` to handle single-path and flat trees correctly.
+- **Model badges**: Invalid-model badge now appears correctly when a provider has no capable model instead of showing a replacement badge ([#332](https://github.com/architects-toolkit/SmartHopper/issues/332)).
+- **Chat error display**: Provider errors such as HTTP 400 and token-limit exceeded now surface correctly in the WebChat UI ([#334](https://github.com/architects-toolkit/SmartHopper/issues/334)).
+- **Rectangle serialization**: Rectangle3d round-trips correctly using a center-based format.
+- **JSON round-trip fixes**: Improved serialization/deserialization for stand-alone parameters, persistent data, parameter modifiers, group InstanceGuids, and component connections (including index-based matching).
+- **Script component stability**: Fixed null-reference errors in `gh_get` for script components and preserved parameter modifiers during round-trip serialization.
+- **Smart placement**: `gh_put` now preserves relative pivots when present or auto-layouts components with `DependencyGraphUtils` when absent.
+- **Type hints**: Default/generic "object" type hints are omitted, and generic type hints (`DataTree<Object>`, `List<Curve>`) are handled without exceptions.
+- **Script editor freeze**: Fixed the script editor freezing issue when using the script edit tool ([#209](https://github.com/architects-toolkit/SmartHopper/issues/209)).
 
 ## [1.0.1-alpha] - 2025-10-13
 
@@ -1007,298 +585,57 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
-- Improvements in `CanvasButton`:
-  - New SmartHopper Assistant setting `EnableCanvasButton` (default: `true`) to enable/disable the canvas button.
-  - `CanvasButton` now respects `EnableCanvasButton`: when disabled, the button is hidden and non-interactive.
-  - New `CanvasButton` to trigger the SmartHopper assistant dialog from a dedicated button at the top-right corner of the canvas.
-  - CanvasButton now initializes the chat provider and model from SmartHopper settings (consistent with app-wide configuration).
-
-- Context providers:
-  - New `FileContextProvider` exposing `current-file_selected-count` (number of selected files), `file-name` (the current document file name or "Untitled"), `selected-count` (number of selected objects in the current document), `object-count` (total number of document objects), `component-count` (total number of components in the current document), `param-count` (total number of parameters in the current document), `scribble-count` (total number of scribbles/notes in the current document), and `group-count` (total number of groups in the current document). Registered globally at Core assembly load so it is available to both components and the canvas button.
-
-- Conversation and policies:
-  - ConversationSession service introducing:
-    - `IConversationSession`, `IConversationObserver`, `SessionOptions` interfaces/models
-    - `ConversationSession` orchestrating multi-turn flows and tool passes; executes provider calls via `AIRequestCall.Exec()` in non-streaming mode, and streams incremental `AIReturn` deltas via provider adapters when available; notifies observers with `OnStart`, `OnInteractionCompleted`, `OnToolCall`, `OnToolResult`, `OnFinal`, `OnError`
-    - Always-on `PolicyPipeline` foundation with request and response policy hooks
-  - Special Turn system for executing AI requests with custom overrides:
-    - New `SpecialTurnConfig` to configure special turns with request overrides (interactions, provider, model, endpoint, capability, context/tool filters), execution behavior (force non-streaming, custom timeout), and history persistence strategies
-    - Four history persistence strategies: `PersistResult` (only result), `PersistAll` (all interactions with filtering), `Ephemeral` (no persistence), `ReplaceAbove` (replace history with result, filtered)
-    - `InteractionFilter` uses flexible allowlist/blocklist approach with `Allow()`, `Block()`, and fluent `WithAllow()`/`WithBlock()` methods; automatically supports future interaction types without code changes
-    - Predefined filters: `InteractionFilter.Default`, `InteractionFilter.PreserveSystemContext`, `InteractionFilter.AllowAll`
-    - `ConversationSession.ExecuteSpecialTurnAsync()` creates isolated `AIRequestCall` clone for execution; observers are not notified during execution, only when results are persisted to main conversation
-    - Isolated execution prevents internal special turn interactions (system prompts, tool calls) from appearing in UI
-    - Built-in `GreetingSpecialTurn` factory for AI-generated greetings
-    - Special turns support both streaming and non-streaming modes in isolated execution context
-    - Parallel special turns allowed (no locking)
-    - Refactored greeting generation to use special turn infrastructure, eliminating 140+ lines of duplicated code
-
-- AICall and core models:
-  - Added `Do` method to `AIRequest` to execute the request and return a `AIReturn`, as well as multiple methods to simplify the process of executing requests.
-  - Unified logic for `AIToolCall` and `AIRequestCall` in a `AIRequestBase`.
-  - New `AIRuntimeMessage` model to handle information, warning and error messages on AI Call.
-  - IAIRequest.WantsStreaming flag to indicate streaming intent and surface validation hints.
-  - New IAIKeyedInteraction interface to identify interactions by key.
-  - New IAIRenderInteraction interface to render interactions.
-
-- Model management:
-  - `ModelManager.SetDefault(provider, model, caps, exclusive)` helper to manage per-capability defaults.
-  - Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
-
-- Streaming infrastructure:
-  - Introduced internal base class `AIProviderStreamingAdapter` under `src/SmartHopper.Infrastructure/AIProviders/` to centralize common streaming adapter helpers (HTTP setup, auth, URL building, SSE reading). Enables provider-specific adapters to reuse infrastructure while keeping behavior consistent.
-  - `AIProviderStreamingAdapter.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` helper to apply request-scoped headers (excluding Authorization) from `AIRequestCall.Headers`.
-  - `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
-  - Provider-level streaming toggle via `IAIProviderSettings.EnableStreaming`. Added `EnableStreaming` setting descriptors to OpenAI, MistralAI, and DeepSeek provider settings (default `true`).
-
-- Tools validation:
-  - AI tool validation system to improve reliability and observability:
-    - Added three validators implementing `IValidator<AIInteractionToolCall>`:
-      - `ToolExistsValidator` (ensures tool is registered)
-      - `ToolJsonSchemaValidator` (validates tool arguments against JSON schema)
-      - `ToolCapabilityValidator` (ensures selected provider/model supports tool-required capabilities)
-    - New request policy `AIToolValidationRequestPolicy` runs after `ToolFilterNormalizationRequestPolicy`, validates all pending tool calls, and attaches diagnostics to the request and policy context; errors block execution early.
-    - `PolicyPipeline.Default` updated to register `AIToolValidationRequestPolicy`.
-    - Request validation now considers request-level messages so policy diagnostics can gate execution.
-
-- Components UI and badges:
-  - New component badges to visually identify verified and deprecated models.
-  - Component badges extended to surface model validation state without executing an AI call:
-    - Invalid/Incompatible model badge (red cross) when the configured model lacks the component's required capability or is unknown.
-    - Replaced/Fallback model badge (blue refresh) when the current configured model would be auto-replaced by selection logic.
-    - Badge display logic simplified to prioritize a single, most relevant badge for clarity.
-  - `AIStatefulAsyncComponentBase.RequiredCapability` virtual property (default `Text2Text`) to declare per-component capability requirements.
-  - `AIStatefulAsyncComponentBase.TryGetCachedBadgeFlags(out verified, out deprecated, out invalid, out replaced)` to expose the extended badge cache.
-
-- Diagnostics:
-  - Introduced `AIMessageCode` enum and `AIRuntimeMessage.Code` property for machine‑readable diagnostics. Default code is `Unknown (0)` to keep all existing emits backward compatible.
-
-- Utilities:
-  - Shared `HttpHeadersHelper.ApplyExtraHeaders(HttpClient, IDictionary<string,string>)` utility under `src/SmartHopper.Infrastructure/Utils/` to centralize extra header application across streaming and non‑streaming calls (excludes reserved headers).
-  - Centralized sanitization utilities with tests for GhJSON, script content, and AI responses to ensure consistent cleanup of malformed or unsafe content.
-
-- Providers:
-  - New `Anthropic` and `OpenRouter` providers.
-  - Anthropic provider: Full round-trip support for tool results. Decodes `tool_result` content blocks to `AIInteractionToolResult` and encodes tool results back to Anthropic-compliant `tool_result` blocks (`{"type":"tool_result","tool_use_id":"...","content":[{"type":"text","text":"..."}]}`).
-  - Updated provider icons using the latest Lobe Icons set.
-
-- Documentation:
-  - Summary documentation at `docs/` (linked in README).
-
-- Repository organization:
-  - AICall folder reorganization.
-
-- Tests:
-  - New test component `DataTreeProcessorEqualPathsTestComponent` under `SmartHopper.Components.Test/DataProcessor/` to manually validate `DataTreeProcessor.RunFunctionAsync` with equal-path, single-item trees. Outputs result tree, success flag, and messages.
-  - New tests for Context Manager and Model Manager.
+- **Canvas assistant button**: Optional top-right canvas button to open the SmartHopper assistant, respecting the `EnableCanvasButton` setting.
+- **Document context**: New `FileContextProvider` exposes document and selection metadata to AI conversations.
+- **Conversation orchestration**: New `ConversationSession` service supports multi-turn flows, tool passes, special turns, and policy hooks.
+- **Tool validation**: Tool calls are validated against registered tools, JSON schemas, and model capabilities before execution.
+- **Streaming support**: Shared streaming adapter with idle-timeout SSE reading, live reasoning display, and provider-specific completion detection for OpenAI, Anthropic, MistralAI, and DeepSeek.
+- **New providers**: Added Anthropic and OpenRouter providers, plus refreshed provider icons.
+- **Model badges**: Components show badges for verified, deprecated, incompatible, or auto-replaced models before running.
+- **Capability-based model selection**: `ModelManager` selects the best model per capability and checks streaming support.
+- **WebChat UX**: Improved chat UI with auto-scroll, collapsible messages, better prompts, and default context (time, environment, selection).
+- **Core models**: Introduced `AIRequest`, `AIReturn`, `AIBody`, and related models for clearer request/response handling.
+- **Documentation**: Added summary documentation under `docs/`.
+- **Tests**: Added tests for Context Manager, Model Manager, and data-tree processing.
 
 ### Changed
 
-- Providers – Anthropic:
-  - Unified encoding/decoding helpers. Extracted `BuildTextMessage`, `BuildToolResultMessage`, and `ExtractToolResultText` in `AnthropicProvider.cs` and updated both `Encode(IAIInteraction)` and `Encode(AIRequestCall)` to use them, removing duplicated logic for `AIInteractionText` and `AIInteractionToolResult`.
-  - Switched URL members to use System.Uri for stronger typing and to satisfy CA1054/CA1055/CA1056:
-    - `AIProvider.DefaultServerUrl` is now `Uri` (was `string`).
-    - `AIProviderStreamingAdapter.BuildFullUrl(string)` now returns `Uri`.
-    - `AIProviderStreamingAdapter.CreateSsePost` now accepts a `Uri` parameter.
-    - `AIInteractionImage.ImageUrl` is now `Uri` (was `string`).
-  - Added `AIInteractionImage.SetResult(Uri imageUrl, string imageData = null, string revisedPrompt = null)` overload; kept string overload for backward compatibility.
-  - Fixed tool call detection in streaming responses
-    - Added `content_block_start` event handling to detect `tool_use` blocks
-    - Streaming adapter now properly yields `AICallStatus.CallingTools` when tools are invoked
-    - Fixed `content_block_delta` to check for `text_delta` type before processing text
-    - Added support for `input_json_delta` events (tool argument streaming)
-    - Enhanced debug logging for streaming events and tool detection
-    - Non-streaming `Decode()` method now ensures `Arguments` field is never null
-
-- Providers – OpenAI:
-  - Simplified message encoding to use sequential approach (matching MistralAI pattern) instead of complex coalescing/deduplication logic. Eliminates duplicate tool call handling issues and improves reliability.
-  - **Streaming adapter now extracts and streams reasoning content** from structured content arrays (o-series & gpt-5 models). Parses `type: "reasoning"` and `type: "thinking"` parts during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
-  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when reasoning is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
-
-- Providers – MistralAI:
-  - **Streaming adapter now extracts and streams thinking content** from structured content arrays. Parses `type: "thinking"` blocks during streaming and appends to `AIInteractionText.Reasoning` field for live UI display.
-  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when thinking is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
-
-- Providers – DeepSeek:
-  - **Fixed reasoning-only streaming**: Adapter now emits snapshots immediately when `reasoning_content` is received, even before text content arrives. Ensures live reasoning display in UI without waiting for answer text.
-
-- UI and settings:
-  - AI Chat component default system prompt to a generic one.
-  - Settings dialog now organized in tabs.
-    - Added tab for SmartHopper Assistant configuration (triggered from the canvas button on the top-right).
-    - Added tab for Trusted Providers configuration.
-  - CanvasButton chat now reuses a single `WebChatDialog` via a stable `componentId`, preventing multiple dialog instances from opening on repeated clicks.
-  - Updated the About dialog to reflect the list of currently supported AI providers.
-  - Provider settings: Disabled the "Enable Streaming" option for `DeepSeek` and `OpenRouter` (control is non-interactive) and updated the setting description to "Streaming is not available for this provider yet." Defaults set to `false` for both providers.
-
-- Security/authentication and headers:
-  - Improved API key encryption. Includes migration method.
-  - Authentication refactor and centralized API key handling:
-    - Providers select the auth scheme in `PreCall(...)`, while API keys are resolved internally by providers (never placed on `AIRequestCall`).
-    - `AIProvider.CallApi(...)` now supports `"none"`, `"bearer"` and `"x-api-key"` (applies header using provider API key).
-    - Streaming adapters apply auth via `AIProviderStreamingAdapter.ApplyAuthentication(...)` using provider-internal keys; `ApplyExtraHeaders(...)` now excludes reserved headers (`Authorization`, `x-api-key`).
-  - Unified extra header handling via `HttpHeadersHelper`: both `AIProvider.CallApi(...)` and `AIProviderStreamingAdapter.ApplyExtraHeaders(...)` now delegate to the shared helper to eliminate duplication and ensure consistent reserved header filtering for streaming and non-streaming paths.
-
-- Infrastructure and core models:
-  - Complete refactor of `SmartHopper.Infrastructure` for clarity and organization.
-  - Added `AIAgent`, `AIRequest` and `AIBody` models to improve clarity and extensibility. Refactored all code to use the new models.
-  - Renamed `IChatModel` to `AIInteraction`.
-  - Renamed `AIEvaluationResult` to `AIReturn`.
-  - Renamed `AIResponse` to `AIReturnBody`.
-  - Refactored all AI-powered tools to use the new `AIRequest` and `AIReturn` models.
-  - Unified `GetResponse` and `GenerateImage` methods in `AIProvider` to a generic `Call` method.
-  - `IAIReturn.Metrics` is writable; metrics now initialized in `AIProvider.Call()` with Provider, Model, and CompletionTime.
-  - Providers refactored to use `AIInteractionText.SetResult(...)` for consistent content/reasoning assignment.
-  - Renamed capabilities to Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Text2Image, Text2Speech, Speech2Text and Image2Text.
-  - Standardized async data-tree processing in stateful components via shared `RunProcessingAsync` pipelines and configurable `ProcessingUnitMode`, improving consistency and enabling better progress tracking for item-based workflows.
-
-- Model management and selection:
-  - Simplified model selection policy in `ModelManager.SelectBestModel`: capability-first ordering using defaults for requested capability → best-of-rest; removed the separate "default-compatible" tier; selection is now fully centralized in `ModelManager` with no registry-level fallback or wildcard resolution.
-  - Unified model retrieval via `IAIProviderModels.RetrieveModels()` with centralized registration in `ModelManager`. Components (e.g., `AIModelsComponent`) and tests updated to query `ModelManager` instead of calling per-provider legacy methods.
-  - Provider-scoped model selection:
-    - Added `IAIProvider.SelectModel(requiredCapability, requestedModel)` to encapsulate model resolution behind provider interface.
-    - `AIProvider` base now implements `SelectModel(...)` delegating to centralized `ModelManager.SelectBestModel` while honoring provider defaults/settings.
-    - `AIRequestBase.GetModelToUse()` refactored to call `provider.SelectModel(...)` instead of `ModelManager.Instance` directly.
-    - Removed remaining direct calls to `ModelManager.Instance.SelectBestModel` outside provider internals.
-    - Propagated model validation messages to components UI.
-
-- Requests execution and validation:
-  - `AIRequestCall.Exec()` is now explicitly single-turn (no tool orchestration). Multi-turn and tool processing are handled by `ConversationSession.RunToStableResult` when used explicitly.
-  - `AIRequestBase.IsValid()` now blocks streaming when the selected provider disables streaming via settings or when the model is not streaming-capable, surfacing a clear validation error; these streaming validations now include `AIMessageCode` values (`StreamingDisabledProvider`, `StreamingUnsupportedModel`).
-  - `AIRequestCall.IsValid()` now emits structured `AIMessageCode` values for provider/model and body validation:
-    - `ProviderMissing`, `UnknownProvider`, `UnknownModel`, `NoCapableModel`, `CapabilityMismatch`
-    - Endpoint/body issues are tagged as `BodyInvalid`
-  - `AIStatefulAsyncComponentBase.UpdateBadgeCache()` prioritizes structured `Message.Code` for invalid/replaced decisions (`ProviderMissing`, `UnknownProvider`, `UnknownModel`, `NoCapableModel`, `CapabilityMismatch`) and falls back to message text only when `Code == Unknown`.
-
-- Tools and components:
-  - Grasshopper AI tools refactor: replaced legacy mutable `AIBody` usage with `AIBodyBuilder` + `AIReturn.CreateSuccess(body, toolCall)` for consistent immutable response construction. Updated tools: `gh_get`, `gh_put`, `gh_list_categories`. Ensured `AIToolCall.FromToolCallInteraction` is used and preserved existing error handling.
-  - Verified badge now requires capability match (`Verified && HasCapability(RequiredCapability)`).
-  - Badge cache computation now evaluates against the currently configured model (immediate UI feedback) and also surfaces replacement intent via selection fallback.
-  - AIChatComponent: removed duplicated `_sharedLastReturn` storage and its lock. Removed internal methods `SetLastReturn(AIReturn)` and `GetLastReturn()`; components should rely on the base snapshot via `SetAIReturnSnapshot(...)` and use it for outputs.
-  - AIChatComponent: unified snapshot management using base class snapshot exclusively. Renamed method to `SetAIReturnSnapshot(AIReturn)` for consistency across components. Updated chat transcript output to read from the base snapshot, ensuring live updates and metrics stay in sync.
-  - AIChatWorker: removed worker-local `lastReturn` cache and fallback. `onUpdate` now updates only the base snapshot via `SetAIReturnSnapshot(...)`, and `SetOutput` reads exclusively from `CurrentAIReturnSnapshot` to keep chat history and metrics consistent.
-  - Output lifecycle: `AIStatefulAsyncComponentBase` now exposes `protected virtual bool ShouldEmitMetricsInPostSolve()`; `OnSolveInstancePostSolve` respects this hook. Default behavior unchanged (metrics emitted in post-solve) unless overridden.
-  - Refactor: Extracted timeout magic numbers (120/1/600) into named constants in `AIToolCall` (`DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `MAX_TIMEOUT_SECONDS`).
-  - Disabled several untested or experimental AI tools/components by excluding them from the build (prefixed filenames with `_`) to keep the default toolbox focused on stable features.
-  - Reorganized Grasshopper AI tool and component categories (including testing/experimental groups) for clearer grouping and discoverability inside Grasshopper.
-  - AIListFilter: fix incorrect index array parsing
-  - `mcneel_forum_search` simplified: now only accepts `query` and `limit` parameters and returns raw `results` and `count` without automatic AI summaries; use `mcneel_forum_post_summarize` explicitly when summaries are needed.
-
-- Streaming behavior:
-  - OpenAI provider: nested `OpenAIStreamingAdapter` now derives from `AIProviderStreamingAdapter` and reuses shared helpers; streaming behavior and statuses remain unchanged.
-  - Centralized streaming capability check in `ModelManager.ModelSupportsStreaming(provider, model)` and updated validation to consult it.
-  - `ConversationSession.Stream()` now gates streaming based on model capability and yields a clear error when unsupported.
-
-- WebChat:
-  - WebChatDialog: refactored to align with new base class API and recent infrastructure changes.
-  - WebChatDialog greeting flow is now fully event-driven via `ConversationSession` observer callbacks. The UI no longer inserts or replaces a temporary greeting bubble; it only updates the status label during generation and renders greeting content from partial/final events.
-  - Interaction override behavior clarified: greeting generation uses the initial request interactions (e.g., system prompt) to preserve context; normal user-initiated turns override from the current conversation history (last return interactions).
-  - Default conversation context enabled for WebChat (Canvas Button and AIChatComponent): sets `AIBody.ContextFilter` to `"time, environment, selection"` so the assistant receives time, environment, and selection count by default. Implemented in `WebChatUtils.EnsureDialogOpen(...)` and `WebChatUtils.WebChatWorker`.
-  - Improved default prompts in WebChat for clearer assistant behavior and tool guidance.
-  - Improved UI with better collapsible messages, auto-scroll to bottom feature, "new messages" information tooltip, and improved thinking message
-  - Dedicated error messages for validation errors in UI not being passed to APIs
-  - Ensured fidelity between UI and conversation history
-
-- Conversation orchestration:
-  - `ConversationSession` now uses a unified internal loop (`TurnLoopAsync`) for both streaming and non‑streaming APIs to prevent logic drift.
-  - Streaming persistence semantics updated: deltas are persisted into history per chunk in arrival order (no grouping or reordering at the end of the stream). Finalization only updates the "last return" snapshot.
-  - Tool-call handling: removed internal deduplication-by-Id for `tool_call` interactions. Multiple tool calls with the same Id emitted by providers are now preserved in history. Session avoids introducing duplicates on its own when force-appending missing tool_calls prior to execution.
-  - Fixed streaming delta notifications to only emit `OnDelta` for text interactions; non-text interactions (tool calls, tool results) now properly use `OnInteractionCompleted` after completion.
-
-- Streaming adapters internals:
-  - Streaming infrastructure: Introduced an enhanced SSE reader overload in `AIProviderStreamingAdapter.ReadSseDataAsync(HttpResponseMessage, TimeSpan?, Func<string,bool>?, CancellationToken)` that supports idle timeout, robust cancellation (disposing the underlying stream), and provider-specific terminal detection. The simple overload now delegates to the enhanced version (deduplication).
-  - Providers updated to use enhanced SSE reader with a conservative 60s idle timeout:
-    - OpenAI: uses new overload while keeping provider-level final chunk handling intact.
-    - Anthropic: passes terminal predicate for `type == "message_stop"` to ensure early completion even without `[DONE]`.
-    - MistralAI: passes terminal predicate when `finish_reason` appears in the payload to end the stream reliably.
-
-### Security
-
-- Prevented secret leakage by centralizing API key usage inside provider internals for both non-streaming and streaming flows.
-- `AIRequestCall`, `AIReturn`, and logs do not contain API keys; reserved headers are applied internally only.
-
-### Deprecated
-
-- `CustomizeHttpClientHeaders` is deprecated for authentication/header setup. Providers must stop overriding it for auth and use request-scoped headers instead.
-
-### Removed
-
-- Providers and models:
-  - Removed legacy model retrieval methods across providers/tests/docs: `RetrieveAvailable`, `RetrieveCapabilities`, and `RetrieveDefault`. Providers must expose models exclusively via `RetrieveModels()` during async initialization.
-  - Removed the `TemplateProvider` since it will be explained in documentation.
-
-- Context and metrics:
-  - Removed the `ContextKeyFilter` and `ContextProviderFilter` in favor of a single `ContextFilter` that filters the providers.
-  - Removed `AIToolCall.ReplaceReuseCount()` in favor of unified metrics handling.
-
-- WebChat:
-  - WebChatDialog: removed the assistant greeting loading placeholder and manual replacement logic in `InitializeNewConversation()`; greeting is appended by the session and rendered solely from observer updates.
+- **Settings UI**: Reorganized settings dialog into tabs, including SmartHopper Assistant and Trusted Providers sections.
+- **Model selection**: Centralized capability-first model selection behind the provider interface.
+- **Authentication**: Improved API key encryption and migrated to provider-internal key resolution so keys never appear in requests or logs.
+- **About dialog**: Updated to list the currently supported AI providers.
+- **Provider settings**: Disabled streaming controls for DeepSeek and OpenRouter until streaming support is available.
+- **AIChat component**: Unified snapshot management so chat history and metrics stay consistent.
+- **Toolbox**: Reorganized Grasshopper component categories and disabled experimental tools from the default build.
+- **mcneel_forum_search**: Simplified to return raw results; use `mcneel_forum_post_summarize` for summaries.
+- **Infrastructure**: Refactored `SmartHopper.Infrastructure` for clarity and standardized data-tree processing pipelines.
 
 ### Fixed
 
-- ConversationSession:
-  - Fixed TurnId mismatch between tool calls and their results: tool results now inherit the TurnId from their originating tool call instead of receiving a new TurnId from the current turn iteration. This ensures proper correlation in WebChat rendering keys.
+- **Chat rendering**: Fixed tool-call/result ordering, duplicate greetings, and reasoning-only message display in WebChat.
+- **Reasoning metrics**: Fixed missing reasoning tokens for DeepSeek, OpenAI o-series, and GPT-5 models.
+- **Image viewer**: Fixed image saving errors and image generation output not reaching the viewer.
+- **Model selection**: Fixed "Invalid model" when the manager returned a wildcard and corrected `DataCount` in metrics.
+- **Tools**: Fixed `list_generate` output and corrected script component GUIDs.
+- **Streaming**: Fixed indefinite streaming hangs and ensured final metrics appear in the chat UI.
+- **Persistence**: Prevented crashes when opening Grasshopper files with safe, versioned output persistence.
+- **Providers**: Fixed DeepSeek array schema handling, MistralAI streaming status, and Anthropic system message placement.
+- **AIChat component**: Prevented NullReferenceException when closing chat without responses and fixed intermittent missing metrics.
 
-- Streaming providers:
-  - **All providers** (DeepSeek, MistralAI, OpenAI): Fixed reasoning-only streaming chunks being overridden by content chunks in UI. When transitioning from reasoning-only to content streaming, providers now emit a completed (Finished) interaction for reasoning before starting content stream, triggering proper UI segmentation to prevent override.
-  - DeepSeek: Fixed `OutputTokensReasoning` always showing 0. Now properly extracts reasoning tokens from nested `usage.completion_tokens_details.reasoning_tokens` field in both streaming and non-streaming responses.
-  - OpenAI: Fixed `OutputTokensReasoning` always showing 0 for reasoning models (o1/o3/GPT-5). Now properly extracts reasoning tokens from nested `usage.completion_tokens_details.reasoning_tokens` field in both streaming and non-streaming responses.
+### Deprecated
 
-- WebChatDialog:
-  - Fixed assistant messages appearing out of order in the UI when tool calls are made. Empty assistant text interactions (which represent the decision to call tools) are now preserved in conversation history but skipped during UI rendering. The actual assistant response after tool execution renders as a separate segment (seg2) in the correct position after tool results.
-  - Fixed duplicate greeting messages in UI. `OnFinal` now uses dedup keys for non-streamed interactions (like greetings) instead of creating new segmented keys, ensuring they upsert into existing bubbles rendered during history replay.
-  - Fixed AI-generated greetings not streaming. Greeting initialization now uses `ConversationSession.Stream()` with streaming validation and fallback to `RunToStableResult()` on failure, matching the pattern used for regular user messages.
+- `CustomizeHttpClientHeaders` is deprecated for authentication; use request-scoped headers instead.
 
-- Components – ImageViewer:
-  - Fixed "ImageViewer" saving images errors. Now it will create a temporary file that will be deleted after saving to prevent file system issues.
+### Removed
 
-- Model selection and metrics:
-  - Fixed "Invalid model" when model manager was providing the wildcard instead of the actual default model name.
-  - Corrected DataCount in metrics.
+- Removed legacy per-provider model retrieval methods (`RetrieveAvailable`, `RetrieveCapabilities`, `RetrieveDefault`); use `RetrieveModels()`.
+- Removed the `TemplateProvider`.
+- Replaced `ContextKeyFilter` and `ContextProviderFilter` with a single `ContextFilter`.
+- Removed manual greeting placeholder logic from WebChat.
 
-- Tools:
-  - Fixed incorrect result output in `list_generate` tool.
-  - Tool-call executions now retain correct provider/model context via `FromToolCallInteraction(..., provider, model)` to improve traceability and metrics accuracy.
-  - Corrected script component GUIDs to match Grasshopper runtime values, ensuring tools and GhJSON generation can reliably create and reference script components.
+### Security
 
-- WebChat and streaming UI:
-  - Prevent assistant replies from overwriting previous assistant messages: final assistant bubble now re-keys from the streaming key to the interaction's dedup key, so each turn is preserved in order.
-  - WebChatDialog streaming: first assistant chunk now creates a new assistant message in the UI, subsequent chunks update the same bubble with the full accumulated text instead of replacing with only the last chunk; final content is persisted to history once on completion.
-  - WebChatDialog streaming: partial assistant updates now also update internal `_lastReturn` and emit `ChatUpdated` events on every chunk, ensuring state consistency between UI and observers throughout streaming.
-  - WebChatDialog non-streaming: fixed loss of AI metrics by merging `AIReturn.Metrics` into the final assistant interaction in `WebChatObserver.OnFinal` so per-message metrics are preserved in chat history and UI.
-  - WebChat: reasoning-only assistant messages now render. `ChatResourceManager` renders the `Reasoning` as a collapsible panel and auto-expands it when there is no answer content, fixing empty message bubbles during streaming.
-  - AIChat/WebChatDialog: Ensure the initial system prompt is added as the first system message in chat history and rendered in the UI on dialog initialization.
-  - WebChatDialog: fixed compile-time errors by implementing missing methods (`InitializeWebViewAsync`, `ExecuteScript`, `RenderAndUpdateDom`) and UI handlers (`ClearButton_Click`, `SendButton_Click`, `UserInputTextArea_KeyDown`); added internal `DomUpdateKind` enum; ensured all UI/WebView operations marshal to Rhino's main UI thread.
-  - HtmlChatRenderer: restored compatibility by adding `RenderInteraction(...)` wrapper used by `WebChatDialog`.
-  - Introduced an internal DOM update queue to avoid running multiple WebView scripts concurrently, preventing race conditions and render glitches.
-  - Fixed a loop in tool-call execution that could cause repeated or stuck tool-handling cycles.
-
-- Providers:
-  - DeepSeek: Do not force `response_format: json_object` for array schemas; use text output and a guiding system prompt instead. Decoder made robust to unwrap arrays from `content` parts and from wrapper objects (`items`, `list`, or malformed `enum`) to ensure a plain JSON array is returned.
-  - MistralAI:
-    - Streaming adapter fixes replacing invalid `AICallStatus.Error`/`NoContent` with `Finished`, using `AIReturn.CreateError(...)` for errors, and aligning streaming statuses (Processing → Streaming → Finished) with the OpenAI adapter pattern.
-    - Fixed retrieval of available models when the API did not return the expected model list.
-  - Anthropic: Fixed mapping/placement of system messages to ensure correct role semantics and prompt conditioning.
-
-- Components – AIChat:
-  - AIChatComponent: Prevent NullReferenceException when closing chat without responses. `SetOutput()` now null-checks the last interaction and outputs an empty string (with a debug notice) when none exists.
-  - AIChatComponent: Eliminated duplicated/nested branches in "Chat History" output by centralizing output setting in `SolveInstance()` and removing the worker's `SetPersistentOutput` call. Ensures last interaction appears and output updates consistently from a single snapshot source.
-  - AIChatComponent: Synchronized outputs. Metrics are now emitted from `SolveInstance()` together with "Chat History" (reading from base snapshot). Base post-solve metrics emission disabled via `ShouldEmitMetricsInPostSolve()` override to avoid duplicates. Fixes intermittent metrics not updating alongside chat during streaming/incremental updates.
-
-- Components – Persistence and stability:
-  - Prevent crash on GH file open by introducing a safe, versioned persistence (v2) for `StatefulAsyncComponentBase` that stores outputs as canonical string trees keyed by output parameter GUIDs. Legacy output restore is skipped by default and can be enabled via a feature flag.
-  - WebChatDialog stability issues in certain scenarios.
-  - Build stability after refactor (compilation issues resolved).
-  - Infrastructure stability fixes.
-
-- Image generation pipeline:
-  - Fixed AI image output not reaching `ImageViewer` due to strict success check in `AIImgGenerateComponent`. Now treats missing `success` as true and only fails when an `error` is present, allowing the image URL/bitmap to flow to outputs.
-
-- Streaming stability:
-  - Streaming metrics propagation: after streaming completes, usage metrics (provider, model, input/output tokens, finish_reason) are now displayed in the chat UI. Implemented by:
-    - Requesting OpenAI to include usage in the final stream chunk via `stream_options.include_usage = true` and parsing `prompt_tokens`/`completion_tokens` in `OpenAIProvider` streaming adapter.
-    - Suppressing metrics during partial updates and merging final `AIReturn.Metrics` into the last assistant message in `WebChatObserver.OnFinal` when the final result has no interactions.
-  - Streaming stability: Fixed indefinite streaming hangs across providers by using the enhanced SSE reader with idle timeouts and terminal event detection. OpenAI, Anthropic, and Mistral adapters now properly detect completion signals (e.g., `finish_reason`, `message_stop`) and exit the stream even if `[DONE]` is omitted by the provider.
+- Prevented API key leakage by centralizing API key handling inside providers and keeping reserved headers out of request logs.
 
 ## [0.5.3-alpha] - 2025-08-20
 
@@ -1693,92 +1030,37 @@ Many thanks to the following contributors to this release:
 
 ### Added
 
-- Added modular provider architecture:
-  - Created new provider project structure (SmartHopper.Providers.MistralAI) with dedicated resources.
-  - Created new provider project structure (SmartHopper.Providers.OpenAI) with dedicated resources.
-  - Added IAIProviderFactory interface for dynamic provider discovery.
-  - Implemented ProviderManager for runtime loading and management of providers.
-  - Added IsEnabled property to IAIProvider interface to allow disabling template or experimental providers.
-  - Created SmartHopper.Providers.Template project as a guide for implementing new providers.
-- Added the new AIChat component with interactive chat interface and proper icon.
-- Added WebView-based chat interface with AIChatComponent, WebChatDialog class, HtmlChatRenderer utility class, and ChatResourceManager.
-- Added RunOnlyOnInputChanges property to StatefulAsyncComponentBase to control component execution behavior.
-- Added AI provider selection improvements:
-  - "Default" option in the AI provider selection menu to use the provider specified in SmartHopper settings.
-  - Default provider selection in the settings dialog to set the global default AI provider.
-- Added custom icon for the SmartHopper tab in Grasshopper.
-- Added comprehensive Markdown formatting support:
-  - Headings, code blocks, blockquotes, and inline formatting.
-  - HTML tags like underline in Markdown text.
-  - Dedicated Markdown class in the Converters namespace for centralized markdown processing.
-- Added a "Supported Data Types" section to README.md documenting currently supported and planned Grasshopper-native types.
-- New update-changelog-issues action and github-pr-update-changelog-issues to automatically mention missing closed issues in the changelog.
+- **Modular AI providers**: OpenAI and MistralAI providers are now separate, dynamically loaded plugins; a template provider is available for building custom providers.
+- **AI Chat component**: New interactive chat component with a WebView-based chat dialog, message bubbles, and Markdown rendering.
+- **Provider selection**: Added a "Default" provider option and a global default provider setting in the settings dialog.
+- **SmartHopper tab**: Added a custom icon for the SmartHopper tab in Grasshopper.
+- **Markdown support**: Chat messages are now rendered as Markdown with support for headings, code blocks, blockquotes, and inline formatting.
+- **Context system**: Added context filtering by provider and key, plus automatic time and environment context in the AI Chat component.
+- **Documentation**: Added a "Supported Data Types" section to README.md.
 
 ### Changed
 
-- Refactored AI provider architecture:
-  - Migrated MistralAI provider to a separate project (SmartHopper.Providers.MistralAI).
-  - Migrated OpenAI provider to a separate project (SmartHopper.Providers.OpenAI).
-  - Updated SmartHopperSettings to use ProviderManager for provider discovery.
-  - Modified AIStatefulAsyncComponentBase to use the new provider handling approach.
-  - Changed provider discovery to load assemblies from the main application directory instead of a separate "Providers" subdirectory.
-  - Enhanced ProviderManager to only register providers that have IsEnabled set to true.
-  - Added warning log when duplicate AI providers are encountered during registration instead of silently ignoring them.
-- Modified AIChatComponent to always run when the Run parameter is true, regardless of input changes.
-- Improved version badge workflow to also update badges when color doesn't match the requirements based on version type.
-- Improved ChatDialog UI with numerous enhancements:
-  - Modern chat-like interface featuring message bubbles and visual styling.
-  - Better layout with proper text wrapping to prevent horizontal scrolling.
-  - Responsive message sizing that adapts to the dialog width (80% max width with 350px minimum).
-  - Message selection and copying capabilities with a context menu.
-  - Automatic message height adjustment based on content and removal of visible scrollbars.
-  - Improved scrolling behavior.
-  - Allow only one chat dialog to be open per AI Chat Component. When running the component again, if there is a linked chat dialog, it will be focused instead of opening a new one.
-- Enhanced About dialog:
-  - Decreased font size.
-  - Defined a minimum size.
-  - Better layout and styling.
-- Improved code organization:
-  - All chat messages are now treated as markdown by default for consistent formatting.
-  - Changed AI components to use the default provider from SmartHopper settings when "Default" is selected.
-  - Updated component icon display to show the actual provider icon when "Default" is selected.
-- Improved Web-based AIChat implementation:
-  - Refactored WebChat resource management to use embedded resources instead of file system for improved security.
-  - Enhanced WebView initialization for better cross-platform compatibility in Eto.Forms.
-  - Improved error handling and debugging in ChatResourceManager and WebChatDialog.
-  - Refactored WebChat HTML, CSS, and JavaScript into separate files for improved maintainability.
-- Enhanced release-build.yml workflow:
-  - Automatically build and attach artifacts to published releases.
-  - Create platform-specific zip files (Rhino8-Windows, Rhino8-Mac) instead of a single zip with subfolders.
-- Improved error handling in the AIStatefulAsyncComponentBase.
-- Updated settings menu to use Eto.Forms and Eto.Drawing.
-- Renamed the AI Context component to AI File Context.
-- Enhanced context management system:
-  - Support for multiple simultaneous context providers
-  - Automatic time and environment context in AIChatComponent
-  - Filtering capabilities for context by provider ID and specific context keys
-  - Context filtering with comma-separated lists for multiple criteria
-  - Exclusion filtering with minus prefix (e.g., "-time" excludes the time provider while including all others)
-- Modified AboutDialog to inform users about the nature and limitations of AI-generated content
-
-### Removed
-
-- Removed MistralAI provider from SmartHopper.Config project as part of the modular architecture implementation.
-- Removed OpenAI provider from SmartHopper.Config project as part of the modular architecture implementation.
-- Removed dependency on HtmlAgilityPack
+- **AIChat execution**: The AI Chat component now always runs when the Run parameter is true, regardless of input changes.
+- **Chat UI**: Improved chat dialog layout with responsive sizing, text wrapping, message selection and copying, and single-dialog-per-component behavior.
+- **About dialog**: Restyled with smaller fonts, a minimum size, and an AI-generated content disclaimer.
+- **Release packaging**: Release builds now produce separate Rhino8-Windows and Rhino8-Mac zip files.
+- **Settings menu**: Rewrote the settings menu using Eto.Forms for cross-platform compatibility.
+- **AI Context component**: Renamed to AI File Context.
 
 ### Fixed
 
-- Fixed AI provider handling:
-  - Enable the AI Provider to be stored and restored from AI-powered components on writing and reading the file ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
-  - Fixed AIChatComponent to properly use the default provider from settings when "Default" is selected in the context menu.
-- Fixed build error for non-string resources in .NET Framework 4.8 target by adding GenerateResourceUsePreserializedResources property.
-- Fixes "Bug: Settings menu hides sometimes" ([#94](https://github.com/architects-toolkit/SmartHopper/issues/94)).
-- Fixes "Bug: AI Chat component freezes all Rhino!" ([#85](https://github.com/architects-toolkit/SmartHopper/issues/85)).
-- Fixes "Bug: Settings Menu is incompatible with Mac" ([#12](https://github.com/architects-toolkit/SmartHopper/issues/12)).
-- Fixes "AI disclaimer in chat and about" ([#114](https://github.com/architects-toolkit/SmartHopper/issues/114)).
-- Fixed a bug opening the chat dialog that eventually froze the application.
-- Fixed a bug where the chat dialog was not on top when clicking on it from the windows taskbar.
+- Fixed AI provider state not being saved or restored in Grasshopper files ([#41](https://github.com/architects-toolkit/SmartHopper/issues/41)).
+- Fixed AI Chat using the default provider correctly when "Default" is selected.
+- Fixed settings menu hiding on Windows ([#94](https://github.com/architects-toolkit/SmartHopper/issues/94)).
+- Fixed AI Chat freezing Rhino ([#85](https://github.com/architects-toolkit/SmartHopper/issues/85)).
+- Fixed settings menu incompatibility with Mac ([#12](https://github.com/architects-toolkit/SmartHopper/issues/12)).
+- Added AI disclaimer to the chat and about dialogs ([#114](https://github.com/architects-toolkit/SmartHopper/issues/114)).
+- Fixed chat dialog freezing and taskbar focus issues.
+
+### Removed
+
+- Removed OpenAI and MistralAI providers from the legacy SmartHopper.Config project.
+- Removed the HtmlAgilityPack dependency.
 
 ## [0.1.2-alpha] - 2025-03-17
 
