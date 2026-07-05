@@ -37,6 +37,7 @@ Many thanks to the following contributors to this release:
 - Exposed `GhJsonGrasshopper.Delete` and `GhJsonGrasshopper.Clear` facade methods in `ghjson-dotnet` so consumers can remove canvas objects through the same UI-thread-safe, undo-batched deletion logic used by `gh_remove`.
 - Added new `button_click` tool that simulates a 100 ms momentary press on Grasshopper boolean button parameters.
 - Added new `gh_document_save` tool that saves the active Grasshopper document to a given path or to its existing file path.
+- Added new `gh_disconnect` tool that removes wires between Grasshopper components by instance GUID and parameter name, records a single undo event, and recomputes the solution.
 - Added `autoOffset` parameter to `gh_put` so callers can control whether placed components are offset to avoid overlaps.
 - Added runtime (volatile) data serialization to `ghjson-dotnet`: `SerializationOptions.IncludeRuntimeData` and `GhJsonParameterSettings.RuntimeData` expose the live values flowing through parameter outputs.
 - Added `includeRuntimeData` parameter to `gh_get` and all `gh_get_*_with_data` variants; the response now includes a top-level `runtimeData` object mapping component GUIDs to their output parameter values when runtime data is requested.

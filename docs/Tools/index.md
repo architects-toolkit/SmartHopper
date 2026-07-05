@@ -41,7 +41,7 @@ Tools are discrete operations with JSON-schema-defined inputs that the AI can in
 - **Text tasks**: Use `text2text`, `text2boolean`, `text2textlist`, `text2json`
 - **Image tasks**: Use `img2text` (vision) or `text2img` (generation)
 - **Document tasks**: Use `file2md` or `web2md` to convert documents and web pages to Markdown
-- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up` for Grasshopper automation
+- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect` for Grasshopper automation
 - **Knowledge tasks**: Use `smarthopper_readme`, `smarthopper_tool_help`, `mcneel_forum_search` for contextual guidance
 
 ### Visual Guide
@@ -179,7 +179,7 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 | Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
 | Text Generation | `text2text`, `text2boolean`, `text2textlist`, `text2json`, `list_filter`, `textlist2boolean` |
 | Image Processing | `img2text`, `text2img` |
-| Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock` |
+| Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect` |
 | Scripting | `script_generate`, `script_edit`, `script_review` |
 
 ### Related Documentation
