@@ -57,6 +57,7 @@ Offer a template-method style pipeline for providers: register models, load sett
   - `CallApi` supports GET, POST, DELETE, PATCH, Bearer auth, JSON content.
 - Tools formatting
   - `GetFormattedTools(toolFilter)` converts registered AITools to function definitions for provider APIs.
+  - Disabled tools (`AITool.Enabled == false`) are filtered out before the category filter is applied.
 - Abstracts
   - `Encode(AIRequestCall)`, `Encode(IAIInteraction)`, `Decode(string)`, `DefaultServerUrl`.
 - Generic singleton variant `AIProvider<T>`

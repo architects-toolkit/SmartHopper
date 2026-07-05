@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using SmartHopper.Infrastructure.AIProviders;
 using SmartHopper.Infrastructure.Dialogs;
 using SmartHopper.Infrastructure.Settings;
@@ -90,6 +91,24 @@ namespace SmartHopper.Providers.Anthropic
                     DisplayName = "Temperature",
                     Description = "Controls randomness (0.0–2.0). Higher values make the output more random; lower values make it more deterministic.",
                 },
+                new SettingDescriptor
+                {
+                    Name = "ServiceTier",
+                    Type = typeof(string),
+                    DefaultValue = "standard_only",
+                    DisplayName = "Service Tier",
+                    Description = "Service tier for request processing. 'auto' uses Priority Tier when available, 'standard_only' uses only standard tier. Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "auto", "standard_only" },
+                },
+                new SettingDescriptor
+                {
+                    Name = "ReasoningEffort",
+                    Type = typeof(string),
+                    DefaultValue = "medium",
+                    DisplayName = "Reasoning Effort",
+                    Description = "The amount of effort to use in the output. 'low' is fastest, 'high' is most thorough. Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "low", "medium", "high", "xhigh", "max" },
+                },
             };
         }
 
@@ -107,6 +126,7 @@ namespace SmartHopper.Providers.Anthropic
             string model = null;
             int? maxTokens = null;
             double? temperature = null;
+            string reasoningEffort = null;
 
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
@@ -148,6 +168,21 @@ namespace SmartHopper.Providers.Anthropic
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
+                    }
+
+                    return false;
+                }
+            }
+
+            if (settings.TryGetValue("ReasoningEffort", out var reasoningEffortObj) && reasoningEffortObj != null)
+            {
+                reasoningEffort = reasoningEffortObj.ToString();
+
+                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "low", "medium", "high", "xhigh", "max" }.Contains(reasoningEffort))
+                {
+                    if (showErrorDialogs)
+                    {
+                        StyledMessageDialog.ShowError("Reasoning effort must be low, medium, high, xhigh, or max.", "Validation Error");
                     }
 
                     return false;

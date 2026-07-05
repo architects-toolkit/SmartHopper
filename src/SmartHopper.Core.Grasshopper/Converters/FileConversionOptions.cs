@@ -103,6 +103,55 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public bool DetectHeadings { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets whether to preserve inline text formatting.
+        /// When enabled, colored text is wrapped in an inline HTML span, highlighted text is wrapped in
+        /// an inline HTML mark, and bold/italic text is emitted using Markdown syntax. DOCX preserves
+        /// colors, highlights, bold, and italic; XLSX and PPTX preserve bold and italic.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveFormatting { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve comments and their authors in DOCX files.
+        /// When enabled, comments are appended as blockquotes after the paragraph that contains them.
+        /// Applies to DOCX format.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveComments { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve footnotes in DOCX files.
+        /// When enabled, footnote references are expanded and footnotes are appended at the end of the document.
+        /// Applies to DOCX format.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveFootnotes { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve endnotes in DOCX files.
+        /// When enabled, endnote references are expanded and endnotes are appended at the end of the document.
+        /// Applies to DOCX format.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveEndnotes { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve hyperlinks in DOCX and PPTX files.
+        /// When enabled, link text is emitted as Markdown link syntax.
+        /// Applies to DOCX and PPTX formats.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveHyperlinks { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve Office Math (OMML) equations in DOCX and PPTX files.
+        /// When enabled, equations are converted to LaTeX notation.
+        /// Applies to DOCX and PPTX formats.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveMath { get; set; } = true;
+
+        /// <summary>
         /// Gets or sets whether to extract embedded images from the document.
         /// When enabled, images are extracted as base64 data and stored in the conversion result.
         /// Applies to PDF, DOCX, and PPTX formats.
@@ -143,6 +192,32 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public string? BaseUrl { get; set; }
 
         /// <summary>
+        /// Default value for <see cref="MaxDownloadBytes"/>: 10 MB.
+        /// </summary>
+        public const long DefaultMaxDownloadBytes = 10_000_000;
+
+        /// <summary>
+        /// Default value for <see cref="MinContentLength"/>: 40 characters.
+        /// </summary>
+        public const int DefaultMinContentLength = 40;
+
+        /// <summary>
+        /// Gets or sets the maximum number of raw bytes that will be downloaded from a remote resource
+        /// (e.g. a web page) before conversion is aborted as too large. Applies to <see cref="Formats.UrlConverter"/>.
+        /// This bounds network/memory usage independently of <see cref="MaxContentLength"/>, which only
+        /// truncates the already-converted Markdown output. Default: <see cref="DefaultMaxDownloadBytes"/> (10 MB).
+        /// </summary>
+        public long MaxDownloadBytes { get; set; } = DefaultMaxDownloadBytes;
+
+        /// <summary>
+        /// Gets or sets the minimum number of trimmed characters a conversion must produce to be considered
+        /// a genuine success. Conversions that produce less content than this (e.g. an empty or near-empty
+        /// page) are reported as a failure with <see cref="FileConversionFailureReason.EmptyContent"/> instead
+        /// of a false success with empty/thin Markdown. Default: <see cref="DefaultMinContentLength"/> (40 characters).
+        /// </summary>
+        public int MinContentLength { get; set; } = DefaultMinContentLength;
+
+        /// <summary>
         /// Creates a new instance with default options.
         /// </summary>
         public FileConversionOptions()
@@ -159,12 +234,20 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 PreserveTableStructure = this.PreserveTableStructure,
                 RemoveHeadersFooters = this.RemoveHeadersFooters,
                 DetectHeadings = this.DetectHeadings,
+                PreserveFormatting = this.PreserveFormatting,
+                PreserveComments = this.PreserveComments,
+                PreserveFootnotes = this.PreserveFootnotes,
+                PreserveEndnotes = this.PreserveEndnotes,
+                PreserveHyperlinks = this.PreserveHyperlinks,
+                PreserveMath = this.PreserveMath,
                 MaxContentLength = this.MaxContentLength,
                 ExtractImages = this.ExtractImages,
                 HtmlReadabilityMode = this.HtmlReadabilityMode,
                 IncludeLinks = this.IncludeLinks,
                 IncludeImages = this.IncludeImages,
                 BaseUrl = this.BaseUrl,
+                MaxDownloadBytes = this.MaxDownloadBytes,
+                MinContentLength = this.MinContentLength,
             };
         }
     }

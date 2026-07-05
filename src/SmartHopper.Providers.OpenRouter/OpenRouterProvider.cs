@@ -1155,6 +1155,18 @@ namespace SmartHopper.Providers.OpenRouter
                     typeof(int),
                     null),
                 new AIExtraDescriptor(
+                    "top_a",
+                    "Top A",
+                    "Alternative nucleus sampling method. Threshold based on probability of most likely token.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "min_p",
+                    "Min P",
+                    "Minimum probability for token sampling (0.0–1.0). Tokens below this threshold are ignored.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
                     "frequency_penalty",
                     "Frequency Penalty",
                     "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
@@ -1166,24 +1178,10 @@ namespace SmartHopper.Providers.OpenRouter
                     "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
                     typeof(double),
                     null),
-
-                // OpenRouter-specific parameters
                 new AIExtraDescriptor(
                     "repetition_penalty",
                     "Repetition Penalty",
                     "Alternative penalty for repeated tokens (0.0–2.0). Higher values reduce repetition more strongly.",
-                    typeof(double),
-                    null),
-                new AIExtraDescriptor(
-                    "min_p",
-                    "Min P",
-                    "Minimum probability for token sampling (0.0–1.0). Tokens below this threshold are ignored.",
-                    typeof(double),
-                    null),
-                new AIExtraDescriptor(
-                    "top_a",
-                    "Top A",
-                    "Alternative nucleus sampling method. Threshold based on probability of most likely token.",
                     typeof(double),
                     null),
                 new AIExtraDescriptor(
@@ -1201,12 +1199,6 @@ namespace SmartHopper.Providers.OpenRouter
 
                 // Provider selection settings
                 new AIExtraDescriptor(
-                    "allow_fallback",
-                    "Allow Fallback",
-                    "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
-                    typeof(bool),
-                    null),
-                new AIExtraDescriptor(
                     "sort",
                     "Sort",
                     "Provider routing sort order: 'price' (cheapest), 'throughput' (fastest), or 'latency' (lowest latency).",
@@ -1220,6 +1212,12 @@ namespace SmartHopper.Providers.OpenRouter
                     typeof(string),
                     "deny",
                     new[] { "allow", "deny" }),
+                new AIExtraDescriptor(
+                    "allow_fallback",
+                    "Allow Fallback",
+                    "Whether to allow OpenRouter to fall back to other providers if the primary is unavailable.",
+                    typeof(bool),
+                    null),
 
                 // OpenRouter prompt caching parameters
                 new AIExtraDescriptor(

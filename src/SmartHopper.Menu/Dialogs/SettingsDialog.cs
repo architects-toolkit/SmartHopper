@@ -112,7 +112,7 @@ namespace SmartHopper.Menu.Dialogs
             this._generalPage = new GeneralSettingsPage(this._providers);
             this._assistantPage = new AssistantSettingsPage(this._providers);
             this._providersPage = new ProvidersSettingsPage(this._providers);
-            this._fallbackPage = new FallbackSettingsPage();
+            this._fallbackPage = new FallbackSettingsPage(this._providers);
             this._providerPages = new List<GenericProviderSettingsPage>();
 
             // Create provider-specific tabs

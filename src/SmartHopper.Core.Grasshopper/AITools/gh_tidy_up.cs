@@ -80,7 +80,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [ ""guids"" ]
                 }",
-                execute: this.GhTidyUpAsync);
+                execute: this.GhTidyUpAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "layout" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""moved"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved."" }, ""affectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved (alias for moved)."" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             // Specialized wrapper: gh_tidy_up_selected
             yield return new AITool(
@@ -105,7 +109,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhTidyUpSelectedAsync);
+                execute: this.GhTidyUpSelectedAsync,
+                mutatesCanvas: true,
+                tags: new[] { "canvas", "components", "mutating", "layout" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""moved"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved."" }, ""affectedGuids"": { ""type"": ""array"", ""items"": { ""type"": ""string"" }, ""description"": ""Instance GUIDs of components that were moved (alias for moved)."" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         /// <summary>
@@ -126,7 +134,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var startToken = args["startPoint"];
                 var hasStart = startToken != null;
@@ -250,7 +258,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             // Parse arguments first so viewportOnly is available before filtering
             var toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
             var viewportOnly = args["viewportOnly"]?.ToObject<bool>() ?? false;
 
             // Collect selected document objects (not just GUIDs) so the viewport pivot check can be applied

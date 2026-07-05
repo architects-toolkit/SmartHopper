@@ -19,11 +19,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
+using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -41,18 +42,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
     {
         private readonly string toolName = "file2md";
         private static FileConverterRegistry? registry;
-
-        /// <summary>
-        /// Default prompt used for <c>describe</c> mode: long, thorough description.
-        /// </summary>
-        private const string DefaultImageDescriptionPrompt =
-            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured. Do not make assumptions. Do not suggest future actions. Stick to describing the image in a way that is useful for someone who cannot see it.";
-
-        /// <summary>
-        /// Default prompt used for <c>caption</c> and <c>embed</c> modes: short, one-sentence caption.
-        /// </summary>
-        private const string DefaultImageCaptionPrompt =
-            "Write a concise, descriptive caption for this image in one sentence.";
 
         /// <summary>
         /// Gets or creates the converter registry with all built-in converters.
@@ -88,7 +77,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced.",
+                description: "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced. Example: file2md({ filePath: 'C:/docs/spec.pdf' }).",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -97,14 +86,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""string"",
                             ""description"": ""Absolute path to the file to convert.""
                         },
-                        ""preserveTableStructure"": {
-                            ""type"": ""boolean"",
-                            ""description"": ""Whether to preserve table structure as Markdown tables. Default: true."",
-                            ""default"": true
-                        },
                         ""removeHeadersFooters"": {
                             ""type"": ""boolean"",
                             ""description"": ""Whether to attempt to remove headers and footers (PDF, DOCX). Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveFormatting"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve inline text formatting. DOCX preserves colors, highlights, bold, and italic; XLSX and PPTX preserve bold and italic. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveComments"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve comments in DOCX files by appending them as blockquotes after the paragraph that contains them. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveFootnotes"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve footnotes in DOCX files. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveEndnotes"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve endnotes in DOCX files. Default: true."",
                             ""default"": true
                         },
                         ""extractImages"": {
@@ -145,7 +149,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""filePath""]
                 }",
-                execute: this.File2MdAsync);
+                execute: this.File2MdAsync,
+                mutatesCanvas: false,
+                tags: new[] { "file", "knowledge", "text", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""text"": { ""type"": ""string"", ""description"": ""Markdown representation of the file contents."" }, ""fileType"": { ""type"": ""string"" }, ""images"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         private async Task<AIReturn> File2MdAsync(AIToolCall toolCall)
@@ -162,7 +170,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string filePath = args["filePath"]?.ToString();
                 if (string.IsNullOrWhiteSpace(filePath))
@@ -178,8 +186,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var options = new FileConversionOptions
                 {
-                    PreserveTableStructure = args["preserveTableStructure"]?.Value<bool>() ?? true,
+                    PreserveTableStructure = true,
                     RemoveHeadersFooters = args["removeHeadersFooters"]?.Value<bool>() ?? true,
+                    PreserveFormatting = args["preserveFormatting"]?.Value<bool>() ?? true,
+                    PreserveComments = args["preserveComments"]?.Value<bool>() ?? true,
+                    PreserveFootnotes = args["preserveFootnotes"]?.Value<bool>() ?? true,
+                    PreserveEndnotes = args["preserveEndnotes"]?.Value<bool>() ?? true,
+                    PreserveHyperlinks = true,
+                    PreserveMath = true,
                     ExtractImages = (args["extractImages"]?.Value<bool>() ?? false) || describeImages,
                     DetectHeadings = true,
                     MaxContentLength = 0,
@@ -240,60 +254,38 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult["images"] = imagesArray;
                     toolResult["imageCount"] = result.Images.Count;
 
-                    // Insert image placeholders into markdown content for later substitution
-                    string annotatedContent = InsertImagePlaceholders(result.MarkdownContent, result.Images);
-                    toolResult["content"] = annotatedContent;
-                }
-
-                // Describe images via AI and append to markdown
-                if (describeImages && result.Images.Count > 0)
-                {
-                    string providerName = toolCall.Provider?.ToString();
-                    if (string.IsNullOrWhiteSpace(providerName))
+                    // Describe images via AI and replace inline [image N] placeholders
+                    if (describeImages)
                     {
-                        result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
-                    }
-                    else
-                    {
-                        // Select default prompt based on mode
-                        string defaultPrompt = (imageMode == "describe")
-                            ? DefaultImageDescriptionPrompt
-                            : DefaultImageCaptionPrompt;
-
-                        string effectivePrompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
-                            ? defaultPrompt
-                            : imageDescriptionPrompt;
-
-                        var imagesSb = new StringBuilder();
-                        imagesSb.AppendLine();
-                        imagesSb.AppendLine("---");
-                        imagesSb.AppendLine();
-                        imagesSb.AppendLine("## Document Images");
-                        imagesSb.AppendLine();
-
-                        foreach (var image in result.Images)
+                        string providerName = toolCall.Provider?.ToString();
+                        if (string.IsNullOrWhiteSpace(providerName))
                         {
-                            string aiText = await DescribeImageAsync(image, effectivePrompt, toolCall).ConfigureAwait(false);
-
-                            if (imageMode == "embed")
-                            {
-                                imagesSb.AppendLine($"*{image.Context}*");
-                                imagesSb.AppendLine();
-                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.RawValue})");
-                                imagesSb.AppendLine();
-                            }
-                            else
-                            {
-                                // describe or caption: text-only block
-                                imagesSb.AppendLine($"**[{image.Id} — {image.Context}]**");
-                                imagesSb.AppendLine();
-                                imagesSb.AppendLine(aiText);
-                                imagesSb.AppendLine();
-                            }
+                            result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
                         }
+                        else
+                        {
+                            string prompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
+                                ? ImageProcessingService.GetDefaultPrompt(imageMode)
+                                : imageDescriptionPrompt;
 
-                        result.MarkdownContent += imagesSb.ToString();
-                        toolResult["content"] = result.MarkdownContent;
+                            var items = result.Images.Select((image, i) => new ImageProcessingItem
+                            {
+                                Id = image.Id,
+                                Context = image.Context,
+                                MimeType = image.MimeType,
+                                Base64Data = image.RawValue,
+                                AltText = image.Context,
+                                Placeholder = $"[image {i + 1}]",
+                            }).ToList();
+
+                            result.MarkdownContent = await ImageProcessingService.ProcessMarkdownImagesAsync(
+                                result.MarkdownContent,
+                                items,
+                                imageMode,
+                                toolCall,
+                                prompt: prompt).ConfigureAwait(false);
+                            toolResult["content"] = result.MarkdownContent;
+                        }
                     }
                 }
 
@@ -321,87 +313,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
-        }
-
-        /// <summary>
-        /// Calls the <c>img2text</c> tool to obtain a text description of an extracted image.
-        /// </summary>
-        /// <param name="imageSource">The image source containing base64 data and mime type.</param>
-        /// <param name="prompt">The description prompt to send to the AI.</param>
-        /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
-        /// <returns>The AI-generated text description, or a fallback string on failure.</returns>
-        private static async Task<string> DescribeImageAsync(VersatileImage imageSource, string prompt, AIToolCall sourceToolCall)
-        {
-            try
-            {
-                var imgArgs = new JObject
-                {
-                    ["imageBase64"] = imageSource.RawValue,
-                    ["mimeType"] = "image/png",
-                    ["prompt"] = prompt,
-                };
-
-                var imgInteraction = new AIInteractionToolCall
-                {
-                    Name = "img2text",
-                    Arguments = imgArgs,
-                    Agent = AIAgent.Assistant,
-                };
-
-                var imgToolCall = new AIToolCall
-                {
-                    Endpoint = "img2text",
-                    Provider = sourceToolCall.Provider,
-                    Model = sourceToolCall.Model,
-                    Parameters = sourceToolCall.Parameters,
-                };
-
-                imgToolCall.FromToolCallInteraction(imgInteraction);
-
-                var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
-
-                var toolResult = ToolCallResult.FromAIReturn(imgResult);
-                return toolResult["description"]?.ToString() ?? "[Image could not be described]";
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[file2md] DescribeImageAsync failed: {ex.Message}");
-                return "[Image description failed]";
-            }
-        }
-
-        /// <summary>
-        /// Inserts image placeholders into the markdown content.
-        /// Adds an "## Images" section at the bottom with [image N] placeholders
-        /// for each extracted image to enable later substitution.
-        /// </summary>
-        /// <param name="markdown">The base markdown content.</param>
-        /// <param name="images">The list of extracted images with metadata.</param>
-        /// <returns>Annotated markdown with image placeholders.</returns>
-        private static string InsertImagePlaceholders(string markdown, IList<VersatileImage> images)
-        {
-            if (images == null || images.Count == 0)
-            {
-                return markdown;
-            }
-
-            var sb = new StringBuilder();
-            sb.AppendLine(markdown);
-            sb.AppendLine();
-            sb.AppendLine("---");
-            sb.AppendLine();
-            sb.AppendLine("## Images");
-            sb.AppendLine();
-
-            for (int i = 0; i < images.Count; i++)
-            {
-                var image = images[i];
-                int imageNumber = i + 1;
-                sb.AppendLine($"*[image {imageNumber}] {image.Context}*");
-                sb.AppendLine();
-            }
-
-            return sb.ToString().Trim();
         }
 
     }

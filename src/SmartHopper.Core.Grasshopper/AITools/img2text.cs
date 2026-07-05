@@ -60,7 +60,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Describes or analyzes an image using a vision AI model. Provide either an image URL or base64-encoded image data. Returns a text description of the image content.",
+                description: "Describes or analyzes an image using a vision AI model. Provide either an image URL or base64-encoded image data. Returns a text description of the image content. Example: img2text({ imageUrl: 'https://example.com/facade.jpg', prompt: 'List architectural materials' }).",
                 category: "Img",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -86,7 +86,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.DescribeImageAsync,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                buildRequest: this.BuildDescribeRequest);
+                buildRequest: this.BuildDescribeRequest,
+                mutatesCanvas: false,
+                tags: new[] { "image", "vision", "text", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Text description or analysis of the image."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         /// <summary>
@@ -139,7 +143,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildDescribeRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
 
             var request = new AIRequestCall();
             request.Initialize(
@@ -170,7 +174,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine($"[{this.toolName}] Running DescribeImageAsync tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string imageUrl = args["imageUrl"]?.ToString();
                 string imageBase64 = args["imageBase64"]?.ToString();

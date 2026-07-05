@@ -20,9 +20,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -31,31 +33,31 @@ using SmartHopper.Infrastructure.AITools;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Tool provider for connecting Grasshopper components together.
-    /// Creates wires between component parameters on the canvas.
+    /// Tool provider for disconnecting Grasshopper components.
+    /// Removes wires between component parameters on the canvas.
     /// </summary>
-    public class gh_connect : IAIToolProvider
+    public class gh_disconnect : IAIToolProvider
     {
         /// <summary>
         /// Name of the AI tool provided by this class.
         /// </summary>
-        private readonly string toolName = "gh_connect";
+        private readonly string toolName = "gh_disconnect";
 
         /// <summary>
-        /// Returns the GH connect tool.
+        /// Returns the GH disconnect tool.
         /// </summary>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Connect Grasshopper components together by creating wires between outputs and inputs. Use this to establish data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
-                category: "NotTested",
+                description: "Disconnect Grasshopper components by removing wires between outputs and inputs. Use this to break data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
+                category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
                     ""properties"": {
                         ""connections"": {
                             ""type"": ""array"",
-                            ""description"": ""Array of connection specifications"",
+                            ""description"": ""Array of disconnection specifications"",
                             ""items"": {
                                 ""type"": ""object"",
                                 ""properties"": {
@@ -82,13 +84,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""connections""]
                 }",
-                execute: this.GhConnectToolAsync);
+                execute: this.GhDisconnectToolAsync,
+                mutatesCanvas: true,
+                enabled: true,
+                tags: new[] { "canvas", "components", "mutating", "connections", "disconnect" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""successful"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""failed"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""successCount"": { ""type"": ""integer"" }, ""failCount"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: true));
         }
 
         /// <summary>
-        /// Executes the GH connect tool.
+        /// Executes the GH disconnect tool.
         /// </summary>
-        private Task<AIReturn> GhConnectToolAsync(AIToolCall toolCall)
+        private async Task<AIReturn> GhDisconnectToolAsync(AIToolCall toolCall)
         {
             var output = new AIReturn()
             {
@@ -98,24 +105,24 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var connectionsArray = args["connections"] as JArray;
 
                 if (connectionsArray == null || !connectionsArray.Any())
                 {
-                    output.CreateError("The 'connections' array is required and must contain at least one connection specification.");
-                    return Task.FromResult(output);
+                    output.CreateError("The 'connections' array is required and must contain at least one disconnection specification.");
+                    return output;
                 }
 
-                var doc = Instances.ActiveCanvas?.Document;
+                var doc = GhJsonGrasshopper.GetActiveDocument();
                 if (doc == null)
                 {
                     output.CreateError("No active Grasshopper document found.");
-                    return Task.FromResult(output);
+                    return output;
                 }
 
-                var successfulConnections = new List<JObject>();
-                var failedConnections = new List<JObject>();
+                var successfulDisconnections = new List<JObject>();
+                var failedDisconnections = new List<JObject>();
 
                 foreach (var connSpec in connectionsArray)
                 {
@@ -126,7 +133,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (string.IsNullOrEmpty(sourceGuidStr) || string.IsNullOrEmpty(targetGuidStr))
                     {
-                        failedConnections.Add(new JObject
+                        failedDisconnections.Add(new JObject
                         {
                             ["error"] = "Missing sourceGuid or targetGuid",
                             ["spec"] = connSpec
@@ -136,7 +143,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                     if (!Guid.TryParse(sourceGuidStr, out var sourceGuid) || !Guid.TryParse(targetGuidStr, out var targetGuid))
                     {
-                        failedConnections.Add(new JObject
+                        failedDisconnections.Add(new JObject
                         {
                             ["error"] = "Invalid GUID format",
                             ["sourceGuid"] = sourceGuidStr,
@@ -145,44 +152,70 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         continue;
                     }
 
-                    // Use utility to connect components
-                    bool success = TryConnect(sourceGuid, targetGuid, sourceParamName, targetParamName);
+                    if (CanvasProtection.IsProtected(sourceGuid) || CanvasProtection.IsProtected(targetGuid))
+                    {
+                        failedDisconnections.Add(new JObject
+                        {
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr,
+                            ["error"] = "Disconnection rejected because it involves a protected component.",
+                        });
+                        continue;
+                    }
+
+                    // Use centralized GhJSON disconnector. The caller handles a single
+                    // solution recompute and canvas redraw after all disconnections are applied.
+                    bool success = GhJsonGrasshopper.Disconnect(sourceGuid, targetGuid, sourceParamName, targetParamName);
 
                     if (success)
                     {
-                        successfulConnections.Add(new JObject
+                        successfulDisconnections.Add(new JObject
                         {
                             ["sourceGuid"] = sourceGuidStr,
                             ["targetGuid"] = targetGuidStr,
                             ["sourceParam"] = sourceParamName ?? "(first output)",
                             ["targetParam"] = targetParamName ?? "(first input)",
-                            ["status"] = "connected"
+                            ["status"] = "disconnected"
                         });
                     }
                     else
                     {
-                        failedConnections.Add(new JObject
+                        failedDisconnections.Add(new JObject
                         {
-                            ["error"] = "Connection failed - check component GUIDs and parameter names",
+                            ["error"] = "Disconnection failed - check component GUIDs and parameter names",
                             ["sourceGuid"] = sourceGuidStr,
                             ["targetGuid"] = targetGuidStr
                         });
                     }
                 }
 
-                // Redraw once after all connections
-                if (successfulConnections.Any())
+                // Recompute the solution on the UI thread after all disconnections.
+                if (successfulDisconnections.Any())
                 {
-                    doc.NewSolution(false);
-                    Instances.RedrawCanvas();
+                    var solutionTcs = new TaskCompletionSource<bool>();
+                    Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        try
+                        {
+                            doc.NewSolution(false);
+                            Instances.RedrawCanvas();
+                            solutionTcs.SetResult(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            solutionTcs.SetException(ex);
+                        }
+                    });
+
+                    await solutionTcs.Task.ConfigureAwait(false);
                 }
 
                 var toolResult = new JObject
                 {
-                    ["successful"] = JArray.FromObject(successfulConnections),
-                    ["failed"] = JArray.FromObject(failedConnections),
-                    ["successCount"] = successfulConnections.Count,
-                    ["failCount"] = failedConnections.Count
+                    ["successful"] = JArray.FromObject(successfulDisconnections),
+                    ["failed"] = JArray.FromObject(failedDisconnections),
+                    ["successCount"] = successfulDisconnections.Count,
+                    ["failCount"] = failedDisconnections.Count
                 };
 
                 var body = AIBodyBuilder.Create()
@@ -190,87 +223,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     .Build();
 
                 output.CreateSuccess(body, toolCall);
-                return Task.FromResult(output);
+                return output;
             }
             catch (Exception ex)
             {
-                output.CreateError($"Error connecting components: {ex.Message}");
-                return Task.FromResult(output);
+                output.CreateError($"Error disconnecting components: {ex.Message}");
+                return output;
             }
         }
 
-        private static bool TryConnect(Guid sourceGuid, Guid targetGuid, string? sourceParamName, string? targetParamName)
-        {
-            var doc = Instances.ActiveCanvas?.Document;
-            if (doc == null)
-            {
-                return false;
-            }
-
-            var sourceObj = doc.Objects.FirstOrDefault(o => o.InstanceGuid == sourceGuid);
-            var targetObj = doc.Objects.FirstOrDefault(o => o.InstanceGuid == targetGuid);
-
-            if (sourceObj == null || targetObj == null)
-            {
-                return false;
-            }
-
-            var sourceParams = GetOutputs(sourceObj);
-            var targetParams = GetInputs(targetObj);
-
-            if (sourceParams.Count == 0 || targetParams.Count == 0)
-            {
-                return false;
-            }
-
-            var src = FindParamByName(sourceParams, sourceParamName) ?? sourceParams[0];
-            var dst = FindParamByName(targetParams, targetParamName) ?? targetParams[0];
-
-            // Wire: add src as source for dst.
-            dst.AddSource(src);
-            return true;
-        }
-
-        private static List<IGH_Param> GetOutputs(IGH_DocumentObject obj)
-        {
-            if (obj is IGH_Component c)
-            {
-                return c.Params.Output.ToList();
-            }
-
-            if (obj is IGH_Param p)
-            {
-                return new List<IGH_Param> { p };
-            }
-
-            return new List<IGH_Param>();
-        }
-
-        private static List<IGH_Param> GetInputs(IGH_DocumentObject obj)
-        {
-            if (obj is IGH_Component c)
-            {
-                return c.Params.Input.ToList();
-            }
-
-            if (obj is IGH_Param p)
-            {
-                return new List<IGH_Param> { p };
-            }
-
-            return new List<IGH_Param>();
-        }
-
-        private static IGH_Param? FindParamByName(List<IGH_Param> list, string? name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                return null;
-            }
-
-            return list.FirstOrDefault(p =>
-                string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(p.NickName, name, StringComparison.OrdinalIgnoreCase));
-        }
     }
 }

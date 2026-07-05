@@ -14,6 +14,9 @@
 "provider: Gemini":
   - '(?i)\bGemini\b'
 
+"scope: Mcp":
+  - '(?i)\bMCP\b|\bMcpServer\b|\bSmartHopperMcpServer\b'
+
 "os: Windows":
   - '(?i)\bWindows\b'
 "os: MacOS":

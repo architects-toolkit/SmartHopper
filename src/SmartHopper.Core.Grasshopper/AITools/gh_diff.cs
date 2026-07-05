@@ -61,7 +61,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""left"", ""right""]
                 }",
-                execute: this.GhDiffToolAsync);
+                execute: this.GhDiffToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "canvas", "components", "diff", "patch", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghpatch"": { ""type"": ""string"", ""description"": ""Serialized `.ghpatch` document describing differences."" }, ""hasChanges"": { ""type"": ""boolean"" }, ""componentOpCount"": { ""type"": ""integer"" }, ""connectionOpCount"": { ""type"": ""integer"" }, ""groupOpCount"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         private async Task<AIReturn> GhDiffToolAsync(AIToolCall toolCall)
@@ -77,7 +81,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var leftJson = args["left"]?.ToString() ?? string.Empty;
                 var rightJson = args["right"]?.ToString() ?? string.Empty;
 

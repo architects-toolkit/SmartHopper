@@ -60,7 +60,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmartHopper.Infrastructure\SmartHopper.Infrastructure.csproj" />
-    <PackageReference Include="GhJSON.Core" Version="1.1.0" />
+    <ProjectReference Include="..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj" Condition="Exists('..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj')" />
+    <PackageReference Include="GhJSON.Core" Version="1.1.1" Condition="!Exists('..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj')" />
   </ItemGroup>
 
   <!-- For Windows only builds -->

@@ -590,23 +590,40 @@ namespace SmartHopper.Providers.Anthropic
                     requestBody["top_k"] = topKToken.Value<int?>();
                 }
 
-                if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
-                {
-                    requestBody["service_tier"] = stToken;
-                }
-
                 // container is a top-level parameter (not inside output_config)
                 if (p.Extras.TryGetValue("container", out var containerToken) && containerToken != null)
                 {
                     requestBody["container"] = containerToken;
                 }
+            }
 
-                // effort goes inside output_config
-                if (p.Extras.TryGetValue("effort", out var effortToken) && effortToken != null)
-                {
-                    outputConfig ??= new JObject();
-                    outputConfig["effort"] = effortToken;
-                }
+            // Priority: 1) Extra settings per-request, 2) Global provider setting
+            var effort = p?.Extras != null &&
+                         p.Extras.TryGetValue("effort", out var effortToken) &&
+                         effortToken != null
+                         ? effortToken.ToString()
+                         : this.GetSetting<string>("ReasoningEffort");
+
+            effort = this.NormalizeAnthropicEffort(effort, request.Model);
+
+            if (!string.IsNullOrWhiteSpace(effort))
+            {
+                outputConfig ??= new JObject();
+                Debug.WriteLine($"[AnthropicProvider] Using reasoning effort: {effort}");
+                outputConfig["effort"] = effort;
+            }
+
+            // Priority: 1) Extra settings per-request, 2) Global provider setting
+            var serviceTier = p?.Extras != null &&
+                              p.Extras.TryGetValue("service_tier", out var stToken) &&
+                              stToken != null
+                              ? stToken.ToString()
+                              : this.GetSetting<string>("ServiceTier");
+
+            if (!string.IsNullOrWhiteSpace(serviceTier))
+            {
+                requestBody["service_tier"] = serviceTier;
+                Debug.WriteLine($"[AnthropicProvider] Using service tier: {serviceTier}");
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -1326,6 +1343,49 @@ namespace SmartHopper.Providers.Anthropic
             }
         }
 
+        /// <summary>
+        /// Normalizes the effort value for the given Anthropic model.
+        /// Automatically downgrades <c>xhigh</c> or <c>max</c> to <c>high</c>
+        /// for models that do not officially support those levels, preventing 400 errors.
+        /// </summary>
+        /// <param name="effort">The requested effort level.</param>
+        /// <param name="model">The model identifier.</param>
+        /// <returns>The normalized effort level.</returns>
+        private string NormalizeAnthropicEffort(string effort, string model)
+        {
+            if (string.IsNullOrWhiteSpace(effort) || string.IsNullOrWhiteSpace(model))
+            {
+                return effort;
+            }
+
+            var modelLower = model.ToLowerInvariant();
+
+            // Models that support xhigh: fable-5, mythos-5, opus-4-8, opus-4-7
+            bool supportsXhigh = modelLower.Contains("fable-5")
+                || modelLower.Contains("mythos-5")
+                || modelLower.Contains("opus-4-8")
+                || modelLower.Contains("opus-4-7");
+
+            // Models that support max: xhigh models + opus-4-6 + sonnet-4-6
+            bool supportsMax = supportsXhigh
+                || modelLower.Contains("opus-4-6")
+                || modelLower.Contains("sonnet-4-6");
+
+            if (!supportsXhigh && string.Equals(effort, "xhigh", StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.WriteLine($"[AnthropicProvider] Model '{model}' does not support effort='xhigh'; falling back to 'high'.");
+                return "high";
+            }
+
+            if (!supportsMax && string.Equals(effort, "max", StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.WriteLine($"[AnthropicProvider] Model '{model}' does not support effort='max'; falling back to 'high'.");
+                return "high";
+            }
+
+            return effort;
+        }
+
         #region IAIBatchProvider
 
         /// <inheritdoc/>
@@ -1623,6 +1683,15 @@ namespace SmartHopper.Providers.Anthropic
         {
             return new[]
             {
+                // Anthropic-specific parameters
+                new AIExtraDescriptor(
+                    "effort",
+                    "Effort",
+                    "The amount of effort to use in the output. 'low' is fastest, 'max' is most thorough. Overrides global provider setting.",
+                    typeof(string),
+                    "low",
+                    new[] { "low", "medium", "high", "xhigh", "max" }),
+
                 // General parameters (shared across providers)
                 new AIExtraDescriptor(
                     "seed",
@@ -1642,28 +1711,21 @@ namespace SmartHopper.Providers.Anthropic
                     "Only sample from the top K options for each token. Lower values make output more focused.",
                     typeof(int),
                     null),
+                new AIExtraDescriptor(
+                    "service_tier",
+                    "Service Tier",
+                    "Service tier for request processing. 'auto' uses Priority Tier when available, 'standard_only' uses only standard tier. Overrides global provider setting.",
+                    typeof(string),
+                    "standard_only",
+                    new[] { "auto", "standard_only" }),
 
                 // Anthropic-specific parameters
-                new AIExtraDescriptor(
-                    "effort",
-                    "Effort",
-                    "The amount of effort to use in the output. 'low' is fastest, 'high' is most thorough.",
-                    typeof(string),
-                    "medium",
-                    new[] { "low", "medium", "high" }),
                 new AIExtraDescriptor(
                     "container",
                     "Container",
                     "Container type for the response format. Anthropic-specific.",
                     typeof(string),
                     null),
-                new AIExtraDescriptor(
-                    "service_tier",
-                    "Service Tier",
-                    "Service tier for request processing. 'auto' uses Priority Tier when available, 'standard_only' uses only standard tier.",
-                    typeof(string),
-                    "auto",
-                    new[] { "auto", "standard_only" }),
 
                 // Anthropic prompt caching parameters
                 new AIExtraDescriptor(
