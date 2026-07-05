@@ -47,6 +47,8 @@ Many thanks to the following contributors to this release:
 
 ### Changed
 
+- `gh_get` and `gh_put` tool descriptions now note that component-specific state is returned/preserved under `componentState.extensions`, with the Number Slider format (`current<min~max>`, e.g. `10<5~50>`) as an example.
+- `button_click` tool description corrected to state that it only works on Grasshopper button parameters, not boolean toggles.
 - `smarthopper_readme` no longer embeds numbered scripting workflows; it now points callers to `smarthopper_workflows` for canonical `create_script`, `edit_script`, and `debug_script` sequences. Updated documentation accordingly.
 - Renamed `smarthopper_tool_help` output field `all_tools` to `similar_tools`. When the requested tool is found, `similar_tools` now lists only tools in the same category; when the tool is not found, it still returns the full catalog for discovery.
 - **`SmartHopperMcpServerComponent` input-change handling**: the MCP server component now tracks the effective `Port`, `BearerToken`, and `ExposeMutatingTools` values. If any of these inputs change while the server is enabled, the component releases and re-acquires the server so the updated configuration is applied.

@@ -59,7 +59,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Example: gh_put({ ghjson: '...' }). See also: gh_get, script_generate_and_place_on_canvas.",
+                description: "Add new components to the canvas from GhJSON format. Use this to create component networks, add missing components, or build parametric definitions. The GhJSON must include component types, positions, and connections. Component-specific state (e.g. Number Slider values under componentState.extensions['gh.numberslider'].value using the format 'current<min~max>', Panel text under componentState.extensions['gh.panel'].text) is preserved. Example: gh_put({ ghjson: '...' }). See also: gh_get, script_generate_and_place_on_canvas.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
