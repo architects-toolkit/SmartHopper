@@ -24,6 +24,7 @@ using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -147,6 +148,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ["error"] = "Invalid GUID format",
                             ["sourceGuid"] = sourceGuidStr,
                             ["targetGuid"] = targetGuidStr
+                        });
+                        continue;
+                    }
+
+                    if (CanvasProtection.IsProtected(sourceGuid) || CanvasProtection.IsProtected(targetGuid))
+                    {
+                        failedDisconnections.Add(new JObject
+                        {
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr,
+                            ["error"] = "Disconnection rejected because it involves a protected component.",
                         });
                         continue;
                     }

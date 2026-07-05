@@ -27,6 +27,7 @@ using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
+using SmartHopper.Infrastructure.Diagnostics;
 
 namespace SmartHopper.Core.Grasshopper.AITools
 {
@@ -74,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // Specialized wrapper: gh_lock_selected
             yield return new AITool(
                 name: "gh_component_lock_selected",
-                description: "Lock (disable) currently selected components. Quick way to disable selected items without needing to specify GUIDs manually. Locked components don't execute and show as grayed out.",
+                description: "Lock (disable) currently selected components. Quick way to disable selected items without needing to specify GUIDs manually. Locked components don't execute and show as grayed out. IMPORTANT: This tool will not affect the enabled SmartHopper MCP Server component or any component directly wired to it.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -89,7 +90,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             // Specialized wrapper: gh_unlock_selected
             yield return new AITool(
                 name: "gh_component_unlock_selected",
-                description: "Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally.",
+                description: "Unlock (enable) currently selected components. Quick way to enable selected items without needing to specify GUIDs manually. Unlocked components will execute normally. IMPORTANT: This tool will not affect the enabled SmartHopper MCP Server component or any component directly wired to it.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -121,17 +122,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var guids = args["guids"]?.ToObject<List<string>>() ?? new List<string>();
                 var locked = args["locked"]?.ToObject<bool>() ?? false;
                 Debug.WriteLine($"[GhObjTools] GhToggleLockAsync: locked={locked}, guids count={guids.Count}");
-                var updated = new List<string>();
 
+                var requestedGuids = new List<Guid>();
                 foreach (var s in guids)
                 {
                     Debug.WriteLine($"[GhObjTools] Processing GUID string: {s}");
                     if (Guid.TryParse(s, out var guid))
                     {
-                        Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
-                        ComponentManipulation.SetComponentLock(guid, locked);
-                        Debug.WriteLine($"[GhObjTools] Set lock to {locked} for GUID: {guid}");
-                        updated.Add(guid.ToString());
+                        requestedGuids.Add(guid);
                     }
                     else
                     {
@@ -139,9 +137,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
+                var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(requestedGuids);
+
+                if (protectedGuids.Count > 0)
+                {
+                    output.AddRuntimeMessage(
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Tool,
+                        CanvasProtection.FormatProtectionMessage(protectedGuids));
+                }
+
+                var updated = new List<string>();
+                foreach (var guid in allowedGuids)
+                {
+                    Debug.WriteLine($"[GhObjTools] Parsed GUID: {guid}");
+                    ComponentManipulation.SetComponentLock(guid, locked);
+                    Debug.WriteLine($"[GhObjTools] Set lock to {locked} for GUID: {guid}");
+                    updated.Add(guid.ToString());
+                }
+
                 var toolResult = new JObject
                 {
                     ["updated"] = JArray.FromObject(updated),
+                    ["protectedGuids"] = JArray.FromObject(protectedGuids.Select(g => g.ToString())),
                 };
                 var immutableBody = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)

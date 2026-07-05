@@ -523,7 +523,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     IncludeInternalizedData = includeInternalizedData,
                     IncludeRuntimeData = includeRuntimeData,
                     IncludeRuntimeMessages = includeMessages,
-                    IncludeSelectedState = false,
+                    IncludeSelectedState = true,
                     AssignSequentialIds = true,
                     IncludeMetadata = includeMetadata,
                     Page = page,

@@ -105,6 +105,54 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 var fixResult = GhJson.Fix(document);
                 document = fixResult.Document;
 
+                // Remove any components that are currently protected (enabled MCP server or wired to it)
+                // from the incoming document so they are never modified or re-placed.
+                var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
+                var protectedPutGuids = new List<Guid>();
+
+                if (protectedGuids.Count > 0 && document?.Components != null)
+                {
+                    protectedPutGuids = document.Components
+                        .Where(c => c.InstanceGuid.HasValue && protectedGuids.Contains(c.InstanceGuid.Value))
+                        .Select(c => c.InstanceGuid.Value)
+                        .ToList();
+
+                    if (protectedPutGuids.Count > 0)
+                    {
+                        var protectedIds = document.Components
+                            .Where(c => c.InstanceGuid.HasValue && protectedGuids.Contains(c.InstanceGuid.Value))
+                            .Select(c => c.Id)
+                            .Where(id => id.HasValue)
+                            .Select(id => id.Value)
+                            .ToHashSet();
+
+                        var filteredComponents = document.Components
+                            .Where(c => !(c.InstanceGuid.HasValue && protectedGuids.Contains(c.InstanceGuid.Value)))
+                            .ToList();
+
+                        var remainingIds = new HashSet<int>(filteredComponents.Where(c => c.Id.HasValue).Select(c => c.Id.Value));
+
+                        var filteredConnections = document.Connections?.Where(conn =>
+                            remainingIds.Contains(conn.From.Id) && remainingIds.Contains(conn.To.Id)).ToList();
+
+                        var filteredGroups = document.Groups?.Select(g => new GhJsonGroup
+                        {
+                            Id = g.Id,
+                            InstanceGuid = g.InstanceGuid,
+                            Name = g.Name,
+                            Color = g.Color,
+                            Members = g.Members?.Where(m => remainingIds.Contains(m)).ToList() ?? new List<int>(),
+                        }).Where(g => g.Members.Count > 0).ToList();
+
+                        document = new GhJsonDocument(
+                            document.Schema,
+                            document.Metadata,
+                            filteredComponents,
+                            filteredConnections,
+                            filteredGroups);
+                    }
+                }
+
                 // In edit mode, check for existing components that match instanceGuids
                 var existingComponents = new Dictionary<Guid, IGH_DocumentObject>();
                 var existingPositions = new Dictionary<Guid, PointF>();
@@ -345,6 +393,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                             foreach (var conn in capturedConnections)
                             {
+                                if (protectedGuids.Contains(conn.SourceGuid) || protectedGuids.Contains(conn.TargetGuid))
+                                {
+                                    continue;
+                                }
+
                                 try
                                 {
                                     var success = GhJsonGrasshopper.Connect(
@@ -401,6 +454,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!string.IsNullOrWhiteSpace(analysisMsg))
                 {
                     analysisSections.Add(analysisMsg);
+                }
+
+                if (protectedPutGuids.Count > 0)
+                {
+                    analysisSections.Add(CanvasProtection.FormatProtectionMessage(protectedPutGuids));
                 }
 
                 if (putResult.FailedComponents != null && putResult.FailedComponents.Count > 0)

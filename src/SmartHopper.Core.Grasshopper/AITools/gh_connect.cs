@@ -24,6 +24,7 @@ using GhJSON.Grasshopper;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Newtonsoft.Json.Linq;
+using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
 using SmartHopper.Infrastructure.AICall.Tools;
@@ -122,6 +123,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var successfulConnections = new List<JObject>();
                 var failedConnections = new List<JObject>();
+                var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
 
                 foreach (var connSpec in connectionsArray)
                 {
@@ -145,6 +147,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         failedConnections.Add(new JObject
                         {
                             ["error"] = "Invalid GUID format",
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr
+                        });
+                        continue;
+                    }
+
+                    if (protectedGuids.Contains(sourceGuid) || protectedGuids.Contains(targetGuid))
+                    {
+                        failedConnections.Add(new JObject
+                        {
+                            ["error"] = "Connection rejected because it involves a protected component.",
                             ["sourceGuid"] = sourceGuidStr,
                             ["targetGuid"] = targetGuidStr
                         });

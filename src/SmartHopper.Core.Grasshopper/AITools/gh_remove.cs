@@ -101,13 +101,23 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
-                var removedGuids = CanvasAccess.RemoveInstances(requestedGuids);
-                var notFoundGuids = requestedGuids
+                var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(requestedGuids);
+
+                if (protectedGuids.Count > 0)
+                {
+                    output.AddRuntimeMessage(
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Tool,
+                        CanvasProtection.FormatProtectionMessage(protectedGuids));
+                }
+
+                var removedGuids = CanvasAccess.RemoveInstances(allowedGuids);
+                var notFoundGuids = allowedGuids
                     .Except(removedGuids)
                     .Select(g => g.ToString())
                     .ToList();
 
-                if (removedGuids.Count == 0)
+                if (removedGuids.Count == 0 && protectedGuids.Count == 0)
                 {
                     output.AddRuntimeMessage(
                         SHRuntimeMessageSeverity.Warning,
@@ -119,6 +129,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["removedGuids"] = JArray.FromObject(removedGuids.Select(g => g.ToString())),
                     ["notFoundGuids"] = JArray.FromObject(notFoundGuids),
+                    ["protectedGuids"] = JArray.FromObject(protectedGuids.Select(g => g.ToString())),
                 };
 
                 var body = AIBodyBuilder.Create()

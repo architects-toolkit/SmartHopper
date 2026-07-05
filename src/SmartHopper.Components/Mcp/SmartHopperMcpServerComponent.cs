@@ -19,6 +19,7 @@
 using System;
 using System.Diagnostics;
 using Grasshopper.Kernel;
+using SmartHopper.Core.Grasshopper.Contracts;
 using SmartHopper.Infrastructure.Mcp;
 
 namespace SmartHopper.Components.Mcp
@@ -34,13 +35,22 @@ namespace SmartHopper.Components.Mcp
     /// server stops automatically when the last component is disabled or removed.
     /// See <c>docs/Architecture/mcp-server.md</c> for the full design.
     /// </remarks>
-    public sealed class SmartHopperMcpServerComponent : GH_Component
+    public sealed class SmartHopperMcpServerComponent : GH_Component, ICanvasProtectedComponent
     {
         private int currentPort = McpServerOptions.DefaultPort;
         private bool acquired;
+        private bool lastEnable;
         private string? lastToken;
         private bool lastExposeMutating;
         private string? lastStatus;
+
+        /// <summary>
+        /// Gets a value indicating whether this MCP server component currently has
+        /// its <c>Enable</c> input set to true. When true, AI tools must not modify
+        /// this component (or anything directly wired to it) so the client connection
+        /// stays alive.
+        /// </summary>
+        public bool IsProtected => this.lastEnable;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SmartHopperMcpServerComponent"/> class.
@@ -109,6 +119,7 @@ namespace SmartHopper.Components.Mcp
             bool exposeMutating = false;
 
             DA.GetData(0, ref enable);
+            this.lastEnable = enable;
             DA.GetData(1, ref port);
             DA.GetData(2, ref token);
             DA.GetData(3, ref exposeMutating);

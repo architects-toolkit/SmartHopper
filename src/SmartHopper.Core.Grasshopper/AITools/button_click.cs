@@ -31,7 +31,7 @@ using SmartHopper.Infrastructure.Diagnostics;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// Tool provider for simulating a momentary button press on Grasshopper boolean parameters.
+    /// Tool provider for simulating a momentary button press on Grasshopper button parameters.
     /// </summary>
     public class button_click : IAIToolProvider
     {
@@ -41,14 +41,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private readonly string toolName = "button_click";
 
         /// <summary>
-        /// Returns AI tools for clicking boolean buttons on the canvas.
+        /// Returns AI tools for clicking button parameters on the canvas.
         /// </summary>
         /// <returns>Collection of AI tools.</returns>
         public IEnumerable<AITool> GetTools()
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Simulate a momentary click on Grasshopper buttons. The button is pressed for 100 ms, then released. Useful for triggering button components or boolean toggles that expect a short pulse. Provide the instance GUIDs of the buttons.",
+                description: "Simulate a momentary click on Grasshopper Buttons (not Boolean Toggles). The button is pressed for 100 ms, then released. Provide the instance GUIDs of the buttons.",
                 category: "Components",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -101,10 +101,20 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return Task.FromResult(output);
                 }
 
+                var (allowedGuids, protectedGuids) = CanvasProtection.FilterProtectedGuids(requestedGuids);
+
+                if (protectedGuids.Count > 0)
+                {
+                    output.AddRuntimeMessage(
+                        SHRuntimeMessageSeverity.Warning,
+                        SHRuntimeMessageOrigin.Tool,
+                        CanvasProtection.FormatProtectionMessage(protectedGuids));
+                }
+
                 var clickedGuids = new List<Guid>();
                 var notFoundGuids = new List<string>();
 
-                foreach (var guid in requestedGuids)
+                foreach (var guid in allowedGuids)
                 {
                     if (ComponentManipulation.ButtonClick(guid))
                     {
@@ -116,7 +126,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     }
                 }
 
-                if (clickedGuids.Count == 0)
+                if (clickedGuids.Count == 0 && protectedGuids.Count == 0)
                 {
                     output.AddRuntimeMessage(
                         SHRuntimeMessageSeverity.Warning,
@@ -128,6 +138,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 {
                     ["clickedGuids"] = JArray.FromObject(clickedGuids.Select(g => g.ToString())),
                     ["notFoundGuids"] = JArray.FromObject(notFoundGuids),
+                    ["protectedGuids"] = JArray.FromObject(protectedGuids.Select(g => g.ToString())),
                 };
 
                 var body = AIBodyBuilder.Create()

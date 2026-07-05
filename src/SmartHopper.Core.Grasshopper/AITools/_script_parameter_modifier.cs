@@ -361,6 +361,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private string ExecuteScriptOp(JObject args, Func<object, IGH_Component, string> operation)
         {
             var scriptGuid = Guid.Parse(args["scriptGuid"]?.ToString() ?? throw new ArgumentException("Missing scriptGuid"));
+            if (CanvasProtection.IsProtected(scriptGuid))
+            {
+                throw new InvalidOperationException("Cannot modify this component because it is protected.");
+            }
+
             var obj = CanvasAccess.FindInstance(scriptGuid);
             if (obj == null) throw new ArgumentException("Script component not found");
             if (!ScriptComponentReflection.IsScriptComponent(obj)) throw new ArgumentException("Object is not a script component");
