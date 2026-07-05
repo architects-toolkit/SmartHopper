@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-07-05
+
+### Fixed
+- (automatically added) Fixes "A6: Test GhJSON Document Building and Viewport Filtering" ([#532](https://github.com/architects-toolkit/SmartHopper/issues/532)).
+- (automatically added) Fixes "A5: Test GhJSON Component State Serialization" ([#531](https://github.com/architects-toolkit/SmartHopper/issues/531)).
+- (automatically added) Fixes "A3: Test GhJSON Schema Validation (Validate GhJSON)" ([#529](https://github.com/architects-toolkit/SmartHopper/issues/529)).
+- (automatically added) Fixes "A2: Test GhJSON Fuzzy Name Resolution (via Put)" ([#527](https://github.com/architects-toolkit/SmartHopper/issues/527)).
+- (automatically added) Fixes "AI-generated script components silently dropped by GhPut (missing ComponentGuid + name mismatch)" ([#517](https://github.com/architects-toolkit/SmartHopper/issues/517)).
+
 ## [1.4.3-rc] - 2026-05-18
 
 ### Added
