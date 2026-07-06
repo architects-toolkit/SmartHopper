@@ -252,6 +252,14 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                     return FileConversionResult.Failure("url", message, reason);
                 }
 
+                if (LooksLikeClientSideRenderingPlaceholder(textContent!))
+                {
+                    return FileConversionResult.Failure(
+                        "url",
+                        $"The page at '{uri}' returned a JavaScript SPA loading placeholder instead of real content. The page requires a JavaScript runtime to render. Try fetching via a dedicated API or use a different URL.",
+                        FileConversionFailureReason.BotChallenge);
+                }
+
                 // Apply the same Markdown post-processing that FileConverterRegistry uses for files,
                 // so web URLs also get clean ordered-list numbering and heading/list spacing.
                 result.MarkdownContent = MarkdownListRenumberer.Renumber(textContent!);
@@ -332,6 +340,29 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             return false;
         }
 
+        /// <summary>
+        /// Detects whether the extracted Markdown content is a client-side rendering placeholder
+        /// (e.g. a React/Vue/Angular SPA loading state) rather than real page content.
+        /// These pages require JavaScript execution and return only a skeleton when fetched without a browser.
+        /// </summary>
+        private static bool LooksLikeClientSideRenderingPlaceholder(string markdown)
+        {
+            if (string.IsNullOrWhiteSpace(markdown))
+            {
+                return false;
+            }
+
+            foreach (var signature in ClientSideRenderingSignatures)
+            {
+                if (markdown.Contains(signature, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool HasPasswordField(string html)
         {
             return PasswordFieldRegex.IsMatch(html);
@@ -386,6 +417,22 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             "this content is only available to subscribers",
             "you need to sign in",
             "create an account to continue",
+        };
+
+        /// <summary>
+        /// Patterns that indicate the extracted Markdown is a JavaScript SPA loading skeleton
+        /// rather than real page content. Pages matching these signals require a headless browser.
+        /// Only include highly specific strings that do not appear in normal page content.
+        /// </summary>
+        private static readonly string[] ClientSideRenderingSignatures =
+        {
+            // GitHub SPA placeholder — unique enough to be unambiguous
+            "there was an error while loading. please reload this page.",
+            // Standard noscript / CSR fallback messages
+            "you need to enable javascript to run this app",
+            "please enable javascript to continue",
+            "this page requires javascript to function",
+            "javascript is required to view this page",
         };
 
         #region Specialized Fetchers
