@@ -371,16 +371,38 @@ namespace SmartHopper.Providers.MistralAI
             }
 
             // Priority: 1) Extra settings per-request, 2) Global provider setting
-            var reasoningEffort = p?.Extras != null &&
-                                  p.Extras.TryGetValue("reasoning_effort", out var reToken) &&
-                                  reToken != null
-                                  ? reToken.ToString()
-                                  : this.GetSetting<string>("ReasoningEffort");
+            bool hasExplicitReasoningEffort = false;
+            var reasoningEffort = this.GetSetting<string>("ReasoningEffort");
+
+            if (p?.Extras != null &&
+                p.Extras.TryGetValue("reasoning_effort", out var reToken) &&
+                reToken != null)
+            {
+                hasExplicitReasoningEffort = true;
+                reasoningEffort = reToken.ToString();
+            }
 
             if (!string.IsNullOrWhiteSpace(reasoningEffort))
             {
-                requestBody["reasoning_effort"] = reasoningEffort;
-                Debug.WriteLine($"[MistralAIProvider] Using reasoning effort: {reasoningEffort}");
+                // Mistral only supports 'none' and 'high'. Normalize legacy values to 'high' to preserve the intent of enabling reasoning.
+                if (!string.Equals(reasoningEffort, "none", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(reasoningEffort, "high", StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.WriteLine($"[MistralAIProvider] Reasoning effort '{reasoningEffort}' is not supported by Mistral; normalizing to 'high'.");
+                    reasoningEffort = "high";
+                }
+
+                // Only send for models that support reasoning, or when the user explicitly requests it per-request.
+                var supportsReasoning = ModelManager.Instance?.GetCapabilities(this.Name, request.Model)?.HasCapability(AICapability.Reasoning) == true;
+                if (hasExplicitReasoningEffort || supportsReasoning)
+                {
+                    requestBody["reasoning_effort"] = reasoningEffort;
+                    Debug.WriteLine($"[MistralAIProvider] Using reasoning effort: {reasoningEffort}");
+                }
+                else
+                {
+                    Debug.WriteLine($"[MistralAIProvider] Model '{request.Model}' does not support reasoning; omitting reasoning_effort.");
+                }
             }
 
             // Add JSON schema if provided (centralized wrapping)
@@ -1516,10 +1538,10 @@ namespace SmartHopper.Providers.MistralAI
                 new AIExtraDescriptor(
                     "reasoning_effort",
                     "Reasoning Effort",
-                    "Controls the depth of reasoning for supported models. Overrides global provider setting.",
+                    "Controls the depth of reasoning for supported models. Mistral only supports 'none' and 'high'. Overrides global provider setting.",
                     typeof(string),
-                    "medium",
-                    new[] { "none", "minimal", "low", "medium", "high", "xhigh" }),
+                    "none",
+                    new[] { "none", "high" }),
 
                 // General parameters (shared across providers)
                 new AIExtraDescriptor(

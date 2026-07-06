@@ -98,10 +98,10 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Name = "ReasoningEffort",
                     Type = typeof(string),
-                    DefaultValue = "medium",
+                    DefaultValue = "none",
                     DisplayName = "Reasoning Effort",
-                    Description = "Controls the depth of reasoning for supported models. Value can be overridden per-request via Extra Settings.",
-                    AllowedValues = new[] { "none", "minimal", "low", "medium", "high", "xhigh" },
+                    Description = "Controls the depth of reasoning for supported models. Only 'none' and 'high' are supported by Mistral. Value can be overridden per-request via Extra Settings.",
+                    AllowedValues = new[] { "none", "high" },
                 },
             };
         }
@@ -190,11 +190,11 @@ namespace SmartHopper.Providers.MistralAI
             {
                 var reasoningEffort = reasoningEffortObj.ToString();
 
-                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "none", "minimal", "low", "medium", "high", "xhigh" }.Contains(reasoningEffort))
+                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "none", "high" }.Contains(reasoningEffort))
                 {
                     if (showErrorDialogs)
                     {
-                        StyledMessageDialog.ShowError("Reasoning effort must be none, minimal, low, medium, high, or xhigh.", "Validation Error");
+                        StyledMessageDialog.ShowError("Reasoning effort for MistralAI must be 'none' or 'high'.", "Validation Error");
                     }
 
                     return false;
