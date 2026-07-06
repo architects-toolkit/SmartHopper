@@ -81,7 +81,7 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "mistral-small-2603",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
