@@ -82,7 +82,16 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             try
             {
                 var html = await File.ReadAllTextAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
-                return await ConvertHtmlStringAsync(html, options).ConfigureAwait(false);
+
+                // Local HTML files should resolve relative URLs against the file path instead
+                // of the placeholder domain used by SmartReader when no base URL is supplied.
+                var localOptions = options?.Clone() ?? new FileConversionOptions();
+                if (string.IsNullOrWhiteSpace(localOptions.BaseUrl) && File.Exists(filePath))
+                {
+                    localOptions.BaseUrl = new Uri(Path.GetFullPath(filePath)).AbsoluteUri;
+                }
+
+                return await ConvertHtmlStringAsync(html, localOptions).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
