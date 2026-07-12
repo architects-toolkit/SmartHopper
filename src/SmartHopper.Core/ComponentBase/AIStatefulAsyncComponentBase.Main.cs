@@ -206,6 +206,12 @@ namespace SmartHopper.Core.ComponentBase
         private GH_Path _currentProcessingPath;
 
         /// <summary>
+        /// Item index of the processing unit currently being executed (set by
+        /// <see cref="OnProcessingUnitStart"/>). Null for branch-level topologies.
+        /// </summary>
+        private int? _currentProcessingItemIndex;
+
+        /// <summary>
         /// Metrics tree built during the current solve. Each metric JSON string is placed
         /// at the same path as the branch/item that produced it, so downstream components
         /// can deconstruct metrics while preserving tree topology.

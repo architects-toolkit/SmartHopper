@@ -908,7 +908,7 @@ namespace SmartHopper.Core.DataTree
         /// <param name="function">Function to run on each logical unit (item or branch). Receives Dictionary&lt;string, List&lt;T&gt;&gt; and returns Dictionary&lt;string, List&lt;U&gt;&gt;.</param>
         /// <param name="options">Processing options specifying topology and path/grouping behavior.</param>
         /// <param name="progressCallback">Optional callback to report progress (current, total).</param>
-        /// <param name="onUnitStart">Optional callback invoked at the start of each processing unit with the unit's input path (null for BranchFlatten).</param>
+        /// <param name="onUnitStart">Optional callback invoked at the start of each processing unit with the unit's input path and item index (null for branch modes and BranchFlatten).</param>
         /// <param name="onUnitComplete">Optional callback invoked after each processing unit finishes with the unit's input path and all target paths.</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>ProcessingResult containing output trees and any warnings collected during processing.</returns>
@@ -917,7 +917,7 @@ namespace SmartHopper.Core.DataTree
             Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
             ProcessingOptions options,
             Action<int, int> progressCallback = null,
-            Action<GH_Path> onUnitStart = null,
+            Action<GH_Path, int?> onUnitStart = null,
             Action<GH_Path, List<GH_Path>> onUnitComplete = null,
             CancellationToken token = default)
             where T : IGH_Goo
@@ -1019,7 +1019,7 @@ namespace SmartHopper.Core.DataTree
             foreach (var unit in schedule)
             {
                 token.ThrowIfCancellationRequested();
-                onUnitStart?.Invoke(unit.InputPath);
+                onUnitStart?.Invoke(unit.InputPath, unit.ItemIndex);
 
                 // Build input dictionary based on mode
                 var inputs = new Dictionary<string, List<T>>();
@@ -1142,7 +1142,7 @@ namespace SmartHopper.Core.DataTree
             Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<IGH_Goo>>>> function,
             ProcessingOptions options,
             Action<int, int> progressCallback = null,
-            Action<GH_Path> onUnitStart = null,
+            Action<GH_Path, int?> onUnitStart = null,
             Action<GH_Path, List<GH_Path>> onUnitComplete = null,
             CancellationToken token = default)
             where T : IGH_Goo

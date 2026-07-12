@@ -884,7 +884,7 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     this.UpdateProgress(current);
                 },
-                onUnitStart: path => this.OnProcessingUnitStart(path),
+                onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
                 onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
 
@@ -932,7 +932,7 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     this.UpdateProgress(current);
                 },
-                onUnitStart: path => this.OnProcessingUnitStart(path),
+                onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
                 onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
 
@@ -977,7 +977,7 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     this.UpdateProgress(current);
                 },
-                onUnitStart: path => this.OnProcessingUnitStart(path),
+                onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
                 onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
 
@@ -1005,7 +1005,8 @@ namespace SmartHopper.Core.ComponentBase
         /// such as the current branch path.
         /// </summary>
         /// <param name="path">The input path of the current processing unit. Null for BranchFlatten.</param>
-        protected virtual void OnProcessingUnitStart(GH_Path path)
+        /// <param name="itemIndex">The item index within the current branch for item-level topologies; null otherwise.</param>
+        protected virtual void OnProcessingUnitStart(GH_Path path, int? itemIndex = null)
         {
         }
 

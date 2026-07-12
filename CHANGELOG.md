@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `.github/workflows/chore-update-ghjson-spec-docs.yml` to automate syncing the embedded GhJSON/GhPatch spec snapshot from `ghjson-spec` and to validate the snapshot on related pull requests.
 - Enabled `gh_generate` AI tool for production: renamed from `_gh_generate`, switched to instructions-driven GhJSON generation via an AI subagent, embedded the GhJSON specification into the system prompt, added GhJSON validation and retry logic, and introduced `gh_generate_and_place_on_canvas` wrapper that calls `gh_put`.
 - Fixed [#647](https://github.com/architects-toolkit/SmartHopper/issues/647): MistralAI reasoning_effort validation now gates the field and restricts values to "none" or "high".
+- Fixed metrics tree topology for batch image descriptions in File2Md, Web2Md, and Web2AI: per-image slot metrics now land at the same output branch path as the Markdown output instead of collapsing to `{0}`.
 
 ## [2.0.0-dev.260705] - 2026-07-05
 
