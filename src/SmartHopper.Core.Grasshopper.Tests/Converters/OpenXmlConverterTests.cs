@@ -30,6 +30,7 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
     using M = DocumentFormat.OpenXml.Math;
     using P = DocumentFormat.OpenXml.Presentation;
     using S = DocumentFormat.OpenXml.Spreadsheet;
+    using V = DocumentFormat.OpenXml.Vml;
     using W = DocumentFormat.OpenXml.Wordprocessing;
     using Xunit;
 
@@ -283,6 +284,58 @@ namespace SmartHopper.Core.Grasshopper.Tests.Converters
             Assert.Contains("$", result.MarkdownContent);
             Assert.Contains("x", result.MarkdownContent);
             Assert.Contains("y", result.MarkdownContent);
+        }
+
+        [Fact(DisplayName = "DocxConverter_TextBoxOnly")]
+        public async Task DocxConverter_TextBoxOnly()
+        {
+            var filePath = Path.Combine(this._tempDir, "textbox-only.docx");
+            using (var doc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document))
+            {
+                var mainPart = doc.AddMainDocumentPart();
+                mainPart.Document = new W.Document(new W.Body(
+                    CreateTextBoxParagraph("Shape text inside a text box.")));
+            }
+
+            var result = await new DocxConverter().ConvertAsync(filePath, new FileConversionOptions());
+            Assert.True(result.IsSuccess);
+            Assert.Contains("> **Text extracted from shapes/text boxes**", result.MarkdownContent);
+            Assert.Contains("> Shape text inside a text box.", result.MarkdownContent);
+        }
+
+        [Fact(DisplayName = "DocxConverter_TextBoxAndBodyText")]
+        public async Task DocxConverter_TextBoxAndBodyText()
+        {
+            var filePath = Path.Combine(this._tempDir, "textbox-and-body.docx");
+            using (var doc = WordprocessingDocument.Create(filePath, WordprocessingDocumentType.Document))
+            {
+                var mainPart = doc.AddMainDocumentPart();
+                mainPart.Document = new W.Document(new W.Body(
+                    new W.Paragraph(new W.Run(new W.Text("Regular body text."))),
+                    CreateTextBoxParagraph("Shape text inside a text box.")));
+            }
+
+            var result = await new DocxConverter().ConvertAsync(filePath, new FileConversionOptions());
+            Assert.True(result.IsSuccess);
+            Assert.Contains("Regular body text.", result.MarkdownContent);
+            Assert.Contains("> **Text extracted from shapes/text boxes**", result.MarkdownContent);
+            Assert.Contains("> Shape text inside a text box.", result.MarkdownContent);
+        }
+
+        private static W.Paragraph CreateTextBoxParagraph(string text)
+        {
+            return new W.Paragraph(
+                new W.Run(
+                    new W.Picture(
+                        new V.Shape(
+                            new V.TextBox(
+                                new W.TextBoxContent(
+                                    new W.Paragraph(
+                                        new W.Run(new W.Text(text))))))
+                        {
+                            Id = "TextBox1",
+                            Style = "width:100pt;height:50pt",
+                        })));
         }
 
         #endregion
