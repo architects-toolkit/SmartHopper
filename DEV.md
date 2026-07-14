@@ -225,13 +225,12 @@ Notes:
 | Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
 | DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
 | MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
 | MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
 | OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
