@@ -61,11 +61,7 @@ This workflow will:
 ### Step 4: Review and Merge PR
 
 1. Review the PR created by the workflow
-2. Ensure all validations pass:
-   - ✅ Version Check
-   - ✅ Code Style Check
-   - ✅ Changelog Check
-   - ✅ .NET CI Tests
+2. Ensure all validations pass
 3. Merge the PR to `main`
 
 
@@ -139,7 +135,6 @@ The workflow automatically handles version conflicts:
 - **release-4-build.yml** - Builds and uploads artifacts (existing)
 - **release-5-upload-yak.yml** - Publishes to Yak (existing)
 
-
 ## Validations
 
 All PRs to `main` (including hotfixes) run:
@@ -148,7 +143,6 @@ All PRs to `main` (including hotfixes) run:
 - Code style checks
 - Changelog update verification
 - .NET build and tests
-
 
 ## Comparison with Regular Release
 
