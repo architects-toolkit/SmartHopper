@@ -110,8 +110,8 @@ jobs:
       - name: Set up Git user
         if: steps.check.outputs.should-complete == 'true' && steps.check-branches.outputs.branches-exist == 'true'
         run: |
-          git config user.name "github-actions"
-          git config user.email "action@github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       # Instead of merging the whole main-X.Y.Z branch into main (which drags in all
       # of main's own history that was synced into the stabilization branch and
