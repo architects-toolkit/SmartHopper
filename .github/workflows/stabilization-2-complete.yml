@@ -9,13 +9,18 @@ name: Stabilization 2 - ✅ Complete Path
 
 # Description: Completes a stabilization path when a no-suffix milestone (e.g. "1.4.2") is closed
 # and no staged sub-milestones remain open (meaning the stable release was successfully shipped).
-# Creates a backport PR from main-X.Y.Z to main. Stabilization branches are deleted after the PR merges.
+# Cherry-picks the commits unique to main-X.Y.Z (i.e. not already in main) onto a fresh
+# backport/X.Y.Z branch cut from main, and opens a PR backport/X.Y.Z -> main. This avoids
+# merging the whole stabilization branch (which drags in main's own synced history and
+# produces a huge, conflict-ridden PR). Stabilization and backport branches are deleted
+# after the PR merges.
 #
 # Triggers:
 # - milestone.closed when title matches X.Y.Z (no suffix) AND no open sub-milestones exist
+# - pull_request.closed on main (to clean up branches once the backport PR merges)
 #
 # Permissions:
-# - contents: write - Required to create PRs and delete branches
+# - contents: write - Required to push the backport branch and delete branches
 # - pull-requests: write - Required to create the backport PR
 
 on:
@@ -102,42 +107,107 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create backport PR main-X.Y.Z → main
+      - name: Set up Git user
+        if: steps.check.outputs.should-complete == 'true' && steps.check-branches.outputs.branches-exist == 'true'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "action@github.com"
+
+      # Instead of merging the whole main-X.Y.Z branch into main (which drags in all
+      # of main's own history that was synced into the stabilization branch and
+      # produces a huge, conflict-ridden PR), cherry-pick only the commits that are
+      # unique to the stabilization branch onto a fresh branch cut from main.
+      - name: Create backport PR main-X.Y.Z → main (cherry-pick stabilization-only delta)
         if: steps.check.outputs.should-complete == 'true' && steps.check-branches.outputs.branches-exist == 'true'
         id: create-pr
         run: |
+          set -euo pipefail
           VERSION="${{ github.event.milestone.title }}"
           MAIN_BRANCH="main-${VERSION}"
+          BACKPORT_BRANCH="backport/${VERSION}"
 
-          # Check if a backport PR already exists
-          EXISTING=$(gh pr list \
-            --repo ${{ github.repository }} \
-            --base main \
-            --head "$MAIN_BRANCH" \
-            --state open \
-            --json number \
-            --jq '.[0].number' 2>/dev/null || echo "")
+          git fetch --no-tags origin main "${MAIN_BRANCH}"
 
-          if [ -n "$EXISTING" ]; then
-            echo "Backport PR #${EXISTING} already exists. Skipping creation."
-            echo "pr_number=$EXISTING" >> $GITHUB_OUTPUT
-          else
-            PR_NUMBER=$(gh pr create \
-              --repo ${{ github.repository }} \
-              --base main \
-              --head "$MAIN_BRANCH" \
-              --title "chore: backport stable ${VERSION} to main" \
-              --body $'This PR backports the stable release **'"${VERSION}"$'** from \`'"${MAIN_BRANCH}"$'\` to \`main\`.\n\nThis requires manual approval. After merging, the stabilization branches will be deleted automatically.' \
-              2>&1 | tail -1 | grep -oE '[0-9]+$' || echo "")
+          # Commits that live only on the stabilization branch and are NOT already in
+          # main. --cherry-pick drops commits whose patch is already present in main
+          # (even under a different SHA); --no-merges skips merge commits.
+          mapfile -t DELTA < <(git log --no-merges --cherry-pick --right-only --reverse \
+            --format=%H "origin/main...origin/${MAIN_BRANCH}")
 
-            if [ -n "$PR_NUMBER" ]; then
-              echo "✅ Created backport PR #${PR_NUMBER}"
-              echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-            else
-              PR_NUMBER=$(gh pr list --base main --head "$MAIN_BRANCH" --json number --jq '.[0].number')
-              echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-            fi
+          if [ "${#DELTA[@]}" -eq 0 ]; then
+            echo "No stabilization-only commits to backport. Skipping PR creation."
+            {
+              echo "pr_number="
+              echo "backport_status=empty"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # Fresh backport branch from the current tip of main.
+          git checkout -B "${BACKPORT_BRANCH}" origin/main
+
+          APPLIED=()
+          CONFLICTED=()
+          for sha in "${DELTA[@]}"; do
+            if git cherry-pick -x "${sha}" >/dev/null 2>&1; then
+              APPLIED+=("${sha}")
+            else
+              git cherry-pick --abort || true
+              CONFLICTED+=("${sha}")
+            fi
+          done
+
+          if [ "${#APPLIED[@]}" -eq 0 ]; then
+            echo "All ${#DELTA[@]} candidate commit(s) conflict with main; nothing applied automatically."
+            {
+              echo "pr_number="
+              echo "backport_status=conflicts-only"
+              echo "conflicted<<EOF"
+              for sha in "${CONFLICTED[@]}"; do git log -1 --format='- %h %s' "${sha}"; done
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git push --force origin "${BACKPORT_BRANCH}"
+
+          # PR body lists exactly what is (and is not) included, so review is obvious.
+          BODY_FILE="$(mktemp)"
+          {
+            echo "This PR backports the stabilization-only changes of stable release **${VERSION}** onto \`main\`."
+            echo
+            echo "It contains **only** commits that exist on \`${MAIN_BRANCH}\` but not in \`main\` (patch-equivalent commits are skipped), cherry-picked onto the current tip of \`main\`. This replaces the old noisy whole-branch merge."
+            echo
+            echo "### Cherry-picked commits (${#APPLIED[@]})"
+            for sha in "${APPLIED[@]}"; do git log -1 --format='- %h %s' "${sha}"; done
+            if [ "${#CONFLICTED[@]}" -gt 0 ]; then
+              echo
+              echo "### ⚠️ Skipped — conflict with main (${#CONFLICTED[@]})"
+              echo "These commits could not be applied cleanly. Review and backport manually if still relevant:"
+              for sha in "${CONFLICTED[@]}"; do git log -1 --format='- %h %s' "${sha}"; done
+            fi
+            echo
+            echo "This requires manual approval. After merging, the stabilization branches will be deleted automatically."
+          } > "${BODY_FILE}"
+
+          EXISTING=$(gh pr list --repo "${{ github.repository }}" --base main --head "${BACKPORT_BRANCH}" \
+            --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "${EXISTING}" ]; then
+            gh pr edit "${EXISTING}" --repo "${{ github.repository }}" \
+              --title "chore: backport stable ${VERSION} to main" --body-file "${BODY_FILE}"
+            PR_NUMBER="${EXISTING}"
+            echo "Updated existing backport PR #${PR_NUMBER}."
+          else
+            gh pr create --repo "${{ github.repository }}" --base main --head "${BACKPORT_BRANCH}" \
+              --title "chore: backport stable ${VERSION} to main" --body-file "${BODY_FILE}"
+            PR_NUMBER=$(gh pr list --repo "${{ github.repository }}" --base main --head "${BACKPORT_BRANCH}" \
+              --json number --jq '.[0].number')
+            echo "Created backport PR #${PR_NUMBER}."
+          fi
+          {
+            echo "pr_number=${PR_NUMBER}"
+            echo "backport_status=created"
+          } >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -151,15 +221,22 @@ jobs:
       - name: Summary
         if: steps.check.outputs.should-complete == 'true'
         run: |
+          VERSION="${{ github.event.milestone.title }}"
+          STATUS="${{ steps.create-pr.outputs.backport_status }}"
           echo "## ✅ Stabilization Path Completed"
           echo ""
-          echo "- **Version:** ${{ github.event.milestone.title }}"
-          if [ "${{ steps.check-branches.outputs.branches-exist }}" == "true" ]; then
-            echo "- **Backport PR:** #${{ steps.create-pr.outputs.pr_number }} (main-${{ github.event.milestone.title }} → main)"
-            echo "- **Action required:** Approve and merge the backport PR"
-            echo "- **After merge:** Delete branches dev-${{ github.event.milestone.title }} and main-${{ github.event.milestone.title }} manually or via branch auto-deletion settings"
-          else
+          echo "- **Version:** ${VERSION}"
+          if [ "${{ steps.check-branches.outputs.branches-exist }}" != "true" ]; then
             echo "- **Note:** Stabilization branches not found — no backport PR created"
+          elif [ "${STATUS}" == "created" ]; then
+            echo "- **Backport PR:** #${{ steps.create-pr.outputs.pr_number }} (backport/${VERSION} → main)"
+            echo "- **Action required:** Approve and merge the backport PR"
+            echo "- **After merge:** dev-${VERSION}, main-${VERSION} and backport/${VERSION} are deleted automatically"
+          elif [ "${STATUS}" == "empty" ]; then
+            echo "- **Backport:** Nothing to backport — no commit on main-${VERSION} is missing from main. No PR created."
+          elif [ "${STATUS}" == "conflicts-only" ]; then
+            echo "- **Backport:** ⚠️ All candidate commits conflict with main; no PR created. Backport manually:"
+            echo "${{ steps.create-pr.outputs.conflicted }}"
           fi
 
   # Delete stabilization branches after the backport PR is merged into main
@@ -169,27 +246,29 @@ jobs:
     if: |
       github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'main-') &&
+      startsWith(github.event.pull_request.head.ref, 'backport/') &&
       github.event.pull_request.base.ref == 'main'
     permissions:
       contents: write
     steps:
       - name: Extract version from branch name
         id: extract-version
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          BRANCH="${{ github.event.pull_request.head.ref }}"
-          VERSION="${BRANCH#main-}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION="${HEAD_REF#backport/}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Validate version format
         id: validate
+        env:
+          VERSION: ${{ steps.extract-version.outputs.version }}
         run: |
-          VERSION="${{ steps.extract-version.outputs.version }}"
           if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "valid=true" >> "$GITHUB_OUTPUT"
             echo "Version '$VERSION' is valid semver format"
           else
-            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "valid=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Version '$VERSION' does not match X.Y.Z format — skipping branch cleanup"
           fi
 
@@ -200,7 +279,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const version = '${{ steps.extract-version.outputs.version }}';
-            const branches = [`dev-${version}`, `main-${version}`];
+            const branches = [`dev-${version}`, `main-${version}`, `backport/${version}`];
 
             for (const branch of branches) {
               try {

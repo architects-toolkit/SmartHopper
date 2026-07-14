@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Changed: stabilization backport (`stabilization-2-complete.yml`) now cherry-picks only the commits unique to `main-X.Y.Z` onto a fresh `backport/X.Y.Z` branch cut from `main`, instead of merging the whole stabilization branch. It skips creation when there is nothing to backport and lists the cherry-picked (and any conflicting) commits in the PR body.
 - Fixed [#647](https://github.com/architects-toolkit/SmartHopper/issues/647): MistralAI reasoning_effort validation now gates the field and restricts values to "none" or "high".
 - Fixed issue-labeler configuration syntax: regex patterns now use JavaScript-compatible `/pattern/i` syntax instead of `(?i)`.
 
