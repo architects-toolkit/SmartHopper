@@ -5,7 +5,17 @@ All notable changes to SmartHopper will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.4] - 2026-07-14
+
+### Added
+
+- **DeepSeek provider**: Added `ReasoningEffort` and `TopP` settings. `ReasoningEffort` is a single dropdown that controls thinking mode and reasoning depth (`none` disables thinking; `high` or `max` enables it). `TopP` exposes nucleus sampling. `TopP` is included in every chat completion request; `ReasoningEffort` is mapped to DeepSeek's `thinking` and `reasoning_effort` parameters for DeepSeek-V4 and `deepseek-reasoner` models.
+- **DeepSeek provider**: Removed the artificial `MaxTokens` cap of `8192`; the setting now supports values up to the API output limit.
+
+### Fixed
+
+- **DeepSeek provider**: Fixed multi-step tool call requests that failed with `invalid_request_error` because consecutive tool results were merged into a single message, breaking DeepSeek's requirement that each assistant `tool_calls` message is followed by one `tool` message per `tool_call_id`. Assistant tool calls and reasoning are now coalesced into one message while tool result messages remain separate; `reasoning_content` is emitted on assistant messages with `tool_calls` (with an empty string fallback) and stripped from text-only assistant messages to save bandwidth; and tool result content is now sent as a compact JSON string instead of a stripped/quoted string, matching the behavior of OpenAI and MistralAI.
+- **DeepSeek and OpenRouter providers**: Removed the optional `name` field from `role=tool` result messages. While OpenAI's function-calling guide examples include `name` on tool results, DeepSeek's strict OpenAI-compatible validator appears to reject these messages, causing intermittent `insufficient tool messages` errors in long tool-call sequences. OpenRouter's documented tool-calling schema also omits `name` on tool result messages, so it was removed there for consistency. MistralAI's official examples include `name` on tool results, so it is preserved for that provider.
 
 ## [1.4.3] - 2026-07-05
 

@@ -48,28 +48,16 @@ namespace SmartHopper.Providers.Anthropic
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between February 2026 and May 2026
+                // Released between April 2026 and July 2026
 
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-sonnet-4-6",
+                    Model = "claude-sonnet-5",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
-                    Default = AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 10000,
-                    ContextLimit = 1000000,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = providerName,
-                    Model = "claude-opus-4-6",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9995,
                     ContextLimit = 1000000,
                 },
 
@@ -80,29 +68,62 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Rank = 9995,
+                    ContextLimit = 1000000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-8",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
                     Rank = 9990,
+                    ContextLimit = 1000000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-fable-5",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9985,
                     ContextLimit = 1000000,
                 },
 
 
 
-                // Released between November 2025 and February 2026
+                // Released between January 2026 and April 2026
 
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-4-5-20251101",
+                    Model = "claude-sonnet-4-6",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Default = AICapability.Text2Json,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9980,
+                    ContextLimit = 1000000,
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-6",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9985,
-                    ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest" },
+                    Rank = 9975,
+                    ContextLimit = 1000000,
                 },
 
 
 
-                // Released between August 2025 and November 2025
+                // Released between October 2025 and January 2026
 
                 new AIModelCapabilities
                 {
@@ -112,11 +133,27 @@ namespace SmartHopper.Providers.Anthropic
                     Default = AICapability.Text2Text | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.ToolChat | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9980,
+                    Rank = 9970,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest" },
+                    Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest", "claude-haiku-4.5", "claude-haiku-4.5-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
+
+                new AIModelCapabilities
+                {
+                    Provider = providerName,
+                    Model = "claude-opus-4-5-20251101",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9965,
+                    ContextLimit = 200000,
+                    Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest", "claude-opus-4.5", "claude-opus-4.5-latest" },
+                },
+
+
+
+                // Released between July 2025 and October 2025
 
                 new AIModelCapabilities
                 {
@@ -125,9 +162,9 @@ namespace SmartHopper.Providers.Anthropic
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = true,
-                    Rank = 9975,
+                    Rank = 9960,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest" },
+                    Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest", "claude-sonnet-4.5", "claude-sonnet-4.5-latest" },
                 },
 
 
@@ -144,7 +181,7 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest" },
+                    Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest", "claude-opus-4.1", "claude-opus-4.1-latest" },
                 },
 
                 new AIModelCapabilities
@@ -176,14 +213,15 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-3-7-sonnet-20250219",
+                    Model = "claude-3-haiku-20240307",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
                     Rank = -15,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-3-7-sonnet", "claude-3-7-sonnet-latest" },
+                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
 
                 new AIModelCapabilities
@@ -203,15 +241,14 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-3-haiku-20240307",
+                    Model = "claude-3-7-sonnet-20250219",
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Deprecated = true,
                     Rank = -25,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
-                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
+                    Aliases = new List<string> { "claude-3-7-sonnet", "claude-3-7-sonnet-latest" },
                 }
             };
 

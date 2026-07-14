@@ -68,10 +68,8 @@ ci:
 documentation:
   - changed-files:
       - any-glob-to-any-file:
-          - '**/*.md'
           - 'docs/**'
           - '.github/ISSUE_TEMPLATE/**'
-      - all-globs-to-all-file: '!CHANGELOG*'
 
 # --- Component labels ---
 "component: AI Chat":
