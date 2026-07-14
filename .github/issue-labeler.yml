@@ -2,22 +2,22 @@
 # Maps issue title/body regex patterns to labels.
 
 "provider: OpenAI":
-  - '(?i)\bOpenAI\b'
+  - '/\bOpenAI\b/i'
 "provider: MistralAI":
-  - '(?i)\bMistral\b'
+  - '/\bMistral\b/i'
 "provider: Anthropic":
-  - '(?i)\bAnthropic\b|\bClaude\b'
+  - '/\bAnthropic\b|\bClaude\b/i'
 "provider: DeepSeek":
-  - '(?i)\bDeepSeek\b'
+  - '/\bDeepSeek\b/i'
 "provider: OpenRouter":
-  - '(?i)\bOpenRouter\b'
+  - '/\bOpenRouter\b/i'
 "provider: Gemini":
-  - '(?i)\bGemini\b'
+  - '/\bGemini\b/i'
 
 "scope: Mcp":
-  - '(?i)\bMCP\b|\bMcpServer\b|\bSmartHopperMcpServer\b'
+  - '/\bMCP\b|\bMcpServer\b|\bSmartHopperMcpServer\b/i'
 
 "os: Windows":
-  - '(?i)\bWindows\b'
+  - '/\bWindows\b/i'
 "os: MacOS":
-  - '(?i)\bmacOS\b|\bMac OS\b'
+  - '/\bmacOS\b|\bMac OS\b/i'
