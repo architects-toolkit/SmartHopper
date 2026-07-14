@@ -8,6 +8,8 @@ name: ✅ Check Provider Models
 
 on:
   pull_request:
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -41,7 +43,7 @@ jobs:
       - id: filter
         shell: bash
         env:
-          BASE_REF: ${{ github.event.inputs.base_ref || github.event.pull_request.base.ref || 'main' }}
+          BASE_REF: ${{ github.event.inputs.base_ref || github.event.pull_request.base.ref || github.event.merge_group.base_ref || 'main' }}
         run: |
           set -euo pipefail
 

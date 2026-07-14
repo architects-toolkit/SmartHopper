@@ -20,6 +20,8 @@ on:
       - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -63,7 +65,7 @@ jobs:
         echo ""
 
         # Fetch both the PR base branch (for computing changed files) and main (source of truth)
-        BASE_REF="${{ github.event.inputs.base_ref || github.base_ref }}"
+        BASE_REF="${{ github.event.inputs.base_ref || github.base_ref || github.event.merge_group.base_ref }}"
         git fetch origin "$BASE_REF" --depth=1
         git fetch origin main --depth=1
 
@@ -228,7 +230,7 @@ jobs:
         $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
         
         # Checkout target branch to check for existing hash
-        $targetBranch = "${{ github.base_ref }}"
+        $targetBranch = "${{ github.base_ref || github.event.merge_group.base_ref }}"
         Write-Host "Checking target branch: $targetBranch"
         
         git fetch origin $targetBranch

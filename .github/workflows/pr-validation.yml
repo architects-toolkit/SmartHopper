@@ -29,6 +29,8 @@ on:
       - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -128,7 +130,7 @@ jobs:
         if: steps.pr-type.outputs.skip != 'true'
         id: filter
         with:
-          base: ${{ github.event.inputs.base_ref || github.event.pull_request.base.ref || 'main' }}
+          base: ${{ github.event.inputs.base_ref || github.event.pull_request.base.ref || github.event.merge_group.base_ref || 'main' }}
           ref: ${{ github.ref }}
           filters: |
             src:
@@ -148,6 +150,7 @@ jobs:
 
   title-check:
     name: 🏷️ PR Title Style Check
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -207,11 +210,17 @@ jobs:
       - name: Verify required workflow jobs
         shell: bash
         run: |
+          if [[ "${{ github.event_name }}" != "merge_group" ]]; then
+            if [[ "${{ needs.title-check.result }}" != "success" ]]; then
+              echo "::error::PR title check finished with ${{ needs.title-check.result }}"
+              exit 1
+            fi
+          fi
+
           for result in \
             "${{ needs.version-check.result }}" \
             "${{ needs.code-style-check.result }}" \
-            "${{ needs.changelog-check.result }}" \
-            "${{ needs.title-check.result }}"
+            "${{ needs.changelog-check.result }}"
           do
             if [[ "$result" != "success" ]]; then
               echo "::error::A required PR validation job finished with $result"

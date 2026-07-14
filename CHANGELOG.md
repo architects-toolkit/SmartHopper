@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `tools/Update-DevAiTools.ps1` no longer appends extra blank lines to the end of `DEV.md`; it now leaves exactly one trailing blank line.
+- CI merge-queue support: required PR checks now run on `merge_group` events so queued PRs don't stall waiting for status reports.
 - [#647](https://github.com/architects-toolkit/SmartHopper/issues/647): MistralAI reasoning_effort validation now gates the field and restricts values to "none" or "high".
 - Issue-labeler configuration syntax: regex patterns now use JavaScript-compatible `/pattern/i` syntax instead of `(?i)`.
 - PDF text extraction order: switched `PdfConverter` from `DefaultReadingOrderDetector` to `UnsupervisedReadingOrderDetector` configured as `RowWise` without rendering order, so PDF pages are emitted in correct top-to-bottom, left-to-right reading order instead of following the PDF content stream order.
