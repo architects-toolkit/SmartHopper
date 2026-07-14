@@ -91,8 +91,8 @@ jobs:
       - name: Configure Git
         if: steps.context.outputs.skip != 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Extract changelog [Unreleased] section
         if: steps.context.outputs.skip != 'true'

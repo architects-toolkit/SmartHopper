@@ -9,6 +9,14 @@ inputs:
     description: "Commit?"
     required: false
     default: false
+  bot-name:
+    description: "Git user.name for the commit (pass ${{ vars.SMARTHOPPER_BOT_NAME }})"
+    required: false
+    default: ""
+  bot-email:
+    description: "Git user.email for the commit (pass ${{ vars.SMARTHOPPER_BOT_EMAIL }})"
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -62,7 +70,7 @@ runs:
       if: ${{ inputs.commit }}
       shell: bash
       run: |
-        git config user.name "github-actions"
-        git config user.email "actions@github.com"
+        git config user.name "${{ inputs.bot-name }}"
+        git config user.email "${{ inputs.bot-email }}"
         git add .
         git diff --quiet || (git commit -m "chore: automatically fix code style" && git push)

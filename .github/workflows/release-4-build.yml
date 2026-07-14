@@ -411,8 +411,8 @@ jobs:
         Write-Host "Copied hash file to: $destPath"
         
         # Configure git
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+        git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
         
         # Fetch main branch
         git fetch origin main
