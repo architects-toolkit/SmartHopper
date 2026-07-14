@@ -60,8 +60,8 @@ jobs:
       - name: Set up Git user
         if: steps.validate.outputs.is-stabilization == 'true'
         run: |
-          git config user.name "github-actions"
-          git config user.email "action@github.com"
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
 
       - name: Find latest prerelease tag for this version
         if: steps.validate.outputs.is-stabilization == 'true'
