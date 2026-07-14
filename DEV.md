@@ -275,4 +275,3 @@ See [`docs/Components/IO/Persistence.md`](./docs/Components/IO/Persistence.md) f
 —
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
-
