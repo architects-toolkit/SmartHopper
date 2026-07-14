@@ -79,20 +79,35 @@ jobs:
             Write-Output "The provider model table in ``DEV.md`` is already up to date." >> $env:GITHUB_STEP_SUMMARY
           }
 
+      # Derive a per-base branch slug. The workflow runs on several base branches
+      # (dev, main, main-*, dev-*, hotfix/**, release/**); a single shared PR branch
+      # name would be reused across different bases and the PR would then list
+      # commits from whichever base it was last built on. Namespacing the branch
+      # by base keeps each base's sync PR isolated. Slashes are replaced with '-'.
+      - name: Compute PR branch slug
+        id: slug
+        if: github.event_name == 'push' && steps.update.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $slug = $env:REF_NAME -replace '[/ ]', '-'
+          "value=$slug" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
+
       - name: Create Pull Request
         if: github.event_name == 'push' && steps.update.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "docs(dev): update provider model summary [ci skip]"
-          title: "docs(dev): sync provider model summary"
+          title: "docs(dev): sync provider model summary (${{ github.ref_name }})"
           body: |
             Auto-generated PR from `.github/workflows/chore-update-dev-provider-models.yml`.
 
             The provider model summary in `DEV.md` has been refreshed to reflect
             the current default and verified models declared in each
             `*ProviderModels.cs` file.
-          branch: "chore/update-dev-provider-models"
+          branch: "chore/update-dev-provider-models-${{ steps.slug.outputs.value }}"
           base: ${{ github.ref_name }}
           delete-branch: true
           labels: |
