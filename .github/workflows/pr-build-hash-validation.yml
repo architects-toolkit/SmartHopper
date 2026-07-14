@@ -59,18 +59,33 @@ jobs:
 
     - name: Check for manual hash file edits
       shell: bash
+      env:
+        INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
       run: |
         echo "Checking for manual edits to hashes/ directory..."
         echo "Source of truth: main branch"
         echo ""
 
+        # Determine the short base branch name. For merge_group, GITHUB_REF_NAME is
+        # gh-readonly-queue/{base}/{head}, so derive the base branch from it.
+        if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+          base_ref_name="${GITHUB_REF_NAME#gh-readonly-queue/}"
+          base_ref_name="${base_ref_name%/*}"
+        elif [ -n "${INPUT_BASE_REF:-}" ]; then
+          base_ref_name="$INPUT_BASE_REF"
+        elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+          base_ref_name="$GITHUB_BASE_REF"
+        else
+          base_ref_name="main"
+        fi
+        base_ref_name="${base_ref_name#refs/heads/}"
+
         # Fetch both the PR base branch (for computing changed files) and main (source of truth)
-        BASE_REF="${{ github.event.inputs.base_ref || github.base_ref || github.event.merge_group.base_ref }}"
-        git fetch origin "$BASE_REF" --depth=1
+        git fetch origin "$base_ref_name" --depth=1
         git fetch origin main --depth=1
 
         # Get the list of changed files in the PR (relative to the PR base branch)
-        changed_files=$(git diff --name-only "origin/$BASE_REF"..HEAD)
+        changed_files=$(git diff --name-only "origin/$base_ref_name"..HEAD)
 
         echo "Changed files:"
         echo "$changed_files"
@@ -225,12 +240,32 @@ jobs:
     - name: Check for Hash File Conflicts
       id: check_conflicts
       shell: pwsh
+      env:
+        INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
       run: |
         $version = "${{ steps.extract_version.outputs.version }}"
         $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
         
-        # Checkout target branch to check for existing hash
-        $targetBranch = "${{ github.base_ref || github.event.merge_group.base_ref }}"
+        # Determine the short target branch name. For merge_group, GITHUB_REF_NAME is
+        # gh-readonly-queue/{base}/{head}, so derive the base branch from it.
+        $targetBranch = $env:GITHUB_BASE_REF
+        if ([string]::IsNullOrWhiteSpace($targetBranch) -and $env:GITHUB_EVENT_NAME -eq "merge_group") {
+            $refName = $env:GITHUB_REF_NAME
+            if ($refName.StartsWith("gh-readonly-queue/")) {
+                $refName = $refName.Substring("gh-readonly-queue/".Length)
+                $lastSlash = $refName.LastIndexOf("/")
+                if ($lastSlash -ge 0) {
+                    $targetBranch = $refName.Substring(0, $lastSlash)
+                }
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($targetBranch)) {
+            $targetBranch = $env:INPUT_BASE_REF
+        }
+        if ([string]::IsNullOrWhiteSpace($targetBranch)) {
+            $targetBranch = "main"
+        }
+        $targetBranch = $targetBranch -replace "^refs/heads/", ""
         Write-Host "Checking target branch: $targetBranch"
         
         git fetch origin $targetBranch
