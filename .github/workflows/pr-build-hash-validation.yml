@@ -62,6 +62,77 @@ jobs:
         echo "Source of truth: main branch"
         echo ""
 
+        # Determine the head branch name. For pull_request, GITHUB_HEAD_REF is the source branch.
+        # For workflow_dispatch, GITHUB_REF_NAME is the branch.
+        if [ -n "${GITHUB_HEAD_REF:-}" ]; then
+          head_ref_name="$GITHUB_HEAD_REF"
+        else
+          head_ref_name="${GITHUB_REF_NAME:-}"
+        fi
+        head_ref_name="${head_ref_name#refs/heads/}"
+
+        # Auto-generated hash update branches are allowed to add new hashes/,
+        # but they must not modify existing hash files.
+        if [[ "$head_ref_name" == hash-update/* ]]; then
+          echo "ℹ️ Auto-generated hash update branch detected: $head_ref_name"
+          echo "Only new hash files are allowed; modifying existing hash files is blocked."
+          echo ""
+
+          # Fetch both the PR base branch (for computing changed files) and main (source of truth)
+          BASE_REF="${{ github.event.inputs.base_ref || github.base_ref }}"
+          git fetch origin "$BASE_REF" --depth=1
+          git fetch origin main --depth=1
+
+          # Get the list of changed files in the PR (relative to the PR base branch)
+          changed_files=$(git diff --name-only "origin/$BASE_REF"..HEAD)
+
+          echo "Changed files:"
+          echo "$changed_files"
+          echo ""
+
+          # Check if any files in hashes/ were modified
+          hash_files_changed=$(echo "$changed_files" | grep -E "^hashes/" || true)
+
+          if [ -z "$hash_files_changed" ]; then
+            echo "✅ No hash file edits detected."
+            exit 0
+          fi
+
+          mismatched_files=()
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            pr_hash=$(git rev-parse "HEAD:$file" 2>/dev/null || true)
+            main_hash=$(git rev-parse "origin/main:$file" 2>/dev/null || true)
+
+            if [ -z "$main_hash" ]; then
+              echo "  ✓ $file: new hash file (allowed for auto-generated hash update branch)"
+            elif [ "$pr_hash" != "$main_hash" ]; then
+              echo "  ✗ $file: differs from main (modifying existing hash files is not allowed)"
+              mismatched_files+=("$file")
+            else
+              echo "  ✓ $file: matches main exactly (allowed)"
+            fi
+          done <<< "$hash_files_changed"
+
+          echo ""
+          if [ ${#mismatched_files[@]} -gt 0 ]; then
+            echo "❌ ERROR: Auto-generated hash update branch attempted to modify existing hash files!"
+            echo ""
+            echo "The following hash files differ from the main branch (source of truth):"
+            for f in "${mismatched_files[@]}"; do
+              echo "  - $f"
+            done
+            echo ""
+            echo "🚫 Hash update branches are only allowed to add new hash files."
+            echo ""
+            echo "If you need to update an existing hash manifest, please contact the maintainers."
+            exit 1
+          fi
+
+          echo "✅ Auto-generated hash update branch only adds new hash files; allowed."
+          exit 0
+        fi
+
         # Fetch both the PR base branch (for computing changed files) and main (source of truth)
         BASE_REF="${{ github.event.inputs.base_ref || github.base_ref }}"
         git fetch origin "$BASE_REF" --depth=1

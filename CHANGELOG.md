@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI**: Allow auto-generated `hash-update/*` PRs to add new `hashes/*.json` files while still blocking modifications to existing ones in `pr-build-hash-validation.yml`.
+
 ## [2.0.0-dev.260705] - 2026-07-05
 
 Many thanks to the following contributors to this release:
