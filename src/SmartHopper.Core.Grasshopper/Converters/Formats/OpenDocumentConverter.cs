@@ -394,8 +394,8 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 return string.Empty;
             }
 
-            var skipBold = rowUniformBold || cell.AllBold;
-            var skipItalic = rowUniformItalic || cell.AllItalic;
+            var skipBold = rowUniformBold;
+            var skipItalic = rowUniformItalic;
             return FormatSegments(
                 cell.Segments,
                 context.Options.PreserveFormatting,

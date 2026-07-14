@@ -116,6 +116,18 @@ https://raw.githubusercontent.com/architects-toolkit/ghjson-spec/main/docs/
 
 The `smarthopper_ghjson_reference` tool currently uses the embedded snapshot; online fallback is available in the loader for future scenarios.
 
+### Loading the Spec Directly
+
+To read a spec document without going through the tool layer, use `GhJsonSpecLoader`:
+
+```csharp
+// Load the full GhJSON specification from the embedded snapshot.
+string specification = await GhJsonSpecLoader.LoadSpecificationAsync();
+
+// Load a single topic, forcing an online fetch with embedded fallback.
+string components = await GhJsonSpecLoader.LoadTopicAsync("components", preferOnline: true);
+```
+
 ### Calling the Tool Programmatically
 
 ```csharp
