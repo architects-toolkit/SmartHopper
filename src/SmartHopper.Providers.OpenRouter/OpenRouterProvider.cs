@@ -346,13 +346,8 @@ namespace SmartHopper.Providers.OpenRouter
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
-                // Format for tool results
+                // Format for tool results (OpenRouter docs only document role, tool_call_id and content).
                 obj["tool_call_id"] = toolResultInteraction.Id;
-                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
-                {
-                    obj["name"] = toolResultInteraction.Name;
-                }
-
                 obj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
