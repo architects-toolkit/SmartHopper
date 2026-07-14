@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raw text fallback and improved encoding detection for file converters.
 - `GhJsonSpecLoader` to load embedded GhJSON/GhPatch spec snapshots.
 
+### Changed
+
+- Stabilization backport (`stabilization-2-complete.yml`) now cherry-picks only the commits unique to `main-X.Y.Z` onto a fresh `backport/X.Y.Z` branch cut from `main`, instead of merging the whole stabilization branch. It skips creation when there is nothing to backport and lists the cherry-picked (and any conflicting) commits in the PR body.
+- Standardized the git commit author across GitHub Actions workflows and the code-style action to use the `SMARTHOPPER_BOT_NAME`/`SMARTHOPPER_BOT_EMAIL` repository variables instead of hardcoded `github-actions[bot]` identities.
+
 ### Fixed
 
 - `tools/Update-DevAiTools.ps1` no longer appends extra blank lines to the end of `DEV.md`; it now leaves exactly one trailing blank line.
