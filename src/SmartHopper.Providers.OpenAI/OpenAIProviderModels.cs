@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -63,7 +63,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 10000,
                     ContextLimit = 1050000,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -74,19 +74,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9995,
                     ContextLimit = 1050000,
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5.5-2026-04-23",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9990,
-                    ContextLimit = 1050000,
-                    Aliases = new List<string> { "gpt-5.5", "gpt-5.5-latest" },
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -95,8 +83,20 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Rank = 9990,
+                    ContextLimit = 1050000,
+                                    },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.5-2026-04-23",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
                     Rank = 9985,
                     ContextLimit = 1050000,
+                                        Aliases = new List<string> { "gpt-5.5", "gpt-5.5-latest" },
                 },
 
                 new AIModelCapabilities
@@ -108,7 +108,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9980,
                     ContextLimit = 1050000,
-                    Aliases = new List<string> { "gpt-5.5-pro", "gpt-5.5-pro-latest" },
+                                        Aliases = new List<string> { "gpt-5.5-pro", "gpt-5.5-pro-latest" },
                 },
 
 
@@ -124,20 +124,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9975,
                     ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5.4-nano", "gpt-5.4-nano-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5.4-mini-2026-03-17",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9970,
-                    ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5.4-mini", "gpt-5.4-mini-latest" },
+                                        Aliases = new List<string> { "gpt-5.4-nano", "gpt-5.4-nano-latest" },
                 },
 
                 new AIModelCapabilities
@@ -148,20 +135,22 @@ namespace SmartHopper.Providers.OpenAI
                     Default = AICapability.Text2Speech | AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9965,
+                    Rank = 9970,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-audio-mini", "gpt-audio-mini-latest" },
+                                        Aliases = new List<string> { "gpt-audio-mini", "gpt-audio-mini-latest" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.2-codex",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "gpt-5.4-mini-2026-03-17",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Default = AICapability.Text2Text | AICapability.ToolChat | AICapability.ReasoningChat | AICapability.ToolReasoningChat | AICapability.Text2Json | AICapability.Image2Text,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9960,
+                    Rank = 9965,
                     ContextLimit = 400000,
+                                        Aliases = new List<string> { "gpt-5.4-mini", "gpt-5.4-mini-latest" },
                 },
 
                 new AIModelCapabilities
@@ -171,9 +160,9 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9955,
+                    Rank = 9960,
                     ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5.3-chat" },
+                                        Aliases = new List<string> { "gpt-5.3-chat" },
                 },
 
                 new AIModelCapabilities
@@ -183,9 +172,20 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
+                    Rank = 9955,
+                    ContextLimit = 400000,
+                                    },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.2-codex",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
                     Rank = 9950,
                     ContextLimit = 400000,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -196,7 +196,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9945,
                     ContextLimit = 1050000,
-                    Aliases = new List<string> { "gpt-5.4", "gpt-5.4-latest" },
+                                        Aliases = new List<string> { "gpt-5.4", "gpt-5.4-latest" },
                 },
 
                 new AIModelCapabilities
@@ -208,7 +208,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9940,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-audio", "gpt-audio-latest" },
+                                        Aliases = new List<string> { "gpt-audio", "gpt-audio-latest" },
                 },
 
                 new AIModelCapabilities
@@ -220,7 +220,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9935,
                     ContextLimit = 1050000,
-                    Aliases = new List<string> { "gpt-5.4-pro", "gpt-5.4-pro-latest" },
+                                        Aliases = new List<string> { "gpt-5.4-pro", "gpt-5.4-pro-latest" },
                 },
 
 
@@ -236,7 +236,18 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9930,
                     ContextLimit = 400000,
-                },
+                                    },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-5.1-codex-max",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9925,
+                    ContextLimit = 400000,
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -245,9 +256,9 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9925,
+                    Rank = 9920,
                     ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5.1", "gpt-5.1-latest" },
+                                        Aliases = new List<string> { "gpt-5.1", "gpt-5.1-latest" },
                 },
 
                 new AIModelCapabilities
@@ -257,9 +268,9 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9920,
+                    Rank = 9915,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-5.1-chat" },
+                                        Aliases = new List<string> { "gpt-5.1-chat" },
                 },
 
                 new AIModelCapabilities
@@ -269,19 +280,20 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9915,
+                    Rank = 9910,
                     ContextLimit = 400000,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5.1-codex-max",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "gpt-5.2-chat-latest",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9910,
-                    ContextLimit = 400000,
+                    Rank = 9905,
+                    ContextLimit = 128000,
+                                        Aliases = new List<string> { "gpt-5.2-chat" },
                 },
 
                 new AIModelCapabilities
@@ -291,21 +303,9 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9905,
-                    ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5.2", "gpt-5.2-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-5.2-chat-latest",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
-                    SupportsStreaming = true,
-                    Verified = false,
                     Rank = 9900,
-                    ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-5.2-chat" },
+                    ContextLimit = 400000,
+                                        Aliases = new List<string> { "gpt-5.2", "gpt-5.2-latest" },
                 },
 
                 new AIModelCapabilities
@@ -317,7 +317,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9895,
                     ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5.2-pro", "gpt-5.2-pro-latest" },
+                                        Aliases = new List<string> { "gpt-5.2-pro", "gpt-5.2-pro-latest" },
                 },
 
 
@@ -334,7 +334,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = true,
                     Rank = 9890,
                     ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5-mini", "gpt-5-mini-latest" },
+                                        Aliases = new List<string> { "gpt-5-mini", "gpt-5-mini-latest" },
                 },
 
                 new AIModelCapabilities
@@ -346,7 +346,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9885,
                     ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5-nano", "gpt-5-nano-latest" },
+                                        Aliases = new List<string> { "gpt-5-nano", "gpt-5-nano-latest" },
                 },
 
                 new AIModelCapabilities
@@ -358,20 +358,19 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9880,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "o4-mini-deep-research", "o4-mini-deep-research-latest" },
+                                        Aliases = new List<string> { "o4-mini-deep-research", "o4-mini-deep-research-latest" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5-2025-08-07",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Model = "gpt-5-codex",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9875,
                     ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5", "gpt-5-latest" },
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -382,18 +381,19 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9870,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-5-chat" },
+                                        Aliases = new List<string> { "gpt-5-chat" },
                 },
 
                 new AIModelCapabilities
                 {
                     Provider = provider,
-                    Model = "gpt-5-codex",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
+                    Model = "gpt-5-2025-08-07",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9865,
                     ContextLimit = 400000,
+                                        Aliases = new List<string> { "gpt-5", "gpt-5-latest" },
                 },
 
                 new AIModelCapabilities
@@ -405,7 +405,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9860,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "o3-deep-research", "o3-deep-research-latest" },
+                                        Aliases = new List<string> { "o3-deep-research", "o3-deep-research-latest" },
                 },
 
                 new AIModelCapabilities
@@ -417,7 +417,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9855,
                     ContextLimit = 400000,
-                    Aliases = new List<string> { "gpt-5-pro", "gpt-5-pro-latest" },
+                                        Aliases = new List<string> { "gpt-5-pro", "gpt-5-pro-latest" },
                 },
 
 
@@ -433,7 +433,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9850,
                     ContextLimit = 1047576,
-                    Aliases = new List<string> { "gpt-4.1-nano", "gpt-4.1-nano-latest" },
+                                        Aliases = new List<string> { "gpt-4.1-nano", "gpt-4.1-nano-latest" },
                 },
 
                 new AIModelCapabilities
@@ -445,7 +445,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9845,
                     ContextLimit = 1047576,
-                    Aliases = new List<string> { "gpt-4.1-mini", "gpt-4.1-mini-latest" },
+                                        Aliases = new List<string> { "gpt-4.1-mini", "gpt-4.1-mini-latest" },
                 },
 
                 new AIModelCapabilities
@@ -457,19 +457,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9840,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "o4-mini", "o4-mini-latest" },
-                },
-
-                new AIModelCapabilities
-                {
-                    Provider = provider,
-                    Model = "gpt-4.1-2025-04-14",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
-                    SupportsStreaming = true,
-                    Verified = false,
-                    Rank = 9835,
-                    ContextLimit = 1047576,
-                    Aliases = new List<string> { "gpt-4.1", "gpt-4.1-latest" },
+                                        Aliases = new List<string> { "o4-mini", "o4-mini-latest" },
                 },
 
                 new AIModelCapabilities
@@ -479,9 +467,21 @@ namespace SmartHopper.Providers.OpenAI
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9830,
+                    Rank = 9835,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "o3", "o3-latest" },
+                                        Aliases = new List<string> { "o3", "o3-latest" },
+                },
+
+                new AIModelCapabilities
+                {
+                    Provider = provider,
+                    Model = "gpt-4.1-2025-04-14",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling,
+                    SupportsStreaming = true,
+                    Verified = false,
+                    Rank = 9830,
+                    ContextLimit = 1047576,
+                                        Aliases = new List<string> { "gpt-4.1", "gpt-4.1-latest" },
                 },
 
                 new AIModelCapabilities
@@ -493,7 +493,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9825,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "o3-pro", "o3-pro-latest" },
+                                        Aliases = new List<string> { "o3-pro", "o3-pro-latest" },
                 },
 
 
@@ -509,7 +509,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9820,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o-mini-search-preview", "gpt-4o-mini-search-preview-latest" },
+                                        Aliases = new List<string> { "gpt-4o-mini-search-preview", "gpt-4o-mini-search-preview-latest" },
                 },
 
                 new AIModelCapabilities
@@ -521,7 +521,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9815,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "o3-mini", "o3-mini-latest" },
+                                        Aliases = new List<string> { "o3-mini", "o3-mini-latest" },
                 },
 
                 new AIModelCapabilities
@@ -533,7 +533,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9810,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o-search-preview", "gpt-4o-search-preview-latest" },
+                                        Aliases = new List<string> { "gpt-4o-search-preview", "gpt-4o-search-preview-latest" },
                 },
 
                 new AIModelCapabilities
@@ -545,7 +545,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9805,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "o1-pro", "o1-pro-latest" },
+                                        Aliases = new List<string> { "o1-pro", "o1-pro-latest" },
                 },
 
 
@@ -561,7 +561,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9800,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "o1", "o1-latest" },
+                                        Aliases = new List<string> { "o1", "o1-latest" },
                 },
 
 
@@ -577,7 +577,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9795,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o-mini", "gpt-4o-mini-latest" },
+                                        Aliases = new List<string> { "gpt-4o-mini", "gpt-4o-mini-latest" },
                 },
 
                 new AIModelCapabilities
@@ -589,7 +589,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9790,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o-latest", "gpt-4o" },
+                                        Aliases = new List<string> { "gpt-4o-latest", "gpt-4o" },
                 },
 
 
@@ -605,7 +605,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9785,
                     ContextLimit = 4095,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -616,7 +616,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9780,
                     ContextLimit = 16385,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -627,7 +627,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9775,
                     ContextLimit = 128000,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -759,6 +759,7 @@ namespace SmartHopper.Providers.OpenAI
                     Provider = provider,
                     Model = "gpt-image-1",
                     Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.ImageOutput,
+                    Default = AICapability.Text2Image,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9715,
@@ -805,6 +806,7 @@ namespace SmartHopper.Providers.OpenAI
                     Verified = false,
                     Rank = 9695,
                     Aliases = new List<string> { "omni-moderation-latest", "omni-moderation" },
+                    DiscouragedForTools = new List<string> { "*" },
                 },
 
                 new AIModelCapabilities
@@ -895,7 +897,8 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     Provider = provider,
                     Model = "whisper-1",
-                    Capabilities = AICapability.AudioInput | AICapability.TextOutput,
+                    Capabilities = AICapability.SpeechInput | AICapability.TextOutput,
+                    Default = AICapability.Speech2Text,
                     SupportsStreaming = false,
                     Verified = false,
                     Rank = 9650,
@@ -915,7 +918,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = 0,
                     ContextLimit = 128000,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -939,7 +942,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -10,
                     ContextLimit = 16385,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -951,7 +954,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -15,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4-turbo", "gpt-4-turbo-latest" },
+                                        Aliases = new List<string> { "gpt-4-turbo", "gpt-4-turbo-latest" },
                 },
 
                 new AIModelCapabilities
@@ -964,7 +967,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -20,
                     ContextLimit = 8192,
-                },
+                                    },
 
                 new AIModelCapabilities
                 {
@@ -1092,7 +1095,7 @@ namespace SmartHopper.Providers.OpenAI
                     Deprecated = true,
                     Rank = -75,
                     ContextLimit = 128000,
-                    Aliases = new List<string> { "gpt-4o-audio-preview", "gpt-4o-audio-preview-latest" },
+                                        Aliases = new List<string> { "gpt-4o-audio-preview", "gpt-4o-audio-preview-latest" },
                 },
 
                 new AIModelCapabilities
