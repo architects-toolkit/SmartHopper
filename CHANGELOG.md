@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Backported DeepSeek provider settings from hotfix 1.4.4: `ReasoningEffort` and `TopP` settings, plus `reasoning_effort` per-request extra support.
+- Backported OpenRouter provider model default capability assignments from hotfix 1.4.4.
 - Added `smarthopper_ghjson_reference` AI tool that returns GhJSON/GhPatch format reference docs from an embedded snapshot of `ghjson-spec`, with a `tools/Sync-GhJsonSpecDocs.ps1` sync script to keep the snapshot current.
 - Added `.github/workflows/chore-update-ghjson-spec-docs.yml` to automate syncing the embedded GhJSON/GhPatch spec snapshot from `ghjson-spec` and to validate the snapshot on related pull requests.
 - Enabled `gh_generate` AI tool for production: renamed from `_gh_generate`, switched to instructions-driven GhJSON generation via an AI subagent, embedded the GhJSON specification into the system prompt, added GhJSON validation and retry logic, and introduced `gh_generate_and_place_on_canvas` wrapper that calls `gh_put`.
@@ -23,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Backported DeepSeek provider tool-call fixes from hotfix 1.4.4: consecutive assistant messages are now merged, `reasoning_content` is preserved on assistant messages with tool calls and stripped from text-only assistant messages, and tool result `name` is no longer sent.
+- Backported OpenRouter provider tool result fix from hotfix 1.4.4: removed the invalid `name` field from `role=tool` messages.
 - `tools/Update-DevAiTools.ps1` no longer appends extra blank lines to the end of `DEV.md`; it now leaves exactly one trailing blank line.
 - CI merge-queue support: required PR checks now run on `merge_group` events so queued PRs don't stall waiting for status reports.
 - [#647](https://github.com/architects-toolkit/SmartHopper/issues/647): MistralAI reasoning_effort validation now gates the field and restricts values to "none" or "high".
