@@ -557,12 +557,12 @@ try {
     $newSection.AddRange([string[]]$after)
 
     # Remove trailing empty lines inherited from the original file so the
-    # output ends with exactly one blank line.
+    # output ends with exactly one trailing newline.
     while ($newSection.Count -gt 0 -and [string]::IsNullOrWhiteSpace($newSection[$newSection.Count - 1])) {
         $newSection.RemoveAt($newSection.Count - 1)
     }
 
-    $newContent = ($newSection -join "`n") + "`n`n"
+    $newContent = ($newSection -join "`n") + "`n"
     $oldContent = [System.IO.File]::ReadAllText($DevFile, [System.Text.Encoding]::UTF8)
 
     if ($newContent -eq $oldContent) {
