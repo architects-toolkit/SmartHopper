@@ -105,8 +105,9 @@ namespace SmartHopper.Core.Grasshopper.Converters
         /// <summary>
         /// Gets or sets whether to preserve inline text formatting.
         /// When enabled, colored text is wrapped in an inline HTML span, highlighted text is wrapped in
-        /// an inline HTML mark, and bold/italic text is emitted using Markdown syntax. DOCX preserves
-        /// colors, highlights, bold, and italic; XLSX and PPTX preserve bold and italic.
+        /// an inline HTML mark, and bold/italic/underlined/strikethrough text is emitted using Markdown or
+        /// inline HTML. DOCX and ODF text documents preserve colors, highlights, bold, italic, underline,
+        /// and strikethrough; XLSX, ODS, and PPTX preserve bold and italic.
         /// Default: true.
         /// </summary>
         public bool PreserveFormatting { get; set; } = true;

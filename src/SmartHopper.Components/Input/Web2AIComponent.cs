@@ -31,6 +31,7 @@ using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
+using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
 using SmartHopper.Core.Grasshopper.AITools;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
@@ -127,7 +128,27 @@ namespace SmartHopper.Components.Input
             var sentinel = this.GetSentinelTree("Markdown");
             if (results == null || sentinel == null) return;
 
-            var allSlotMetrics = new List<AIMetrics>();
+            // Map every sentinel custom ID in the Markdown tree to its output branch path.
+            // All image slots for a single URL share the representative sentinel's path.
+            var sentinelToPath = new Dictionary<string, GH_Path>();
+            foreach (var path in sentinel.Paths)
+            {
+                var branch = sentinel.get_Branch(path);
+                if (branch == null)
+                {
+                    continue;
+                }
+
+                foreach (GH_String item in branch)
+                {
+                    if (BatchSentinel.TryExtract(item?.Value ?? string.Empty, out var customId))
+                    {
+                        sentinelToPath[customId] = path;
+                    }
+                }
+            }
+
+            var slotMetricsByPath = new Dictionary<GH_Path, List<AIMetrics>>();
 
             var reconstructedMarkdown = this.ProcessBatchResults<GH_String>(
                 "Markdown",
@@ -140,6 +161,11 @@ namespace SmartHopper.Components.Input
                     {
                         Debug.WriteLine($"[Web2AI] OnBatchCompleted: URL context missing for sentinel {representativeSentinelId}");
                         return new GH_String("[URL context missing]");
+                    }
+
+                    if (!sentinelToPath.TryGetValue(representativeSentinelId, out var representativePath))
+                    {
+                        representativePath = new GH_Path(0);
                     }
 
                     var markdown = MarkdownImageBatchProcessor.Reconstruct(
@@ -161,7 +187,13 @@ namespace SmartHopper.Components.Input
                                     assistantText.Metrics.Model = this.GetModel();
                                 }
 
-                                allSlotMetrics.Add(assistantText.Metrics);
+                                if (!slotMetricsByPath.TryGetValue(representativePath, out var list))
+                                {
+                                    list = new List<AIMetrics>();
+                                    slotMetricsByPath[representativePath] = list;
+                                }
+
+                                list.Add(assistantText.Metrics);
                             }
                         });
 
@@ -169,14 +201,19 @@ namespace SmartHopper.Components.Input
                 },
                 messages);
 
-            if (allSlotMetrics.Count > 0)
+            if (slotMetricsByPath.Count > 0)
             {
-                foreach (var m in allSlotMetrics)
+                foreach (var kvp in slotMetricsByPath)
                 {
-                    this.CombineIntoPersistedMetrics(m, "tool:img2text");
+                    var path = kvp.Key;
+                    foreach (var m in kvp.Value)
+                    {
+                        this.CombineIntoPersistedMetricsAtPath(m, path, "tool:img2text");
+                    }
                 }
 
-                Debug.WriteLine($"[Web2AI] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics via CombineIntoPersistedMetrics");
+                var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
+                Debug.WriteLine($"[Web2AI] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
                 this.SetMetricsOutput(null);
             }
 

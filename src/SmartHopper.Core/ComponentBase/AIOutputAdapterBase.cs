@@ -591,7 +591,7 @@ namespace SmartHopper.Core.ComponentBase
 
                     foreach (var m in kvp.Value)
                     {
-                        this.AppendMetricToTreeAtPath(m, path);
+                        this.AppendMetricToTree(m, path);
                     }
                 }
             }

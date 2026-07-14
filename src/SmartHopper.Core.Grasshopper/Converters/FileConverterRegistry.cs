@@ -33,6 +33,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using SmartHopper.Core.Grasshopper.Converters.Formats;
 
 namespace SmartHopper.Core.Grasshopper.Converters
 {
@@ -137,6 +138,16 @@ namespace SmartHopper.Core.Grasshopper.Converters
             var normalizedExtension = NormalizeExtension(extension);
             if (!this.convertersByExtension.TryGetValue(normalizedExtension, out var converter))
             {
+                // Fallback: when no specialised converter exists, attempt to read the file as
+                // raw text. This lets users preview files such as .scn, .odt, or legacy formats
+                // without needing a full converter, while still warning that the result may be
+                // partial or unreadable for binary files.
+                var rawResult = await TryReadRawTextAsync(filePath, normalizedExtension).ConfigureAwait(false);
+                if (rawResult != null)
+                {
+                    return rawResult;
+                }
+
                 var supportedList = string.Join(", ", this.SupportedExtensions.OrderBy(e => e));
                 return FileConversionResult.Failure(
                     normalizedExtension.TrimStart('.'),
@@ -174,6 +185,34 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 return FileConversionResult.Failure(
                     normalizedExtension.TrimStart('.'),
                     $"Conversion failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Attempts to read an unrecognised file as raw text using the same encoding detection
+        /// as <see cref="TxtConverter"/>. Returns <c>null</c> if the file cannot be read as text
+        /// or produces only whitespace.
+        /// </summary>
+        private static async Task<FileConversionResult?> TryReadRawTextAsync(string filePath, string normalizedExtension)
+        {
+            try
+            {
+                var bytes = await File.ReadAllBytesAsync(filePath).ConfigureAwait(false);
+                var content = TxtConverter.DecodeTextBytes(bytes);
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    return null;
+                }
+
+                content = content.Replace("\r\n", "\n").Replace("\r", "\n");
+
+                var result = FileConversionResult.Success(content, normalizedExtension.TrimStart('.'));
+                result.Warnings.Add($"No specific converter for '{normalizedExtension}'; returning raw text. Binary files may produce unreadable output.");
+                return result;
+            }
+            catch
+            {
+                return null;
             }
         }
 

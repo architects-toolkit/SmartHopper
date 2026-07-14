@@ -104,7 +104,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
             switch (topic.Trim().ToLowerInvariant())
             {
                 case "canvas":
-                case "ghjson":
                 case "selected":
                 case "errors":
                 case "locks":
@@ -135,6 +134,26 @@ Quick actions on selected components (no GUIDs needed):
 Modifying canvas:
 - gh_group, gh_move, gh_tidy_up, gh_component_toggle_lock, gh_component_toggle_preview
 - gh_put: place components from GhJSON; when instanceGuid matches existing, it replaces it (prefer user confirmation).
+""";
+
+                case "ghjson":
+                    return """
+GhJSON format documentation is maintained in the dedicated `smarthopper_ghjson_reference` tool.
+
+Use `smarthopper_ghjson_reference` with one of these topics to get the authoritative GhJSON/GhPatch reference:
+- overview
+- specification
+- ghpatch
+- document_structure
+- components
+- connections
+- groups
+- data_types
+- component_specific_formats
+- validation
+- examples
+
+For canvas operations that use GhJSON (e.g., gh_put), use the `canvas` topic instead.
 """;
 
                 case "discovery":

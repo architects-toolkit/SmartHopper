@@ -96,6 +96,7 @@ in the AI Chat component.
 | `smarthopper_readme` | Instructions | Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `smarthopper_workflows` | Instructions | Documents common SmartHopper tool sequences and workflows for the AI assistant. Use this to discover recommended tool call patterns for tasks like auditing the canvas, editing scripts, or retrieving web knowledge. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `smarthopper_tool_help` | Instructions | Provides detailed usage help for other SmartHopper tools, including parameter descriptions, output shape, and hints. Use this to understand how to call a specific tool correctly. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `smarthopper_ghjson_reference` | Instructions | Returns GhJSON and GhPatch format reference documentation. Pass `topic` to retrieve the full specification or a focused section. Use this whenever you need to generate, edit, or validate GhJSON/GhPatch documents instead of relying on internalized format knowledge. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `web2md` | Knowledge | Convert a web page (URL) to Markdown text. Supports Wikipedia/Wikimedia, Discourse forums, GitHub/GitLab files, Stack Exchange questions, and generic webpages. Respects robots.txt. Use this when you need to read the contents of a web page. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `file2md` | Knowledge | Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `discourse_forum_search` | Knowledge | Search Discourse forum posts by query and return matching results. | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -144,7 +145,8 @@ in the AI Chat component.
 | `gh_move` | Components | Reposition components on the canvas by specifying target coordinates. Use absolute coordinates (canvas position) or relative offsets (move by delta). Useful for organizing layouts or separating component groups. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_tidy_up` | Components | Automatically arrange components into a clean grid layout respecting data flow direction. Organizes components left-to-right based on their connections. Use this to clean up messy definitions. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_tidy_up_selected` | Components | Organize currently selected components into a tidy grid layout. Quick way to clean up selected items without needing to specify GUIDs manually. Arranges components left-to-right based on connections. | - | - | - | - |
-| `gh_generate` | NotTested | Generate GhJSON for creating a set of Grasshopper components by name and parameters. Returns a valid GhJSON structure that can be passed to gh_put to place components on canvas. Use this to create individual components or small networks when you know the exact component names. For complex networks, consider using the full gh_put workflow with AI-generated GhJSON. | ⚪ | 🟡 | - | - |
+| `gh_generate` | NotTested | Generate GhJSON for creating a set of Grasshopper components by name and parameters. Returns a valid GhJSON structure that can be passed to gh_put to place components on canvas. Use this to create individual components or small networks when you know the exact component names. For complex networks, consider using the full gh_put workflow with AI-generated GhJSON. | ⚪ | 🟡 | 🟠 | - |
+| `gh_generate_and_place_on_canvas` | Components | Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }). | ⚪ | 🟡 | 🟠 | - |
 | `gh_connect` | NotTested | Connect Grasshopper components together by creating wires between outputs and inputs. Use this to establish data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_disconnect` | NotTested | Disconnect Grasshopper components by removing wires between outputs and inputs. Use this to break data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_group` | Components | Create a visual group container around components to organize and annotate them. Use this to highlight related components, mark areas of interest, or add notes to the canvas. Requires component GUIDs from gh_get. | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -170,6 +172,8 @@ in the AI Chat component.
 | `button_click` | Components | Simulate a momentary click on Grasshopper Buttons (not Boolean Toggles). The button is pressed for 100 ms, then released. Provide the instance GUIDs of the buttons. | - | - | - | - |
 | `gh_document_save` | Document | Save the current Grasshopper document. If no filePath is provided, the document is saved to its existing location. Provide a full file path to save a copy or unnamed document. | - | - | - | - |
 | `gh_remove` | Components | Remove components from the Grasshopper canvas by their instance GUIDs. The operation records an undo event so the user can reverse it with Ctrl+Z. Use GUIDs from gh_get or similar tools. | - | - | - | - |
+| `gh_generate_and_place_on_canvas` | Components | Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }). | - | - | - | - |
+| `smarthopper_ghjson_reference` | Instructions | Returns GhJSON and GhPatch format reference documentation. Pass `topic` to retrieve the full specification or a focused section. Use this whenever you need to generate, edit, or validate GhJSON/GhPatch documents instead of relying on internalized format knowledge. | - | - | - | - |
 
 Notes:
 
@@ -225,13 +229,12 @@ Notes:
 | Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
 | DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
-| Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
-| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
 | MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
 | MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
 | OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
@@ -272,5 +275,3 @@ See [`docs/Components/IO/Persistence.md`](./docs/Components/IO/Persistence.md) f
 —
 
 Is there something missing? Do you have a suggestion? Please open a discussion in the [Ideas](https://github.com/architects-toolkit/SmartHopper/discussions/categories/ideas) section in the Discussions tab.
-
-

@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -28,6 +29,7 @@ using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
 using SmartHopper.Core.ComponentBase.Mixins;
+using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core;
 using SmartHopper.Infrastructure.AIProviders;
@@ -178,15 +180,17 @@ namespace SmartHopper.Core.ComponentBase
             this.AIReturnSnapshot = null;
             this._batchState.ResetForNextRun();
             this._currentProcessingPath = null;
+            this._currentProcessingItemIndex = null;
             this._metricsTree = null;
             this.ResetProgress();
         }
 
         /// <inheritdoc/>
-        protected override void OnProcessingUnitStart(GH_Path path)
+        protected override void OnProcessingUnitStart(GH_Path path, int? itemIndex)
         {
-            base.OnProcessingUnitStart(path);
+            base.OnProcessingUnitStart(path, itemIndex);
             this._currentProcessingPath = path;
+            this._currentProcessingItemIndex = itemIndex;
         }
 
         /// <inheritdoc/>
@@ -195,10 +199,54 @@ namespace SmartHopper.Core.ComponentBase
             base.OnProcessingUnitComplete(inputPath, targetPaths);
 
             // When GroupIdenticalBranches is active, non-primary target paths reuse
-            // results from the primary path. Emit a zero-data-count metric for each
-            // reused path so downstream components can distinguish processed vs reused.
+            // results from the primary path. Replicate metrics to those reused paths
+            // so downstream components can distinguish processed vs reused.
             if (this._metricsTree == null || inputPath == null || targetPaths == null)
             {
+                return;
+            }
+
+            if (this.ComponentProcessingOptions.Topology == ProcessingTopology.ItemGraft)
+            {
+                // Metrics are already stored at grafted child paths (inputPath + item index).
+                // Copy each child branch to the corresponding grafted path on every sibling target.
+                var childPaths = this._metricsTree.Paths
+                    .Where(p => p.Length == inputPath.Length + 1 && p.Indices.Take(inputPath.Length).SequenceEqual(inputPath.Indices))
+                    .ToList();
+
+                foreach (var targetPath in targetPaths)
+                {
+                    if (targetPath == null || targetPath.Equals(inputPath))
+                    {
+                        continue;
+                    }
+
+                    foreach (var childPath in childPaths)
+                    {
+                        int itemIndex = childPath.Indices[inputPath.Length];
+                        var siblingPath = targetPath.AppendElement(itemIndex);
+                        var childBranch = this._metricsTree.get_Branch(childPath);
+                        if (childBranch == null)
+                        {
+                            continue;
+                        }
+
+                        foreach (GH_String metricStr in childBranch)
+                        {
+                            try
+                            {
+                                var obj = JObject.Parse(metricStr.Value);
+                                obj["data_count"] = 0;
+                                this._metricsTree.Append(new GH_String(obj.ToString(Newtonsoft.Json.Formatting.None)), siblingPath);
+                            }
+                            catch
+                            {
+                                // If parsing fails, skip the copy
+                            }
+                        }
+                    }
+                }
+
                 return;
             }
 

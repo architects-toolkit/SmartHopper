@@ -141,6 +141,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     new[]
                     {
                         "Call script_generate with the instructions and preferred language.",
+                        "Call smarthopper_ghjson_reference with topic 'specification' or 'components' when reviewing or adjusting the generated GhJSON.",
                         "Call gh_put with the returned GhJSON and editMode=false.",
                     }),
                 (
@@ -166,8 +167,9 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     "Add new components to the canvas from a description or GhJSON.",
                     new[]
                     {
-                        "For a small, known set of components, call gh_generate with component names.",
-                        "For a larger network, generate or edit GhJSON externally, then call gh_put.",
+                        "To generate a new network from a description, call gh_generate with instructions. For complex networks, call smarthopper_ghjson_reference with topic 'specification' or 'components' first.",
+                        "To generate and place in one step, use gh_generate_and_place_on_canvas.",
+                        "Once the GhJSON is ready, call gh_put with editMode=false to place components on the canvas.",
                         "Use gh_connect to wire the new components to existing ones.",
                     }),
                 (
@@ -195,6 +197,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     new[]
                     {
                         "Obtain the base GhJSON document and a .ghpatch document (e.g., from gh_diff).",
+                        "Call smarthopper_ghjson_reference with topic 'ghpatch' or 'validation' when inspecting or editing the patch by hand.",
                         "Call gh_patch_validate on the patch first.",
                         "Call gh_patch_apply with the base GhJSON and the patch.",
                         "Review any conflicts reported by gh_patch_apply.",

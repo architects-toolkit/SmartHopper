@@ -59,7 +59,8 @@ Supported topics are declared in the tool schema. Examples include:
 - `discovery`
 - `scripting`
 - `knowledge`
-- (project-specific subtopics such as `ghjson`, `selected`, `errors`, `locks`, `visibility` may be routed to a common bundle; for GhJSON format details see [ghjson-dotnet](https://github.com/architects-toolkit/ghjson-dotnet))
+- `ghjson` now redirects to `smarthopper_ghjson_reference` for authoritative GhJSON/GhPatch format documentation.
+- (project-specific subtopics such as `selected`, `errors`, `locks`, `visibility` are routed to the `canvas` bundle.)
 
 ### Output
 
