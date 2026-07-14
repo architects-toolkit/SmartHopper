@@ -8,6 +8,8 @@ name: ✅ Check Provider Models
 
 on:
   pull_request:
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -41,14 +43,28 @@ jobs:
       - id: filter
         shell: bash
         env:
-          BASE_REF: ${{ github.event.inputs.base_ref || github.event.pull_request.base.ref || 'main' }}
+          INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
         run: |
           set -euo pipefail
 
-          git fetch origin "$BASE_REF" --depth=1
+          # Determine the short base branch name. For merge_group, GITHUB_REF_NAME is
+          # gh-readonly-queue/{base}/{head}, so derive the base branch from it.
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            base_ref_name="${GITHUB_REF_NAME#gh-readonly-queue/}"
+            base_ref_name="${base_ref_name%/*}"
+          elif [ -n "${INPUT_BASE_REF:-}" ]; then
+            base_ref_name="$INPUT_BASE_REF"
+          elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+            base_ref_name="$GITHUB_BASE_REF"
+          else
+            base_ref_name="main"
+          fi
+          base_ref_name="${base_ref_name#refs/heads/}"
+
+          git fetch origin "$base_ref_name" --depth=1
 
           should_run=false
-          mapfile -t changed_files < <(git diff --name-only "origin/$BASE_REF"...HEAD)
+          mapfile -t changed_files < <(git diff --name-only "origin/$base_ref_name"...HEAD)
 
           for file in "${changed_files[@]}"; do
             case "$file" in
@@ -57,7 +73,7 @@ jobs:
                 break
                 ;;
               src/SmartHopper.Infrastructure/AIModels/AICapability.cs|src/SmartHopper.Providers.*/*ProviderModels.cs)
-                if python3 - "$BASE_REF" "$file" <<'PY'
+                if python3 - "$base_ref_name" "$file" <<'PY'
           import subprocess
           import sys
           from pathlib import Path

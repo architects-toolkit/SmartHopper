@@ -91,7 +91,16 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         AppendNotesSection(markdown, context.Footnotes, context.Endnotes);
                     }
 
-                    result.MarkdownContent = markdown.ToString().Trim();
+                    // Some DOCX files keep part or all of their readable text inside grouped
+                    // shapes / text boxes. Always extract that text alongside the regular body
+                    // content so nothing is silently lost.
+                    if (body != null)
+                    {
+                        AppendShapeText(body, markdown, context);
+                    }
+
+                    var markdownText = markdown.ToString().Trim();
+                    result.MarkdownContent = markdownText;
                     return result;
                 }
                 catch (Exception ex)
@@ -436,6 +445,65 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }
 
             return sb.ToString().Trim();
+        }
+
+        /// <summary>
+        /// Extracts text from paragraphs that live inside DrawingML or VML shapes / text boxes
+        /// (i.e. paragraphs whose ancestors include a <c>&lt;w:drawing&gt;</c> or <c>&lt;w:pict&gt;</c>
+        /// element) and appends it to the Markdown output as a labeled blockquote. This ensures
+        /// DOCX files whose readable content is stored in grouped shapes still produce usable text.
+        /// </summary>
+        private static void AppendShapeText(Body body, StringBuilder markdown, ConversionContext context)
+        {
+            var shapeParagraphs = body.Descendants<Paragraph>()
+                .Where(p => (p.Ancestors<Drawing>().Any() || p.Ancestors<Picture>().Any()) &&
+                            !p.Ancestors<Table>().Any())
+                .ToList();
+
+            if (shapeParagraphs.Count == 0)
+            {
+                return;
+            }
+
+            var extracted = new StringBuilder();
+            foreach (var paragraph in shapeParagraphs)
+            {
+                var text = GetParagraphText(paragraph, context);
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    continue;
+                }
+
+                if (extracted.Length > 0)
+                {
+                    extracted.AppendLine();
+                    extracted.AppendLine();
+                }
+
+                extracted.Append(text);
+            }
+
+            if (extracted.Length == 0)
+            {
+                return;
+            }
+
+            markdown.AppendLine();
+            markdown.AppendLine();
+            markdown.AppendLine("> **Text extracted from shapes/text boxes**");
+            foreach (var line in extracted.ToString().Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
+            {
+                if (string.IsNullOrEmpty(line))
+                {
+                    markdown.AppendLine(">");
+                }
+                else
+                {
+                    markdown.Append("> ").AppendLine(line);
+                }
+            }
+
+            context.Result.Warnings.Add("Additional text was extracted from shapes/text boxes.");
         }
 
         private static int GetHeadingLevel(string styleId, Styles? styles)

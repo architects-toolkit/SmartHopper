@@ -176,7 +176,7 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 
 | Category | Tools |
 | --- | --- |
-| Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
+| Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
 | Text Generation | `text2text`, `text2boolean`, `text2textlist`, `text2json`, `list_filter`, `textlist2boolean` |
 | Image Processing | `img2text`, `text2img` |
 | Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect` |
@@ -189,3 +189,4 @@ Component → AIToolRequest → ToolManager → Provider formatting → AI Model
 - [smarthopper_readme Tool](./smarthopper_readme.md)
 - [smarthopper_workflows Tool](./smarthopper_workflows.md)
 - [smarthopper_tool_help Tool](./smarthopper_tool_help.md)
+- [smarthopper_ghjson_reference Tool](./smarthopper_ghjson_reference.md)

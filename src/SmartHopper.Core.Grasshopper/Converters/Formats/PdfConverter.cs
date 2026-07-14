@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
     /// Uses PdfPig DocumentLayoutAnalysis for:
     /// - NearestNeighbourWordExtractor for accurate word grouping in academic PDFs
     /// - RecursiveXYCut page segmentation for multi-column layout detection
-    /// - DefaultReadingOrderDetector for correct top-to-bottom, left-to-right order
+    /// - UnsupervisedReadingOrderDetector (RowWise, no rendering order) for correct top-to-bottom, left-to-right order
     /// - Header/footer removal by cross-page text frequency analysis
     /// - Heading detection by font size ratio
     /// - Stream-mode table detection (whitespace column-alignment clustering)
@@ -182,7 +182,9 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                             continue;
                         }
 
-                        var ordered = DefaultReadingOrderDetector.Instance.Get(blocks);
+                        var ordered = new UnsupervisedReadingOrderDetector(
+                            spatialReasoningRule: UnsupervisedReadingOrderDetector.SpatialReasoningRules.RowWise,
+                            useRenderingOrder: false).Get(blocks);
                         var content = ordered
                             .Where(b => !headersFooters.Contains(GetBlockText(b)))
                             .ToList();

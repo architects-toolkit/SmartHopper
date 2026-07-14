@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `smarthopper_ghjson_reference` AI tool that returns GhJSON/GhPatch format reference docs from an embedded snapshot of `ghjson-spec`, with a `tools/Sync-GhJsonSpecDocs.ps1` sync script to keep the snapshot current.
+- Added `.github/workflows/chore-update-ghjson-spec-docs.yml` to automate syncing the embedded GhJSON/GhPatch spec snapshot from `ghjson-spec` and to validate the snapshot on related pull requests.
+- Enabled `gh_generate` AI tool for production: renamed from `_gh_generate`, switched to instructions-driven GhJSON generation via an AI subagent, embedded the GhJSON specification into the system prompt, added GhJSON validation and retry logic, and introduced `gh_generate_and_place_on_canvas` wrapper that calls `gh_put`.
+- OpenDocument Format (ODF) support for `.odt`, `.ods`, and `.odp` files.
+- Raw text fallback and improved encoding detection for file converters.
+- `GhJsonSpecLoader` to load embedded GhJSON/GhPatch spec snapshots.
+
 ### Changed
 
 - Stabilization backport (`stabilization-2-complete.yml`) now cherry-picks only the commits unique to `main-X.Y.Z` onto a fresh `backport/X.Y.Z` branch cut from `main`, instead of merging the whole stabilization branch. It skips creation when there is nothing to backport and lists the cherry-picked (and any conflicting) commits in the PR body.
@@ -14,9 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The DEV.md provider-model sync workflow (`chore-update-dev-provider-models.yml`) now uses a per-base branch name (`chore/update-dev-provider-models-<base>`) instead of a single shared branch, preventing its auto PRs from listing unrelated commits carried over from another base branch.
+- `tools/Update-DevAiTools.ps1` no longer appends extra blank lines to the end of `DEV.md`; it now leaves exactly one trailing blank line.
+- CI merge-queue support: required PR checks now run on `merge_group` events so queued PRs don't stall waiting for status reports.
 - [#647](https://github.com/architects-toolkit/SmartHopper/issues/647): MistralAI reasoning_effort validation now gates the field and restricts values to "none" or "high".
 - Issue-labeler configuration syntax: regex patterns now use JavaScript-compatible `/pattern/i` syntax instead of `(?i)`.
+- PDF text extraction order: switched `PdfConverter` from `DefaultReadingOrderDetector` to `UnsupervisedReadingOrderDetector` configured as `RowWise` without rendering order, so PDF pages are emitted in correct top-to-bottom, left-to-right reading order instead of following the PDF content stream order.
+- Metrics tree topology for batch image descriptions in File2Md, Web2Md, and Web2AI: per-image slot metrics now land at the same output branch path as the Markdown output instead of collapsing to `{0}`.
+- Knowledge components to ensure the `Run` parameter triggers execution by disabling `RunOnlyOnInputChanges`.
+- DEV.md provider-model sync workflow (`chore-update-dev-provider-models.yml`) now uses a per-base branch name (`chore/update-dev-provider-models-<base>`) instead of a single shared branch, preventing its auto PRs from listing unrelated commits carried over from another base branch.
 
 ## [2.0.0-dev.260705] - 2026-07-05
 

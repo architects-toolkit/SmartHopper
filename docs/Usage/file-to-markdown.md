@@ -39,6 +39,9 @@ This document explains how to convert documents to Markdown within Grasshopper, 
 | **Word** | `.docx` | DocumentFormat.OpenXml | Headings (H1-H6), bold/italic, lists, tables, hyperlinks, footnotes/endnotes, Office Math, images (as placeholders), metadata |
 | **Excel** | `.xlsx` | DocumentFormat.OpenXml | Multi-sheet support, header rows, Markdown tables, cell formatting (bold/italic), metadata |
 | **PowerPoint** | `.pptx` | DocumentFormat.OpenXml | Slide titles, body text, bullet points, speaker notes, hyperlinks, Office Math, metadata |
+| **OpenDocument Text** | `.odt`, `.ott` | Built-in | Headings, bold/italic/underline/strikethrough, colors, highlights, lists, tables, hyperlinks, images, metadata |
+| **OpenDocument Spreadsheet** | `.ods`, `.ots` | Built-in | Markdown tables, cell formatting (bold/italic), metadata |
+| **OpenDocument Presentation** | `.odp`, `.otp` | Built-in | Slide pages, body text, bullet points, images, metadata |
 | **HTML** | `.html`, `.htm` | HtmlAgilityPack | Readability scoring, boilerplate removal, semantic content extraction |
 | **Email** | `.eml` | MimeKit | From/To/Subject/Date, HTML or plain text body, attachment list |
 | **EPUB** | `.epub` | Built-in | Chapter extraction in reading order, metadata |
@@ -110,8 +113,8 @@ AI: [Calls file2md tool with filePath: "C:\reports\Q4-2025.pdf"]
 
 - **filePath** (required): Absolute path to the file
 - **removeHeadersFooters** (optional, default: true): Attempt to remove headers/footers (PDF, DOCX)
-- **extractImages** (optional, default: false): Extract embedded images as base64 data (PDF, DOCX, PPTX)
-- **preserveFormatting** (optional, default: true): Preserve inline text formatting. DOCX preserves colors, highlights, bold, and italic; XLSX and PPTX preserve bold and italic
+- **extractImages** (optional, default: false): Extract embedded images as base64 data (PDF, DOCX, PPTX, ODF)
+- **preserveFormatting** (optional, default: true): Preserve inline text formatting. DOCX and ODF text documents preserve colors, highlights, bold, italic, underline, and strikethrough; XLSX, ODS, and PPTX preserve bold and italic
 - **preserveComments** (optional, default: true): Preserve comments in DOCX files
 - **preserveFootnotes** (optional, default: true): Expand footnote references and append note text (DOCX)
 - **preserveEndnotes** (optional, default: true): Expand endnote references and append note text (DOCX)
@@ -146,6 +149,7 @@ When `extractImages: true` is passed to the `file2md` tool, embedded images are 
 - **PDF** — uses PdfPig `page.GetImages()` per page; attempts PNG conversion via `TryGetPng`, falls back to raw JPEG bytes (detected via `FF D8 FF` magic bytes)
 - **DOCX** — iterates `MainDocumentPart.ImageParts`; preserves the original MIME type from the part content type
 - **PPTX** — iterates `SlidePart.ImageParts` per slide; tags each image with its slide number
+- **ODF** — finds `draw:image` elements in `content.xml`, reads the referenced file from the `Pictures/` package folder, and infers the MIME type from magic bytes or extension
 
 #### Tool Result Structure
 

@@ -213,6 +213,25 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
+        /// Combines additional metrics into the persisted metrics list and appends them to
+        /// <see cref="_metricsTree"/> at the specified output branch path. Use this from
+        /// derived components that need to merge per-slot or per-item metrics that were
+        /// not captured by <see cref="ProcessBatchResults{T}"/> and whose natural output
+        /// branch is known (e.g. image slots that belong to the same Markdown document).
+        /// After calling this, invoke <see cref="SetMetricsOutput"/> to re-emit.
+        /// </summary>
+        /// <param name="metrics">The metrics to merge in.</param>
+        /// <param name="path">The output branch path the metrics belong to.</param>
+        /// <param name="role">Optional role label for the metrics entry.</param>
+        protected void CombineIntoPersistedMetricsAtPath(AIMetrics metrics, GH_Path path, string role = null)
+        {
+            if (metrics == null || path == null) return;
+            this._batchState.PersistedMetricsList ??= new Infrastructure.AICall.Metrics.AIMetricsList();
+            this._batchState.PersistedMetricsList.Add(metrics, role);
+            this.AppendMetricToTree(metrics, path);
+        }
+
+        /// <summary>
         /// Persists the primary output tree and any additional named outputs, then emits metrics.
         /// Call this from both the non-batch branch of <c>DoWorkAsync</c> and from
         /// <see cref="ProcessBatchResults{T}"/> to ensure a single finalization point.

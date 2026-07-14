@@ -148,6 +148,8 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
+            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
+            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
@@ -273,15 +275,31 @@ namespace SmartHopper.Components.Knowledge
             var sentinel = this.GetSentinelTree("Markdown");
             if (results == null || sentinel == null) return;
 
-            // Accumulate metrics from every per-slot decode (one AI call per image).
-            // ProcessBatchResults only sees the representative sentinel per file, so per-slot
-            // metrics (slots 2..N per file) must be collected manually and merged before FinishResults.
-            var allSlotMetrics = new List<AIMetrics>();
+            // Map every sentinel custom ID in the Markdown tree to its output branch path.
+            // All image slots for a single file share the representative sentinel's path.
+            var sentinelToPath = new Dictionary<string, GH_Path>();
+            foreach (var path in sentinel.Paths)
+            {
+                var branch = sentinel.get_Branch(path);
+                if (branch == null)
+                {
+                    continue;
+                }
 
-            // ProcessBatchResults handles primary Markdown persistence and calls FinishResults.
-            // Per-slot metrics are merged into the snapshot immediately after, before FinishResults
-            // reads the snapshot to emit metrics — this works because FinishResults is called from
-            // inside ProcessBatchResults after SetAIReturnSnapshot.
+                foreach (GH_String item in branch)
+                {
+                    if (BatchSentinel.TryExtract(item?.Value ?? string.Empty, out var customId))
+                    {
+                        sentinelToPath[customId] = path;
+                    }
+                }
+            }
+
+            // Per-slot metrics grouped by the file's output branch path. ProcessBatchResults
+            // only processes the representative sentinel per file, so the non-representative
+            // image slots must be merged manually at the same grafted path.
+            var slotMetricsByPath = new Dictionary<GH_Path, List<AIMetrics>>();
+
             this.ProcessBatchResults<GH_String>(
                 "Markdown",
                 sentinel,
@@ -296,6 +314,11 @@ namespace SmartHopper.Components.Knowledge
                         return new GH_String("[File context missing]");
                     }
 
+                    if (!sentinelToPath.TryGetValue(representativeSentinelId, out var representativePath))
+                    {
+                        representativePath = new GH_Path(0);
+                    }
+
                     var finalMarkdown = MarkdownImageBatchProcessor.Reconstruct(
                         fileCtx,
                         results,
@@ -303,7 +326,7 @@ namespace SmartHopper.Components.Knowledge
                         metrics: null,
                         onImageResolved: (slotSentinelId, slotBody, assistantText, description) =>
                         {
-                            // Collect metrics from non-representative slots for manual merging.
+                            // Collect metrics from non-representative slots and group them by file path.
                             if (assistantText?.Metrics != null && slotSentinelId != representativeSentinelId)
                             {
                                 if (string.IsNullOrEmpty(assistantText.Metrics.Provider))
@@ -316,7 +339,13 @@ namespace SmartHopper.Components.Knowledge
                                     assistantText.Metrics.Model = this.GetModel();
                                 }
 
-                                allSlotMetrics.Add(assistantText.Metrics);
+                                if (!slotMetricsByPath.TryGetValue(representativePath, out var list))
+                                {
+                                    list = new List<AIMetrics>();
+                                    slotMetricsByPath[representativePath] = list;
+                                }
+
+                                list.Add(assistantText.Metrics);
                             }
                         });
 
@@ -324,17 +353,20 @@ namespace SmartHopper.Components.Knowledge
                 },
                 messages);
 
-            // Merge per-slot metrics (slots 2..N per file) into the single authoritative
-            // _persistedMetrics set by ProcessBatchResults. CombineIntoPersistedMetrics
-            // writes into the persistent field — not into the computed AIReturn.Metrics property.
-            if (allSlotMetrics.Count > 0)
+            // Merge per-slot metrics at the same grafted path as their parent file.
+            if (slotMetricsByPath.Count > 0)
             {
-                foreach (var m in allSlotMetrics)
+                foreach (var kvp in slotMetricsByPath)
                 {
-                    this.CombineIntoPersistedMetrics(m, "tool:img2text");
+                    var path = kvp.Key;
+                    foreach (var m in kvp.Value)
+                    {
+                        this.CombineIntoPersistedMetricsAtPath(m, path, "tool:img2text");
+                    }
                 }
 
-                Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics via CombineIntoPersistedMetrics");
+                var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
+                Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
 
                 // Re-emit metrics now that per-slot tokens are included
                 this.SetMetricsOutput(null);
