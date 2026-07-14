@@ -17,6 +17,7 @@ name: pr-delete-auto-branches
 # - hash-update/*
 # - patch/*
 # - devin/*
+# - backport/*
 #
 # A branch is only deleted if there are no other open PRs from the same branch.
 #
@@ -52,7 +53,8 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'fix/') ||
       startsWith(github.event.pull_request.head.ref, 'hash-update/') ||
       startsWith(github.event.pull_request.head.ref, 'patch/') ||
-      startsWith(github.event.pull_request.head.ref, 'devin/')
+      startsWith(github.event.pull_request.head.ref, 'devin/') ||
+      startsWith(github.event.pull_request.head.ref, 'backport/')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
