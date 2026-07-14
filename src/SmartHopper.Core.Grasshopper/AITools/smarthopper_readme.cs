@@ -110,6 +110,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 case "visibility":
                     return """
 Canvas state reading:
+- gh_report: generate a comprehensive markdown status report of the canvas (object counts, topology, groups, scribbles, viewport, errors/warnings, metadata). Optionally include an AI summary. Read-only.
 - Use gh_get_selected when the user refers to "this/these/selected".
 - Use gh_get_errors to locate broken definitions.
 - Use gh_get_locked / gh_get_preview_off / gh_get_preview_on for quick attribute-based filters.
@@ -134,6 +135,9 @@ Quick actions on selected components (no GUIDs needed):
 Modifying canvas:
 - gh_group, gh_move, gh_tidy_up, gh_component_toggle_lock, gh_component_toggle_preview
 - gh_put: place components from GhJSON; when instanceGuid matches existing, it replaces it (prefer user confirmation).
+- gh_connect / gh_disconnect: wire or unwire existing components by GUID and parameter name.
+- gh_smart_connect: AI-suggested wiring — provide component GUIDs and a purpose description; the AI proposes and executes connections.
+- gh_clear: clear the canvas (optionally keep locked components); protected components are always preserved. Destructive — prefer user confirmation.
 """;
 
                 case "ghjson":

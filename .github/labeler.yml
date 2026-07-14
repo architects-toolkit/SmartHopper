@@ -148,6 +148,12 @@ documentation:
 "component: AI FileMetadata":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIFileMetadataComponent.cs'
+"component: AI GhConnect":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/AIGhConnectComponent.cs'
+"component: AI GhReport":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/AIGhReportComponent.cs'
 "component: AI Img2Text":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Img/AIImg2TextComponent.cs'
