@@ -66,13 +66,13 @@ function Get-BalancedBlockRegex {
     return "(?:[^$Open$Close]|$Open(?:[^$Open$Close]|$Open(?:[^$Open$Close]|$Open[^$Open$Close]*$Close)*$Close)*$Close)*"
 }
 
-function Extract-AIToolBlocks($content) {
+function Get-AIToolBlocks($content) {
     $pattern = 'new\s+AITool\s*\((?<block>' + (Get-BalancedBlockRegex -Open '\(' -Close '\)') + ')\)'
     $rx = [regex]::new($pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
     $rx.Matches($content)
 }
 
-function Extract-PropertyFromBlock($block, $propName) {
+function Get-BlockProperty($block, $propName) {
     # Matches C# string literals: "...", @"...", $"...", $@"...", @$"..."
     $pattern = $propName + ':\s*(?:@?\$|\$?@)?"(?<val>(?:[^"\\]|\\.|"")*?)"'
     $m = [regex]::Match($block, $pattern)
@@ -82,7 +82,7 @@ function Extract-PropertyFromBlock($block, $propName) {
     return $null
 }
 
-function Extract-NameExpression($block) {
+function Get-NameExpression($block) {
     $pattern = 'name:\s*(?:"(?<literal>[^"]+)"|this\.(?<field>\w+)|(?<var>\w+)|\$"(?<interp>[^"]*)")'
     $m = [regex]::Match($block, $pattern)
     if (-not $m.Success) { return $null }
@@ -189,14 +189,14 @@ function Get-ToolsFromDirectory($directory) {
         if (-not $hasProvider) { continue }
 
         $isAbstract = $content -match 'abstract\s+class'
-        $blocks = Extract-AIToolBlocks -content $content
+        $blocks = Get-AIToolBlocks -content $content
         if ($blocks.Count -eq 0) { continue }
 
         foreach ($blockMatch in $blocks) {
             $block = $blockMatch.Groups['block'].Value
-            $nameExpr = Extract-NameExpression -block $block
-            $category = Extract-PropertyFromBlock -block $block -propName 'category'
-            $description = Extract-PropertyFromBlock -block $block -propName 'description'
+            $nameExpr = Get-NameExpression -block $block
+            $category = Get-BlockProperty -block $block -propName 'category'
+            $description = Get-BlockProperty -block $block -propName 'description'
 
             if (-not $nameExpr) {
                 $errors.Add("[$($file.Name)] Could not extract tool name from AITool block")
@@ -309,7 +309,7 @@ function Get-DevTableBounds($devLines) {
     return @{ Start = $startIdx; End = $endIdx }
 }
 
-function Parse-DevTableRows($devLines, $startIdx, $endIdx) {
+function ConvertFrom-DevTableRows($devLines, $startIdx, $endIdx) {
     $rows = [System.Collections.Generic.List[psobject]]::new()
     $inTable = $false
 
@@ -369,7 +369,7 @@ try {
 
     Write-Host "Found AI Tools section at lines $($bounds.Start + 1) to $($bounds.End)"
 
-    $devRows = Parse-DevTableRows -devLines $devLines -startIdx $bounds.Start -endIdx $bounds.End
+    $devRows = ConvertFrom-DevTableRows -devLines $devLines -startIdx $bounds.Start -endIdx $bounds.End
     Write-Host "DEV.md contains $($devRows.Count) AI tool row(s)."
 
     $scanResult = Get-ToolsFromDirectory -directory $ToolsDir
@@ -553,10 +553,16 @@ try {
     $newSection = [System.Collections.Generic.List[string]]::new()
     $newSection.AddRange([string[]]$before)
     $newSection.AddRange([string[]]$newRows)
-    $newSection.Add('')
-    if ($after.Count -gt 0) { $newSection.AddRange([string[]]$after) }
+    if ($after.Count -gt 0) { $newSection.Add('') }
+    $newSection.AddRange([string[]]$after)
 
-    $newContent = ($newSection -join "`n") + "`n"
+    # Remove trailing empty lines inherited from the original file so the
+    # output ends with exactly one blank line.
+    while ($newSection.Count -gt 0 -and [string]::IsNullOrWhiteSpace($newSection[$newSection.Count - 1])) {
+        $newSection.RemoveAt($newSection.Count - 1)
+    }
+
+    $newContent = ($newSection -join "`n") + "`n`n"
     $oldContent = [System.IO.File]::ReadAllText($DevFile, [System.Text.Encoding]::UTF8)
 
     if ($newContent -eq $oldContent) {
