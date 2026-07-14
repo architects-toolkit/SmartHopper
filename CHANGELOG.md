@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Fixed [#647](https://github.com/architects-toolkit/SmartHopper/issues/647): MistralAI reasoning_effort validation now gates the field and restricts values to "none" or "high".
+- Fixed issue-labeler configuration syntax: regex patterns now use JavaScript-compatible `/pattern/i` syntax instead of `(?i)`.
 
 ## [2.0.0-dev.260705] - 2026-07-05
 
