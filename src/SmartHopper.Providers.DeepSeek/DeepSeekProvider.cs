@@ -51,12 +51,6 @@ namespace SmartHopper.Providers.DeepSeek
         #region Compiled Regex Patterns
 
         /// <summary>
-        /// Regex pattern for normalizing whitespace to single spaces.
-        /// </summary>
-        [GeneratedRegex(@"\s+")]
-        private static partial Regex WhitespaceRegex();
-
-        /// <summary>
         /// Regex pattern for extracting enum arrays from malformed JSON.
         /// </summary>
         [GeneratedRegex(@"enum[""']?:\s*\[([^\]]+)\]")]
@@ -157,9 +151,37 @@ namespace SmartHopper.Providers.DeepSeek
 
             int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
             double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
+
+            // Per-request extra settings take precedence over global provider settings.
+            string reasoningEffort;
+            if (p?.Extras != null && p.Extras.TryGetValue("reasoning_effort", out var reasoningEffortToken) && reasoningEffortToken != null)
+            {
+                reasoningEffort = reasoningEffortToken.ToString();
+            }
+            else
+            {
+                reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "high";
+            }
+
+            bool thinking = !string.Equals(reasoningEffort, "none", StringComparison.OrdinalIgnoreCase);
+
+            double topP;
+            if (p?.TopP.HasValue == true)
+            {
+                topP = p.TopP.Value;
+            }
+            else if (p?.Extras != null && p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+            {
+                topP = topPToken.Value<double?>() ?? this.GetSetting<double>("TopP");
+            }
+            else
+            {
+                topP = this.GetSetting<double>("TopP");
+            }
+
             string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}, ReasoningEffort: {reasoningEffort}");
 
 #if DEBUG
             // Log interaction sequence for debugging
@@ -177,11 +199,16 @@ namespace SmartHopper.Providers.DeepSeek
             }
 #endif
 
-            // Simple sequential encoding (same approach as OpenAI/MistralAI providers).
-            // DeepSeek is OpenAI-compatible and accepts one message per interaction; no role-grouping
-            // is required and doing so historically caused loss of tool_call_id when multiple tool
-            // results were emitted in the same turn.
+            // Group consecutive interactions by role to avoid multiple assistant messages.
+            // DeepSeek requires tool_calls and content to be in the SAME assistant message,
+            // and each assistant message with tool_calls must be followed by one tool message
+            // per tool_call_id.
             var convertedMessages = new JArray();
+            string currentRole = null;
+            JObject currentMessage = null;
+            var currentToolCalls = new JArray();
+
+            bool IsAssistant(string? r) => string.Equals(r, "assistant", StringComparison.OrdinalIgnoreCase);
 
             // Merge System and Summary interactions before encoding
             var mergedInteractions = this.MergeSystemAndSummary(request.Body.Interactions);
@@ -202,7 +229,94 @@ namespace SmartHopper.Providers.DeepSeek
                         continue;
                     }
 
-                    convertedMessages.Add(token);
+                    // Check if role changed or if we should not merge this role
+                    if (currentRole != role || !IsAssistant(currentRole))
+                    {
+                        // Finalize previous message if exists
+                        if (currentMessage != null)
+                        {
+                            // Add accumulated tool_calls to the message
+                            if (currentToolCalls.Count > 0)
+                            {
+                                currentMessage["tool_calls"] = currentToolCalls;
+                            }
+
+                            // Preserve reasoning_content on assistant messages with tool_calls (required by DeepSeek
+                            // thinking mode) and strip it from text-only assistant messages to save bandwidth.
+                            if (IsAssistant(currentRole))
+                            {
+                                if (currentToolCalls.Count > 0)
+                                {
+                                    if (currentMessage["reasoning_content"] == null)
+                                    {
+                                        currentMessage["reasoning_content"] = string.Empty;
+                                    }
+                                }
+                                else
+                                {
+                                    currentMessage.Remove("reasoning_content");
+                                }
+                            }
+
+                            convertedMessages.Add(currentMessage);
+                        }
+
+                        // Start new message
+                        currentRole = role;
+                        currentMessage = new JObject
+                        {
+                            ["role"] = role,
+                            ["content"] = token["content"]?.ToString() ?? string.Empty
+                        };
+
+                        if (!string.IsNullOrWhiteSpace(token["reasoning_content"]?.ToString()))
+                        {
+                            currentMessage["reasoning_content"] = token["reasoning_content"]?.ToString();
+                        }
+
+                        currentToolCalls = new JArray();
+
+                        // Copy tool_calls if present in this token
+                        if (token["tool_calls"] is JArray tc && tc.Count > 0)
+                        {
+                            foreach (var toolCall in tc)
+                            {
+                                currentToolCalls.Add(toolCall);
+                            }
+                        }
+
+                        // Copy tool_call_id for tool results (name is not a valid field on role=tool messages).
+                        if (token["tool_call_id"] != null)
+                        {
+                            currentMessage["tool_call_id"] = token["tool_call_id"];
+                        }
+                    }
+                    else
+                    {
+                        // Same assistant role: merge content, reasoning and tool_calls
+                        var existingContent = currentMessage["content"]?.ToString() ?? string.Empty;
+                        var newContent = token["content"]?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrEmpty(newContent))
+                        {
+                            currentMessage["content"] = string.IsNullOrEmpty(existingContent) ? newContent : existingContent + " " + newContent;
+                        }
+
+                        var existingReasoning = currentMessage["reasoning_content"]?.ToString() ?? string.Empty;
+                        var newReasoning = token["reasoning_content"]?.ToString() ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(newReasoning))
+                        {
+                            currentMessage["reasoning_content"] = string.IsNullOrWhiteSpace(existingReasoning) ? newReasoning : existingReasoning + " " + newReasoning;
+                        }
+
+                        // Accumulate tool_calls
+                        if (token["tool_calls"] is JArray tc && tc.Count > 0)
+                        {
+                            foreach (var toolCall in tc)
+                            {
+                                currentToolCalls.Add(toolCall);
+                            }
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -210,51 +324,33 @@ namespace SmartHopper.Providers.DeepSeek
                 }
             }
 
-            // Merge consecutive assistant messages that carry tool_calls into a single
-            // assistant message. DeepSeek (strict OpenAI compatibility) requires that an
-            // assistant message with tool_calls is followed immediately by tool messages
-            // responding to every tool_call_id. When the model emits parallel tool calls
-            // in a single turn, our history stores them as separate AIInteractionToolCall
-            // entries, which would otherwise produce two consecutive assistant messages
-            // and trigger HTTP 400 ("insufficient tool messages following tool_calls").
+            // Finalize last message
+            if (currentMessage != null)
             {
-                var merged = new JArray();
-                JObject? pendingToolCallMsg = null;
-                foreach (var item in convertedMessages.OfType<JObject>())
+                // Add accumulated tool_calls to the message
+                if (currentToolCalls.Count > 0)
                 {
-                    var role = item["role"]?.ToString();
-                    var hasToolCalls = item["tool_calls"] is JArray;
-                    if (role == "assistant" && hasToolCalls)
-                    {
-                        if (pendingToolCallMsg == null)
-                        {
-                            pendingToolCallMsg = item;
-                            merged.Add(item);
-                        }
-                        else
-                        {
-                            // Append this message's tool_calls into the pending one
-                            var dst = (JArray)pendingToolCallMsg["tool_calls"]!;
-                            foreach (var tc in (JArray)item["tool_calls"]!)
-                            {
-                                dst.Add(tc);
-                            }
+                    currentMessage["tool_calls"] = currentToolCalls;
+                }
 
-                            // Preserve reasoning_content if pending lacks it
-                            if (pendingToolCallMsg["reasoning_content"] == null && item["reasoning_content"] != null)
-                            {
-                                pendingToolCallMsg["reasoning_content"] = item["reasoning_content"];
-                            }
+                // Preserve reasoning_content on assistant messages with tool_calls (required by DeepSeek
+                // thinking mode) and strip it from text-only assistant messages to save bandwidth.
+                if (IsAssistant(currentRole))
+                {
+                    if (currentToolCalls.Count > 0)
+                    {
+                        if (currentMessage["reasoning_content"] == null)
+                        {
+                            currentMessage["reasoning_content"] = string.Empty;
                         }
                     }
                     else
                     {
-                        pendingToolCallMsg = null;
-                        merged.Add(item);
+                        currentMessage.Remove("reasoning_content");
                     }
                 }
 
-                convertedMessages = merged;
+                convertedMessages.Add(currentMessage);
             }
 
 #if DEBUG
@@ -301,16 +397,24 @@ namespace SmartHopper.Providers.DeepSeek
                 ["messages"] = convertedMessages,
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
+                ["top_p"] = topP,
             };
 
-            // Apply optional parameters from extras only
+            // Add thinking/reasoning controls for models that support thinking mode
+            bool isThinkingModel = request.Model?.Contains("v4", StringComparison.OrdinalIgnoreCase) == true
+                || string.Equals(request.Model, "deepseek-reasoner", StringComparison.OrdinalIgnoreCase);
+            if (isThinkingModel)
+            {
+                requestBody["thinking"] = new JObject { ["type"] = thinking ? "enabled" : "disabled" };
+                if (thinking)
+                {
+                    requestBody["reasoning_effort"] = reasoningEffort;
+                }
+            }
+
+            // Apply other optional parameters from extras only
             if (p?.Extras != null)
             {
-                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
-                {
-                    requestBody["top_p"] = topPToken.Value<double?>();
-                }
-
                 if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
                 {
                     requestBody["presence_penalty"] = ppToken;
@@ -460,34 +564,19 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 messageObj["content"] = textInteraction.Content ?? string.Empty;
 
-                // DO NOT send reasoning_content on plain text assistant messages.
-                // Per DeepSeek's reasoning-model contract, reasoning_content from a previous
-                // round MUST NOT be echoed back in subsequent requests on plain assistant
-                // turns (see https://api-docs.deepseek.com/guides/reasoning_model).
-                // The asymmetric rule is enforced elsewhere:
-                //   - AIInteractionToolCall branch below DOES include reasoning_content,
-                //     because DeepSeek requires it on assistant messages with tool_calls
-                //     (otherwise HTTP 400: "Missing reasoning_content field").
+                if (!string.IsNullOrWhiteSpace(textInteraction.Reasoning))
+                {
+                    messageObj["reasoning_content"] = textInteraction.Reasoning;
+                }
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
-                // DeepSeek requires cleaned/simplified tool result content
-                var jsonString = JsonConvert.SerializeObject(toolResultInteraction.Result, Formatting.None);
-                jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
-                jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
-                jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
-                jsonString = WhitespaceRegex().Replace(jsonString, " ");
-
-                messageObj["content"] = jsonString;
+                // Keep the tool result as a compact JSON string, consistent with OpenAI/MistralAI.
+                messageObj["content"] = toolResultInteraction.Result?.ToString(Formatting.None) ?? string.Empty;
 
                 if (!string.IsNullOrWhiteSpace(toolResultInteraction.Id))
                 {
                     messageObj["tool_call_id"] = toolResultInteraction.Id;
-                }
-
-                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
-                {
-                    messageObj["name"] = toolResultInteraction.Name;
                 }
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
@@ -1316,6 +1405,14 @@ namespace SmartHopper.Providers.DeepSeek
         {
             return new[]
             {
+                new AIExtraDescriptor(
+                    "reasoning_effort",
+                    "Reasoning Effort",
+                    "Controls DeepSeek thinking mode and reasoning depth. Use 'none' to disable thinking, or 'high'/'max' to enable it. Only applies to deepseek-v4 models and deepseek-reasoner. Overrides the global provider setting.",
+                    typeof(string),
+                    null,
+                    new[] { "none", "high", "max" }),
+
                 // General parameters (shared across providers)
                 new AIExtraDescriptor(
                     "top_p",
