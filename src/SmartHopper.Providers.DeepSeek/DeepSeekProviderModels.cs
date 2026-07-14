@@ -47,7 +47,7 @@ namespace SmartHopper.Providers.DeepSeek
 
             var models = new List<AIModelCapabilities>
             {
-                // Released between February 2026 and May 2026
+                // Released between April 2026 and July 2026
 
                 new AIModelCapabilities
                 {
