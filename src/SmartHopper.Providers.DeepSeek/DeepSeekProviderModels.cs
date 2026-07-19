@@ -63,9 +63,9 @@ namespace SmartHopper.Providers.DeepSeek
                     Created = new DateTime(2026, 4, 24),
                     Pricing = new AIModelPricing
                     {
-                        Prompt = 0.000000077m,
-                        Completion = 0.000000154m,
-                        InputCacheRead = 0.0000000154m,
+                        Prompt = 0.000000098m,
+                        Completion = 0.000000196m,
+                        InputCacheRead = 0.0000000196m,
                     },
                 },
 
