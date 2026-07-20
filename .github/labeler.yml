@@ -319,6 +319,9 @@ documentation:
 "component: JsonSchemaProp":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonSchemaPropComponent.cs'
+"component: JsonSetValue":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonSetValueComponent.cs'
 "component: LadybugForumPostGet":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/LadybugForumPostGetComponent.cs'
