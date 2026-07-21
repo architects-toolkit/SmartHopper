@@ -846,15 +846,18 @@ namespace SmartHopper.Providers.OpenAI
                 ["max_output_tokens"] = maxTokens,
             };
 
-            // Reasoning configuration for reasoning models.
-            // Always request reasoning summaries so users can see the model's reasoning process.
-            var reasoningObj = new JObject
+            // Reasoning configuration is only supported by o-series and GPT-5 models on the Responses API.
+            // Sending "reasoning" to other models (e.g. gpt-4o-mini) produces an unsupported_parameter error.
+            if (OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model))
             {
-                ["effort"] = reasoningEffort,
-                ["summary"] = "auto",
-            };
+                var reasoningObj = new JObject
+                {
+                    ["effort"] = reasoningEffort,
+                    ["summary"] = "auto",
+                };
 
-            requestBody["reasoning"] = reasoningObj;
+                requestBody["reasoning"] = reasoningObj;
+            }
 
             // Apply optional parameters from extras
             if (p?.Extras != null)

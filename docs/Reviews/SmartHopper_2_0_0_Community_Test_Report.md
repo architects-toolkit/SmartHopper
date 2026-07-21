@@ -386,3 +386,56 @@ The issue #538 checklist uses short names (`AI Text`, `AI Text List`, etc.) and 
 4. **Allow `AI to Text` to accept raw text**: consider adding a `Text` input to `AIOutputAdapterBase` (or a converter) so it can accept raw text and wrap it into an `AIInputPayload` automatically; otherwise document that output adapters must follow `Text to AI` / `* to AI` components.
 5. **Add missing `Text to JSON` component** for non-AI JSON construction.
 6. **Align test plan or component names/categories** for B6 and Discourse payloads.
+
+---
+
+## Follow-up: current issue state, inconsistencies, and additional tests
+
+This section was added after live MCP/provider testing and the code changes described above.
+
+### Code changes applied during follow-up
+
+- `OpenAIProvider.cs`: the Responses API now only sends the `reasoning` object for o-series and GPT-5 models. This fixes the `Unsupported parameter: 'reasoning.effort'` error seen with `gpt-4o-mini`.
+- `set_ai_provider_and_model`: the tool result now returns the normalized provider name, fixing the occasional `selectedProvider: "Default"` response.
+- `AI to JSON`: the `Schema` input is now read as `GH_Structure<GH_String>` and converted to `GH_Structure<IGH_Goo>`. The inherited `JsonOutput` requirement is removed when no schema is supplied, so the adapter can fall back to parsing free-form text.
+- `AI to GhJSON` / `AI to Script`: the inherited `JsonOutput` requirement is removed so these adapters can run with standard text models.
+
+### Issue state
+
+| Issue | State | Notes / recommended action |
+|---|---|---|
+| #528 TidyUp | Further testing required | Basic, branching, and wide layouts passed. Disconnected islands, large definitions (20+), parameter components, and Sugiyama consistency still need testing. |
+| #530 GhPatch | Further testing + possible bug | Diff/patch/merge/validate passed. **Apply patch to canvas** produced a patch string with an extra `}`; investigate `Save/Apply GhPatch` serialization. |
+| #533 Google Gemini | Needs API key + plan update | Gemini is `configured=false`. Issue hardcodes model names (`Gemini 2.0 Flash`, `2.5 Pro`, `3.1`) that may not match current `get_available_models` output; update the test plan to query the model list dynamically. |
+| #534 Audio | Needs API key + plan update | No audio files/keys. Issue lists `voxtral-tts-26-03`, which does not exist in current Mistral models; use `get_available_models` to pick valid TTS/STT models. |
+| #535 AI Settings | Further testing required | Components present. Basic settings flow, timeout/batch, backward compatibility, and 1.4.x migration need live AI runs. |
+| #536 AI Input Adapters | Partially passed + plan update | `Text to AI` works. `File/Image/Audio to AI` need appropriate media and provider. Issue says `URL to AI` but the actual component is `Web to AI`; update the issue. `Number/Boolean/Integer to AI` are now present and should be tested. |
+| #537 AI Output Adapters | Code fixed + further testing | `AI to JSON` should now work with and without a schema. `AI to Text` cannot consume `AI Text To Text` plain-text `Result`; adapters expect `AIInputPayload` from `* to AI` components. `AI to Image`/`Speech` need a provider with those capabilities. Update issue instructions. |
+| #538 Renamed Components | Test-plan mismatch | Issue uses short names (`AI Text`, `AI Text List`, `AI Text Evaluate`) and places `AI List to Boolean` under `SmartHopper > Text`. Actual code uses `AI ... To ...` names and `SmartHopper > List`. Update the issue checklist to match code. |
+| #540 File/Web Processing | Can be closed | All file types and web conversion passed. PNG returning raw binary is a documented limitation. |
+| #541 JSON Components | Test-plan mismatch + further testing | Non-AI `Text to JSON` should **not** be added (use `AI Text To JSON` instead). `JSON Array` Get/Add/Remove item components are missing; decide whether to implement them. Update issue. |
+| #542 GhJSON/GhPatch | Can be closed | `Save/Open/Validate GhJSON` and `Merge GhJSON` tool passed. |
+| #543 Provider Improvements | Needs API key + plan update | OpenAI `reasoning.effort` bug fixed. Issue hardcodes model names (`gpt-5.5`, `5.4-mini`, `Claude 4.6`, `DeepSeek v4`); use `get_available_models` and avoid fixed names. |
+| #544 Discourse Knowledge | Can be closed | Search, Post Get, Deconstruct, Topic/Post to AI, and forum variants passed. `Deconstruct Discourse Post` `topic_title`/`url` gap was fixed. |
+| #545 Script Generation | Code relaxed + needs testing | `AI to Script`/`AI to GhJSON` now run without a `JsonOutput` schema, but they still bypass the real `script_generate`/`gh_generate` tool pipeline. Consider routing them to the actual tools for reliable generation. |
+| #546 Image/Audio Viewers | Needs API key + generated media | Components exist. Not tested due to no generated image/audio. |
+| #547 Persistence | Needs Rhino session + old files | Cannot test save/reload in an MCP-only session; requires Rhino restart and 1.4.x files. |
+| #548 Timeout/Error Handling | Needs live AI testing | Not tested. Can now be exercised with configured providers. |
+| #549 Modality Fallback | Needs vision model + key | Not tested. Requires a vision-capable model and API key. |
+
+### Additional tests to implement
+
+1. **#528**: TidyUp on disconnected islands, a 20+ component definition, parameter components, and Sugiyama layout consistency.
+2. **#530**: Apply a generated `.ghpatch` to the canvas end-to-end; debug the extra `}` in the patch string.
+3. **#533**: Gemini provider/model selection and a simple generation call once an API key is configured.
+4. **#534**: Audio TTS/STT with current Mistral model names from `get_available_models`.
+5. **#535**: Wire `Settings`/`Extra Settings` into `AI Text To Text`; test timeout and batch with a live provider.
+6. **#536**: `Web to AI`, `File to AI` with PDF/txt, `Image to AI` with a vision-capable provider, and single-item `Number/Boolean/Integer to AI`.
+7. **#537**: `AI to JSON` with and without a schema; `AI to Text` fed from `Text to AI` (not `AI Text To Text`); `AI to Image`/`Speech` with capable providers.
+8. **#538**: Palette/category verification against the updated issue names.
+9. **#541**: `JSON Array` Get/Add/Remove item components if decided; `AI Text To JSON` round-trip with `JSON To Text`.
+10. **#543**: Streaming and reasoning with o-series/GPT-5 models through `get_available_models`.
+11. **#545**: `AI to Script` and `AI to GhJSON` end-to-end; compare free-form output against real `script_generate`/`gh_generate` tool output.
+12. **#547**: Save a `.gh` file, restart Rhino, and reload; test 1.4.x migration if a sample file is available.
+13. **#548**: Low timeout value, network failure, cancellation, and rate-limit handling.
+14. **#549**: Vision input with a non-vision model to trigger the modality fallback resolver.

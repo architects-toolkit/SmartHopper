@@ -244,7 +244,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 });
 
                 toolResult["success"] = true;
-                toolResult["selectedProvider"] = providerComp.SelectedProviderName;
+
+                // Use the normalized provider value we already resolved, falling back to the
+                // component's current selection when only a model was supplied.
+                toolResult["selectedProvider"] = !string.IsNullOrWhiteSpace(provider)
+                    ? provider
+                    : providerComp.SelectedProviderName;
 
                 var body = AIBodyBuilder.Create()
                     .AddToolResult(toolResult, toolInfo.Id, toolInfo.Name ?? this.toolName)
