@@ -214,6 +214,9 @@ documentation:
 "component: AudioViewer":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Audio/AudioViewerComponent.cs'
+"component: Boolean2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Boolean2AIComponent.cs'
 "component: BooleanList2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/BooleanList2AIComponent.cs'
@@ -283,6 +286,9 @@ documentation:
 "component: Img2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Img2AIComponent.cs'
+"component: Integer2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Integer2AIComponent.cs'
 "component: IntegerList2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/IntegerList2AIComponent.cs'
@@ -352,6 +358,9 @@ documentation:
 "component: McNeelTopic2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/McNeelTopic2AIComponent.cs'
+"component: Number2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Number2AIComponent.cs'
 "component: NumberList2AI":
   - changed-files:
       - any-glob-to-any-file: 'src/SmartHopper.Components/Input/NumberList2AIComponent.cs'
