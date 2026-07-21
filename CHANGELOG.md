@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `AIGhReportComponent` Grasshopper component: wraps `gh_report` with an `Include Summary` toggle and `Report`/`Summary` outputs.
 - Added `AIGhConnectComponent` Grasshopper component: wraps `gh_smart_connect` for canvas-selected components with a `Purpose` input and `Success`/`Reasoning`/`Connections` outputs.
 - OpenDocument Format (ODF) support for `.odt`, `.ods`, and `.odp` files.
+- Legacy Excel (`.xls`) file-to-Markdown conversion via `XlsConverter`.
+- Single-item input adapters: `Number to AI`, `Boolean to AI`, and `Integer to AI`.
 - Raw text fallback and improved encoding detection for file converters.
 - `GhJsonSpecLoader` to load embedded GhJSON/GhPatch spec snapshots.
 - MCP lock support for SmartHopper components: right-clicking an `AsyncComponentBase`, `SelectingComponentBase`, `ProviderComponentBase`, or derived component adds a "Lock from MCP updates" menu item, and locked components are highlighted with an orange border and lock icon overlay.
@@ -53,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gh_diff` now strips `instanceGuid` from added components and groups, producing valid `.ghpatch` documents that pass `gh_patch_validate` and `gh_patch_apply`.
 - Fixed MCP lock overlay position: the canvas graphics transform is now reset before drawing so the orange border and lock icon align with the protected component instead of being double-projected.
 - Fixed the placeholder component GUID in `AI Web To Markdown` so it no longer uses the non-unique `ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB` value.
+- `VersatileImage` now rejects unsupported or missing image file paths instead of defaulting to `LocalFile` and producing malformed payloads.
+- `Discourse Post Get` post JSON now includes `topic_title` and `url`, matching the fields emitted by `Discourse Search`.
 - Added the missing `JSON Set Value` component (`JsonSetValueComponent`) for non-AI JSON editing.
 - Replaced placeholder/low-entropy component GUIDs in `AI Text To Text List` and `Apply GhPatch` with random GUIDs to avoid future collisions.
 
