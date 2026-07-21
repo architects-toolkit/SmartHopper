@@ -90,6 +90,8 @@ in the AI Chat component.
 | `text2json` | DataProcessing | Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema | ⚪ | 🟡 | - | - |
 | `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
+| `get_available_providers` | Providers | Retrieve the list of enabled AI providers registered in SmartHopper. | ⚪ | 🟡 | 🟠 | - |
+| `get_available_models` | Providers | Retrieve the list of available models for a given AI provider. Uses live provider APIs when possible and falls back to the static model list. | ⚪ | 🟡 | 🟠 | - |
 | `script_review` | Scripting | Return a code review for the script component specified by its GUID. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_generate` | Hidden | Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas). | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_generate_and_place_on_canvas` | Scripting | Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation. | ⚪ | 🟡 | 🟠 | 🟢 |
@@ -177,6 +179,7 @@ in the AI Chat component.
 | `gh_clear` | Components | Clear all components from the Grasshopper canvas. Optionally keep locked (disabled) components. Protected components (and their direct neighbors) are always preserved. This is a destructive operation - use with caution. Supports undo (Ctrl+Z). | ⚪ | 🟡 | 🟠 | - |
 | `gh_report` | Components | Generate a comprehensive status report of the current Grasshopper canvas. Returns a structured markdown summary including object counts by type/topology, unique component names, group titles, scribble texts, viewport contents, file metadata, and all errors/warnings. Optionally includes an AI-generated summary of the file purpose. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `gh_smart_connect` | Components | AI-powered smart connection tool. Given a set of component GUIDs and a purpose description, retrieves their structure via gh_get, asks an AI model to suggest optimal connections, and executes them via gh_connect. Returns the connection results and the AI reasoning. | ⚪ | 🟡 | 🟠 | 🟢 |
+| `set_ai_provider_and_model` | Components | Configure an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Supports undo and respects `CanvasProtection`. | ⚪ | 🟡 | 🟠 | - |
 | `gh_generate_and_place_on_canvas` | Components | Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }). | - | - | - | - |
 | `smarthopper_ghjson_reference` | Instructions | Returns GhJSON and GhPatch format reference documentation. Pass `topic` to retrieve the full specification or a focused section. Use this whenever you need to generate, edit, or validate GhJSON/GhPatch documents instead of relying on internalized format knowledge. | - | - | - | - |
 
