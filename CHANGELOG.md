@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `gh_report` AI tool: read-only markdown canvas status report with object counts by type/topology, unique component names, group titles, scribble texts, viewport contents, file metadata, and all errors/warnings. Optionally includes an AI-generated summary of the file purpose.
 - Added `gh_clear` AI tool: clears all components from the canvas with optional `keepLocked` support. Protected components (and their direct neighbors) are always preserved via `CanvasProtection`. Destructive — supports undo.
 - Added `gh_smart_connect` AI tool: AI-suggested wiring. Retrieves component structure directly via the ghjson-dotnet facade, asks an AI model to propose connections based on a purpose description, and executes them via `GhJsonGrasshopper.Connect`. Returns connection results and AI reasoning.
+- Added `set_ai_provider_and_model` AI tool: configures an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Supports undo and respects `CanvasProtection`.
 - Added `AIGhReportComponent` Grasshopper component: wraps `gh_report` with an `Include Summary` toggle and `Report`/`Summary` outputs.
 - Added `AIGhConnectComponent` Grasshopper component: wraps `gh_smart_connect` for canvas-selected components with a `Purpose` input and `Success`/`Reasoning`/`Connections` outputs.
 - OpenDocument Format (ODF) support for `.odt`, `.ods`, and `.odp` files.
