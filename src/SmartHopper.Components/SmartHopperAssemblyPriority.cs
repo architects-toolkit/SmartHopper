@@ -43,6 +43,11 @@ namespace SmartHopper.Components
                 DialogCanvasLink.RegisterLink(dialog, guid, color);
             };
 
+            // Initialize the visual overlay that marks protected components on the canvas.
+            CanvasProtectionOverlay.EnsureInitialized();
+
+            // Install the global right-click message filter so every component
+            // gets a "Lock from MCP updates" context menu item.
             return GH_LoadingInstruction.Proceed;
         }
     }

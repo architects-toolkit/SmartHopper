@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OpenDocument Format (ODF) support for `.odt`, `.ods`, and `.odp` files.
 - Raw text fallback and improved encoding detection for file converters.
 - `GhJsonSpecLoader` to load embedded GhJSON/GhPatch spec snapshots.
+- MCP lock support for SmartHopper components: right-clicking an `AsyncComponentBase`, `SelectingComponentBase`, `ProviderComponentBase`, or derived component adds a "Lock from MCP updates" menu item, and locked components are highlighted with an orange border and lock icon overlay.
 
 ### Changed
 
@@ -41,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Knowledge components to ensure the `Run` parameter triggers execution by disabling `RunOnlyOnInputChanges`.
 - DEV.md provider-model sync workflow (`chore-update-dev-provider-models.yml`) now uses a per-base branch name (`chore/update-dev-provider-models-<base>`) instead of a single shared branch, preventing its auto PRs from listing unrelated commits carried over from another base branch.
 - `gh_diff` now strips `instanceGuid` from added components and groups, producing valid `.ghpatch` documents that pass `gh_patch_validate` and `gh_patch_apply`.
+- Fixed MCP lock overlay position: the canvas graphics transform is now reset before drawing so the orange border and lock icon align with the protected component instead of being double-projected.
 - Fixed the placeholder component GUID in `AI Web To Markdown` so it no longer uses the non-unique `ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB` value.
 - Added the missing `JSON Set Value` component (`JsonSetValueComponent`) for non-AI JSON editing.
 - Replaced placeholder/low-entropy component GUIDs in `AI Text To Text List` and `Apply GhPatch` with random GUIDs to avoid future collisions.

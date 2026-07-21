@@ -71,6 +71,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.AppendAdditionalComponentMenuItems(menu);
             Menu_AppendItem(menu, "Select Components", (s, e) => this.EnableSelectionMode());
+            Menu_AppendSeparator(menu);
+            AsyncComponentBase.AppendMcpLockItem(menu, this);
         }
 
         /// <inheritdoc/>
