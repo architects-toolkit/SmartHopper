@@ -110,7 +110,7 @@ namespace SmartHopper.Components.Output
             try
             {
                 var languageTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(2, out languageTree) && languageTree != null && languageTree.DataCount > 0)
+                if (DA.GetDataTree(1, out languageTree) && languageTree != null && languageTree.DataCount > 0)
                 {
                     additionalInputs["Language"] = languageTree;
                 }

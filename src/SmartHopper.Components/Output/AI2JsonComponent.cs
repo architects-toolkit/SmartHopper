@@ -131,7 +131,7 @@ namespace SmartHopper.Components.Output
             try
             {
                 var schemaTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(2, out schemaTree) && schemaTree != null && schemaTree.DataCount > 0)
+                if (DA.GetDataTree(1, out schemaTree) && schemaTree != null && schemaTree.DataCount > 0)
                 {
                     additionalInputs["Schema"] = schemaTree;
                 }
