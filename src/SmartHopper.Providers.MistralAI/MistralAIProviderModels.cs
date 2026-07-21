@@ -290,7 +290,8 @@ namespace SmartHopper.Providers.MistralAI
                 {
                     Provider = provider,
                     Model = "voxtral-mini-tts-mellon-greek-2606-solutions",
-                    Capabilities = AICapability.None, // TODO: retrieve capabilities
+                    Capabilities = AICapability.TextInput | AICapability.AudioInput | AICapability.AudioOutput,
+                    Default = AICapability.Text2Speech,
                     SupportsStreaming = true,
                     Verified = false,
                     Rank = 9930,
