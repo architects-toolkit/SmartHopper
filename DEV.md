@@ -237,8 +237,8 @@ Notes:
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
 | MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
-| OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
 | OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
 | OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Image2Image | TextInput, ImageInput, ImageOutput |
 | OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
