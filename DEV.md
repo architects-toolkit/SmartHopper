@@ -90,7 +90,7 @@ in the AI Chat component.
 | `text2json` | DataProcessing | Generates a JSON object from a prompt, conforming strictly to a provided JSON Schema | ⚪ | 🟡 | - | - |
 | `get_input` | DataProcessing | Send data from Grasshopper to AI Chat | ⚪ | - | - | - |
 | `get_output` | DataProcessing | Receive data from AI Chat to Grasshopper | ⚪ | - | - | - |
-| `get_available_providers` | Providers | Retrieve the list of enabled AI providers registered in SmartHopper. | ⚪ | 🟡 | 🟠 | - |
+| `get_available_providers` | Providers | Retrieve the list of enabled AI providers registered in SmartHopper, including a `configured` flag that reflects whether the provider has the required settings in the current environment. | ⚪ | 🟡 | 🟠 | - |
 | `get_available_models` | Providers | Retrieve the list of available models for a given AI provider. Uses live provider APIs when possible and falls back to the static model list. | ⚪ | 🟡 | 🟠 | - |
 | `script_review` | Scripting | Return a code review for the script component specified by its GUID. | ⚪ | 🟡 | 🟠 | 🟢 |
 | `script_generate` | Hidden | Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas). | ⚪ | 🟡 | 🟠 | 🟢 |

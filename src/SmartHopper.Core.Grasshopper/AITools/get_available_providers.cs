@@ -31,7 +31,7 @@ using SmartHopper.Infrastructure.AITools;
 namespace SmartHopper.Core.Grasshopper.AITools
 {
     /// <summary>
-    /// AI tool that retrieves the list of available AI providers.
+    /// AI tool that retrieves the list of available AI providers and their configuration status.
     /// </summary>
     public class get_available_providers : IAIToolProvider
     {
@@ -42,7 +42,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Retrieve the list of available AI providers registered in SmartHopper.",
+                description: "Retrieve the list of available AI providers registered in SmartHopper, including whether each provider is properly configured in the current environment.",
                 category: "Providers",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 mutatesCanvas: false,
                 enabled: true,
                 tags: new[] { "providers", "read-only" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""providers"": { ""type"": ""array"", ""items"": { ""type"": ""string"" } } } }",
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""providers"": { ""type"": ""array"", ""items"": { ""type"": ""object"", ""properties"": { ""name"": { ""type"": ""string"" }, ""enabled"": { ""type"": ""boolean"" }, ""configured"": { ""type"": ""boolean"", ""description"": ""True when the provider has all required settings (API key, endpoint URL, etc.) configured in the current environment."" } }, ""required"": [""name"", ""enabled"", ""configured""] } } } }",
                 annotations: new AIToolAnnotations(openWorldHint: false, readOnlyHint: true, destructiveHint: false));
         }
 
@@ -74,13 +74,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var providers = ProviderManager.Instance.GetProviders()
                     .Where(p => p.IsEnabled)
-                    .Select(p => p.Name)
-                    .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                    .Select(p => new JObject
+                    {
+                        ["name"] = p.Name,
+                        ["enabled"] = p.IsEnabled,
+                        ["configured"] = p.IsConfigured,
+                    })
+                    .OrderBy(p => p["name"]?.ToString(), StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
                 var result = new JObject()
                 {
-                    ["providers"] = JArray.FromObject(providers),
+                    ["providers"] = new JArray(providers),
                 };
 
                 var body = AIBodyBuilder.Create()

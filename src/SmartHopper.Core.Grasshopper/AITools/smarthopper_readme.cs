@@ -38,7 +38,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: ToolName,
-                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
+                description: "Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, providers, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt.",
                 category: "Instructions",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -46,11 +46,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         ""topic"": {
                             ""type"": ""string"",
                             ""description"": ""Which instruction bundle to return."",
-                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility"", ""mcneel-forum"", ""ladybug-forum"", ""discourse-forum"", ""research"", ""web"", ""python"", ""csharp"", ""vb""]
+                            ""enum"": [""canvas"", ""discovery"", ""scripting"", ""knowledge"", ""ghjson"", ""selected"", ""errors"", ""locks"", ""visibility"", ""providers"", ""mcneel-forum"", ""ladybug-forum"", ""discourse-forum"", ""research"", ""web"", ""python"", ""csharp"", ""vb""]
                         }
                     },
                     ""required"": [""topic""]
                 }",
+
                 execute: this.ExecuteAsync,
                 mutatesCanvas: false,
                 tags: new[] { "instructions", "readme", "read-only" },
@@ -170,6 +171,20 @@ Discovering available components:
    - Use categoryFilter with +/- tokens to narrow scope.
 """;
 
+                case "providers":
+                    return """
+Provider and model configuration in SmartHopper:
+- SmartHopper reads the default provider and model from the environment settings (SmartHopper settings in Rhino/Grasshopper).
+- By default, all AI calls use the provider and model set in the environment. You do not need to set them on every component unless you want a per-component override.
+- To discover the available providers and whether they are properly configured in this environment, call `get_available_providers`.
+  The response includes a `configured` flag for each provider. Only those whose `configured` flag is `true` can be used to run AI calls.
+- To list the models available for a specific provider, call `get_available_models` with the provider name.
+- To override the provider and model on a component that supports provider selection (any `IProviderComponent`), use the `set_ai_provider_and_model` tool.
+- To configure a provider, open the SmartHopper settings from the Rhino/Grasshopper menu and set the required fields:
+  - Most providers require an API key.
+  - Some local or custom providers may also require a base endpoint URL (e.g., `http://localhost:11434`).
+""";
+
                 case "knowledge":
                 case "mcneel-forum":
                 case "ladybug-forum":
@@ -235,7 +250,7 @@ For canonical step-by-step workflows (create, edit, debug), call smarthopper_wor
 """;
 
                 default:
-                    return "Unknown topic. Call the `smarthopper_readme` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, ladybug-forum, discourse-forum, research, web. For canonical step-by-step workflows, call `smarthopper_workflows`.";
+                    return "Unknown topic. Call the `smarthopper_readme` function again and specify the `topic` argument. Valid topics are: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, providers, mcneel-forum, ladybug-forum, discourse-forum, research, web. For canonical step-by-step workflows, call `smarthopper_workflows`.";
             }
         }
     }
