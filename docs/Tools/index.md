@@ -42,6 +42,7 @@ Tools are discrete operations with JSON-schema-defined inputs that the AI can in
 - **Image tasks**: Use `img2text` (vision) or `text2img` (generation)
 - **Document tasks**: Use `file2md` or `web2md` to convert documents and web pages to Markdown
 - **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect`, `set_ai_provider_and_model` for Grasshopper automation
+- **Provider/model tasks**: Use `get_available_providers`, `get_available_models` to inspect registered AI providers and their supported models
 - **Knowledge tasks**: Use `smarthopper_readme`, `smarthopper_tool_help`, `mcneel_forum_search` for contextual guidance
 
 ### Visual Guide
