@@ -92,6 +92,12 @@ namespace SmartHopper.Providers.DeepSeek
         public override bool IsEnabled => true;
 
         /// <summary>
+        /// Gets a value indicating whether this provider is configured in the current environment.
+        /// DeepSeek requires a non-empty API key.
+        /// </summary>
+        public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
+
+        /// <summary>
         /// Helper to retrieve the configured API key for this provider.
         /// Exposed to nested streaming adapter to avoid protected access issues.
         /// </summary>

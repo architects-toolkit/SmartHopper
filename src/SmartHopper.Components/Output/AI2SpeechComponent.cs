@@ -120,13 +120,13 @@ namespace SmartHopper.Components.Output
             try
             {
                 var voiceTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(2, out voiceTree) && voiceTree != null && voiceTree.DataCount > 0)
+                if (DA.GetDataTree(1, out voiceTree) && voiceTree != null && voiceTree.DataCount > 0)
                 {
                     additionalInputs["Voice"] = voiceTree;
                 }
 
                 var speedTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(3, out speedTree) && speedTree != null && speedTree.DataCount > 0)
+                if (DA.GetDataTree(2, out speedTree) && speedTree != null && speedTree.DataCount > 0)
                 {
                     additionalInputs["Speed"] = speedTree;
                 }

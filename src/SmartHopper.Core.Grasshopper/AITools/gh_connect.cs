@@ -121,95 +121,93 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     return output;
                 }
 
-                var successfulConnections = new List<JObject>();
-                var failedConnections = new List<JObject>();
-                var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
-
-                foreach (var connSpec in connectionsArray)
+                var connectTcs = new TaskCompletionSource<(List<JObject> successful, List<JObject> failed)>();
+                Rhino.RhinoApp.InvokeOnUiThread(() =>
                 {
-                    var sourceGuidStr = connSpec["sourceGuid"]?.ToString();
-                    var targetGuidStr = connSpec["targetGuid"]?.ToString();
-                    var sourceParamName = connSpec["sourceParam"]?.ToString();
-                    var targetParamName = connSpec["targetParam"]?.ToString();
-
-                    if (string.IsNullOrEmpty(sourceGuidStr) || string.IsNullOrEmpty(targetGuidStr))
+                    try
                     {
-                        failedConnections.Add(new JObject
+                        var successfulConnections = new List<JObject>();
+                        var failedConnections = new List<JObject>();
+                        var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
+
+                        foreach (var connSpec in connectionsArray)
                         {
-                            ["error"] = "Missing sourceGuid or targetGuid",
-                            ["spec"] = connSpec
-                        });
-                        continue;
-                    }
+                            var sourceGuidStr = connSpec["sourceGuid"]?.ToString();
+                            var targetGuidStr = connSpec["targetGuid"]?.ToString();
+                            var sourceParamName = connSpec["sourceParam"]?.ToString();
+                            var targetParamName = connSpec["targetParam"]?.ToString();
 
-                    if (!Guid.TryParse(sourceGuidStr, out var sourceGuid) || !Guid.TryParse(targetGuidStr, out var targetGuid))
-                    {
-                        failedConnections.Add(new JObject
-                        {
-                            ["error"] = "Invalid GUID format",
-                            ["sourceGuid"] = sourceGuidStr,
-                            ["targetGuid"] = targetGuidStr
-                        });
-                        continue;
-                    }
+                            if (string.IsNullOrEmpty(sourceGuidStr) || string.IsNullOrEmpty(targetGuidStr))
+                            {
+                                failedConnections.Add(new JObject
+                                {
+                                    ["error"] = "Missing sourceGuid or targetGuid",
+                                    ["spec"] = connSpec
+                                });
+                                continue;
+                            }
 
-                    if (protectedGuids.Contains(sourceGuid) || protectedGuids.Contains(targetGuid))
-                    {
-                        failedConnections.Add(new JObject
-                        {
-                            ["error"] = "Connection rejected because it involves a protected component.",
-                            ["sourceGuid"] = sourceGuidStr,
-                            ["targetGuid"] = targetGuidStr
-                        });
-                        continue;
-                    }
+                            if (!Guid.TryParse(sourceGuidStr, out var sourceGuid) || !Guid.TryParse(targetGuidStr, out var targetGuid))
+                            {
+                                failedConnections.Add(new JObject
+                                {
+                                    ["error"] = "Invalid GUID format",
+                                    ["sourceGuid"] = sourceGuidStr,
+                                    ["targetGuid"] = targetGuidStr
+                                });
+                                continue;
+                            }
 
-                    // Use centralized GhJSON connector. The caller handles a single
-                    // solution recompute and canvas redraw after all connections are created.
-                    bool success = GhJsonGrasshopper.Connect(sourceGuid, targetGuid, sourceParamName, targetParamName);
+                            if (protectedGuids.Contains(sourceGuid) || protectedGuids.Contains(targetGuid))
+                            {
+                                failedConnections.Add(new JObject
+                                {
+                                    ["error"] = "Connection rejected because it involves a protected component.",
+                                    ["sourceGuid"] = sourceGuidStr,
+                                    ["targetGuid"] = targetGuidStr
+                                });
+                                continue;
+                            }
 
-                    if (success)
-                    {
-                        successfulConnections.Add(new JObject
-                        {
-                            ["sourceGuid"] = sourceGuidStr,
-                            ["targetGuid"] = targetGuidStr,
-                            ["sourceParam"] = sourceParamName ?? "(first output)",
-                            ["targetParam"] = targetParamName ?? "(first input)",
-                            ["status"] = "connected"
-                        });
-                    }
-                    else
-                    {
-                        failedConnections.Add(new JObject
-                        {
-                            ["error"] = "Connection failed - check component GUIDs and parameter names",
-                            ["sourceGuid"] = sourceGuidStr,
-                            ["targetGuid"] = targetGuidStr
-                        });
-                    }
-                }
+                            bool success = GhJsonGrasshopper.Connect(sourceGuid, targetGuid, sourceParamName, targetParamName);
 
-                // Recompute the solution on the UI thread after all connections.
-                if (successfulConnections.Any())
-                {
-                    var solutionTcs = new TaskCompletionSource<bool>();
-                    Rhino.RhinoApp.InvokeOnUiThread(() =>
-                    {
-                        try
+                            if (success)
+                            {
+                                successfulConnections.Add(new JObject
+                                {
+                                    ["sourceGuid"] = sourceGuidStr,
+                                    ["targetGuid"] = targetGuidStr,
+                                    ["sourceParam"] = sourceParamName ?? "(first output)",
+                                    ["targetParam"] = targetParamName ?? "(first input)",
+                                    ["status"] = "connected"
+                                });
+                            }
+                            else
+                            {
+                                failedConnections.Add(new JObject
+                                {
+                                    ["error"] = "Connection failed - check component GUIDs and parameter names",
+                                    ["sourceGuid"] = sourceGuidStr,
+                                    ["targetGuid"] = targetGuidStr
+                                });
+                            }
+                        }
+
+                        if (successfulConnections.Any())
                         {
                             doc.NewSolution(false);
                             Instances.RedrawCanvas();
-                            solutionTcs.SetResult(true);
                         }
-                        catch (Exception ex)
-                        {
-                            solutionTcs.SetException(ex);
-                        }
-                    });
 
-                    await solutionTcs.Task.ConfigureAwait(false);
-                }
+                        connectTcs.SetResult((successfulConnections, failedConnections));
+                    }
+                    catch (Exception ex)
+                    {
+                        connectTcs.SetException(ex);
+                    }
+                });
+
+                var (successfulConnections, failedConnections) = await connectTcs.Task.ConfigureAwait(false);
 
                 var toolResult = new JObject
                 {
