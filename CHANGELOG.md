@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stabilization backport (`stabilization-2-complete.yml`) now cherry-picks only the commits unique to `main-X.Y.Z` onto a fresh `backport/X.Y.Z` branch cut from `main`, instead of merging the whole stabilization branch. It skips creation when there is nothing to backport and lists the cherry-picked (and any conflicting) commits in the PR body.
 - Standardized the git commit author across GitHub Actions workflows and the code-style action to use the `SMARTHOPPER_BOT_NAME`/`SMARTHOPPER_BOT_EMAIL` repository variables instead of hardcoded `github-actions[bot]` identities.
 - `get_available_providers` now returns only enabled providers and omits the redundant `enabled` field from the output; use `get_available_providers` to discover configured providers and `get_available_models` to inspect their models.
+- Scheduled provider-model updates (`.github/workflows/chore-update-provider-models.yml`) now open PRs against `dev` and `dev-*` branches only; `main` is excluded from automatic model-update PRs.
 
 ### Fixed
 
