@@ -351,7 +351,7 @@ namespace SmartHopper.Providers.MistralAI
                     Capabilities = AICapability.AudioInput | AICapability.TextOutput,
                     SupportsStreaming = false,
                     Verified = false,
-                    Rank = 9900,
+                    Rank = 9925,
                     ContextLimit = 32000,
                     Aliases = new List<string> { "voxtral-small-latest" },
                 },
