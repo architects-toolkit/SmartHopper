@@ -45,7 +45,7 @@ Key helpers: `AsyncWorkerBase`, `ComponentStateManager`, `GHPersistenceService`,
 
 ## 4. Proposed External Libraries
 
-### 4.1 `SmartHopper.ComponentBase` — Async / Stateful / Selecting
+### 4.1 `ArchitectsToolkit.ComponentBase` — Async / Stateful / Selecting
 
 **What it is:** A Grasshopper-specific SDK containing the generic async/stateful/selecting component machinery, with no AI provider coupling.
 
@@ -72,9 +72,9 @@ Key helpers: `AsyncWorkerBase`, `ComponentStateManager`, `GHPersistenceService`,
 
 **Feasibility:** High. These classes are already decoupled from AI concerns (`DataTreeProcessor` is a generic `GH_Structure<T>` utility, `ComponentStateManager` only tracks state/hash/debounce, `SelectingComponentCore` only touches the Grasshopper canvas). The main work is moving files, adjusting namespaces, adding public API surface/docs, and strong-naming.
 
-### 4.2 `SmartHopper.ComponentBase.AI` — Provider / AI / Adapters
+### 4.2 `ArchitectsToolkit.ComponentBase.AI` — Provider / AI / Adapters
 
-**What it is:** A higher-level SDK that sits on top of `SmartHopper.ComponentBase` and `SmartHopper.ProviderSdk`, adding provider selection, AI request orchestration, and input/output adapters.
+**What it is:** A higher-level SDK that sits on top of `ArchitectsToolkit.ComponentBase` and `SmartHopper.ProviderSdk`, adding provider selection, AI request orchestration, and input/output adapters.
 
 **Contents:**
 - `ProviderComponentBase`
@@ -88,7 +88,7 @@ Key helpers: `AsyncWorkerBase`, `ComponentStateManager`, `GHPersistenceService`,
 - Component-specific model types: `AIInputPayload`, `GH_AIInputPayload`, `AIInputPayloadParameter`, `OutputMapping`
 
 **Dependencies:**
-- `SmartHopper.ComponentBase`
+- `ArchitectsToolkit.ComponentBase`
 - `SmartHopper.ProviderSdk` (for `AIRequestCall`, `AIReturn`, `AIToolCall`, `AICapability`, `AIRequestParameters`, `IAIProvider`, `AIProvider`, `AIModel`, etc.)
 - `Grasshopper` / `RhinoCommon` (for canvas UI and attributes)
 - `Newtonsoft.Json`, `JsonSchema.Net`, `System.Text.Json`
@@ -133,20 +133,20 @@ On `dev`, `AIRequestCall`, `AIReturn`, `AIToolCall`, `AICapability`, and `AIRequ
 
 - **License:** MIT for both SDK assemblies (same rationale as `SmartHopper.ProviderSdk`: let closed-source plugin authors link without LGPL copyleft).
 - **Target frameworks:** `net7.0;net7.0-windows`
-- **Strong-name, XML docs, Source Link, and NuGet packages** (`SmartHopper.ComponentBase` and `SmartHopper.ComponentBase.AI`) with package IDs matching assembly names.
+- **Strong-name, XML docs, Source Link, and NuGet packages** (`ArchitectsToolkit.ComponentBase` and `ArchitectsToolkit.ComponentBase.AI`) with package IDs matching assembly names.
 
 ### 5.4 Versioning
 
-Introduce `SmartHopperComponentBaseSdkVersionAttribute` and `BuiltAgainstComponentBaseSdkAttribute` so the SmartHopper host can reject plugins built against an incompatible SDK major version, matching the ProviderSdk `BuiltAgainstSdk`/`MinHostSdk` pattern.
+Introduce `ArchitectsToolkitComponentBaseSdkVersionAttribute` and `BuiltAgainstComponentBaseSdkAttribute` so the SmartHopper host can reject plugins built against an incompatible SDK major version, matching the ProviderSdk `BuiltAgainstSdk`/`MinHostSdk` pattern.
 
 ## 6. Implementation Phases
 
 | Phase | Work | Risk | Depends On |
 |---|---|---|---|
 | 0 | Resolve/merge PR #475; move `AIRequestParameters` and `AICall.Core` DTOs to `SmartHopper.ProviderSdk` | Medium | PR #475 |
-| 1 | Create `SmartHopper.ComponentBase`; move async/stateful/selecting bases + helpers; update `SmartHopper.Core` references | Low | None |
+| 1 | Create `ArchitectsToolkit.ComponentBase`; move async/stateful/selecting bases + helpers; update `SmartHopper.Core` references | Low | None |
 | 2 | Define `ComponentBaseAIHost` and interfaces; refactor `ProviderSelectionCore` and `AIStatefulAsyncComponentBase` off singletons | Medium | Phase 1 |
-| 3 | Create `SmartHopper.ComponentBase.AI`; move AI bases, adapters, attributes, and payload/model types | Medium | Phases 0–2 |
+| 3 | Create `ArchitectsToolkit.ComponentBase.AI`; move AI bases, adapters, attributes, and payload/model types | Medium | Phases 0–2 |
 | 4 | Add strong naming, NuGet metadata, samples, and `BuiltAgainstComponentBaseSdk` attributes | Low | Phase 3 |
 | 5 | Update `SmartHopper.Core`, `SmartHopper.Core.Grasshopper`, and `SmartHopper.Components` to reference the new packages | Medium | Phase 4 |
 
@@ -155,13 +155,13 @@ Introduce `SmartHopperComponentBaseSdkVersionAttribute` and `BuiltAgainstCompone
 - **Grasshopper coupling:** Unlike `ProviderSdk`, these SDKs are inherently Grasshopper/Rhino-specific. That is still valuable (plugin authors need Grasshopper anyway), but the package is not a pure .NET SDK.
 - **Host singletons:** `AIStatefulAsyncComponentBase` currently reaches for `ProviderManager`, `AIToolManager`, and `SmartHopperSettings`. Refactoring to `ComponentBaseAIHost` is straightforward but touches many call sites across partial files.
 - **`AIOutputAdapterBase` complexity:** At 37 KB, `AIOutputAdapterBase` is a large specialized subclass; it belongs in the AI SDK but may carry `JsonSchema`/`GhJSON` output conversion logic that needs review.
-- **Payload type ownership:** `AIInputPayload`, `GH_AIInputPayload`, and `AIInputPayloadParameter` are shared between input adapters, output adapters, and provider execution. They likely belong in `SmartHopper.ComponentBase.AI`, but some interaction types (`AIInteractionAudio`) currently live in `SmartHopper.Infrastructure` and may need to move to `SmartHopper.ProviderSdk` or the AI base SDK.
+- **Payload type ownership:** `AIInputPayload`, `GH_AIInputPayload`, and `AIInputPayloadParameter` are shared between input adapters, output adapters, and provider execution. They likely belong in `ArchitectsToolkit.ComponentBase.AI`, but some interaction types (`AIInteractionAudio`) currently live in `SmartHopper.Infrastructure` and may need to move to `SmartHopper.ProviderSdk` or the AI base SDK.
 - **Namespace/location drift:** The auto-generated docs say the source is in `SmartHopper.Core.Grasshopper/ComponentBase`, but the actual code is in `SmartHopper.Core/ComponentBase`. Per `.devin/rules/solution-structure.md`, component bases belong in `SmartHopper.Core`, so the code is correct and the docs should be aligned, not the other way around.
 
 ## 8. Recommendation
 
-1. **Proceed with `SmartHopper.ComponentBase` first.** It has a clean boundary, high reuse value, and low risk. It does not depend on PR #475.
-2. **Defer `SmartHopper.ComponentBase.AI` until PR #475 lands** and the AICall.Core DTOs are in `SmartHopper.ProviderSdk`; use the intervening time to design `ComponentBaseAIHost` and migrate the three singleton dependencies.
+1. **Proceed with `ArchitectsToolkit.ComponentBase` first.** It has a clean boundary, high reuse value, and low risk. It does not depend on PR #475.
+2. **Defer `ArchitectsToolkit.ComponentBase.AI` until PR #475 lands** and the AICall.Core DTOs are in `SmartHopper.ProviderSdk`; use the intervening time to design `ComponentBaseAIHost` and migrate the three singleton dependencies.
 3. **Run a pilot:** before publishing NuGets, build a minimal external plugin that derives from `StatefulComponentBase` and `AIStatefulAsyncComponentBase` to prove the public API is usable without a SmartHopper clone.
 4. **Keep both SDKs MIT-licensed**, strongly named, and source-linked, following the `SmartHopper.ProviderSdk` packaging conventions.
 
