@@ -80,14 +80,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        provider:
-          - OpenAI
-          - MistralAI
-          - Anthropic
-          - OpenRouter
-          - DeepSeek
-          - Gemini
-        branch: ${{ fromJson(needs.discover-branches.outputs.branches) }}
+        include:
+          - provider: OpenAI
+          - provider: MistralAI
+          - provider: Anthropic
+          - provider: OpenRouter
+          - provider: DeepSeek
+          - provider: Gemini
     steps:
       - name: Skip if secret is absent or filtered out
         id: check

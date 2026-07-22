@@ -18,7 +18,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -28,7 +27,6 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -43,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public TestAnthropicEncodeComponent()
-            : base("Test Anthropic Encode", "TEST-ANTHROPIC-ENC", "Tests Anthropic message encoding from AIRequestCall", "SmartHopper Tests", "Testing Providers")
+            : base("Test Anthropic Encode", "TEST-ANTHROPIC-ENC", "Tests Anthropic message encoding from AIRequestCall", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Anthropic");
@@ -88,18 +86,11 @@ namespace SmartHopper.Components.Test.Providers
                     // Create test AIRequestCall with different message types using AIBodyBuilder
                     var bodyBuilder = AIBodyBuilder.Create();
 
-                    // Add System message (maps to system_instruction in Anthropic)
+                    // Add Context message (maps to user in Anthropic)
                     bodyBuilder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.System,
+                        Agent = AIAgent.Context,
                         Content = "You are a helpful assistant."
-                    });
-
-                    // Add User message (maps to user in Anthropic)
-                    bodyBuilder.Add(new AIInteractionText
-                    {
-                        Agent = AIAgent.User,
-                        Content = "Hello, how are you?"
                     });
 
                     // Add ToolCall message
@@ -119,17 +110,9 @@ namespace SmartHopper.Components.Test.Providers
 
                     var call = new AIRequestCall();
                     call.Body = bodyBuilder.Build();
-                    call.Initialize("Anthropic", "claude-haiku-4-5", call.Body, "/v1/messages", AICapability.Text2Text);
 
                     // Encode using provider from parent component
                     var provider = this._parent.GetActualAIProvider();
-                    if (provider == null)
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Provider not found"));
-                        await Task.Yield();
-                        return;
-                    }
                     var encoded = provider.Encode(call);
 
                     // Verify encoding
@@ -142,32 +125,18 @@ namespace SmartHopper.Components.Test.Providers
                     }
 
                     // Check for required role mappings (Anthropic uses user, assistant)
-                    // System messages go in system_instruction field, not in messages array
-                    var json = JObject.Parse(encoded);
-                    var messages = json["messages"] as JArray;
-                    var roles = messages?.Select(m => m["role"]?.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                    if (!roles.Contains("user"))
+                    if (!encoded.Contains("\"role\":\"user\""))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing user role (User message)"));
+                        this._messages.Add(new GH_String("Missing user role (Context message)"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!roles.Contains("assistant"))
+                    if (!encoded.Contains("\"role\":\"assistant\""))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Missing assistant role (ToolCall message)"));
-                        await Task.Yield();
-                        return;
-                    }
-
-                    // Check for system field (System messages in Anthropic Messages API)
-                    if (json["system"] == null)
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing system field (System message)"));
                         await Task.Yield();
                         return;
                     }

@@ -36,7 +36,7 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("24407233-D8B8-4812-9F5F-30C39CFC7459");
 
-        protected override Bitmap Icon => Resources.toaiaudio;
+        protected override Bitmap Icon => Resources.audio2ai;
 
         public Audio2AIComponent()
             : base(

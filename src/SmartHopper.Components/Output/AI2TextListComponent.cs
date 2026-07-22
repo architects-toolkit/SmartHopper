@@ -23,7 +23,6 @@ using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Types;
-using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.Grasshopper.Utils.Parsing;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -48,7 +47,7 @@ namespace SmartHopper.Components.Output
 
         public override Guid ComponentGuid => new Guid("C4286A7D-3BCB-4785-84E9-2FB2164519C0");
 
-        protected override Bitmap Icon => Resources.aitotextlist;
+        protected override Bitmap Icon => null;
 
         protected override IReadOnlyList<string> UsingAiTools => new[] { "text2text" };
 
@@ -75,17 +74,16 @@ namespace SmartHopper.Components.Output
         /// Resolves the list of strings from the AI response, applying the fallback when the
         /// response cannot be parsed into a non-empty list.
         /// </summary>
-        private (List<string> Items, List<bool> UsedFallback) ResolveList(AIReturn aiReturn)
+        private (List<string> Items, bool UsedFallback) ResolveList(AIReturn aiReturn)
         {
             var text = aiReturn?.Body?.GetLastAssistantText();
-            var (strings, usedFallbackFlag) = StringListResultResolver.Resolve(text);
-
-            if (usedFallbackFlag)
+            var (parsed, _) = StringListResultResolver.Resolve(text);
+            if (parsed != null && parsed.Count > 0)
             {
-                return (strings, Enumerable.Repeat(true, strings.Count).ToList());
+                return (parsed, false);
             }
 
-            return (strings, Enumerable.Repeat(false, strings.Count).ToList());
+            return (this._fallback?.ToList() ?? new List<string>(), true);
         }
 
         protected override IReadOnlyList<OutputMapping> GetOutputMappings()
@@ -98,7 +96,7 @@ namespace SmartHopper.Components.Output
                     NickName = "T",
                     Description = "Parsed list of strings (one branch entry per JSON array element). Falls back to the Fallback input when the response cannot be parsed.",
                     ParamType = typeof(Param_String),
-                    Access = GH_ParamAccess.tree,
+                    Access = GH_ParamAccess.list,
                     Extractor = aiReturn =>
                     {
                         var (items, _) = this.ResolveList(aiReturn);
@@ -109,14 +107,14 @@ namespace SmartHopper.Components.Output
                 {
                     ParamName = "Used Fallback",
                     NickName = "UF",
-                    Description = "True for items where the AI response could not be parsed and the fallback value was used.",
+                    Description = "True when the AI response could not be parsed as a list and the Fallback value was used (or an empty list was emitted because no fallback was provided).",
                     ParamType = typeof(Param_Boolean),
                     Access = GH_ParamAccess.tree,
-                    Extractor = aiReturn =>
+                    Extractor = OutputMapping.Single(aiReturn =>
                     {
                         var (_, usedFallback) = this.ResolveList(aiReturn);
-                        return usedFallback.Select(b => (IGH_Goo)new GH_Boolean(b));
-                    },
+                        return new GH_Boolean(usedFallback);
+                    }),
                 },
             };
         }

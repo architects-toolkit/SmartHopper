@@ -21,7 +21,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
 using Newtonsoft.Json;
-using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.Types;
 
@@ -34,7 +33,7 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("D309A738-7B77-401A-8BAA-D1D6EF2EBBA2");
 
-        protected override Bitmap Icon => Resources.toaiinteger;
+        protected override Bitmap Icon => null;
 
         public IntegerList2AIComponent()
             : base(

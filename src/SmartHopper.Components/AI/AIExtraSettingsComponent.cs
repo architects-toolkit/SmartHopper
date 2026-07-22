@@ -73,7 +73,7 @@ namespace SmartHopper.Components.AI
                 "Extras",
                 "Generates provider-specific AI settings (service tier, reasoning effort, etc.) as a JSON extras object.\nConnect output to the Extras input of AI Settings component.\nRight-click to select provider.",
                 "SmartHopper",
-                "A. AI")
+                "AI")
         {
             this._retryStopwatch.Start();
         }

@@ -27,9 +27,6 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using SmartHopper.Core.Types;
-using A = DocumentFormat.OpenXml.Drawing;
-using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
-using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 
 namespace SmartHopper.Core.Grasshopper.Converters.Formats
 {
@@ -483,23 +480,19 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 extracted.Append(text);
             }
 
-            if (extracted.Length == 0)
-            {
-                return;
-            }
-
-            markdown.AppendLine();
-            markdown.AppendLine();
-            markdown.AppendLine("> **Text extracted from shapes/text boxes**");
-            foreach (var line in extracted.ToString().Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
-            {
-                if (string.IsNullOrEmpty(line))
-                {
-                    markdown.AppendLine(">");
-                }
-                else
-                {
-                    markdown.Append("> ").AppendLine(line);
+                        var extracted = VersatileImage.FromExtractedDocument(
+                            base64Data: base64Data,
+                            mimeType: mimeType,
+                            id: $"img-{imageIndex}",
+                            context: "Document body",
+                            pageOrSlide: 0,
+                            sourceDocument: null);
+                        result.Images.Add(extracted);
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Warnings.Add($"\u26a0\ufe0f Image {imageIndex}: could not extract: {ex.Message}");
+                    }
                 }
             }
 

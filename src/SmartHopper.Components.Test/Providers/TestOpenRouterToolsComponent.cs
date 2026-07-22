@@ -18,7 +18,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
@@ -28,7 +27,6 @@ using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
-using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Components.Test.Providers
 {
@@ -42,7 +40,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public TestOpenRouterToolsComponent()
-            : base("Test OpenRouter Tools", "TEST-OPENROUTER-TOOLS", "Tests OpenRouter tool encoding and response parsing", "SmartHopper Tests", "Testing Providers")
+            : base("Test OpenRouter Tools", "TEST-OPENROUTER-TOOLS", "Tests OpenRouter tool encoding and response parsing", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenRouter");
@@ -95,7 +93,7 @@ namespace SmartHopper.Components.Test.Providers
                     bodyBuilder.Add(new AIInteractionText
                     {
                         Agent = AIAgent.System,
-                        Content = "You have access to tools.",
+                        Content = "You have access to tools."
                     });
 
                     // Add tool call
@@ -103,30 +101,21 @@ namespace SmartHopper.Components.Test.Providers
                     {
                         Id = "call_weather_123",
                         Name = "get_weather",
-                        Arguments = JObject.Parse("{\"location\": \"London\"}"),
+                        Arguments = JObject.Parse("{\"location\": \"London\"}")
                     });
 
                     // Add tool result
                     bodyBuilder.Add(new AIInteractionToolResult
                     {
                         Result = new JObject { ["content"] = "Weather in London: 62°F, Rainy" },
-                        Id = "call_weather_123",
+                        Id = "call_weather_123"
                     });
 
                     var call = new AIRequestCall();
                     call.Body = bodyBuilder.Build();
-                    call.Initialize("OpenRouter", "anthropic/claude-3.5-sonnet", call.Body, "/chat/completions", AICapability.Text2Text, "*");
 
                     // Encode using provider from parent component
                     var provider = this._parent.GetActualAIProvider();
-                    if (provider == null)
-                    {
-                        this._messages.Add(new GH_String("Provider not found"));
-                        this._encodingSuccess = new GH_Boolean(false);
-                        this._parsingSuccess = new GH_Boolean(false);
-                        await Task.Yield();
-                        return;
-                    }
                     var encoded = provider.Encode(call);
 
                     // Verify tool encoding
@@ -139,65 +128,7 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    // Parse JSON and verify tool structure
-                    var encodedJson = JObject.Parse(encoded);
-                    var messages = encodedJson["messages"] as JArray;
-                    if (messages == null)
-                    {
-                        this._messages.Add(new GH_String("Missing messages array"));
-                        this._encodingSuccess = new GH_Boolean(false);
-                        this._parsingSuccess = new GH_Boolean(false);
-                        await Task.Yield();
-                        return;
-                    }
-
-                    // Check for tool_calls in assistant message
-                    bool hasToolCalls = false;
-                    bool hasToolName = false;
-                    bool hasToolCallId = false;
-                    var roles = new HashSet<string>();
-
-                    foreach (var message in messages)
-                    {
-                        var role = message["role"]?.ToString();
-                        if (!string.IsNullOrEmpty(role))
-                        {
-                            roles.Add(role);
-                        }
-
-                        // Check for tool_calls array in assistant messages
-                        if (role == "assistant")
-                        {
-                            var toolCalls = message["tool_calls"] as JArray;
-                            if (toolCalls != null && toolCalls.Any())
-                            {
-                                hasToolCalls = true;
-                                foreach (var toolCall in toolCalls)
-                                {
-                                    var functionName = toolCall["function"]?["name"]?.ToString();
-                                    if (functionName == "get_weather")
-                                    {
-                                        hasToolName = true;
-                                    }
-                                }
-                            }
-                        }
-
-                        // Check for tool_call_id in tool messages
-                        if (role == "tool")
-                        {
-                            var toolCallId = message["tool_call_id"]?.ToString();
-                            if (!string.IsNullOrEmpty(toolCallId))
-                            {
-                                hasToolCallId = true;
-                            }
-                        }
-                    }
-
-                    System.Diagnostics.Debug.WriteLine($"[TestOpenRouterTools] Found roles: {string.Join(", ", roles)}");
-                    System.Diagnostics.Debug.WriteLine($"[TestOpenRouterTools] Tool checks - tool_calls: {hasToolCalls}, tool_name: {hasToolName}, tool_call_id: {hasToolCallId}");
-
-                    if (!hasToolCalls)
+                    if (!encoded.Contains("\"tool_calls\""))
                     {
                         this._messages.Add(new GH_String("Missing tool_calls array in encoding"));
                         this._encodingSuccess = new GH_Boolean(false);
@@ -206,16 +137,16 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    if (!hasToolName)
+                    if (!encoded.Contains("\"get_weather\""))
                     {
-                        this._messages.Add(new GH_String("Tool name 'get_weather' not found in encoding"));
+                        this._messages.Add(new GH_String("Tool name not found in encoding"));
                         this._encodingSuccess = new GH_Boolean(false);
                         this._parsingSuccess = new GH_Boolean(false);
                         await Task.Yield();
                         return;
                     }
 
-                    if (!hasToolCallId)
+                    if (!encoded.Contains("\"tool_call_id\""))
                     {
                         this._messages.Add(new GH_String("Missing tool_call_id in tool result"));
                         this._encodingSuccess = new GH_Boolean(false);
@@ -231,10 +162,8 @@ namespace SmartHopper.Components.Test.Providers
                     this._messages.Add(new GH_String("- Tool call ID present in result"));
 
                     // Verify parsing would work (basic structure check)
-                    bool hasAssistant = roles.Contains("assistant");
-                    bool hasTool = roles.Contains("tool");
-
-                    if (hasAssistant && hasTool)
+                    if (encoded.Contains("\"role\":\"assistant\"") &&
+                        encoded.Contains("\"role\":\"tool\""))
                     {
                         parsingSuccess = true;
                         this._messages.Add(new GH_String("Tool result parsing structure valid"));

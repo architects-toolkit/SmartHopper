@@ -50,7 +50,7 @@ namespace SmartHopper.Components.Input
 
         public override Guid ComponentGuid => new Guid("0AF0293E-A5E5-4955-AA67-B49077CC190E");
 
-        protected override Bitmap Icon => null;
+        protected override Bitmap Icon => Resources.ladybugpost2ai;
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
@@ -60,7 +60,7 @@ namespace SmartHopper.Components.Input
                 "LadybugPost2AI",
                 "Retrieves a Ladybug forum post by ID from discourse.ladybug.tools and wraps it into an AIInputPayload.",
                 "SmartHopper",
-                "B. Input")
+                "Input")
         {
         }
 

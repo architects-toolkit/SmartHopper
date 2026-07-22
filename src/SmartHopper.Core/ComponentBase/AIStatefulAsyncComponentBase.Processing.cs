@@ -78,7 +78,7 @@ namespace SmartHopper.Core.ComponentBase
             }
 
             // Build mapping from custom_id to branch path for clearer error messages
-            var customIdToBranchPath = new Dictionary<string, GH_Path>();
+            var customIdToBranchPath = new Dictionary<string, string>();
             foreach (var path in sentinelTree.Paths)
             {
                 var branch = sentinelTree.get_Branch(path);
@@ -87,15 +87,13 @@ namespace SmartHopper.Core.ComponentBase
                     var str = (item as GH_String)?.Value ?? string.Empty;
                     if (BatchSentinel.TryExtract(str, out var customId))
                     {
-                        customIdToBranchPath[customId] = path;
+                        customIdToBranchPath[customId] = path.ToString();
                     }
                 }
             }
 
             var allInteractions = new List<IAIInteraction>();
-
-            // Per-customId metrics so they can be placed at the correct branch path in the tree.
-            var customIdToMetrics = new Dictionary<string, List<AIMetrics>>();
+            var allMetrics = new List<AIMetrics>();
 
             // Accumulate extra outputs returned by SentinelTransformOutputs across all sentinels.
             // Key: output param name → merged GH_Structure<IGH_Goo> (one slot per sentinel path).
@@ -113,19 +111,13 @@ namespace SmartHopper.Core.ComponentBase
                         {
                             allInteractions.AddRange(interactions);
 
-                            // Extract metrics from each interaction, keyed by customId
-                            var metricsList = new List<AIMetrics>();
+                            // Extract metrics from each interaction
                             foreach (var interaction in interactions)
                             {
                                 if (interaction.Metrics != null)
                                 {
-                                    metricsList.Add(interaction.Metrics);
+                                    allMetrics.Add(interaction.Metrics);
                                 }
-                            }
-
-                            if (metricsList.Count > 0)
-                            {
-                                customIdToMetrics[customId] = metricsList;
                             }
                         }
 
@@ -209,45 +201,35 @@ namespace SmartHopper.Core.ComponentBase
             // AIReturn.Metrics is computed fresh on every access, so any mutation to it is a no-op.
             if (allInteractions.Count > 0)
             {
-                // Build per-item metrics via AIMetricsList for multi-provider support
-                var allMetrics = customIdToMetrics.Values.SelectMany(v => v).ToList();
-                this.PersistedMetricsList = new Infrastructure.AICall.Metrics.AIMetricsList();
+                // Aggregate all per-interaction metrics into one named instance
+                var aggregatedMetrics = new AIMetrics
+                {
+                    Provider = this.GetActualAIProviderName(),
+                    Model = this.GetModel(),
+                };
                 foreach (var m in allMetrics)
                 {
-                    this.PersistedMetricsList.Add(m, "main");
+                    aggregatedMetrics.Combine(m);
                 }
 
-                var firstEntry = this.PersistedMetricsList.Entries[0];
-                System.Diagnostics.Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items");
+                System.Diagnostics.Debug.WriteLine($"[AIStatefulAsync] Aggregated batch metrics: {allMetrics.Count} items, " +
+                              $"InputTokens={aggregatedMetrics.InputTokens}, OutputTokens={aggregatedMetrics.OutputTokens}");
+
+                // Store as the single authoritative source for SetMetricsOutput
+                this._batchState.PersistedMetrics = aggregatedMetrics;
 
                 // Build AIReturn for body/interactions (used by CurrentAIReturnSnapshot consumers)
                 var batchReturn = new AIReturn();
                 var batchRequest = new AIRequestCall();
                 batchRequest.Initialize(
-                    firstEntry.Provider,
-                    firstEntry.Model,
+                    aggregatedMetrics.Provider,
+                    aggregatedMetrics.Model,
                     new List<IAIInteraction>(),
                     endpoint: "batch_complete",
                     capability: AICapability.None,
                     toolFilter: null);
                 batchReturn.CreateSuccess(allInteractions, request: batchRequest);
                 this.SetAIReturnSnapshot(batchReturn);
-
-                // Append metrics to the tree at each sentinel's branch path.
-                // Multiple metrics per customId (e.g. fallback) become separate items in the same branch.
-                foreach (var kvp in customIdToMetrics)
-                {
-                    var customId = kvp.Key;
-                    if (!customIdToBranchPath.TryGetValue(customId, out var path))
-                    {
-                        continue;
-                    }
-
-                    foreach (var m in kvp.Value)
-                    {
-                        this.AppendMetricToTree(m, path);
-                    }
-                }
             }
 
             // Build additionalOutputs array for FinishResults

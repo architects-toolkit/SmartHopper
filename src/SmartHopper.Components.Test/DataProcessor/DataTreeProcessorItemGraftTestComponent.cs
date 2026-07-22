@@ -53,7 +53,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test DataTreeProcessor (Item Graft)",
                 "TEST-DTP-GRAFT",
                 "Tests DataTreeProcessor Item Graft behavior where each item is processed individually.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

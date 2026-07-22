@@ -48,7 +48,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.jsonschemaobj;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonSchemaObjectComponent"/> class.

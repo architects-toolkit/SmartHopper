@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test Broadcast (Multiple Top-Level)",
                 "TEST-BC-MULTI-TOP",
                 "Tests flat {0} broadcasting to multiple top-level paths {0},{1}",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

@@ -205,14 +205,11 @@ namespace SmartHopper.Providers.DeepSeek
             }
 #endif
 
-            // Group consecutive interactions by role to avoid multiple assistant messages.
-            // DeepSeek requires tool_calls and content to be in the SAME assistant message,
-            // and each assistant message with tool_calls must be followed by one tool message
-            // per tool_call_id.
+            // Simple sequential encoding (same approach as OpenAI/MistralAI providers).
+            // DeepSeek is OpenAI-compatible and accepts one message per interaction; no role-grouping
+            // is required and doing so historically caused loss of tool_call_id when multiple tool
+            // results were emitted in the same turn.
             var convertedMessages = new JArray();
-            string currentRole = null;
-            JObject currentMessage = null;
-            var currentToolCalls = new JArray();
 
             bool IsAssistant(string? r) => string.Equals(r, "assistant", StringComparison.OrdinalIgnoreCase);
 
@@ -235,128 +232,12 @@ namespace SmartHopper.Providers.DeepSeek
                         continue;
                     }
 
-                    // Check if role changed or if we should not merge this role
-                    if (currentRole != role || !IsAssistant(currentRole))
-                    {
-                        // Finalize previous message if exists
-                        if (currentMessage != null)
-                        {
-                            // Add accumulated tool_calls to the message
-                            if (currentToolCalls.Count > 0)
-                            {
-                                currentMessage["tool_calls"] = currentToolCalls;
-                            }
-
-                            // Preserve reasoning_content on assistant messages with tool_calls (required by DeepSeek
-                            // thinking mode) and strip it from text-only assistant messages to save bandwidth.
-                            if (IsAssistant(currentRole))
-                            {
-                                if (currentToolCalls.Count > 0)
-                                {
-                                    if (currentMessage["reasoning_content"] == null)
-                                    {
-                                        currentMessage["reasoning_content"] = string.Empty;
-                                    }
-                                }
-                                else
-                                {
-                                    currentMessage.Remove("reasoning_content");
-                                }
-                            }
-
-                            convertedMessages.Add(currentMessage);
-                        }
-
-                        // Start new message
-                        currentRole = role;
-                        currentMessage = new JObject
-                        {
-                            ["role"] = role,
-                            ["content"] = token["content"]?.ToString() ?? string.Empty
-                        };
-
-                        if (!string.IsNullOrWhiteSpace(token["reasoning_content"]?.ToString()))
-                        {
-                            currentMessage["reasoning_content"] = token["reasoning_content"]?.ToString();
-                        }
-
-                        currentToolCalls = new JArray();
-
-                        // Copy tool_calls if present in this token
-                        if (token["tool_calls"] is JArray tc && tc.Count > 0)
-                        {
-                            foreach (var toolCall in tc)
-                            {
-                                currentToolCalls.Add(toolCall);
-                            }
-                        }
-
-                        // Copy tool_call_id for tool results (name is not a valid field on role=tool messages).
-                        if (token["tool_call_id"] != null)
-                        {
-                            currentMessage["tool_call_id"] = token["tool_call_id"];
-                        }
-                    }
-                    else
-                    {
-                        // Same assistant role: merge content, reasoning and tool_calls
-                        var existingContent = currentMessage["content"]?.ToString() ?? string.Empty;
-                        var newContent = token["content"]?.ToString() ?? string.Empty;
-                        if (!string.IsNullOrEmpty(newContent))
-                        {
-                            currentMessage["content"] = string.IsNullOrEmpty(existingContent) ? newContent : existingContent + " " + newContent;
-                        }
-
-                        var existingReasoning = currentMessage["reasoning_content"]?.ToString() ?? string.Empty;
-                        var newReasoning = token["reasoning_content"]?.ToString() ?? string.Empty;
-                        if (!string.IsNullOrWhiteSpace(newReasoning))
-                        {
-                            currentMessage["reasoning_content"] = string.IsNullOrWhiteSpace(existingReasoning) ? newReasoning : existingReasoning + " " + newReasoning;
-                        }
-
-                        // Accumulate tool_calls
-                        if (token["tool_calls"] is JArray tc && tc.Count > 0)
-                        {
-                            foreach (var toolCall in tc)
-                            {
-                                currentToolCalls.Add(toolCall);
-                            }
-                        }
-                    }
+                    convertedMessages.Add(token);
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[DeepSeek] Warning: Could not encode interaction: {ex.Message}");
                 }
-            }
-
-            // Finalize last message
-            if (currentMessage != null)
-            {
-                // Add accumulated tool_calls to the message
-                if (currentToolCalls.Count > 0)
-                {
-                    currentMessage["tool_calls"] = currentToolCalls;
-                }
-
-                // Preserve reasoning_content on assistant messages with tool_calls (required by DeepSeek
-                // thinking mode) and strip it from text-only assistant messages to save bandwidth.
-                if (IsAssistant(currentRole))
-                {
-                    if (currentToolCalls.Count > 0)
-                    {
-                        if (currentMessage["reasoning_content"] == null)
-                        {
-                            currentMessage["reasoning_content"] = string.Empty;
-                        }
-                    }
-                    else
-                    {
-                        currentMessage.Remove("reasoning_content");
-                    }
-                }
-
-                convertedMessages.Add(currentMessage);
             }
 
 #if DEBUG
@@ -421,6 +302,11 @@ namespace SmartHopper.Providers.DeepSeek
             // Apply other optional parameters from extras only
             if (p?.Extras != null)
             {
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                {
+                    requestBody["top_p"] = topPToken.Value<double?>();
+                }
+
                 if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
                 {
                     requestBody["presence_penalty"] = ppToken;
@@ -570,10 +456,14 @@ namespace SmartHopper.Providers.DeepSeek
             {
                 messageObj["content"] = textInteraction.Content ?? string.Empty;
 
-                if (!string.IsNullOrWhiteSpace(textInteraction.Reasoning))
-                {
-                    messageObj["reasoning_content"] = textInteraction.Reasoning;
-                }
+                // DO NOT send reasoning_content on plain text assistant messages.
+                // Per DeepSeek's reasoning-model contract, reasoning_content from a previous
+                // round MUST NOT be echoed back in subsequent requests on plain assistant
+                // turns (see https://api-docs.deepseek.com/guides/reasoning_model).
+                // The asymmetric rule is enforced elsewhere:
+                //   - AIInteractionToolCall branch below DOES include reasoning_content,
+                //     because DeepSeek requires it on assistant messages with tool_calls
+                //     (otherwise HTTP 400: "Missing reasoning_content field").
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
@@ -1427,15 +1317,15 @@ namespace SmartHopper.Providers.DeepSeek
                     typeof(double),
                     null),
                 new AIExtraDescriptor(
-                    "frequency_penalty",
-                    "Frequency Penalty",
-                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
-                    typeof(double),
-                    null),
-                new AIExtraDescriptor(
                     "presence_penalty",
                     "Presence Penalty",
                     "Penalizes tokens already present in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "frequency_penalty",
+                    "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
                     typeof(double),
                     null),
 

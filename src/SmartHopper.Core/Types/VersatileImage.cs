@@ -198,33 +198,6 @@ namespace SmartHopper.Core.Types
         }
 
         /// <summary>
-        /// Reconstructs a VersatileImage from deserialized persistence data.
-        /// Used by SafeGooCodec to restore saved outputs.
-        /// </summary>
-        public static VersatileImage FromDeserialized(
-            VersatileImageKind kind,
-            string rawValue,
-            Bitmap bitmap,
-            string id,
-            string context,
-            int pageOrSlide,
-            string sourceDocument,
-            string mimeType)
-        {
-            return new VersatileImage
-            {
-                Kind = kind,
-                RawValue = rawValue,
-                Bitmap = bitmap,
-                Id = id,
-                Context = context,
-                PageOrSlide = pageOrSlide,
-                SourceDocument = sourceDocument,
-                MimeType = mimeType,
-            };
-        }
-
-        /// <summary>
         /// Converts this image source to a Bitmap.
         /// For URLs and base64, downloads/decodes lazily.
         /// For local files, loads from disk.

@@ -241,9 +241,15 @@ namespace SmartHopper.Infrastructure.AICall.Metrics
                 Debug.WriteLine($"[AIMetrics] Combining metrics:\nProvider: {this.Provider} -> {other.Provider}\nModel: {this.Model} -> {other.Model}\nInputTokensPrompt: {this.InputTokensPrompt} -> {this.InputTokensPrompt + other.InputTokensPrompt}\nInputTokensCached: {this.InputTokensCached} -> {this.InputTokensCached + other.InputTokensCached}\nInputTokensCacheWrite: {this.InputTokensCacheWrite} -> {this.InputTokensCacheWrite + other.InputTokensCacheWrite}\nOutputTokensReasoning: {this.OutputTokensReasoning} -> {this.OutputTokensReasoning + other.OutputTokensReasoning}\nOutputTokensGeneration: {this.OutputTokensGeneration} -> {this.OutputTokensGeneration + other.OutputTokensGeneration}\nEstimatedInputTokens: {this.EstimatedInputTokens} -> {this.EstimatedInputTokens + other.EstimatedInputTokens}\nEstimatedOutputTokens: {this.EstimatedOutputTokens} -> {this.EstimatedOutputTokens + other.EstimatedOutputTokens}\nCompletionTime: {this.CompletionTime} -> {this.CompletionTime + other.CompletionTime}\nFinishReason: {this.FinishReason} -> {other.FinishReason}");
             }
 
-            this.Provider = CombineCommaSeparated(this.Provider, other.Provider, "Unknown");
-            this.Model = CombineCommaSeparated(this.Model, other.Model);
-            this.Role = CombineCommaSeparated(this.Role, other.Role);
+            if (!string.IsNullOrEmpty(other.Provider) && !string.Equals(other.Provider, "Unknown", System.StringComparison.Ordinal))
+            {
+                this.Provider = other.Provider;
+            }
+
+            if (!string.IsNullOrEmpty(other.Model))
+            {
+                this.Model = other.Model;
+            }
 
             if (other.FinishReason != null)
             {

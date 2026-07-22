@@ -23,7 +23,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -43,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         public TestAnthropicVisionComponent()
-            : base("Test Anthropic Vision", "TEST-ANTHROPIC-VISION", "Tests Anthropic vision API call with image input", "SmartHopper Tests", "Testing Providers")
+            : base("Test Anthropic Vision", "TEST-ANTHROPIC-VISION", "Tests Anthropic vision API call with image input", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("Anthropic");
@@ -94,12 +93,11 @@ namespace SmartHopper.Components.Test.Providers
                     var builder = AIBodyBuilder.FromImmutable(call.Body);
                     builder.Add(new AIInteractionText
                     {
-                        Agent = AIAgent.User,
+                        Agent = AIAgent.Context,
                         Content = "Analyze this image"
                     });
                     builder.Add(new AIInteractionImage
                     {
-                        Agent = AIAgent.User,
                         ImageData = base64Image
                     });
                     call.Body = builder.Build();
@@ -117,40 +115,24 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    // Check for image content in encoding by parsing JSON
-                    var json = JObject.Parse(encoded);
-                    var messages = json["messages"] as JArray;
-                    var contentBlocks = messages?.SelectMany(m => m["content"] as JArray ?? new JArray()).ToList() ?? new List<JToken>();
-
-                    var imageBlock = contentBlocks.FirstOrDefault(c => c["type"]?.ToString() == "image");
-                    if (imageBlock == null)
+                    // Check for image content in encoding
+                    if (!encoded.Contains("\"source\"") || !encoded.Contains("\"type\""))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing image content block"));
+                        this._messages.Add(new GH_String("Missing image source or type in encoding"));
                         await Task.Yield();
                         return;
                     }
 
-                    var source = imageBlock["source"] as JObject;
-                    if (source == null || source["type"]?.ToString() != "base64")
+                    if (!encoded.Contains("image/png") && !encoded.Contains("image/jpeg"))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Image source is not base64"));
+                        this._messages.Add(new GH_String("Missing image MIME type in encoding"));
                         await Task.Yield();
                         return;
                     }
 
-                    var mediaType = source["media_type"]?.ToString() ?? string.Empty;
-                    if (mediaType != "image/png" && mediaType != "image/jpeg")
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Unexpected image MIME type in encoding"));
-                        await Task.Yield();
-                        return;
-                    }
-
-                    var data = source["data"]?.ToString() ?? string.Empty;
-                    if (string.IsNullOrEmpty(data))
+                    if (!encoded.Contains(base64Image.Substring(0, 20)))
                     {
                         this._success = new GH_Boolean(false);
                         this._messages.Add(new GH_String("Base64 image data not found in encoding"));

@@ -221,3 +221,85 @@ return output;
 - Centralized logic reduces duplication and error-prone manual merges.
 - Preserves structured data (severity, origin), enabling accurate UI surfacing.
 - Consistent behavior across providers and tools, with clear single-source aggregation.
+
+## Message codes (machine-readable)
+
+- Purpose: allow robust programmatic checks without parsing message text.
+- Model: `AIRuntimeMessage` now includes `Code: AIMessageCode`.
+- Default: `AIMessageCode.Unknown (0)` to keep existing emits backward compatible.
+
+### Initial codes
+
+- Provider/model selection: `ProviderMissing`, `UnknownProvider`, `UnknownModel`, `NoCapableModel`, `CapabilityMismatch`.
+- Streaming: `StreamingDisabledProvider`, `StreamingUnsupportedModel`.
+- Tools/validation: `ToolValidationError`, `BodyInvalid`, `ReturnInvalid`.
+- Network/auth: `NetworkTimeout`, `AuthenticationMissing`, `AuthorizationFailed`, `RateLimited`.
+- Batch processing: `BatchItemError`, `BatchItemCanceled`, `BatchItemExpired`.
+
+### Batch processing messages
+
+Batch operations (via `IAIBatchProvider`) surface item-level results through a unified `IReadOnlyList<AIRuntimeMessage>` on `AIBatchStatus.Messages`:
+
+| Code | Severity | Origin | When emitted |
+|------|----------|--------|--------------|
+| `BatchItemError` | Error | Provider | Item returned an error (invalid request, server error, etc.) |
+| `BatchItemCanceled` | Error | Provider | Item was canceled before processing (user/system cancellation) |
+| `BatchItemExpired` | Warning | Provider | Item expired before being sent to model (24h batch limit exceeded) |
+
+Providers emitting batch messages:
+
+- **Anthropic**: Emits all three codes based on `result.type` (`errored`, `canceled`, `expired`)
+- **OpenAI**: Emits `BatchItemError` for non-2xx HTTP responses
+- **MistralAI**: Emits `BatchItemError` for non-2xx HTTP responses
+
+All batch messages flow through `ProcessBatchResults()` in `AIStatefulAsyncComponentBase`, which surfaces them via `AIReturn.AddRuntimeMessage()` → `SurfaceMessagesFromReturn()`, mapping severity to Grasshopper runtime message levels (Error → GH Error, Warning → GH Warning).
+
+### Emission guidance
+
+- Prefer setting `Code` when raising messages in validators, providers, and policies.
+- Keep `Message` human-readable; `Code` is for logic/tests.
+- Backward compatibility: existing calls to `new AIRuntimeMessage(sev, origin, text)` automatically default `Code` to `Unknown`.
+
+### Example (with codes)
+
+```csharp
+// Streaming validation in request
+if (settings != null && settings.EnableStreaming == false)
+{
+    messages.Add(new AIRuntimeMessage(
+        AIRuntimeMessageSeverity.Error,
+        AIRuntimeMessageOrigin.Validation,
+        AIMessageCode.StreamingDisabledProvider,
+        $"Streaming requested but provider '{provider}' has streaming disabled in settings."));
+}
+```
+
+### Provider/model validation (AIRequestCall.IsValid())
+
+`AIRequestCall.IsValid()` now emits machine-readable codes for provider/model resolution:
+
+- `ProviderMissing`, `UnknownProvider`
+- `NoCapableModel` (no model supports the required capability)
+- `UnknownModel` (requested model not registered for provider)
+- `CapabilityMismatch` (requested model known but lacks required capability; may be replaced by fallback)
+- Body/endpoint issues are tagged as `BodyInvalid`
+
+Examples:
+
+```csharp
+// Unknown model
+messages.Add(new AIRuntimeMessage(
+    AIRuntimeMessageSeverity.Warning,
+    AIRuntimeMessageOrigin.Validation,
+    AIMessageCode.UnknownModel,
+    $"Requested model '{requestedModel}' is not registered for provider '{provider}'."));
+
+// Capability mismatch (selection replaced)
+messages.Add(new AIRuntimeMessage(
+    AIRuntimeMessageSeverity.Warning,
+    AIRuntimeMessageOrigin.Validation,
+    AIMessageCode.CapabilityMismatch,
+    $"Requested model '{requestedModel}' does not support {capability}; selected '{resolvedModel}' instead."));
+```
+
+UI components (e.g., `AIStatefulAsyncComponentBase`) should prefer `Message.Code` for badge/state logic and only fall back to text parsing when `Code == Unknown`.

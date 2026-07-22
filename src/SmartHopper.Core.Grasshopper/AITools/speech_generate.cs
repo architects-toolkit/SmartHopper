@@ -57,7 +57,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates speech audio from text input. Example: speech_generate({ text: 'The pavilion is 12 meters wide.', voice: 'nova', speed: '1.0' }).",
+                description: "Generates speech audio from text input",
                 category: "Speech",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -80,11 +80,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""text""]
                 }",
                 execute: this.GenerateSpeechToolWrapper,
-                requiredCapabilities: this.toolCapabilityRequirements,
-                mutatesCanvas: false,
-                tags: new[] { "audio", "speech", "ai-generation", "read-only", "external" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""audio"": { ""type"": ""string"", ""description"": ""Base64-encoded audio data or URL."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>
@@ -96,7 +92,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildGenerateSpeechRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.GetArgumentsOrEmpty();
+            var args = toolInfo.Arguments ?? new JObject();
             string text = args["text"]?.ToString();
 
             // Get voice from args, extra settings, or default
@@ -165,7 +161,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 Debug.WriteLine("[SpeechTools] Running GenerateSpeech tool");
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.GetArgumentsOrEmpty();
+                var args = toolInfo.Arguments ?? new JObject();
                 string text = args["text"]?.ToString();
 
                 if (string.IsNullOrEmpty(text))

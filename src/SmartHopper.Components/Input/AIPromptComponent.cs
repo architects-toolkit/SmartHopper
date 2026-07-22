@@ -36,7 +36,7 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("5CD4D50A-35FB-45CC-91AB-CFFA0B5F1DD2");
 
-        protected override Bitmap Icon => Resources.toaiprompt;
+        protected override Bitmap Icon => Resources.aiprompt;
 
         public AIPromptComponent()
             : base("AI Prompt", "AIPrompt", "Wraps prompt text into an AIInputPayload with System role for guiding AI behavior.", GH_Exposure.primary)

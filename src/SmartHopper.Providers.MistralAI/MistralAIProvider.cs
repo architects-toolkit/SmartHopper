@@ -370,44 +370,19 @@ namespace SmartHopper.Providers.MistralAI
                     requestBody["presence_penalty"] = presPenaltyToken.Value<double?>();
                 }
 
+                if (p.Extras.TryGetValue("n", out var nToken) && nToken != null)
+                {
+                    requestBody["n"] = nToken.Value<int?>();
+                }
+
                 if (p.Extras.TryGetValue("safe_prompt", out var spToken) && spToken != null)
                 {
                     requestBody["safe_prompt"] = spToken;
                 }
-            }
 
-            // Priority: 1) Extra settings per-request, 2) Global provider setting
-            bool hasExplicitReasoningEffort = false;
-            var reasoningEffort = this.GetSetting<string>("ReasoningEffort");
-
-            if (p?.Extras != null &&
-                p.Extras.TryGetValue("reasoning_effort", out var reToken) &&
-                reToken != null)
-            {
-                hasExplicitReasoningEffort = true;
-                reasoningEffort = reToken.ToString();
-            }
-
-            if (!string.IsNullOrWhiteSpace(reasoningEffort))
-            {
-                // Mistral only supports 'none' and 'high'. Normalize legacy values to 'high' to preserve the intent of enabling reasoning.
-                if (!string.Equals(reasoningEffort, "none", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(reasoningEffort, "high", StringComparison.OrdinalIgnoreCase))
+                if (p.Extras.TryGetValue("service_tier", out var stToken) && stToken != null)
                 {
-                    Debug.WriteLine($"[MistralAIProvider] Reasoning effort '{reasoningEffort}' is not supported by Mistral; normalizing to 'high'.");
-                    reasoningEffort = "high";
-                }
-
-                // Only send for models that support reasoning, or when the user explicitly requests it per-request.
-                var supportsReasoning = ModelManager.Instance?.GetCapabilities(this.Name, request.Model)?.HasCapability(AICapability.Reasoning) == true;
-                if (hasExplicitReasoningEffort || supportsReasoning)
-                {
-                    requestBody["reasoning_effort"] = reasoningEffort;
-                    Debug.WriteLine($"[MistralAIProvider] Using reasoning effort: {reasoningEffort}");
-                }
-                else
-                {
-                    Debug.WriteLine($"[MistralAIProvider] Model '{request.Model}' does not support reasoning; omitting reasoning_effort.");
+                    requestBody["service_tier"] = stToken;
                 }
             }
 
@@ -1577,10 +1552,22 @@ namespace SmartHopper.Providers.MistralAI
 
                 // Mistral-specific parameters
                 new AIExtraDescriptor(
+                    "n",
+                    "N (Completions)",
+                    "Number of completions to generate for each prompt. Useful for getting multiple variations.",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
                     "safe_prompt",
                     "Safe Prompt",
                     "Inject a safety system prompt before all conversations to reduce unsafe responses.",
                     typeof(bool),
+                    null),
+                new AIExtraDescriptor(
+                    "service_tier",
+                    "Service Tier",
+                    "Service tier for request processing. May affect speed/availability.",
+                    typeof(string),
                     null),
             };
         }

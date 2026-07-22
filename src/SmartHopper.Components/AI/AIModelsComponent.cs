@@ -76,7 +76,7 @@ namespace SmartHopper.Components.AI
                   "AIModels",
                   "Retrieve the list of available models from the selected AI provider.",
                   "SmartHopper",
-                  "A. AI")
+                  "AI")
         {
             this.RunOnlyOnInputChanges = false;
         }

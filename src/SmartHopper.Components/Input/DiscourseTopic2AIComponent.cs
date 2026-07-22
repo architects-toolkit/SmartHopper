@@ -48,7 +48,7 @@ namespace SmartHopper.Components.Input
     {
         public override Guid ComponentGuid => new Guid("F6634BBF-D0AA-473D-A528-2DC797A8B324");
 
-        protected override Bitmap Icon => Resources.toaidiscoursetopic;
+        protected override Bitmap Icon => Resources.discourseforumsearch;
 
         public override GH_Exposure Exposure => GH_Exposure.septenary;
 
@@ -58,7 +58,7 @@ namespace SmartHopper.Components.Input
                   "DiscourseTopic2AI",
                   "Retrieves a Discourse forum topic by ID and wraps it into an AIInputPayload for AI processing.",
                   "SmartHopper",
-                  "B. Input")
+                  "Input")
         {
         }
 

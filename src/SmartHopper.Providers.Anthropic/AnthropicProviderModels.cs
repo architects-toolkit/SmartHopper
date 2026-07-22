@@ -122,7 +122,7 @@ namespace SmartHopper.Providers.Anthropic
                     Default = AICapability.Text2Json,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9985,
+                    Rank = 10000,
                     ContextLimit = 1000000,
                     Created = new DateTime(2026, 2, 17),
                     Pricing = new AIModelPricing
@@ -138,13 +138,13 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-4-7",
-                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
+                    Model = "claude-opus-4-6",
+                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9980,
+                    Rank = 9995,
                     ContextLimit = 1000000,
-                    Created = new DateTime(2026, 4, 16),
+                    Created = new DateTime(2026, 2, 4),
                     Pricing = new AIModelPricing
                     {
                         Prompt = 0.000005m,
@@ -158,13 +158,13 @@ namespace SmartHopper.Providers.Anthropic
                 new AIModelCapabilities
                 {
                     Provider = providerName,
-                    Model = "claude-opus-4-6",
-                    Capabilities = AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput | AICapability.FunctionCalling | AICapability.ImageInput | AICapability.Reasoning,
+                    Model = "claude-opus-4-7",
+                    Capabilities = AICapability.TextInput | AICapability.ImageInput | AICapability.TextOutput | AICapability.FunctionCalling | AICapability.JsonOutput | AICapability.Reasoning,
                     SupportsStreaming = true,
                     Verified = false,
-                    Rank = 9975,
+                    Rank = 9980,
                     ContextLimit = 1000000,
-                    Created = new DateTime(2026, 2, 4),
+                    Created = new DateTime(2026, 4, 16),
                     Pricing = new AIModelPricing
                     {
                         Prompt = 0.000005m,
@@ -197,7 +197,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00000625m,
                         WebSearch = 0.01m,
                     },
-                    Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest", "claude-opus-4.5", "claude-opus-4.5-latest" },
+                    Aliases = new List<string> { "claude-opus-4-5", "claude-opus-4-5-latest" },
                 },
 
 
@@ -223,7 +223,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00000125m,
                         WebSearch = 0.01m,
                     },
-                    Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest", "claude-haiku-4.5", "claude-haiku-4.5-latest" },
+                    Aliases = new List<string> { "claude-haiku-4-5", "claude-haiku-4-5-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
 
@@ -245,7 +245,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00000375m,
                         WebSearch = 0.01m,
                     },
-                    Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest", "claude-sonnet-4.5", "claude-sonnet-4.5-latest" },
+                    Aliases = new List<string> { "claude-sonnet-4-5", "claude-sonnet-4-5-latest" },
                 },
 
 
@@ -271,7 +271,7 @@ namespace SmartHopper.Providers.Anthropic
                         InputCacheWrite = 0.00001875m,
                         WebSearch = 0.01m,
                     },
-                    Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest", "claude-opus-4.1", "claude-opus-4.1-latest" },
+                    Aliases = new List<string> { "claude-opus-4-1", "claude-opus-4-1-latest" },
                 },
 
                 new AIModelCapabilities
@@ -328,9 +328,8 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -15,
                     ContextLimit = 200000,
-                    Created = new DateTime(2024, 3, 13),
-                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
-                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
+                    Created = new DateTime(2025, 2, 24),
+                    Aliases = new List<string> { "claude-3-7-sonnet", "claude-3-7-sonnet-latest" },
                 },
 
                 new AIModelCapabilities
@@ -343,6 +342,7 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -20,
                     ContextLimit = 200000,
+                    Created = new DateTime(2024, 11, 4),
                     Aliases = new List<string> { "claude-3-5-haiku", "claude-3-5-haiku-latest" },
                     DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 },
@@ -357,7 +357,9 @@ namespace SmartHopper.Providers.Anthropic
                     Deprecated = true,
                     Rank = -25,
                     ContextLimit = 200000,
-                    Aliases = new List<string> { "claude-3-7-sonnet", "claude-3-7-sonnet-latest" },
+                    Created = new DateTime(2024, 3, 13),
+                    Aliases = new List<string> { "claude-3-haiku", "claude-3-haiku-latest" },
+                    DiscouragedForTools = new List<string> { "script_generate", "script_edit" },
                 }
             };
 

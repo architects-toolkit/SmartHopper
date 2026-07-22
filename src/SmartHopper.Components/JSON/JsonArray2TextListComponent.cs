@@ -35,10 +35,10 @@ namespace SmartHopper.Components.JSON
         public override Guid ComponentGuid => new Guid("7D1F835A-5E41-4310-9813-B3D5F965FCE2");
 
         /// <inheritdoc/>
-        protected override Bitmap Icon => Resources.jsonarraytolist;
+        protected override Bitmap Icon => Resources.textgenerate;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonArray2TextListComponent"/> class.

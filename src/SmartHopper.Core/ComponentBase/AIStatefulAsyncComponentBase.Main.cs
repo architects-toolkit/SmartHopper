@@ -27,7 +27,6 @@ using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Contracts;
 using SmartHopper.Core.ComponentBase.Cores;
@@ -200,32 +199,16 @@ namespace SmartHopper.Core.ComponentBase
         private AIReturn AIReturnSnapshot;
 
         /// <summary>
-        /// Path of the processing unit currently being executed (set by
-        /// <see cref="OnProcessingUnitStart"/>). Null outside of active processing.
+        /// Gets or sets the authoritative metrics instance kept across state
+        /// transitions. Replacing the value should be rare — most derived code
+        /// should accumulate via <see cref="CombineIntoPersistedMetrics(AIMetrics)"/>
+        /// instead so per-slot metrics merge cleanly with the existing snapshot.
+        /// Setting <c>null</c> clears the snapshot.
         /// </summary>
-        private GH_Path _currentProcessingPath;
-
-        /// <summary>
-        /// Item index of the processing unit currently being executed (set by
-        /// <see cref="OnProcessingUnitStart"/>). Null for branch-level topologies.
-        /// </summary>
-        private int? _currentProcessingItemIndex;
-
-        /// <summary>
-        /// Metrics tree built during the current solve. Each metric JSON string is placed
-        /// at the same path as the branch/item that produced it, so downstream components
-        /// can deconstruct metrics while preserving tree topology.
-        /// </summary>
-        private GH_Structure<GH_String> _metricsTree;
-
-        /// <summary>
-        /// Gets or sets the authoritative metrics list for multi-provider support.
-        /// Use <see cref="CombineIntoPersistedMetrics(AIMetrics, string)"/> to add entries.
-        /// </summary>
-        protected Infrastructure.AICall.Metrics.AIMetricsList PersistedMetricsList
+        protected AIMetrics PersistedMetrics
         {
-            get => this._batchState.PersistedMetricsList;
-            set => this._batchState.PersistedMetricsList = value;
+            get => this._batchState.PersistedMetrics;
+            set => this._batchState.PersistedMetrics = value;
         }
 
         /// <summary>
@@ -336,7 +319,7 @@ namespace SmartHopper.Core.ComponentBase
             // Allow derived classes to add their specific outputs
             base.RegisterOutputParams(pManager);
 
-            pManager.AddTextParameter(WellKnownInputs.Metrics, "M", "Usage metrics in JSON format including input tokens, output tokens, and completion time. Preserves branch topology — one metric item per output branch.", GH_ParamAccess.tree);
+            pManager.AddTextParameter(WellKnownInputs.Metrics, "M", "Usage metrics in JSON format including input tokens, output tokens, and completion time.", GH_ParamAccess.item);
         }
 
         #endregion

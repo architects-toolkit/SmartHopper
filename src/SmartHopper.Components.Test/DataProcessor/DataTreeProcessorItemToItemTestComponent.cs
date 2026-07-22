@@ -47,7 +47,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test DataTreeProcessor (Item-to-Item)",
                 "TEST-DTP-ITEM",
                 "Tests DataTreeProcessor Item-to-Item topology where items are matched pairwise.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

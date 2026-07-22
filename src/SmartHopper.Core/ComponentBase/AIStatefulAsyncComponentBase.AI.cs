@@ -22,17 +22,13 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase.Batch;
-using SmartHopper.Core.DataTree;
 using SmartHopper.Infrastructure.AICall.Batch;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
 using SmartHopper.Infrastructure.AICall.Core.Requests;
 using SmartHopper.Infrastructure.AICall.Core.Returns;
-using SmartHopper.Infrastructure.AICall.Metrics;
 using SmartHopper.Infrastructure.AICall.Tools;
 using SmartHopper.Infrastructure.AITools;
 using SmartHopper.Infrastructure.Diagnostics;
@@ -114,72 +110,19 @@ namespace SmartHopper.Core.ComponentBase
         }
 
         /// <summary>
-        /// Stores the AI return snapshot, accumulates per-branch metrics into the tree,
-        /// and surfaces any messages from the result.
+        /// Stores the AI return snapshot and surfaces any messages from the result.
         /// </summary>
         private void ProcessAIResult(AIReturn result, string origin)
         {
             if (result != null)
             {
                 this.AIReturnSnapshot = result;
-
-                // Accumulate per-branch metrics for non-batch multi-branch solves.
-                // Batch mode skips this path (sentinels are returned before ProcessAIResult).
-                if (result.Metrics != null)
-                {
-                    var metrics = result.Metrics;
-                    metrics.DataCount = 1; // One AI call = one processing unit
-                    this.CombineIntoPersistedMetrics(metrics, "main");
-                    this.AppendMetricToTree(metrics);
-                }
             }
 
             if (result?.Messages != null && result.Messages.Count > 0)
             {
                 this.SurfaceMessagesFromReturn(result, origin);
             }
-        }
-
-        /// <summary>
-        /// Serializes a metric and appends it to <see cref="_metricsTree"/> at the
-        /// current processing path. For <see cref="ProcessingTopology.ItemGraft"/> the
-        /// item index is appended to the branch path so the metrics tree matches the
-        /// grafted output tree.
-        /// </summary>
-        private void AppendMetricToTree(AIMetrics metrics)
-        {
-            if (metrics == null) return;
-            this._metricsTree ??= new GH_Structure<GH_String>();
-
-            GH_Path path;
-            if (this.ComponentProcessingOptions.Topology == ProcessingTopology.ItemGraft && this._currentProcessingItemIndex.HasValue)
-            {
-                path = this._currentProcessingPath == null
-                    ? new GH_Path(this._currentProcessingItemIndex.Value)
-                    : this._currentProcessingPath.AppendElement(this._currentProcessingItemIndex.Value);
-            }
-            else
-            {
-                path = this._currentProcessingPath ?? new GH_Path(0);
-            }
-
-            var json = this.SerializeMetricsEntry(metrics).ToString();
-            this._metricsTree.Append(new GH_String(json), path);
-            Debug.WriteLine($"[AIStatefulAsync] Appended metric to tree at {path}");
-        }
-
-        /// <summary>
-        /// Serializes a metric and appends it to <see cref="_metricsTree"/> at the
-        /// specified path. Used by batch reconstruction when the current processing path
-        /// is no longer active.
-        /// </summary>
-        protected void AppendMetricToTree(AIMetrics metrics, GH_Path path)
-        {
-            if (metrics == null || path == null) return;
-            this._metricsTree ??= new GH_Structure<GH_String>();
-            var json = this.SerializeMetricsEntry(metrics).ToString();
-            this._metricsTree.Append(new GH_String(json), path);
-            Debug.WriteLine($"[AIStatefulAsync] Appended metric to tree at {path}");
         }
 
         /// <summary>

@@ -138,12 +138,14 @@ namespace SmartHopper.Core.ComponentBase
         /// <param name="description">Component description.</param>
         /// <param name="exposure">Component exposure level (primary or secondary).</param>
         protected AIOutputAdapterBase(string name, string nickname, string description, GH_Exposure exposure)
-            : base(name, nickname, description, "SmartHopper", "C. Output")
+            : base(name, nickname, description, "SmartHopper", "Output")
         {
             this._exposure = exposure;
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets the component exposure level (primary or secondary).
+        /// </summary>
         public override GH_Exposure Exposure => this._exposure;
 
         /// <summary>
@@ -153,8 +155,10 @@ namespace SmartHopper.Core.ComponentBase
         /// <returns>The internal system prompt string.</returns>
         protected abstract string GetInternalSystemPrompt();
 
-        /// <inheritdoc/>
-        protected override abstract Bitmap Icon { get; }
+        /// <summary>
+        /// Gets the component icon.
+        /// </summary>
+        protected abstract Bitmap Icon { get; }
 
         /// <summary>
         /// Gets the output mappings that define how to extract results from an AIReturn.
@@ -241,45 +245,6 @@ namespace SmartHopper.Core.ComponentBase
             base.RegisterOutputParams(pManager);
         }
 
-        /// <summary>
-        /// Internal wrapper for CombineIntoPersistedMetrics, accessible from nested worker class.
-        /// </summary>
-        internal void CombineIntoPersistedMetricsInternal(Infrastructure.AICall.Metrics.AIMetrics metrics, string role = null)
-        {
-            this.CombineIntoPersistedMetrics(metrics, role);
-        }
-
-        /// <summary>
-        /// Resolves the effective modality fallback mode from global settings
-        /// and per-component Extras override.
-        /// </summary>
-        private Infrastructure.AICall.Fallback.ModalityFallbackMode ResolveEffectiveFallbackMode()
-        {
-            var settings = Infrastructure.Settings.SmartHopperSettings.Load();
-            var globalMode = settings.ModalityFallback;
-
-            // Check per-component override from Extras
-            var extras = this.GetParameters()?.Extras;
-            if (extras != null && extras.TryGetValue("modality_fallback", out var modeToken))
-            {
-                var modeStr = modeToken?.ToString();
-                if (!string.IsNullOrWhiteSpace(modeStr))
-                {
-                    switch (modeStr.ToLowerInvariant())
-                    {
-                        case "disabled":
-                            return Infrastructure.AICall.Fallback.ModalityFallbackMode.Disabled;
-                        case "configured_provider":
-                            return Infrastructure.AICall.Fallback.ModalityFallbackMode.ConfiguredProvider;
-                        case "any_provider":
-                            return Infrastructure.AICall.Fallback.ModalityFallbackMode.AnyProvider;
-                    }
-                }
-            }
-
-            return globalMode;
-        }
-
         /// <inheritdoc/>
         protected override void PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext context)
         {
@@ -293,32 +258,15 @@ namespace SmartHopper.Core.ComponentBase
                     "Components with >1 UsingAiTools must override PrepareInputs (Complex Case).");
             }
 
-            // Resolve effective modality fallback mode (global setting + per-component Extras override)
-            var effectiveFallbackMode = ResolveEffectiveFallbackMode();
-
-            // Block fallback in batch mode
-            if (effectiveFallbackMode != Infrastructure.AICall.Fallback.ModalityFallbackMode.Disabled
-                && this.IsBatchRequest())
-            {
-                throw new InvalidOperationException(
-                    "Modality fallback is not supported in batch mode. Run without batch mode to use fallback.");
-            }
-
             // Validate capabilities before AI call (RequiredCapability automatically merges UsingAiTools)
             var validation = new ComponentCapabilityValidator(this.GetActualAIProviderName(), this.GetModel())
-                .ValidateSync(this.RequiredCapability, effectiveFallbackMode);
+                .ValidateSync(this.RequiredCapability);
 
             if (!validation.IsValid)
             {
                 var errorMsg = validation.Messages?.FirstOrDefault(m => m.Severity == SHRuntimeMessageSeverity.Error);
                 throw new InvalidOperationException(
                     $"[Capability] {errorMsg?.Message ?? "Provider/model does not support required capability"}");
-            }
-
-            // Store the resolved fallback chain for use in ProcessBranchAsync
-            if (validation.FallbackChain != null)
-            {
-                inputs["_FallbackChain"] = validation.FallbackChain;
             }
 
             // Merge AIInputPayload inputs per-branch and build system prompt
@@ -363,13 +311,6 @@ namespace SmartHopper.Core.ComponentBase
                     {
                         foreach (var interaction in mergedBody.Interactions)
                         {
-                            // Skip system text interactions: they were already incorporated into the composed system prompt.
-                            // Non-text system interactions (images, tool calls, etc.) are preserved since they were not extracted above.
-                            if (interaction?.Agent == AIAgent.System && interaction is AIInteractionText)
-                            {
-                                continue;
-                            }
-
                             combinedBody.Add(interaction);
                         }
                     }
@@ -454,7 +395,7 @@ namespace SmartHopper.Core.ComponentBase
             var perMappingTrees = mappings.ToDictionary(m => m.ParamName, _ => new GH_Structure<IGH_Goo>());
 
             // customId -> branch path (for clearer error messages).
-            var customIdToBranchPath = new Dictionary<string, GH_Path>();
+            var customIdToBranchPath = new Dictionary<string, string>();
             foreach (var path in primarySentinelTree.Paths)
             {
                 foreach (var item in primarySentinelTree.get_Branch(path))
@@ -462,13 +403,13 @@ namespace SmartHopper.Core.ComponentBase
                     var str = (item as GH_String)?.Value ?? string.Empty;
                     if (BatchSentinel.TryExtract(str, out var customId))
                     {
-                        customIdToBranchPath[customId] = path;
+                        customIdToBranchPath[customId] = path.ToString();
                     }
                 }
             }
 
             var allInteractions = new List<IAIInteraction>();
-            var customIdToMetrics = new Dictionary<string, List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>>();
+            var allMetrics = new List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>();
 
             foreach (var path in primarySentinelTree.Paths)
             {
@@ -490,15 +431,9 @@ namespace SmartHopper.Core.ComponentBase
                     }
 
                     allInteractions.AddRange(interactions);
-                    var metricsList = new List<SmartHopper.Infrastructure.AICall.Metrics.AIMetrics>();
                     foreach (var inter in interactions)
                     {
-                        if (inter.Metrics != null) metricsList.Add(inter.Metrics);
-                    }
-
-                    if (metricsList.Count > 0)
-                    {
-                        customIdToMetrics[customId] = metricsList;
+                        if (inter.Metrics != null) allMetrics.Add(inter.Metrics);
                     }
 
                     var aiReturn = new AIReturn
@@ -556,44 +491,32 @@ namespace SmartHopper.Core.ComponentBase
                 this.SurfaceMessagesFromReturn(errorReturn, "batch_item");
             }
 
-            // Aggregate metrics via AIMetricsList for multi-provider support.
+            // Aggregate metrics and publish a synthetic AIReturn snapshot — same as ProcessBatchResults<T>.
             if (allInteractions.Count > 0)
             {
-                var allMetrics = customIdToMetrics.Values.SelectMany(v => v).ToList();
-                this.PersistedMetricsList = new SmartHopper.Infrastructure.AICall.Metrics.AIMetricsList();
+                var aggregatedMetrics = new SmartHopper.Infrastructure.AICall.Metrics.AIMetrics
+                {
+                    Provider = providerName,
+                    Model = this.GetModel(),
+                };
                 foreach (var m in allMetrics)
                 {
-                    this.PersistedMetricsList.Add(m, "main");
+                    aggregatedMetrics.Combine(m);
                 }
 
-                var firstEntry = this.PersistedMetricsList.Entries[0];
+                this.PersistedMetrics = aggregatedMetrics;
 
                 var batchReturn = new AIReturn();
                 var batchRequest = new SmartHopper.Infrastructure.AICall.Core.Requests.AIRequestCall();
                 batchRequest.Initialize(
-                    firstEntry.Provider,
-                    firstEntry.Model,
+                    aggregatedMetrics.Provider,
+                    aggregatedMetrics.Model,
                     new List<IAIInteraction>(),
                     endpoint: "batch_complete",
                     capability: AICapability.None,
                     toolFilter: null);
                 batchReturn.CreateSuccess(allInteractions, request: batchRequest);
                 this.SetAIReturnSnapshot(batchReturn);
-
-                // Append metrics to the tree at each sentinel's branch path.
-                foreach (var kvp in customIdToMetrics)
-                {
-                    var customId = kvp.Key;
-                    if (!customIdToBranchPath.TryGetValue(customId, out var path))
-                    {
-                        continue;
-                    }
-
-                    foreach (var m in kvp.Value)
-                    {
-                        this.AppendMetricToTree(m, path);
-                    }
-                }
             }
 
             // Persist primary + extras atomically via FinishResults.
@@ -765,21 +688,6 @@ namespace SmartHopper.Core.ComponentBase
                 AIReturn aiResult = null;
                 if (inputs.TryGetValue("_MergedBody", out var mergedBodyObj) && mergedBodyObj is AIBody mergedBody)
                 {
-                    // Apply fallback chain if resolved during validation
-                    if (inputs.TryGetValue("_FallbackChain", out var chainObj)
-                        && chainObj is Infrastructure.AICall.Fallback.FallbackChain chain)
-                    {
-                        var fallbackResult = await chain.ApplyAsync(mergedBody, token).ConfigureAwait(false);
-                        mergedBody = fallbackResult.TransformedBody;
-
-                        // Record fallback metrics
-                        foreach (var m in fallbackResult.ExtraMetricsList)
-                        {
-                            var stepName = chain.Steps.Count > 0 ? chain.Steps[0].Name : "unknown";
-                            this._parent.CombineIntoPersistedMetricsInternal(m, $"fallback:{stepName}");
-                        }
-                    }
-
                     aiResult = await this._parent.CallAIAsync(mergedBody, cancellationToken: token).ConfigureAwait(false);
                 }
 

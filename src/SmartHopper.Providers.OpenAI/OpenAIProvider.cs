@@ -192,23 +192,13 @@ namespace SmartHopper.Providers.OpenAI
             {
                 return this.FormatImageGenerationRequestBody(request);
             }
-            else if (request.Endpoint.Contains("/audio/transcriptions"))
+            else if (request.Endpoint == "/audio/transcriptions")
             {
                 return this.FormatAudioTranscriptionRequestBody(request);
             }
-            else if (request.Endpoint.Contains("/audio/speech"))
+            else if (request.Endpoint == "/audio/speech")
             {
                 return this.FormatAudioSpeechRequestBody(request);
-            }
-            else if (request.Endpoint.Contains("/responses"))
-            {
-                var input = this.BuildResponsesInput(request.Body.Interactions);
-                return this.FormatResponsesApiRequestBody(request, input);
-            }
-            else if (request.Endpoint.Contains("/chat/completions"))
-            {
-                var messages = this.BuildChatCompletionMessages(request.Body.Interactions);
-                return this.FormatChatCompletionsRequestBody(request, messages);
             }
             else
             {
@@ -549,11 +539,6 @@ namespace SmartHopper.Providers.OpenAI
                     // Audio transcription response (STT)
                     return this.ProcessAudioTranscriptionResponseData(response);
                 }
-                else if (response["output"] != null)
-                {
-                    // Responses API output (e.g., reasoning models with reasoning summaries)
-                    return this.ProcessResponsesApiData(response);
-                }
                 else if (response["choices"] != null)
                 {
                     // Chat completion response
@@ -727,6 +712,11 @@ namespace SmartHopper.Providers.OpenAI
                 if (p.Extras.TryGetValue("top_logprobs", out var topLogprobsToken) && topLogprobsToken != null)
                 {
                     requestBody["top_logprobs"] = topLogprobsToken.Value<int?>();
+                }
+
+                if (p.Extras.TryGetValue("n", out var nToken) && nToken != null)
+                {
+                    requestBody["n"] = nToken.Value<int?>();
                 }
 
                 if (p.Extras.TryGetValue("prompt_cache_retention", out var cacheRetentionToken) && cacheRetentionToken != null)
@@ -1282,6 +1272,7 @@ namespace SmartHopper.Providers.OpenAI
                     }
 
                     content = string.Join(string.Empty, contentParts).Trim();
+                    reasoning = string.Join("\n\n", reasoningParts).Trim();
                 }
                 else if (contentToken != null)
                 {
@@ -2520,27 +2511,6 @@ namespace SmartHopper.Providers.OpenAI
                     finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
                 }
 
-                // Add Responses API tool calls if present
-                foreach (var kv in responsesToolCalls.OrderBy(k => k.Key))
-                {
-                    var (id, name, argsSb) = kv.Value;
-                    JObject argsObj = null;
-                    var argsStr = argsSb.ToString();
-                    try
-                    {
-                        if (!string.IsNullOrWhiteSpace(argsStr))
-                        {
-                            argsObj = JObject.Parse(argsStr);
-                        }
-                    }
-                    catch
-                    {
-                        // Partial JSON
-                    }
-
-                    finalBuilder.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj }, markAsNew: false);
-                }
-
                 final.SetBody(finalBuilder.Build());
                 yield return final;
             }
@@ -2854,23 +2824,10 @@ namespace SmartHopper.Providers.OpenAI
                 {
                     results[lineCustomId] = resultBody;
 
-                    // Extract finish/status warnings for both Chat Completions and Responses API
-                    string finishReason = null;
-
-                    // Chat Completions format: choices[0].finish_reason
+                    // Extract finish_reason and surface as warning for non-stop reasons
                     var choices = resultBody["choices"] as JArray;
                     var firstChoice = choices?.FirstOrDefault() as JObject;
-                    finishReason = firstChoice?["finish_reason"]?.ToString();
-
-                    // Responses API format: status field (e.g. "completed", "incomplete", "failed")
-                    if (string.IsNullOrEmpty(finishReason))
-                    {
-                        var status = resultBody["status"]?.ToString();
-                        if (!string.IsNullOrEmpty(status) && status != "completed")
-                        {
-                            finishReason = status;
-                        }
-                    }
+                    var finishReason = firstChoice?["finish_reason"]?.ToString();
 
                     if (!string.IsNullOrEmpty(finishReason) && finishReason != "stop")
                     {
@@ -2904,7 +2861,45 @@ namespace SmartHopper.Providers.OpenAI
         {
             return new[]
             {
+                // General parameters (shared across providers)
+                new AIExtraDescriptor(
+                    "top_p",
+                    "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "presence_penalty",
+                    "Presence Penalty",
+                    "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "frequency_penalty",
+                    "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double),
+                    null),
+
                 // OpenAI-specific parameters
+                new AIExtraDescriptor(
+                    "n",
+                    "N (Completions)",
+                    "Number of completions to generate for each prompt. Useful for getting multiple variations.",
+                    typeof(int),
+                    null),
+                new AIExtraDescriptor(
+                    "logprobs",
+                    "Log Probabilities",
+                    "Return log probabilities of output tokens. Useful for analyzing model confidence.",
+                    typeof(bool),
+                    null),
+                new AIExtraDescriptor(
+                    "top_logprobs",
+                    "Top Logprobs",
+                    "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
+                    typeof(int),
+                    null),
                 new AIExtraDescriptor(
                     "reasoning_effort",
                     "Reasoning Effort",

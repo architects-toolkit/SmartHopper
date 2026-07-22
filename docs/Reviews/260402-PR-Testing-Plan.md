@@ -304,19 +304,6 @@ This is a **large-scale refactor** involving 208 files changed, 21,998 insertion
 - [ ] **TC-W2MD-11:** `Web2MdComponent` - basic URL conversion
 - [ ] **TC-W2MD-12:** Verify `web_generic_page_read` removal - use `web2md` instead
 
-### 7.4 Failure-Shape Testing (GitHub issue #540)
-
-Automated coverage: `src/SmartHopper.Core.Grasshopper.Tests/Converters/UrlConverterTests.cs`.
-
-- [x] **TC-W2MD-13:** Invalid URL (malformed / non-HTTP scheme) -> `FileConversionFailureReason.InvalidInput`, clear error message, no fake success
-- [x] **TC-W2MD-14:** Login-only page (password field + login phrase, or HTTP 401/403) -> `FileConversionFailureReason.LoginRequired`
-- [x] **TC-W2MD-15:** Bot/human-verification challenge page (reCAPTCHA, hCaptcha, Cloudflare Turnstile/"Just a moment...", DataDome, PerimeterX, GeeTest) -> `FileConversionFailureReason.BotChallenge`, challenge markup never converted as content
-- [x] **TC-W2MD-16:** Huge page exceeding `FileConversionOptions.MaxDownloadBytes` -> `FileConversionFailureReason.ContentTooLarge`, bounded download (no unbounded buffering)
-- [x] **TC-W2MD-17:** Empty or thin page (below `FileConversionOptions.MinContentLength`) -> `FileConversionFailureReason.EmptyContent`, not a success with empty Markdown
-- [x] **TC-W2MD-18:** Genuine page with substantial content -> success, `FailureReason == None`
-- [ ] **TC-W2MD-19 (manual/live):** Real-world login wall (e.g. a site requiring sign-in) via `Web2MdComponent` in Grasshopper - verify the runtime error message is explicit, not an empty Markdown output
-- [ ] **TC-W2MD-20 (manual/live):** Real-world CAPTCHA-protected page via `Web2MdComponent` - verify explicit failure, not converted challenge text
-
 ---
 
 ## 8. AI Settings Components Testing (🟡 P1 - HIGH)
@@ -352,8 +339,8 @@ Automated coverage: `src/SmartHopper.Core.Grasshopper.Tests/Converters/UrlConver
 
 ### 8.4 Integration
 
-- [x] **TC-SETTINGS-21:** Backward compatibility - plain string model name
-- [x] **TC-SETTINGS-22:** Settings flow through to provider `Encode()`
+- [ ] **TC-SETTINGS-21:** Backward compatibility - plain string model name
+- [ ] **TC-SETTINGS-22:** Settings flow through to provider `Encode()`
 - [ ] **TC-SETTINGS-23:** Per-property resolution priority (input > global settings)
 
 ---
@@ -362,10 +349,10 @@ Automated coverage: `src/SmartHopper.Core.Grasshopper.Tests/Converters/UrlConver
 
 ### 9.1 text2json Tool
 
-- [x] **TC-JSON-01:** Generate JSON from prompt with JSON Schema
-- [x] **TC-JSON-02:** Test `prompt` parameter (required)
-- [x] **TC-JSON-03:** Test `instructions` parameter (optional)
-- [x] **TC-JSON-04:** Test `jsonSchema` parameter (required)
+- [ ] **TC-JSON-01:** Generate JSON from prompt with JSON Schema
+- [ ] **TC-JSON-02:** Test `prompt` parameter (required)
+- [ ] **TC-JSON-03:** Test `instructions` parameter (optional)
+- [ ] **TC-JSON-04:** Test `jsonSchema` parameter (required)
 - [ ] **TC-JSON-05:** Verify `AICapability.TextInput | JsonOutput` enforcement
 - [ ] **TC-JSON-06:** Validate output conforms to provided schema
 

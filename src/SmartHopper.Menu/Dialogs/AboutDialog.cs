@@ -505,19 +505,7 @@ namespace SmartHopper.Menu.Dialogs
             contentLayout.Items.Add(textractLink);
             contentLayout.Items.Add(magicHtmlLink);
             contentLayout.Items.Add(dataFlowLink);
-            contentLayout.Items.Add(newtonsoftJsonLink);
-            contentLayout.Items.Add(markdigLink);
-            contentLayout.Items.Add(ghjsonLink);
-            contentLayout.Items.Add(htmlAgilityPackLink);
-            contentLayout.Items.Add(documentFormatOpenXmlLink);
-            contentLayout.Items.Add(mimeKitLink);
-            contentLayout.Items.Add(pdfPigLink);
-            contentLayout.Items.Add(reverseMarkdownLink);
-            contentLayout.Items.Add(smartReaderLink);
-            contentLayout.Items.Add(jsonSchemaNetLink);
-            contentLayout.Items.Add(microsoftNetPackagesLink);
-            contentLayout.Items.Add(materialIconsLink);
-            contentLayout.Items.Add(lobeIconsLink);
+            contentLayout.Items.Add(null); // spacing
             contentLayout.Items.Add(rhinoIconLink);
             contentLayout.Items.Add(ladybugIconLink);
             contentLayout.Items.Add(logoDesignThanksLabel);

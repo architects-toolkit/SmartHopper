@@ -24,6 +24,7 @@ using Grasshopper.Kernel.Data;
 using SmartHopper.Core.Models;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
+using SmartHopper.Infrastructure.AIModels;
 
 namespace SmartHopper.Core.Types
 {
@@ -55,6 +56,8 @@ namespace SmartHopper.Core.Types
 
             var mergedInteractions = new List<IAIInteraction>();
             var contextFilters = new List<string>();
+            var sourceCapabilities = new HashSet<AICapability>();
+
             // Merge all payloads in order, preserving interaction sequence
             foreach (var payload in payloadList)
             {
@@ -82,6 +85,12 @@ namespace SmartHopper.Core.Types
                         {
                             mergedInteractions.Add(interaction);
                         }
+                    }
+
+                    // Track source capabilities
+                    if (payload.InputCapabilityAtSource != AICapability.None)
+                    {
+                        sourceCapabilities.Add(payload.InputCapabilityAtSource);
                     }
                 }
             }

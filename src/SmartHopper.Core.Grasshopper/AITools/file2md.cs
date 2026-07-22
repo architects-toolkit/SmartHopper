@@ -24,7 +24,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
 using SmartHopper.Core.Grasshopper.Converters.Formats;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -42,6 +41,18 @@ namespace SmartHopper.Core.Grasshopper.AITools
     {
         private readonly string toolName = "file2md";
         private static FileConverterRegistry? registry;
+
+        /// <summary>
+        /// Default prompt used for <c>describe</c> mode: long, thorough description.
+        /// </summary>
+        private const string DefaultImageDescriptionPrompt =
+            "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured. Do not make assumptions. Do not suggest future actions. Stick to describing the image in a way that is useful for someone who cannot see it.";
+
+        /// <summary>
+        /// Default prompt used for <c>caption</c> and <c>embed</c> modes: short, one-sentence caption.
+        /// </summary>
+        private const string DefaultImageCaptionPrompt =
+            "Write a concise, descriptive caption for this image in one sentence.";
 
         /// <summary>
         /// Gets or creates the converter registry with all built-in converters.
@@ -151,11 +162,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""filePath""]
                 }",
-                execute: this.File2MdAsync,
-                mutatesCanvas: false,
-                tags: new[] { "file", "knowledge", "text", "read-only" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""text"": { ""type"": ""string"", ""description"": ""Markdown representation of the file contents."" }, ""fileType"": { ""type"": ""string"" }, ""images"": { ""type"": ""array"" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                execute: this.File2MdAsync);
         }
 
         private async Task<AIReturn> File2MdAsync(AIToolCall toolCall)
@@ -256,13 +263,34 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult["images"] = imagesArray;
                     toolResult["imageCount"] = result.Images.Count;
 
+                    // Insert image placeholders into markdown content for later substitution
+                    string annotatedContent = InsertImagePlaceholders(result.MarkdownContent, result.Images);
+                    toolResult["content"] = annotatedContent;
+                }
+
                     // Describe images via AI and replace inline [image N] placeholders
                     if (describeImages)
                     {
                         string providerName = toolCall.Provider?.ToString();
                         if (string.IsNullOrWhiteSpace(providerName))
                         {
-                            result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
+                            string aiText = await DescribeImageAsync(image, effectivePrompt, toolCall).ConfigureAwait(false);
+
+                            if (imageMode == "embed")
+                            {
+                                imagesSb.AppendLine($"*{image.Context}*");
+                                imagesSb.AppendLine();
+                                imagesSb.AppendLine($"![{aiText}](data:{image.MimeType};base64,{image.RawValue})");
+                                imagesSb.AppendLine();
+                            }
+                            else
+                            {
+                                // describe or caption: text-only block
+                                imagesSb.AppendLine($"**[{image.Id} — {image.Context}]**");
+                                imagesSb.AppendLine();
+                                imagesSb.AppendLine(aiText);
+                                imagesSb.AppendLine();
+                            }
                         }
                         else
                         {
@@ -315,6 +343,87 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 output.CreateError($"Error: {ex.Message}");
                 return output;
             }
+        }
+
+        /// <summary>
+        /// Calls the <c>img2text</c> tool to obtain a text description of an extracted image.
+        /// </summary>
+        /// <param name="imageSource">The image source containing base64 data and mime type.</param>
+        /// <param name="prompt">The description prompt to send to the AI.</param>
+        /// <param name="sourceToolCall">The parent tool call providing provider and model context.</param>
+        /// <returns>The AI-generated text description, or a fallback string on failure.</returns>
+        private static async Task<string> DescribeImageAsync(VersatileImage imageSource, string prompt, AIToolCall sourceToolCall)
+        {
+            try
+            {
+                var imgArgs = new JObject
+                {
+                    ["imageBase64"] = imageSource.RawValue,
+                    ["mimeType"] = "image/png",
+                    ["prompt"] = prompt,
+                };
+
+                var imgInteraction = new AIInteractionToolCall
+                {
+                    Name = "img2text",
+                    Arguments = imgArgs,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var imgToolCall = new AIToolCall
+                {
+                    Endpoint = "img2text",
+                    Provider = sourceToolCall.Provider,
+                    Model = sourceToolCall.Model,
+                    Parameters = sourceToolCall.Parameters,
+                };
+
+                imgToolCall.FromToolCallInteraction(imgInteraction);
+
+                var imgResult = await imgToolCall.Exec().ConfigureAwait(false);
+
+                var toolResult = ToolCallResult.FromAIReturn(imgResult);
+                return toolResult["description"]?.ToString() ?? "[Image could not be described]";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[file2md] DescribeImageAsync failed: {ex.Message}");
+                return "[Image description failed]";
+            }
+        }
+
+        /// <summary>
+        /// Inserts image placeholders into the markdown content.
+        /// Adds an "## Images" section at the bottom with [image N] placeholders
+        /// for each extracted image to enable later substitution.
+        /// </summary>
+        /// <param name="markdown">The base markdown content.</param>
+        /// <param name="images">The list of extracted images with metadata.</param>
+        /// <returns>Annotated markdown with image placeholders.</returns>
+        private static string InsertImagePlaceholders(string markdown, IList<VersatileImage> images)
+        {
+            if (images == null || images.Count == 0)
+            {
+                return markdown;
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine(markdown);
+            sb.AppendLine();
+            sb.AppendLine("---");
+            sb.AppendLine();
+            sb.AppendLine("## Images");
+            sb.AppendLine();
+
+            for (int i = 0; i < images.Count; i++)
+            {
+                var image = images[i];
+                int imageNumber = i + 1;
+                sb.AppendLine($"*[image {imageNumber}] {image.Context}*");
+                sb.AppendLine();
+            }
+
+            return sb.ToString().Trim();
         }
 
     }

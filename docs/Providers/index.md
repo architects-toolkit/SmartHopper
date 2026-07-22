@@ -39,18 +39,18 @@ Providers implement API-specific logic while conforming to a common contract so 
 ### Key locations
 
 - `src/SmartHopper.Infrastructure/AIProviders/`
-  - `IAIProvider` — provider contract (name, icon, models, PreCall/Call/PostCall, settings)
-  - `AIProvider` — base template method flow and HTTP orchestration
-  - `AIProviderModels` — capability and default model registry integration
-  - `ProviderManager` — discovery, trust, registration, settings persistence
+  - `IAIProvider` â€” provider contract (name, icon, models, PreCall/Call/PostCall, settings)
+  - `AIProvider` â€” base template method flow and HTTP orchestration
+  - `AIProviderModels` â€” capability and default model registry integration
+  - `ProviderManager` â€” discovery, trust, registration, settings persistence
 - External providers: `SmartHopper.Providers.*` projects (e.g., OpenAI, DeepSeek, MistralAI, Gemini)
 
 ### Lifecycle
 
-1. Discovery and trust — provider assemblies are scanned, verified (Authenticode + strong-name), and optionally trusted.
-2. Initialization — provider registers its models and capabilities with the model registry.
-3. Request flow — PreCall → FormatRequestBody → CallApi → PostCall; responses normalized into `AIReturn<T>`.
-4. Settings — descriptor-driven, validated and persisted via `ProviderManager` (secrets stored securely).
+1. Discovery and trust â€” provider assemblies are scanned, verified (Authenticode + strong-name), and optionally trusted.
+2. Initialization â€” provider registers its models and capabilities with the model registry.
+3. Request flow â€” PreCall â†’ FormatRequestBody â†’ CallApi â†’ PostCall; responses normalized into `AIReturn<T>`.
+4. Settings â€” descriptor-driven, validated and persisted via `ProviderManager` (secrets stored securely).
 
 ### Security
 
@@ -79,76 +79,36 @@ Providers implement API-specific logic while conforming to a common contract so 
 - [Prompt Caching](./PromptCaching.md)
 - [Streaming Adapters](./AICall/Streaming.md)
 
-### Provider implementations (in order of implementation)
+## Provider implementations (in order of implementation)
 
-- [MistralAI](./MistralAI.md)
-- [OpenAI](./OpenAI.md)
-- [DeepSeek](./DeepSeek.md)
-- [Anthropic](./Anthropic.md)
-- [OpenRouter](./OpenRouter.md)
+- MistralAI
+- OpenAI
+- DeepSeek
+- Anthropic
+- OpenRouter
 - [Google Gemini](./Gemini.md)
-
----
 
 ## Developer Reference
 
-The provider system uses a template-method pattern where `AIProvider` defines the orchestration and concrete providers fill in encoding, decoding, and API details.
+Example usage:
 
-```csharp
-// Implementing a custom provider
-public class MyCustomProvider : AIProvider
-{
-    public override string Name => "mycustom";
-    public override string IconUrl => "Resources/mycustom.png";
+`csharp
+// Placeholder example
+``r
 
-    public override async Task InitializeProviderAsync()
-    {
-        // Register models and capabilities
-        var models = await Models.RetrieveModels();
-        foreach (var model in models)
-        {
-            ModelManager.RegisterCapabilities(model);
-        }
-        await base.InitializeProviderAsync();
-    }
+`csharp
+// Another placeholder example
+``r
 
-    protected override object Encode(AIRequestCall request)
-    {
-        // Convert SmartHopper request to provider-specific format
-        return new { model = request.Model, messages = request.Messages };
-    }
-
-    protected override AIReturn<string> Decode(string responseBody)
-    {
-        // Parse provider response into SmartHopper format
-        return new AIReturn<string> { Result = responseBody };
-    }
-}
-
-```
-
-```csharp
-// Factory registration for discovery
-public class MyCustomProviderFactory : IAIProviderFactory
-{
-    public IAIProvider CreateProvider()
-    {
-        return new MyCustomProvider();
-    }
-}
-
-```
-
----
 
 ## Architecture & Design
 
-The provider architecture is designed around separation of concerns:
+Architecture and design notes for index.
 
-- **Contracts (`IAIProvider`)** define what every provider must expose: name, icon, model lists, settings, and the call pipeline.
-- **Base class (`AIProvider`)** implements shared concerns: HTTP orchestration, settings caching, model resolution via `ModelManager`, metrics recording, and the PreCall/Call/PostCall lifecycle.
-- **Model metadata (`AIProviderModels`)** lets each provider declare what models it supports, their capabilities, and which model is default for each capability.
-- **Settings (`AIProviderSettings`)** provide descriptor-driven UI and validation so each provider can expose its own configuration without building custom UI.
-- **Discovery (`ProviderManager`)** scans for provider assemblies, verifies signatures, and registers trusted providers so the system remains secure even with third-party extensions.
+```csharp
+// Example code for Developer Reference
+```
 
-This architecture means adding a new AI service typically requires only: a provider class inheriting `AIProvider`, a models class inheriting `AIProviderModels`, a settings class inheriting `AIProviderSettings`, and a factory implementing `IAIProviderFactory`.
+```csharp
+// Additional example for Developer Reference
+```

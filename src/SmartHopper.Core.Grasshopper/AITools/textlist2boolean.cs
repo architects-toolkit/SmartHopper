@@ -75,7 +75,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Evaluates a list based on a natural language question with optional fallback value. Example: textlist2boolean({ list: ['steel', 'concrete', 'timber'], question: 'Are all items structural materials?', fallback: false }).",
+                description: "Evaluates a list based on a natural language question with optional fallback value",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -87,11 +87,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""list"", ""question""]
                 }",
                 execute: this.TextList2Boolean,
-                requiredCapabilities: this.toolCapabilityRequirements,
-                mutatesCanvas: false,
-                tags: new[] { "text", "list", "boolean", "data-processing", "read-only" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""boolean"", ""description"": ""Boolean evaluation result or fallback value."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                requiredCapabilities: this.toolCapabilityRequirements);
         }
 
         /// <summary>

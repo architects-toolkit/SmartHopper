@@ -69,26 +69,22 @@ body:
         - Anthropic / claude-sonnet-4-5-20250929
         - DeepSeek / deepseek-v4-flash
         - DeepSeek / deepseek-v4-pro
-        - Gemini / gemini-3.1-flash-lite-image
-        - Gemini / gemini-3.1-flash-lite
-        - Gemini / gemini-3.1-flash-image
-        - Gemini / gemini-3.5-flash
-        - Gemini / gemini-3-pro-image
-        - Gemini / lyria-3-pro-preview
         - Gemini / lyria-3-clip-preview
+        - Gemini / lyria-3-pro-preview
         - Gemini / gemma-4-26b-a4b-it
         - Gemini / gemma-4-31b-it
         - Gemini / gemini-3.1-flash-lite-preview
         - Gemini / gemini-3.1-flash-image-preview
-        - Gemini / gemini-3.1-pro-preview-customtools
         - Gemini / gemini-3.1-pro-preview
-        - Gemini / gemini-2.5-flash-image
+        - Gemini / gemini-3.1-pro-preview-customtools
         - Gemini / gemini-3-flash-preview
         - Gemini / gemini-3-pro-image-preview
-        - Gemini / gemini-2.5-flash-lite
+        - Gemini / gemini-2.5-flash-image
         - Gemini / gemini-2.5-flash-lite-preview-09-2025
+        - Gemini / gemini-2.5-flash-lite
         - Gemini / gemini-2.5-flash
         - Gemini / gemini-2.5-pro
+        - Gemini / gemma-3n-e2b-it
         - Gemini / gemma-3n-e4b-it
         - Gemini / gemini-2.5-pro-preview
         - Gemini / gemini-2.5-pro-preview-05-06
@@ -96,7 +92,6 @@ body:
         - Gemini / gemma-3-12b-it
         - Gemini / gemma-3-27b-it
         - Gemini / gemma-2-27b-it
-        - MistralAI / mistral-medium-latest
         - MistralAI / mistral-small-2603
         - MistralAI / ministral-3b-2512
         - MistralAI / ministral-8b-2512

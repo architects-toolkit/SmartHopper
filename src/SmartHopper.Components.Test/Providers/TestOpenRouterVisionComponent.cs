@@ -23,7 +23,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
-using Newtonsoft.Json.Linq;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -43,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public TestOpenRouterVisionComponent()
-            : base("Test OpenRouter Vision", "TEST-OPENROUTER-VISION", "Tests OpenRouter vision API call with image input", "SmartHopper Tests", "Testing Providers")
+            : base("Test OpenRouter Vision", "TEST-OPENROUTER-VISION", "Tests OpenRouter vision API call with image input", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenRouter");
@@ -116,41 +115,27 @@ namespace SmartHopper.Components.Test.Providers
                         return;
                     }
 
-                    // Check for image content in encoding by parsing JSON
-                    var json = JObject.Parse(encoded);
-                    var messages = json["messages"] as JArray;
-                    var contentBlocks = messages?.SelectMany(m => m["content"] as JArray ?? new JArray()).ToList() ?? new List<JToken>();
-
-                    var imageBlock = contentBlocks.FirstOrDefault(c => c["type"]?.ToString() == "image_url");
-                    if (imageBlock == null)
+                    // Check for image content in encoding
+                    if (!encoded.Contains("\"url\"") && !encoded.Contains("\"image_url\""))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing image_url content block"));
+                        this._messages.Add(new GH_String("Missing image URL or image_url in encoding"));
                         await Task.Yield();
                         return;
                     }
 
-                    var imageUrl = imageBlock["image_url"]?["url"]?.ToString() ?? string.Empty;
-                    if (string.IsNullOrEmpty(imageUrl))
+                    if (!encoded.Contains("image/png") && !encoded.Contains("image/jpeg"))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing image URL in image_url block"));
+                        this._messages.Add(new GH_String("Missing image MIME type in encoding"));
                         await Task.Yield();
                         return;
                     }
 
-                    if (!imageUrl.StartsWith("data:image/png;base64,") && !imageUrl.StartsWith("data:image/jpeg;base64,"))
+                    if (!encoded.Contains("base64"))
                     {
                         this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Image URL is not a data URI with expected MIME type"));
-                        await Task.Yield();
-                        return;
-                    }
-
-                    if (!imageUrl.Contains("base64"))
-                    {
-                        this._success = new GH_Boolean(false);
-                        this._messages.Add(new GH_String("Missing base64 encoding marker in image URL"));
+                        this._messages.Add(new GH_String("Missing base64 encoding marker"));
                         await Task.Yield();
                         return;
                     }

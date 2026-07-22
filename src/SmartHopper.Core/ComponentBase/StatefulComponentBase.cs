@@ -977,8 +977,6 @@ namespace SmartHopper.Core.ComponentBase
                 {
                     this.UpdateProgress(current);
                 },
-                onUnitStart: (path, itemIndex) => this.OnProcessingUnitStart(path, itemIndex),
-                onUnitComplete: (path, targets) => this.OnProcessingUnitComplete(path, targets),
                 token).ConfigureAwait(false);
 
             // Surface any tree matching messages as persistent runtime messages

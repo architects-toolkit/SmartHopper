@@ -32,7 +32,7 @@ namespace SmartHopper.Core.Types
         /// Initializes a new instance of the <see cref="AIInputPayloadParameter"/> class.
         /// </summary>
         public AIInputPayloadParameter()
-            : base("AIInputPayload", "Payload", "An AI interaction payload for wiring between components", "SmartHopper", "A. AI", GH_ParamAccess.item)
+            : base("AIInputPayload", "Payload", "An AI interaction payload for wiring between components", "SmartHopper", "AI", GH_ParamAccess.item)
         {
         }
 

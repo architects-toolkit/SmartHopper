@@ -18,7 +18,8 @@
 
 // Purpose: Encode/decode IGH_Goo instances to a canonical string payload to allow safe, versioned persistence
 // without invoking GH internal type cache on read. Supports common primitives and safely falls back to GH_String.
-// This class is a thin facade over GooCodecRegistry; new types should be added via IGooCodec implementations.
+using System;
+using System.Globalization;
 using Grasshopper.Kernel.Types;
 using SmartHopper.Core.IO.Codecs;
 

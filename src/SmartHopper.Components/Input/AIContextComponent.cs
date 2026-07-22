@@ -19,7 +19,6 @@
 using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
-using SmartHopper.Components.Properties;
 using SmartHopper.Core.Models;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AIContext;
@@ -36,7 +35,7 @@ namespace SmartHopper.Components.Input
         /// Initializes a new instance of the <see cref="AIContextComponent"/> class.
         /// </summary>
         public AIContextComponent()
-            : base("AIContext", "AICtx", "Retrieve context from registered providers and output as AI Input Payload", "SmartHopper", "B. Input")
+            : base("AIContext", "AICtx", "Retrieve context from registered providers and output as AI Input Payload", "SmartHopper", "Input")
         {
         }
 
@@ -48,7 +47,7 @@ namespace SmartHopper.Components.Input
         /// <summary>
         /// Gets the icon for this component.
         /// </summary>
-        protected override System.Drawing.Bitmap Icon => Resources.toaicontext;
+        protected override System.Drawing.Bitmap Icon => null;
 
         /// <summary>
         /// Registers input parameters.

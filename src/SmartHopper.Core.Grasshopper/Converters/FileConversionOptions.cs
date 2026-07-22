@@ -193,32 +193,6 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public string? BaseUrl { get; set; }
 
         /// <summary>
-        /// Default value for <see cref="MaxDownloadBytes"/>: 10 MB.
-        /// </summary>
-        public const long DefaultMaxDownloadBytes = 10_000_000;
-
-        /// <summary>
-        /// Default value for <see cref="MinContentLength"/>: 40 characters.
-        /// </summary>
-        public const int DefaultMinContentLength = 40;
-
-        /// <summary>
-        /// Gets or sets the maximum number of raw bytes that will be downloaded from a remote resource
-        /// (e.g. a web page) before conversion is aborted as too large. Applies to <see cref="Formats.UrlConverter"/>.
-        /// This bounds network/memory usage independently of <see cref="MaxContentLength"/>, which only
-        /// truncates the already-converted Markdown output. Default: <see cref="DefaultMaxDownloadBytes"/> (10 MB).
-        /// </summary>
-        public long MaxDownloadBytes { get; set; } = DefaultMaxDownloadBytes;
-
-        /// <summary>
-        /// Gets or sets the minimum number of trimmed characters a conversion must produce to be considered
-        /// a genuine success. Conversions that produce less content than this (e.g. an empty or near-empty
-        /// page) are reported as a failure with <see cref="FileConversionFailureReason.EmptyContent"/> instead
-        /// of a false success with empty/thin Markdown. Default: <see cref="DefaultMinContentLength"/> (40 characters).
-        /// </summary>
-        public int MinContentLength { get; set; } = DefaultMinContentLength;
-
-        /// <summary>
         /// Creates a new instance with default options.
         /// </summary>
         public FileConversionOptions()
@@ -247,8 +221,6 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 IncludeLinks = this.IncludeLinks,
                 IncludeImages = this.IncludeImages,
                 BaseUrl = this.BaseUrl,
-                MaxDownloadBytes = this.MaxDownloadBytes,
-                MinContentLength = this.MinContentLength,
             };
         }
     }

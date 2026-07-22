@@ -1,0 +1,115 @@
+name: 🔄 Update Version Badge
+
+# Description: This workflow automatically updates the version badge in the README.md
+# when the version in Solution.props changes.
+#
+# Triggers:
+# - Manually via workflow_dispatch
+# - Automatically when Solution.props is modified in main or dev branches
+#
+# Permissions:
+# - contents:write - Required to commit changes to README.md
+# - pull-requests:write - Required to create PRs with badge updates
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+      - 'main-*'
+      - 'dev-*'
+      - 'hotfix/**'
+      - 'release/**'
+    # Only run when the version source of truth changes. README.md is an output of this
+    # workflow; without this filter every PR merge to main/dev would re-trigger it.
+    paths:
+      - 'Solution.props'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paths-check:
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.filter.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            version:
+              - Solution.props
+  update-badge:
+    needs: paths-check
+    runs-on: ubuntu-latest
+    if: >
+      startsWith(github.ref, 'refs/heads/release/') ||
+      needs.paths-check.outputs.version_changed == 'true'
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Update version badge
+        id: update-badge
+        uses: ./.github/actions/documentation/update-badges
+        with:
+          branch: ${{ github.ref_name }}
+
+      - name: Check if badges need updating
+        id: check-badges
+        run: |
+          if [[ "${{ steps.update-badge.outputs.badges-changed }}" == "false" ]]; then
+            echo "Badges are already up to date. No changes needed."
+            echo "::notice::Badges are already up to date with the current version. Workflow execution stopped."
+            exit 0
+          else
+            echo "Badges need to be updated. Continuing workflow."
+          fi
+        shell: bash
+
+      - name: Check if changes exist
+        id: check-changes
+        if: steps.update-badge.outputs.badges-changed == 'true'
+        run: |
+          if [[ -n "$(git status --porcelain README.md)" ]]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.update-badge.outputs.badges-changed == 'true' && steps.check-changes.outputs.has_changes == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs: update version badge for ${{ github.ref_name }}"
+          title: "docs: update version badge for ${{ github.ref_name }} to ${{ steps.update-badge.outputs.version }}"
+          body: |
+            This PR updates the version badge in the README.md to match the current version in Solution.props.
+
+            This is an automated PR created by the Update Version Badge workflow.
+          branch: "docs/update-version-badge-${{ github.ref_name }}"
+          base: ${{ github.ref_name }}
+          delete-branch: true
+          labels: |
+            documentation
+            automated
+
+      - name: Assign PR to Milestone
+        if: steps.update-badge.outputs.badges-changed == 'true' && steps.check-changes.outputs.has_changes == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}

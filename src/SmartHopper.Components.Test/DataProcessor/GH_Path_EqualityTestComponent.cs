@@ -43,7 +43,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test GH_Path Equality",
                 "TEST-GH-PATH-EQ",
                 "Tests that GH_Path equality comparison works correctly.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

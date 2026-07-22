@@ -100,13 +100,6 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public bool IsSuccess { get; set; }
 
         /// <summary>
-        /// Gets or sets the classified reason for failure. Always <see cref="FileConversionFailureReason.None"/>
-        /// when <see cref="IsSuccess"/> is true. Callers should use this instead of parsing <see cref="Warnings"/>
-        /// text to distinguish failure shapes (invalid input, login wall, bot challenge, oversized content, etc.).
-        /// </summary>
-        public FileConversionFailureReason FailureReason { get; set; } = FileConversionFailureReason.None;
-
-        /// <summary>
         /// Creates a new instance with default values.
         /// </summary>
         public FileConversionResult()
@@ -139,8 +132,7 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 MarkdownContent = string.Empty,
                 DetectedFormat = detectedFormat,
                 Warnings = new List<string> { warningMessage },
-                IsSuccess = false,
-                FailureReason = reason,
+                IsSuccess = false
             };
         }
     }

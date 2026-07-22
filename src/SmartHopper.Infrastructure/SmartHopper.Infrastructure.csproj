@@ -33,7 +33,7 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
-    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime">
+    <PackageReference Include="RhinoCommon" Version="8.24.25281.15001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
@@ -95,7 +95,9 @@
     <!-- Built-in providers -->
     <InternalsVisibleTo Include="SmartHopper.Providers.Anthropic, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.DeepSeek, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.LocalAI, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.MistralAI, PublicKey=$(SmartHopperPublicKey)" />
+    <InternalsVisibleTo Include="SmartHopper.Providers.Ollama, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.OpenAI, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.OpenRouter, PublicKey=$(SmartHopperPublicKey)" />
     <InternalsVisibleTo Include="SmartHopper.Providers.Gemini, PublicKey=$(SmartHopperPublicKey)" />

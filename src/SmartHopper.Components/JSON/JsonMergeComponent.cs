@@ -38,7 +38,7 @@ namespace SmartHopper.Components.JSON
         protected override Bitmap Icon => Resources.jsonmerge;
 
         /// <inheritdoc/>
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonMergeComponent"/> class.

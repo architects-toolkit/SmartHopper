@@ -155,7 +155,7 @@ namespace SmartHopper.Infrastructure.AITools
                 var cancellationToken = toolCall.CancellationToken;
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var result = await tool.Execute(toolCall).ConfigureAwait(false);
+                var result = await _tools[toolInfo.Name].Execute(toolCall).ConfigureAwait(false);
                 Debug.WriteLine($"[AIToolManager] Tool execution complete: {toolInfo.Name}");
 
                 // Ensure tool result interactions carry the original tool call id/name/TurnId for provider schemas (e.g., OpenAI tool_call_id)

@@ -72,7 +72,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Evaluates a text against a true/false question with optional fallback value. Example: text2boolean({ text: 'The building is 30m tall', question: 'Is the building taller than 25m?', fallback: true }).",
+                description: "Evaluates a text against a true/false question with optional fallback value",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -85,11 +85,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.Text2Boolean,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                buildRequest: this.BuildEvaluateRequest,
-                mutatesCanvas: false,
-                tags: new[] { "text", "boolean", "data-processing", "read-only" },
-                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""boolean"", ""description"": ""Boolean evaluation result or fallback value."" } } }",
-                annotations: new AIToolAnnotations(readOnlyHint: true));
+                buildRequest: this.BuildEvaluateRequest);
         }
 
         /// <summary>
@@ -101,7 +97,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildEvaluateRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.GetArgumentsOrEmpty();
+            var args = toolInfo.Arguments ?? new JObject();
             string text = args["text"]?.ToString();
             string question = args["question"]?.ToString();
             string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;

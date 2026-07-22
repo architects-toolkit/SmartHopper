@@ -49,7 +49,7 @@ namespace SmartHopper.Components.Test.Misc
                 "Test AI Stateful Tree Prime Calculator",
                 "TEST-AI-STATEFUL-TREE-PRIME",
                 "Test component for AIStatefulAsyncComponentBase - Calculates the nth prime number.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Base")
         {
         }

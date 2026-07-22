@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Test.Providers
         public override Guid ComponentGuid => new Guid("17302B7A-B89E-480B-AE4D-11006CED1DF9");
 
         public TestMistralAIStandardCallComponent()
-            : base("Test MistralAI Standard Call", "TEST-MISTRAL-CALL", "Tests MistralAI standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
+            : base("Test MistralAI Standard Call", "TEST-MISTRAL-CALL", "Tests MistralAI standard API call and metrics validation", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("MistralAI");
@@ -161,11 +161,6 @@ namespace SmartHopper.Components.Test.Providers
                         this._messages.Add(new GH_String("Metrics not populated"));
                     }
 
-                    if (result != null)
-                    {
-                        this._parent.SetAIReturnSnapshot(result as AIReturn);
-                    }
-
                     this._callSuccess = new GH_Boolean(callSuccess);
                     this._metricsValid = new GH_Boolean(metricsValid);
                 }
@@ -185,7 +180,6 @@ namespace SmartHopper.Components.Test.Providers
                 this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
                 this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
-                this._parent.SetMetricsOutput(DA);
                 message = this._callSuccess.Value && this._metricsValid.Value ? "MistralAI standard call test passed" : "MistralAI standard call test failed";
             }
         }

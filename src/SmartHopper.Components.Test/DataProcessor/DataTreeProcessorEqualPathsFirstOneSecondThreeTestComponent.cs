@@ -46,7 +46,7 @@ namespace SmartHopper.Components.Test.DataProcessor
                 "Test DataTreeProcessor (1 vs 3 - EqualPaths)",
                 "TEST-DTP-EQ-1v3",
                 "Tests DataTreeProcessor with equal paths but different item counts: primary=1, secondary=3.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Data")
         {
             this.RunOnlyOnInputChanges = false;

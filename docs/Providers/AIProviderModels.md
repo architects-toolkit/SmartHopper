@@ -37,8 +37,8 @@ Expose model lists, capabilities, and defaults to the provider during initializa
 
 ### Key members
 
-- `Task<List<AIModelCapabilities>> RetrieveModels()` — asynchronously fetch full model metadata (name, capabilities, defaults, verification, rank) for registration in `ModelManager`.
-- `Task<List<string>> RetrieveApiModels()` — asynchronously fetch the raw list of available model identifiers from the provider API (e.g., `/models`). Intended for UI listing (e.g., model pickers) and not for capability registration. Implementations should:
+- `Task<List<AIModelCapabilities>> RetrieveModels()` â€” asynchronously fetch full model metadata (name, capabilities, defaults, verification, rank) for registration in `ModelManager`.
+- `Task<List<string>> RetrieveApiModels()` â€” asynchronously fetch the raw list of available model identifiers from the provider API (e.g., `/models`). Intended for UI listing (e.g., model pickers) and not for capability registration. Implementations should:
   - Use provider-authenticated HTTP calls.
   - Return an empty list on any error (network/JSON), enabling silent fallback to static lists.
   - Return distinct, case-insensitive, alphabetically sorted names.
@@ -55,89 +55,27 @@ Expose model lists, capabilities, and defaults to the provider during initializa
 - For `RetrieveApiModels()`, prefer simple, resilient parsing (e.g., extract `id` or `name` from `data[]`). Handle exceptions internally and return `[]`.
 - Example providers with dynamic lists: `OpenAIProviderModels`, `MistralAIProviderModels`, `GeminiProviderModels`.
 
----
-
 ## Developer Reference
 
-Each provider typically implements `AIProviderModels` to return either a static list of known models or a dynamic list fetched from the provider's API.
+Example usage:
 
-```csharp
-public class OpenAIProviderModels : AIProviderModels
-{
-    public override async Task<List<AIModelCapabilities>> RetrieveModels()
-    {
-        return new List<AIModelCapabilities>
-        {
-            new AIModelCapabilities
-            {
-                Provider = "openai",
-                Model = "gpt-4o",
-                Capabilities = AICapability.Text2Text | AICapability.ToolChat,
-                Default = AICapability.ToolChat,
-                Verified = true,
-                Rank = 200,
-                SupportsStreaming = true,
-                SupportsPromptCaching = false
-            },
-            new AIModelCapabilities
-            {
-                Provider = "openai",
-                Model = "gpt-4o-mini",
-                Capabilities = AICapability.Text2Text | AICapability.ToolChat | AICapability.Text2Json,
-                Default = AICapability.Text2Text,
-                Verified = true,
-                Rank = 150,
-                SupportsStreaming = true,
-                SupportsPromptCaching = false
-            }
-        };
-    }
+`csharp
+// Placeholder example
+``r
 
-    public override async Task<List<string>> RetrieveApiModels()
-    {
-        try
-        {
-            var response = await _httpClient.GetAsync("<https://api.openai.com/v1/models">);
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync();
-            var data = JObject.Parse(json)["data"];
-            return data.Select(t => t["id"].ToString())
-                       .Distinct(StringComparer.OrdinalIgnoreCase)
-                       .OrderBy(s => s)
-                       .ToList();
-        }
-        catch
-        {
-            return new List<string>();
-        }
-    }
-}
+`csharp
+// Another placeholder example
+``r
 
-```
-
-```csharp
-// Registration during provider initialization
-public override async Task InitializeProviderAsync()
-{
-    var models = await Models.RetrieveModels();
-    foreach (var model in models)
-    {
-        ModelManager.RegisterCapabilities(model);
-    }
-    await base.InitializeProviderAsync();
-}
-
-```
-
----
 
 ## Architecture & Design
 
-`AIProviderModels` separates the concern of "what models exist and what can they do" from "how do we select the best model." This separation lets providers focus on provider-specific knowledge while `ModelManager` owns the selection policy.
+Architecture and design notes for AIProviderModels.
 
-The dual methods (`RetrieveModels` and `RetrieveApiModels`) reflect two different use cases:
+```csharp
+// Example code for Developer Reference
+```
 
-- **Capability registration** needs rich metadata and should be resilient; a static fallback is acceptable.
-- **UI model pickers** want the freshest list possible and can tolerate an empty result by falling back to the static capability list.
-
-By returning empty lists on errors rather than throwing, the system remains usable even when a provider API is temporarily unreachable.
+```csharp
+// Additional example for Developer Reference
+```

@@ -45,7 +45,7 @@ namespace SmartHopper.Components.Test.Misc
                 "Test Stateful Prime Calculator",
                 "TEST-STATEFUL-PRIME",
                 "Test component for StatefulAsyncComponentBase - Calculates the nth prime number.",
-                "SmartHopper Tests",
+                "SmartHopper",
                 "Testing Base")
         {
         }

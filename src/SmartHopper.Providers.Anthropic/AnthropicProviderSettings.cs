@@ -126,7 +126,6 @@ namespace SmartHopper.Providers.Anthropic
             string model = null;
             int? maxTokens = null;
             double? temperature = null;
-            string reasoningEffort = null;
 
             if (settings.TryGetValue("ApiKey", out var apiKeyObj) && apiKeyObj != null)
             {
@@ -168,21 +167,6 @@ namespace SmartHopper.Providers.Anthropic
                     if (showErrorDialogs)
                     {
                         StyledMessageDialog.ShowError("Temperature must be between 0.0 and 2.0.", "Validation Error");
-                    }
-
-                    return false;
-                }
-            }
-
-            if (settings.TryGetValue("ReasoningEffort", out var reasoningEffortObj) && reasoningEffortObj != null)
-            {
-                reasoningEffort = reasoningEffortObj.ToString();
-
-                if (string.IsNullOrWhiteSpace(reasoningEffort) || !new[] { "low", "medium", "high", "xhigh", "max" }.Contains(reasoningEffort))
-                {
-                    if (showErrorDialogs)
-                    {
-                        StyledMessageDialog.ShowError("Reasoning effort must be low, medium, high, xhigh, or max.", "Validation Error");
                     }
 
                     return false;

@@ -51,20 +51,17 @@ namespace SmartHopper.Components.Audio
         }
 
         /// <summary>
-        /// Layout the component bounds.
+        /// Gets the display bounds for the component.
         /// </summary>
-        protected override void Layout()
+        public override RectangleF Bounds
         {
-            // Let Grasshopper compute the natural bounds based on params, names, etc.
-            base.Layout();
-            var baseBounds = this.Bounds;
+            get
+            {
+                var baseBounds = base.Bounds;
 
-            // Expand bounds to accommodate timeline and controls
-            this.Bounds = new RectangleF(
-                baseBounds.X,
-                baseBounds.Y,
-                baseBounds.Width,
-                baseBounds.Height + 120);
+                // Expand bounds to accommodate timeline and controls
+                return new RectangleF(baseBounds.X, baseBounds.Y, baseBounds.Width, baseBounds.Height + 120);
+            }
         }
 
         /// <summary>
@@ -73,17 +70,17 @@ namespace SmartHopper.Components.Audio
         /// <param name="canvas">The canvas to render on.</param>
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
-            // Always delegate to base for proper channel handling (wires, selection, overlay, etc.)
-            base.Render(canvas, graphics, channel);
-
             if (channel == GH_CanvasChannel.Objects)
             {
+                // Render base component
+                base.Render(canvas, graphics, channel);
+
                 // Get component bounds
-                var bounds = this.Bounds;
+                var baseBounds = base.Bounds;
                 var displayArea = new RectangleF(
-                    bounds.X + 5,
-                    bounds.Bottom - 115,
-                    bounds.Width - 10,
+                    baseBounds.X + 5,
+                    baseBounds.Y + baseBounds.Height + 5,
+                    baseBounds.Width - 10,
                     110);
 
                 // Render timeline area

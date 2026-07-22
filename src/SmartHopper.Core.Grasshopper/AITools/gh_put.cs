@@ -450,11 +450,6 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     analysisSections.Add(analysisMsg);
                 }
 
-                if (protectedPutGuids.Count > 0)
-                {
-                    analysisSections.Add(CanvasProtection.FormatProtectionMessage(protectedPutGuids));
-                }
-
                 if (putResult.FailedComponents != null && putResult.FailedComponents.Count > 0)
                 {
                     var lines = new List<string> { "Errors:" };

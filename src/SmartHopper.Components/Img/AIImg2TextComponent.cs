@@ -76,6 +76,28 @@ namespace SmartHopper.Components.Img
         };
 
         /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AIImg2Txt",
+            "AIImgToText",
+            "Image to Text",
+            "img2text",
+            "Vision AI",
+            "Image Analysis",
+            "Image Description",
+            "Describe Image",
+            "Analyze Image",
+            "Image Caption",
+            "Caption Image",
+            "Image Reader",
+            "AI Vision",
+            "Computer Vision",
+            "Image Understanding",
+            "OCR AI",
+            "Image to Words",
+            "Picture Description",
+        };
+
+        /// <inheritdoc/>
         protected override IReadOnlyList<string> UsingAiTools => new[] { "img2text" };
 
         /// <inheritdoc/>
@@ -139,7 +161,11 @@ namespace SmartHopper.Components.Img
                 messages);
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Creates the async worker for this component.
+        /// </summary>
+        /// <param name="progressReporter">Progress reporter callback.</param>
+        /// <returns>The async worker instance.</returns>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIImg2TextWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);

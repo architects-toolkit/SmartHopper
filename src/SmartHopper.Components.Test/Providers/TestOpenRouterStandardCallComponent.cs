@@ -42,7 +42,7 @@ namespace SmartHopper.Components.Test.Providers
         public override GH_Exposure Exposure => GH_Exposure.octonary;
 
         public TestOpenRouterStandardCallComponent()
-            : base("Test OpenRouter Standard Call", "TEST-OPENROUTER-CALL", "Tests OpenRouter standard API call and metrics validation", "SmartHopper Tests", "Testing Providers")
+            : base("Test OpenRouter Standard Call", "TEST-OPENROUTER-CALL", "Tests OpenRouter standard API call and metrics validation", "SmartHopper", "Test/Providers")
         {
             this.RunOnlyOnInputChanges = false;
             this.SetSelectedProviderName("OpenRouter");
@@ -162,11 +162,6 @@ namespace SmartHopper.Components.Test.Providers
                         this._messages.Add(new GH_String("Metrics not populated"));
                     }
 
-                    if (result != null)
-                    {
-                        this._parent.SetAIReturnSnapshot(result as AIReturn);
-                    }
-
                     this._callSuccess = new GH_Boolean(callSuccess);
                     this._metricsValid = new GH_Boolean(metricsValid);
                 }
@@ -186,7 +181,6 @@ namespace SmartHopper.Components.Test.Providers
                 this._parent.SetPersistentOutput("Call Success", this._callSuccess, DA);
                 this._parent.SetPersistentOutput("Metrics Valid", this._metricsValid, DA);
                 this._parent.SetPersistentOutput("Messages", this._messages, DA);
-                this._parent.SetMetricsOutput(DA);
                 message = this._callSuccess.Value && this._metricsValid.Value ? "OpenRouter standard call test passed" : "OpenRouter standard call test failed";
             }
         }

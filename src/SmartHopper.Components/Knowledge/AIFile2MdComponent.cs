@@ -32,8 +32,6 @@ using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Batch;
 using SmartHopper.Core.DataTree;
-using SmartHopper.Core.Grasshopper.AITools;
-using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Core.Types;
 using SmartHopper.Infrastructure.AICall.Core.Base;
 using SmartHopper.Infrastructure.AICall.Core.Interactions;
@@ -55,9 +53,9 @@ namespace SmartHopper.Components.Knowledge
         /// <summary>
         /// Per-file context stored during DoWorkAsync so OnBatchCompleted can reconstruct
         /// the final markdown. Each entry maps the representative sentinel ID (first image of the file)
-        /// to a <see cref="MarkdownImageBatchContext"/> containing the base markdown and all image slots.
+        /// to a <see cref="FileBatchContext"/> containing the base markdown and all image slots.
         /// </summary>
-        private Dictionary<string, MarkdownImageBatchContext> _fileContexts;
+        private Dictionary<string, FileBatchContext> _fileContexts;
 
         /// <summary>
         /// Flag to prevent clearing _fileContexts during polling re-runs.
@@ -81,6 +79,48 @@ namespace SmartHopper.Components.Knowledge
         /// Local Images tree produced during DoWorkAsync; does not need AI so it is always available.
         /// </summary>
         private GH_Structure<GH_VersatileImage> _localImages;
+
+        /// <summary>
+        /// Holds everything needed to assemble the final markdown for one file once all
+        /// batch image descriptions are available. Keyed by the representative sentinel ID
+        /// (first image's sentinel) in <see cref="_fileContexts"/>.
+        /// </summary>
+        private sealed class FileBatchContext
+        {
+            /// <summary>Gets or sets the base markdown with <c>[image N]</c> placeholders.</summary>
+            public string BaseMarkdown { get; set; }
+
+            /// <summary>Gets or sets the ordered list of image slots for this file.</summary>
+            public List<ImageSlot> Images { get; set; }
+        }
+
+        /// <summary>
+        /// Holds the metadata for one image within a file, including the sentinel ID that
+        /// maps to its AI-generated description in the batch results.
+        /// </summary>
+        private sealed class ImageSlot
+        {
+            /// <summary>Gets or sets the 1-based image index matching the <c>[image N]</c> placeholder.</summary>
+            public int Index { get; set; }
+
+            /// <summary>Gets or sets the batch sentinel ID for this image's img2text request.</summary>
+            public string SentinelId { get; set; }
+
+            /// <summary>Gets or sets the image identifier.</summary>
+            public string ImageId { get; set; }
+
+            /// <summary>Gets or sets the image mode ('embed', 'describe', 'caption').</summary>
+            public string ImageMode { get; set; }
+
+            /// <summary>Gets or sets the image context label.</summary>
+            public string ImageContext { get; set; }
+
+            /// <summary>Gets or sets the image MIME type (used in embed mode).</summary>
+            public string MimeType { get; set; }
+
+            /// <summary>Gets or sets the image base64 data (used in embed mode).</summary>
+            public string Base64Data { get; set; }
+        }
 
         /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("574FA3D1-3BA2-4B69-8D9B-5A208CD7FC7D");
@@ -148,8 +188,6 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
-            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
-            this.RunOnlyOnInputChanges = false;
         }
 
         /// <inheritdoc/>
@@ -158,6 +196,10 @@ namespace SmartHopper.Components.Knowledge
             pManager.AddTextParameter("File Path", "F", "Absolute path(s) to the file(s) to convert.", GH_ParamAccess.tree);
             pManager.AddBooleanParameter("Remove Headers", "RH", "Attempt to remove headers and footers from PDF/DOCX. Default: true.", GH_ParamAccess.tree, true);
             pManager.AddTextParameter("Image Mode", "IM", "How AI describes images in the output:\n'embed' (default) — embed image as base64 data URI with a short AI-generated caption as alt text.\n'describe' — replace image with a long, detailed AI text description.\n'caption' — replace image with a short AI-generated title/caption.", GH_ParamAccess.item, "embed");
+            pManager[pManager.ParamCount - 1].Optional = true;
+            pManager.AddTextParameter("Image Prompt", "IP", "Custom prompt for AI image description. Overrides the built-in prompt for the selected mode.", GH_ParamAccess.item);
+            pManager[pManager.ParamCount - 1].Optional = true;
+            pManager.AddTextParameter("HTML Readability", "R", "HTML main-content extraction strategy for HTML/EPUB/EML content: auto (default), smartreader, heuristic, or off.", GH_ParamAccess.item, "auto");
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
@@ -220,7 +262,7 @@ namespace SmartHopper.Components.Knowledge
                 if (reader.ItemExists("FileContextCount"))
                 {
                     int count = reader.GetInt32("FileContextCount");
-                    this._fileContexts = new Dictionary<string, MarkdownImageBatchContext>();
+                    this._fileContexts = new Dictionary<string, FileBatchContext>();
 
                     for (int idx = 0; idx < count; idx++)
                     {
@@ -228,10 +270,10 @@ namespace SmartHopper.Components.Knowledge
                         string baseMarkdown = reader.GetString($"FileContext_{idx}_BaseMarkdown");
                         int imageCount = reader.GetInt32($"FileContext_{idx}_ImageCount");
 
-                        var images = new List<MarkdownImageSlot>(imageCount);
+                        var images = new List<ImageSlot>(imageCount);
                         for (int i = 0; i < imageCount; i++)
                         {
-                            images.Add(new MarkdownImageSlot
+                            images.Add(new ImageSlot
                             {
                                 Index = reader.GetInt32($"FileContext_{idx}_Img_{i}_Index"),
                                 SentinelId = reader.GetString($"FileContext_{idx}_Img_{i}_SentinelId"),
@@ -243,7 +285,7 @@ namespace SmartHopper.Components.Knowledge
                             });
                         }
 
-                        this._fileContexts[key] = new MarkdownImageBatchContext
+                        this._fileContexts[key] = new FileBatchContext
                         {
                             BaseMarkdown = baseMarkdown,
                             Images = images,
@@ -275,31 +317,17 @@ namespace SmartHopper.Components.Knowledge
             var sentinel = this.GetSentinelTree("Markdown");
             if (results == null || sentinel == null) return;
 
-            // Map every sentinel custom ID in the Markdown tree to its output branch path.
-            // All image slots for a single file share the representative sentinel's path.
-            var sentinelToPath = new Dictionary<string, GH_Path>();
-            foreach (var path in sentinel.Paths)
-            {
-                var branch = sentinel.get_Branch(path);
-                if (branch == null)
-                {
-                    continue;
-                }
+            var provider = ProviderManager.Instance.GetProvider(this.GetActualAIProviderName());
 
-                foreach (GH_String item in branch)
-                {
-                    if (BatchSentinel.TryExtract(item?.Value ?? string.Empty, out var customId))
-                    {
-                        sentinelToPath[customId] = path;
-                    }
-                }
-            }
+            // Accumulate metrics from every per-slot decode (one AI call per image).
+            // ProcessBatchResults only sees the representative sentinel per file, so per-slot
+            // metrics (slots 2..N per file) must be collected manually and merged before FinishResults.
+            var allSlotMetrics = new List<AIMetrics>();
 
-            // Per-slot metrics grouped by the file's output branch path. ProcessBatchResults
-            // only processes the representative sentinel per file, so the non-representative
-            // image slots must be merged manually at the same grafted path.
-            var slotMetricsByPath = new Dictionary<GH_Path, List<AIMetrics>>();
-
+            // ProcessBatchResults handles primary Markdown persistence and calls FinishResults.
+            // Per-slot metrics are merged into the snapshot immediately after, before FinishResults
+            // reads the snapshot to emit metrics — this works because FinishResults is called from
+            // inside ProcessBatchResults after SetAIReturnSnapshot.
             this.ProcessBatchResults<GH_String>(
                 "Markdown",
                 sentinel,
@@ -314,21 +342,26 @@ namespace SmartHopper.Components.Knowledge
                         return new GH_String("[File context missing]");
                     }
 
-                    if (!sentinelToPath.TryGetValue(representativeSentinelId, out var representativePath))
-                    {
-                        representativePath = new GH_Path(0);
-                    }
+                    var sb = new StringBuilder(fileCtx.BaseMarkdown);
 
-                    var finalMarkdown = MarkdownImageBatchProcessor.Reconstruct(
-                        fileCtx,
-                        results,
-                        this.GetActualAIProviderName(),
-                        metrics: null,
-                        onImageResolved: (slotSentinelId, slotBody, assistantText, description) =>
+                    // Replace each [image N] placeholder with the AI-generated description.
+                    foreach (var slot in fileCtx.Images)
+                    {
+                        string description = "[Image could not be described]";
+                        if (provider != null && results.TryGetValue(slot.SentinelId, out var slotBody))
                         {
-                            // Collect metrics from non-representative slots and group them by file path.
-                            if (assistantText?.Metrics != null && slotSentinelId != representativeSentinelId)
+                            var interactions = provider.Decode(slotBody);
+                            var assistantText = interactions?.OfType<AIInteractionText>()
+                                .FirstOrDefault(i => i.Agent == AIAgent.Assistant);
+                            if (!string.IsNullOrWhiteSpace(assistantText?.Content))
                             {
+                                description = assistantText.Content;
+                            }
+
+                            // Collect metrics from non-representative slots for manual merging.
+                            if (assistantText?.Metrics != null && slot.SentinelId != representativeSentinelId)
+                            {
+                                // Ensure slot metrics have provider/model set before combining
                                 if (string.IsNullOrEmpty(assistantText.Metrics.Provider))
                                 {
                                     assistantText.Metrics.Provider = this.GetActualAIProviderName();
@@ -339,34 +372,33 @@ namespace SmartHopper.Components.Knowledge
                                     assistantText.Metrics.Model = this.GetModel();
                                 }
 
-                                if (!slotMetricsByPath.TryGetValue(representativePath, out var list))
-                                {
-                                    list = new List<AIMetrics>();
-                                    slotMetricsByPath[representativePath] = list;
-                                }
-
-                                list.Add(assistantText.Metrics);
+                                allSlotMetrics.Add(assistantText.Metrics);
                             }
-                        });
+                        }
 
-                    return new GH_String(finalMarkdown);
+                        string placeholder = $"[image {slot.Index}]";
+                        string replacement = slot.ImageMode == "embed"
+                            ? $"![{description}](data:{slot.MimeType};base64,{slot.Base64Data})"
+                            : $"**[{slot.ImageId} — {slot.ImageContext}]**\n\n{description}";
+
+                        sb.Replace(placeholder, replacement);
+                    }
+
+                    return new GH_String(sb.ToString());
                 },
                 messages);
 
-            // Merge per-slot metrics at the same grafted path as their parent file.
-            if (slotMetricsByPath.Count > 0)
+            // Merge per-slot metrics (slots 2..N per file) into the single authoritative
+            // _persistedMetrics set by ProcessBatchResults. CombineIntoPersistedMetrics
+            // writes into the persistent field — not into the computed AIReturn.Metrics property.
+            if (allSlotMetrics.Count > 0)
             {
-                foreach (var kvp in slotMetricsByPath)
+                foreach (var m in allSlotMetrics)
                 {
-                    var path = kvp.Key;
-                    foreach (var m in kvp.Value)
-                    {
-                        this.CombineIntoPersistedMetricsAtPath(m, path, "tool:img2text");
-                    }
+                    this.CombineIntoPersistedMetrics(m);
                 }
 
-                var totalSlotMetrics = slotMetricsByPath.Values.Sum(l => l.Count);
-                Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {totalSlotMetrics} slot metrics into {slotMetricsByPath.Count} branch path(s)");
+                Debug.WriteLine($"[AIFile2Md] OnBatchCompleted: merged {allSlotMetrics.Count} slot metrics via CombineIntoPersistedMetrics");
 
                 // Re-emit metrics now that per-slot tokens are included
                 this.SetMetricsOutput(null);
@@ -410,10 +442,18 @@ namespace SmartHopper.Components.Knowledge
             private bool hasWork;
 
             private string imageMode;
+            private string imagePrompt;
+            private string htmlReadabilityMode;
 
             private GH_Structure<GH_String> resultMarkdown;
             private GH_Structure<GH_String> resultFormat;
             private GH_Structure<GH_VersatileImage> resultImages;
+
+            private const string DefaultImageDescriptionPrompt =
+                "Describe this image thoroughly for someone who cannot see it. Include: the main subject and overall scene, all visible objects and their spatial arrangement, any text, numbers, labels, charts, diagrams, or data visible in the image, colors and lighting when relevant, the apparent purpose or context of the image (e.g., photograph, technical diagram, screenshot, infographic), and any other details necessary to fully convey the image content. Be precise, complete, and well-structured.";
+
+            private const string DefaultImageCaptionPrompt =
+                "Write a concise, descriptive caption for this image in one sentence.";
 
             public AIFile2MdWorker(
                 AIFile2MdComponent parent,
@@ -449,6 +489,14 @@ namespace SmartHopper.Components.Knowledge
                 DA.GetData("Image Mode", ref imageModeParam);
                 this.imageMode = imageModeParam?.Value ?? "embed";
 
+                var imagePromptParam = new GH_String();
+                DA.GetData("Image Prompt", ref imagePromptParam);
+                this.imagePrompt = imagePromptParam?.Value;
+
+                var readabilityParam = new GH_String("auto");
+                DA.GetData("HTML Readability", ref readabilityParam);
+                this.htmlReadabilityMode = readabilityParam?.Value ?? "auto";
+
                 this.hasWork = this.filePathTree != null && this.filePathTree.PathCount > 0 && this.filePathTree.DataCount > 0;
                 dataCount = this.hasWork ? this.filePathTree.DataCount : 0;
 
@@ -468,7 +516,7 @@ namespace SmartHopper.Components.Knowledge
                 // Only reset if not already initialized (prevents clearing during batch polling)
                 if (!this.parent._fileContextsInitialized)
                 {
-                    this.parent._fileContexts = new Dictionary<string, MarkdownImageBatchContext>();
+                    this.parent._fileContexts = new Dictionary<string, FileBatchContext>();
                     this.parent._fileContextsInitialized = true;
                 }
 
@@ -479,6 +527,10 @@ namespace SmartHopper.Components.Knowledge
                 {
                     return;
                 }
+
+                string effectivePrompt = string.IsNullOrWhiteSpace(this.imagePrompt)
+                    ? (this.imageMode == "describe" ? DefaultImageDescriptionPrompt : DefaultImageCaptionPrompt)
+                    : this.imagePrompt;
 
                 try
                 {
@@ -530,18 +582,21 @@ namespace SmartHopper.Components.Knowledge
                                 var localParams = new JObject
                                 {
                                     ["filePath"] = filePath,
-                                    ["removeHeadersFooters"] = removeHeaders,
-                                    ["preserveFormatting"] = true,
-                                    ["preserveComments"] = true,
-                                    ["preserveFootnotes"] = true,
-                                    ["preserveEndnotes"] = true,
+                                    ["preserveTableStructure"] = true,
+                                    ["removeHeadersFooters"] = true,
                                     ["describeImages"] = false,
                                     ["extractImages"] = true,
                                 };
 
+                                if (!string.IsNullOrWhiteSpace(this.htmlReadabilityMode) &&
+                                    !string.Equals(this.htmlReadabilityMode, "auto", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    localParams["HTMLreadabilityMode"] = this.htmlReadabilityMode;
+                                }
+
                                 var localResult = await this.parent.CallAIToolAsync("file2md", localParams, token).ConfigureAwait(false);
 
-                                if (localResult?.Result == null)
+                                if (localResult == null)
                                 {
                                     this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Tool 'file2md' returned no result for '{filePath}'.", SHRuntimeMessageOrigin.Tool);
                                     outputs["Markdown"].Add(new GH_String(string.Empty));
@@ -549,25 +604,12 @@ namespace SmartHopper.Components.Knowledge
                                     continue;
                                 }
 
-                                var converted = File2MdToolResult.Parse(localResult.Result, filePath);
-                                string baseMarkdown = converted.Markdown;
-                                outputs["Format"].Add(new GH_String(converted.Format));
-
-                                // Collect raw images for the Images output
-                                foreach (var img in converted.Images)
-                                {
-                                    outputs["Images"].Add(new GH_VersatileImage(img));
-                                }
-
-                                foreach (var w in converted.Warnings)
-                                {
-                                    this.CollectMessage(SHRuntimeMessageSeverity.Warning, w, SHRuntimeMessageOrigin.Tool);
-                                }
+                                string baseMarkdown = localResult["content"]?.ToString() ?? string.Empty;
+                                outputs["Format"].Add(new GH_String(localResult["originalFormat"]?.ToString() ?? string.Empty));
 
                                 var imagesArray = localResult["images"] as JArray;
 
-                                // Step 2: build image slots for the shared processor
-                                var imageSlots = new List<MarkdownImageSlot>();
+                                // Collect raw images for the Images output
                                 if (imagesArray != null)
                                 {
                                     int idx = 1;
@@ -575,40 +617,136 @@ namespace SmartHopper.Components.Knowledge
                                     {
                                         var imgObj = imgToken as JObject;
                                         if (imgObj == null) continue;
-
-                                        imageSlots.Add(new MarkdownImageSlot
-                                        {
-                                            Index = idx,
-                                            ImageId = imgObj["id"]?.ToString() ?? "img",
-                                            ImageMode = this.imageMode,
-                                            ImageContext = imgObj["context"]?.ToString() ?? string.Empty,
-                                            MimeType = imgObj["mimeType"]?.ToString() ?? "image/png",
-                                            Base64Data = imgObj["base64Data"]?.ToString() ?? string.Empty,
-                                            Placeholder = $"[image {idx}]",
-                                        });
-                                        idx++;
+                                        var imageSource = VersatileImage.FromExtractedDocument(
+                                            base64Data: imgObj["base64Data"]?.ToString() ?? string.Empty,
+                                            mimeType: imgObj["mimeType"]?.ToString() ?? "image/png",
+                                            id: imgObj["id"]?.ToString() ?? "img",
+                                            context: imgObj["context"]?.ToString() ?? string.Empty,
+                                            pageOrSlide: imgObj["pageOrSlide"]?.Value<int>() ?? 0,
+                                            sourceDocument: ghPath.Value);
+                                        outputs["Images"].Add(new GH_VersatileImage(imageSource));
                                     }
                                 }
 
+                                var localMessages = RuntimeMessageUtility.ExtractMessages(localResult);
+                                foreach (var m in localMessages)
+                                {
+                                    this.CollectMessage(m);
+                                }
+
+                                // Step 2: if no images, emit base markdown directly
+                                if (imagesArray == null || imagesArray.Count == 0)
+                                {
+                                    outputs["Markdown"].Add(new GH_String(baseMarkdown));
+                                    continue;
+                                }
+
+                                // Step 3: call img2text per image via CallAIToolAsync
+                                // In batch mode these calls return sentinels; in normal mode they run async.
+                                var fileSentinelIds = new List<string>();
+                                var imgDescriptions = new List<string>();
                                 bool isBatch = this.parent.IsBatchRequest();
 
-                                // Step 3: process images with the shared batch-aware helper
-                                var processingResult = await MarkdownImageBatchProcessor.ProcessAsync(
-                                    baseMarkdown,
-                                    imageSlots,
-                                    this.imageMode,
-                                    async parameters =>
-                                    {
-                                        var result = await this.parent.CallAIToolAsync("img2text", parameters, token).ConfigureAwait(false);
-                                        return result?["result"]?.ToString() ?? result?["description"]?.ToString() ?? string.Empty;
-                                    },
-                                    isBatch).ConfigureAwait(false);
-                                string processedMarkdown = processingResult.Markdown;
-                                MarkdownImageBatchContext batchContext = processingResult.BatchContext;
-
-                                if (batchContext != null)
+                                foreach (var imgToken in imagesArray)
                                 {
-                                    this.parent._fileContexts[batchContext.Images[0].SentinelId] = batchContext;
+                                    var imgObj = imgToken as JObject;
+                                    if (imgObj == null) continue;
+
+                                    var imgParams = new JObject
+                                    {
+                                        ["imageBase64"] = imgObj["base64Data"]?.ToString(),
+                                        ["mimeType"] = imgObj["mimeType"]?.ToString() ?? "image/png",
+                                        ["prompt"] = effectivePrompt,
+                                    };
+
+                                    var imgResult = await this.parent.CallAIToolAsync("img2text", imgParams, token).ConfigureAwait(false);
+                                    var resultStr = imgResult?["result"]?.ToString()
+                                        ?? imgResult?["description"]?.ToString()
+                                        ?? string.Empty;
+
+                                    if (isBatch && BatchSentinel.TryExtract(resultStr, out var sentinelId))
+                                    {
+                                        // Sentinel placeholder: record context for OnBatchCompleted
+                                        fileSentinelIds.Add(sentinelId);
+                                    }
+                                    else
+                                    {
+                                        imgDescriptions.Add(resultStr);
+                                    }
+                                }
+
+                                if (isBatch && fileSentinelIds.Count > 0)
+                                {
+                                    // Build one FileBatchContext per file containing the base markdown
+                                    // and an ordered list of ImageSlots (one per image).
+                                    // Each ImageSlot knows its own sentinel ID so OnBatchCompleted
+                                    // can fetch its AI description from the batch results directly.
+                                    var fileCtx = new FileBatchContext
+                                    {
+                                        BaseMarkdown = baseMarkdown,
+                                        Images = new List<ImageSlot>(),
+                                    };
+
+                                    int imgIndex = 0;
+                                    foreach (var imgToken2 in imagesArray)
+                                    {
+                                        var imgObj2 = imgToken2 as JObject;
+                                        if (imgObj2 == null) continue;
+                                        if (imgIndex >= fileSentinelIds.Count) break;
+
+                                        fileCtx.Images.Add(new ImageSlot
+                                        {
+                                            Index = imgIndex + 1, // 1-based, matches [image N] placeholder
+                                            SentinelId = fileSentinelIds[imgIndex],
+                                            ImageId = imgObj2["id"]?.ToString() ?? "img",
+                                            ImageMode = this.imageMode,
+                                            ImageContext = imgObj2["context"]?.ToString() ?? string.Empty,
+                                            MimeType = imgObj2["mimeType"]?.ToString() ?? "image/png",
+                                            Base64Data = imgObj2["base64Data"]?.ToString() ?? string.Empty,
+                                        });
+                                        imgIndex++;
+                                    }
+
+                                    // Store the file context under the representative sentinel (first image).
+                                    this.parent._fileContexts[fileSentinelIds[0]] = fileCtx;
+
+                                    // Only ONE sentinel enters the output tree — one per file.
+                                    // OnBatchCompleted reads the FileBatchContext and assembles all images.
+                                    outputs["Markdown"].Add(new GH_String(BatchSentinel.Wrap(fileSentinelIds[0])));
+                                }
+                                else
+                                {
+                                    // Normal (non-batch) mode: replace placeholders with descriptions inline
+                                    var sb = new StringBuilder(baseMarkdown);
+
+                                    int descIdx = 0;
+                                    int imageIdx = 1;
+                                    foreach (var imgToken2 in imagesArray)
+                                    {
+                                        var imgObj2 = imgToken2 as JObject;
+                                        if (imgObj2 == null) continue;
+
+                                        string aiText = descIdx < imgDescriptions.Count ? imgDescriptions[descIdx] : "[Image could not be described]";
+                                        descIdx++;
+
+                                        string placeholder = $"[image {imageIdx}]";
+                                        string replacement;
+
+                                        if (this.imageMode == "embed")
+                                        {
+                                            replacement = $"![{aiText}](data:{imgObj2["mimeType"]};base64,{imgObj2["base64Data"]})";
+                                        }
+                                        else
+                                        {
+                                            // describe or caption: text-only block
+                                            replacement = $"**[{imgObj2["id"]} \u2014 {imgObj2["context"]}]**\n\n{aiText}";
+                                        }
+
+                                        sb.Replace(placeholder, replacement);
+                                        imageIdx++;
+                                    }
+
+                                    outputs["Markdown"].Add(new GH_String(sb.ToString()));
                                 }
 
                                 outputs["Markdown"].Add(new GH_String(processedMarkdown));
