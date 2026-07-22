@@ -11,3 +11,4 @@ Architecture analysis and design reviews of SmartHopper components.
 - [PR Testing Plan](./260402-PR-Testing-Plan.md) — Testing strategy and checklist for pull requests
 - [SmartHopper 2.0.0 Community Test Report](./SmartHopper_2_0_0_Community_Test_Report.md) — Community test results and root-cause analysis for the 2.0.0 adapter/component test pass
 - [SmartHopper Conceptual Quality Review](./260828%20SmartHopper%20Conceptual%20Quality%20Review.md) — Conceptual quality analysis of architecture, abstractions, duplication, and maintainability
+- [Component Base SDK Evaluation](./260721-ComponentBase-Sdk-Evaluation.md) — Evaluation of extracting SmartHopper component bases into two reusable external libraries
