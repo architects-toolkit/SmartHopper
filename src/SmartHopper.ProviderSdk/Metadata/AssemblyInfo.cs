@@ -22,3 +22,8 @@ using SmartHopper.ProviderSdk.Metadata;
 // Providers declare BuiltAgainstSdk("1.0.0") and MinHostSdk("1.0.0") against this value.
 // MAJOR is bumped on breaking provider-contract changes.
 [assembly: SmartHopperProviderSdkVersion("1.0.0")]
+
+namespace SmartHopper.ProviderSdk.Metadata
+{
+}
+

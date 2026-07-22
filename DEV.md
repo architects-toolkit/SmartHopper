@@ -178,6 +178,8 @@ in the AI Chat component.
 | `smarthopper_readme` | Instructions | Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt. | - | - | - | - |
 | `smarthopper_tool_help` | Instructions | Returns metadata, usage guidance, and relationship hints for a SmartHopper tool. Pass `tool_name` to look up a specific tool. Use this when you need to understand a tool's inputs, outputs, or how it chains with other tools. | - | - | - | - |
 | `smarthopper_workflows` | Instructions | Returns canonical SmartHopper tool workflows. Pass `workflow` to get detailed steps for a specific workflow, or omit it to list available workflows. Use this to understand how to chain tools without reading source code. | - | - | - | - |
+| `get_available_models` | Providers | Retrieve the list of available models for a given AI provider. Uses live provider APIs when possible and falls back to the static model list. | - | - | - | - |
+| `get_available_providers` | Providers | Retrieve the list of enabled AI providers registered in SmartHopper, including whether each provider is properly configured in the current environment. | - | - | - | - |
 
 Notes:
 
@@ -241,6 +243,7 @@ Notes:
 | MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
 | MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
+| MistralAI | `voxtral-mini-tts-mellon-greek-2606-solutions` | - | ✅ | - | Text2Speech | TextInput, AudioInput, AudioOutput |
 | OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
 | OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |

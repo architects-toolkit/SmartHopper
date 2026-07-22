@@ -20,7 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SmartHopper.Infrastructure.AICall.Metrics
+namespace SmartHopper.ProviderSdk.AICall.Metrics
 {
     /// <summary>
     /// Ordered list of per-call metrics for a single component solve.

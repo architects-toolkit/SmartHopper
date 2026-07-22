@@ -18,7 +18,7 @@
 
 using Newtonsoft.Json.Linq;
 
-namespace SmartHopper.Infrastructure.AICall.Core.Interactions
+namespace SmartHopper.ProviderSdk.AICall.Core.Interactions
 {
     /// <summary>
     /// Convenience extensions for safely accessing <see cref="AIInteractionToolCall"/> data.
