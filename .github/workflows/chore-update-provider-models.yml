@@ -1,10 +1,19 @@
 name: 🔄 Update Provider Models
 
+# Related workflows (provider model management):
+#   - check-provider-models.yml (validates model definitions in PRs)
+#   - chore-update-provider-models.yml (fetches and updates model lists)
+#   - chore-update-model-verification-template.yml (updates issue template)
+#   - model-verification.yml (community model verification process)
+
 # Description: Scheduled CI that queries OpenRouter's unified /models endpoint as the
 # single source of truth, then updates each provider's *ProviderModels.cs file.
 # Auto-inserts new models with capabilities mapped from OpenRouter metadata
 # (architecture.modalities, supported_parameters, context_length), marks models
 # with expiration_date < 1 year as deprecated, and flags disappeared models.
+#
+# Target branches are discovered dynamically (main, dev, dev-*) so that each
+# provider update is proposed to every active integration branch.
 #
 # Triggers:
 #   - workflow_dispatch: manual run with optional provider filter
@@ -21,15 +30,52 @@ on:
         default: ''
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
 jobs:
+  discover-branches:
+    name: Discover target branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      branches: ${{ steps.list.outputs.branches }}
+    steps:
+      - name: List target branches
+        id: list
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branches = [];
+            const per_page = 100;
+            let page = 1;
+            let done = false;
+            while (!done) {
+              const { data } = await github.rest.repos.listBranches({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page,
+                page,
+              });
+              for (const b of data) {
+                if (b.name === 'main' || b.name === 'dev' || b.name.startsWith('dev-')) {
+                  branches.push(b.name);
+                }
+              }
+              done = data.length < per_page;
+              page++;
+            }
+            core.info(`Discovered target branches: ${JSON.stringify(branches)}`);
+            core.setOutput('branches', JSON.stringify(branches));
+
   fetch-and-update:
-    name: ${{ matrix.provider }}
+    name: ${{ matrix.provider }} → ${{ matrix.branch }}
+    needs: discover-branches
     runs-on: windows-latest
+    timeout-minutes: 45
     concurrency:
-      group: provider-models-${{ matrix.provider }}
+      group: provider-models-${{ matrix.provider }}-${{ matrix.branch }}
       cancel-in-progress: false
     strategy:
       fail-fast: false
@@ -64,11 +110,11 @@ jobs:
             echo "skipped=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout main
+      - name: Checkout ${{ matrix.branch }}
         if: steps.check.outputs.skipped == 'false'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ matrix.branch }}
           fetch-depth: 1
 
       - name: Fetch and compare models for ${{ matrix.provider }}
@@ -80,14 +126,224 @@ jobs:
           api-key: ${{ secrets.OPENROUTER_API_KEY }}
           provider-api-key: ${{ (matrix.provider == 'OpenAI' && secrets.OPENAI_API_KEY) || (matrix.provider == 'MistralAI' && secrets.MISTRAL_API_KEY) || (matrix.provider == 'Anthropic' && secrets.ANTHROPIC_API_KEY) || (matrix.provider == 'DeepSeek' && secrets.DEEPSEEK_API_KEY) || (matrix.provider == 'Gemini' && secrets.GEMINI_API_KEY) || '' }}
           update-file: true
+          # Don't fail the scheduled job on validation errors. New models picked
+          # up from OpenRouter often arrive with incomplete metadata (no input
+          # modalities, no supported_parameters), which maps to
+          # `AICapability.None` and trips the validator. Failing the workflow in
+          # that case hides the new models entirely — no PR is opened, the file
+          # changes are discarded, and the maintainer never sees what needs to
+          # be reviewed. Instead, let validation issues flow into the PR body so
+          # the maintainer can complete the metadata before merging. The PR-level
+          # `check-provider-models.yml` job still enforces validation on the PR.
+          fail-on-validation-errors: false
+
+      - name: Build PR body
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.success == 'true'
+        id: pr-body
+        shell: pwsh
+        env:
+          REPORT_JSON: ${{ steps.models.outputs.report }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = $env:REPORT_JSON | ConvertFrom-Json
+
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add("Auto-generated PR from ```.github/workflows/chore-update-provider-models.yml```.")
+          $lines.Add("")
+
+          # --- Validation section ---
+          $hasValidationIssues = $false
+          if ($report.validation -and -not $report.validation.success) {
+            $hasValidationIssues = $true
+            $lines.Add("## :warning: Validation issues — manual review required")
+            $lines.Add("")
+
+            if ($report.validation.errors.Count -gt 0) {
+              $lines.Add("### Validation errors")
+              $lines.Add("")
+              foreach ($err in $report.validation.errors) {
+                $lines.Add("- :x: $err")
+              }
+              $lines.Add("")
+            }
+
+            if ($report.validation.warnings.Count -gt 0) {
+              $lines.Add("### Validation warnings")
+              $lines.Add("")
+              foreach ($warn in $report.validation.warnings) {
+                $lines.Add("- :warning: $warn")
+              }
+              $lines.Add("")
+            }
+
+            if ($report.validation.missingDefaultCapabilities.Count -gt 0) {
+              $lines.Add("### Missing default capabilities")
+              $lines.Add("")
+              foreach ($cap in $report.validation.missingDefaultCapabilities) {
+                $lines.Add("- ``AICapability.$cap``")
+              }
+              $lines.Add("")
+            }
+
+            if ($report.validation.pendingCapabilityModels.Count -gt 0) {
+              $lines.Add("### Models with pending capability definitions")
+              $lines.Add("")
+              $lines.Add("These models were added but could not be assigned capabilities from OpenRouter metadata. They need manual capability assignment before merging.")
+              $lines.Add("")
+              foreach ($model in $report.validation.pendingCapabilityModels) {
+                $lines.Add("- ``$model``")
+              }
+              $lines.Add("")
+            }
+
+            if ($report.validation.realtimeModels.Count -gt 0) {
+              $lines.Add("### Realtime models (should be excluded)")
+              $lines.Add("")
+              foreach ($model in $report.validation.realtimeModels) {
+                $lines.Add("- ``$model``")
+              }
+              $lines.Add("")
+            }
+          }
+
+          # --- Summary counters ---
+          $newCount = if ($report.newModels) { $report.newModels.Count } else { 0 }
+          $deprecatedCount = if ($report.deprecatedModels) { $report.deprecatedModels.Count } else { 0 }
+          $unchangedCount = if ($report.unchangedModels) { $report.unchangedModels.Count } else { 0 }
+          $totalSource = if ($report.sourceModels) { $report.sourceModels.Count } else { 0 }
+
+          $lines.Add("## Scan summary for ``${{ matrix.provider }}``")
+          $lines.Add("")
+          $lines.Add("| Metric | Count |")
+          $lines.Add("|--------|------:|")
+          $lines.Add("| Models from provider API | $(if ($report.providerApiModels) { $report.providerApiModels.Count } else { 'N/A' }) |")
+          $lines.Add("| Models from OpenRouter | $(if ($report.openrouterModels) { $report.openrouterModels.Count } else { 'N/A' }) |")
+          $lines.Add("| Models in source (before) | $totalSource |")
+          $lines.Add("| :new: New models | $newCount |")
+          $lines.Add("| :no_entry_sign: Deprecated models | $deprecatedCount |")
+          $lines.Add("| Unchanged models | $unchangedCount |")
+          $lines.Add("")
+
+          # --- Build comprehensive model table ---
+          # Collect all unique model IDs across all origins
+          $allModels = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+          $providerSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+          $openrouterSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+          $sourceSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+          $newSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+          $deprecatedSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+          $pendingSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+          if ($report.providerApiModels) {
+            foreach ($m in $report.providerApiModels) { [void]$providerSet.Add($m); [void]$allModels.Add($m) }
+          }
+          if ($report.openrouterModels) {
+            foreach ($m in $report.openrouterModels) { [void]$openrouterSet.Add($m); [void]$allModels.Add($m) }
+          }
+          if ($report.sourceModels) {
+            foreach ($m in $report.sourceModels) { [void]$sourceSet.Add($m); [void]$allModels.Add($m) }
+          }
+          # Also add new/deprecated models (they should already be in one of the above, but ensure completeness)
+          if ($report.newModels) {
+            foreach ($m in $report.newModels) { [void]$newSet.Add($m); [void]$allModels.Add($m) }
+          }
+          if ($report.deprecatedModels) {
+            foreach ($m in $report.deprecatedModels) { [void]$deprecatedSet.Add($m); [void]$allModels.Add($m) }
+          }
+          if ($report.validation -and $report.validation.pendingCapabilityModels) {
+            foreach ($m in $report.validation.pendingCapabilityModels) { [void]$pendingSet.Add($m) }
+          }
+
+          # Also add apiModels (the union from the script)
+          if ($report.apiModels) {
+            foreach ($m in $report.apiModels) { [void]$allModels.Add($m) }
+          }
+
+          $sorted = $allModels | Sort-Object
+
+          # Determine if provider API column is relevant
+          $hasProviderApi = $report.providerApiQueried -eq $true
+
+          $lines.Add("## Model details")
+          $lines.Add("")
+          $lines.Add("<details>")
+          $lines.Add("<summary>Full model table ($($sorted.Count) models)</summary>")
+          $lines.Add("")
+
+          if ($hasProviderApi) {
+            $lines.Add("| Model | Provider API | OpenRouter | Source | Decision | Notes |")
+            $lines.Add("|-------|:---:|:---:|:---:|----------|-------|")
+          } else {
+            $lines.Add("| Model | OpenRouter | Source | Decision | Notes |")
+            $lines.Add("|-------|:---:|:---:|----------|-------|")
+          }
+
+          foreach ($model in $sorted) {
+            $inProvider = if ($hasProviderApi -and $providerSet.Contains($model)) { ":white_check_mark:" } elseif ($hasProviderApi) { "" } else { $null }
+            $inOpenRouter = if ($openrouterSet.Contains($model)) { ":white_check_mark:" } else { "" }
+            $inSource = if ($sourceSet.Contains($model)) { ":white_check_mark:" } else { "" }
+
+            # Decision logic
+            $decision = ""
+            if ($newSet.Contains($model)) {
+              $decision = ":new: New"
+            } elseif ($deprecatedSet.Contains($model)) {
+              $decision = ":no_entry_sign: Deprecated"
+            }
+            # Unchanged models get blank decision column
+
+            # Notes
+            $notes = ""
+            if ($pendingSet.Contains($model)) {
+              $notes = ":warning: Pending capabilities"
+            }
+
+            $escapedModel = "``$model``"
+
+            if ($hasProviderApi) {
+              $lines.Add("| $escapedModel | $inProvider | $inOpenRouter | $inSource | $decision | $notes |")
+            } else {
+              $lines.Add("| $escapedModel | $inOpenRouter | $inSource | $decision | $notes |")
+            }
+          }
+
+          $lines.Add("")
+          $lines.Add("</details>")
+          $lines.Add("")
+
+          # --- Actions & review section ---
+          $lines.Add("## Actions taken")
+          $lines.Add("")
+          $lines.Add("- New models discovered via OpenRouter are auto-inserted with capabilities mapped from ``architecture.modalities`` and ``supported_parameters``.")
+          $lines.Add("- Disappeared models (or models with ``expiration_date`` < 1 year) are marked ``Deprecated = true``.")
+          $lines.Add("- Existing model ``Capabilities`` and ``ContextLimit`` are refreshed from OpenRouter metadata.")
+          $lines.Add("- ``Rank`` values are auto-computed from OpenRouter data: newer models rank higher, and within the same creation period cheaper output pricing ranks higher.")
+          $lines.Add("")
+          $lines.Add("## Requires manual review")
+          $lines.Add("")
+          $lines.Add("- Verify ``Verified`` flags for newly added models.")
+          if ($hasValidationIssues) {
+            $lines.Add("- :warning: Resolve the validation issues listed above before merging (the PR-level ``check-provider-models`` job will block the merge otherwise).")
+          }
+          $lines.Add("")
+
+          # Write body to a file to avoid GITHUB_OUTPUT size limits
+          $body = $lines -join "`n"
+          $bodyFile = Join-Path $env:RUNNER_TEMP "pr-body.md"
+          [System.IO.File]::WriteAllText($bodyFile, $body, [System.Text.Encoding]::UTF8)
+
+          "body-file=$bodyFile" >> $env:GITHUB_OUTPUT
+          "has-validation-issues=$($hasValidationIssues.ToString().ToLower())" >> $env:GITHUB_OUTPUT
 
       - name: Emit step summary
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.success == 'true'
         shell: pwsh
+        env:
+          REPORT_JSON: ${{ steps.models.outputs.report }}
         run: |
-          $reportJson = '${{ steps.models.outputs.report }}'
-          $report = $reportJson | ConvertFrom-Json
-          Write-Output "## ${{ matrix.provider }} model scan" >> $env:GITHUB_STEP_SUMMARY
+          $report = $env:REPORT_JSON | ConvertFrom-Json
+          Write-Output "## ${{ matrix.provider }} → ${{ matrix.branch }} model scan" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- API models: $($report.apiModels.Count)" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- Source models: $($report.sourceModels.Count)" >> $env:GITHUB_STEP_SUMMARY
           if ($report.newModels.Count -gt 0) {
@@ -101,37 +357,67 @@ jobs:
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.success == 'true' && steps.models.outputs.changed == 'false'
         shell: pwsh
         run: |
-          Write-Output "## ${{ matrix.provider }} model scan" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "## ${{ matrix.provider }} → ${{ matrix.branch }} model scan" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- API models: $($env:MODEL_COUNT)" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- **No changes** detected in source file; no PR created." >> $env:GITHUB_STEP_SUMMARY
         env:
           MODEL_COUNT: ${{ steps.models.outputs.count }}
 
+      - name: Compute PR branch name
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true'
+        id: branch-name
+        shell: bash
+        run: |
+          base="${{ matrix.branch }}"
+          provider="${{ matrix.provider }}"
+          if [ "$base" = "main" ]; then
+            echo "pr-branch=chore/update-models-${provider}" >> "$GITHUB_OUTPUT"
+          else
+            # Replace / with - for valid branch names
+            safe_base="${base//\//-}"
+            echo "pr-branch=chore/update-models-${provider}-${safe_base}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create Pull Request
         if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true'
+        id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore(models): update ${{ matrix.provider }} model list [ci skip]"
+          commit-message: "chore(models): update ${{ matrix.provider }} model list"
           title: "chore(models): auto-add new and deprecate stale ${{ matrix.provider }} models"
-          body: |
-            Auto-generated PR from `.github/workflows/chore-update-provider-models.yml`.
-
-            ### Scan results for `${{ matrix.provider }}`
-            ````json
-            ${{ steps.models.outputs.report }}
-            ````
-
-            **Actions taken:**
-            - New models discovered via OpenRouter are auto-inserted with capabilities mapped from `architecture.modalities` and `supported_parameters`.
-            - Disappeared models (or models with `expiration_date` < 1 year) are marked `Deprecated = true`.
-            - Existing model `Capabilities` and `ContextLimit` are refreshed from OpenRouter metadata.
-            - `Rank` values are auto-computed from OpenRouter data: newer models rank higher, and within the same creation period cheaper output pricing ranks higher.
-
-            **Requires manual review:**
-            - Verify `Default` and `Verified` flags for newly added models.
-          branch: "chore/update-models-${{ matrix.provider }}"
-          base: main
+          body-path: ${{ steps.pr-body.outputs.body-file }}
+          branch: ${{ steps.branch-name.outputs.pr-branch }}
+          base: ${{ matrix.branch }}
           delete-branch: true
           labels: |
             automated
+
+      - name: Assign PR to Milestone
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.check.outputs.skipped == 'false' && steps.models.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ steps.branch-name.outputs.pr-branch }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: ${{ matrix.branch }}
+          pr-title: "chore(models): auto-add new and deprecate stale ${{ matrix.provider }} models"
+
+      - name: Label PR on failure
+        if: failure() && steps.create-pr.outputs.pull-request-number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
+              labels: ['status: needs attention']
+            });

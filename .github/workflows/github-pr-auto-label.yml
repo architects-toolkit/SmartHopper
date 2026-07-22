@@ -1,0 +1,143 @@
+name: 🏷️ PR Auto-Label
+
+# Description: Automatically labels pull requests based on the files changed.
+# Uses the actions/labeler action with config in .github/labeler.yml.
+#
+# Triggers:
+#   - pull_request opened or synchronized (new commits pushed)
+#
+# Permissions:
+#   - contents: read  - Required to read file changes
+#   - pull-requests: write - Required to apply labels
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  label:
+    name: Apply path-based labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/labels.yml
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          sync-labels: false
+
+      - name: Normalize label colors
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Read expected colors from labels.yml
+          $labelsYml = Get-Content -Raw .github/labels.yml
+          $expectedColors = @{}
+          $matches = [regex]::Matches($labelsYml, '(?m)^- name: "([^"]+)"\s*\n\s*color: "([^"]+)"')
+          foreach ($m in $matches) {
+            $expectedColors[$m.Groups[1].Value] = $m.Groups[2].Value
+          }
+
+          # Get labels applied to this PR
+          $repo = "${{ github.repository }}"
+          $prNumber = "${{ github.event.pull_request.number }}"
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept = "application/vnd.github+json"
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+
+          $prLabels = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/issues/$prNumber/labels" -Headers $headers
+          foreach ($label in $prLabels) {
+            $expectedColor = $expectedColors[$label.name]
+            if ($expectedColor -and $label.color -ne $expectedColor) {
+              Write-Host "Fixing color for '$($label.name)': $($label.color) -> $expectedColor"
+              $body = @{ color = $expectedColor } | ConvertTo-Json
+              $encodedName = [Uri]::EscapeDataString($label.name)
+              Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/labels/$encodedName" -Headers $headers -Method PATCH -Body $body -ContentType "application/json"
+            }
+          }
+
+  ai-tool-labels:
+    name: Apply AI tool propagation labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: label
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed AI tool files
+        id: changed-files
+        shell: pwsh
+        run: |
+          $base = '${{ github.event.pull_request.base.sha }}'
+          $head = '${{ github.event.pull_request.head.sha }}'
+          $changed = git diff --name-only $base $head | Where-Object { $_ -match 'src/SmartHopper\.Core\.Grasshopper/AITools/' }
+          $changed | ForEach-Object { Write-Output $_ }
+          "changed_files=$($changed -join ',')" >> $env:GITHUB_OUTPUT
+
+      - name: Find affected components and apply labels
+        if: steps.changed-files.outputs.changed_files != ''
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $changedFiles = '${{ steps.changed-files.outputs.changed_files }}' -split ','
+          $prNumber = '${{ github.event.pull_request.number }}'
+          $repo = '${{ github.repository }}'
+
+          $labelsToApply = @()
+
+          foreach ($file in $changedFiles) {
+            if ([string]::IsNullOrWhiteSpace($file)) { continue }
+            $toolName = [System.IO.Path]::GetFileNameWithoutExtension($file)
+            if ($toolName.StartsWith('_')) { $toolName = $toolName.Substring(1) }
+
+            $components = & .\tools\Find-ComponentsUsingAiTool.ps1 -AiTool $toolName
+            foreach ($componentPath in $components) {
+              # Match component path to label in labeler.yml
+              $labelerContent = Get-Content -Raw .github\labeler.yml
+              $escapedPath = [regex]::Escape($componentPath).Replace('/', '[/\\]')
+              $pattern = '"component: ([^"]+)":\s*\n\s*- changed-files:\s*\n\s*- any-glob-to-any-file:\s*''$escapedPath'''
+              $match = [regex]::Match($labelerContent, $pattern)
+              if (-not $match.Success) {
+                # Try forward-slash variant
+                $forwardPath = $componentPath.Replace('\', '/')
+                $escapedPath = [regex]::Escape($forwardPath)
+                $pattern = '"component: ([^"]+)":\s*\n\s*- changed-files:\s*\n\s*- any-glob-to-any-file:\s*''$escapedPath'''
+                $match = [regex]::Match($labelerContent, $pattern)
+              }
+              if ($match.Success) {
+                $labelsToApply += $match.Groups[1].Value
+              }
+            }
+          }
+
+          $labelsToApply = $labelsToApply | Sort-Object -Unique
+          if ($labelsToApply.Count -eq 0) {
+            Write-Host "No component labels to apply."
+            exit 0
+          }
+
+          $body = @{ labels = @($labelsToApply) } | ConvertTo-Json -Compress
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept = "application/vnd.github+json"
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+          $uri = "https://api.github.com/repos/$repo/issues/$prNumber/labels"
+          Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Body $body -ContentType 'application/json'
+          Write-Host "Applied labels: $($labelsToApply -join ', ')"

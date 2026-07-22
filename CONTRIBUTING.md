@@ -40,7 +40,16 @@ Are you skilled in coding and want to contribute to SmartHopper? You can help fi
      ```
    - Submit a Pull Request following the [Pull Request Guidelines](#pull-request-guidelines) explained below
 
-### 4. **Release Checklist**
+### 4. **Validate Models**
+
+Help the community confirm which AI models work reliably with SmartHopper by submitting a **Model Verification Report**:
+
+- Use the [Model Verification Report](https://github.com/architects-toolkit/SmartHopper/issues/new/choose) issue template
+- Run the model with your SmartHopper installation and confirm the results
+- The [model-verification](.github/workflows/model-verification.yml) workflow will automatically track confirmations
+- Once at least two distinct users have certified the model (or a maintainer forces it), an automated PR promotes the model to `Verified = true`
+
+### 5. **Release Checklist**
 
 Before submitting a release, please ensure you have completed the checks in the [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
 

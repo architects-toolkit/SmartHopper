@@ -1,0 +1,236 @@
+/*
+ * SmartHopper - AI-powered Grasshopper Plugin
+ * Copyright (C) 2024-2026 Marc Roca Musach
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library; if not, see <https://www.gnu.org/licenses/lgpl-3.0.html>.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using GhJSON.Grasshopper;
+using Grasshopper;
+using Grasshopper.Kernel;
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall.Tools;
+using SmartHopper.Infrastructure.AITools;
+using SmartHopper.ProviderSdk.AICall.Core.Interactions;
+using SmartHopper.ProviderSdk.AICall.Core.Returns;
+
+namespace SmartHopper.Core.Grasshopper.AITools
+{
+    /// <summary>
+    /// Tool provider for connecting Grasshopper components together.
+    /// Creates wires between component parameters on the canvas.
+    /// </summary>
+    public class gh_connect : IAIToolProvider
+    {
+        /// <summary>
+        /// Name of the AI tool provided by this class.
+        /// </summary>
+        private readonly string toolName = "gh_connect";
+
+        /// <summary>
+        /// Returns the GH connect tool.
+        /// </summary>
+        public IEnumerable<AITool> GetTools()
+        {
+            yield return new AITool(
+                name: this.toolName,
+                description: "Connect Grasshopper components together by creating wires between outputs and inputs. Use this to establish data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first).",
+                category: "NotTested",
+                parametersSchema: @"{
+                    ""type"": ""object"",
+                    ""properties"": {
+                        ""connections"": {
+                            ""type"": ""array"",
+                            ""description"": ""Array of connection specifications"",
+                            ""items"": {
+                                ""type"": ""object"",
+                                ""properties"": {
+                                    ""sourceGuid"": {
+                                        ""type"": ""string"",
+                                        ""description"": ""GUID of the source component (output side)""
+                                    },
+                                    ""sourceParam"": {
+                                        ""type"": ""string"",
+                                        ""description"": ""Name or nickname of the output parameter. If not specified, uses the first output.""
+                                    },
+                                    ""targetGuid"": {
+                                        ""type"": ""string"",
+                                        ""description"": ""GUID of the target component (input side)""
+                                    },
+                                    ""targetParam"": {
+                                        ""type"": ""string"",
+                                        ""description"": ""Name or nickname of the input parameter. If not specified, uses the first input.""
+                                    }
+                                },
+                                ""required"": [""sourceGuid"", ""targetGuid""]
+                            }
+                        }
+                    },
+                    ""required"": [""connections""]
+                }",
+                execute: this.GhConnectToolAsync,
+                mutatesCanvas: true,
+                enabled: true,
+                tags: new[] { "canvas", "components", "mutating", "connections" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""successful"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""failed"": { ""type"": ""array"", ""items"": { ""type"": ""object"" } }, ""successCount"": { ""type"": ""integer"" }, ""failCount"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
+        }
+
+        /// <summary>
+        /// Executes the GH connect tool.
+        /// </summary>
+        private async Task<AIReturn> GhConnectToolAsync(AIToolCall toolCall)
+        {
+            var output = new AIReturn()
+            {
+                Request = toolCall,
+            };
+
+            try
+            {
+                AIInteractionToolCall toolInfo = toolCall.GetToolCall();
+                var args = toolInfo.GetArgumentsOrEmpty();
+                var connectionsArray = args["connections"] as JArray;
+
+                if (connectionsArray == null || !connectionsArray.Any())
+                {
+                    output.CreateError("The 'connections' array is required and must contain at least one connection specification.");
+                    return output;
+                }
+
+                var doc = GhJsonGrasshopper.GetActiveDocument();
+                if (doc == null)
+                {
+                    output.CreateError("No active Grasshopper document found.");
+                    return output;
+                }
+
+                var successfulConnections = new List<JObject>();
+                var failedConnections = new List<JObject>();
+                var protectedGuids = CanvasProtection.GetProtectedInstanceGuids();
+
+                foreach (var connSpec in connectionsArray)
+                {
+                    var sourceGuidStr = connSpec["sourceGuid"]?.ToString();
+                    var targetGuidStr = connSpec["targetGuid"]?.ToString();
+                    var sourceParamName = connSpec["sourceParam"]?.ToString();
+                    var targetParamName = connSpec["targetParam"]?.ToString();
+
+                    if (string.IsNullOrEmpty(sourceGuidStr) || string.IsNullOrEmpty(targetGuidStr))
+                    {
+                        failedConnections.Add(new JObject
+                        {
+                            ["error"] = "Missing sourceGuid or targetGuid",
+                            ["spec"] = connSpec
+                        });
+                        continue;
+                    }
+
+                    if (!Guid.TryParse(sourceGuidStr, out var sourceGuid) || !Guid.TryParse(targetGuidStr, out var targetGuid))
+                    {
+                        failedConnections.Add(new JObject
+                        {
+                            ["error"] = "Invalid GUID format",
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr
+                        });
+                        continue;
+                    }
+
+                    if (protectedGuids.Contains(sourceGuid) || protectedGuids.Contains(targetGuid))
+                    {
+                        failedConnections.Add(new JObject
+                        {
+                            ["error"] = "Connection rejected because it involves a protected component.",
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr
+                        });
+                        continue;
+                    }
+
+                    // Use centralized GhJSON connector. The caller handles a single
+                    // solution recompute and canvas redraw after all connections are created.
+                    bool success = GhJsonGrasshopper.Connect(sourceGuid, targetGuid, sourceParamName, targetParamName);
+
+                    if (success)
+                    {
+                        successfulConnections.Add(new JObject
+                        {
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr,
+                            ["sourceParam"] = sourceParamName ?? "(first output)",
+                            ["targetParam"] = targetParamName ?? "(first input)",
+                            ["status"] = "connected"
+                        });
+                    }
+                    else
+                    {
+                        failedConnections.Add(new JObject
+                        {
+                            ["error"] = "Connection failed - check component GUIDs and parameter names",
+                            ["sourceGuid"] = sourceGuidStr,
+                            ["targetGuid"] = targetGuidStr
+                        });
+                    }
+                }
+
+                // Recompute the solution on the UI thread after all connections.
+                if (successfulConnections.Any())
+                {
+                    var solutionTcs = new TaskCompletionSource<bool>();
+                    Rhino.RhinoApp.InvokeOnUiThread(() =>
+                    {
+                        try
+                        {
+                            doc.NewSolution(false);
+                            Instances.RedrawCanvas();
+                            solutionTcs.SetResult(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            solutionTcs.SetException(ex);
+                        }
+                    });
+
+                    await solutionTcs.Task.ConfigureAwait(false);
+                }
+
+                var toolResult = new JObject
+                {
+                    ["successful"] = JArray.FromObject(successfulConnections),
+                    ["failed"] = JArray.FromObject(failedConnections),
+                    ["successCount"] = successfulConnections.Count,
+                    ["failCount"] = failedConnections.Count
+                };
+
+                var body = AIBodyBuilder.Create()
+                    .AddToolResult(toolResult, id: toolInfo.Id, name: toolInfo.Name ?? this.toolName)
+                    .Build();
+
+                output.CreateSuccess(body, toolCall);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                output.CreateError($"Error connecting components: {ex.Message}");
+                return output;
+            }
+        }
+
+    }
+}

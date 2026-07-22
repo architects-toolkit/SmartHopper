@@ -1,5 +1,10 @@
 name: 🔄 Remove Release Version Date
 
+# Related workflows (triggered on Solution.props / version changes):
+#   - chore-version-sync.yml (unified version date + badge update)
+#   - chore-version-main-release.yml (strips date suffix for main release PRs)
+#   (dev-update-manifest.yml was removed — manifest text is now resolved at build time via .manifest.json)
+
 # Description: Automatically strips the date component from the version in Solution.props
 # when a pull request targets the main branch. Commits the updated version back to the PR branch.
 
@@ -15,6 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -26,9 +32,10 @@ jobs:
   remove-release-date:
     name: 🔄 Remove Release Version Date
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
@@ -53,16 +60,11 @@ jobs:
           fi
           echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Update version in Solution.props
-        uses: ./.github/actions/versioning/update-version
+      - name: Update version
+        uses: ./.github/actions/versioning/version-manager
         with:
+          mode: set-version
           new-version: ${{ steps.strip-date.outputs.new-version }}
-
-      # Update badges to match the new version
-      - name: Update badges
-        id: update-badges
-        if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
-        uses: ./.github/actions/documentation/update-badges
 
       - name: Create Pull Request
         if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version
@@ -88,3 +90,25 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.strip-date.outputs.new-version != steps.get-version.outputs.version && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/strip-version-date-${{ github.event.pull_request.head.ref }}
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: ${{ github.event.pull_request.head.ref }}
+          pr-title: "chore: remove date from version for main release"
+
+      - name: Label PR on failure
+        if: failure() && steps.create-pr.outputs.pull-request-number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
+              labels: ['status: needs attention']
+            });

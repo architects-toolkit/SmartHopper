@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -101,14 +101,6 @@ namespace SmartHopper.Providers.OpenRouter
                 // Provider selection controls
                 new SettingDescriptor
                 {
-                    Name = "AllowFallbacks",
-                    Type = typeof(bool),
-                    DefaultValue = true,
-                    DisplayName = "Allow Fallbacks",
-                    Description = "Allow OpenRouter to fall back to compatible models if the preferred model is unavailable.",
-                },
-                new SettingDescriptor
-                {
                     Name = "Sort",
                     Type = typeof(string),
                     DefaultValue = "price",
@@ -124,6 +116,14 @@ namespace SmartHopper.Providers.OpenRouter
                     DisplayName = "Data Collection",
                     Description = "Allow or deny provider data collection (allow|deny). Defaults to deny.",
                     AllowedValues = new object[] { "deny", "allow" },
+                },
+                new SettingDescriptor
+                {
+                    Name = "AllowFallbacks",
+                    Type = typeof(bool),
+                    DefaultValue = true,
+                    DisplayName = "Allow Fallbacks",
+                    Description = "Allow OpenRouter to fall back to compatible models if the preferred model is unavailable.",
                 },
             };
         }

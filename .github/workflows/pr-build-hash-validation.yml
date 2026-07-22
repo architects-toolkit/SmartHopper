@@ -1,5 +1,13 @@
 name: 🔍 PR Build & Hash Validation
 
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
 # Description: Validates that PRs to main/dev/hotfix/release branches can build
 # successfully and generate valid hash manifests without conflicts.
 
@@ -12,6 +20,22 @@ on:
       - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -26,6 +50,7 @@ jobs:
   validate-no-manual-hash-edits:
     name: 🚫 Block Manual Hash Edits
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
     - name: Checkout PR Branch
       uses: actions/checkout@v4
@@ -34,17 +59,33 @@ jobs:
 
     - name: Check for manual hash file edits
       shell: bash
+      env:
+        INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
       run: |
         echo "Checking for manual edits to hashes/ directory..."
         echo "Source of truth: main branch"
         echo ""
 
+        # Determine the short base branch name. For merge_group, GITHUB_REF_NAME is
+        # gh-readonly-queue/{base}/{head}, so derive the base branch from it.
+        if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+          base_ref_name="${GITHUB_REF_NAME#gh-readonly-queue/}"
+          base_ref_name="${base_ref_name%/*}"
+        elif [ -n "${INPUT_BASE_REF:-}" ]; then
+          base_ref_name="$INPUT_BASE_REF"
+        elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+          base_ref_name="$GITHUB_BASE_REF"
+        else
+          base_ref_name="main"
+        fi
+        base_ref_name="${base_ref_name#refs/heads/}"
+
         # Fetch both the PR base branch (for computing changed files) and main (source of truth)
-        git fetch origin ${{ github.base_ref }} --depth=1
+        git fetch origin "$base_ref_name" --depth=1
         git fetch origin main --depth=1
 
         # Get the list of changed files in the PR (relative to the PR base branch)
-        changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+        changed_files=$(git diff --name-only "origin/$base_ref_name"..HEAD)
 
         echo "Changed files:"
         echo "$changed_files"
@@ -106,6 +147,7 @@ jobs:
   prep:
     needs: validate-no-manual-hash-edits
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -155,6 +197,7 @@ jobs:
           - os: macos-latest
             platform: net7.0
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     steps:
     - name: Checkout PR Branch
       uses: actions/checkout@v4
@@ -197,12 +240,32 @@ jobs:
     - name: Check for Hash File Conflicts
       id: check_conflicts
       shell: pwsh
+      env:
+        INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
       run: |
         $version = "${{ steps.extract_version.outputs.version }}"
         $hashFile = "${{ steps.calculate_hashes.outputs.HASH_FILE }}"
         
-        # Checkout target branch to check for existing hash
-        $targetBranch = "${{ github.base_ref }}"
+        # Determine the short target branch name. For merge_group, GITHUB_REF_NAME is
+        # gh-readonly-queue/{base}/{head}, so derive the base branch from it.
+        $targetBranch = $env:GITHUB_BASE_REF
+        if ([string]::IsNullOrWhiteSpace($targetBranch) -and $env:GITHUB_EVENT_NAME -eq "merge_group") {
+            $refName = $env:GITHUB_REF_NAME
+            if ($refName.StartsWith("gh-readonly-queue/")) {
+                $refName = $refName.Substring("gh-readonly-queue/".Length)
+                $lastSlash = $refName.LastIndexOf("/")
+                if ($lastSlash -ge 0) {
+                    $targetBranch = $refName.Substring(0, $lastSlash)
+                }
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($targetBranch)) {
+            $targetBranch = $env:INPUT_BASE_REF
+        }
+        if ([string]::IsNullOrWhiteSpace($targetBranch)) {
+            $targetBranch = "main"
+        }
+        $targetBranch = $targetBranch -replace "^refs/heads/", ""
         Write-Host "Checking target branch: $targetBranch"
         
         git fetch origin $targetBranch
@@ -275,3 +338,28 @@ jobs:
         } else {
           Write-Host "##[notice] ✅ VALIDATION PASSED: Build successful and no hash conflicts"
         }
+
+  required-check:
+    name: 🔍 PR Build & Hash Validation
+    needs: [validate-no-manual-hash-edits, prep, validate-build-and-hash]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - name: Verify required workflow jobs
+      shell: bash
+      run: |
+        if [[ "${{ needs.validate-no-manual-hash-edits.result }}" != "success" ]]; then
+          echo "::error::Manual hash edit validation finished with ${{ needs.validate-no-manual-hash-edits.result }}"
+          exit 1
+        fi
+
+        if [[ "${{ needs.prep.result }}" != "success" ]]; then
+          echo "::error::Prep finished with ${{ needs.prep.result }}"
+          exit 1
+        fi
+
+        if [[ "${{ needs.validate-build-and-hash.result }}" != "success" ]]; then
+          echo "::error::Build/hash validation matrix finished with ${{ needs.validate-build-and-hash.result }}"
+          exit 1
+        fi

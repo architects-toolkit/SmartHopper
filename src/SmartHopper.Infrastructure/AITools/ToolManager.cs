@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -38,8 +38,34 @@ namespace SmartHopper.Infrastructure.AITools
         // Dictionary to store all available tools
         private static readonly Dictionary<string, AITool> _tools = new Dictionary<string, AITool>();
 
+        // Lock to protect _tools and _toolsDiscovered from concurrent access. AIToolManager is a
+        // static manager that may be used by multiple components and tests in parallel.
+        private static readonly object _toolsLock = new object();
+
         // Flag to track if tools have been discovered
         private static bool _toolsDiscovered;
+
+        /// <summary>
+        /// Resets the tool manager to a clean state. For test use only.
+        /// </summary>
+        internal static void ResetTools()
+        {
+            lock (_toolsLock)
+            {
+                _tools.Clear();
+                _toolsDiscovered = false;
+            }
+        }
+
+        /// <summary>
+        /// Adds or updates a tool in the registry without taking a lock.
+        /// Must only be called while holding _toolsLock.
+        /// </summary>
+        /// <param name="tool">The tool to register</param>
+        private static void RegisterToolCore(AITool tool)
+        {
+            _tools[tool.Name] = tool;
+        }
 
         /// <summary>
         /// Register a single tool
@@ -47,7 +73,10 @@ namespace SmartHopper.Infrastructure.AITools
         /// <param name="tool">The tool to register</param>
         public static void RegisterTool(AITool tool)
         {
-            _tools[tool.Name] = tool;
+            lock (_toolsLock)
+            {
+                RegisterToolCore(tool);
+            }
         }
 
         /// <summary>
@@ -56,9 +85,12 @@ namespace SmartHopper.Infrastructure.AITools
         /// <returns>Dictionary of registered tools</returns>
         public static IReadOnlyDictionary<string, AITool> GetTools()
         {
-            // Ensure tools are discovered
-            DiscoverTools();
-            return _tools;
+            lock (_toolsLock)
+            {
+                // Ensure tools are discovered
+                DiscoverTools();
+                return new Dictionary<string, AITool>(_tools);
+            }
         }
 
         /// <summary>
@@ -68,9 +100,6 @@ namespace SmartHopper.Infrastructure.AITools
         /// <returns>The result of the tool execution</returns>
         public static async Task<AIReturn> ExecuteTool(AIToolCall toolCall)
         {
-            // Ensure tools are discovered
-            DiscoverTools();
-
             var toolInfo = toolCall.GetToolCall();
 
             Debug.WriteLine($"[AIToolManager] Executing tool: {toolInfo.Name}");
@@ -99,6 +128,22 @@ namespace SmartHopper.Infrastructure.AITools
                 }
 
                 return output;
+            }
+
+            // Ensure tools are discovered
+            DiscoverTools();
+            
+            // Resolve the target tool under the lock, then execute
+            // outside the lock so async work does not block other callers.
+            AITool tool;
+            lock (_toolsLock)
+            {
+                if (!_tools.TryGetValue(toolInfo.Name, out tool))
+                {
+                    Debug.WriteLine($"[AIToolManager] Tool not found: {toolInfo.Name}");
+                    output.CreateToolError($"Tool '{toolInfo.Name}' is not registered.", toolCall);
+                    return output;
+                }
             }
 
             try
@@ -161,88 +206,91 @@ namespace SmartHopper.Infrastructure.AITools
         /// </summary>
         public static void DiscoverTools()
         {
-            // Only discover once
-            if (_toolsDiscovered)
-                return;
-
-            Debug.WriteLine("[AIToolManager] Starting tool discovery");
-
-            try
+            lock (_toolsLock)
             {
-                // For security reasons, restrict tool discovery to only SmartHopper.Core.Grasshopper/Tools
-                // First, ensure the Core.Grasshopper assembly is loaded
-                Assembly coreGrasshopperAssembly = null;
+                // Only discover once
+                if (_toolsDiscovered)
+                    return;
+
+                Debug.WriteLine("[AIToolManager] Starting tool discovery");
+
                 try
                 {
-                    coreGrasshopperAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                        .FirstOrDefault(a => a.GetName().Name == "SmartHopper.Core.Grasshopper");
-
-                    if (coreGrasshopperAssembly == null)
-                    {
-                        Debug.WriteLine("[AIToolManager] Loading SmartHopper.Core.Grasshopper assembly");
-                        coreGrasshopperAssembly = Assembly.Load("SmartHopper.Core.Grasshopper");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[AIToolManager] Error loading Core.Grasshopper assembly: {ex.Message}");
-                    return;
-                }
-
-                if (coreGrasshopperAssembly == null)
-                {
-                    Debug.WriteLine("[AIToolManager] Could not find or load SmartHopper.Core.Grasshopper assembly");
-                    return;
-                }
-
-                Debug.WriteLine($"[AIToolManager] Successfully loaded Core.Grasshopper assembly: {coreGrasshopperAssembly.GetName().Version}");
-
-                // Find all types in the SmartHopper.Core.Grasshopper.AITools namespace
-                var toolsNamespace = "SmartHopper.Core.Grasshopper.AITools";
-                Debug.WriteLine($"[AIToolManager] Searching for tool providers in namespace: {toolsNamespace}");
-
-                // Get all types in the Tools namespace
-                var toolsTypes = coreGrasshopperAssembly.GetTypes()
-                    .Where(t => t.Namespace == toolsNamespace)
-                    .ToList();
-
-                Debug.WriteLine($"[AIToolManager] Found {toolsTypes.Count} types in Tools namespace");
-
-                // Filter to only those that implement IAIToolProvider
-                var toolProviderTypes = toolsTypes
-                    .Where(t => typeof(IAIToolProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-                    .ToList();
-
-                Debug.WriteLine($"[AIToolManager] Found {toolProviderTypes.Count} tool provider types");
-
-                int toolCount = 0;
-                foreach (var providerType in toolProviderTypes)
-                {
+                    // For security reasons, restrict tool discovery to only SmartHopper.Core.Grasshopper/Tools
+                    // First, ensure the Core.Grasshopper assembly is loaded
+                    Assembly coreGrasshopperAssembly = null;
                     try
                     {
-                        var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
-                        var tools = provider.GetTools().ToList();
+                        coreGrasshopperAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                            .FirstOrDefault(a => a.GetName().Name == "SmartHopper.Core.Grasshopper");
 
-                        Debug.WriteLine($"[AIToolManager] Provider {providerType.Name} returned {tools.Count} tools");
-
-                        foreach (var tool in tools)
+                        if (coreGrasshopperAssembly == null)
                         {
-                            RegisterTool(tool);
-                            toolCount++;
+                            Debug.WriteLine("[AIToolManager] Loading SmartHopper.Core.Grasshopper assembly");
+                            coreGrasshopperAssembly = Assembly.Load("SmartHopper.Core.Grasshopper");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[AIToolManager] Error registering tools from {providerType.Name}: {ex.Message}");
+                        Debug.WriteLine($"[AIToolManager] Error loading Core.Grasshopper assembly: {ex.Message}");
+                        return;
                     }
-                }
 
-                Debug.WriteLine($"[AIToolManager] Tool discovery complete. Registered {toolCount} tools from {toolProviderTypes.Count} tool sets");
-                _toolsDiscovered = true;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AIToolManager] Error during tool discovery: {ex.Message}");
+                    if (coreGrasshopperAssembly == null)
+                    {
+                        Debug.WriteLine("[AIToolManager] Could not find or load SmartHopper.Core.Grasshopper assembly");
+                        return;
+                    }
+
+                    Debug.WriteLine($"[AIToolManager] Successfully loaded Core.Grasshopper assembly: {coreGrasshopperAssembly.GetName().Version}");
+
+                    // Find all types in the SmartHopper.Core.Grasshopper.AITools namespace
+                    var toolsNamespace = "SmartHopper.Core.Grasshopper.AITools";
+                    Debug.WriteLine($"[AIToolManager] Searching for tool providers in namespace: {toolsNamespace}");
+
+                    // Get all types in the Tools namespace
+                    var toolsTypes = coreGrasshopperAssembly.GetTypes()
+                        .Where(t => t.Namespace == toolsNamespace)
+                        .ToList();
+
+                    Debug.WriteLine($"[AIToolManager] Found {toolsTypes.Count} types in Tools namespace");
+
+                    // Filter to only those that implement IAIToolProvider
+                    var toolProviderTypes = toolsTypes
+                        .Where(t => typeof(IAIToolProvider).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
+                        .ToList();
+
+                    Debug.WriteLine($"[AIToolManager] Found {toolProviderTypes.Count} tool provider types");
+
+                    int toolCount = 0;
+                    foreach (var providerType in toolProviderTypes)
+                    {
+                        try
+                        {
+                            var provider = (IAIToolProvider)Activator.CreateInstance(providerType);
+                            var tools = provider.GetTools().ToList();
+
+                            Debug.WriteLine($"[AIToolManager] Provider {providerType.Name} returned {tools.Count} tools");
+
+                            foreach (var tool in tools)
+                            {
+                                RegisterToolCore(tool);
+                                toolCount++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[AIToolManager] Error registering tools from {providerType.Name}: {ex.Message}");
+                        }
+                    }
+
+                    Debug.WriteLine($"[AIToolManager] Tool discovery complete. Registered {toolCount} tools from {toolProviderTypes.Count} tool sets");
+                    _toolsDiscovered = true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[AIToolManager] Error during tool discovery: {ex.Message}");
+                }
             }
         }
     }

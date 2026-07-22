@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -264,6 +264,7 @@ namespace SmartHopper.Components.Knowledge
                 this.parent.SetPersistentOutput("Title", this.resultTitles ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("URL", this.resultUrls ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Post Count", this.resultPostCounts ?? new GH_Structure<GH_String>(), DA);
+                this.parent.SetMetricsOutput(DA);
 
                 var hasAnySummary = this.resultSummaries != null && this.resultSummaries.DataCount > 0;
                 message = hasAnySummary ? "Topic(s) summarized" : "No summary available";

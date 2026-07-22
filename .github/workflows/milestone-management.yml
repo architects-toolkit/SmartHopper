@@ -28,6 +28,7 @@ jobs:
   create-next-stage-milestone:
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     
     steps:
     - name: Checkout repository
@@ -42,6 +43,7 @@ jobs:
   move-open-items:
     if: github.event_name == 'milestone'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     
     steps:
     - name: Checkout repository

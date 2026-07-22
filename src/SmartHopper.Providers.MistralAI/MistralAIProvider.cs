@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -1510,6 +1510,15 @@ namespace SmartHopper.Providers.MistralAI
         {
             return new[]
             {
+                // Mistral-specific parameters
+                new AIExtraDescriptor(
+                    "reasoning_effort",
+                    "Reasoning Effort",
+                    "Controls the depth of reasoning for supported models. Mistral only supports 'none' and 'high'. Overrides global provider setting.",
+                    typeof(string),
+                    "none",
+                    new[] { "none", "high" }),
+
                 // General parameters (shared across providers)
                 new AIExtraDescriptor(
                     "random_seed",

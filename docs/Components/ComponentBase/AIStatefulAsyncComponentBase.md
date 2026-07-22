@@ -15,7 +15,7 @@
 
 Inherits from [AIProviderComponentBase](./AIProviderComponentBase.md). Adds a `Settings` input (parameters, model, extras) and a `Metrics` output, AI request orchestration, capability-aware model selection, badge rendering and a full batch-processing pipeline.
 
-## Purpose
+---
 
 The canonical base for any component that talks to an AI provider through SmartHopper. It owns the provider/model resolution, the AI request lifecycle (sync or batch), the metrics emission and the on-canvas badge rendering, so derived components only need to express *what* they do (system prompt, tool, output mapping).
 
@@ -179,7 +179,7 @@ parent.FinishResults(
 - Use `SetPersistentRuntimeMessage` (inherited) for errors that should persist across solves.
 - Use `SetAIReturnSnapshot(ret)` if an external source (e.g. WebChat) provides the response.
 
-## Related
+This is the most important base class for all AI-driven SmartHopper components. It handles everything from model selection and request parameters to batch processing and metrics tracking, freeing component authors to focus on their specific AI task.
 
 - [AIProviderComponentBase](./AIProviderComponentBase.md), [StatefulComponentBase](./StatefulComponentBase.md)
 - [AIOutputAdapterBase](./AIOutputAdapterBase.md), [AISelectingStatefulAsyncComponentBase](./AISelectingStatefulAsyncComponentBase.md)

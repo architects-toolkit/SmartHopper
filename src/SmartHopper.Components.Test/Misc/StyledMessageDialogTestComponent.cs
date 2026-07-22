@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -48,7 +48,7 @@ namespace SmartHopper.Components.Test.Misc
         private int _testCase = 0;
 
         public StyledMessageDialogTestComponent()
-            : base("StyledMessageDialog Test", "DialogTest", "Test StyledMessageDialog rendering with various message types", "SmartHopper", "Test Internals")
+            : base("StyledMessageDialog Test", "DialogTest", "Test StyledMessageDialog rendering with various message types", "SmartHopper Tests", "Testing Base")
         {
             this.RunOnlyOnInputChanges = false;
         }

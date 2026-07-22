@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -103,6 +103,56 @@ namespace SmartHopper.Core.Grasshopper.Converters
         public bool DetectHeadings { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets whether to preserve inline text formatting.
+        /// When enabled, colored text is wrapped in an inline HTML span, highlighted text is wrapped in
+        /// an inline HTML mark, and bold/italic/underlined/strikethrough text is emitted using Markdown or
+        /// inline HTML. DOCX and ODF text documents preserve colors, highlights, bold, italic, underline,
+        /// and strikethrough; XLSX, ODS, and PPTX preserve bold and italic.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveFormatting { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve comments and their authors in DOCX files.
+        /// When enabled, comments are appended as blockquotes after the paragraph that contains them.
+        /// Applies to DOCX format.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveComments { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve footnotes in DOCX files.
+        /// When enabled, footnote references are expanded and footnotes are appended at the end of the document.
+        /// Applies to DOCX format.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveFootnotes { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve endnotes in DOCX files.
+        /// When enabled, endnote references are expanded and endnotes are appended at the end of the document.
+        /// Applies to DOCX format.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveEndnotes { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve hyperlinks in DOCX and PPTX files.
+        /// When enabled, link text is emitted as Markdown link syntax.
+        /// Applies to DOCX and PPTX formats.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveHyperlinks { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to preserve Office Math (OMML) equations in DOCX and PPTX files.
+        /// When enabled, equations are converted to LaTeX notation.
+        /// Applies to DOCX and PPTX formats.
+        /// Default: true.
+        /// </summary>
+        public bool PreserveMath { get; set; } = true;
+
+        /// <summary>
         /// Gets or sets whether to extract embedded images from the document.
         /// When enabled, images are extracted as base64 data and stored in the conversion result.
         /// Applies to PDF, DOCX, and PPTX formats.
@@ -159,6 +209,12 @@ namespace SmartHopper.Core.Grasshopper.Converters
                 PreserveTableStructure = this.PreserveTableStructure,
                 RemoveHeadersFooters = this.RemoveHeadersFooters,
                 DetectHeadings = this.DetectHeadings,
+                PreserveFormatting = this.PreserveFormatting,
+                PreserveComments = this.PreserveComments,
+                PreserveFootnotes = this.PreserveFootnotes,
+                PreserveEndnotes = this.PreserveEndnotes,
+                PreserveHyperlinks = this.PreserveHyperlinks,
+                PreserveMath = this.PreserveMath,
                 MaxContentLength = this.MaxContentLength,
                 ExtractImages = this.ExtractImages,
                 HtmlReadabilityMode = this.HtmlReadabilityMode,

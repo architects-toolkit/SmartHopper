@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -40,21 +40,33 @@ namespace SmartHopper.Components.Img
     /// </summary>
     public class AIText2ImgComponent : AIStatefulAsyncComponentBase
     {
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("B4E69EAD-2EEB-413C-8E47-19D5079882BE");
 
-        /// <summary>
-        /// Gets the icon for this component.
-        /// </summary>
-        protected override Bitmap Icon => Resources.imggenerate;
+        /// <inheritdoc/>
+        protected override Bitmap Icon => Resources.texttoimg;
 
-        /// <summary>
-        /// Gets the exposure level of this component in the ribbon.
-        /// </summary>
-        /// <value>The exposure level.</value>
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[] {
+            "AI Image Generate",
+            "AIImgGen",
+            "AIImageGen",
+            "AIImgGenerate",
+            "AIImageGenerate",
+            "text2img",
+            "Image Generate",
+            "Generate Image",
+            "Create Image",
+            "AI Picture",
+            "Picture Generate",
+            "Image AI",
+            "AI Art",
+            "AI Drawing",
+            "DALL-E",
+            "Image Synthesis",
+            "Text to Image",
+            "Prompt to Image",
+        };
 
         /// <inheritdoc/>
         public override IEnumerable<string> Keywords => new[] {
@@ -103,33 +115,24 @@ namespace SmartHopper.Components.Img
         {
         }
 
-        /// <summary>
-        /// Registers additional input parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register inputs with.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Prompt", "P", "Text prompt describing the desired image", GH_ParamAccess.tree);
-            pManager.AddTextParameter("Size", "S", "Image size (e.g., '1024x1024', '1792x1024', '1024x1792')", GH_ParamAccess.tree, "1024x1024");
-            pManager.AddTextParameter("Quality", "Q", "Image quality ('standard' or 'hd')", GH_ParamAccess.tree, "standard");
-            pManager.AddTextParameter("Style", "St", "Image style ('vivid' or 'natural')", GH_ParamAccess.tree, "vivid");
+            pManager.AddTextParameter("Size", "S", "Image size (e.g., '1024x1024', '1792x1024', '1024x1792', '1K', '2K', '4K'). Not all providers accept all sizes.", GH_ParamAccess.tree, "1024x1024");
+            pManager.AddTextParameter("Quality", "Q", "Image quality ('standard' or 'hd'). Used by OpenAI image generation.", GH_ParamAccess.tree, "standard");
+            pManager.AddTextParameter("Style", "St", "Image style ('vivid' or 'natural'). Used by OpenAI image generation.", GH_ParamAccess.tree, "vivid");
+            pManager.AddTextParameter("Aspect Ratio", "AR", "Image aspect ratio (e.g., '1:1', '16:9', '4:3'). Used by Gemini image generation.", GH_ParamAccess.tree, string.Empty);
         }
 
-        /// <summary>
-        /// Registers additional output parameters for this component.
-        /// </summary>
-        /// <param name="pManager">The parameter manager to register outputs with.</param>
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Image", "I", "Generated image as VersatileImage format", GH_ParamAccess.tree);
             pManager.AddTextParameter("Revised Prompt", "RP", "AI-revised prompt used for generation", GH_ParamAccess.tree);
         }
 
-        /// <summary>
-        /// Creates the async worker for this component.
-        /// </summary>
-        /// <param name="progressReporter">Progress reporter callback.</param>
-        /// <returns>The async worker instance.</returns>
+        /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new AIText2ImgWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
@@ -170,12 +173,14 @@ namespace SmartHopper.Components.Img
                 var sizes = new GH_Structure<GH_String>();
                 var qualities = new GH_Structure<GH_String>();
                 var styles = new GH_Structure<GH_String>();
+                GH_Structure<GH_String> aspectRatios;
 
                 // Parameter indices:
                 // 0: Prompt (tree access)
                 // 1: Size (tree access)
                 // 2: Quality (tree access)
                 // 3: Style (tree access)
+                // 4: Aspect Ratio (tree access)
 
                 // Prompt parameter index
                 if (!DA.GetDataTree(0, out prompts))
@@ -209,12 +214,21 @@ namespace SmartHopper.Components.Img
                     styles.Append(new GH_String("vivid"), new GH_Path(0));
                 }
 
+                // Aspect Ratio parameter index
+                if (!DA.GetDataTree(4, out aspectRatios) || aspectRatios == null || aspectRatios.DataCount == 0)
+                {
+                    // Use default if not provided
+                    aspectRatios = new GH_Structure<GH_String>();
+                    aspectRatios.Append(new GH_String(string.Empty), new GH_Path(0));
+                }
+
                 this.inputTrees = new Dictionary<string, GH_Structure<GH_String>>
                 {
                     { "Prompt", prompts },
                     { "Size", sizes },
                     { "Quality", qualities },
                     { "Style", styles },
+                    { "AspectRatio", aspectRatios },
                 };
 
                 this.hasWork = prompts != null && prompts.DataCount > 0;
@@ -227,11 +241,7 @@ namespace SmartHopper.Components.Img
                 dataCount = 0;
             }
 
-            /// <summary>
-            /// Performs the async work to generate images.
-            /// </summary>
-            /// <param name="token">Cancellation token.</param>
-            /// <returns>Async task.</returns>
+            /// <inheritdoc/>
             public override async Task DoWorkAsync(CancellationToken token)
             {
                 this.imageResults = new GH_Structure<IGH_Goo>();
@@ -275,6 +285,7 @@ namespace SmartHopper.Components.Img
                             branchInputs.TryGetValue("Size", out var sizeBranch);
                             branchInputs.TryGetValue("Quality", out var qualityBranch);
                             branchInputs.TryGetValue("Style", out var styleBranch);
+                            branchInputs.TryGetValue("AspectRatio", out var aspectRatioBranch);
 
                             var normalized = DataTreeProcessor.NormalizeBranchLengths(
                                 new List<List<GH_String>>
@@ -283,12 +294,14 @@ namespace SmartHopper.Components.Img
                                     sizeBranch ?? new List<GH_String>(),
                                     qualityBranch ?? new List<GH_String>(),
                                     styleBranch ?? new List<GH_String>(),
+                                    aspectRatioBranch ?? new List<GH_String>(),
                                 });
 
                             var prompts = normalized[0];
                             var sizes = normalized[1];
                             var qualities = normalized[2];
                             var styles = normalized[3];
+                            var aspectRatios = normalized[4];
 
                             for (int i = 0; i < prompts.Count; i++)
                             {
@@ -298,6 +311,7 @@ namespace SmartHopper.Components.Img
                                 var size = sizes[i]?.Value ?? "1024x1024";
                                 var quality = qualities[i]?.Value ?? "standard";
                                 var style = styles[i]?.Value ?? "vivid";
+                                var aspectRatio = aspectRatios[i]?.Value ?? string.Empty;
 
                                 if (string.IsNullOrEmpty(prompt))
                                 {
@@ -315,6 +329,7 @@ namespace SmartHopper.Components.Img
                                         ["size"] = size,
                                         ["quality"] = quality,
                                         ["style"] = style,
+                                        ["aspect_ratio"] = aspectRatio,
                                     };
 
                                     var toolResult = await this.parent.CallAIToolAsync(
@@ -457,6 +472,7 @@ namespace SmartHopper.Components.Img
 
                     this.parent.SetPersistentOutput("Image", imagesTree, DA);
                     this.parent.SetPersistentOutput("Revised Prompt", revisedTree, DA);
+                    this.parent.SetMetricsOutput(DA);
 
                     message = "Image generation completed successfully";
                 }

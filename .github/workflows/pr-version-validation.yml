@@ -1,5 +1,13 @@
 name: 🔍 PR Version Validation
 
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
 # Description: Prevents PRs from downgrading the version in Solution.props.
 # Ensures version numbers always move forward to maintain proper versioning.
 
@@ -12,6 +20,20 @@ on:
       - 'dev-*'
       - 'hotfix/**'
       - 'release/**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -24,6 +46,7 @@ concurrency:
 jobs:
   validate-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
     - name: Checkout PR Branch
       uses: actions/checkout@v4
@@ -37,7 +60,7 @@ jobs:
     - name: Checkout Target Branch Solution.props
       shell: bash
       run: |
-        TARGET_BRANCH="${{ github.base_ref }}"
+        TARGET_BRANCH="${{ github.event.inputs.base_ref || github.base_ref }}"
         echo "Target branch: $TARGET_BRANCH"
         git fetch origin "$TARGET_BRANCH"
         git checkout "origin/$TARGET_BRANCH" -- Solution.props
@@ -197,3 +220,18 @@ jobs:
         Write-Host "Result:         $result"
         Write-Host "Reason:         $reason"
         Write-Host ""
+
+  required-check:
+    name: 🔍 PR Version Validation
+    needs: validate-version
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - name: Verify required workflow jobs
+      shell: bash
+      run: |
+        if [[ "${{ needs.validate-version.result }}" != "success" ]]; then
+          echo "::error::Version validation finished with ${{ needs.validate-version.result }}"
+          exit 1
+        fi

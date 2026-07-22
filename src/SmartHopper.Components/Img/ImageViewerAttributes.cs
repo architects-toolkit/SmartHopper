@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -54,33 +54,26 @@ namespace SmartHopper.Components.Img
         /// </summary>
         protected override void Layout()
         {
-            // First, calculate what the bounds should be after expansion
-            // Call base to get initial bounds calculation
+            // Let Grasshopper compute the natural bounds based on params, names, etc.
             base.Layout();
             var baseBounds = this.Bounds;
 
-            // Calculate expanded bounds to include image area
-            var expandedHeight = ImageDisplaySize + (Padding * 2);
+            // Expand bounds to accommodate the image display area below the params
             var expandedWidth = Math.Max(baseBounds.Width, ImageDisplaySize + (Padding * 4));
+            var expandedHeight = baseBounds.Height + ImageDisplaySize + (Padding * 2);
 
-            // Set the correct final bounds before any parameter layout
             this.Bounds = new RectangleF(
-                baseBounds.X + (baseBounds.Width - expandedWidth) / 2, // Center horizontally
+                baseBounds.X,
                 baseBounds.Y,
                 expandedWidth,
                 expandedHeight);
 
-            // Position image display area below the original component area
-            var imageAreaY = baseBounds.Y + Padding;
+            // Position image centered horizontally, below the natural component area
             this._imageDisplayBounds = new RectangleF(
                 this.Bounds.X + (this.Bounds.Width - ImageDisplaySize) / 2,
-                imageAreaY,
+                baseBounds.Bottom + Padding,
                 ImageDisplaySize,
                 ImageDisplaySize);
-
-            // Now layout parameters with the final bounds so grips align correctly
-            GH_ComponentAttributes.LayoutInputParams(this.Owner, this._imageDisplayBounds);
-            GH_ComponentAttributes.LayoutOutputParams(this.Owner, this._imageDisplayBounds);
         }
 
         /// <summary>

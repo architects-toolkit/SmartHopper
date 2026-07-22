@@ -2,18 +2,18 @@
 
 A non-breaking, standardized metadata wrapper for AI tool results. It stores machine- and human-friendly metadata under a reserved root key "__envelope" while leaving the actual payload at predictable paths like "result" or "list".
 
-- Root reserved key: "__envelope" (JObject)
-- Payload remains at your chosen key (default "result")
-- Designed for consistent parsing and better human readability
+---
 
-## Why it matters
+## Metadata
 
-- Non-breaking: Existing payloads remain under their usual keys; envelope adds metadata under a reserved key.
-- Consistent parsing: Downstream consumers can reliably find payload and classify content type.
-- Traceability: Tracks tool, provider, model, and tool call identifiers.
-- Human readable: Allows people to quickly understand what a result is and where to find content.
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core.Grasshopper/AITools/ToolResultEnvelope.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
 
-## Schema (fields in "__envelope")
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
 
 - version: string. Envelope semver (e.g., "1.0").
 - tool: string. Tool name (e.g., "text_generate", "list_generate", "img_generate").
@@ -30,17 +30,7 @@ A non-breaking, standardized metadata wrapper for AI tool results. It stores mac
 See `src/SmartHopper.Infrastructure/AICall/Tools/ToolResultEnvelope.cs` for the authoritative implementation and
 `src/SmartHopper.Infrastructure/AICall/Tools/ToolResultEnvelopeExtensions.cs` for convenience helpers.
 
-## Content types
-
-Use `ToolResultContentType` to classify payloads:
-
-- Text: single string value under "result"
-- List: array under "list" or a result that is a list
-- Object: structured JSON object
-- Image: image URL/base64 or a bitmap-like object
-- Binary: opaque bytes or binary-like structure
-
-## Usage pattern
+### Usage pattern
 
 Typical usage inside a tool implementation:
 
@@ -61,7 +51,7 @@ var toolResult = new JObject
 
 // 2) Create and attach envelope
 var env = ToolResultEnvelope.Create(
-    tool: "text_generate",
+    tool: "text2text",
     provider: providerName,
     model: modelName,
     contentType: ToolResultContentType.Text,
@@ -75,9 +65,36 @@ var body = new AIBody();
 body.AddInteractionToolResult(toolResult);
 
 return AIReturn.CreateSuccess(body);
+
 ```
 
-Shorthands available in `ToolResultEnvelopeExtensions`:
+### Example: Reading envelope metadata from a result
+
+```csharp
+using Newtonsoft.Json.Linq;
+using SmartHopper.Infrastructure.AICall;
+
+// Assume incoming JObject from a previous tool result
+JObject incoming = GetToolResult();
+
+// Extract envelope metadata
+var envelope = incoming.GetEnvelope();
+if (envelope != null)
+{
+    Console.WriteLine($"Tool: {envelope.Tool}");
+    Console.WriteLine($"Provider: {envelope.Provider}");
+    Console.WriteLine($"Model: {envelope.Model}");
+    Console.WriteLine($"Content type: {envelope.ContentType}");
+    Console.WriteLine($"Created at: {envelope.CreatedAt}");
+}
+
+// Extract the actual payload
+var payload = incoming.GetPayload();
+Console.WriteLine($"Payload at '{envelope?.PayloadPath}': {payload}");
+
+```
+
+### Shorthands available in `ToolResultEnvelopeExtensions`
 
 - `root.WithEnvelope(envelope)`
 - `root.EnsureEnvelope(tool, type, payloadPath)`
@@ -85,28 +102,34 @@ Shorthands available in `ToolResultEnvelopeExtensions`:
 - `root.GetPayload()`
 - `payload.WrapPayload(envelope, payloadKey)`
 
-## Relation to AddInteractionToolResult
+### Relation to `AddInteractionToolResult`
 
-- Keep using `AIBody.AddInteractionToolResult(JObject, AIMetrics?, List<AIRuntimeMessage>?)`.
+- Keep using `AIBody.AddInteractionToolResult(JObject, AIMetrics?, List<SHRuntimeMessage>?)`.
 - The envelope and `AddInteractionToolResult` are complementary:
   - Envelope = metadata attached to the payload (`JObject`) under `"__envelope"`.
   - `AddInteractionToolResult` = how the wrapped payload is appended to the conversation/interaction stream.
 
-## Backward compatibility
-
-- Existing tool results remain valid; envelope is additive under a reserved root key.
-- Consumers not aware of the envelope can ignore `"__envelope"` and still read the payload keys.
-
-## Extensibility guidelines
+### Extensibility guidelines
 
 - Prefer adding new metadata fields inside `"__envelope"` rather than altering payload shape.
 - Use `schemaRef` for linking a JSON Schema when structured output is expected.
 - Use `tags` to add optional categorization or hints.
 - Use `compat` for feature flags or migration aids when evolving consumers.
 
-## Examples in repo
+### Examples in repo
 
-- `src/SmartHopper.Core.Grasshopper/AITools/text_generate.cs`
-- `src/SmartHopper.Core.Grasshopper/AITools/list_generate.cs`
-- `src/SmartHopper.Core.Grasshopper/AITools/img_generate.cs`
+- `src/SmartHopper.Core.Grasshopper/AITools/text2text.cs`
+- `src/SmartHopper.Core.Grasshopper/AITools/text2textlist.cs`
+- `src/SmartHopper.Core.Grasshopper/AITools/text2img.cs`
 
+---
+
+## Architecture & Design
+
+The envelope pattern is a classic non-breaking extension strategy:
+
+- **Reserved root key**: `"__envelope"` is namespaced to avoid collisions with tool-specific payload keys.
+- **Separation of data and metadata**: The payload remains at the path the tool author chooses, while metadata lives in a predictable, inspectable envelope object.
+- **Content typing**: `ToolResultContentType` allows generic consumers to branch behavior without inspecting arbitrary payload shapes.
+- **Traceability**: Every envelope captures `provider`, `model`, `toolCallId`, and `createdAt`, making it easy to audit and debug which AI invocation produced a given result.
+- **Additive evolution**: New fields can be added to the envelope schema without invalidating existing consumers, because the envelope is optional and self-describing.

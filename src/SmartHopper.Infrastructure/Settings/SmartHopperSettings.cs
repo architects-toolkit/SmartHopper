@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -140,6 +140,22 @@ namespace SmartHopper.Infrastructure.Settings
         /// </summary>
         [JsonProperty(nameof(SmartHopperAssistant))]
         public SmartHopperAssistantSettings SmartHopperAssistant { get; set; }
+
+        /// <summary>
+        /// Gets or sets the global modality fallback mode.
+        /// Controls whether and how modality fallback is applied when a provider/model
+        /// does not support a required input capability.
+        /// </summary>
+        [JsonProperty]
+        public AICall.Fallback.ModalityFallbackMode ModalityFallback { get; set; } = AICall.Fallback.ModalityFallbackMode.Disabled;
+
+        /// <summary>
+        /// Gets or sets pinned provider/model overrides for specific modality fallback conversions.
+        /// Keyed by IModalityFallback.Name (e.g. "ImageToText", "AudioToText").
+        /// Null or missing entries use automatic selection per ModalityFallbackMode logic.
+        /// </summary>
+        [JsonProperty]
+        public Dictionary<string, AICall.Fallback.FallbackProviderPin> FallbackProviderPins { get; set; } = new();
 
         /// <summary>
         /// Raised after settings are successfully saved to disk and providers refreshed.

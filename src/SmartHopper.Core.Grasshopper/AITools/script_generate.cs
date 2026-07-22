@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using GhJSON.Core;
+using GhJSON.Core.NameResolution;
 using GhJSON.Core.SchemaModels;
 using GhJSON.Core.Serialization;
 using GhJSON.Grasshopper;
@@ -109,6 +110,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
               - description: Parameter description
               - dataMapping: 'None', 'Flatten', 'Graft'
               - reverse, simplify, invert: Same as inputs
+
+            ## CRITICAL: Python Script-Mode Output Rule
+            When generating Python scripts for Grasshopper script components, do NOT use `return` statements at the top level.
+            Grasshopper script-mode does not run inside a function; `return` outside a function is a SyntaxError.
+            Instead, assign values directly to the output variables (e.g., `a = result`, `b = other_result`).
+
             The JSON object will be parsed programmatically, so it must be valid JSON with no additional text.
             """;
 
@@ -117,7 +124,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas).",
+                description: "Generate a new Grasshopper script component from natural language instructions. Returns GhJSON representing the script component (does not place it on canvas). Example: script_generate({ instructions: 'Create a circle from a radius', language: 'python' }).",
                 category: "Hidden",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -135,12 +142,16 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instructions""]
                 }",
                 execute: this.ExecuteAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                mutatesCanvas: false,
+                tags: new[] { "scripting", "script", "ghjson", "read-only", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON string representing the generated script component."" }, ""language"": { ""type"": ""string"" }, ""nickname"": { ""type"": ""string"" }, ""summary"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
 
             // Wrapper tool that generates and places the component on canvas in one call.
             yield return new AITool(
                 name: this.wrapperToolName,
-                description: "Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation.",
+                description: "Generate a new Grasshopper script component from natural language instructions and place it on the canvas. This wrapper combines script_generate and gh_put into a single operation. Example: script_generate_and_place_on_canvas({ instructions: 'Create a circle from a radius' }).",
                 category: "Scripting",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -158,7 +169,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""instructions""]
                 }",
                 execute: this.ExecuteGenerateAndPlaceAsync,
-                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput);
+                requiredCapabilities: AICapability.TextInput | AICapability.TextOutput | AICapability.JsonOutput,
+                mutatesCanvas: true,
+                tags: new[] { "scripting", "script", "canvas", "mutating", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""GhJSON of the placed component."" }, ""instanceGuid"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> ExecuteAsync(AIToolCall toolCall)
@@ -168,7 +183,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 var toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var instructions = args["instructions"]?.ToString();
                 var preferredLanguage = args["language"]?.ToString();
                 var providerName = toolCall.Provider;
@@ -211,7 +226,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 if (!result.Success)
                 {
-                    output.Messages = result.Messages;
+                    output.CreateError("AI script generation failed", toolCall, result.Metrics);
+                    foreach (var msg in result.Messages.Where(m => m != null))
+                    {
+                        output.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
+                    }
+
                     return output;
                 }
 
@@ -319,7 +339,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ["success"] = true,
                     ["ghjson"] = ghJsonString,
                     ["language"] = language,
-                    ["componentName"] = CreateComponentName(language),
+                    ["componentName"] = ScriptComponentRegistry.GetComponentName(language),
                     ["inputCount"] = inputs.Count,
                     ["outputCount"] = outputs.Count,
                     ["summary"] = summary,
@@ -363,31 +383,19 @@ namespace SmartHopper.Core.Grasshopper.AITools
             };
         }
 
-        private static string GetExtensionKey(string languageKey)
+        private static string? NormalizeDataMapping(string? value)
         {
-            return languageKey?.Trim().ToLowerInvariant() switch
+            if (string.IsNullOrWhiteSpace(value))
             {
-                "python" => GhJsonExtensionKeys.Python,
-                "ironpython" => GhJsonExtensionKeys.IronPython,
-                "c#" => GhJsonExtensionKeys.CSharp,
-                "csharp" => GhJsonExtensionKeys.CSharp,
-                "vb" => GhJsonExtensionKeys.VBScript,
-                "vbscript" => GhJsonExtensionKeys.VBScript,
-                _ => GhJsonExtensionKeys.Python,
-            };
-        }
+                return null;
+            }
 
-        private static string CreateComponentName(string languageKey)
-        {
-            return languageKey?.Trim().ToLowerInvariant() switch
+            return value.Trim().ToLowerInvariant() switch
             {
-                "python" => "Python",
-                "ironpython" => "IronPython",
-                "c#" => "C#",
-                "csharp" => "C#",
-                "vb" => "VB Script",
-                "vbscript" => "VB Script",
-                _ => "Python",
+                "none" => "none",
+                "flatten" => "flatten",
+                "graft" => "graft",
+                _ => value.Trim().ToLowerInvariant(),
             };
         }
 
@@ -403,12 +411,17 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             var component = new GhJsonComponent
             {
-                Name = CreateComponentName(languageKey),
+                Name = ScriptComponentRegistry.GetComponentName(languageKey),
                 NickName = nickname,
                 InstanceGuid = instanceGuid,
-                Id = instanceGuid.HasValue ? null : 1,
-                Pivot = pivot,
+                ComponentGuid = ScriptComponentRegistry.GetGuid(languageKey),
+                Id = 1,
             };
+
+            if (pivot != null)
+            {
+                component.Pivot = pivot;
+            }
 
             component.InputSettings = ParseParameters(inputs);
             component.OutputSettings = ParseParameters(outputs);
@@ -417,7 +430,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             {
                 Extensions = new Dictionary<string, object>
                 {
-                    [GetExtensionKey(languageKey)] = new Dictionary<string, object>
+                    [ScriptComponentRegistry.GetExtensionKey(languageKey)] = new Dictionary<string, object>
                     {
                         [GhJsonExtensionKeys.CodeProperty] = scriptCode ?? string.Empty,
                     },
@@ -458,7 +471,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ParameterName = name,
                     Description = o["description"]?.ToString(),
                     Access = o["access"]?.ToString(),
-                    DataMapping = o["dataMapping"]?.ToString(),
+                    DataMapping = NormalizeDataMapping(o["dataMapping"]?.ToString()),
                     TypeHint = o["type"]?.ToString(),
                     Expression = o["expression"]?.ToString(),
                     IsReversed = o["reverse"]?.ToObject<bool?>(),
@@ -531,7 +544,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 if (!generateResult.Success)
                 {
                     Debug.WriteLine($"[{this.wrapperToolName}] script_generate failed");
-                    output.Messages = generateResult.Messages;
+                    output.CreateError("AI script generation failed", toolCall, generateResult.Metrics);
+                    foreach (var msg in generateResult.Messages.Where(m => m != null))
+                    {
+                        output.AddRuntimeMessage(msg.Severity, msg.Origin, msg.Message);
+                    }
+
                     return output;
                 }
 
@@ -669,7 +687,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ""type"": { ""type"": ""string"", ""description"": ""Type hint (e.g., int, double, string, Point3d, Curve, etc.). Use 'object' when unsure."" },
                                 ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
                                 ""access"": { ""type"": ""string"", ""enum"": [""item"", ""list"", ""tree""], ""description"": ""Data access mode. Use 'item' when unsure."" },
-                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation. Use 'None' when no mapping is needed."" },
+                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""none"", ""flatten"", ""graft""], ""description"": ""Data tree manipulation. Use 'none' when no mapping is needed."" },
                                 ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse list order. Use false when not needed."" },
                                 ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify data tree paths. Use false when not needed."" },
                                 ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type). Use false when not needed."" },
@@ -689,7 +707,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 ""variableName"": { ""type"": ""string"", ""description"": ""Optional script variable name (identifier). If omitted, defaults to 'name'."" },
                                 ""type"": { ""type"": ""string"", ""description"": ""Expected output type hint. Use 'object' when unsure."" },
                                 ""description"": { ""type"": ""string"", ""description"": ""Parameter description. Use a short human-readable sentence."" },
-                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""None"", ""Flatten"", ""Graft""], ""description"": ""Data tree manipulation. Use 'None' when no mapping is needed."" },
+                                ""dataMapping"": { ""type"": ""string"", ""enum"": [""none"", ""flatten"", ""graft""], ""description"": ""Data tree manipulation. Use 'none' when no mapping is needed."" },
                                 ""reverse"": { ""type"": ""boolean"", ""description"": ""Reverse output list order. Use false when not needed."" },
                                 ""simplify"": { ""type"": ""boolean"", ""description"": ""Simplify output data tree paths. Use false when not needed."" },
                                 ""invert"": { ""type"": ""boolean"", ""description"": ""Invert boolean values (only for bool type). Use false when not needed."" }

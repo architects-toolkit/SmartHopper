@@ -1,5 +1,14 @@
 name: 🧪 .NET CI
 
+# Related workflows (PR validation suite):
+#   - pr-validation.yml (version, code style, changelog, title checks)
+#   - pr-license-headers.yml (license header compliance)
+#   - pr-build-hash-validation.yml (build hash integrity)
+#   - pr-version-validation.yml (version consistency)
+#   - pr-documentation-validation.yml (documentation structure validation)
+#   (pr-manifest-validation.yml was removed — manifest text uses {{NOTE_TEXT}} placeholder resolved at build time)
+#   - ci-dotnet-tests.yml (.NET build and test)
+
 # Description: This workflow runs .NET tests on the SmartHopper solution to ensure that changes do not break functionality.
 # 
 # Flow:
@@ -27,6 +36,22 @@ on:
       - 'dev-*'
       - hotfix/**
       - release/**
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -41,6 +66,7 @@ jobs:
   # This ensures the public key is embedded in source files before cross-platform compilation
   prep:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -56,10 +82,10 @@ jobs:
           if (-not (Test-Path signing.snk)) {
             if ("${{ secrets.SIGNING_SNK_BASE64 }}" -ne "") {
               Write-Host "Decoding signing.snk from Base64 secret"
-              pwsh tools/Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
+              & tools/Sign-StrongNames.ps1 -Base64 "${{ secrets.SIGNING_SNK_BASE64 }}"
             } else {
               Write-Host "Generating signing.snk"
-              pwsh tools/Sign-StrongNames.ps1 -Generate
+              & tools/Sign-StrongNames.ps1 -Generate
             }
           } else {
             Write-Host "signing.snk already exists"
@@ -69,7 +95,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Updating InternalsVisibleTo entries with public key from signing.snk"
-          pwsh tools/Update-InternalsVisibleTo.ps1
+          & tools/Update-InternalsVisibleTo.ps1
 
       - name: Upload pre-processed source
         uses: actions/upload-artifact@v4
@@ -89,6 +115,7 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -130,3 +157,23 @@ jobs:
           # with a true net7.0 (non-Windows) target. Core.Tests and Core.Grasshopper.Tests
           # depend on WindowsDesktop/WinForms APIs that are not available on macOS net7.0.
           dotnet test src/SmartHopper.Infrastructure.Tests/SmartHopper.Infrastructure.Tests.csproj --no-build --configuration Release --framework net7.0 --results-directory TestResults --verbosity normal
+
+  required-check:
+    name: 🧪 .NET CI
+    needs: [prep, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Verify required workflow jobs
+        shell: bash
+        run: |
+          if [[ "${{ needs.prep.result }}" != "success" ]]; then
+            echo "::error::Prep finished with ${{ needs.prep.result }}"
+            exit 1
+          fi
+
+          if [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "::error::Build/test matrix finished with ${{ needs.build.result }}"
+            exit 1
+          fi

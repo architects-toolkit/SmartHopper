@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -35,7 +35,8 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
         {
             try
             {
-                var content = await File.ReadAllTextAsync(filePath, Encoding.UTF8).ConfigureAwait(false);
+                var bytes = await File.ReadAllBytesAsync(filePath).ConfigureAwait(false);
+                var content = DecodeTextBytes(bytes);
 
                 // Normalize line endings
                 content = content.Replace("\r\n", "\n").Replace("\r", "\n");
@@ -46,6 +47,38 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             {
                 return FileConversionResult.Failure("txt", $"Failed to read text file: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Decodes the raw bytes of a text file. UTF-8 (with or without BOM) is tried first;
+        /// if the result contains replacement characters, a Latin-1 fallback is used so that
+        /// legacy Windows-1252 / ISO-8859-1 files are read correctly.
+        /// </summary>
+        internal static string DecodeTextBytes(byte[] bytes)
+        {
+            if (bytes == null || bytes.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            string content;
+            int startIndex = 0;
+
+            // UTF-8 BOM
+            if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            {
+                startIndex = 3;
+            }
+
+            content = Encoding.UTF8.GetString(bytes, startIndex, bytes.Length - startIndex);
+
+            // If UTF-8 decoding produced replacement characters, the file is likely Latin-1.
+            if (content.Contains('\uFFFD'))
+            {
+                content = Encoding.Latin1.GetString(bytes, startIndex, bytes.Length - startIndex);
+            }
+
+            return content;
         }
     }
 }

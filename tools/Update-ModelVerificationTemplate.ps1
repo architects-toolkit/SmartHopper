@@ -27,6 +27,7 @@ param(
     [Parameter(Mandatory = $false)][string] $TemplateFile = ""
 )
 
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------------------
@@ -167,6 +168,6 @@ if ($newContent -eq $oldContent) {
     exit 1
 }
 
-[System.IO.File]::WriteAllText($TemplateFile, $newContent, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($TemplateFile, $newContent, $utf8NoBom)
 Write-Host "Updated $TemplateFile with $($optionLines.Count) model option(s)."
 exit 0

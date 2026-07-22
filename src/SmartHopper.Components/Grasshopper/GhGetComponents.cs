@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -53,6 +53,7 @@ namespace SmartHopper.Components.Grasshopper
                 "SmartHopper",
                 "Grasshopper")
         {
+            this.RunOnlyOnInputChanges = false;
         }
 
         public override Guid ComponentGuid => new Guid("E7BB7C92-9565-584C-C1DD-425E77651FD8");
@@ -65,6 +66,7 @@ namespace SmartHopper.Components.Grasshopper
             pManager.AddTextParameter("Category Filter", "C", "Optional list of category filters by Grasshopper category or subcategory (e.g. 'Maths', 'Params', 'Script'). Use '+name' to include and '-name' to exclude.", GH_ParamAccess.list, string.Empty);
             pManager.AddTextParameter("Attribute Filter", "F", "Optional list of filters by tags: 'error', 'warning', 'remark', 'selected', 'unselected', 'enabled', 'disabled', 'previewon', 'previewoff'. Prefix '+' to include, '-' to exclude.", GH_ParamAccess.list, string.Empty);
             pManager.AddIntegerParameter("Connection Depth", "D", "Optional depth of connections to include: 0 = only matching components; 1 = direct connections; higher = further hops.", GH_ParamAccess.item, 0);
+            pManager.AddIntegerParameter("Count", "Ct", "Maximum number of components to retrieve. Default is 100.", GH_ParamAccess.item, 100);
             pManager.AddBooleanParameter("Include Metadata", "M", "Include document metadata (timestamps, Rhino/Grasshopper versions, plugin dependencies)", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Include Runtime Data", "Dt", "Include runtime/volatile data (actual values flowing through outputs). This is token-expansive!", GH_ParamAccess.item, false);
         }
@@ -73,7 +75,7 @@ namespace SmartHopper.Components.Grasshopper
         {
             pManager.AddTextParameter("Names", "N", "List of names", GH_ParamAccess.list);
             pManager.AddTextParameter("Guids", "G", "List of guids", GH_ParamAccess.list);
-            pManager.AddTextParameter("JSON", "J", "Details in JSON format", GH_ParamAccess.item);
+            pManager.AddTextParameter("GhJSON", "J", "Details in GhJSON format", GH_ParamAccess.item);
         }
 
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
@@ -138,21 +140,20 @@ namespace SmartHopper.Components.Grasshopper
             int connectionDepth = 0;
             DA.GetData(3, ref connectionDepth);
 
-            bool includeMetadata = false;
-            DA.GetData(4, ref includeMetadata);
+            private List<string> typeFilters = new List<string>();
+            private List<string> categoryFilters = new List<string>();
+            private List<string> attrFilters = new List<string>();
+            private int connectionDepth;
+            private int count;
+            private bool includeMetadata;
+            private bool includeRuntimeData;
 
             bool includeRuntimeData = false;
             DA.GetData(5, ref includeRuntimeData);
 
             try
             {
-                var filters = new List<string>();
-                DA.GetDataList(2, filters);
-                var typeFilters = new List<string>();
-                DA.GetDataList(0, typeFilters);
-                var categoryFilters = new List<string>();
-                DA.GetDataList(1, categoryFilters);
-                var parameters = new JObject
+                try
                 {
                     ["attrFilters"] = JArray.FromObject(filters),
                     ["typeFilter"] = JArray.FromObject(typeFilters),
@@ -170,10 +171,10 @@ namespace SmartHopper.Components.Grasshopper
                     Agent = AIAgent.Assistant,
                 };
 
-                var toolCall = new AIToolCall();
-                toolCall.Endpoint = "gh_get";
-                toolCall.FromToolCallInteraction(toolCallInteraction);
-                toolCall.SkipMetricsValidation = true;
+                    var toolCall = new AIToolCall();
+                    toolCall.Endpoint = "gh_get";
+                    toolCall.FromToolCallInteraction(toolCallInteraction);
+                    toolCall.SkipMetricsValidation = true;
 
                 var toolResult = ToolCallResult.FromAIReturn(toolCall.Exec().GetAwaiter().GetResult());
                 if (toolResult.Result == null)
@@ -194,7 +195,8 @@ namespace SmartHopper.Components.Grasshopper
                 DA.SetDataList(1, componentGuids);
                 DA.SetData(2, json);
             }
-            catch (Exception ex)
+
+            public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 this.SetPersistentRuntimeMessage("gh_get_exception", GH_RuntimeMessageLevel.Error, ex.Message);
             }

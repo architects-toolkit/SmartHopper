@@ -1,0 +1,374 @@
+name: 📝 AI Changelog Review & Simplification
+
+# Description: Uses Mistral AI to simplify changelog entries for end users.
+# On release/* PRs targeting dev/dev-*, the AI rewrites the [Unreleased] section
+# to be user-focused and commits the simplified changelog directly to the source
+# branch. A summary of changes is posted as a PR comment.
+#
+# Follows .windsurf/workflows/changelog-review.md guidelines:
+#   - Keep entries to 1-2 lines maximum
+#   - Focus on end-user value, not implementation details
+#   - Preserve all issue references [#123](link)
+#   - Briefly mention CI/CD improvements (one-liner)
+#   - Exclude file paths, workflow names, internal tooling details
+#
+# Triggers:
+#   - pull_request opened/synchronize targeting dev/dev-* from release/* branches
+#   - workflow_dispatch with optional PR number
+#
+# Permissions:
+#   - contents: write - Required to read CHANGELOG.md, commit, and push
+#   - pull-requests: write - Required to post review comments
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    branches:
+      - 'dev'
+      - 'dev-*'
+    paths:
+      - 'CHANGELOG.md'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review (optional, uses latest release PR if empty)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  review-changelog:
+    name: Review & simplify changelog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only run for release branches or manual dispatch
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    steps:
+      - name: Determine PR context
+        id: context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.pr_number }}" ]; then
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+          else
+            # Find latest open release PR targeting dev or dev-*
+            PR_NUMBER=$(gh pr list \
+              --repo "${{ github.repository }}" \
+              --state open \
+              --json number,headRefName,baseRefName \
+              --jq '[.[] | select(.headRefName | startswith("release/")) | select(.baseRefName | test("^dev(-.*)?$"))][0].number // empty')
+          fi
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::notice::No release PR found to review"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            # Get the head branch name for checkout
+            HEAD_BRANCH=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json headRefName --jq '.headRefName')
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "head_branch=$HEAD_BRANCH" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout PR source branch
+        if: steps.context.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.context.outputs.head_branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        if: steps.context.outputs.skip != 'true'
+        run: |
+          git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+          git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
+
+      - name: Extract changelog [Unreleased] section
+        if: steps.context.outputs.skip != 'true'
+        id: changelog
+        run: |
+          # Extract the [Unreleased] section from CHANGELOG.md
+          UNRELEASED=$(awk '/^## \[Unreleased\]/{found=1; next} /^## \[/{if(found) exit} found{print}' CHANGELOG.md)
+
+          if [ -z "$UNRELEASED" ]; then
+            echo "::notice::No [Unreleased] section found or it is empty"
+            echo "empty=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "empty=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "content<<EOF_CHANGELOG"
+              echo "$UNRELEASED"
+              echo "EOF_CHANGELOG"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get recent commit messages
+        if: steps.context.outputs.skip != 'true'
+        id: commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get commits from the PR
+          COMMITS=$(gh pr view "${{ steps.context.outputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --json commits \
+            --jq '.commits[].messageHeadline' 2>/dev/null || echo "")
+
+          if [ -z "$COMMITS" ]; then
+            # Fallback: query commits via REST API to avoid local ref resolution issues
+            COMMITS=$(gh api repos/${{ github.repository }}/pulls/${{ steps.context.outputs.pr_number }}/commits \
+              --jq '.[].commit.message' 2>/dev/null || echo "")
+          fi
+
+          {
+            echo "messages<<EOF_COMMITS"
+            echo "$COMMITS"
+            echo "EOF_COMMITS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: AI review & simplification
+        if: steps.context.outputs.skip != 'true' && steps.changelog.outputs.empty != 'true'
+        id: ai-review
+        uses: ./.github/actions/ai/mistral-chat
+        with:
+          api-key: ${{ secrets.MISTRAL_API_KEY }}
+          model: mistral-medium-latest
+          temperature: '0.3'
+          max-tokens: '32768'
+          system-prompt: |
+            You are a changelog editor for SmartHopper, an open-source plugin that implements AI features to Grasshopper (inside Rhino3D).
+            Your job is to rewrite the [Unreleased] section of the changelog for end users.
+
+            RULES:
+            1. Each entry must be 1-2 lines maximum
+            2. Focus on end-user value, not implementation details
+            3. ALWAYS preserve issue references like [#123](https://github.com/architects-toolkit/SmartHopper/issues/123)
+            4. ALWAYS preserve the contributors section unchanged (### New Contributors and everything below it)
+            5. Preserve the markdown structure in this order: ### Added, ### Changed, ### Fixed, ### Deprecated, ### Removed sections
+            6. Remove empty sections (sections with no entries after simplification)
+            7. Do NOT add any sections that don't exist in the original
+
+            INCLUDE in changelog:
+            - New AI models and capabilities
+            - New components or features
+            - UI/UX changes
+            - Breaking changes that affect saved files
+            - Performance improvements users will notice
+            - Deprecated features or models
+            - GitHub issue references
+
+            BRIEFLY MENTION (one-liner):
+            - CI/CD improvements
+            - Infrastructure stability improvements
+            - Code quality improvements (only if significant)
+
+            EXCLUDE from changelog:
+            - Detailed CI workflow specifications
+            - Concurrency settings and race condition prevention
+            - Per-provider technical minutiae
+            - Internal tooling details
+            - File paths and implementation details
+
+            SIMPLIFICATION EXAMPLES:
+            - Technical CI details -> "- **CI/CD**: Enhanced workflow automation for model verification and stabilization branch management"
+            - Per-model ranking changes -> "- **AI model rankings**: Adjusted default models and rankings across providers based on official documentation"
+
+            OUTPUT FORMAT:
+            Respond with a JSON object containing TWO fields:
+            {
+              "simplified_section": "The complete rewritten [Unreleased] section content (everything between '## [Unreleased]' and the next '## [x.y.z]' header). Use actual newlines in the string.",
+              "changes_made": [
+                "Short description of each simplification you made"
+              ]
+            }
+
+            If no changes are needed, return:
+            {"simplified_section": "", "changes_made": []}
+            with an empty simplified_section to signal no rewrite is needed.
+          user-prompt: |
+            Rewrite this changelog [Unreleased] section. Simplify overly technical entries
+            into user-focused descriptions.
+
+            ## Current [Unreleased] changelog entries:
+            ${{ steps.changelog.outputs.content }}
+
+            ## Recent commits (for context only):
+            ${{ steps.commits.outputs.messages }}
+
+      - name: Apply simplified changelog
+        if: steps.context.outputs.skip != 'true' && steps.ai-review.outputs.success == 'true'
+        id: apply
+        uses: actions/github-script@v7
+        env:
+          AI_RESPONSE: ${{ steps.ai-review.outputs.response }}
+        with:
+          script: |
+            const fs = require('fs');
+            const response = process.env.AI_RESPONSE;
+
+            // Parse AI response
+            let review;
+            try {
+              const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, response];
+              review = JSON.parse(jsonMatch[1].trim());
+            } catch (e) {
+              core.warning(`Failed to parse AI response: ${e.message}`);
+              core.setOutput('applied', 'false');
+              core.setOutput('changes_made', '[]');
+              return;
+            }
+
+            // Check if changes are needed
+            if (!review.simplified_section || review.simplified_section.trim() === '') {
+              core.info('No simplifications needed');
+              core.setOutput('applied', 'false');
+              core.setOutput('changes_made', JSON.stringify(review.changes_made || []));
+              return;
+            }
+
+            // Read the current CHANGELOG.md
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+
+            // Find the [Unreleased] section and replace its content
+            const unreleasedHeader = /^## \[Unreleased\]/m;
+            const nextVersionHeader = /\n## \[\d+\.\d+/m;
+
+            const headerMatch = changelog.match(unreleasedHeader);
+            if (!headerMatch) {
+              core.warning('Could not find ## [Unreleased] header');
+              core.setOutput('applied', 'false');
+              core.setOutput('changes_made', '[]');
+              return;
+            }
+
+            const headerEnd = headerMatch.index + headerMatch[0].length;
+            const restAfterHeader = changelog.substring(headerEnd);
+            const nextMatch = restAfterHeader.match(nextVersionHeader);
+
+            let newChangelog;
+            if (nextMatch) {
+              const contentEnd = headerEnd + nextMatch.index;
+              newChangelog = changelog.substring(0, headerEnd) + '\n\n' +
+                review.simplified_section.trim() + '\n\n' +
+                changelog.substring(contentEnd + 1);
+            } else {
+              newChangelog = changelog.substring(0, headerEnd) + '\n\n' +
+                review.simplified_section.trim() + '\n';
+            }
+
+            // Write back
+            fs.writeFileSync('CHANGELOG.md', newChangelog, 'utf8');
+            core.setOutput('applied', 'true');
+            core.setOutput('changes_made', JSON.stringify(review.changes_made || []));
+
+      - name: Stage changelog changes
+        if: steps.apply.outputs.applied == 'true'
+        run: git add CHANGELOG.md
+
+      - name: Commit simplified changelog
+        if: steps.apply.outputs.applied == 'true'
+        id: safe-commit
+        uses: ./.github/actions/utils/safe-commit
+        with:
+          commit-message: 'docs: AI-simplified changelog entries'
+          pr-title: 'docs: AI-simplified changelog entries'
+          pr-body: 'Automated changelog simplification applied by AI review workflow.'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post review summary comment
+        if: steps.context.outputs.skip != 'true' && steps.ai-review.outputs.success == 'true' && steps.safe-commit.outputs.method != ''
+        uses: actions/github-script@v7
+        env:
+          CHANGES_MADE: ${{ steps.apply.outputs.changes_made }}
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.context.outputs.pr_number }}', 10);
+            const applied = '${{ steps.apply.outputs.applied }}' === 'true';
+            const commitMethod = '${{ steps.safe-commit.outputs.method }}';
+            const promptTokens = '${{ steps.ai-review.outputs.usage-prompt-tokens || 0 }}';
+            const completionTokens = '${{ steps.ai-review.outputs.usage-completion-tokens || 0 }}';
+
+            let changesMade = [];
+            try {
+              changesMade = JSON.parse(process.env.CHANGES_MADE || '[]');
+            } catch (e) { /* ignore parse errors */ }
+
+            let body = '## AI Changelog Simplification\n\n';
+
+            if (applied && changesMade.length > 0) {
+              body += '### Changes applied\n\n';
+              if (commitMethod === 'direct') {
+                body += 'The following simplifications were committed directly to the branch:\n\n';
+              } else if (commitMethod === 'pr') {
+                body += 'The following simplifications were submitted via PR (branch is protected):\n\n';
+              }
+              for (const change of changesMade) {
+                body += `- ${change}\n`;
+              }
+              body += '\n';
+              body += '> Review the commit to verify the changes are correct. Revert or amend if needed.\n\n';
+            } else {
+              body += 'Changelog looks good - no simplifications needed.\n\n';
+            }
+
+            body += `---\n*Tokens used: ${promptTokens} prompt + ${completionTokens} completion*\n`;
+            body += '*Generated by `.github/workflows/chore-changelog-review.yml` using Mistral AI*';
+
+            // Find and update existing bot comment, or create new one
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100 }
+            );
+
+            const marker = '## AI Changelog Simplification';
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+              core.info(`Updated existing comment #${existing.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body
+              });
+              core.info('Created new review comment');
+            }
+
+      - name: Post notice if AI call failed
+        if: steps.context.outputs.skip != 'true' && steps.ai-review.outputs.success == 'false'
+        run: |
+          echo "::warning::AI changelog review failed: ${{ steps.ai-review.outputs.error }}"
+          echo "The Mistral AI API call failed. This is non-blocking." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary
+        if: always() && steps.context.outputs.skip != 'true'
+        run: |
+          echo "## Changelog Review" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- PR: #${{ steps.context.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- AI Success: ${{ steps.ai-review.outputs.success || 'skipped' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Changes applied: ${{ steps.apply.outputs.applied || 'n/a' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit method: ${{ steps.safe-commit.outputs.method || 'n/a' }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.ai-review.outputs.success }}" = "true" ]; then
+            echo "- Token usage: ${{ steps.ai-review.outputs.usage-prompt-tokens || '0' }} prompt + ${{ steps.ai-review.outputs.usage-completion-tokens || '0' }} completion" >> "$GITHUB_STEP_SUMMARY"
+          fi

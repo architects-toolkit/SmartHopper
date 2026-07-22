@@ -1,0 +1,375 @@
+# PR auto-labeling configuration for actions/labeler@v5
+# Maps file path patterns to labels applied automatically on PR open/sync.
+
+# --- Provider labels ---
+"provider: OpenAI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenAI/**'
+
+"provider: MistralAI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.MistralAI/**'
+
+"provider: Anthropic":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.Anthropic/**'
+
+"provider: DeepSeek":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.DeepSeek/**'
+
+"provider: OpenRouter":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.OpenRouter/**'
+
+"provider: Gemini":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Providers.Gemini/**'
+
+# --- Scope labels ---
+"scope: UI":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/SmartHopper.Components/**'
+          - 'src/SmartHopper.Menu/**'
+
+"scope: AI Calls":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Core/AI/**'
+
+"scope: Component Base":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Core.Grasshopper/**'
+
+"scope: Security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*Sign*'
+          - '**/*Hash*'
+          - '**/*Authenticode*'
+          - '.hashes/**'
+
+"scope: Mcp":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/SmartHopper.Infrastructure/Mcp/**'
+          - 'src/SmartHopper.Infrastructure.Tests/Mcp/**'
+
+# --- OS labels ---
+"os: Windows":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/win-*/**'
+          - '**/*.Windows.*'
+
+"os: MacOS":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/osx-*/**'
+          - '**/*.MacOS.*'
+
+# --- Infrastructure labels ---
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/actions/**'
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '.github/ISSUE_TEMPLATE/**'
+
+# --- Component labels ---
+"component: AI 2Boolean":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2BooleanComponent.cs'
+"component: AI 2BooleanList":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2BooleanListComponent.cs'
+"component: AI 2GhJson":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2GhJsonComponent.cs'
+"component: AI 2Img":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2ImgComponent.cs'
+"component: AI 2Integer":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2IntegerComponent.cs'
+"component: AI 2IntegerList":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2IntegerListComponent.cs'
+"component: AI 2Json":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2JsonComponent.cs'
+"component: AI 2Markdown":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2MarkdownComponent.cs'
+"component: AI 2Number":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2NumberComponent.cs'
+"component: AI 2NumberList":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2NumberListComponent.cs'
+"component: AI 2Script":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2ScriptComponent.cs'
+"component: AI 2Speech":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2SpeechComponent.cs'
+"component: AI 2Text":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2TextComponent.cs'
+"component: AI 2TextList":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Output/AI2TextListComponent.cs'
+"component: AI Chat":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIChatComponent.cs'
+"component: AI Context":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/AIContextComponent.cs'
+"component: AI ContextProviders":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIContextProvidersComponent.cs'
+"component: AI DiscoursePostSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIDiscoursePostSummarizeComponent.cs'
+"component: AI DiscourseTopicSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIDiscourseTopicSummarizeComponent.cs'
+"component: AI ExtraSettings":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIExtraSettingsComponent.cs'
+"component: AI File2Md":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIFile2MdComponent.cs'
+"component: AI FileMetadata":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIFileMetadataComponent.cs'
+"component: AI Img2Text":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/AIImg2TextComponent.cs'
+"component: AI LadybugForumPostSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AILadybugForumPostSummarizeComponent.cs'
+"component: AI LadybugForumTopicSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AILadybugForumTopicSummarizeComponent.cs'
+"component: AI List2Boolean":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/List/AIList2BooleanComponent.cs'
+"component: AI ListFilter":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/List/AIListFilter.cs'
+"component: AI McNeelForumPostSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIMcNeelForumPostSummarizeComponent.cs'
+"component: AI McNeelForumTopicSummarize":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIMcNeelForumTopicSummarizeComponent.cs'
+"component: AI Models":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AIModelsComponent.cs'
+"component: AI Prompt":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/AIPromptComponent.cs'
+"component: AI ScriptGenerate":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Script/AIScriptGenerateComponent.cs'
+"component: AI ScriptReview":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Script/AIScriptReviewComponent.cs'
+"component: AI Settings":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/AI/AISettingsComponent.cs'
+"component: AI Text2Boolean":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Text/AIText2BooleanComponent.cs'
+"component: AI Text2Img":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/AIText2ImgComponent.cs'
+"component: AI Text2Json":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/AIText2JsonComponent.cs'
+"component: AI Text2Text":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Text/AIText2TextComponent.cs'
+"component: AI Text2TextList":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Text/AIText2TextListComponent.cs'
+"component: AI Web2Md":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/AIWeb2MdComponent.cs'
+"component: Audio2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Audio2AIComponent.cs'
+"component: AudioViewer":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Audio/AudioViewerComponent.cs'
+"component: BooleanList2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/BooleanList2AIComponent.cs'
+"component: CombineMetrics":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Misc/CombineMetricsComponent.cs'
+"component: DeconstructMetrics":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Misc/DeconstructMetricsComponent.cs'
+"component: DiscoursePost2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/DiscoursePost2AIComponent.cs'
+"component: DiscoursePostDeconstruct":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/DiscoursePostDeconstructComponent.cs'
+"component: DiscoursePostGet":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/DiscoursePostGetComponent.cs'
+"component: DiscoursePostOpen":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/DiscoursePostOpenComponent.cs'
+"component: DiscourseSearch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/DiscourseSearchComponent.cs'
+"component: DiscourseTopic2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/DiscourseTopic2AIComponent.cs'
+"component: File2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/File2AIComponent.cs'
+"component: File2Md":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/File2MdComponent.cs'
+"component: GhDiff":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhDiffComponents.cs'
+"component: GhGet":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhGetComponents.cs'
+"component: GhJSON2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/GhJSON2AIComponent.cs'
+"component: GhMerge":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhMergeComponents.cs'
+"component: GhPatchApply":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhPatchApplyComponents.cs'
+"component: GhPatchApplyToCanvas":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhPatchApplyToCanvasComponents.cs'
+"component: GhPut":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhPutComponents.cs'
+"component: GhRetrieve":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhRetrieveComponents.cs'
+"component: GhTidyUp":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhTidyUpComponents.cs'
+"component: GhValidate":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/GhValidateComponents.cs'
+"component: ImageViewer":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Img/ImageViewerComponent.cs'
+"component: Img2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Img2AIComponent.cs'
+"component: IntegerList2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/IntegerList2AIComponent.cs'
+"component: Json2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Json2AIComponent.cs'
+"component: JsonArray":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonArrayComponent.cs'
+"component: JsonArray2TextList":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonArray2TextListComponent.cs'
+"component: JsonGetValue":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonGetValueComponent.cs'
+"component: JsonMerge":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonMergeComponent.cs'
+"component: JsonObject":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonObjectComponent.cs'
+"component: JsonObject2Text":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonObject2TextComponent.cs'
+"component: JsonSanitizer":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonSanitizerComponent.cs'
+"component: JsonSchema":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonSchemaComponent.cs'
+"component: JsonSchemaObject":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonSchemaObjectComponent.cs'
+"component: JsonSchemaProp":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/JSON/JsonSchemaPropComponent.cs'
+"component: LadybugForumPostGet":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/LadybugForumPostGetComponent.cs'
+"component: LadybugForumPostOpen":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/LadybugForumPostOpenComponent.cs'
+"component: LadybugForumSearch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/LadybugForumSearchComponent.cs'
+"component: LadybugPost2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/LadybugPost2AIComponent.cs'
+"component: LadybugTopic2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/LadybugTopic2AIComponent.cs'
+"component: McNeelForumPostGet":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/McNeelForumPostGetComponent.cs'
+"component: McNeelForumPostOpen":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/McNeelForumPostOpenComponent.cs'
+"component: McNeelForumSearch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/McNeelForumSearchComponent.cs'
+"component: McNeelPost2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/McNeelPost2AIComponent.cs'
+"component: McNeelTopic2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/McNeelTopic2AIComponent.cs'
+"component: NumberList2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/NumberList2AIComponent.cs'
+"component: OpenGhJSON":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/OpenGhJSONComponent.cs'
+"component: OpenGhPatch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/OpenGhPatchComponent.cs'
+"component: SaveGhJSON":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/SaveGhJSONComponent.cs'
+"component: SaveGhPatch":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Grasshopper/SaveGhPatchComponent.cs'
+"component: SmartHopperMcpServer":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Mcp/SmartHopperMcpServerComponent.cs'
+"component: Text2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Text2AIComponent.cs'
+"component: TextList2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/TextList2AIComponent.cs'
+"component: Web2AI":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Input/Web2AIComponent.cs'
+"component: Web2Md":
+  - changed-files:
+      - any-glob-to-any-file: 'src/SmartHopper.Components/Knowledge/Web2MdComponent.cs'

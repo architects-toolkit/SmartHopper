@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -65,7 +65,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates text based on a prompt and optional instructions",
+                description: "Generates text based on a prompt and optional instructions. Example: text2text({ prompt: 'Name three pavilion forms', instructions: 'use architectural terms' }).",
                 category: "DataProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -83,7 +83,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 }",
                 execute: this.GenerateText,
                 requiredCapabilities: this.toolCapabilityRequirements,
-                buildRequest: this.BuildGenerateRequest);
+                buildRequest: this.BuildGenerateRequest,
+                mutatesCanvas: false,
+                tags: new[] { "text", "data-processing", "read-only", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""result"": { ""type"": ""string"", ""description"": ""Generated text response."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>
@@ -95,7 +99,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         private AIRequestCall BuildGenerateRequest(AIToolCall toolCall)
         {
             AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-            var args = toolInfo.Arguments ?? new JObject();
+            var args = toolInfo.GetArgumentsOrEmpty();
             string prompt = args["prompt"]?.ToString();
             string instructions = args["instructions"]?.ToString();
             string contextFilter = args["contextFilter"]?.ToString() ?? string.Empty;
@@ -138,7 +142,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
 
                 if (string.IsNullOrEmpty(prompt))

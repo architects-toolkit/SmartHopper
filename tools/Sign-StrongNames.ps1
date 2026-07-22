@@ -48,7 +48,7 @@ if ($Help -or (-not $Generate -and -not $Base64 -and -not $Export)) {
 }
 
 if ($Generate) {
-    Write-Host "Generating new strong-name key at $snkPath"
+    Write-Host "Generating new strong-name key at $snkPath" -ForegroundColor Cyan
     $snCmd = Get-Command sn.exe -ErrorAction SilentlyContinue
     if ($snCmd) {
         & $snCmd.Source -k $snkPath
@@ -66,7 +66,7 @@ if ($Generate) {
         }
     }
 } elseif ($Base64) {
-    Write-Host "Decoding Base64 SNK into $snkPath"
+    Write-Host "Decoding Base64 SNK into $snkPath" -ForegroundColor Cyan
     [IO.File]::WriteAllBytes($snkPath, [Convert]::FromBase64String($Base64))
 } elseif ($Export) {
     if (-not (Test-Path $snkPath)) {

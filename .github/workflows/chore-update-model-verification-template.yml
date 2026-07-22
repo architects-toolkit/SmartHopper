@@ -1,5 +1,11 @@
 name: 🔄 Update Model Verification Template
 
+# Related workflows (provider model management):
+#   - check-provider-models.yml (validates model definitions in PRs)
+#   - chore-update-provider-models.yml (fetches and updates model lists)
+#   - chore-update-model-verification-template.yml (updates issue template)
+#   - model-verification.yml (community model verification process)
+
 # Description: Keeps the model dropdown in the model-verification issue template
 # in sync with the *ProviderModels.cs source files. Runs the
 # Update-ModelVerificationTemplate.ps1 script whenever provider model
@@ -21,6 +27,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -28,6 +35,7 @@ jobs:
   update-template:
     name: Update issue template dropdown
     runs-on: windows-latest
+    timeout-minutes: 45
     concurrency:
       group: update-model-verification-template
       cancel-in-progress: true
@@ -42,7 +50,7 @@ jobs:
         id: update
         shell: pwsh
         run: |
-          pwsh -ExecutionPolicy Bypass -File .\tools\Update-ModelVerificationTemplate.ps1
+          & .\tools\Update-ModelVerificationTemplate.ps1
           $code = $LASTEXITCODE
           if ($code -eq 0) {
             "changed=true" | Out-File -Append -FilePath $env:GITHUB_OUTPUT
@@ -67,10 +75,11 @@ jobs:
 
       - name: Create Pull Request
         if: steps.update.outputs.changed == 'true'
+        id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore(templates): update model-verification dropdown options [ci skip]"
+          commit-message: "chore(templates): update model-verification dropdown options"
           title: "chore(templates): sync model-verification template with ProviderModels"
           body: |
             Auto-generated PR from `.github/workflows/chore-update-model-verification-template.yml`.
@@ -83,3 +92,32 @@ jobs:
           delete-branch: true
           labels: |
             automated
+
+      - name: Assign PR to Milestone
+        if: steps.update.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/milestone/assign-pr
+        with:
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks
+        if: steps.update.outputs.changed == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: chore/update-model-verification-template
+          pr-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          base-ref: main
+          pr-title: "chore(templates): sync model-verification template with ProviderModels"
+
+      - name: Label PR on failure
+        if: failure() && steps.create-pr.outputs.pull-request-number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
+              labels: ['status: needs attention']
+            });

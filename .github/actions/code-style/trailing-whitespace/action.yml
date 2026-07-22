@@ -23,6 +23,10 @@ runs:
         # Process each file
         for file in $FILES; do
           if [[ -f "$file" ]]; then
+            # Skip Markdown files: trailing whitespace is sometimes intentional (e.g., line breaks)
+            if [[ "$file" == *.md ]]; then
+              continue
+            fi
             if [[ "${{ inputs.mode }}" == "fix" ]]; then
               sed -i 's/[ \t]*$//' "$file"
               # normalize to unix line endings

@@ -1,0 +1,38 @@
+name: 🏷️ Issue Label by Content
+
+# Related workflows (issue label management):
+#   - github-issue-labels-close.yml (closes issue when close: label added)
+#   - github-issue-labels-on-close.yml (converts status→close labels on issue close)
+#   - github-labels-sync.yml (syncs label definitions from labels.yml)
+#   - github-issue-label-version-from-template.yml (labels issues with version from bug report template)
+#   - github-issue-label-by-content.yml (labels issues based on title/body content)
+
+# Description: Automatically labels issues based on title and body content
+# using regex patterns defined in .github/issue-labeler.yml.
+# Complements github-issue-label-version-from-template.yml which handles version labels specifically.
+#
+# Triggers:
+#   - issues opened or edited
+#
+# Permissions:
+#   - issues: write - Required to apply labels
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  label:
+    name: Apply content-based labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: github/issue-labeler@v3.4
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/issue-labeler.yml
+          enable-versioned-regex: 0

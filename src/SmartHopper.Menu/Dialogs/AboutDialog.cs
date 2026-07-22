@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -110,7 +110,7 @@ namespace SmartHopper.Menu.Dialogs
 
             var subtitleLabel = new Label
             {
-                Text = "An AI-powered assistant for Grasshopper3D",
+                Text = "An Open Source AI-powered Assistant for Grasshopper3D",
                 Font = new Font(SystemFont.Default, 12),
                 TextColor = SystemColors.ControlText,
                 Wrap = WrapMode.Word,
@@ -296,6 +296,153 @@ namespace SmartHopper.Menu.Dialogs
 
             var githubLinkLabel = CreateLinkButton("Open an issue on GitHub", GitHubUrl);
 
+            var newtonsoftJsonLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("Newtonsoft.Json", "https://github.com/JamesNK/Newtonsoft.Json"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var markdigLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("Markdig", "https://github.com/xoofx/markdig"),
+                    new Label { Text = "(BSD-2-Clause License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var ghjsonLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "- Architect's Toolkit for", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("GhJSON.Core", "https://github.com/architects-toolkit/ghjson-dotnet"),
+                    new Label { Text = "and", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("GhJSON.Grasshopper", "https://github.com/architects-toolkit/ghjson-dotnet"),
+                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var htmlAgilityPackLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("HtmlAgilityPack", "https://github.com/zzzprojects/html-agility-pack"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var documentFormatOpenXmlLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("DocumentFormat.OpenXml", "https://github.com/dotnet/Open-XML-SDK"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var mimeKitLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("MimeKit", "https://github.com/jstedfast/MimeKit"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var pdfPigLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("PdfPig", "https://github.com/UglyToad/PdfPig"),
+                    new Label { Text = "(Apache 2.0 License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var reverseMarkdownLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("ReverseMarkdown", "https://github.com/mysticmind/reverse-markdown"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var smartReaderLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("SmartReader", "https://github.com/andrei-tatar/SmartReader"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var jsonSchemaNetLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    CreateLinkButton("JsonSchema.Net", "https://github.com/gregsdennis/json-everything"),
+                    new Label { Text = "(MIT License)", Font = new Font(SystemFont.Default, 10) },
+                },
+            };
+
+            var microsoftNetPackagesLink = new StackLayout
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Items =
+                {
+                    new Label { Text = "-", Font = new Font(SystemFont.Default, 10) },
+                    new StackLayout
+                    {
+                        Orientation = Orientation.Vertical,
+                        Spacing = 0,
+                        Items =
+                        {
+                            CreateLinkButton("Microsoft .NET runtime packages", "https://github.com/dotnet/runtime"),
+                            new Label
+                            {
+                                Text = "System.Net.Http, System.Text.Json, System.Text.RegularExpressions, System.Security.Cryptography.Pkcs, System.Drawing.Common, System.Resources.Extensions (MIT License)",
+                                Font = new Font(SystemFont.Default, 10),
+                                Wrap = WrapMode.Word,
+                            },
+                        },
+                    },
+                },
+            };
+
             var okButton = new Button
             {
                 Text = "OK",
@@ -356,8 +503,6 @@ namespace SmartHopper.Menu.Dialogs
             contentLayout.Items.Add(openSourceThanksLabel);
             contentLayout.Items.Add(speckleLink);
             contentLayout.Items.Add(ghptLink);
-            contentLayout.Items.Add(materialIconsLink);
-            contentLayout.Items.Add(lobeIconsLink);
             contentLayout.Items.Add(textractLink);
             contentLayout.Items.Add(magicHtmlLink);
             contentLayout.Items.Add(dataFlowLink);

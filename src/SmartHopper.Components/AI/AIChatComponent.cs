@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -60,7 +60,7 @@ namespace SmartHopper.Components.AI
                 "AiChat",
                 "Interactive AI-powered conversational interface.",
                 "SmartHopper",
-                "AI")
+                "A. AI")
         {
             // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -63,7 +63,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                         }
                     }
                 }",
-                execute: this.GhCategoriesToolAsync);
+                execute: this.GhCategoriesToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "components-retrieval", "components", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""categories"": { ""type"": ""array"", ""description"": ""List of available Grasshopper component categories."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>
@@ -84,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var server = Instances.ComponentServer;
                 var filterString = args["filter"]?.ToObject<string>() ?? string.Empty;
                 var includeSubcategories = args["includeSubcategories"]?.ToObject<bool>() ?? false;

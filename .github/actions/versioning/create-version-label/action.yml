@@ -11,7 +11,7 @@ inputs:
   color:
     description: 'Label color (hex without #, default: 0366d6)'
     required: false
-    default: '0366d6'
+    default: 'FFFFFF'
 
 outputs:
   label-created:
@@ -34,6 +34,13 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         $version = "${{ inputs.version }}"
+
+        # Normalize version for label: strip date/build metadata from suffix
+        # "2.0.0-dev.260531" → "2.0.0-dev", "1.4.2-alpha+build" → "1.4.2-alpha"
+        if ($version -match '^(\d+\.\d+\.\d+(?:-[^.+]+)?)') {
+            $version = $Matches[1]
+        }
+
         $labelName = "version: $version"
         $color = "${{ inputs.color }}"
         $repo = "${{ github.repository }}"

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -19,7 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text;
+using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SmartHopper.Core.Grasshopper.Converters;
@@ -73,6 +73,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     new HtmlConverter(),
                     new PdfConverter(),
                     new DocxConverter(),
+                    new OpenDocumentConverter(),
                     new XlsxConverter(),
                     new PptxConverter(),
                     new EmlConverter(),
@@ -88,7 +89,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Convert a local file (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced.",
+                description: "Convert a local file (PDF, DOCX, XLSX, PPTX, ODT, ODS, ODP, HTML, CSV, JSON, XML, TXT, EML, EPUB, RTF, etc.) to Markdown text. Use this when you need to read the contents of a file that the user has mentioned or referenced. Example: file2md({ filePath: 'C:/docs/spec.pdf' }).",
                 category: "Knowledge",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -97,14 +98,29 @@ namespace SmartHopper.Core.Grasshopper.AITools
                             ""type"": ""string"",
                             ""description"": ""Absolute path to the file to convert.""
                         },
-                        ""preserveTableStructure"": {
-                            ""type"": ""boolean"",
-                            ""description"": ""Whether to preserve table structure as Markdown tables. Default: true."",
-                            ""default"": true
-                        },
                         ""removeHeadersFooters"": {
                             ""type"": ""boolean"",
                             ""description"": ""Whether to attempt to remove headers and footers (PDF, DOCX). Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveFormatting"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve inline text formatting. DOCX and ODF text documents preserve colors, highlights, bold, italic, underline, and strikethrough; XLSX, ODS, and PPTX preserve bold and italic. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveComments"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve comments in DOCX files by appending them as blockquotes after the paragraph that contains them. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveFootnotes"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve footnotes in DOCX files. Default: true."",
+                            ""default"": true
+                        },
+                        ""preserveEndnotes"": {
+                            ""type"": ""boolean"",
+                            ""description"": ""Whether to preserve endnotes in DOCX files. Default: true."",
                             ""default"": true
                         },
                         ""extractImages"": {
@@ -162,7 +178,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string filePath = args["filePath"]?.ToString();
                 if (string.IsNullOrWhiteSpace(filePath))
@@ -178,8 +194,14 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 var options = new FileConversionOptions
                 {
-                    PreserveTableStructure = args["preserveTableStructure"]?.Value<bool>() ?? true,
+                    PreserveTableStructure = true,
                     RemoveHeadersFooters = args["removeHeadersFooters"]?.Value<bool>() ?? true,
+                    PreserveFormatting = args["preserveFormatting"]?.Value<bool>() ?? true,
+                    PreserveComments = args["preserveComments"]?.Value<bool>() ?? true,
+                    PreserveFootnotes = args["preserveFootnotes"]?.Value<bool>() ?? true,
+                    PreserveEndnotes = args["preserveEndnotes"]?.Value<bool>() ?? true,
+                    PreserveHyperlinks = true,
+                    PreserveMath = true,
                     ExtractImages = (args["extractImages"]?.Value<bool>() ?? false) || describeImages,
                     DetectHeadings = true,
                     MaxContentLength = 0,
@@ -245,33 +267,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     toolResult["content"] = annotatedContent;
                 }
 
-                // Describe images via AI and append to markdown
-                if (describeImages && result.Images.Count > 0)
-                {
-                    string providerName = toolCall.Provider?.ToString();
-                    if (string.IsNullOrWhiteSpace(providerName))
+                    // Describe images via AI and replace inline [image N] placeholders
+                    if (describeImages)
                     {
-                        result.Warnings.Add("Image description skipped: no AI provider configured. Configure a provider or set describeImages=false.");
-                    }
-                    else
-                    {
-                        // Select default prompt based on mode
-                        string defaultPrompt = (imageMode == "describe")
-                            ? DefaultImageDescriptionPrompt
-                            : DefaultImageCaptionPrompt;
-
-                        string effectivePrompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
-                            ? defaultPrompt
-                            : imageDescriptionPrompt;
-
-                        var imagesSb = new StringBuilder();
-                        imagesSb.AppendLine();
-                        imagesSb.AppendLine("---");
-                        imagesSb.AppendLine();
-                        imagesSb.AppendLine("## Document Images");
-                        imagesSb.AppendLine();
-
-                        foreach (var image in result.Images)
+                        string providerName = toolCall.Provider?.ToString();
+                        if (string.IsNullOrWhiteSpace(providerName))
                         {
                             string aiText = await DescribeImageAsync(image, effectivePrompt, toolCall).ConfigureAwait(false);
 
@@ -291,9 +291,30 @@ namespace SmartHopper.Core.Grasshopper.AITools
                                 imagesSb.AppendLine();
                             }
                         }
+                        else
+                        {
+                            string prompt = string.IsNullOrWhiteSpace(imageDescriptionPrompt)
+                                ? ImageProcessingService.GetDefaultPrompt(imageMode)
+                                : imageDescriptionPrompt;
 
-                        result.MarkdownContent += imagesSb.ToString();
-                        toolResult["content"] = result.MarkdownContent;
+                            var items = result.Images.Select((image, i) => new ImageProcessingItem
+                            {
+                                Id = image.Id,
+                                Context = image.Context,
+                                MimeType = image.MimeType,
+                                Base64Data = image.RawValue,
+                                AltText = image.Context,
+                                Placeholder = $"[image {i + 1}]",
+                            }).ToList();
+
+                            result.MarkdownContent = await ImageProcessingService.ProcessMarkdownImagesAsync(
+                                result.MarkdownContent,
+                                items,
+                                imageMode,
+                                toolCall,
+                                prompt: prompt).ConfigureAwait(false);
+                            toolResult["content"] = result.MarkdownContent;
+                        }
                     }
                 }
 

@@ -45,7 +45,7 @@ Install, enable a provider, and set up an API key.
 
 **System requirements:**
 
-- Rhino 8.24 or newer on Windows or macOS
+- Rhino 8.0 or newer on Windows or macOS
 - Distributed through the Rhino Package Manager
 - You need to have a provider API key to use most of SmartHopper features
 
@@ -102,6 +102,26 @@ See [Releases](https://github.com/architects-toolkit/SmartHopper/releases) for a
 ## ⚖️ License
 
 This project is licensed under the GNU Lesser General Public License v3 (LGPL) - see the [LICENSE](LICENSE) file for details.
+
+## ™️ Trademark and Logo Usage Policy
+
+The SmartHopper name and logo are the property of the SmartHopper / architects-toolkit maintainers. The LGPL v3 license under which the source code is distributed does **not** grant rights in the SmartHopper name or logo.
+
+We allow use of the SmartHopper name and logo in the following contexts:
+
+- In blog posts, articles, tutorials, talks, or reviews that discuss or promote SmartHopper, provided the usage is accurate, fair, and does not imply endorsement by the SmartHopper maintainers.
+- In educational materials, courses, or presentations that accurately represent the project.
+- When referring to the unmodified, official SmartHopper plug-in as installed from the Rhino Package Manager.
+
+Please refrain from using the SmartHopper name and logo:
+
+- In promotional materials for paid services or commercial products that bundle, redistribute, or extend SmartHopper, without prior written permission.
+- In a manner that may cause confusion about the origin of a product or imply endorsement.
+- On forks, derivative works, or paid offerings derived from the SmartHopper source code — please choose a distinct name and logo for your fork, as is common open-source trademark practice.
+
+If you have any questions or wish to seek permission for other uses, please open an issue on this repository or contact the maintainers via [smarthopper.xyz](https://smarthopper.xyz).
+
+Thank you for your understanding and cooperation.
 
 ---
 

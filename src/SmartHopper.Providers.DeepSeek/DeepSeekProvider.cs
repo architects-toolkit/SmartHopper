@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -50,12 +50,6 @@ namespace SmartHopper.Providers.DeepSeek
     public sealed partial class DeepSeekProvider : AIProvider<DeepSeekProvider>
     {
         #region Compiled Regex Patterns
-
-        /// <summary>
-        /// Regex pattern for normalizing whitespace to single spaces.
-        /// </summary>
-        [GeneratedRegex(@"\s+")]
-        private static partial Regex WhitespaceRegex();
 
         /// <summary>
         /// Regex pattern for extracting enum arrays from malformed JSON.
@@ -158,9 +152,37 @@ namespace SmartHopper.Providers.DeepSeek
 
             int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
             double temperature = p?.Temperature ?? this.GetSetting<double>("Temperature");
+
+            // Per-request extra settings take precedence over global provider settings.
+            string reasoningEffort;
+            if (p?.Extras != null && p.Extras.TryGetValue("reasoning_effort", out var reasoningEffortToken) && reasoningEffortToken != null)
+            {
+                reasoningEffort = reasoningEffortToken.ToString();
+            }
+            else
+            {
+                reasoningEffort = this.GetSetting<string>("ReasoningEffort") ?? "high";
+            }
+
+            bool thinking = !string.Equals(reasoningEffort, "none", StringComparison.OrdinalIgnoreCase);
+
+            double topP;
+            if (p?.TopP.HasValue == true)
+            {
+                topP = p.TopP.Value;
+            }
+            else if (p?.Extras != null && p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+            {
+                topP = topPToken.Value<double?>() ?? this.GetSetting<double>("TopP");
+            }
+            else
+            {
+                topP = this.GetSetting<double>("TopP");
+            }
+
             string? toolFilter = request.Body.ToolFilter;
 
-            Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}");
+            Debug.WriteLine($"[DeepSeek] Encode - Model: {request.Model}, MaxTokens: {maxTokens}, ReasoningEffort: {reasoningEffort}");
 
 #if DEBUG
             // Log interaction sequence for debugging
@@ -183,6 +205,8 @@ namespace SmartHopper.Providers.DeepSeek
             // is required and doing so historically caused loss of tool_call_id when multiple tool
             // results were emitted in the same turn.
             var convertedMessages = new JArray();
+
+            bool IsAssistant(string? r) => string.Equals(r, "assistant", StringComparison.OrdinalIgnoreCase);
 
             // Merge System and Summary interactions before encoding
             var mergedInteractions = this.MergeSystemAndSummary(request.Body.Interactions);
@@ -255,9 +279,22 @@ namespace SmartHopper.Providers.DeepSeek
                 ["messages"] = convertedMessages,
                 ["max_tokens"] = maxTokens,
                 ["temperature"] = temperature,
+                ["top_p"] = topP,
             };
 
-            // Apply optional parameters from extras only
+            // Add thinking/reasoning controls for models that support thinking mode
+            bool isThinkingModel = request.Model?.Contains("v4", StringComparison.OrdinalIgnoreCase) == true
+                || string.Equals(request.Model, "deepseek-reasoner", StringComparison.OrdinalIgnoreCase);
+            if (isThinkingModel)
+            {
+                requestBody["thinking"] = new JObject { ["type"] = thinking ? "enabled" : "disabled" };
+                if (thinking)
+                {
+                    requestBody["reasoning_effort"] = reasoningEffort;
+                }
+            }
+
+            // Apply other optional parameters from extras only
             if (p?.Extras != null)
             {
                 if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
@@ -425,23 +462,12 @@ namespace SmartHopper.Providers.DeepSeek
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
-                // DeepSeek requires cleaned/simplified tool result content
-                var jsonString = JsonConvert.SerializeObject(toolResultInteraction.Result, Formatting.None);
-                jsonString = jsonString.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
-                jsonString = jsonString.Replace("\\r\\n", string.Empty, StringComparison.OrdinalIgnoreCase);
-                jsonString = jsonString.Replace("\\", string.Empty, StringComparison.OrdinalIgnoreCase);
-                jsonString = WhitespaceRegex().Replace(jsonString, " ");
-
-                messageObj["content"] = jsonString;
+                // Keep the tool result as a compact JSON string, consistent with OpenAI/MistralAI.
+                messageObj["content"] = toolResultInteraction.Result?.ToString(Formatting.None) ?? string.Empty;
 
                 if (!string.IsNullOrWhiteSpace(toolResultInteraction.Id))
                 {
                     messageObj["tool_call_id"] = toolResultInteraction.Id;
-                }
-
-                if (!string.IsNullOrWhiteSpace(toolResultInteraction.Name))
-                {
-                    messageObj["name"] = toolResultInteraction.Name;
                 }
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
@@ -1270,6 +1296,14 @@ namespace SmartHopper.Providers.DeepSeek
         {
             return new[]
             {
+                new AIExtraDescriptor(
+                    "reasoning_effort",
+                    "Reasoning Effort",
+                    "Controls DeepSeek thinking mode and reasoning depth. Use 'none' to disable thinking, or 'high'/'max' to enable it. Only applies to deepseek-v4 models and deepseek-reasoner. Overrides the global provider setting.",
+                    typeof(string),
+                    null,
+                    new[] { "none", "high", "max" }),
+
                 // General parameters (shared across providers)
                 new AIExtraDescriptor(
                     "top_p",

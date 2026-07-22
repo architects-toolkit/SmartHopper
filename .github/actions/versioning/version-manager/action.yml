@@ -1,0 +1,199 @@
+name: 'Version Manager'
+description: 'Unified version and badge management using Change-SolutionVersion.ps1'
+inputs:
+  mode:
+    description: 'Mode: set-version, update-date, or badges-only'
+    required: true
+    default: 'badges-only'
+  new-version:
+    description: 'New version to set (required for set-version mode)'
+    required: false
+  require-src-changes:
+    description: 'Only proceed if src/ files changed (for update-date mode)'
+    required: false
+    default: 'false'
+
+outputs:
+  version:
+    description: 'Current version from Solution.props (before update)'
+    value: ${{ steps.get-version.outputs.version }}
+  new-version:
+    description: 'New version after update'
+    value: ${{ steps.update.outputs.new-version || steps.get-version.outputs.version }}
+  major:
+    description: 'Major version component'
+    value: ${{ steps.parse-version.outputs.major }}
+  minor:
+    description: 'Minor version component'
+    value: ${{ steps.parse-version.outputs.minor }}
+  patch:
+    description: 'Patch version component'
+    value: ${{ steps.parse-version.outputs.patch }}
+  suffix:
+    description: 'Version suffix (if any)'
+    value: ${{ steps.parse-version.outputs.suffix }}
+  stage:
+    description: 'Release stage'
+    value: ${{ steps.parse-version.outputs.stage }}
+  badges-changed:
+    description: 'Whether README badges were changed'
+    value: ${{ steps.update.outputs.badges-changed || 'false' }}
+  src-changes-found:
+    description: 'Whether src/ changes were detected'
+    value: ${{ steps.check-src-changes.outputs.src-changes-found || 'true' }}
+  has-changes:
+    description: 'Whether any tracked files were modified'
+    value: ${{ steps.update.outputs.has-changes || 'false' }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get version from Solution.props
+      id: get-version
+      shell: pwsh
+      run: |
+        $version = (Select-Xml -Path Solution.props -XPath "//SolutionVersion").Node.InnerText
+        Write-Host "Current version: $version"
+        "version=$version" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+
+    - name: Parse version components
+      id: parse-version
+      shell: pwsh
+      run: |
+        $VERSION = '${{ steps.get-version.outputs.version }}'
+        if ($VERSION -match '^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.]+))?$') {
+          $major = $Matches[1]
+          $minor = $Matches[2]
+          $patch = $Matches[3]
+          $suffix = $Matches[4]
+
+          # Extract stage from suffix (e.g., 'alpha' from 'alpha.240101')
+          $stage = if ($suffix) { $suffix.Split('.')[0].ToLower() } else { 'stable' }
+
+          "major=$major" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "minor=$minor" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "patch=$patch" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "suffix=$suffix" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "stage=$stage" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+
+          Write-Host "Parsed version: Major=$major, Minor=$minor, Patch=$patch, Suffix=$suffix, Stage=$stage"
+        } else {
+          Write-Error "Error: Version format doesn't follow semantic versioning: $VERSION"
+          exit 1
+        }
+
+    - name: Check for src/ changes
+      id: check-src-changes
+      shell: pwsh
+      run: |
+        $requireSrcChanges = '${{ inputs.require-src-changes }}' -eq 'true'
+        if (-not $requireSrcChanges) {
+          Write-Host "require-src-changes is false; skipping src/ changes check."
+          "src-changes-found=true" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          exit 0
+        }
+
+        # Check if any files under src/ changed in the last commit
+        $changedFiles = git diff --name-only HEAD~1 HEAD 2>$null
+        if (-not $changedFiles) {
+          # Fallback: check working tree vs HEAD for any src/ changes
+          $changedFiles = git diff --name-only HEAD 2>$null
+        }
+
+        $hasSrcChanges = $false
+        foreach ($file in $changedFiles) {
+          if ($file -match '^src/') {
+            $hasSrcChanges = $true
+            break
+          }
+        }
+
+        if ($hasSrcChanges) {
+          Write-Host "Found src/ changes. Proceeding." -ForegroundColor Green
+          "src-changes-found=true" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+        } else {
+          Write-Host "No src/ changes detected. Skipping version update (matching pre-commit.ps1 criteria)." -ForegroundColor Yellow
+          "src-changes-found=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+        }
+
+    - name: Run Change-SolutionVersion.ps1
+      id: update
+      shell: pwsh
+      run: |
+        $mode = '${{ inputs.mode }}'
+        $newVersion = '${{ inputs.new-version }}'
+
+        if ('${{ steps.check-src-changes.outputs.src-changes-found }}' -eq 'false') {
+          Write-Host "Skipping: no src/ changes found."
+          "has-changes=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "badges-changed=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          "new-version=${{ steps.get-version.outputs.version }}" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+          exit 0
+        }
+
+        $scriptPath = Join-Path $PSScriptRoot "..\..\..\tools\Change-SolutionVersion.ps1"
+        $scriptPath = Resolve-Path $scriptPath -ErrorAction SilentlyContinue
+        if (-not $scriptPath) {
+          # Fallback for composite action path resolution
+          $scriptPath = "tools/Change-SolutionVersion.ps1"
+        }
+
+        # Capture file states before
+        $solutionPropsBefore = if (Test-Path "Solution.props") { Get-Content "Solution.props" -Raw -Encoding utf8 } else { $null }
+        $readmeBefore = if (Test-Path "README.md") { Get-Content "README.md" -Raw -Encoding utf8 } else { $null }
+
+        switch ($mode) {
+          'set-version' {
+            if ([string]::IsNullOrWhiteSpace($newVersion)) {
+              Write-Error "new-version input is required for set-version mode"
+              exit 1
+            }
+            Write-Host "Mode: set-version -> $newVersion"
+            & $scriptPath -Version $newVersion
+          }
+          'update-date' {
+            Write-Host "Mode: update-date"
+            & $scriptPath -UpdateDateOnly
+          }
+          'badges-only' {
+            Write-Host "Mode: badges-only"
+            & $scriptPath -BadgesOnly
+          }
+          default {
+            Write-Error "Unknown mode: $mode. Expected 'set-version', 'update-date', or 'badges-only'."
+            exit 1
+          }
+        }
+
+        if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+          Write-Error "Change-SolutionVersion.ps1 failed (exit $LASTEXITCODE)."
+          exit $LASTEXITCODE
+        }
+
+        # Determine what changed
+        $solutionPropsAfter = if (Test-Path "Solution.props") { Get-Content "Solution.props" -Raw -Encoding utf8 } else { $null }
+        $readmeAfter = if (Test-Path "README.md") { Get-Content "README.md" -Raw -Encoding utf8 } else { $null }
+
+        $hasChanges = $false
+        if ($solutionPropsBefore -ne $solutionPropsAfter) {
+          Write-Host "Solution.props was modified."
+          $hasChanges = $true
+        }
+        if ($readmeBefore -ne $readmeAfter) {
+          Write-Host "README.md was modified."
+          $hasChanges = $true
+          "badges-changed=true" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+        } else {
+          "badges-changed=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+        }
+
+        if (-not $hasChanges) {
+          Write-Host "No files were modified."
+        }
+
+        "has-changes=$hasChanges" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8
+
+        # Output the new version from Solution.props
+        $xml = [xml](Get-Content "Solution.props" -Raw)
+        $updatedVersion = $xml.Project.PropertyGroup.SolutionVersion
+        "new-version=$updatedVersion" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append -Encoding utf8

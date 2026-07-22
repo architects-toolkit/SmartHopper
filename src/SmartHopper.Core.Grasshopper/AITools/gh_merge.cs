@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -55,7 +55,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""target"", ""source""]
                 }",
-                execute: this.GhMergeToolAsync);
+                execute: this.GhMergeToolAsync,
+                mutatesCanvas: false,
+                tags: new[] { "canvas", "components", "merge", "read-only", "ghjson" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""ghjson"": { ""type"": ""string"", ""description"": ""Merged GhJSON document."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         private async Task<AIReturn> GhMergeToolAsync(AIToolCall toolCall)
@@ -72,7 +76,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
 
                 // Extract parameters
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var targetJson = args["target"]?.ToString() ?? string.Empty;
                 var sourceJson = args["source"]?.ToString() ?? string.Empty;
 

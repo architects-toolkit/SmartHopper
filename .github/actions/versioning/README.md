@@ -156,15 +156,21 @@ Extracts current version from Solution.props with component parsing.
 - Extracts stage from suffix
 - Outputs major, minor, patch, suffix, stage
 
-#### `update-version`
+#### `version-manager`
 
-Updates version in Solution.props with component parsing.
+Unified action for version and badge management using Change-SolutionVersion.ps1.
+
+**Modes:**
+
+- `set-version` - Sets an explicit version in Solution.props and updates badges
+- `update-date` - Updates only the date suffix (dev versions) and updates badges
+- `badges-only` - Updates README badges to match current version
 
 **Standardized Parsing:**
 
 - Uses consistent regex pattern
 - Extracts stage from suffix
-- Outputs major, minor, patch, suffix, stage
+- Outputs major, minor, patch, suffix, stage, badges-changed, has-changes
 
 ## Shared Version Utilities Implementation
 

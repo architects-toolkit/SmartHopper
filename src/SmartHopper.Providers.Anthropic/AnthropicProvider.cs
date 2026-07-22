@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -667,22 +667,46 @@ namespace SmartHopper.Providers.Anthropic
                 }
             }
 
+            // Determine whether prompt caching is enabled via extras.
+            bool enableCaching = p?.Extras != null
+                && p.Extras.TryGetValue("enable_caching", out var ecToken)
+                && ecToken?.Value<bool>() == true;
+
             // After collecting both conversation system texts and optional schema instruction,
-            // set the top-level system string, joining entries with "\n---\n".
+            // set the top-level system field, joining entries with "\n---\n".
             if (systemTexts.Count > 0)
             {
                 var combinedSystem = string.Join("\n---\n", systemTexts.Where(s => !string.IsNullOrWhiteSpace(s)));
                 if (!string.IsNullOrWhiteSpace(combinedSystem))
                 {
-                    requestBody["system"] = combinedSystem;
+                    if (enableCaching)
+                    {
+                        // When caching is enabled, emit system as a content-block array with an
+                        // explicit cache breakpoint on the last (stable) system block. This makes
+                        // single-shot and batch requests sharing the same tools+system prefix hit
+                        // the cache even when the user message varies per request.
+                        requestBody["system"] = new JArray
+                        {
+                            new JObject
+                            {
+                                ["type"] = "text",
+                                ["text"] = combinedSystem,
+                                ["cache_control"] = new JObject { ["type"] = "ephemeral" },
+                            },
+                        };
+                    }
+                    else
+                    {
+                        requestBody["system"] = combinedSystem;
+                    }
                 }
             }
 
             // Apply automatic prompt caching when enable_caching=true:
-            // Adds top-level cache_control so Anthropic automatically caches the longest stable prefix.
-            bool enableCaching = p?.Extras != null
-                && p.Extras.TryGetValue("enable_caching", out var ecToken)
-                && ecToken?.Value<bool>() == true;
+            // Adds top-level cache_control so Anthropic automatically advances the cache
+            // breakpoint over the growing message history in multi-turn conversations.
+            // This is complementary to the explicit system breakpoint above and is a no-op
+            // when the last cacheable block already carries the same cache_control TTL.
             if (enableCaching)
             {
                 requestBody["cache_control"] = new JObject { ["type"] = "ephemeral" };
@@ -789,12 +813,15 @@ namespace SmartHopper.Providers.Anthropic
                 // Anthropic message response has top-level 'content' array and 'role': 'assistant'
                 var content = response["content"] as JArray;
                 string contentText = string.Empty;
+                string reasoningText = string.Empty;
                 var toolCalls = new List<AIInteractionToolCall>();
                 var toolResults = new List<AIInteractionToolResult>();
 
                 if (content != null)
                 {
                     var textParts = new List<string>();
+                    var thinkingParts = new List<string>();
+
                     foreach (var block in content.OfType<JObject>())
                     {
                         var type = block["type"]?.ToString();
@@ -857,6 +884,7 @@ namespace SmartHopper.Providers.Anthropic
                     }
 
                     contentText = string.Join(string.Empty, textParts);
+                    reasoningText = thinkingParts.Count > 0 ? string.Join("\n\n", thinkingParts) : null;
                 }
 
                 // Unwrap schema if wrapped centrally
@@ -868,7 +896,7 @@ namespace SmartHopper.Providers.Anthropic
 
                 // Each new interaction gets a fresh DateTime.UtcNow from AIInteractionBase
                 var interaction = new AIInteractionText();
-                interaction.SetResult(agent: AIAgent.Assistant, content: contentText, reasoning: null);
+                interaction.SetResult(agent: AIAgent.Assistant, content: contentText, reasoning: reasoningText);
                 interaction.Metrics = this.DecodeMetrics(response);
 
                 Debug.WriteLine($"[Anthropic] Decode creating text interaction: content='{contentText.Substring(0, Math.Min(50, contentText.Length))}...', toolCalls={toolCalls.Count}, toolResults={toolResults.Count}");
@@ -1582,6 +1610,15 @@ namespace SmartHopper.Providers.Anthropic
         {
             return new[]
             {
+                // Anthropic-specific parameters
+                new AIExtraDescriptor(
+                    "effort",
+                    "Effort",
+                    "The amount of effort to use in the output. 'low' is fastest, 'max' is most thorough. Overrides global provider setting.",
+                    typeof(string),
+                    "low",
+                    new[] { "low", "medium", "high", "xhigh", "max" }),
+
                 // General parameters (shared across providers)
                 new AIExtraDescriptor(
                     "seed",

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -110,7 +110,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"ids\": {{ \"type\": \"array\", \"items\": {{ \"type\": \"integer\" }}, \"description\": \"ID or list of forum post IDs to summarize.\" }}, \"instructions\": {{ \"type\": \"string\", \"description\": \"Optional targeted summary instructions to focus on a specific question, target, or concern.\" }} }}, \"required\": [{baseUrlRequired}\"ids\"] }}",
                 execute: this.SummarizePostAsync,
-                requiredCapabilities: this.SummarizeCapabilityRequirements);
+                requiredCapabilities: this.SummarizeCapabilityRequirements,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "read-only", "external", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""summary"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: getTopicToolName,
@@ -125,7 +129,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 category: "Knowledge",
                 parametersSchema: $"{{ \"type\": \"object\", \"properties\": {{ {baseUrlProperty} \"topic_id\": {{ \"type\": \"integer\", \"description\": \"ID of the forum topic to summarize.\" }}, \"max_posts\": {{ \"type\": \"integer\", \"description\": \"Optional maximum number of posts to include in the summary input (default: 50).\" }}, \"instructions\": {{ \"type\": \"string\", \"description\": \"Optional targeted summary instructions to focus on a specific question, target, or concern.\" }} }}, \"required\": [{baseUrlRequired}\"topic_id\"] }}",
                 execute: this.SummarizeTopicAsync,
-                requiredCapabilities: this.SummarizeCapabilityRequirements);
+                requiredCapabilities: this.SummarizeCapabilityRequirements,
+                mutatesCanvas: false,
+                tags: new[] { "knowledge", "forum", "web", "read-only", "external", "ai-generation" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""summary"": { ""type"": ""string"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
 
             yield return new AITool(
                 name: searchToolName,
@@ -236,7 +244,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string endpoint = $"{this.ToolPrefix}_forum_post_summarize";
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
+
+                string? baseUrl = this.GetBaseUrl(args);
+                if (!this.ValidateBaseUrl(baseUrl, output))
+                {
+                    return output;
+                }
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -392,7 +406,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
+
+                string? baseUrl = this.GetBaseUrl(args);
+                if (!this.ValidateBaseUrl(baseUrl, output))
+                {
+                    return output;
+                }
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -473,7 +493,13 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string endpoint = $"{this.ToolPrefix}_forum_topic_summarize";
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
+
+                string? baseUrl = this.GetBaseUrl(args);
+                if (!this.ValidateBaseUrl(baseUrl, output))
+                {
+                    return output;
+                }
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))
@@ -623,7 +649,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 toolCall.SkipMetricsValidation = true;
 
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 string? baseUrl = this.GetBaseUrl(args);
                 if (!this.ValidateBaseUrl(baseUrl, output))

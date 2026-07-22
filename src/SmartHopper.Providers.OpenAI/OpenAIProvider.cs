@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -135,7 +135,10 @@ namespace SmartHopper.Providers.OpenAI
             request.ContentType = "application/json";
             request.Authentication = "bearer";
 
-            // Determine endpoint based on request capability
+            // Determine endpoint based on request capability and settings.
+            // The Responses API is a superset of Chat Completions and is recommended by OpenAI
+            // for all new projects. We default to /v1/responses for text, vision, tools, and JSON.
+            // Only legacy endpoints (images, audio) and explicit overrides use other paths.
             if (request.Capability.HasFlag(AICapability.ImageOutput))
             {
                 request.Endpoint = "/images/generations";
@@ -155,10 +158,17 @@ namespace SmartHopper.Providers.OpenAI
                 request.HttpMethod = "GET";
                 request.RequestKind = AIRequestKind.Backoffice;
             }
+            else if (string.Equals(request.Endpoint, "/chat/completions", StringComparison.OrdinalIgnoreCase)
+                     || this.GetSetting<bool>("ForceChatCompletions"))
+            {
+                // Explicit Chat Completions override or user forcing legacy endpoint
+                request.Endpoint = "/chat/completions";
+            }
             else
             {
-                // Default to chat completions
-                request.Endpoint = "/chat/completions";
+                // Default to Responses API for all text, vision, tool, and JSON requests.
+                // This includes reasoning models, structured outputs, and function calling.
+                request.Endpoint = "/responses";
             }
 
             return request;
@@ -173,7 +183,7 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             // Handle different endpoints
-            if (request.Endpoint == "/images/generations")
+            if (request.Endpoint.Contains("/images/generations"))
             {
                 return this.FormatImageGenerationRequestBody(request);
             }
@@ -187,26 +197,61 @@ namespace SmartHopper.Providers.OpenAI
             }
             else
             {
-                // Convert interactions to OpenAI format (simple sequential encoding like MistralAI)
-                var messages = this.BuildMessages(request.Body.Interactions);
-                return this.FormatChatCompletionsRequestBody(request, messages);
+                throw new NotSupportedException($"Unsupported OpenAI endpoint: {request.Endpoint}");
             }
         }
 
         /// <inheritdoc/>
         public override string Encode(IAIInteraction interaction)
         {
-            var messageObj = this.EncodeToJToken(interaction);
+            var messageObj = this.EncodeToJToken(interaction, OpenAIRequestFormat.Responses);
             return messageObj?.ToString();
         }
 
+        /// <summary>
+        /// Defines which OpenAI API format to use when encoding interactions.
+        /// </summary>
+        private enum OpenAIRequestFormat
+        {
+            ChatCompletions,
+            Responses,
+        }
+
         /// <inheritdoc/>
-        private JToken? EncodeToJToken(IAIInteraction interaction)
+        private JToken? EncodeToJToken(IAIInteraction interaction, OpenAIRequestFormat format)
         {
             // Skip UI-only diagnostics
             if (interaction is AIInteractionRuntimeMessage)
             {
                 return null;
+            }
+
+            // Responses API represents tool calls and tool results as standalone
+            // items (no role / no content field) with their own type.
+            // NOTE: AIInteractionToolResult inherits from AIInteractionToolCall, so it
+            // must be checked first; otherwise tool results would be emitted as function_call.
+            if (format == OpenAIRequestFormat.Responses)
+            {
+                if (interaction is AIInteractionToolResult toolResultResp)
+                {
+                    return new JObject
+                    {
+                        ["type"] = "function_call_output",
+                        ["call_id"] = toolResultResp.Id,
+                        ["output"] = toolResultResp.Result?.ToString() ?? string.Empty,
+                    };
+                }
+
+                if (interaction is AIInteractionToolCall toolCallResp)
+                {
+                    return new JObject
+                    {
+                        ["type"] = "function_call",
+                        ["call_id"] = toolCallResp.Id,
+                        ["name"] = toolCallResp.Name,
+                        ["arguments"] = toolCallResp.Arguments?.ToString() ?? "{}",
+                    };
+                }
             }
 
             var messageObj = new JObject();
@@ -236,12 +281,29 @@ namespace SmartHopper.Providers.OpenAI
             }
 
             // Handle different interaction types
-            string msgContent = string.Empty;
-            bool contentSetExplicitly = false;
-
             if (interaction is AIInteractionText textInteraction)
             {
-                msgContent = textInteraction.Content ?? string.Empty;
+                if (format == OpenAIRequestFormat.Responses)
+                {
+                    // Responses API requires 'output_text' for assistant messages and
+                    // 'input_text' for user/system/developer messages.
+                    var contentType = interaction.Agent == AIAgent.Assistant
+                        ? "output_text"
+                        : "input_text";
+                    var contentArray = new JArray
+                    {
+                        new JObject
+                        {
+                            ["type"] = contentType,
+                            ["text"] = textInteraction.Content ?? string.Empty,
+                        },
+                    };
+                    messageObj["content"] = contentArray;
+                }
+                else
+                {
+                    messageObj["content"] = textInteraction.Content ?? string.Empty;
+                }
             }
             else if (interaction is AIInteractionToolResult toolResultInteraction)
             {
@@ -251,7 +313,7 @@ namespace SmartHopper.Providers.OpenAI
                     messageObj["name"] = toolResultInteraction.Name;
                 }
 
-                msgContent = toolResultInteraction.Result?.ToString() ?? string.Empty;
+                messageObj["content"] = toolResultInteraction.Result?.ToString() ?? string.Empty;
             }
             else if (interaction is AIInteractionToolCall toolCallInteraction)
             {
@@ -268,25 +330,6 @@ namespace SmartHopper.Providers.OpenAI
                     },
                 };
                 messageObj["tool_calls"] = new JArray { toolCallObj };
-
-                // For o-series or gpt-5+ models, include reasoning in content array
-                if (!string.IsNullOrWhiteSpace(toolCallInteraction.Reasoning))
-                {
-                    var contentArray = new JArray
-                    {
-                        new JObject
-                        {
-                            ["type"] = "reasoning",
-                            ["text"] = toolCallInteraction.Reasoning,
-                        },
-                    };
-                    messageObj["content"] = contentArray;
-                    contentSetExplicitly = true;
-                }
-                else
-                {
-                    msgContent = string.Empty;
-                }
             }
             else if (interaction is AIInteractionImage imageInteraction)
             {
@@ -305,51 +348,69 @@ namespace SmartHopper.Providers.OpenAI
                 else
                 {
                     // No image data available; fall back to prompt text
-                    msgContent = imageInteraction.OriginalPrompt ?? string.Empty;
+                    messageObj["content"] = imageInteraction.OriginalPrompt ?? string.Empty;
                     imageUrlValue = null;
                 }
 
                 if (imageUrlValue != null)
                 {
-                    var contentArray = new JArray
+                    JObject imageBlock;
+                    if (format == OpenAIRequestFormat.Responses)
                     {
-                        new JObject
+                        imageBlock = new JObject
+                        {
+                            ["type"] = "input_image",
+                            ["image_url"] = imageUrlValue,
+                        };
+                    }
+                    else
+                    {
+                        imageBlock = new JObject
                         {
                             ["type"] = "image_url",
                             ["image_url"] = new JObject
                             {
                                 ["url"] = imageUrlValue,
                             },
-                        },
-                    };
+                        };
+                    }
+
+                    var contentArray = new JArray { imageBlock };
                     messageObj["content"] = contentArray;
-                    contentSetExplicitly = true;
                 }
             }
             else
             {
                 // Fallback to empty string for unknown types
-                msgContent = string.Empty;
-            }
-
-            if (!contentSetExplicitly)
-            {
-                messageObj["content"] = msgContent;
+                messageObj["content"] = string.Empty;
             }
 
             return messageObj;
         }
 
         /// <summary>
-        /// Builds the OpenAI <c>messages</c> array from SmartHopper interactions while enforcing
-        /// OpenAI tool calling sequencing rules.
-        ///
+        /// Builds the OpenAI <c>messages</c> array for the Chat Completions API.
         /// </summary>
-        /// <param name="interactions">Ordered list of SmartHopper interactions to encode.</param>
-        /// <returns>JArray of OpenAI-formatted messages.</returns>
-        private JArray BuildMessages(IReadOnlyList<IAIInteraction> interactions)
+        private JArray BuildChatCompletionMessages(IReadOnlyList<IAIInteraction> interactions)
+        {
+            return this.BuildFormattedMessages(interactions, OpenAIRequestFormat.ChatCompletions);
+        }
+
+        /// <summary>
+        /// Builds the OpenAI <c>input</c> array for the Responses API.
+        /// </summary>
+        private JArray BuildResponsesInput(IReadOnlyList<IAIInteraction> interactions)
+        {
+            return this.BuildFormattedMessages(interactions, OpenAIRequestFormat.Responses);
+        }
+
+        /// <summary>
+        /// Builds the formatted message/input array from SmartHopper interactions.
+        /// </summary>
+        private JArray BuildFormattedMessages(IReadOnlyList<IAIInteraction> interactions, OpenAIRequestFormat format)
         {
             var messages = new JArray();
+            string formatName = format == OpenAIRequestFormat.Responses ? "Responses" : "ChatCompletions";
 
 #if DEBUG
             try
@@ -358,9 +419,8 @@ namespace SmartHopper.Providers.OpenAI
                 int tc = interactions?.Count(i => i is AIInteractionToolCall) ?? 0;
                 int tr = interactions?.Count(i => i is AIInteractionToolResult) ?? 0;
                 int tx = interactions?.Count(i => i is AIInteractionText) ?? 0;
-                Debug.WriteLine($"[OpenAI] BuildMessages: interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
+                Debug.WriteLine($"[OpenAI] BuildFormattedMessages ({formatName}): interactions={cnt} (toolCalls={tc}, toolResults={tr}, text={tx})");
 
-                // Log full interaction sequence for debugging
                 Debug.WriteLine($"[OpenAI] Full interaction sequence:");
                 for (int debugIdx = 0; debugIdx < interactions.Count; debugIdx++)
                 {
@@ -386,10 +446,9 @@ namespace SmartHopper.Providers.OpenAI
             // Merge System and Summary interactions before encoding
             var mergedInteractions = this.MergeSystemAndSummary(interactions);
 
-            // Simple sequential encoding like MistralAI - no complex coalescing or deduplication
             foreach (var interaction in mergedInteractions)
             {
-                var token = this.EncodeToJToken(interaction);
+                var token = this.EncodeToJToken(interaction, format);
                 if (token != null)
                 {
                     messages.Add(token);
@@ -399,8 +458,7 @@ namespace SmartHopper.Providers.OpenAI
 #if DEBUG
             try
             {
-                // Log the final encoded messages array for debugging
-                Debug.WriteLine($"[OpenAI] Final encoded messages array ({messages.Count} messages):");
+                Debug.WriteLine($"[OpenAI] Final encoded {formatName} array ({messages.Count} items):");
                 for (int idx = 0; idx < messages.Count; idx++)
                 {
                     var msg = messages[idx] as JObject;
@@ -751,6 +809,204 @@ namespace SmartHopper.Providers.OpenAI
         }
 
         /// <summary>
+        /// Formats request body for the Responses API endpoint.
+        /// Supports reasoning models with reasoning summaries.
+        /// </summary>
+        private string FormatResponsesApiRequestBody(AIRequestCall request, JArray input)
+        {
+            var p = request.Parameters;
+
+            int maxTokens = p?.MaxTokens ?? this.GetSetting<int>("MaxTokens");
+            string reasoningEffort = p?.Extras != null && p.Extras.TryGetValue("reasoning_effort", out var reToken)
+                ? reToken?.ToString() ?? this.GetSetting<string>("ReasoningEffort") ?? "medium"
+                : this.GetSetting<string>("ReasoningEffort") ?? "medium";
+            string jsonSchema = request.Body.JsonOutputSchema;
+            string? toolFilter = request.Body.ToolFilter;
+            bool hasTools = !string.IsNullOrWhiteSpace(toolFilter);
+
+            var requestBody = new JObject
+            {
+                ["model"] = request.Model,
+                ["input"] = input,
+                ["max_output_tokens"] = maxTokens,
+            };
+
+            // Reasoning configuration for reasoning models.
+            // Always request reasoning summaries so users can see the model's reasoning process.
+            var reasoningObj = new JObject
+            {
+                ["effort"] = reasoningEffort,
+                ["summary"] = "auto",
+            };
+
+            requestBody["reasoning"] = reasoningObj;
+
+            // Apply optional parameters from extras
+            if (p?.Extras != null)
+            {
+                if (p.Extras.TryGetValue("top_p", out var topPToken) && topPToken != null)
+                {
+                    requestBody["top_p"] = topPToken.Value<double?>();
+                }
+
+                if (p.Extras.TryGetValue("presence_penalty", out var ppToken) && ppToken != null)
+                {
+                    requestBody["presence_penalty"] = ppToken;
+                }
+
+                if (p.Extras.TryGetValue("frequency_penalty", out var fpToken) && fpToken != null)
+                {
+                    requestBody["frequency_penalty"] = fpToken;
+                }
+
+                if (p.Extras.TryGetValue("temperature", out var tempToken) && tempToken != null)
+                {
+                    requestBody["temperature"] = tempToken.Value<double?>();
+                }
+
+                if (p.Extras.TryGetValue("prompt_cache_retention", out var cacheRetentionToken) && cacheRetentionToken != null)
+                {
+                    requestBody["prompt_cache_retention"] = cacheRetentionToken.ToString();
+                }
+
+                if (p.Extras.TryGetValue("prompt_cache_key", out var cacheKeyToken) && cacheKeyToken != null)
+                {
+                    requestBody["prompt_cache_key"] = cacheKeyToken.ToString();
+                }
+            }
+
+            // Add response format if JSON schema is provided
+            if (!string.IsNullOrEmpty(jsonSchema))
+            {
+                try
+                {
+                    var schemaObj = JObject.Parse(jsonSchema);
+                    InjectAdditionalPropertiesFalse(schemaObj);
+
+                    if (InjectRequiredForAllProperties(schemaObj))
+                    {
+                        request.Messages.Add(new SHRuntimeMessage(
+                            SHRuntimeMessageSeverity.Warning,
+                            SHRuntimeMessageOrigin.Provider,
+                            SHMessageCode.SchemaRequiredAutoAdded,
+                            "Schema automatically updated: 'required' was extended to include all properties to comply with OpenAI strict mode."));
+                    }
+
+                    var svc = JsonSchemaService.Instance;
+                    var (wrappedSchema, wrapperInfo) = svc.WrapForProvider(schemaObj, this.Name);
+                    svc.SetCurrentWrapperInfo(wrapperInfo);
+
+                    requestBody["text"] = new JObject
+                    {
+                        ["format"] = new JObject
+                        {
+                            ["type"] = "json_schema",
+                            ["name"] = "response_schema",
+                            ["schema"] = wrappedSchema,
+                            ["strict"] = true,
+                        },
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OpenAI] Failed to parse JSON schema for Responses API: {ex.Message}");
+                    JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+                }
+            }
+            else
+            {
+                JsonSchemaService.Instance.SetCurrentWrapperInfo(new SchemaWrapperInfo { IsWrapped = false });
+            }
+
+            // Add tools if requested
+            if (hasTools)
+            {
+                var tools = this.GetFormattedTools(toolFilter);
+                if (tools != null && tools.Count > 0)
+                {
+                    requestBody["tools"] = this.ConvertToolsToResponsesFormat(tools);
+
+                    if (request.ForceToolCall && !string.IsNullOrWhiteSpace(request.ForceToolName))
+                    {
+                        requestBody["tool_choice"] = new JObject
+                        {
+                            ["type"] = "function",
+                            ["function"] = new JObject { ["name"] = request.ForceToolName, },
+                        };
+                        Debug.WriteLine($"[OpenAI] Forcing tool call via Responses API: {request.ForceToolName}");
+                    }
+                    else
+                    {
+                        requestBody["tool_choice"] = "auto";
+                    }
+                }
+            }
+
+            Debug.WriteLine($"[OpenAI] Responses API Request: {requestBody}");
+            return requestBody.ToString();
+        }
+
+        /// <summary>
+        /// Converts Chat Completions style tool definitions to Responses API format.
+        /// Keeps non-function tools unchanged.
+        /// </summary>
+        /// <param name="tools">Tools formatted in generic provider shape.</param>
+        /// <returns>Tools compatible with OpenAI Responses API.</returns>
+        private JArray ConvertToolsToResponsesFormat(JArray tools)
+        {
+            var converted = new JArray();
+            foreach (var token in tools)
+            {
+                if (token is not JObject tool)
+                {
+                    continue;
+                }
+
+                var type = tool["type"]?.ToString();
+                if (!string.Equals(type, "function", StringComparison.OrdinalIgnoreCase))
+                {
+                    converted.Add(tool.DeepClone());
+                    continue;
+                }
+
+                // Generic formatter emits { type:"function", function:{ ... } }.
+                // Responses expects flattened function fields at the tool root.
+                if (tool["function"] is JObject functionObj)
+                {
+                    var flattened = new JObject
+                    {
+                        ["type"] = "function",
+                    };
+
+                    if (functionObj["name"] != null)
+                    {
+                        flattened["name"] = functionObj["name"]!.DeepClone();
+                    }
+
+                    if (functionObj["description"] != null)
+                    {
+                        flattened["description"] = functionObj["description"]!.DeepClone();
+                    }
+
+                    if (functionObj["parameters"] != null)
+                    {
+                        // Tool function schemas are passed as-is. We do not enable
+                        // OpenAI strict mode for function tools, so the full JSON-Schema
+                        // vocabulary (default, format, patternProperties, etc.) is allowed.
+                        flattened["parameters"] = functionObj["parameters"]!.DeepClone();
+                    }
+
+                    converted.Add(flattened);
+                    continue;
+                }
+
+                converted.Add(tool.DeepClone());
+            }
+
+            return converted;
+        }
+
+        /// <summary>
         /// Formats request body for image generation endpoint.
         /// </summary>
         private string FormatImageGenerationRequestBody(AIRequestCall request)
@@ -916,18 +1172,29 @@ namespace SmartHopper.Providers.OpenAI
 
                 if (usage != null)
                 {
-                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>() ?? 0;
+                    // Support both Chat Completions API and Responses API token field names
+                    var totalPromptTokens = usage["prompt_tokens"]?.Value<int>()
+                        ?? usage["input_tokens"]?.Value<int>()
+                        ?? 0;
 
-                    // Extract cached tokens from nested prompt_tokens_details object
+                    // Extract cached tokens from nested details object
                     var promptDetails = usage["prompt_tokens_details"] as JObject;
-                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>() ?? 0;
+                    var inputDetails = usage["input_tokens_details"] as JObject;
+                    metrics.InputTokensCached = promptDetails?["cached_tokens"]?.Value<int>()
+                        ?? inputDetails?["cached_tokens"]?.Value<int>()
+                        ?? 0;
                     metrics.InputTokensPrompt = totalPromptTokens - metrics.InputTokensCached;
 
-                    metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>() ?? metrics.OutputTokensGeneration;
+                    metrics.OutputTokensGeneration = usage["completion_tokens"]?.Value<int>()
+                        ?? usage["output_tokens"]?.Value<int>()
+                        ?? metrics.OutputTokensGeneration;
 
-                    // Extract reasoning tokens from nested completion_tokens_details object (o1/o3/GPT-5 models)
+                    // Extract reasoning tokens from nested completion/output token details (o1/o3/GPT-5 models)
                     var completionDetails = usage["completion_tokens_details"] as JObject;
-                    var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>() ?? 0;
+                    var outputDetails = usage["output_tokens_details"] as JObject;
+                    var reasoningTokens = completionDetails?["reasoning_tokens"]?.Value<int>()
+                        ?? outputDetails?["reasoning_tokens"]?.Value<int>()
+                        ?? 0;
                     metrics.OutputTokensReasoning = reasoningTokens;
                 }
 
@@ -969,27 +1236,21 @@ namespace SmartHopper.Providers.OpenAI
                     return interactions;
                 }
 
-                // Extract content and reasoning if OpenAI returns structured content parts
-                // Reasoning parts may appear as items with type "reasoning" or "thinking"; text in type "text"
+                // Extract content from Chat Completions response.
+                // Per official OpenAI docs, Chat Completions message.content is a string in responses.
+                // Content arrays (if present) only contain text parts; reasoning is not exposed here.
+                // Reasoning text is only available via the Responses API output array.
                 string content = string.Empty;
-                string reasoning = string.Empty;
 
                 var contentToken = message["content"];
                 if (contentToken is JArray contentArray)
                 {
                     var contentParts = new List<string>();
-                    var reasoningParts = new List<string>();
 
                     foreach (var part in contentArray.OfType<JObject>())
                     {
                         var type = part["type"]?.ToString();
-                        if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(type, "thinking", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
-                            if (!string.IsNullOrEmpty(textVal)) reasoningParts.Add(textVal);
-                        }
-                        else if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(type, "text", StringComparison.OrdinalIgnoreCase))
                         {
                             var textVal = part["text"]?.ToString() ?? part["content"]?.ToString();
                             if (!string.IsNullOrEmpty(textVal)) contentParts.Add(textVal);
@@ -1023,7 +1284,7 @@ namespace SmartHopper.Providers.OpenAI
                 interaction.SetResult(
                     agent: AIAgent.Assistant,
                     content: content,
-                    reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+                    reasoning: null);
 
                 var metrics = this.DecodeMetrics(responseJson);
 
@@ -1067,7 +1328,9 @@ namespace SmartHopper.Providers.OpenAI
                             Id = tc["id"]?.ToString(),
                             Name = tc["function"]?["name"]?.ToString(),
                             Arguments = argsObj,
-                            Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning,
+
+                            // Chat Completions does not expose reasoning text
+                            Reasoning = null,
                         };
                         interactions.Add(toolCall);
                     }
@@ -1076,6 +1339,169 @@ namespace SmartHopper.Providers.OpenAI
             catch (Exception ex)
             {
                 Debug.WriteLine($"[OpenAI] ProcessChatCompletionsResponseData error: {ex.Message}");
+            }
+
+            return interactions;
+        }
+
+        /// <summary>
+        /// Processes Responses API output data and converts to interactions.
+        /// Handles reasoning items with summary arrays and message items with output_text content.
+        /// </summary>
+        private List<IAIInteraction> ProcessResponsesApiData(JObject responseJson)
+        {
+            var interactions = new List<IAIInteraction>();
+
+            try
+            {
+                Debug.WriteLine("[OpenAI] ProcessResponsesApiData - Processing response");
+
+                var output = responseJson["output"] as JArray;
+                if (output == null)
+                {
+                    Debug.WriteLine("[OpenAI] No output array in response");
+                    return interactions;
+                }
+
+                var contentParts = new List<string>();
+                var reasoningParts = new List<string>();
+                var refusalParts = new List<string>();
+                var toolCalls = new List<AIInteractionToolCall>();
+
+                foreach (var item in output.OfType<JObject>())
+                {
+                    var type = item["type"]?.ToString();
+
+                    if (string.Equals(type, "reasoning", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Extract reasoning summaries: summary array of {type, text}
+                        var summary = item["summary"] as JArray;
+                        if (summary != null)
+                        {
+                            foreach (var summaryItem in summary.OfType<JObject>())
+                            {
+                                var summaryText = summaryItem["text"]?.ToString();
+                                if (!string.IsNullOrEmpty(summaryText))
+                                {
+                                    reasoningParts.Add(summaryText);
+                                }
+                            }
+                        }
+
+                        // Also support direct reasoning_text or text fields
+                        var directText = item["reasoning_text"]?.ToString() ?? item["text"]?.ToString();
+                        if (!string.IsNullOrEmpty(directText))
+                        {
+                            reasoningParts.Add(directText);
+                        }
+                    }
+                    else if (string.Equals(type, "message", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var role = item["role"]?.ToString();
+                        var messageContent = item["content"] as JArray;
+                        if (messageContent != null)
+                        {
+                            foreach (var contentItem in messageContent.OfType<JObject>())
+                            {
+                                var contentType = contentItem["type"]?.ToString();
+                                if (string.Equals(contentType, "output_text", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(contentType, "text", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var text = contentItem["text"]?.ToString();
+                                    var parsed = contentItem["parsed"];
+                                    if (string.IsNullOrEmpty(text) && parsed != null && parsed.Type != JTokenType.Null)
+                                    {
+                                        text = parsed.Type == JTokenType.String
+                                            ? parsed.ToString()
+                                            : parsed.ToString(Newtonsoft.Json.Formatting.None);
+                                    }
+
+                                    if (!string.IsNullOrEmpty(text))
+                                    {
+                                        contentParts.Add(text);
+                                    }
+                                }
+                                else if (string.Equals(contentType, "refusal", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    var refusal = contentItem["refusal"]?.ToString();
+                                    if (!string.IsNullOrEmpty(refusal))
+                                    {
+                                        refusalParts.Add(refusal);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Fallback: direct content string
+                            var directContent = item["content"]?.ToString();
+                            if (!string.IsNullOrEmpty(directContent))
+                            {
+                                contentParts.Add(directContent);
+                            }
+                        }
+                    }
+                    else if (string.Equals(type, "function_call", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Responses API function call format
+                        var callId = item["call_id"]?.ToString() ?? item["id"]?.ToString();
+                        var name = item["name"]?.ToString();
+                        var arguments = item["arguments"]?.ToString() ?? "{}";
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            Debug.WriteLine($"[OpenAI] Warning: function_call item '{callId ?? "(unknown id)"}' has no name.");
+                        }
+
+                        JObject argsObj;
+                        try
+                        {
+                            argsObj = JObject.Parse(arguments);
+                        }
+                        catch
+                        {
+                            argsObj = new JObject();
+                        }
+
+                        toolCalls.Add(new AIInteractionToolCall
+                        {
+                            Id = callId,
+                            Name = name,
+                            Arguments = argsObj,
+                        });
+                    }
+                }
+
+                string content = string.Join(string.Empty, contentParts).Trim();
+                if (string.IsNullOrWhiteSpace(content) && refusalParts.Count > 0)
+                {
+                    content = string.Join("\n\n", refusalParts).Trim();
+                }
+
+                string reasoning = string.Join("\n\n", reasoningParts).Trim();
+
+                if (!string.IsNullOrEmpty(content) || !string.IsNullOrEmpty(reasoning) || toolCalls.Count > 0)
+                {
+                    var interaction = new AIInteractionText();
+                    interaction.SetResult(
+                        agent: AIAgent.Assistant,
+                        content: content,
+                        reasoning: string.IsNullOrWhiteSpace(reasoning) ? null : reasoning);
+
+                    var metrics = this.DecodeMetrics(responseJson);
+                    interaction.Metrics = metrics;
+
+                    interactions.Add(interaction);
+                }
+
+                foreach (var toolCall in toolCalls)
+                {
+                    toolCall.Reasoning = string.IsNullOrWhiteSpace(reasoning) ? null : reasoning;
+                    interactions.Add(toolCall);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[OpenAI] ProcessResponsesApiData error: {ex.Message}");
             }
 
             return interactions;
@@ -1190,11 +1616,15 @@ namespace SmartHopper.Providers.OpenAI
                 // Prepare request via provider (sets endpoint, method, auth kind)
                 request = this.Prepare(request);
 
-                // Only chat completions are supported for streaming for now
-                if (!string.Equals(request.Endpoint, "/chat/completions", StringComparison.Ordinal))
+                // Determine which API we're streaming against
+                bool isResponsesApi = request.Endpoint.Contains("/responses", StringComparison.OrdinalIgnoreCase);
+                bool isChatCompApi = request.Endpoint.Contains("/chat/completions", StringComparison.OrdinalIgnoreCase);
+
+                // Only chat completions and responses are supported for streaming for now
+                if (!isResponsesApi && !isChatCompApi)
                 {
                     var unsupported = new AIReturn();
-                    unsupported.CreateProviderError("Streaming is only supported for /chat/completions in this adapter.", request);
+                    unsupported.CreateProviderError("Streaming is only supported for /responses and /chat/completion in this adapter.", request);
                     yield return unsupported;
                     yield break;
                 }
@@ -1212,12 +1642,16 @@ namespace SmartHopper.Providers.OpenAI
 
                 body["stream"] = true;
 
-                // Ask OpenAI to include token usage in the final streaming chunk
-                // See: stream_options.include_usage = true
-                body["stream_options"] = new JObject
+                // stream_options is only supported by Chat Completions
+                if (isChatCompApi)
                 {
-                    ["include_usage"] = true,
-                };
+                    // Ask OpenAI to include token usage in the final streaming chunk
+                    // See: stream_options.include_usage = true
+                    body["stream_options"] = new JObject
+                    {
+                        ["include_usage"] = true,
+                    };
+                }
 
                 // Build URL with helper
                 var fullUrl = this.BuildFullUrl(request.Endpoint);
@@ -1286,6 +1720,7 @@ namespace SmartHopper.Providers.OpenAI
                 var lastEmit = DateTime.UtcNow;
                 var firstChunk = true;
                 bool hadReasoningOnlySegment = false; // Track if we emitted reasoning-only
+                bool responsesTextSegmentClosed = false;
                 string finalFinishReason = string.Empty;
                 int promptTokens = 0;
                 int completionTokens = 0;
@@ -1301,6 +1736,10 @@ namespace SmartHopper.Providers.OpenAI
 
                 // Tool call accumulation (index -> partial)
                 var toolCalls = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
+
+                // Responses API tool call accumulation (item_id -> partial)
+                var responsesToolCalls = new Dictionary<string, (string Id, string Name, StringBuilder Args)>();
+                var responsesRefusalBuffer = new StringBuilder();
 
                 // Helper local function to emit text chunk
                 async IAsyncEnumerable<AIReturn> EmitAsync(string text, bool streamingStatus)
@@ -1382,6 +1821,377 @@ namespace SmartHopper.Providers.OpenAI
                     catch
                     {
                         // Skip malformed chunk
+                        continue;
+                    }
+
+                    // --- Responses API streaming format ---
+                    var eventType = parsed["type"]?.ToString();
+                    if (!string.IsNullOrEmpty(eventType))
+                    {
+                        if (string.Equals(eventType, "response.output_text.delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            responsesTextSegmentClosed = false;
+                            var textDelta = parsed["delta"]?.ToString();
+                            if (!string.IsNullOrEmpty(textDelta))
+                            {
+                                buffer.Append(textDelta);
+                                if (firstChunk)
+                                {
+                                    firstChunk = false;
+                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                                else
+                                {
+                                    var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.content.delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            responsesTextSegmentClosed = false;
+                            var textDelta = parsed["delta"]?.ToString();
+                            if (!string.IsNullOrEmpty(textDelta))
+                            {
+                                buffer.Append(textDelta);
+                                if (firstChunk)
+                                {
+                                    firstChunk = false;
+                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                                else
+                                {
+                                    var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.output_text.done", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Explicitly close current text interaction segment (before potential tool calls).
+                            var textDone = parsed["text"]?.ToString();
+                            if (!string.IsNullOrEmpty(textDone) && buffer.Length == 0)
+                            {
+                                buffer.Append(textDone);
+                            }
+
+                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                            foreach (var d in emitted)
+                            {
+                                yield return d;
+                            }
+
+                            if (!responsesTextSegmentClosed &&
+                                (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning)))
+                            {
+                                var completeSnapshot = new AIInteractionText
+                                {
+                                    Agent = assistantAggregate.Agent,
+                                    Content = assistantAggregate.Content,
+                                    Reasoning = assistantAggregate.Reasoning,
+                                    Time = DateTime.UtcNow,
+                                    Metrics = new AIMetrics
+                                    {
+                                        Provider = assistantAggregate.Metrics.Provider,
+                                        Model = assistantAggregate.Metrics.Model,
+                                        FinishReason = assistantAggregate.Metrics.FinishReason,
+                                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                                    },
+                                };
+
+                                var completeDelta = new AIReturn
+                                {
+                                    Request = request,
+                                    Status = AICallStatus.Finished,
+                                };
+                                completeDelta.SetBody(new List<IAIInteraction> { completeSnapshot });
+                                yield return completeDelta;
+                                responsesTextSegmentClosed = true;
+                                await Task.Yield();
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.refusal.delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            responsesTextSegmentClosed = false;
+                            var refusalDelta = parsed["delta"]?.ToString();
+                            if (!string.IsNullOrEmpty(refusalDelta))
+                            {
+                                responsesRefusalBuffer.Append(refusalDelta);
+                                buffer.Append(refusalDelta);
+
+                                if (firstChunk)
+                                {
+                                    firstChunk = false;
+                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                                else
+                                {
+                                    var emitted = await FlushAsync(force: false).ConfigureAwait(false);
+                                    foreach (var d in emitted)
+                                    {
+                                        yield return d;
+                                    }
+                                }
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.refusal.done", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var refusalDone = parsed["refusal"]?.ToString();
+                            if (string.IsNullOrEmpty(refusalDone) && responsesRefusalBuffer.Length > 0)
+                            {
+                                refusalDone = responsesRefusalBuffer.ToString();
+                            }
+
+                            if (!string.IsNullOrEmpty(refusalDone) && buffer.Length == 0)
+                            {
+                                buffer.Append(refusalDone);
+                            }
+
+                            var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                            foreach (var d in emitted)
+                            {
+                                yield return d;
+                            }
+
+                            if (!responsesTextSegmentClosed &&
+                                (!string.IsNullOrEmpty(assistantAggregate.Content) || !string.IsNullOrEmpty(assistantAggregate.Reasoning)))
+                            {
+                                var completeSnapshot = new AIInteractionText
+                                {
+                                    Agent = assistantAggregate.Agent,
+                                    Content = assistantAggregate.Content,
+                                    Reasoning = assistantAggregate.Reasoning,
+                                    Time = DateTime.UtcNow,
+                                    Metrics = new AIMetrics
+                                    {
+                                        Provider = assistantAggregate.Metrics.Provider,
+                                        Model = assistantAggregate.Metrics.Model,
+                                        FinishReason = assistantAggregate.Metrics.FinishReason,
+                                        InputTokensCached = assistantAggregate.Metrics.InputTokensCached,
+                                        InputTokensPrompt = assistantAggregate.Metrics.InputTokensPrompt,
+                                        OutputTokensReasoning = assistantAggregate.Metrics.OutputTokensReasoning,
+                                        OutputTokensGeneration = assistantAggregate.Metrics.OutputTokensGeneration,
+                                        CompletionTime = assistantAggregate.Metrics.CompletionTime,
+                                    },
+                                };
+
+                                var completeDelta = new AIReturn
+                                {
+                                    Request = request,
+                                    Status = AICallStatus.Finished,
+                                };
+                                completeDelta.SetBody(new List<IAIInteraction> { completeSnapshot });
+                                yield return completeDelta;
+                                responsesTextSegmentClosed = true;
+                                await Task.Yield();
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.completed", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var responseObj = parsed["response"] as JObject;
+                            var respUsage = responseObj?["usage"] as JObject;
+                            if (respUsage != null)
+                            {
+                                var pt = respUsage["input_tokens"]?.Value<int?>();
+                                var ct = respUsage["output_tokens"]?.Value<int?>();
+                                if (pt.HasValue) promptTokens = pt.Value;
+                                if (ct.HasValue) completionTokens = ct.Value;
+                                assistantAggregate.AppendDelta(metricsDelta: new AIMetrics
+                                {
+                                    Provider = this.Provider.Name,
+                                    Model = request.Model,
+                                    InputTokensPrompt = pt ?? 0,
+                                    OutputTokensGeneration = ct ?? 0,
+                                });
+                            }
+
+                            finalFinishReason = "stop";
+                        }
+                        else if (string.Equals(eventType, "error", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var err = parsed["error"] as JObject;
+                            var errMsg = err?["message"]?.ToString() ?? "Unknown streaming error";
+                            var errorReturn = new AIReturn();
+                            errorReturn.CreateProviderError(errMsg, request);
+                            yield return errorReturn;
+                            yield break;
+                        }
+                        else if (string.Equals(eventType, "response.output_item.added", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var item = parsed["item"] as JObject;
+                            if (string.Equals(item?["type"]?.ToString(), "function_call", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var itemId = item["id"]?.ToString();
+                                var callId = item["call_id"]?.ToString();
+                                var name = item["name"]?.ToString();
+                                if (string.IsNullOrWhiteSpace(name))
+                                {
+                                    Debug.WriteLine($"[OpenAI] Warning: streaming function_call item '{callId ?? itemId ?? "(unknown id)"}' has no name.");
+                                }
+
+                                if (!string.IsNullOrEmpty(itemId))
+                                {
+                                    responsesToolCalls[itemId] = (Id: callId ?? itemId, Name: name ?? string.Empty, Args: new StringBuilder());
+                                }
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.function_call_arguments.delta", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var itemId = parsed["item_id"]?.ToString();
+                            var funcArgsDelta = parsed["delta"]?.ToString();
+                            if (!string.IsNullOrEmpty(itemId) && responsesToolCalls.TryGetValue(itemId, out var entry))
+                            {
+                                if (!string.IsNullOrEmpty(funcArgsDelta)) entry.Args.Append(funcArgsDelta);
+                                responsesToolCalls[itemId] = entry;
+
+                                // Flush text before switching to tool calls
+                                var flushed = await FlushAsync(force: true).ConfigureAwait(false);
+                                foreach (var d in flushed) yield return d;
+
+                                // Emit current tool call snapshot
+                                var interactions = new List<IAIInteraction>();
+                                foreach (var kv in responsesToolCalls.OrderBy(k => k.Key))
+                                {
+                                    var (id, name, argsSb) = kv.Value;
+                                    JObject argsObj = null;
+                                    var argsStr = argsSb.ToString();
+                                    try
+                                    {
+                                        if (!string.IsNullOrWhiteSpace(argsStr))
+                                        {
+                                            argsObj = JObject.Parse(argsStr);
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        // Partial JSON, ignore
+                                    }
+
+                                    interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
+                                }
+
+                                var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                                tcDelta.SetBody(interactions);
+                                yield return tcDelta;
+                            }
+                        }
+                        else if (string.Equals(eventType, "response.output_item.done", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var item = parsed["item"] as JObject;
+                            if (string.Equals(item?["type"]?.ToString(), "function_call", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var itemId = item["id"]?.ToString();
+                                var finalArgs = item["arguments"]?.ToString();
+                                if (!string.IsNullOrEmpty(itemId) && responsesToolCalls.TryGetValue(itemId, out var entry))
+                                {
+                                    if (!string.IsNullOrEmpty(finalArgs))
+                                    {
+                                        entry.Args.Clear();
+                                        entry.Args.Append(finalArgs);
+                                        responsesToolCalls[itemId] = entry;
+                                    }
+
+                                    // Emit final snapshot for all tool calls
+                                    var interactions = new List<IAIInteraction>();
+                                    foreach (var kv in responsesToolCalls.OrderBy(k => k.Key))
+                                    {
+                                        var (id, name, argsSb) = kv.Value;
+                                        JObject argsObj = null;
+                                        var argsStr = argsSb.ToString();
+                                        try
+                                        {
+                                            if (!string.IsNullOrWhiteSpace(argsStr))
+                                            {
+                                                argsObj = JObject.Parse(argsStr);
+                                            }
+                                        }
+                                        catch
+                                        {
+                                            // Partial JSON, ignore
+                                        }
+
+                                        interactions.Add(new AIInteractionToolCall { Id = id, Name = name, Arguments = argsObj });
+                                    }
+
+                                    var tcDelta = new AIReturn { Request = request, Status = AICallStatus.CallingTools };
+                                    tcDelta.SetBody(interactions);
+                                    yield return tcDelta;
+                                }
+                            }
+                            else if (string.Equals(item?["type"]?.ToString(), "message", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Structured outputs may provide parsed content on message done.
+                                var messageContent = item?["content"] as JArray;
+                                if (messageContent != null)
+                                {
+                                    foreach (var contentItem in messageContent.OfType<JObject>())
+                                    {
+                                        var contentType = contentItem["type"]?.ToString();
+                                        if (string.Equals(contentType, "output_text", StringComparison.OrdinalIgnoreCase) ||
+                                            string.Equals(contentType, "text", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            var parsedContent = contentItem["parsed"];
+                                            if (parsedContent != null && parsedContent.Type != JTokenType.Null)
+                                            {
+                                                var structured = parsedContent.Type == JTokenType.String
+                                                    ? parsedContent.ToString()
+                                                    : parsedContent.ToString(Newtonsoft.Json.Formatting.None);
+
+                                                if (!string.IsNullOrWhiteSpace(structured) && buffer.Length == 0)
+                                                {
+                                                    buffer.Append(structured);
+                                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                                    foreach (var d in emitted)
+                                                    {
+                                                        yield return d;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else if (string.Equals(contentType, "refusal", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            var refusal = contentItem["refusal"]?.ToString();
+                                            if (!string.IsNullOrWhiteSpace(refusal))
+                                            {
+                                                responsesRefusalBuffer.Append(refusal);
+                                                if (buffer.Length == 0)
+                                                {
+                                                    buffer.Append(refusal);
+                                                    var emitted = await FlushAsync(force: true).ConfigureAwait(false);
+                                                    foreach (var d in emitted)
+                                                    {
+                                                        yield return d;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         continue;
                     }
 
@@ -1710,17 +2520,37 @@ namespace SmartHopper.Providers.OpenAI
             string firstEncodedBody = null;
             var customIds = new List<string>();
 
+            string batchEndpoint = null;
+
             foreach (var (customId, request) in items)
             {
                 var preparedRequest = this.PreCall(request);
                 var encodedBody = this.Encode(preparedRequest);
                 if (firstEncodedBody == null) firstEncodedBody = encodedBody;
                 var bodyObj = JObject.Parse(encodedBody);
+
+                // Derive the endpoint from the prepared request (e.g. /responses or /chat/completions).
+                // OpenAI batch requires all lines to target the same endpoint.
+                var endpoint = preparedRequest.Endpoint;
+                if (!endpoint.StartsWith("/v1/", StringComparison.OrdinalIgnoreCase))
+                {
+                    endpoint = "/v1" + endpoint;
+                }
+
+                if (batchEndpoint == null)
+                {
+                    batchEndpoint = endpoint;
+                }
+                else if (!string.Equals(batchEndpoint, endpoint, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"[OpenAI] Batch items must all use the same endpoint. Expected '{batchEndpoint}', found '{endpoint}'.");
+                }
+
                 var batchLine = new JObject
                 {
                     ["custom_id"] = customId,
                     ["method"] = "POST",
-                    ["url"] = "/v1/chat/completions",
+                    ["url"] = endpoint,
                     ["body"] = bodyObj,
                 };
                 jsonlBuilder.AppendLine(batchLine.ToString(Newtonsoft.Json.Formatting.None));
@@ -1759,7 +2589,7 @@ namespace SmartHopper.Providers.OpenAI
             var batchBody = new JObject
             {
                 ["input_file_id"] = fileId,
-                ["endpoint"] = "/v1/chat/completions",
+                ["endpoint"] = batchEndpoint ?? "/v1/responses",
                 ["completion_window"] = "24h",
             };
 
@@ -2069,6 +2899,38 @@ namespace SmartHopper.Providers.OpenAI
                     typeof(string),
                     "medium",
                     new[] { "low", "medium", "high" }),
+
+                // General parameters (shared across providers)
+                new AIExtraDescriptor(
+                    "top_p",
+                    "Top P",
+                    "Nucleus sampling parameter (0.0–1.0). Lower values make output more focused; higher values more diverse. Leave empty to use default.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "frequency_penalty",
+                    "Frequency Penalty",
+                    "Penalizes frequent tokens (-2.0 to 2.0). Positive values reduce repetition.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "presence_penalty",
+                    "Presence Penalty",
+                    "Penalizes tokens already in the text (-2.0 to 2.0). Positive values encourage new topics.",
+                    typeof(double),
+                    null),
+                new AIExtraDescriptor(
+                    "logprobs",
+                    "Log Probabilities",
+                    "Return log probabilities of output tokens. Useful for analyzing model confidence.",
+                    typeof(bool),
+                    null),
+                new AIExtraDescriptor(
+                    "top_logprobs",
+                    "Top Logprobs",
+                    "Number of most likely tokens to return log probabilities for (0–20). Requires logprobs=true.",
+                    typeof(int),
+                    null),
 
                 // OpenAI prompt caching parameters
                 new AIExtraDescriptor(

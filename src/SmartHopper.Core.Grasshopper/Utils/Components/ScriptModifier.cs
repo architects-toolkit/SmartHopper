@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -26,8 +26,6 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Parameters;
 using Grasshopper.Kernel.Special;
 using Newtonsoft.Json.Linq;
-using RhinoCodePlatform.GH;
-using RhinoCodePluginGH.Parameters;
 using SmartHopper.Core.Grasshopper.Utils.Canvas;
 using SmartHopper.Core.Grasshopper.Utils.Internal;
 using SmartHopper.Infrastructure.Dialogs;
@@ -44,7 +42,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// Adds a single input parameter to a script component.
         /// </summary>
         public static void AddInputParameter(
-            IScriptComponent scriptComp,
+            object scriptComp,
             string name,
             string typeHint = "object",
             string access = "item",
@@ -94,7 +92,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// Adds a single output parameter to a script component.
         /// </summary>
         public static void AddOutputParameter(
-            IScriptComponent scriptComp,
+            object scriptComp,
             string name,
             string typeHint = "object",
             string description = "")
@@ -133,7 +131,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// <summary>
         /// Removes an input parameter by index.
         /// </summary>
-        public static void RemoveInputParameter(IScriptComponent scriptComp, int index)
+        public static void RemoveInputParameter(object scriptComp, int index)
         {
             if (scriptComp == null)
                 throw new ArgumentNullException(nameof(scriptComp));
@@ -152,7 +150,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// <summary>
         /// Removes an output parameter by index.
         /// </summary>
-        public static void RemoveOutputParameter(IScriptComponent scriptComp, int index)
+        public static void RemoveOutputParameter(object scriptComp, int index)
         {
             if (scriptComp == null)
                 throw new ArgumentNullException(nameof(scriptComp));
@@ -173,7 +171,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// <summary>
         /// Changes the type hint of an existing input parameter.
         /// </summary>
-        public static void SetInputTypeHint(IScriptComponent scriptComp, int index, string typeHint)
+        public static void SetInputTypeHint(object scriptComp, int index, string typeHint)
         {
             if (scriptComp == null)
                 throw new ArgumentNullException(nameof(scriptComp));
@@ -192,7 +190,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// <summary>
         /// Changes the type hint of an existing output parameter.
         /// </summary>
-        public static void SetOutputTypeHint(IScriptComponent scriptComp, int index, string typeHint)
+        public static void SetOutputTypeHint(object scriptComp, int index, string typeHint)
         {
             if (scriptComp == null)
                 throw new ArgumentNullException(nameof(scriptComp));
@@ -215,7 +213,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// <summary>
         /// Changes the access type (item/list/tree) of an input parameter.
         /// </summary>
-        public static void SetInputAccess(IScriptComponent scriptComp, int index, GH_ParamAccess access)
+        public static void SetInputAccess(object scriptComp, int index, GH_ParamAccess access)
         {
             if (scriptComp == null)
                 throw new ArgumentNullException(nameof(scriptComp));
@@ -225,12 +223,9 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
                 return;
 
             var param = ghComp.Params.Input[index];
-            if (param is ScriptVariableParam svp)
-            {
-                svp.Access = access;
-                RefreshScriptComponent(scriptComp);
-                Debug.WriteLine($"[ScriptModifier] Set access '{access}' for input at index {index}");
-            }
+            ScriptComponentReflection.SetParameterAccess(param, access);
+            RefreshScriptComponent(scriptComp);
+            Debug.WriteLine($"[ScriptModifier] Set access '{access}' for input at index {index}");
         }
 
         #endregion
@@ -241,7 +236,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// Sets whether the standard output parameter ("out") is visible.
         /// Applies to Python and C# script components.
         /// </summary>
-        public static void SetShowStandardOutput(IScriptComponent scriptComp, bool show)
+        public static void SetShowStandardOutput(object scriptComp, bool show)
         {
             if (scriptComp == null)
                 throw new ArgumentNullException(nameof(scriptComp));
@@ -284,7 +279,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// Sets the principal (master) input parameter index.
         /// The principal parameter determines component iteration behavior.
         /// </summary>
-        public static void SetPrincipalInput(IScriptComponent scriptComp, int index)
+        public static void SetPrincipalInput(object scriptComp, int index)
         {
             if (scriptComp == null)
                 throw new ArgumentNullException(nameof(scriptComp));
@@ -306,7 +301,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// <summary>
         /// Sets whether an input parameter is optional.
         /// </summary>
-        public static void SetInputOptional(IScriptComponent scriptComp, int index, bool optional)
+        public static void SetInputOptional(object scriptComp, int index, bool optional)
         {
             if (scriptComp == null)
                 throw new ArgumentNullException(nameof(scriptComp));
@@ -370,7 +365,7 @@ namespace SmartHopper.Core.Grasshopper.Utils.Components
         /// <summary>
         /// Refreshes the script component after modifications.
         /// </summary>
-        private static void RefreshScriptComponent(IScriptComponent scriptComp)
+        private static void RefreshScriptComponent(object scriptComp)
         {
             var ghComp = scriptComp as IGH_Component;
             if (ghComp == null) return;

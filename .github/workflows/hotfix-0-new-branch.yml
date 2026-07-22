@@ -1,5 +1,12 @@
 name: 🔥 0 Create Hotfix Branch
 
+# Related workflows (stabilization & hotfix paths):
+#   - stabilization-0-init.yml (creates dev-X.Y.Z and main-X.Y.Z branches)
+#   - stabilization-1-cancel.yml (cancels stabilization path)
+#   - stabilization-2-complete.yml (completes stabilization)
+#   - hotfix-0-new-branch.yml (creates hotfix branch from main)
+#   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
+
 # Description: This workflow creates a new hotfix branch from main for emergency patches.
 # It calculates the next patch version and creates a hotfix/X.X.X-description branch.
 #
@@ -23,6 +30,7 @@ permissions:
 jobs:
   create-hotfix-branch:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v4

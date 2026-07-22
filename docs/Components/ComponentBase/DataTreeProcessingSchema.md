@@ -1,6 +1,37 @@
-# Data-tree processing schema
+# Data-tree Processing Schema
 
-## 1. Goals
+Unified, topology-driven API for data-tree mechanics across all SmartHopper components.
+
+---
+
+## Metadata
+
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core.Grasshopper/ComponentBase/DataTreeProcessingSchema.cs` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
+
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
+
+---
+
+## Why Read This?
+
+This schema defines the single processing model that replaced legacy branch/item helpers and `RunFunctionAsync`. It describes how components, workers, and `DataTreeProcessor` collaborate to handle paths, matching, grouping, grafting, and flattening.
+
+**You should read this if you:**
+
+- Are implementing a new component based on `StatefulComponentBase` or `AIStatefulAsyncComponentBase`
+- Need to choose a `ProcessingTopology` (item-to-item, item-graft, branch-to-branch, branch-flatten)
+- Want to understand how flat-tree broadcasting, `onlyMatchingPaths`, and `groupIdenticalBranches` interact
+
+---
+
+## End-User Guide
+
+### 1. Goals
 
 - **Centralize data-tree mechanics** (paths, matching, grouping, grafting) in `DataTreeProcessor`.
 - **Keep component code focused** on UI, parameter definitions, and high-level "what to do".
@@ -11,19 +42,17 @@
 
 This schema is now the **single** processing model: legacy branch/item helpers and `RunFunctionAsync` have been replaced by a unified, topology-driven API.
 
----
+### 2. High-level workflow and responsibilities
 
-## 2. High‑level workflow and responsibilities
-
-### 2.1 Component (GH_Component / StatefulComponentBase)
+#### 2.1 Component (GH_Component / StatefulComponentBase)
 
 - **UI & contract**
   - Register input/output parameters and access (item/list/tree).
   - Expose options to the user (toggles, enums) that map to **processing topology**.
 - **Declare processing intent**
   - Chooses a `ProcessingTopology` that defines both granularity and path behavior, for example:
-    - `ItemToItem` for per‑item processing that stays in the same path/index (e.g. `AITextGenerate`, `WebPageReadComponent`, basic `AIImgGenerateComponent`).
-    - `ItemGraft` for per‑item processing where each item creates its own branch (e.g. `McNeelForumSearchComponent`, `McNeelForumTopicRelatedComponent`).
+    - `ItemToItem` for per-item processing that stays in the same path/index (e.g. `AITextGenerate`, `WebPageReadComponent`, basic `AIImgGenerateComponent`).
+    - `ItemGraft` for per-item processing where each item creates its own branch (e.g. `McNeelForumSearchComponent`, `McNeelForumTopicRelatedComponent`).
     - `BranchToBranch` for treating each branch as a single logical unit and keeping its path (e.g. `AIListEvaluate`, `AIListFilter`).
     - `BranchFlatten` for treating each branch as a single logical unit but aggregating results into a flat list.
 - **Delegates work**
@@ -32,16 +61,16 @@ This schema is now the **single** processing model: legacy branch/item helpers a
 - **Metrics & persistence**
   - Uses base class APIs (`SetDataCount`, `InitializeProgress`, `UpdateProgress`, `SetPersistentOutput`) driven by the runner APIs.
 
-### 2.2 Worker (AsyncWorkerBase subclasses)
+#### 2.2 Worker (AsyncWorkerBase subclasses)
 
 - **Async orchestration**
   - Implements `GatherInput` to read data from `DA` into `GH_Structure` variables / dictionaries.
-  - Implements `DoWorkAsync` to call the processing runner with a per‑item/branch function.
+  - Implements `DoWorkAsync` to call the processing runner with a per-item/branch function.
   - Implements `SetOutput` to write back to `DA` (using `SetPersistentOutput` for persistence).
 - **Data preparation**
   - Responsible for **semantic transformations** before calling the function/AI tool:
     - E.g. in `AIListEvaluate` / `AIListFilter`, the branch list is converted to a single JSON string (`AIResponseParser.ConcatenateItemsToJson`), treating the entire list as **one logical item**.
-    - In other components, normalizes multiple input trees so that per‑item semantics are clear.
+    - In other components, normalizes multiple input trees so that per-item semantics are clear.
   - Chooses which input trees participate and how they are combined.
 - **Delegation to DataTreeProcessor**
   - Does **not** implement path logic or branch matching manually.
@@ -50,10 +79,10 @@ This schema is now the **single** processing model: legacy branch/item helpers a
     - Enumerate branches/items in the desired order.
     - Select output path mode (same path, grafted, etc.).
 - **Function invocation**
-  - Provides a per‑branch or per‑item function delegate that encapsulates the **tool call / model call** and post‑processing of that result.
+  - Provides a per-branch or per-item function delegate that encapsulates the **tool call / model call** and post-processing of that result.
   - That function is called once per **logical unit** (branch or item) by the runner.
 
-### 2.3 DataTreeProcessor
+#### 2.3 DataTreeProcessor
 
 - **Single source of truth for data-tree mechanics**
   - Builds processing plans from input trees.
@@ -66,22 +95,20 @@ This schema is now the **single** processing model: legacy branch/item helpers a
   - Does not know about Grasshopper component UI, prompts, forums, models, etc.
   - Works only with `GH_Structure<T>`, `GH_Path`, and delegates.
 
-### 2.4 Function / AI tool call
+#### 2.4 Function / AI tool call
 
 - **Pure business logic per logical unit**
   - Receives prepared, semantically meaningful input:
-    - A "single logical item" for branch‑based components.
-    - A "single item inside a branch" for item‑based components.
+    - A "single logical item" for branch-based components.
+    - A "single item inside a branch" for item-based components.
   - Performs the AI/tool call and returns **plain outputs** (e.g. `string`, `JObject`, images) or wrapped `IGH_Goo`.
 - **No data-tree or path handling**
   - Does not know about `GH_Path`, branches, or grafting.
-  - Returns results for **one logical invocation** only; fan‑out into branches is a responsibility of DataTreeProcessor and the runner.
+  - Returns results for **one logical invocation** only; fan-out into branches is a responsibility of DataTreeProcessor and the runner.
 
----
+### 3. Core concepts in the schema
 
-## 3. Core concepts in the schema
-
-### 3.1 Processing granularity
+#### 3.1 Processing granularity
 
 We distinguish **how we schedule work**:
 
@@ -95,10 +122,10 @@ We distinguish **how we schedule work**:
 In both cases, the job of `DataTreeProcessor` is to:
 
 - Choose which paths/branches to process (`onlyMatchingPaths`, `groupIdenticalBranches`).
-- Optionally normalize branch lengths before per‑item enumeration.
+- Optionally normalize branch lengths before per-item enumeration.
 - Produce a **schedule** of logical units (branches or items).
 
-### 3.2 Processing topology (item/branch matrix)
+#### 3.2 Processing topology (item/branch matrix)
 
 Components define **how input units map to output paths** via a `ProcessingTopology`. This is a 2×2 matrix on top of the existing branch/item granularity, with four canonical modes:
 
@@ -107,7 +134,7 @@ Components define **how input units map to output paths** via a `ProcessingTopol
     - `[q0, q1, q2](0) → [q0, q1, q2](0)`
     - `[q0, q1, q3](1) → [q0, q1, q3](1)`
   - Input unit: single item inside a branch.
-  - Output branch: **same path** as the item’s input branch; same item index.
+  - Output branch: **same path** as the item's input branch; same item index.
   - Implementation: item-level schedule + "same branch" output.
   - Typical for: `AITextGenerate`, `WebPageReadComponent`, basic `AIImgGenerateComponent`.
 
@@ -143,9 +170,9 @@ Internally, this topology determines both:
 - The **schedule type** (branch vs item) used by the runner.
 - The **path behavior** (same branch, graft, flatten) owned by `DataTreeProcessor`.
 
-### 3.3 Item/branch units and schedule
+#### 3.3 Item/branch units and schedule
 
-To support item‑centric processing and grafting, the runner builds an internal schedule of **processing units**:
+To support item-centric processing and grafting, the runner builds an internal schedule of **processing units**:
 
 - `ProcessingUnit<T>` (internal struct in `DataTreeProcessor`)
   - `GH_Path InputPath` – original branch path.
@@ -161,30 +188,28 @@ To support item‑centric processing and grafting, the runner builds an internal
 
 The runner then:
 
-- Invokes the per‑item or per‑branch function for each `ProcessingUnit<T>`.
+- Invokes the per-item or per-branch function for each `ProcessingUnit<T>`.
 - Computes the **output path** using the selected `ProcessingTopology` and the unit context.
 - Appends the returned values to the appropriate output trees.
 
-The **delegate function is intentionally path‑unaware**:
+The **delegate function is intentionally path-unaware**:
 
 - **No `GH_Path` or index parameters** are exposed to the delegate. It only receives a `Dictionary<string, List<T>>` that represents the logical unit being processed.
 - The delegate is responsible **only for performing the action** (e.g. AI/tool call, transformation) and returning plain outputs.
-- All responsibilities related to **paths, indices, grafting, flattening, and fan‑out** stay in the runner / `DataTreeProcessor` layer above the delegate.
+- All responsibilities related to **paths, indices, grafting, flattening, and fan-out** stay in the runner / `DataTreeProcessor` layer above the delegate.
 
-For **one‑to‑many per item** (`ItemGraft`):
+For **one-to-many per item** (`ItemGraft`):
 
 - Conceptual mapping: `[q0, q1, q2](0) → [q0, q1, q2, 0](0..N)`.
 - Runner behaviour:
   - Treats each input item as one logical unit in the **item schedule**.
-  - Calls the delegate once per item, with per‑key lists of length 1.
-  - Interprets the delegate’s returned lists as the **fan‑out** for that item.
+  - Calls the delegate once per item, with per-key lists of length 1.
+  - Interprets the delegate's returned lists as the **fan-out** for that item.
   - Appends those outputs under a **grafted branch** derived from the original path and item index, e.g. `[q0,q1,q2,0]`.
 
----
+### 4. Preserved features
 
-## 4. Preserved features
-
-### 4.1 Flat tree broadcasting (single-path trees)
+#### 4.1 Flat tree broadcasting (single-path trees)
 
 - **Critical behavior**: When an input tree has only a single path `{0}` (flat tree), it should be **applied to all other paths** without its own path appearing in outputs.
 - **Implementation** (already exists in `DataTreeProcessor.GetProcessingPaths`):
@@ -199,7 +224,7 @@ For **one‑to‑many per item** (`ItemGraft`):
   - Each output branch receives A's value "Apple" combined with B's respective values.
 - **Where preserved**: `BuildProcessingPlan` → `GetProcessingPaths` → removes single-path tree paths from `allPaths` before building the plan.
 
-### 4.2 onlyMatchingPaths
+#### 4.2 onlyMatchingPaths
 
 - Behavior is preserved at the **plan construction** level.
 - Before building the item schedule, `DataTreeProcessor`:
@@ -207,7 +232,7 @@ For **one‑to‑many per item** (`ItemGraft`):
   - Restricts processing to paths that appear in **all required trees** when `onlyMatchingPaths = true`.
 - Both branch and item modes, including grafted outputs, operate **on top of this filtered set** of primary paths.
 
-### 4.3 groupIdenticalBranches
+#### 4.3 groupIdenticalBranches
 
 - Still applied **before scheduling units**.
 - When multiple trees (or different sources) share identical branch paths, the plan maps them to a single primary path with multiple target paths.
@@ -216,22 +241,24 @@ For **one‑to‑many per item** (`ItemGraft`):
   - Results are then replicated/assigned to all **target paths** derived from that primary path.
 - Output path modes (same vs graft) are evaluated per **target path**.
 
-### 4.4 NormalizeBranchLengths
+#### 4.4 NormalizeBranchLengths
 
 - Remains a `DataTreeProcessor` utility used at the **worker preparation** level.
 - Typical usage pattern:
-  - Worker obtains per‑path branches for all relevant trees.
+  - Worker obtains per-path branches for all relevant trees.
   - Calls `NormalizeBranchLengths` on the branch lists (e.g. prompts, instructions, limits).
   - Produces aligned lists of equal length.
 - In the schema:
   - This normalization is still called from the worker when required (e.g. `AITextGenerate`, `AITextEvaluate`, `AIImgGenerateComponent`).
-  - After normalization, the branches are passed to the per‑item function or integrated into the item schedule.
+  - After normalization, the branches are passed to the per-item function or integrated into the item schedule.
 
 ---
 
-## 5. Runner APIs
+## Developer Reference
 
-### 5.1 Topology-driven runner API
+### 5. Runner APIs
+
+#### 5.1 Topology-driven runner API
 
 Instead of exposing separate branch/item runners or explicit path modes, the runner accepts a **ProcessingTopology** via `ProcessingOptions` and infers both scheduling and path behavior from it. A *single* processing function delegate is used for both item- and branch-oriented topologies.
 
@@ -254,6 +281,7 @@ public sealed class ProcessingOptions
 
     // Additional knobs can be added here as needed
 }
+
 ```
 
 Workers/components choose a topology through `ProcessingOptions.Topology`, and the runner derives the appropriate schedule internally.
@@ -267,6 +295,7 @@ Task<Dictionary<string, GH_Structure<U>>> RunAsync<T, U>(
     ProcessingOptions options,
     Action<int, int> progressCallback = null,
     CancellationToken token = default)
+
 ```
 
 - Invokes `function` once per logical unit (branch or item).
@@ -284,12 +313,12 @@ Responsibilities:
   - `data_count` = number of logical units (branches/items).
   - `iterations_count` = number of function invocations.
   - Progress messages use the convention **`current/total`**, where:
-    - `current` is the index of the currently processed logical unit (1‑based).
+    - `current` is the index of the currently processed logical unit (1-based).
     - `total` is the total number of logical units that will be processed, computed from the input trees after applying matching, grouping, and any normalization required by the selected topology.
 
-### 5.2 Relationship to StatefulComponentBase
+#### 5.2 Relationship to StatefulComponentBase
 
-- `StatefulComponentBase` exposes a high‑level helper
+- `StatefulComponentBase` exposes a high-level helper
 
 ```csharp
 protected Task<Dictionary<string, GH_Structure<U>>> RunProcessingAsync<T, U>(
@@ -297,6 +326,7 @@ protected Task<Dictionary<string, GH_Structure<U>>> RunProcessingAsync<T, U>(
     Func<Dictionary<string, List<T>>, Task<Dictionary<string, List<U>>>> function,
     ProcessingOptions options,
     CancellationToken token = default)
+
 ```
 
 which builds a processing plan, computes metrics, initialises progress, and then forwards to `DataTreeProcessor.RunAsync`.
@@ -306,29 +336,24 @@ which builds a processing plan, computes metrics, initialises progress, and then
   - Metrics and progress are centrally managed.
   - Cancellation and error handling remain consistent.
 
----
+### 6. Component mapping
 
-## 6. Component mapping
+This section lists all components under `src/SmartHopper.Components` that are based on `StatefulComponentBase`, `AIStatefulAsyncComponentBase` or `AISelectingStatefulAsyncComponentBase`, and describes how they fit into the processing schema.
 
-This section lists all components under `src/SmartHopper.Components` that are based on
-`StatefulComponentBase`, `AIStatefulAsyncComponentBase` or
-`AISelectingStatefulAsyncComponentBase`, and describes how they fit into the
-processing schema.
-
-### 6.1 Text components
+#### 6.1 Text components
 
 - **AITextGenerate** (`AIStatefulAsyncComponentBase`)
   - **Topology**: `ItemToItem`.
-  - **Granularity**: per‑item within each branch.
+  - **Granularity**: per-item within each branch.
   - **Path mode**: same as input branch and item index.
   - **Changes required**:
-    - Move implicit per‑item loop into the runner by using `ProcessingTopology.ItemToItem`.
+    - Move implicit per-item loop into the runner by using `ProcessingTopology.ItemToItem`.
     - Keep worker focused on:
       - Reading `Prompt` / `Instructions` trees.
       - Using `NormalizeBranchLengths` where needed.
-      - Defining a per‑item delegate that:
+      - Defining a per-item delegate that:
         - Receives a single prompt/instructions pair.
-        - Calls `text_generate` and returns one result item.
+        - Calls `text2text` and returns one result item.
 
 - **AITextEvaluate** (`AIStatefulAsyncComponentBase`)
   - **Topology**: `ItemToItem`. Each item in the list returns a True/False value in the output.
@@ -338,17 +363,17 @@ processing schema.
 - **AITextListGenerate** (`AIStatefulAsyncComponentBase`)
   - **Topology**: `ItemGraft`.
   - **Changes required**:
-    - Shift path logic and any ad‑hoc grafting into the runner.
+    - Shift path logic and any ad-hoc grafting into the runner.
     - Keep worker responsible only for preparing input arrays and parsing the AI result list.
 
-### 6.2 List components
+#### 6.2 List components
 
 - **AIListEvaluate** (`AIStatefulAsyncComponentBase`)
   - **Topology**: `BranchToBranch`.
-  - **Granularity**: branch‑as‑single logical item.
+  - **Granularity**: branch-as-single logical item.
   - **Path mode**: same as input branch.
   - **Changes required**:
-    - Use `ProcessingTopology.BranchToBranch` with branch‑level delegate.
+    - Use `ProcessingTopology.BranchToBranch` with branch-level delegate.
     - Worker continues to:
       - Convert list branch to JSON (`AIResponseParser.ConcatenateItemsToJson`).
       - Prepare question tree and call the AI tool once per branch.
@@ -356,29 +381,29 @@ processing schema.
 
 - **AIListFilter** (`AIStatefulAsyncComponentBase`)
   - **Topology**: `BranchToBranch`.
-  - **Granularity**: branch‑as‑single logical item.
+  - **Granularity**: branch-as-single logical item.
   - **Path mode**: same as input branch.
   - **Changes required**:
     - Same pattern as `AIListEvaluate`:
-      - Delegate remains branch‑based.
+      - Delegate remains branch-based.
       - Runner owns path replication and progress.
 
-### 6.3 Image components
+#### 6.3 Image components
 
 - **AIImgGenerateComponent** (`AIStatefulAsyncComponentBase`)
   - **Topology**: `ItemGraft`.
-  - **Granularity**: per‑item (each prompt is one logical unit).
-  - **Path mode**: `ItemGraft` to move each prompt’s results to `[q0,q1,q2,i]`.
+  - **Granularity**: per-item (each prompt is one logical unit).
+  - **Path mode**: `ItemGraft` to move each prompt's results to `[q0,q1,q2,i]`.
   - **Changes required**:
     - Keep worker responsible for:
       - Getting `Prompt`, `Size`, `Quality`, `Style` trees.
       - Calling `NormalizeBranchLengths`.
-      - Defining a per‑item delegate that returns one or many images and revised prompts.
+      - Defining a per-item delegate that returns one or many images and revised prompts.
     - Let the runner decide whether to keep or graft paths based on topology.
 
 - **ImageViewerComponent** (`GH_Component`) — schema not applicable.
 
-### 6.4 AI / models / context components
+#### 6.4 AI / models / context components
 
 - **AIChatComponent** (`AIStatefulAsyncComponentBase`) — schema not applicable.
 
@@ -386,14 +411,14 @@ processing schema.
 
 - **AIModelsComponent** (`AIProviderComponentBase`) — schema not applicable.
 
-### 6.5 Knowledge components
+#### 6.5 Knowledge components
 
 - **WebPageReadComponent** (`StatefulComponentBase`)
   - **Topology**: `ItemToItem`.
-  - **Granularity**: per‑item (each URL is one logical unit).
+  - **Granularity**: per-item (each URL is one logical unit).
   - **Path mode**: same as input branch and item index.
   - **Changes required**:
-    - Use `ProcessingTopology.ItemToItem` with an item‑level delegate that:
+    - Use `ProcessingTopology.ItemToItem` with an item-level delegate that:
       - Receives a single URL.
       - Calls `web_generic_page_read`.
       - Returns one `Content` string.
@@ -408,37 +433,175 @@ processing schema.
 - **McNeelForumDeconstructPostComponent** (`GH_Component`) — schema not applicable.
 
 - **McNeelForumPostGetComponent**, **McNeelForumPostOpenComponent** (`StatefulComponentBase`)
-  - **Topology**: `ItemToItem` (each ID or URL is one logical unit), but with side‑effects (opening posts).
+  - **Topology**: `ItemToItem` (each ID or URL is one logical unit), but with side-effects (opening posts).
   - **Changes required**:
     - For pure data retrieval, using `ItemToItem` is natural.
-    - For side‑effect‑heavy operations (like opening posts in a browser), centralizing scheduling brings less value; migration is optional.
+    - For side-effect-heavy operations (like opening posts in a browser), centralizing scheduling brings less value; migration is optional.
 
 - **McNeelForumSearchComponent**, **McNeelForumTopicRelatedComponent** (`StatefulComponentBase`)
   - **Topology**: `ItemGraft`.
-  - **Granularity**: per‑item (each query or topic ID is one logical unit).
+  - **Granularity**: per-item (each query or topic ID is one logical unit).
   - **Path mode**: graft per input item (`[q0,q1,q2](i) → [q0,q1,q2,i](0..N)`).
   - **Changes required**:
-    - Workers define per‑item delegates that:
+    - Workers define per-item delegates that:
       - Receive a single query/topic ID.
       - Call the corresponding web/AI tool.
       - Return a list of results.
-    - Runner handles grafted output paths and fan‑out.
+    - Runner handles grafted output paths and fan-out.
 
-### 6.6 Script components
+#### 6.6 Script components
 
 - **AIScriptGenerateComponent**, **AIScriptReviewComponent** (`AISelectingStatefulAsyncComponentBase`) — do not implement for now.
-  - **Topology**: mix of branch‑ and item‑oriented behaviour depending on how code and parameters are represented.
+  - **Topology**: mix of branch- and item-oriented behaviour depending on how code and parameters are represented.
   - **Recommendation**:
     - These components orchestrate script generation/review, often with richer UI and selection logic.
     - The schema can help for batched script operations, but migration is optional and should be evaluated separately.
 
-### 6.7 Misc / metrics components
+#### 6.7 Misc / metrics components
 
 - **DeconstructMetricsComponent** (`GH_Component`) — schema not applicable.
 
+### 7. Mixed-Type Data Support (Heterogeneous IGH_Goo)
+
+#### 7.1 Overview
+
+Components can now mix different Grasshopper data types in input trees (e.g., `GH_String` for text inputs, `GH_Boolean` for fallback values). This enables:
+
+- **Native type handling**: Store `GH_Boolean` directly without string conversion
+- **Future extensibility**: Foundation for `GH_Integer`, `GH_Number`, `GH_Path`, etc.
+- **Type safety**: Cast to concrete types in `ProcessData` using pattern matching
+
+#### 7.2 Infrastructure
+
+##### GHStructureConverter
+
+New centralized utility in `SmartHopper.Core.Grasshopper.Converters`:
+
+```csharp
+public static class GHStructureConverter
+{
+    /// <summary>
+    /// Converts a GH_Structure of a specific type to GH_Structure of IGH_Goo.
+    /// </summary>
+    public static GH_Structure<IGH_Goo> ConvertToGooTree<T>(GH_Structure<T> tree)
+        where T : IGH_Goo
+}
+
+```
+
+**Usage in GatherInput:**
+
+```csharp
+this.inputTree["Text"] = GHStructureConverter.ConvertToGooTree(textTree);
+this.inputTree["Question"] = GHStructureConverter.ConvertToGooTree(questionTree);
+
+// Store fallback as native GH_Boolean
+var fallbackStructure = new GH_Structure<IGH_Goo>();
+fallbackStructure.Append(fallbackItem, new GH_Path(0));
+this.inputTree["Fallback"] = fallbackStructure;
+
+```
+
+##### ProcessingResult<T>
+
+`DataTreeProcessor.RunAsync<T>()` returns `ProcessingResult<T>` containing:
+
+- `Outputs`: `Dictionary<string, GH_Structure<IGH_Goo>>` (heterogeneous results)
+- `Messages`: `List<SHRuntimeMessage>` (warnings/errors from processing)
+
+**Accessing typed results:**
+
+```csharp
+this.result = await this.parent.RunProcessingAsync(this.inputTree, ...);
+var resultTree = DataTreeProcessor.ExtractTypedTree<GH_String>(
+    this.result.Outputs, "Result");
+
+```
+
+#### 7.3 Worker Migration Pattern
+
+##### Before (GH_String only)
+
+
+```csharp
+private Dictionary<string, GH_Structure<GH_String>> inputTree;
+private Dictionary<string, GH_Structure<GH_String>> stringResult;
+
+// Fallback stored as string (round-trip conversion)
+fallbackStructure.Append(new GH_String(fallbackItem.Value.ToString()), path);
+
+// ProcessData uses concrete types directly
+private static async Task<Dictionary<string, List<GH_String>>> ProcessData(
+    Dictionary<string, List<GH_String>> branches, ...)
+
+```
+
+##### After (IGH_Goo heterogeneous)
+
+
+```csharp
+private Dictionary<string, GH_Structure<IGH_Goo>> inputTree;
+private DataTreeProcessor.ProcessingResult<IGH_Goo> result;
+
+// Fallback stored as native GH_Boolean
+var fallbackStructure = new GH_Structure<IGH_Goo>();
+fallbackStructure.Append(fallbackItem, path);
+
+// ProcessData uses IGH_Goo with pattern matching
+private static async Task<Dictionary<string, List<IGH_Goo>>> ProcessData(
+    Dictionary<string, List<IGH_Goo>> branches, ...)
+{
+    // Cast to concrete types
+    var textBranch = branches["Text"].Cast<GH_String>().ToList();
+    
+    // Read fallback as GH_Boolean
+    if (branches["Fallback"][0] is GH_Boolean ghBool)
+    {
+        fallbackValue = ghBool.Value.ToString();
+    }
+    
+    // Return IGH_Goo wrapped results
+    outputs["Result"].Add(new GH_String(resultValue));
+    return outputs;
+}
+
+// Extract typed tree from heterogeneous result
+var resultTree = DataTreeProcessor.ExtractTypedTree<GH_String>(
+    this.result.Outputs, "Result");
+
+```
+
+#### 7.4 Component Migration Status
+
+| Component | Status | Notes |
+| --- | --- | --- |-------|
+| AIText2BooleanComponent | Migrated | Uses `GH_Boolean` fallback natively |
+| AIList2BooleanComponent | Migrated | Uses `GH_Boolean` fallback natively |
+| AIText2TextComponent | Compatible | Still GH_String-only; migrate when needed |
+| AIListFilter | Compatible | Still GH_String-only; migrate when needed |
+| Other components | Compatible | 9 workers remain GH_String-only |
+
+#### 7.5 Type Gate for groupIdenticalBranches
+
+`DataTreeProcessor` now supports `IGH_Goo` in the `groupIdenticalBranches` type gate:
+
+```csharp
+if (groupIdenticalBranches &&
+    (typeof(T) == typeof(IGH_Goo) ||
+     typeof(T) == typeof(GH_String) ||
+     typeof(T) == typeof(GH_Number) ||
+     typeof(T) == typeof(GH_Integer) ||
+     typeof(T) == typeof(GH_Boolean)))
+
+```
+
+This ensures identical branch grouping works for mixed-type trees.
+
 ---
 
-## 7. Separation of concerns summary
+## Architecture & Design
+
+### 8. Separation of concerns summary
 
 - **Component**
   - Owns UI, parameter definitions, and exposes options that map to `ProcessingTopology`.
@@ -446,8 +609,8 @@ processing schema.
 
 - **Worker**
   - Reads inputs and prepares data into semantic units (branches or items).
-  - Chooses which trees participate and how (e.g. list‑as‑single‑item).
-  - Defines per‑branch or per‑item function delegating to tools/models.
+  - Chooses which trees participate and how (e.g. list-as-single-item).
+  - Defines per-branch or per-item function delegating to tools/models.
   - Uses base class runners so metrics and progress are handled centrally.
 
 - **DataTreeProcessor**

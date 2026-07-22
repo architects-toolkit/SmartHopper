@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -23,26 +23,6 @@ namespace SmartHopper.Core.Grasshopper.Utils.Constants
     /// </summary>
     public static class GhJsonExtensionKeys
     {
-        /// <summary>
-        /// Extension key for Python script components.
-        /// </summary>
-        public const string Python = "gh.python";
-
-        /// <summary>
-        /// Extension key for IronPython script components.
-        /// </summary>
-        public const string IronPython = "gh.ironpython";
-
-        /// <summary>
-        /// Extension key for C# script components.
-        /// </summary>
-        public const string CSharp = "gh.csharp";
-
-        /// <summary>
-        /// Extension key for VB Script components.
-        /// </summary>
-        public const string VBScript = "gh.vbscript";
-
         /// <summary>
         /// Extension key for SmartHopper ad-hoc parameters.
         /// </summary>

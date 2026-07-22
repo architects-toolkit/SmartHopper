@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -18,7 +18,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
@@ -40,14 +39,47 @@ using SmartHopper.ProviderSdk.Diagnostics;
 
 namespace SmartHopper.Components.Knowledge
 {
+    /// <summary>
+    /// Grasshopper component that converts web pages (URLs) to Markdown.
+    /// Performs a local web fetch via the <c>web2md</c> tool and keeps images as remote Markdown links.
+    /// No AI provider or model is required. Use <c>AIWeb2MdComponent</c> for AI-powered image description.
+    /// </summary>
     public class Web2MdComponent : StatefulComponentBase
     {
+        /// <inheritdoc/>
         public override Guid ComponentGuid => new Guid("4053AD8D-10DF-47D3-AC0C-CA24E8BB638D");
 
+        /// <inheritdoc/>
         protected override Bitmap Icon => Resources.webtomd;
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
+        /// <inheritdoc/>
+        public override IEnumerable<string> Keywords => new[]
+        {
+            "WebToMd",
+            "Web2Md",
+            "web2md",
+            "webtomd",
+            "Web to Markdown",
+            "URL to Markdown",
+            "Website to Markdown",
+            "Convert Web Page",
+            "Web Page Conversion",
+            "HTML to Markdown",
+        };
+
+        /// <inheritdoc/>
+        protected override ProcessingOptions ComponentProcessingOptions => new ProcessingOptions
+        {
+            Topology = ProcessingTopology.BranchToBranch,
+            OnlyMatchingPaths = false,
+            GroupIdenticalBranches = true,
+        };
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Web2MdComponent"/> class.
+        /// </summary>
         public Web2MdComponent()
             : base(
                   "Web To Markdown",
@@ -56,9 +88,11 @@ namespace SmartHopper.Components.Knowledge
                   "SmartHopper",
                   "Knowledge")
         {
+            // Set RunOnlyOnInputChanges to false to ensure the component always runs when the Run parameter is true
             this.RunOnlyOnInputChanges = false;
         }
 
+        /// <inheritdoc/>
         protected override void RegisterAdditionalInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("URL", "U", "REQUIRED URL(s) of the webpage(s) to convert.", GH_ParamAccess.tree);
@@ -66,12 +100,14 @@ namespace SmartHopper.Components.Knowledge
             pManager[pManager.ParamCount - 1].Optional = true;
         }
 
+        /// <inheritdoc/>
         protected override void RegisterAdditionalOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Markdown", "Md", "Markdown content of the webpage.", GH_ParamAccess.tree);
             pManager.AddTextParameter("Format", "Fmt", "Detected content format (e.g., markdown, plain_text, url).", GH_ParamAccess.tree);
         }
 
+        /// <inheritdoc/>
         protected override AsyncWorkerBase CreateWorker(Action<string> progressReporter)
         {
             return new Web2MdWorker(this, this.AddRuntimeMessage, this.ComponentProcessingOptions);
@@ -81,7 +117,7 @@ namespace SmartHopper.Components.Knowledge
         {
             private readonly Web2MdComponent parent;
             private readonly ProcessingOptions processingOptions;
-            private Dictionary<string, GH_Structure<GH_String>> inputTrees;
+            private GH_Structure<GH_String> urlTree;
             private bool hasWork;
             private string htmlReadabilityMode;
 
@@ -100,8 +136,8 @@ namespace SmartHopper.Components.Knowledge
 
             public override void GatherInput(IGH_DataAccess DA, out int dataCount)
             {
-                var urlTree = new GH_Structure<GH_String>();
-                DA.GetDataTree("URL", out urlTree);
+                this.urlTree = new GH_Structure<GH_String>();
+                DA.GetDataTree("URL", out this.urlTree);
 
                 var readabilityParam = new GH_String("auto");
                 DA.GetData("HTML Readability", ref readabilityParam);
@@ -121,6 +157,9 @@ namespace SmartHopper.Components.Knowledge
 
             public override async Task DoWorkAsync(CancellationToken token)
             {
+                this.resultMarkdown = new GH_Structure<GH_String>();
+                this.resultFormat = new GH_Structure<GH_String>();
+
                 if (!this.hasWork)
                 {
                     return;
@@ -128,16 +167,10 @@ namespace SmartHopper.Components.Knowledge
 
                 try
                 {
-                    var resultTrees = await this.parent.RunProcessingAsync<GH_String, GH_String>(
-                        this.inputTrees,
-                        async branchInputs =>
-                        {
-                            var outputs = new Dictionary<string, List<GH_String>>
-                            {
-                                { "URL", new List<GH_String>() },
-                                { "Markdown", new List<GH_String>() },
-                                { "Format", new List<GH_String>() },
-                            };
+                    var inputTrees = new Dictionary<string, GH_Structure<GH_String>>
+                    {
+                        { "URL", this.urlTree },
+                    };
 
                             foreach (var kvp in branchInputs)
                             {
@@ -221,18 +254,12 @@ namespace SmartHopper.Components.Knowledge
                         this.processingOptions,
                         token).ConfigureAwait(false);
 
-                    this.resultMarkdown = new GH_Structure<GH_String>();
-                    this.resultFormat = new GH_Structure<GH_String>();
-
-                    if (resultTrees.TryGetValue("Markdown", out var markdownTree))
-                    {
-                        this.resultMarkdown = markdownTree;
-                    }
-
-                    if (resultTrees.TryGetValue("Format", out var formatTree))
-                    {
-                        this.resultFormat = formatTree;
-                    }
+                    this.resultMarkdown = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Markdown");
+                    this.resultFormat = DataTreeProcessor.ExtractTypedTree<GH_String>(resultTrees, "Format");
+                }
+                catch (OperationCanceledException)
+                {
+                    this.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Operation was cancelled.");
                 }
                 catch (Exception ex)
                 {
@@ -241,11 +268,118 @@ namespace SmartHopper.Components.Knowledge
                 }
             }
 
-            public override void SetOutput(IGH_DataAccess DA, out string errorMessage)
+            private async Task<Dictionary<string, List<IGH_Goo>>> ProcessBranches(Dictionary<string, List<GH_String>> branches, CancellationToken token)
+            {
+                var outputs = new Dictionary<string, List<IGH_Goo>>
+                {
+                    { "Markdown", new List<IGH_Goo>() },
+                    { "Format", new List<IGH_Goo>() },
+                };
+
+                var urlList = branches["URL"];
+
+                foreach (var ghUrl in urlList)
+                {
+                    if (ghUrl == null || string.IsNullOrWhiteSpace(ghUrl.Value))
+                    {
+                        outputs["Markdown"].Add(new GH_String(string.Empty));
+                        outputs["Format"].Add(new GH_String(string.Empty));
+                        continue;
+                    }
+
+                    string url = ghUrl.Value;
+
+                    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                        (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Error, $"Invalid HTTP(S) URL: {url}");
+                        outputs["Markdown"].Add(new GH_String(string.Empty));
+                        outputs["Format"].Add(new GH_String(string.Empty));
+                        continue;
+                    }
+
+                    try
+                    {
+                        var parameters = new JObject
+                        {
+                            ["url"] = url,
+                            ["includeLinks"] = true,
+                            ["includeImages"] = true,
+                            ["imageMode"] = "link",
+                        };
+
+                        var toolResult = await ExecuteWeb2MdToolAsync(parameters, token).ConfigureAwait(false);
+
+                        if (toolResult.Result == null)
+                        {
+                            this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Tool 'web2md' returned no result for URL: {url}", SHRuntimeMessageOrigin.Tool);
+                            outputs["Markdown"].Add(new GH_String(string.Empty));
+                            outputs["Format"].Add(new GH_String(string.Empty));
+                            continue;
+                        }
+
+                        string markdown = toolResult.Result["content"]?.ToString() ?? string.Empty;
+                        string format = (toolResult.Result["metadata"] as JObject)?["format"]?.ToString() ?? "url";
+
+                        var messages = RuntimeMessageUtility.ExtractMessages(toolResult);
+                        foreach (var m in messages) this.CollectMessage(m);
+
+                        outputs["Markdown"].Add(new GH_String(markdown));
+                        outputs["Format"].Add(new GH_String(format));
+                    }
+                    catch (Exception ex)
+                    {
+                        this.CollectMessage(SHRuntimeMessageSeverity.Warning, $"Error fetching {url}: {ex.Message}");
+                        outputs["Markdown"].Add(new GH_String(string.Empty));
+                        outputs["Format"].Add(new GH_String(string.Empty));
+                    }
+                }
+
+                return outputs;
+            }
+
+            private static async Task<ToolCallResult> ExecuteWeb2MdToolAsync(JObject parameters, CancellationToken token)
+            {
+                var toolCallInteraction = new AIInteractionToolCall
+                {
+                    Name = "web2md",
+                    Arguments = parameters,
+                    Agent = AIAgent.Assistant,
+                };
+
+                var toolCall = new AIToolCall
+                {
+                    Endpoint = "web2md",
+                };
+
+                toolCall.FromToolCallInteraction(toolCallInteraction);
+                toolCall.SkipMetricsValidation = true;
+                toolCall.CancellationToken = token;
+
+                AIReturn aiResult = await toolCall.Exec(token).ConfigureAwait(false);
+
+                var toolResultInteraction = aiResult.Body?.Interactions
+                    .OfType<AIInteractionToolResult>()
+                    .FirstOrDefault();
+
+                if (toolResultInteraction?.Result != null)
+                {
+                    return new ToolCallResult(aiResult.Success, toolResultInteraction.Result, aiResult.Messages);
+                }
+
+                var fallbackPayload = new JObject
+                {
+                    ["success"] = aiResult.Success,
+                    ["messages"] = JArray.FromObject(aiResult.Messages),
+                };
+                return new ToolCallResult(aiResult.Success, fallbackPayload, aiResult.Messages);
+            }
+
+            public override void SetOutput(IGH_DataAccess DA, out string message)
             {
                 this.parent.SetPersistentOutput("Markdown", this.resultMarkdown ?? new GH_Structure<GH_String>(), DA);
                 this.parent.SetPersistentOutput("Format", this.resultFormat ?? new GH_Structure<GH_String>(), DA);
-                errorMessage = null;
+                message = null;
             }
         }
     }

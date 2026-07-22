@@ -1,5 +1,12 @@
 name: Stabilization 1 - 🛑 Cancel Path
 
+# Related workflows (stabilization & hotfix paths):
+#   - stabilization-0-init.yml (creates dev-X.Y.Z and main-X.Y.Z branches)
+#   - stabilization-1-cancel.yml (cancels stabilization path)
+#   - stabilization-2-complete.yml (completes stabilization)
+#   - hotfix-0-new-branch.yml (creates hotfix branch from main)
+#   - hotfix-1-release-hotfix.yml (builds and releases hotfix)
+
 # Description: Cancels a stabilization path when a no-suffix milestone (e.g. "1.4.2") is closed
 # while staged sub-milestones (1.4.2-alpha, 1.4.2-beta, etc.) are still open.
 # Closes all sub-milestones, migrates their open issues to the next dev milestone,
@@ -24,6 +31,7 @@ permissions:
 jobs:
   cancel-stabilization-path:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: "stabilization-close-${{ github.event.milestone.title }}"
       cancel-in-progress: false

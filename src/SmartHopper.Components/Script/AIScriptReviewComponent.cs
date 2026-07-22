@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -262,6 +262,7 @@ namespace SmartHopper.Components.Script
                 this.parent.SetPersistentOutput("Success", this.resultSuccess, DA);
                 this.parent.SetPersistentOutput("Coded Issues", this.resultCodedIssues, DA);
                 this.parent.SetPersistentOutput("AI Review", this.resultAiReview, DA);
+                this.parent.SetMetricsOutput(DA);
 
                 message = $"Reviewed {this.iterationCount} component(s)";
             }

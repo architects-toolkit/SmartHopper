@@ -28,6 +28,10 @@ inputs:
     description: 'When true, the script rewrites the source file: auto-inserts new models with capabilities mapped from OpenRouter metadata, updates existing model capabilities/ContextLimit, and marks disappeared or expiring models as Deprecated = true'
     required: false
     default: 'false'
+  fail-on-validation-errors:
+    description: 'When true, fail if updated provider models are missing required defaults, contain pending capabilities, or contain realtime models'
+    required: false
+    default: 'false'
 
 outputs:
   models:
@@ -59,9 +63,11 @@ runs:
         API_KEY: ${{ inputs.api-key }}
         PROVIDER_API_KEY: ${{ inputs.provider-api-key }}
       run: |
+        $ErrorActionPreference = 'Stop'
+
         $params = @{
           Provider = '${{ inputs.provider }}'
-          ApiKey   = $env:API_KEY
+          OpenRouterApiKey = $env:API_KEY
         }
         if (-not [string]::IsNullOrWhiteSpace($env:PROVIDER_API_KEY)) {
           $params['ProviderApiKey'] = $env:PROVIDER_API_KEY
@@ -69,10 +75,39 @@ runs:
         if ('${{ inputs.update-file }}' -eq 'true') {
           $params['UpdateFile'] = $true
         }
+        if ('${{ inputs.fail-on-validation-errors }}' -eq 'true') {
+          $params['FailOnValidationErrors'] = $true
+        }
 
         try {
           $reportJson = & .\tools\Update-ProviderModels.ps1 @params
-          $report = $reportJson | ConvertFrom-Json
+          $scriptExit = $LASTEXITCODE
+
+          # The script emits its JSON report on stdout regardless of validation
+          # outcome. Try to parse it even on non-zero exit so we can surface the
+          # validation details (the script also writes ::error:: annotations,
+          # but exposing the structured report lets the caller decide what to do).
+          $report = $null
+          if ($reportJson) {
+            try { $report = $reportJson | ConvertFrom-Json } catch { $report = $null }
+          }
+
+          if ($scriptExit -and $scriptExit -ne 0) {
+            Write-Host "::error::Update-ProviderModels.ps1 exited with code $scriptExit"
+            "success=false" >> $env:GITHUB_OUTPUT
+            "error=Update-ProviderModels.ps1 exited with code $scriptExit" >> $env:GITHUB_OUTPUT
+            "changed=false" >> $env:GITHUB_OUTPUT
+            "count=0" >> $env:GITHUB_OUTPUT
+            "models=[]" >> $env:GITHUB_OUTPUT
+            if ($report) {
+              "report<<EOF_REPORT" >> $env:GITHUB_OUTPUT
+              "$reportJson" >> $env:GITHUB_OUTPUT
+              "EOF_REPORT" >> $env:GITHUB_OUTPUT
+            } else {
+              "report={}" >> $env:GITHUB_OUTPUT
+            }
+            exit $scriptExit
+          }
 
           $modelsJson = ($report.apiModels | ConvertTo-Json -Compress)
           if ($modelsJson -eq 'null') { $modelsJson = '[]' }
@@ -91,10 +126,17 @@ runs:
           "EOF_REPORT" >> $env:GITHUB_OUTPUT
         }
         catch {
+          # Print the failure visibly. The previous implementation wrote the
+          # message to $env:GITHUB_OUTPUT only, which hid the actual cause from
+          # the run log and made these jobs near-impossible to diagnose.
+          Write-Host "::error::Update-ProviderModels.ps1 failed: $($_.Exception.Message)"
+          if ($_.ScriptStackTrace) { Write-Host $_.ScriptStackTrace }
+
           "success=false" >> $env:GITHUB_OUTPUT
           "error=$($_.Exception.Message)" >> $env:GITHUB_OUTPUT
           "changed=false" >> $env:GITHUB_OUTPUT
           "count=0" >> $env:GITHUB_OUTPUT
           "models=[]" >> $env:GITHUB_OUTPUT
           "report={}" >> $env:GITHUB_OUTPUT
+          exit 1
         }

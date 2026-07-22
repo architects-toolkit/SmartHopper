@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -18,8 +18,6 @@
 
 namespace SmartHopper.Infrastructure.Tests
 {
-    using System.Collections.Generic;
-    using System.Reflection;
     using System.Threading.Tasks;
     using SmartHopper.Infrastructure.AITools;
     using SmartHopper.ProviderSdk.AICall.Core.Returns;
@@ -28,21 +26,9 @@ namespace SmartHopper.Infrastructure.Tests
     /// <summary>
     /// Tests for the AIToolManager functionality.
     /// </summary>
+    [Collection("AIToolManager")]
     public class AIToolManagerTests
     {
-        /// <summary>
-        /// Resets the AIToolManager to a clean state for testing.
-        /// </summary>
-        private static void ResetManager()
-        {
-            var managerType = typeof(AIToolManager);
-            var toolsField = managerType.GetField("_tools", BindingFlags.NonPublic | BindingFlags.Static);
-            var discoveredField = managerType.GetField("_toolsDiscovered", BindingFlags.NonPublic | BindingFlags.Static);
-            var toolsDict = (Dictionary<string, AITool>?)toolsField?.GetValue(null);
-            toolsDict?.Clear();
-            discoveredField?.SetValue(null, false);
-        }
-
 #if NET7_WINDOWS
         /// <summary>
         /// Tests that RegisterTool correctly adds a tool to the manager on Windows.
@@ -56,7 +42,7 @@ namespace SmartHopper.Infrastructure.Tests
 #endif
         public void RegisterTool_ShouldAddTool()
         {
-            ResetManager();
+            AIToolManager.ResetTools();
             var tool = new AITool("TestTool", "Test Description", "Test Category", "{}", _ => Task.FromResult(new AIReturn()));
             AIToolManager.RegisterTool(tool);
             var tools = AIToolManager.GetTools();
@@ -78,9 +64,29 @@ namespace SmartHopper.Infrastructure.Tests
 #endif
         public void GetTools_ShouldBeEmpty_WhenNoToolsRegistered()
         {
-            ResetManager();
+            AIToolManager.ResetTools();
             var tools = AIToolManager.GetTools();
             Assert.Empty(tools);
+        }
+
+#if NET7_WINDOWS
+        /// <summary>
+        /// Tests that AITool.Enabled defaults to true and can be set to false.
+        /// </summary>
+        [Fact(DisplayName = "AITool Enabled DefaultsToTrue AndCanBeDisabled [Windows]")]
+#else
+        /// <summary>
+        /// Tests that AITool.Enabled defaults to true and can be set to false.
+        /// </summary>
+        [Fact(DisplayName = "AITool Enabled DefaultsToTrue AndCanBeDisabled [Core]")]
+#endif
+        public void AITool_Enabled_DefaultsToTrue_AndCanBeDisabled()
+        {
+            var enabledTool = new AITool("EnabledTool", "Description", "Category", "{}", _ => Task.FromResult(new AIReturn()));
+            var disabledTool = new AITool("DisabledTool", "Description", "Category", "{}", _ => Task.FromResult(new AIReturn()), enabled: false);
+
+            Assert.True(enabledTool.Enabled);
+            Assert.False(disabledTool.Enabled);
         }
     }
 }

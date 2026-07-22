@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   SmartHopper - AI-powered Grasshopper Plugin
   Copyright (C) 2024-2026 Marc Roca Musach
 
@@ -40,10 +40,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.24.25281.15001" ExcludeAssets="runtime">
+    <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
-    <PackageReference Include="RhinoCommon" Version="8.24.25281.15001" ExcludeAssets="runtime">
+    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
 	<PackageReference Include="System.Resources.Extensions" Version="8.0.0" />

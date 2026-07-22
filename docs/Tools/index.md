@@ -2,42 +2,37 @@
 
 Tools are callable operations the AI can invoke (function/tool calling) and utilities exposed to Grasshopper.
 
-## Purpose
+---
 
-- Provide discrete actions (e.g., create geometry, tidy canvas, generate text/images) with JSON schemas.
-- Enable provider-agnostic tool calling: tools are formatted by providers and executed by components.
+## Metadata
 
-## Key locations
+| Property | Value |
+| --- | --- |
+| **Source Code** | `src/SmartHopper.Core.Grasshopper/AITools/` |
+| **Since Version** | ? |
+| **Last Updated** | 2026-06-14 |
+| **Documentation Maintainer** | Devin AI |
 
-- `src/SmartHopper.Core.Grasshopper/AITools/` — tool definitions (schema, validation, execution)
-- `src/SmartHopper.Infrastructure/AICall/` — request/response plumbing (`AIBody`, `AIRequestCall`, `AIReturn<T>`)
+_Note: This documentation was written by AI on its own. It may contain some mistakes. If you would like to help, read this documentation and delete this comment if everything is okay._
 
-## Tool contract (typical)
+---
 
-- Name, description, category
-- JSON Schema for inputs (validated before execution)
-- Execute handler that performs the action and returns structured results
+## Why Read This?
 
-## Conventions
+SmartHopper's tool system extends Grasshopper components with AI-powered capabilities such as text generation, image analysis, canvas manipulation, and document conversion. Understanding the tool ecosystem helps you compose powerful parametric + AI workflows.
 
-- Naming: `gh_*`, `text_*`, `list_*`, `img_*`, `web_*`, etc.
-- Tools should return consistent keys (e.g., `list` for list_generate) and clear error messages.
-- Use provider/model capability checks via the model registry when needed.
+**You should read this if you:**
 
-## Available tools
+- Want to know which AI operations are available in SmartHopper
+- Are building a custom component that calls AI tools directly
+- Need to understand the tool result envelope convention
+- Want to add a new tool to the SmartHopper ecosystem
 
-### Instruction & Knowledge
+---
 
-| Tool | Description |
-|------|-------------|
-| [instruction_get](./instruction_get.md) | Returns detailed operational guidance for specific topics (canvas, scripting, knowledge, etc.) |
-| file2md | Converts documents (PDF, DOCX, XLSX, PPTX, HTML, CSV, JSON, XML, TXT, etc.) to Markdown |
-| web2md | Converts web pages (URLs) to Markdown with metadata |
-| mcneel_forum_search | Searches the McNeel forum for Rhino/Grasshopper content |
-| mcneel_forum_topic | Retrieves specific forum topic content |
-| mcneel_forum_post | Creates a new forum post |
+## End-User Guide
 
-### Text Generation & Processing
+### What Are Tools?
 
 | Tool | Description |
 |------|-------------|
@@ -48,68 +43,157 @@ Tools are callable operations the AI can invoke (function/tool calling) and util
 | list_filter | Filters list items based on criteria |
 | textlist2boolean | Evaluates list items against criteria and returns boolean results |
 
-### Image Processing
+### When to Use Them
 
-| Tool | Description |
-|------|-------------|
-| [img2text](./img2text.md) | Describes or analyzes an image using a vision model |
-| text2img | Generates images from text prompts (e.g., DALL-E) |
+- **Text tasks**: Use `text2text`, `text2boolean`, `text2textlist`, `text2json`
+- **Image tasks**: Use `img2text` (vision) or `text2img` (generation)
+- **Document tasks**: Use `file2md` or `web2md` to convert documents and web pages to Markdown
+- **Canvas tasks**: Use `gh_get`, `gh_put`, `gh_move`, `gh_group`, `gh_tidy_up`, `gh_connect`, `gh_disconnect` for Grasshopper automation
+- **Knowledge tasks**: Use `smarthopper_readme`, `smarthopper_tool_help`, `mcneel_forum_search` for contextual guidance
 
-### Grasshopper Canvas Operations
+### Visual Guide
 
-| Tool | Description |
-|------|-------------|
-| gh_get | Reads the Grasshopper file and returns GhJSON structure with optional filters |
-| gh_put | Places components from GhJSON onto the canvas |
-| gh_move | Moves components to new positions |
-| gh_merge | Merges multiple GhJSON definitions |
-| gh_group | Creates component groups |
-| gh_tidy_up | Auto-organizes canvas layout |
-| gh_list_categories | Lists available Grasshopper component categories |
-| gh_list_components | Lists available components by category |
-| gh_component_preview | Toggles component preview state on/off |
-| gh_component_lock | Locks or unlocks components |
-| _gh_generate | WIP: AI-powered canvas generation with GhJSON |
-| _gh_connect | WIP: Connects components based on AI suggestions |
-| _gh_parameter_modifier | WIP: Modifies parameter properties |
+<!-- PLACEHOLDER: Screenshot showing the Tools panel or component category in Grasshopper -->
+<!-- - Location: SmartHopper tab → Tools panel -->
+<!-- - Typical wiring: AI component → tool call → result parsing -->
 
-### Scripting Tools
+### Common Questions
 
-| Tool | Description |
-|------|-------------|
-| script_generate | Generates new C# scripts for Grasshopper |
-| script_edit | Edits existing C# scripts |
-| script_review | Reviews and provides feedback on script code |
-| _script_parameter_modifier | WIP: Modifies script parameter properties |
-| ScriptCodeValidator | Validates script code for errors |
+**Q: How do I know which tools a model supports?**
+A: Check the model's capabilities in the AI Models component. Tool calling requires `AICapability.ToolCalling`.
 
-### Rhino 3DM Tools
+**Q: Can I use tools without the chat interface?**
+A: Yes. Many tools are wrapped as standalone Grasshopper components (e.g., `AIImg2TextComponent`, `AIFile2MdComponent`).
 
-| Tool | Description |
-|------|-------------|
-| _rhino_read_3dm | WIP: Reads 3DM file metadata |
-| _rhino_get_geometry_3dm | WIP: Extracts geometry from 3DM files |
+---
 
-### Metadata & Envelope
+## Developer Reference
 
-| Tool/Convention | Description |
-|-----------------|-------------|
-| [ToolResultEnvelope](./ToolResultEnvelope.md) | Standard metadata envelope convention for all tool results (attached under `__envelope` key) |
+### API Overview
 
-## Tool-as-Documentation
+```csharp
+// Base contract for all SmartHopper tools
+public abstract class AITool
+{
+    public abstract string Name { get; }
+    public abstract string Category { get; }
+    public abstract string Description { get; }
+    public abstract AICapability RequiredCapability { get; }
 
-- Some tools exist primarily to provide detailed operational guidance to the agent without bloating the system prompt.
-- This keeps prompts short, reduces per-turn token usage, and centralizes workflows in one place.
-- See `docs/Tools/instruction_get.md`.
+    public abstract Task<ToolResult> ExecuteAsync(Dictionary<string, object> parameters);
+}
 
-## Tool Result Envelope
+```
 
-- Tools should attach a metadata envelope to their JSON result under the reserved root key `"__envelope"`.
-- The actual payload remains at predictable keys (e.g., `result`, `list`).
-- See `docs/Tools/ToolResultEnvelope.md` for schema, rationale, and examples.
+### Key Types
 
-## Flow
-1. Component builds `AIBody` with tool filters/schemas as needed.
-2. Provider formats tool definitions into its API shape.
-3. If a tool is executed: the tool builds a payload, attaches `ToolResultEnvelope` to the root, and appends it via `AIBody.AddInteractionToolResult(...)` to the interaction stream.
-4. Components read normalized results (including the envelope) from `AIReturn<T>`.
+| Type | Purpose |
+| --- | --- |
+| `AITool` | Base class for all tools |
+| `AIToolRequest` | Request wrapper with name and parameters |
+| `ToolResult` | Structured result with payload and envelope |
+| `ToolResultEnvelope` | Standard metadata attached to every result |
+| `ToolManager` | Registry and execution dispatcher |
+
+### Code Examples
+
+#### Creating a Simple Tool
+
+```csharp
+public class MyCustomTool : AITool
+{
+    public override string Name => "my_custom_tool";
+    public override string Category => "Custom";
+    public override string Description => "Does something useful";
+    public override AICapability RequiredCapability => AICapability.TextGeneration;
+
+    public override async Task<ToolResult> ExecuteAsync(Dictionary<string, object> parameters)
+    {
+        var input = parameters["input"].ToString();
+        var result = await DoSomethingAsync(input);
+
+        return new ToolResult
+        {
+            Payload = new Dictionary<string, object>
+            {
+                { "output", result }
+            }
+        };
+    }
+}
+
+```
+
+**Output**: A `ToolResult` with the processed output attached to the `output` key.
+
+#### Executing a Tool Programmatically
+
+```csharp
+var toolManager = ToolManager.Instance;
+
+var request = new AIToolRequest("text2text")
+{
+    Parameters = new Dictionary<string, object>
+    {
+        { "prompt", "Generate a creative name for a pavilion" },
+        { "instructions", "Use architectural terminology" }
+    }
+};
+
+var result = await toolManager.ExecuteToolAsync(request);
+var text = result.Payload["text"].ToString();
+
+```
+
+### Error Handling
+
+| Error | Cause | Solution |
+| --- | --- | --- |
+| Tool not found | Name mismatch or tool not registered | Verify tool name and that the assembly is loaded |
+| Missing parameter | Required parameter not provided | Check tool schema and supply all required fields |
+| Capability mismatch | Model does not support required capability | Select a model with the appropriate capability flags |
+| Execution timeout | Tool operation took too long | Increase timeout or optimize the tool implementation |
+
+---
+
+## Architecture & Design
+
+### Design Rationale
+
+**Problem**: Grasshopper users need AI-powered operations (text generation, image analysis, canvas manipulation) but there is no standard way to expose them across providers and components.
+
+**Approach**: Define a unified `AITool` contract with JSON-schema inputs and structured outputs. Tools are registered in a central `ToolManager`, formatted by providers into their native API shapes, and executed by components or the chat system.
+
+**Trade-offs**:
+
+- Unified tool interface (portable across providers) vs provider-specific feature limitations
+- JSON-schema validation (robust) vs rigid parameter structures
+- Central registry (discoverable) vs tight coupling to the tool manager
+
+### Data Flow
+
+```text
+Component → AIToolRequest → ToolManager → Provider formatting → AI Model
+                                              ↓
+                                    ToolResult + ToolResultEnvelope
+
+```
+
+### Tool Categories
+
+| Category | Tools |
+| --- | --- |
+| Instruction & Knowledge | `smarthopper_readme`, `smarthopper_workflows`, `smarthopper_tool_help`, `smarthopper_ghjson_reference`, `file2md`, `web2md`, `mcneel_forum_search`, `mcneel_forum_topic`, `mcneel_forum_post` |
+| Text Generation | `text2text`, `text2boolean`, `text2textlist`, `text2json`, `list_filter`, `textlist2boolean` |
+| Image Processing | `img2text`, `text2img` |
+| Grasshopper Canvas | `gh_get`, `gh_put`, `gh_move`, `gh_merge`, `gh_group`, `gh_tidy_up`, `gh_list_categories`, `gh_list_components`, `gh_component_preview`, `gh_component_lock`, `gh_connect`, `gh_disconnect` |
+| Scripting | `script_generate`, `script_edit`, `script_review` |
+
+### Related Documentation
+
+- [ToolResultEnvelope](./ToolResultEnvelope.md)
+- [img2text Tool](./img2text.md)
+- [smarthopper_readme Tool](./smarthopper_readme.md)
+- [smarthopper_workflows Tool](./smarthopper_workflows.md)
+- [smarthopper_tool_help Tool](./smarthopper_tool_help.md)
+- [smarthopper_ghjson_reference Tool](./smarthopper_ghjson_reference.md)

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -73,8 +73,8 @@ namespace SmartHopper.Components.AI
         /// <summary>Initializes a new instance of <see cref="AISettingsComponent"/>.</summary>
         public AISettingsComponent()
             : base(
-                "AI Settings",
-                "AISett",
+                "Settings",
+                "Settings",
                 "Assembles AI request settings (model, temperature, tokens, extras) to pass to any AI component.",
                 "SmartHopper",
                 "AI")

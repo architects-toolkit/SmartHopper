@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -61,7 +61,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.FlattenParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "gh_parameter_data_mapping_graft",
@@ -77,7 +82,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.GraftParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "gh_parameter_reverse",
@@ -94,7 +104,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.ReverseParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
 
             yield return new AITool(
                 name: "gh_parameter_simplify",
@@ -111,7 +126,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""componentGuid"", ""parameterIndex""]
                 }",
                 execute: this.SimplifyParameterAsync,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: true,
+                enabled: false,
+                tags: new[] { "not-tested", "parameter", "canvas", "mutating" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""success"": { ""type"": ""boolean"" }, ""componentGuid"": { ""type"": ""string"" }, ""parameterIndex"": { ""type"": ""integer"" } } }",
+                annotations: new AIToolAnnotations(destructiveHint: false));
         }
 
         private async Task<AIReturn> FlattenParameterAsync(AIToolCall toolCall)
@@ -119,6 +139,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return await this.ExecuteParameterModification(toolCall, "gh_parameter_flatten", (args) =>
             {
                 var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
+                if (CanvasProtection.IsProtected(componentGuid))
+                {
+                    throw new InvalidOperationException("Cannot modify this component because it is protected.");
+                }
                 var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
                 var isInput = args["isInput"]?.ToObject<bool>() ?? true;
 
@@ -145,6 +169,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return await this.ExecuteParameterModification(toolCall, "gh_parameter_graft", (args) =>
             {
                 var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
+                if (CanvasProtection.IsProtected(componentGuid))
+                {
+                    throw new InvalidOperationException("Cannot modify this component because it is protected.");
+                }
                 var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
                 var isInput = args["isInput"]?.ToObject<bool>() ?? true;
 
@@ -171,6 +199,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return await this.ExecuteParameterModification(toolCall, "gh_parameter_reverse", (args) =>
             {
                 var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
+                if (CanvasProtection.IsProtected(componentGuid))
+                {
+                    throw new InvalidOperationException("Cannot modify this component because it is protected.");
+                }
                 var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
                 var isInput = args["isInput"]?.ToObject<bool>() ?? true;
                 var enable = args["enable"]?.ToObject<bool>() ?? true;
@@ -198,6 +230,10 @@ namespace SmartHopper.Core.Grasshopper.AITools
             return await this.ExecuteParameterModification(toolCall, "gh_parameter_simplify", (args) =>
             {
                 var componentGuid = Guid.Parse(args["componentGuid"]?.ToString() ?? throw new ArgumentException("Missing componentGuid"));
+                if (CanvasProtection.IsProtected(componentGuid))
+                {
+                    throw new InvalidOperationException("Cannot modify this component because it is protected.");
+                }
                 var parameterIndex = args["parameterIndex"]?.ToObject<int>() ?? throw new ArgumentException("Missing parameterIndex");
                 var isInput = args["isInput"]?.ToObject<bool>() ?? true;
                 var enable = args["enable"]?.ToObject<bool>() ?? true;
@@ -227,7 +263,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 var toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
 
                 var tcs = new TaskCompletionSource<AIReturn>();
 

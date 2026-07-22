@@ -4,8 +4,22 @@ name: pr-delete-auto-branches
 # 
 # This workflow triggers on pull_request closed events and deletes the head branch when it matches any of:
 # - update-branch/*
-# - chore/update-dev-version-date-*
-# - docs/update-version-badge-*
+# - chore/*
+# - docs/*
+# - ci/*
+# - release/*
+# - feature/*
+# - feat/*
+# - hotfix/*
+# - bugfix/*
+# - bug/*
+# - fix/*
+# - hash-update/*
+# - patch/*
+# - devin/*
+# - backport/*
+#
+# A branch is only deleted if there are no other open PRs from the same branch.
 #
 # Triggers:
 # - pull_request.types: closed
@@ -20,6 +34,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   delete-auto-branches:
@@ -37,11 +52,42 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'bug/') ||
       startsWith(github.event.pull_request.head.ref, 'fix/') ||
       startsWith(github.event.pull_request.head.ref, 'hash-update/') ||
-      startsWith(github.event.pull_request.head.ref, 'patch/')
+      startsWith(github.event.pull_request.head.ref, 'patch/') ||
+      startsWith(github.event.pull_request.head.ref, 'devin/') ||
+      startsWith(github.event.pull_request.head.ref, 'backport/')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
+      - name: Check for open PRs from this branch
+        id: check-open-prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          OPEN_PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "${BRANCH}" \
+            --state open \
+            --json number \
+            --jq 'length')
+          if [ "$OPEN_PRS" -gt 0 ]; then
+            echo "Found ${OPEN_PRS} open PR(s) from ${BRANCH}. Skipping deletion."
+            echo "has_open_prs=true" >> $GITHUB_OUTPUT
+          else
+            echo "No open PRs from ${BRANCH}."
+            echo "has_open_prs=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Delete branch
-        uses: breningham/delete-branch@v1.0.0
-        with:
-          branch_name: ${{ github.event.pull_request.head.ref }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        if: steps.check-open-prs.outputs.has_open_prs == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          HTTP_CODE=$(gh api \
+            -X DELETE \
+            "repos/${{ github.repository }}/git/refs/heads/${BRANCH}" \
+            --silent \
+            2>&1) && echo "Deleted branch ${BRANCH}" || {
+            echo "::notice::Branch ${BRANCH} could not be deleted (may already be gone). This is expected."
+          }

@@ -1,5 +1,13 @@
 name: 🏁 4 Build Project (Dual Platform)
 
+# Related workflows (release pipeline — execute in numbered order):
+#   - release-1-milestone.yml (creates milestone and branches)
+#   - release-2-pr-to-dev-closed.yml (creates PR from dev→main on release merge)
+#   - release-3-pr-to-main-closed.yml (creates GitHub Release on main merge)
+#   - release-4-build.yml (builds platform artifacts on release publish)
+#   - release-5-deploy-pages.yml (deploys documentation pages)
+#   - release-6-upload-yak.yml (uploads to Yak package manager)
+
 # Description: This workflow builds the project on both Windows and macOS runners
 # to ensure native compilation and accurate SHA-256 hash generation for each platform.
 # 
@@ -33,6 +41,7 @@ on:
     types: [published]
 
 permissions:
+  actions: write
   contents: write
   issues: write
   pages: write
@@ -48,6 +57,7 @@ jobs:
   # This ensures the public key is embedded in source files before cross-platform compilation
   prep:
     runs-on: windows-latest
+    timeout-minutes: 45
     outputs:
       version: ${{ steps.determine_version.outputs.VERSION }}
       is_release: ${{ steps.determine_version.outputs.IS_RELEASE }}
@@ -166,6 +176,7 @@ jobs:
   build-windows:
     needs: prep
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -214,6 +225,7 @@ jobs:
   build-macos:
     needs: prep
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -260,6 +272,7 @@ jobs:
   merge-and-release:
     needs: [prep, build-windows, build-macos]
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -398,8 +411,8 @@ jobs:
         Write-Host "Copied hash file to: $destPath"
         
         # Configure git
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "${{ vars.SMARTHOPPER_BOT_NAME }}"
+        git config user.email "${{ vars.SMARTHOPPER_BOT_EMAIL }}"
         
         # Fetch main branch
         git fetch origin main
@@ -426,15 +439,16 @@ jobs:
           Write-Host "Creating PR to merge hash file to main..."
           $prBody = "Auto-generated PR to add provider hash manifest for version $version (native builds on Windows and macOS).`n`n**Hash File:** \`hashes/$version.json\``n**Build:** #${{ github.run_number }}`n**Platforms:** net7.0-windows (Windows runner), net7.0 (macOS runner)"
           
-          gh pr create --base main --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody
+          gh pr create --base main --head $tempBranch --title "chore: add provider hash manifest for $version" --body $prBody 2>&1 | Out-Default
+          if ($LASTEXITCODE -ne 0) { Write-Host "gh pr create exited $LASTEXITCODE (PR may already exist)" }
           
+          # Capture PR number (works whether PR was just created or already existed)
           $prNumber = gh pr list --head $tempBranch --json number --jq '.[0].number'
-          
-          # Assign PR to milestone before auto-merge
-          if ($prNumber) {
-            # Output PR number for next step
-            echo "hash_pr_number=$prNumber" >> $env:GITHUB_OUTPUT
+          if (-not $prNumber) {
+            Write-Error "Failed to create or find hash PR"
+            exit 1
           }
+          echo "hash_pr_number=$prNumber" >> $env:GITHUB_OUTPUT
         }
       id: hash-pr
       env:
@@ -448,13 +462,23 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         version: ${{ needs.prep.outputs.version }}
 
+    - name: Dispatch required PR checks for hash PR
+      if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''
+      uses: ./.github/actions/dispatch-required-pr-checks
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        ref: hash-update/${{ needs.prep.outputs.version }}-${{ github.run_number }}
+        pr-number: ${{ steps.hash-pr.outputs.hash_pr_number }}
+        base-ref: main
+        pr-title: "chore: add provider hash manifest for ${{ needs.prep.outputs.version }}"
+
     - name: Auto-merge Hash PR
       if: needs.prep.outputs.is_release == 'true' && steps.hash-pr.outputs.hash_pr_number != ''
       shell: pwsh
       run: |
         $prNumber = "${{ steps.hash-pr.outputs.hash_pr_number }}"
         if ($prNumber) {
-          gh pr merge $prNumber --auto --squash
+          gh pr merge $prNumber --auto --rebase
         }
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -504,6 +528,7 @@ jobs:
     needs: [merge-and-release]
     if: github.event_name == 'release' && !github.event.release.prerelease
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       actions: write
       contents: read

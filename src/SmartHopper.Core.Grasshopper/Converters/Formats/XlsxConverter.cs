@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -18,7 +18,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -63,6 +62,14 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                         result.Metadata["author"] = coreProps.Creator;
                     }
 
+                    // Load shared strings once
+                    var sst = workbookPart.SharedStringTablePart?.SharedStringTable;
+                    var sharedStrings = sst?.Elements<SharedStringItem>()
+                        .Select(s => s.InnerText)
+                        .ToArray() ?? Array.Empty<string>();
+
+                    var stylesheet = workbookPart.WorkbookStylesPart?.Stylesheet;
+
                     // Process each sheet
                     var sheets = workbookPart.Workbook.Sheets?.Elements<Sheet>().ToList();
                     if (sheets == null || sheets.Count == 0)
@@ -81,7 +88,7 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                             markdown.AppendLine();
                         }
 
-                        ProcessWorksheet(worksheetPart, workbookPart, markdown, options);
+                        ProcessWorksheet(worksheetPart, sharedStrings, stylesheet, markdown, options);
                         markdown.AppendLine();
                     }
 
@@ -95,7 +102,12 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
             }).ConfigureAwait(false);
         }
 
-        private static void ProcessWorksheet(WorksheetPart worksheetPart, WorkbookPart workbookPart, StringBuilder markdown, FileConversionOptions options)
+        private static void ProcessWorksheet(
+            WorksheetPart worksheetPart,
+            string[] sharedStrings,
+            Stylesheet? stylesheet,
+            StringBuilder markdown,
+            FileConversionOptions options)
         {
             var sheetData = worksheetPart.Worksheet.Elements<SheetData>().FirstOrDefault();
             if (sheetData == null)
@@ -114,90 +126,145 @@ namespace SmartHopper.Core.Grasshopper.Converters.Formats
                 // Just output as plain text
                 foreach (var row in rows)
                 {
-                    var cells = row.Elements<Cell>().Select(c => GetCellValue(c, workbookPart)).ToList();
+                    var cells = row.Elements<Cell>().Select(c => OpenXmlMarkdownHelper.GetSpreadsheetCellValue(c, sharedStrings)).ToList();
                     markdown.AppendLine(string.Join("\t", cells));
                 }
 
                 return;
             }
 
-            // Get max column count
-            int maxCols = rows.Max(r => r.Elements<Cell>().Count());
-            if (maxCols == 0)
+            // Determine the maximum column index across all rows
+            var maxCol = 0;
+            foreach (var row in rows)
+            {
+                foreach (var cell in row.Elements<Cell>())
+                {
+                    var colIndex = OpenXmlMarkdownHelper.GetSpreadsheetColumnIndex(cell.CellReference?.Value);
+                    if (colIndex > maxCol)
+                    {
+                        maxCol = colIndex;
+                    }
+                }
+            }
+
+            if (maxCol < 0)
             {
                 return;
             }
 
-            // Header row (first row or frozen row)
-            var headerRow = rows[0];
-            var headerCells = GetRowCells(headerRow, workbookPart, maxCols);
+            var columnCount = maxCol + 1;
 
-            markdown.Append("| ").AppendJoin(" | ", headerCells.Select(EscapeMarkdown)).AppendLine(" |");
-            markdown.Append("|").AppendJoin("|", headerCells.Select(_ => "---")).AppendLine("|");
+            // Build rows as string arrays aligned by column index
+            var tableData = new List<string[]>();
+            var formatting = new List<(bool Bold, bool Italic)[]>();
+
+            foreach (var row in rows)
+            {
+                var rowValues = new string[columnCount];
+                var rowFormatting = new (bool Bold, bool Italic)[columnCount];
+
+                foreach (var cell in row.Elements<Cell>())
+                {
+                    var colIndex = OpenXmlMarkdownHelper.GetSpreadsheetColumnIndex(cell.CellReference?.Value);
+                    if (colIndex < 0 || colIndex >= columnCount)
+                    {
+                        continue;
+                    }
+
+                    rowValues[colIndex] = OpenXmlMarkdownHelper.GetSpreadsheetCellValue(cell, sharedStrings);
+
+                    var font = OpenXmlMarkdownHelper.GetCellFont(cell, stylesheet);
+                    if (font != null)
+                    {
+                        rowFormatting[colIndex] = (OpenXmlMarkdownHelper.IsBold(font), OpenXmlMarkdownHelper.IsItalic(font));
+                    }
+                }
+
+                tableData.Add(rowValues);
+                formatting.Add(rowFormatting);
+            }
+
+            // Determine uniform formatting per row
+            var rowUniformBold = new bool[tableData.Count];
+            var rowUniformItalic = new bool[tableData.Count];
+            for (int i = 0; i < tableData.Count; i++)
+            {
+                var rowFmt = formatting[i];
+                var nonEmptyCells = tableData[i]
+                    .Select((value, idx) => (value, idx))
+                    .Where(x => !string.IsNullOrWhiteSpace(x.value))
+                    .Select(x => rowFmt[x.idx])
+                    .ToList();
+
+                rowUniformBold[i] = nonEmptyCells.Count > 0 && nonEmptyCells.All(f => f.Bold);
+                rowUniformItalic[i] = nonEmptyCells.Count > 0 && nonEmptyCells.All(f => f.Italic);
+            }
+
+            // Header row
+            var headerRow = tableData[0];
+            var headerRowFormatting = formatting[0];
+            markdown.Append("| ");
+            for (int i = 0; i < columnCount; i++)
+            {
+                if (i > 0)
+                {
+                    markdown.Append(" | ");
+                }
+
+                markdown.Append(FormatCell(headerRow[i], headerRowFormatting[i], rowUniformBold[0], rowUniformItalic[0], options.PreserveFormatting));
+            }
+
+            markdown.AppendLine(" |");
+            markdown.Append("|");
+            for (int i = 0; i < columnCount; i++)
+            {
+                markdown.Append(" --- |");
+            }
+
+            markdown.AppendLine();
 
             // Data rows
-            for (int i = 1; i < rows.Count; i++)
+            for (int i = 1; i < tableData.Count; i++)
             {
-                var cells = GetRowCells(rows[i], workbookPart, maxCols);
-                markdown.Append("| ").AppendJoin(" | ", cells.Select(EscapeMarkdown)).AppendLine(" |");
+                var rowValues = tableData[i];
+                var rowFmt = formatting[i];
+                markdown.Append("| ");
+                for (int j = 0; j < columnCount; j++)
+                {
+                    if (j > 0)
+                    {
+                        markdown.Append(" | ");
+                    }
+
+                    markdown.Append(FormatCell(rowValues[j], rowFmt[j], rowUniformBold[i], rowUniformItalic[i], options.PreserveFormatting));
+                }
+
+                markdown.AppendLine(" |");
             }
         }
 
-        private static List<string> GetRowCells(Row row, WorkbookPart workbookPart, int maxCols)
+        private static string FormatCell(string? value, (bool Bold, bool Italic) formatting, bool rowUniformBold, bool rowUniformItalic, bool preserveFormatting)
         {
-            var cells = new List<string>();
-            var rowCells = row.Elements<Cell>().ToList();
+            var text = OpenXmlMarkdownHelper.EscapeMarkdownTableCell(value);
+            var isBold = preserveFormatting && formatting.Bold && !rowUniformBold;
+            var isItalic = preserveFormatting && formatting.Italic && !rowUniformItalic;
 
-            for (int i = 0; i < maxCols; i++)
+            if (isBold && isItalic)
             {
-                if (i < rowCells.Count)
-                {
-                    cells.Add(GetCellValue(rowCells[i], workbookPart));
-                }
-                else
-                {
-                    cells.Add(string.Empty);
-                }
+                return $"***{text}***";
             }
 
-            return cells;
-        }
-
-        private static string GetCellValue(Cell cell, WorkbookPart workbookPart)
-        {
-            if (cell.CellValue == null)
+            if (isBold)
             {
-                return string.Empty;
+                return $"**{text}**";
             }
 
-            string value = cell.CellValue.InnerText;
-            if (string.IsNullOrEmpty(value))
+            if (isItalic)
             {
-                return string.Empty;
+                return $"*{text}*";
             }
 
-            // If it's a shared string, look it up
-            if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
-            {
-                var stringTable = workbookPart.SharedStringTablePart?.SharedStringTable;
-                if (stringTable != null && int.TryParse(value, out int index))
-                {
-                    var sharedString = stringTable.Elements<SharedStringItem>().ElementAtOrDefault(index);
-                    return sharedString?.InnerText ?? value;
-                }
-            }
-
-            return value;
-        }
-
-        private static string EscapeMarkdown(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-            {
-                return string.Empty;
-            }
-
-            return text.Replace("|", "\\|").Replace("\n", " ").Replace("\r", " ");
+            return text;
         }
     }
 }

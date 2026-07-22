@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   SmartHopper - AI-powered Grasshopper Plugin
   Copyright (C) 2024-2026 Marc Roca Musach
 
@@ -36,7 +36,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.24.25281.15001" ExcludeAssets="runtime">
+    <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="HtmlAgilityPack" Version="1.12.1" />
@@ -52,21 +52,6 @@
     <PackageReference Include="JsonSchema.Net" Version="7.2.2" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
-    <Reference Include="RhinoCodePlatform.GH">
-      <HintPath>$(SolutionDir)\lib\Rhino\8.24\RhinoCodePlatform.GH.dll</HintPath>
-      <Private>false</Private>
-      <CopyLocal>false</CopyLocal>
-    </Reference>
-    <Reference Include="RhinoCodePlatform.GH.Context">
-      <HintPath>$(SolutionDir)\lib\Rhino\8.24\RhinoCodePlatform.GH.Context.dll</HintPath>
-      <Private>false</Private>
-      <CopyLocal>false</CopyLocal>
-    </Reference>
-    <Reference Include="RhinoCodePluginGH">
-      <HintPath>$(SolutionDir)\lib\Rhino\8.24\RhinoCodePluginGH.gha</HintPath>
-      <Private>false</Private>
-      <CopyLocal>false</CopyLocal>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
@@ -75,8 +60,10 @@
       <Project>{D4C6D3D5-2B3A-4B6C-8C3D-57B2D0D3C1E1}</Project>
       <Name>SmartHopper.Core</Name>
     </ProjectReference>
-    <PackageReference Include="GhJSON.Core" Version="1.0.0" />
-    <PackageReference Include="GhJSON.Grasshopper" Version="1.0.0" />
+    <ProjectReference Include="..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj" Condition="Exists('..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj')" />
+    <ProjectReference Include="..\..\..\ghjson-dotnet\src\GhJSON.Grasshopper\GhJSON.Grasshopper.csproj" Condition="Exists('..\..\..\ghjson-dotnet\src\GhJSON.Grasshopper\GhJSON.Grasshopper.csproj')" />
+    <PackageReference Include="GhJSON.Core" Version="1.1.1" Condition="!Exists('..\..\..\ghjson-dotnet\src\GhJSON.Core\GhJSON.Core.csproj')" />
+    <PackageReference Include="GhJSON.Grasshopper" Version="1.1.1" Condition="!Exists('..\..\..\ghjson-dotnet\src\GhJSON.Grasshopper\GhJSON.Grasshopper.csproj')" />
   </ItemGroup>
 
   <!-- For Windows only builds -->
@@ -93,6 +80,13 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" ExcludeAssets="all" GeneratePathProperty="true" />
     <Reference Include="$(PkgMicrosoft_NETFramework_ReferenceAssemblies_net48)\build\.NETFramework\v4.8\System.Windows.Forms.dll" Private="False" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.11" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <!-- Embed GhJSON specification markdown documents for the smarthopper_ghjson_reference tool.
+       The committed snapshot under Resources/GhJsonSpec/v1.0 is authoritative at build time.
+       Run tools/Sync-GhJsonSpecDocs.ps1 to refresh it from the published ghjson-spec repository. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\GhJsonSpec\**\*.*" />
   </ItemGroup>
 
   <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">

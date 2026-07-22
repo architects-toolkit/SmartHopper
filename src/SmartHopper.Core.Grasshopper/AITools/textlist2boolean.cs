@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -112,7 +112,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string modelName = toolCall.Model;
                 string endpoint = this.toolName;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? question = args["question"]?.ToString();
 
                 // Parse fallback as boolean using centralized helper

@@ -1,0 +1,222 @@
+name: ✅ Check Provider Models
+
+# Related workflows (provider model management):
+#   - check-provider-models.yml (validates model definitions in PRs)
+#   - chore-update-provider-models.yml (fetches and updates model lists)
+#   - chore-update-model-verification-template.yml (updates issue template)
+#   - model-verification.yml (community model verification process)
+
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate.
+        required: false
+        type: string
+      base_ref:
+        description: Pull request base branch.
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  paths-filter:
+    name: Paths Filter
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      should_run: ${{ steps.filter.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        shell: bash
+        env:
+          INPUT_BASE_REF: ${{ github.event.inputs.base_ref }}
+        run: |
+          set -euo pipefail
+
+          # Determine the short base branch name. For merge_group, GITHUB_REF_NAME is
+          # gh-readonly-queue/{base}/{head}, so derive the base branch from it.
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            base_ref_name="${GITHUB_REF_NAME#gh-readonly-queue/}"
+            base_ref_name="${base_ref_name%/*}"
+          elif [ -n "${INPUT_BASE_REF:-}" ]; then
+            base_ref_name="$INPUT_BASE_REF"
+          elif [ -n "${GITHUB_BASE_REF:-}" ]; then
+            base_ref_name="$GITHUB_BASE_REF"
+          else
+            base_ref_name="main"
+          fi
+          base_ref_name="${base_ref_name#refs/heads/}"
+
+          git fetch origin "$base_ref_name" --depth=1
+
+          should_run=false
+          mapfile -t changed_files < <(git diff --name-only "origin/$base_ref_name"...HEAD)
+
+          for file in "${changed_files[@]}"; do
+            case "$file" in
+              tools/Update-ProviderModels.ps1)
+                should_run=true
+                break
+                ;;
+              src/SmartHopper.Infrastructure/AIModels/AICapability.cs|src/SmartHopper.Providers.*/*ProviderModels.cs)
+                if python3 - "$base_ref_name" "$file" <<'PY'
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          base_ref, path = sys.argv[1], sys.argv[2]
+          bom = b"\xef\xbb\xbf"
+
+          try:
+              base = subprocess.check_output(["git", "show", f"origin/{base_ref}:{path}"])
+          except subprocess.CalledProcessError:
+              sys.exit(1)
+
+          head = Path(path).read_bytes()
+          if base.startswith(bom):
+              base = base[len(bom):]
+          if head.startswith(bom):
+              head = head[len(bom):]
+
+          sys.exit(0 if base == head else 1)
+          PY
+                then
+                  echo "Ignoring BOM-only provider model change: $file"
+                else
+                  should_run=true
+                  break
+                fi
+                ;;
+            esac
+          done
+
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+
+  validate-provider-models:
+    name: Validate provider model defaults
+    needs: paths-filter
+    if: needs.paths-filter.outputs.should_run == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        provider:
+          - OpenAI
+          - MistralAI
+          - Anthropic
+          - OpenRouter
+          - DeepSeek
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate ${{ matrix.provider }} model declarations
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $provider = '${{ matrix.provider }}'
+
+          $rawOutput = .\tools\Update-ProviderModels.ps1 `
+            -Provider $provider `
+            -ValidateOnly
+          $output = @($rawOutput -split "`r?`n")
+
+          $output | ForEach-Object { Write-Host $_ }
+
+          $jsonStartIndex = -1
+          for ($i = 0; $i -lt $output.Count; $i++) {
+            if ($output[$i].TrimStart().StartsWith('{')) {
+              $jsonStartIndex = $i
+              break
+            }
+          }
+
+          if ($jsonStartIndex -lt 0) {
+            Write-Output "::error title=$provider provider model validation::Validation script did not emit a JSON report."
+            exit 1
+          }
+
+          $reportJson = ($output[$jsonStartIndex..($output.Count - 1)] -join "`n")
+          $report = $reportJson | ConvertFrom-Json
+
+          Write-Output "## $provider provider model validation" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+
+          if ($report.validation.success) {
+            Write-Output "✅ Validation passed." >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+
+          Write-Output "❌ Validation failed with $($report.validation.errors.Count) error(s)." >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+
+          if ($report.validation.missingDefaultCapabilities.Count -gt 0) {
+            Write-Output "### Missing default capabilities" >> $env:GITHUB_STEP_SUMMARY
+            foreach ($capability in $report.validation.missingDefaultCapabilities) {
+              Write-Output "- ``AICapability.$capability``" >> $env:GITHUB_STEP_SUMMARY
+            }
+            Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          }
+
+          if ($report.validation.pendingCapabilityModels.Count -gt 0) {
+            Write-Output "### Pending capability definitions" >> $env:GITHUB_STEP_SUMMARY
+            foreach ($model in $report.validation.pendingCapabilityModels) {
+              Write-Output "- ``$model``" >> $env:GITHUB_STEP_SUMMARY
+            }
+            Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          }
+
+          if ($report.validation.realtimeModels.Count -gt 0) {
+            Write-Output "### Realtime models" >> $env:GITHUB_STEP_SUMMARY
+            foreach ($model in $report.validation.realtimeModels) {
+              Write-Output "- ``$model``" >> $env:GITHUB_STEP_SUMMARY
+            }
+            Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          }
+
+          Write-Output "### Validation errors" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($errorMessage in $report.validation.errors) {
+            $escaped = $errorMessage.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A').Replace(':', '%3A').Replace(',', '%2C')
+            Write-Output "::error title=$provider provider model validation::$escaped"
+            Write-Output "- $errorMessage" >> $env:GITHUB_STEP_SUMMARY
+          }
+
+          exit 1
+
+  required-check:
+    name: ✅ Check Provider Models
+    needs: [paths-filter, validate-provider-models]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Verify required workflow jobs
+        shell: bash
+        run: |
+          paths_filter="${{ needs.paths-filter.result }}"
+          validate_provider_models="${{ needs.validate-provider-models.result }}"
+
+          if [[ "$paths_filter" != "success" ]]; then
+            echo "::error::Paths filter finished with $paths_filter"
+            exit 1
+          fi
+
+          if [[ "$validate_provider_models" != "success" && "$validate_provider_models" != "skipped" ]]; then
+            echo "::error::Provider model validation finished with $validate_provider_models"
+            exit 1
+          fi

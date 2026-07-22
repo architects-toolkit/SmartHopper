@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -344,6 +344,7 @@ namespace SmartHopper.Components.Script
                 this.parent.SetPersistentOutput("GhJSON", this.resultGhJson, DA);
                 this.parent.SetPersistentOutput("Summary", this.resultSummary, DA);
                 this.parent.SetPersistentOutput("Information", this.resultInfo, DA);
+                this.parent.SetMetricsOutput(DA);
 
                 message = this.isEditMode
                     ? $"Edited {this.iterationCount} script(s)"

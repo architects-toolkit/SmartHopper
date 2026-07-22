@@ -1,5 +1,13 @@
 name: 🏁 2 PR Release to Main from Dev
 
+# Related workflows (release pipeline — execute in numbered order):
+#   - release-1-milestone.yml (creates milestone and branches)
+#   - release-2-pr-to-dev-closed.yml (creates PR from dev→main on release merge)
+#   - release-3-pr-to-main-closed.yml (creates GitHub Release on main merge)
+#   - release-4-build.yml (builds platform artifacts on release publish)
+#   - release-5-deploy-pages.yml (deploys documentation pages)
+#   - release-6-upload-yak.yml (uploads to Yak package manager)
+
 # Description: This workflow automatically creates a PR to merge a release branch into main (or main-X.Y.Z for stabilization paths).
 # When the release/* branch is merged to dev or dev-X.Y.Z.
 #
@@ -26,6 +34,12 @@ on:
         required: true
         type: string
 
+permissions:
+  actions: write
+  contents: write
+  issues: read
+  pull-requests: write
+
 concurrency:
   group: release-pr-dev-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
@@ -34,7 +48,9 @@ jobs:
   create-pr-dev-to-main:
     if: ${{ ( github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')) || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
+      actions: write
       contents: write
       issues: read
       pull-requests: write
@@ -42,6 +58,10 @@ jobs:
       - name: Create PR (on PR closed)
         if: ${{ github.event_name == 'pull_request' }}
         id: create-pr-event
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_PR_TITLE: ${{ github.event.pull_request.head.ref }}
+          SOURCE_PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           DEV_BRANCH="${{ github.event.pull_request.base.ref }}"
           # If merging into dev-X.Y.Z, target main-X.Y.Z; otherwise target main
@@ -52,25 +72,37 @@ jobs:
             TARGET_BRANCH="main"
           fi
           MAIN_HEAD="$DEV_BRANCH"
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
           gh pr create \
             --repo ${{ github.repository }} \
             --base "$TARGET_BRANCH" \
             --head "$MAIN_HEAD" \
-            --title "${{ github.event.pull_request.head.ref }}" \
-            --body "${{ github.event.pull_request.body }}"
+            --title "$SOURCE_PR_TITLE" \
+            --body "$SOURCE_PR_BODY" 2>&1 || true
           
-          # Capture PR number
-          PR_NUMBER=$(gh pr list --base "$TARGET_BRANCH" --head "$MAIN_HEAD" --json number --jq '.[0].number')
+          # Capture PR number (works whether PR was just created or already existed)
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --base "$TARGET_BRANCH" --head "$MAIN_HEAD" --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Failed to create or find PR"
+            exit 1
+          fi
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Assign PR to Milestone (on PR closed)
         if: ${{ github.event_name == 'pull_request' && steps.create-pr-event.outputs.pr_number != '' }}
         uses: ./.github/actions/milestone/assign-pr
         with:
           pr-number: ${{ steps.create-pr-event.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks (on PR closed)
+        if: ${{ github.event_name == 'pull_request' && steps.create-pr-event.outputs.pr_number != '' }}
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.pull_request.base.ref }}
+          pr-number: ${{ steps.create-pr-event.outputs.pr_number }}
+          base-ref: ${{ steps.create-pr-event.outputs.target_branch }}
+          pr-title: ${{ github.event.pull_request.head.ref }}
 
       - name: Create PR (manual dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -81,10 +113,14 @@ jobs:
             --base main \
             --head dev \
             --title "${{ github.event.inputs['pr-title'] }}" \
-            --body "${{ github.event.inputs['pr-body'] }}"
+            --body "${{ github.event.inputs['pr-body'] }}" 2>&1 || true
           
-          # Capture PR number (manual dispatch always targets main)
-          PR_NUMBER=$(gh pr list --base main --head dev --json number --jq '.[0].number')
+          # Capture PR number (works whether PR was just created or already existed)
+          PR_NUMBER=$(gh pr list --repo ${{ github.repository }} --base main --head dev --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::Failed to create or find PR"
+            exit 1
+          fi
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -95,3 +131,13 @@ jobs:
         with:
           pr-number: ${{ steps.create-pr-dispatch.outputs.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch required PR checks (manual dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.create-pr-dispatch.outputs.pr_number != '' }}
+        uses: ./.github/actions/dispatch-required-pr-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: dev
+          pr-number: ${{ steps.create-pr-dispatch.outputs.pr_number }}
+          base-ref: main
+          pr-title: ${{ github.event.inputs['pr-title'] }}

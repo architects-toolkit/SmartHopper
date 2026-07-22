@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -75,7 +75,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     },
                     ""required"": [""filePath""]
                 }",
-                execute: this.RhinoRead3dmToolAsync);
+                execute: this.RhinoRead3dmToolAsync,
+                mutatesCanvas: false,
+                enabled: false,
+                tags: new[] { "not-tested", "rhino", "3dm", "read-only" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""summary"": { ""type"": ""string"" }, ""layers"": { ""type"": ""array"" }, ""objects"": { ""type"": ""array"" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true));
         }
 
         /// <summary>
@@ -91,7 +96,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
             try
             {
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 var filePath = args["filePath"]?.ToString();
                 var includeDetails = args["includeObjectDetails"]?.ToObject<bool>() ?? false;
                 var maxObjects = args["maxObjects"]?.ToObject<int>() ?? 100;

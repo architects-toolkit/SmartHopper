@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -261,12 +261,21 @@ namespace SmartHopper.ProviderSdk.AICall.Core.Requests
         /// <summary>
         /// Initializes the call request.
         /// </summary>
-        public virtual void Initialize(string provider, string model, AIBody body, string endpoint, AICapability capability = AICapability.TextOutput)
+        public virtual void Initialize(string provider, string model, AIBody body, string endpoint, AICapability capability = AICapability.TextOutput, string? toolFilter = null)
         {
+            AIBody finalBody = body ?? AIBody.Empty;
+
+            if (!string.IsNullOrEmpty(toolFilter))
+            {
+                var builder = AIBodyBuilder.FromImmutable(finalBody);
+                builder.WithToolFilter(toolFilter);
+                finalBody = builder.Build();
+            }
+
             this.Provider = provider;
             this.Model = model;
             this.Endpoint = endpoint ?? string.Empty;
-            this.Body = body ?? AIBody.Empty;
+            this.Body = finalBody;
             this.Capability = capability;
 
             // Auto-initialize Parameters if not already set

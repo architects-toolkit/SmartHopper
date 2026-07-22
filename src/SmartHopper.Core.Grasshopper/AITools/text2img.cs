@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SmartHopper - AI-powered Grasshopper Plugin
  * Copyright (C) 2024-2026 Marc Roca Musach
  *
@@ -54,7 +54,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
         {
             yield return new AITool(
                 name: this.toolName,
-                description: "Generates an image based on a text prompt using AI image generation models",
+                description: "Generates an image based on a text prompt using AI image generation models. Example: text2img({ prompt: 'A minimalist timber pavilion in a forest', size: '1024x1024' }).",
                 category: "ImageProcessing",
                 parametersSchema: @"{
                     ""type"": ""object"",
@@ -82,7 +82,11 @@ namespace SmartHopper.Core.Grasshopper.AITools
                     ""required"": [""prompt""]
                 }",
                 execute: this.GenerateImageToolWrapper,
-                requiredCapabilities: this.toolCapabilityRequirements);
+                requiredCapabilities: this.toolCapabilityRequirements,
+                mutatesCanvas: false,
+                tags: new[] { "image", "ai-generation", "read-only", "external" },
+                outputSchema: @"{ ""type"": ""object"", ""properties"": { ""image"": { ""type"": ""string"", ""description"": ""Base64-encoded generated image or URL."" } } }",
+                annotations: new AIToolAnnotations(readOnlyHint: true, openWorldHint: true));
         }
 
         /// <summary>
@@ -106,7 +110,7 @@ namespace SmartHopper.Core.Grasshopper.AITools
                 string providerName = toolCall.Provider;
                 string modelName = toolCall.Model;
                 AIInteractionToolCall toolInfo = toolCall.GetToolCall();
-                var args = toolInfo.Arguments ?? new JObject();
+                var args = toolInfo.GetArgumentsOrEmpty();
                 string? prompt = args["prompt"]?.ToString();
                 string size = args["size"]?.ToString() ?? "1024x1024";
                 string quality = args["quality"]?.ToString() ?? "standard";
