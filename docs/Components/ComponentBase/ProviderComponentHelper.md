@@ -32,15 +32,60 @@ public static class ProviderComponentHelper
 
 - **`"Default"` is a portable sentinel.** Stored verbatim in `.gh` files; resolved lazily through `ProviderManager.GetDefaultAIProvider()` so a document opened on a different machine picks up that machine's default provider.
 - **Single radio group.** `AppendProviderMenuItems` builds a *Select AI Provider* submenu with a `"Default"` entry first, then every registered provider. Each click unchecks siblings and invokes the callback so the host base can store the value and `ExpireSolution`.
-- **Tolerant deserialization.** `ReadProvider` returns `true` even when the stored provider name no longer exists in the registry — it silently falls back to `"Default"`. Logged via `Debug.WriteLine` for diagnostics.
+- **Tolerant deserialization.** `ReadProvider` returns `true` even when the stored provider name no longer exists in the registry â€” it silently falls back to `"Default"`. Logged via `Debug.WriteLine` for diagnostics.
 - **Type-safety on resolution.** `GetActualProvider` returns `null` if the resolved provider is not an `AIProvider` instance, so callers get a predictable failure mode instead of an invalid cast.
 
 ## Used by
 
-- [AIProviderComponentBase](./AIProviderComponentBase.md) — calls `AppendProviderMenuItems` from `AppendAdditionalComponentMenuItems`, `GetActualProviderName` / `GetActualProvider` from the `IProviderComponent` accessors, and `WriteProvider` / `ReadProvider` from `Write` / `Read`.
-- [ProviderComponentBase](./ProviderComponentBase.md) — same call sites; additionally fires its `OnProviderChanged()` hook from inside the menu callback.
+- [AIProviderComponentBase](./AIProviderComponentBase.md) â€” calls `AppendProviderMenuItems` from `AppendAdditionalComponentMenuItems`, `GetActualProviderName` / `GetActualProvider` from the `IProviderComponent` accessors, and `WriteProvider` / `ReadProvider` from `Write` / `Read`.
+- [ProviderComponentBase](./ProviderComponentBase.md) â€” same call sites; additionally fires its `OnProviderChanged()` hook from inside the menu callback.
 
 ## Related
 
-- `IProviderComponent` — the interface both bases implement.
-- `AIProviderComponentAttributes` — renders the provider badge using the resolved name.
+- `IProviderComponent` â€” the interface both bases implement.
+- `AIProviderComponentAttributes` â€” renders the provider badge using the resolved name.
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about ProviderComponentHelper.
+
+
+## End-User Guide
+
+End-user guidance for ProviderComponentHelper.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for ProviderComponentHelper.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

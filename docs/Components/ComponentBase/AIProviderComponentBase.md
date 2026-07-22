@@ -16,10 +16,10 @@ Let the user pick an AI provider per component (or fall back to the system defau
 
 ## Key members
 
-- `string SelectedProviderName` — the literal stored value (may be `"Default"`).
-- `string GetActualAIProviderName()` — resolves `"Default"` through `ProviderManager`.
-- `AIProvider GetActualAIProvider()` — the concrete provider instance, or `null`.
-- `bool HasProviderChanged()` — true exactly once after the user changed the selection (clears the previous-selection cache as a side effect).
+- `string SelectedProviderName` â€” the literal stored value (may be `"Default"`).
+- `string GetActualAIProviderName()` â€” resolves `"Default"` through `ProviderManager`.
+- `AIProvider GetActualAIProvider()` â€” the concrete provider instance, or `null`.
+- `bool HasProviderChanged()` â€” true exactly once after the user changed the selection (clears the previous-selection cache as a side effect).
 - `void SetSelectedProviderName(string name)`.
 
 ## Persistence
@@ -36,3 +36,48 @@ This base class is the foundation for any component that needs an AI provider se
 - [ProviderComponentBase](./ProviderComponentBase.md)
 - [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md)
 - `IProviderComponent`, `ProviderComponentHelper`, `AIProviderComponentAttributes`
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about AIProviderComponentBase.
+
+
+## End-User Guide
+
+End-user guidance for AIProviderComponentBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for AIProviderComponentBase.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

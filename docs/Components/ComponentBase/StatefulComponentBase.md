@@ -10,7 +10,7 @@ Make long-running components behave predictably across button/toggle Run inputs,
 
 ## Design criteria
 
-- **Centralized state machine.** All transitions go through `ComponentStateManager.RequestTransition`. Per-state handlers (`OnStateCompleted`, `OnStateProcessing`, …) live on the base.
+- **Centralized state machine.** All transitions go through `ComponentStateManager.RequestTransition`. Per-state handlers (`OnStateCompleted`, `OnStateProcessing`, â€¦) live on the base.
 - **Hash-based input change detection.** Stable, deterministic hashes for each input parameter (FNV-1a on string form, type-aware for goo) plus per-input branch counts. Computed on every solve, committed by `OnWorkerCompleted`, restored from `.gh` files.
 - **Debounce only when needed.** Bursty input changes start a debounce timer (minimum 1000 ms, configurable via `SmartHopperSettings.DebounceTime`). A direct Run = true pulse on a `RunOnlyOnInputChanges = false` component skips debounce and goes straight to `Processing`.
 - **Persistence is GUID-keyed (V2).** Outputs and hashes are written through `GHPersistenceService.WriteOutputsV2` so renaming output parameters does not corrupt restoration. The legacy `Value_*` / `Type_*` pre-V2 reader and the `PersistenceConstants.EnableLegacyRestore` flag were removed in the ComponentBase deep refactor; pre-V2 alpha files lose persistent outputs on first open.
@@ -24,25 +24,25 @@ Make long-running components behave predictably across button/toggle Run inputs,
 
 ## Key members
 
-- `public bool RunOnlyOnInputChanges { get; set; } = true` — when `false`, any Run = true edge transitions to `Processing` even if no input data changed (button-pulse semantics).
+- `public bool RunOnlyOnInputChanges { get; set; } = true` â€” when `false`, any Run = true edge transitions to `Processing` even if no input data changed (button-pulse semantics).
 - `public ComponentState CurrentState => StateManager.CurrentState`.
-- `protected virtual ProcessingOptions ComponentProcessingOptions` — defaults to `ItemToItem`, used by `RunProcessingAsync`.
-- `protected virtual bool AutoRestorePersistentOutputs => true` — set to `false` if a derived class wants full control of output replay.
-- `protected void SetPersistentOutput(string paramName, object value, IGH_DataAccess DA)` — stores the value in `persistentOutputs` and writes it through `DA` if provided.
+- `protected virtual ProcessingOptions ComponentProcessingOptions` â€” defaults to `ItemToItem`, used by `RunProcessingAsync`.
+- `protected virtual bool AutoRestorePersistentOutputs => true` â€” set to `false` if a derived class wants full control of output replay.
+- `protected void SetPersistentOutput(string paramName, object value, IGH_DataAccess DA)` â€” stores the value in `persistentOutputs` and writes it through `DA` if provided.
 - `protected T GetPersistentOutput<T>(string paramName, T defaultValue = default)`.
-- `protected async Task<...> RunProcessingAsync<T,U>(...)` — wraps `DataTreeProcessor.RunAsync`, wires progress and surfaces tree-processing messages.
-- `public override void RequestTaskCancellation()` — also forces `Cancelled` state.
+- `protected async Task<...> RunProcessingAsync<T,U>(...)` â€” wraps `DataTreeProcessor.RunAsync`, wires progress and surfaces tree-processing messages.
+- `public override void RequestTaskCancellation()` â€” also forces `Cancelled` state.
 
 ## State transition logic
 
 | Current state | Trigger | New state |
 | --- | --- | --- |
-| Completed / Waiting / Cancelled / Error | Only `Run?` changed → false | stay |
-| Completed / Waiting / Cancelled / Error | Only `Run?` changed → true, `RunOnlyOnInputChanges = true` | `Waiting` |
-| Completed / Waiting / Cancelled / Error | Only `Run?` changed → true, `RunOnlyOnInputChanges = false` | `Processing` |
-| Completed / Waiting / Cancelled / Error | Other input changed, `Run = false` | debounce → `NeedsRun` |
-| Completed / Waiting / Cancelled / Error | Other input changed, `Run = true` | debounce → `Processing` |
-| Any | `AIProvider` changed | cancel debounce → `NeedsRun` |
+| Completed / Waiting / Cancelled / Error | Only `Run?` changed â†’ false | stay |
+| Completed / Waiting / Cancelled / Error | Only `Run?` changed â†’ true, `RunOnlyOnInputChanges = true` | `Waiting` |
+| Completed / Waiting / Cancelled / Error | Only `Run?` changed â†’ true, `RunOnlyOnInputChanges = false` | `Processing` |
+| Completed / Waiting / Cancelled / Error | Other input changed, `Run = false` | debounce â†’ `NeedsRun` |
+| Completed / Waiting / Cancelled / Error | Other input changed, `Run = true` | debounce â†’ `Processing` |
+| Any | `AIProvider` changed | cancel debounce â†’ `NeedsRun` |
 | `NeedsRun` | `Run = true` | `Processing` |
 | `Processing` | Worker completed | `Completed` |
 | `Processing` | Tasks cancelled | `Cancelled` |
@@ -51,11 +51,11 @@ Make long-running components behave predictably across button/toggle Run inputs,
 
 ## Lifecycle hooks
 
-- `BeforeSolveInstance` — guards `Processing` from being reset.
-- `SolveInstance` — reads `Run?`, recomputes hashes, dispatches per-state, runs change detection.
-- `OnWorkerCompleted` — commits hashes, cancels debounce, transitions to `Completed`.
-- `OnTasksCancelDetected` — transitions `Processing → Cancelled` (override of the `AsyncComponentBase` hook).
-- `Write` / `Read` — persist hashes, branch counts and outputs via `GHPersistenceService`.
+- `BeforeSolveInstance` â€” guards `Processing` from being reset.
+- `SolveInstance` â€” reads `Run?`, recomputes hashes, dispatches per-state, runs change detection.
+- `OnWorkerCompleted` â€” commits hashes, cancels debounce, transitions to `Completed`.
+- `OnTasksCancelDetected` â€” transitions `Processing â†’ Cancelled` (override of the `AsyncComponentBase` hook).
+- `Write` / `Read` â€” persist hashes, branch counts and outputs via `GHPersistenceService`.
 
 ## Debug menu (DEBUG builds only)
 
@@ -71,3 +71,43 @@ A *Debug* submenu exposes "Force Completed", "Force NeedsRun" and "Reset StateMa
 - [AsyncComponentBase](./AsyncComponentBase.md), [AsyncWorkerBase](./AsyncWorkerBase.md)
 - [ComponentStateManager](./ComponentStateManager.md), [ComponentState](./StateManager.md), [ProgressInfo](./ProgressInfo.md)
 - [Data tree processing schema](./DataTreeProcessingSchema.md)
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about StatefulComponentBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for StatefulComponentBase.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

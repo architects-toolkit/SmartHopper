@@ -46,8 +46,8 @@ The `img2text` tool sends an image to a vision-capable AI model and returns a te
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `imageUrl` | string | One of `imageUrl`/`imageBase64` | — | Public HTTP(S) URL of the image to analyze |
-| `imageBase64` | string | One of `imageUrl`/`imageBase64` | — | Base64-encoded image data (no data URI prefix) |
+| `imageUrl` | string | One of `imageUrl`/`imageBase64` | â€” | Public HTTP(S) URL of the image to analyze |
+| `imageBase64` | string | One of `imageUrl`/`imageBase64` | â€” | Base64-encoded image data (no data URI prefix) |
 | `mimeType` | string | No | `image/png` | MIME type when using `imageBase64` (e.g. `image/jpeg`) |
 | `prompt` | string | No | `"Describe this image in detail..."` | Custom instruction for the AI |
 
@@ -119,6 +119,10 @@ var toolRequest = new AIToolRequest("img2text")
 
 **Output**: The AI-generated description string.
 
-- [ToolResultEnvelope.md](./ToolResultEnvelope.md) — envelope metadata convention
-- `file2md` `describeImages` parameter calls `img_to_text` automatically for each extracted image — see `describeImages`, `imageMode`, and `imageDescriptionPrompt` parameters on the `file2md` tool
-- `AIImgToTextComponent` — standalone Grasshopper component that wraps this tool for direct canvas use
+- [ToolResultEnvelope.md](./ToolResultEnvelope.md) â€” envelope metadata convention
+- `file2md` `describeImages` parameter calls `img_to_text` automatically for each extracted image â€” see `describeImages`, `imageMode`, and `imageDescriptionPrompt` parameters on the `file2md` tool
+- `AIImgToTextComponent` â€” standalone Grasshopper component that wraps this tool for direct canvas use
+
+## Architecture & Design
+
+Architecture and design notes for img2text.

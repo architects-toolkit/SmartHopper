@@ -133,3 +133,25 @@ The envelope pattern is a classic non-breaking extension strategy:
 - **Content typing**: `ToolResultContentType` allows generic consumers to branch behavior without inspecting arbitrary payload shapes.
 - **Traceability**: Every envelope captures `provider`, `model`, `toolCallId`, and `createdAt`, making it easy to audit and debug which AI invocation produced a given result.
 - **Additive evolution**: New fields can be added to the envelope schema without invalidating existing consumers, because the envelope is optional and self-describing.
+
+## Why Read This?
+
+This document provides details about ToolResultEnvelope.
+
+
+## End-User Guide
+
+End-user guidance for ToolResultEnvelope.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r

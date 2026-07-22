@@ -30,7 +30,7 @@ Get your API key from [Google AI Studio](https://ai.google.dev/):
 - **Model**: Select from available Gemini models (default: `gemini-2.5-flash`)
 - **Enable Streaming**: Allow streaming responses (default: enabled)
 - **Max Tokens**: Maximum output tokens (default: 2000)
-- **Temperature**: Controls randomness (0.0–2.0, default: 1.0)
+- **Temperature**: Controls randomness (0.0â€“2.0, default: 1.0)
 
 ### Extra Parameters
 
@@ -153,3 +153,40 @@ Common errors:
 - [Gemini 3 Developer Guide](https://ai.google.dev/gemini-api/docs/gemini-3)
 - [Image Generation Guide](https://ai.google.dev/gemini-api/docs/image-generation)
 - [Batch Processing Guide](https://ai.google.dev/gemini-api/docs/batch-processing)
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about Gemini.
+
+
+## End-User Guide
+
+End-user guidance for Gemini.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for Gemini.
