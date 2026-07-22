@@ -37,7 +37,7 @@
 
   <ItemGroup>
     <PackageReference Include="ExcelDataReader" Version="3.7.0" />
-    <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime">
+    <PackageReference Include="Grasshopper" Version="8.24.25281.15001" ExcludeAssets="runtime">
       <Source>https://mcneel.jfrog.io/artifactory/api/nuget/rhino-packages</Source>
     </PackageReference>
     <PackageReference Include="HtmlAgilityPack" Version="1.12.1" />
