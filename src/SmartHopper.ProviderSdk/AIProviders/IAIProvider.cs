@@ -53,6 +53,12 @@ namespace SmartHopper.ProviderSdk.AIProviders
         bool IsEnabled { get; }
 
         /// <summary>
+        /// Gets a value indicating whether this provider is properly configured for use in the current environment.
+        /// This is computed from the actual persisted settings (e.g., API key and endpoint URL) every time it is accessed.
+        /// </summary>
+        bool IsConfigured { get; }
+
+        /// <summary>
         /// Gets the models manager for this provider.
         /// Provides access to model-related operations including capability management.
         /// </summary>

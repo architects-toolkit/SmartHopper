@@ -95,6 +95,12 @@ namespace SmartHopper.Providers.OpenAI
         public override bool IsEnabled => true;
 
         /// <summary>
+        /// Gets a value indicating whether this provider is configured in the current environment.
+        /// OpenAI requires a non-empty API key.
+        /// </summary>
+        public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
+
+        /// <summary>
         /// Helper to retrieve the configured API key for this provider.
         /// Exposed to nested streaming adapter to avoid protected access issues.
         /// </summary>
@@ -831,15 +837,18 @@ namespace SmartHopper.Providers.OpenAI
                 ["max_output_tokens"] = maxTokens,
             };
 
-            // Reasoning configuration for reasoning models.
-            // Always request reasoning summaries so users can see the model's reasoning process.
-            var reasoningObj = new JObject
+            // Reasoning configuration is only supported by o-series and GPT-5 models on the Responses API.
+            // Sending "reasoning" to other models (e.g. gpt-4o-mini) produces an unsupported_parameter error.
+            if (OSeriesModelRegex().IsMatch(request.Model) || Gpt5ModelRegex().IsMatch(request.Model))
             {
-                ["effort"] = reasoningEffort,
-                ["summary"] = "auto",
-            };
+                var reasoningObj = new JObject
+                {
+                    ["effort"] = reasoningEffort,
+                    ["summary"] = "auto",
+                };
 
-            requestBody["reasoning"] = reasoningObj;
+                requestBody["reasoning"] = reasoningObj;
+            }
 
             // Apply optional parameters from extras
             if (p?.Extras != null)

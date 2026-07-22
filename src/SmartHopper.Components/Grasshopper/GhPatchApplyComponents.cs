@@ -53,7 +53,7 @@ namespace SmartHopper.Components.Grasshopper
         }
 
         /// <inheritdoc/>
-        public override Guid ComponentGuid => new Guid("C5E0D4B3-6F2A-4B7C-9E8D-A1F2B3C4D5E6");
+        public override Guid ComponentGuid => new Guid("3964AC63-A845-4B7C-86F3-18E505634721");
 
         /// <inheritdoc/>
         public override GH_Exposure Exposure => GH_Exposure.secondary;

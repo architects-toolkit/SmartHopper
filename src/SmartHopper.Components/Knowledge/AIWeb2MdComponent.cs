@@ -72,7 +72,7 @@ namespace SmartHopper.Components.Knowledge
         private GH_Structure<GH_String> _localFormat;
 
         /// <inheritdoc/>
-        public override Guid ComponentGuid => new Guid("ABCDEFAB-CDEF-ABCD-EFAB-CDEFABCDEFAB");
+        public override Guid ComponentGuid => new Guid("2FADA1EA-E6E2-43AC-B411-228D999F92A8");
 
         /// <inheritdoc/>
         protected override Bitmap Icon => Resources.webtomd;

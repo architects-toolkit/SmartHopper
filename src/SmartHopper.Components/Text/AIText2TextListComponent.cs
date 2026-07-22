@@ -41,7 +41,7 @@ namespace SmartHopper.Components.Text
 {
     public class AIText2TextListComponent : AIStatefulAsyncComponentBase
     {
-        public override Guid ComponentGuid => new Guid("D4723EA1-3BB9-4C9F-9AB2-EF1234567890");
+        public override Guid ComponentGuid => new Guid("66AE34E5-E615-4631-9A1E-D87FB5B76321");
 
         protected override Bitmap Icon => Resources.textlistgenerate;
 

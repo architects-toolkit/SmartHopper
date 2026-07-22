@@ -26,6 +26,7 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Newtonsoft.Json.Linq;
 using SmartHopper.Components.Properties;
 using SmartHopper.Core.ComponentBase;
 using SmartHopper.Core.ComponentBase.Contracts;
@@ -149,9 +150,8 @@ namespace SmartHopper.Components.AI
             {
                 try
                 {
-                    // Get the current AI provider
-                    var provider = this._parent.GetActualAIProvider();
-                    if (provider == null)
+                    var providerName = this._parent.GetActualAIProviderName();
+                    if (string.IsNullOrWhiteSpace(providerName))
                     {
                         this._result["Success"] = false;
                         this._result["Error"] = "No AI provider selected or available";
@@ -160,64 +160,78 @@ namespace SmartHopper.Components.AI
 
                     if (token.IsCancellationRequested) return;
 
-                    // Initialize provider (ensures settings and provider state are ready)
-                    await provider.InitializeProviderAsync().ConfigureAwait(false);
-
-                    if (token.IsCancellationRequested) return;
-
-                    // Try dynamic API retrieval first
-                    List<string> apiModels = null;
-                    try
+                    var args = new JObject()
                     {
-                        apiModels = await provider.Models.RetrieveApiModels().ConfigureAwait(false);
+                        ["provider"] = providerName,
+                    };
+
+                    var toolCallInteraction = new AIInteractionToolCall()
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Name = "get_available_models",
+                        Arguments = args,
+                        Agent = AIAgent.Assistant,
+                    };
+
+                    var toolCall = new AIToolCall()
+                    {
+                        Provider = providerName,
+                        Model = string.Empty,
+                        Endpoint = "get_available_models",
+                        SkipMetricsValidation = true,
+                        CancellationToken = token,
+                    };
+                    toolCall.Body = AIBodyBuilder.Create()
+                        .Add(toolCallInteraction)
+                        .Build();
+
+                    var result = await toolCall.Exec(token).ConfigureAwait(false);
+                    if (!result.Success)
+                    {
+                        var errMsg = result.Messages?.FirstOrDefault()?.Message
+                            ?? "Error occurred while retrieving models";
+                        this._result["Success"] = false;
+                        this._result["Error"] = errMsg;
+                        Debug.WriteLine("[AIModelsComponent] " + errMsg);
+                        return;
                     }
-                    catch
+
+                    var toolResult = result.Body?.Interactions?
+                        .OfType<AIInteractionToolResult>()
+                        .FirstOrDefault();
+                    if (toolResult?.Result == null)
                     {
-                        // Ignore, we will fallback
+                        this._result["Success"] = false;
+                        this._result["Error"] = "No model data returned by the tool";
+                        return;
+                    }
+
+                    var resultJson = toolResult.Result;
+                    if (!(resultJson["models"] is JArray modelsArray))
+                    {
+                        this._result["Success"] = false;
+                        this._result["Error"] = "Invalid model data returned by the tool";
+                        return;
                     }
 
                     var tree = new GH_Structure<GH_String>();
                     var path = new GH_Path(0);
-
-                    if (apiModels != null && apiModels.Count > 0)
-                    {
-                        foreach (var model in apiModels
-                            .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .OrderBy(m => m, StringComparer.OrdinalIgnoreCase))
-                        {
-                            tree.Append(new GH_String(model), path);
-                        }
-
-                        this._result["Models"] = tree;
-                        this._result["Success"] = true;
-                        Debug.WriteLine("[AIModelsComponent] Using dynamic model list from provider API. Total amount of models: " + apiModels.Count);
-                        return;
-                    }
-
-                    // Fallback to static capabilities
-                    var caps = await provider.Models.RetrieveModels().ConfigureAwait(false) ?? new List<AIModelCapabilities>();
-                    if (caps == null || caps.Count == 0)
-                    {
-                        this._result["Success"] = false;
-                        this._result["Error"] = "No models available from the selected provider";
-                        Debug.WriteLine("[AIModelsComponent] No models available from the selected provider");
-                        return;
-                    }
-
-                    foreach (var model in caps
-                        .OrderByDescending(m => m.Verified)
-                        .ThenByDescending(m => m.Rank)
-                        .ThenBy(m => m.Deprecated)
-                        .ThenBy(m => m.Model, StringComparer.OrdinalIgnoreCase)
-                        .Select(m => m.Model))
+                    foreach (var model in modelsArray
+                        .Select(t => t?.ToString())
+                        .Where(m => !string.IsNullOrWhiteSpace(m))
+                        .OrderBy(m => m, StringComparer.OrdinalIgnoreCase))
                     {
                         tree.Append(new GH_String(model), path);
                     }
 
                     this._result["Models"] = tree;
                     this._result["Success"] = true;
-                    this._result["Warning"] = "Provider API models unavailable. Using fallback static model list.";
-                    Debug.WriteLine("[AIModelsComponent] Provider API models unavailable. Using fallback static model list. Total amount of models: " + caps.Count);
+
+                    if (resultJson["warning"]?.ToString() is string warnMsg && !string.IsNullOrWhiteSpace(warnMsg))
+                    {
+                        this._result["Warning"] = warnMsg;
+                        Debug.WriteLine("[AIModelsComponent] " + warnMsg);
+                    }
                 }
                 catch (Exception ex)
                 {

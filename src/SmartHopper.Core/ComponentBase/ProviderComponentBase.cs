@@ -86,6 +86,8 @@ namespace SmartHopper.Core.ComponentBase
         {
             base.AppendAdditionalComponentMenuItems(menu);
             this.providerCore.AppendMenuItems(menu);
+            Menu_AppendSeparator(menu);
+            AsyncComponentBase.AppendMcpLockItem(menu, this);
         }
 
         /// <summary>

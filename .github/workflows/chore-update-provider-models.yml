@@ -12,7 +12,7 @@ name: 🔄 Update Provider Models
 # (architecture.modalities, supported_parameters, context_length), marks models
 # with expiration_date < 1 year as deprecated, and flags disappeared models.
 #
-# Target branches are discovered dynamically (main, dev, dev-*) so that each
+# Target branches are discovered dynamically (dev, dev-*) so that each
 # provider update is proposed to every active integration branch.
 #
 # Triggers:
@@ -59,7 +59,7 @@ jobs:
                 page,
               });
               for (const b of data) {
-                if (b.name === 'main' || b.name === 'dev' || b.name.startsWith('dev-')) {
+                if (b.name === 'dev' || b.name.startsWith('dev-')) {
                   branches.push(b.name);
                 }
               }

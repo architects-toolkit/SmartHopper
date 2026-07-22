@@ -57,6 +57,21 @@ namespace SmartHopper.Components.Output
         protected override IReadOnlyList<string> UsingAiTools => new[] { "script_generate" };
 
         /// <summary>
+        /// The script_generate tool carries JsonOutput because the real tool emits JSON.
+        /// This adapter parses free-form text, so it only needs text-in/text-out capability.
+        /// </summary>
+        protected override AICapability RequiredCapability
+        {
+            get
+            {
+                var capability = base.RequiredCapability;
+                return capability & ~AICapability.JsonOutput;
+            }
+
+            set => base.RequiredCapability = value;
+        }
+
+        /// <summary>
         /// Gets the internal system prompt.
         /// </summary>
         protected override string GetInternalSystemPrompt()
@@ -109,7 +124,7 @@ namespace SmartHopper.Components.Output
             try
             {
                 var languageTree = new GH_Structure<IGH_Goo>();
-                if (DA.GetDataTree(2, out languageTree) && languageTree != null && languageTree.DataCount > 0)
+                if (DA.GetDataTree(1, out languageTree) && languageTree != null && languageTree.DataCount > 0)
                 {
                     additionalInputs["Language"] = languageTree;
                 }

@@ -54,6 +54,12 @@ namespace SmartHopper.Providers.Gemini
         /// <inheritdoc/>
         public override bool IsEnabled => true;
 
+        /// <summary>
+        /// Gets a value indicating whether this provider is configured in the current environment.
+        /// Gemini requires a non-empty API key.
+        /// </summary>
+        public override bool IsConfigured => this.IsSettingConfigured("ApiKey");
+
         /// <inheritdoc/>
         public override Uri DefaultServerUrl => new Uri("https://generativelanguage.googleapis.com/v1beta");
 
