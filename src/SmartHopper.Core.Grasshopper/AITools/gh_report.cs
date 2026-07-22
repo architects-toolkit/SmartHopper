@@ -219,12 +219,12 @@ namespace SmartHopper.Core.Grasshopper.AITools
             data.GroupCount = groups.Count;
             data.PanelCount = panels.Count;
 
-            // Topology classification using ghjson-dotnet facade
+            // Topology classification within the active set of objects
             var activeObjects = allObjects
                 .Where(o => o is IGH_Component || o is IGH_Param)
                 .ToList();
 
-            var topology = GhJsonGrasshopper.ClassifyTopology(activeObjects);
+            var topology = ClassifyTopology(activeObjects);
             data.StartNodeCount = topology.StartNodes.Count;
             data.EndNodeCount = topology.EndNodes.Count;
             data.MiddleNodeCount = topology.MiddleNodes.Count;
@@ -593,6 +593,85 @@ namespace SmartHopper.Core.Grasshopper.AITools
             public string Message { get; set; }
             public float PivotX { get; set; }
             public float PivotY { get; set; }
+        }
+
+        /// <summary>
+        /// Classifies objects into topological roles based on connections within the same set.
+        /// </summary>
+        private sealed class TopologyClassification
+        {
+            public HashSet<Guid> StartNodes { get; } = new HashSet<Guid>();
+            public HashSet<Guid> EndNodes { get; } = new HashSet<Guid>();
+            public HashSet<Guid> MiddleNodes { get; } = new HashSet<Guid>();
+            public HashSet<Guid> IsolatedNodes { get; } = new HashSet<Guid>();
+        }
+
+        /// <summary>
+        /// Classifies objects within a set into start, end, middle, and isolated nodes.
+        /// </summary>
+        private static TopologyClassification ClassifyTopology(IEnumerable<IGH_DocumentObject> objects)
+        {
+            var objectSet = new HashSet<Guid>(objects.Select(o => o.InstanceGuid));
+            var hasIncoming = new HashSet<Guid>();
+            var hasOutgoing = new HashSet<Guid>();
+
+            foreach (var obj in objects)
+            {
+                IList<IGH_Param> outputs = null;
+
+                if (obj is IGH_Component component)
+                {
+                    outputs = component.Params.Output;
+                }
+                else if (obj is IGH_Param param)
+                {
+                    outputs = new[] { param };
+                }
+
+                if (outputs == null)
+                {
+                    continue;
+                }
+
+                foreach (var output in outputs)
+                {
+                    foreach (var recipient in output.Recipients)
+                    {
+                        var owner = recipient.Attributes?.GetTopLevel?.DocObject;
+                        if (owner != null && objectSet.Contains(owner.InstanceGuid))
+                        {
+                            hasOutgoing.Add(obj.InstanceGuid);
+                            hasIncoming.Add(owner.InstanceGuid);
+                        }
+                    }
+                }
+            }
+
+            var result = new TopologyClassification();
+            foreach (var guid in objectSet)
+            {
+                bool incoming = hasIncoming.Contains(guid);
+                bool outgoing = hasOutgoing.Contains(guid);
+
+                if (!incoming && outgoing)
+                {
+                    result.StartNodes.Add(guid);
+                }
+                else if (incoming && !outgoing)
+                {
+                    result.EndNodes.Add(guid);
+                }
+                else if (incoming && outgoing)
+                {
+                    result.MiddleNodes.Add(guid);
+                }
+                else
+                {
+                    result.IsolatedNodes.Add(guid);
+                }
+            }
+
+            return result;
         }
 
         #endregion
