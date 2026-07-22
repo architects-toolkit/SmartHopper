@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SmartHopper.ProviderSdk.AICall.Core.Base;
 using SmartHopper.ProviderSdk.AICall.Metrics;
 using SmartHopper.ProviderSdk.Diagnostics;

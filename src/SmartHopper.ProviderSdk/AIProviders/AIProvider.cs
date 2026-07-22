@@ -643,7 +643,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// <returns>True if the setting has a non-empty value; otherwise, false.</returns>
         protected bool IsSettingConfigured(string settingName)
         {
-            var settings = SmartHopperSettings.Instance?.GetProviderSettings(this.Name);
+            var settings = ProviderSdkHost.SettingsStoreFactory?.Invoke(this.Name)?.GetAll();
             if (settings == null || !settings.TryGetValue(settingName, out var value) || value == null)
             {
                 return false;
@@ -660,7 +660,7 @@ namespace SmartHopper.ProviderSdk.AIProviders
         /// <returns>True if the setting is a valid HTTP(S) URL; otherwise, false.</returns>
         protected bool IsUrlSettingConfigured(string settingName)
         {
-            var settings = SmartHopperSettings.Instance?.GetProviderSettings(this.Name);
+            var settings = ProviderSdkHost.SettingsStoreFactory?.Invoke(this.Name)?.GetAll();
             if (settings == null || !settings.TryGetValue(settingName, out var value) || value == null)
             {
                 return false;

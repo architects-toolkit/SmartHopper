@@ -32,6 +32,12 @@ namespace SmartHopper.ProviderSdk.Hosting
         /// <summary>Human-readable description supplied to the model.</summary>
         public string Description { get; set; }
 
+        /// <summary>Rich human-readable description supplied to the model.</summary>
+        public string RichDescription => string.IsNullOrEmpty(this.Description) ? string.Empty : this.Description;
+
+        /// <summary>Whether the tool is enabled and available for use.</summary>
+        public bool Enabled { get; set; } = true;
+
         /// <summary>Tool category (e.g. <c>knowledge</c>, <c>script</c>); free-form.</summary>
         public string Category { get; set; }
 
