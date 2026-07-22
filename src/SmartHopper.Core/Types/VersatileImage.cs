@@ -350,7 +350,7 @@ namespace SmartHopper.Core.Types
                 return VersatileImageKind.DataUri;
             }
 
-            // Check for local file path with valid image extension
+            // Check for local file path with a supported image extension
             if (IsValidLocalFilePath(input))
             {
                 return VersatileImageKind.LocalFile;
@@ -362,8 +362,55 @@ namespace SmartHopper.Core.Types
                 return VersatileImageKind.Base64;
             }
 
-            // Default to local file if it looks like a path
-            return VersatileImageKind.LocalFile;
+            // The input is not a recognized image source
+            ThrowUnsupportedImageSource(input);
+            return default;
+        }
+
+        /// <summary>
+        /// Throws a descriptive exception when the input cannot be interpreted as a supported image source.
+        /// </summary>
+        private static void ThrowUnsupportedImageSource(string input)
+        {
+            try
+            {
+                var extension = Path.GetExtension(input);
+                bool hasExtension = !string.IsNullOrEmpty(extension);
+                bool looksLikePath = input.Contains("\\") || input.Contains("/") || hasExtension;
+
+                if (hasExtension && !SupportedImageExtensions.Contains(extension))
+                {
+                    throw new NotSupportedException(
+                        $"Unsupported image file extension '{extension}'. Supported extensions are: {string.Join(", ", SupportedImageExtensions.OrderBy(e => e))}.");
+                }
+
+                if (looksLikePath)
+                {
+                    if (!File.Exists(input))
+                    {
+                        throw new FileNotFoundException($"Image file not found: {input}", input);
+                    }
+
+                    throw new NotSupportedException(
+                        $"The file does not appear to be a supported image. Supported extensions are: {string.Join(", ", SupportedImageExtensions.OrderBy(e => e))}.");
+                }
+            }
+            catch (NotSupportedException)
+            {
+                throw;
+            }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Fall through to the generic message if path inspection fails.
+            }
+
+            throw new ArgumentException(
+                "Input is not a recognized image source. Expected a URL, a data URI, a base64 string, or a local file path with a supported image extension.",
+                nameof(input));
         }
 
         /// <summary>

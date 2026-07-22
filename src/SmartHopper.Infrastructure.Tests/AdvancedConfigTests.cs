@@ -41,6 +41,8 @@ namespace SmartHopper.Infrastructure.Tests
 
             public bool IsEnabled => true;
 
+            public bool IsConfigured => true;
+
             public System.Drawing.Image Icon => null;
 
             public IAIProviderModels Models { get; private set; } = new DummyProviderModels();
