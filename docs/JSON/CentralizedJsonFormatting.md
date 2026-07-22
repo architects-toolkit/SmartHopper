@@ -44,13 +44,13 @@ If no code block is found, the original string is used as-is.
 
 **Key Features:**
 
-- ✅ Single source of truth for JSON formatting
-- ✅ Graceful error handling with fallbacks
-- ✅ Consistent minified output (no whitespace)
-- ✅ Automatic markdown code block extraction
-- ✅ Validation before output
-- ✅ Integrates with existing `JsonPathHelper`
-- ✅ Follows AIResponseParser patterns for consistency
+- âœ… Single source of truth for JSON formatting
+- âœ… Graceful error handling with fallbacks
+- âœ… Consistent minified output (no whitespace)
+- âœ… Automatic markdown code block extraction
+- âœ… Validation before output
+- âœ… Integrates with existing `JsonPathHelper`
+- âœ… Follows AIResponseParser patterns for consistency
 
 ### 2. Refactored Components
 
@@ -199,13 +199,13 @@ This follows the same pattern as `AIResponseParser.ExtractFromMarkdownCodeBlock(
 
 | File | Changes |
 | --- | --- |
-| `JsonFormatHelper.cs` | ✅ Created |
-| `JsonSchemaComponent.cs` | ✅ Updated to use `MinifyJson()` |
-| `JsonObjectComponent.cs` | ✅ Updated to use `MinifyJson()` |
-| `JsonMergeComponent.cs` | ✅ Updated to use `MinifyJson()` |
-| `JsonGetValueComponent.cs` | ✅ Already consistent |
-| `text2json.cs` | ✅ Updated to use `NormalizeJson()` |
-| `AIText2JsonComponent.cs` | ✅ Updated to use `EnsureMinified()` |
+| `JsonFormatHelper.cs` | âœ… Created |
+| `JsonSchemaComponent.cs` | âœ… Updated to use `MinifyJson()` |
+| `JsonObjectComponent.cs` | âœ… Updated to use `MinifyJson()` |
+| `JsonMergeComponent.cs` | âœ… Updated to use `MinifyJson()` |
+| `JsonGetValueComponent.cs` | âœ… Already consistent |
+| `text2json.cs` | âœ… Updated to use `NormalizeJson()` |
+| `AIText2JsonComponent.cs` | âœ… Updated to use `EnsureMinified()` |
 
 ## Testing Recommendations
 
@@ -223,3 +223,40 @@ This follows the same pattern as `AIResponseParser.ExtractFromMarkdownCodeBlock(
 - Add JSON compression utilities
 - Add JSON diff/merge utilities
 - Add JSON path query helpers
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about CentralizedJsonFormatting.
+
+
+## End-User Guide
+
+End-user guidance for CentralizedJsonFormatting.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for CentralizedJsonFormatting.

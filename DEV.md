@@ -169,6 +169,17 @@ in the AI Chat component.
 | `set_ai_provider_and_model` | Components | Configure an `IProviderComponent` by setting its selected AI provider and wiring a new Panel with the model name into its Settings input. Supports undo and respects `CanvasProtection`. | ⚪ | 🟡 | 🟠 | - |
 | `gh_generate_and_place_on_canvas` | Components | Generate a GhJSON document from instructions and immediately place it on the canvas. This wraps gh_generate followed by gh_put with editMode=false. Example: gh_generate_and_place_on_canvas({ instructions: 'Create a number slider connected to a panel' }). | - | - | - | - |
 | `smarthopper_ghjson_reference` | Instructions | Returns GhJSON and GhPatch format reference documentation. Pass `topic` to retrieve the full specification or a focused section. Use this whenever you need to generate, edit, or validate GhJSON/GhPatch documents instead of relying on internalized format knowledge. | - | - | - | - |
+| `get_available_models` | Providers | Retrieve the list of available models for a given AI provider. Uses live provider APIs when possible and falls back to the static model list. | - | - | - | - |
+| `get_available_providers` | Providers | Retrieve the list of enabled AI providers registered in SmartHopper, including whether each provider is properly configured in the current environment. | - | - | - | - |
+| `gh_diff` | Components | Diff two GhJSON documents and produce a structured `.ghpatch` document describing the differences (added/removed/modified components, connections, groups, and metadata). Components are matched by instanceGuid, then id, then structural fingerprint (componentGuid + name + optional pivot). Connections are matched by their endpoints (paramName preferred, paramIndex fallback). By default, runtime messages, metadata counters and metadata timestamps are ignored. | - | - | - | - |
+| `gh_disconnect` | Components | Disconnect Grasshopper components by removing wires between outputs and inputs. Use this to break data flow between existing components on the canvas. Requires component GUIDs (use gh_get_selected or gh_get to find them first). | - | - | - | - |
+| `gh_group_selected` | Components | Create a group around currently selected components. Quick way to organize selected items without needing to specify GUIDs manually. | - | - | - | - |
+| `gh_patch_apply` | Components | Apply a `.ghpatch` patch document to a base GhJSON document. Components are matched by instanceGuid, then id, then structural fingerprint. New components and groups in `components.add` / `groups.add` must NOT include `instanceGuid` (it is generated on placement). By default, the patch's recorded base checksum is verified against the supplied base document — on mismatch, the apply is refused (no partial application). Conflicts (match not found, connection already present, dangling group members, ...) are recorded in the result. | - | - | - | - |
+| `gh_patch_validate` | Components | Structurally validate a `.ghpatch` document. Checks the patch kind, that components/groups in remove/modify ops carry at least one identity field, that new components/groups in add ops do NOT specify instanceGuid, and that connections have valid endpoints. | - | - | - | - |
+| `gh_tidy_up_selected` | Components | Organize currently selected components into a tidy grid layout. Quick way to clean up selected items without needing to specify GUIDs manually. Arranges components left-to-right based on connections. | - | - | - | - |
+| `smarthopper_readme` | Instructions | Returns detailed operational instructions for SmartHopper. REQUIRED: Pass `topic` with one of: canvas, ghjson, selected, errors, locks, visibility, discovery, scripting, python, csharp, vb, knowledge, providers, mcneel-forum, research, web. Use this to retrieve guidance instead of relying on a long system prompt. | - | - | - | - |
+| `smarthopper_tool_help` | Instructions | Returns metadata, usage guidance, and relationship hints for a SmartHopper tool. Pass `tool_name` to look up a specific tool. Use this when you need to understand a tool's inputs, outputs, or how it chains with other tools. | - | - | - | - |
+| `smarthopper_workflows` | Instructions | Returns canonical SmartHopper tool workflows. Pass `workflow` to get detailed steps for a specific workflow, or omit it to list available workflows. Use this to understand how to chain tools without reading source code. | - | - | - | - |
 
 Notes:
 
@@ -222,21 +233,27 @@ Notes:
 | Provider | Model | Verified | Streaming | Deprecated | Default For | Capabilities |
 |---|---|:---:|:---:|:---:|---|---|
 | Anthropic | `claude-sonnet-4-6` | - | ✅ | - | Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| Anthropic | `claude-haiku-4-5-20251001` | ⭐ | ✅ | - | Text2Text, ReasoningChat, ToolReasoningChat, ToolChat, Image2Text | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Anthropic | `claude-sonnet-4-5-20250929` | ⭐ | ✅ | - | - | TextInput, TextOutput, JsonOutput, FunctionCalling, ImageInput, Reasoning |
-| DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ToolReasoningChat | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
+| DeepSeek | `deepseek-v4-flash` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json | TextInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-3.1-flash-image-preview` | - | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-3-pro-image-preview` | - | ✅ | - | Text2Image, Image2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash-image` | ⭐ | ✅ | - | Text2Image | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput |
 | Gemini | `gemini-2.5-flash-lite` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-flash` | ⭐ | ✅ | - | Text2Text, Text2Json, ReasoningChat, ToolReasoningChat | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 | Gemini | `gemini-2.5-pro` | ⭐ | ✅ | - | - | TextInput, ImageInput, AudioInput, VideoInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
-| MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| MistralAI | `mistral-medium-2508` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling |
-| OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | - | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| MistralAI | `mistral-small-2603` | ⭐ | ✅ | - | Text2Text, ToolChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| MistralAI | `voxtral-mini-2602` | - | - | - | Speech2Text | AudioInput, TextOutput |
+| MistralAI | `voxtral-mini-tts-2603` | - | - | - | Text2Speech | TextInput, AudioInput, AudioOutput |
+| MistralAI | `voxtral-mini-tts-mellon-greek-2606-solutions` | - | ✅ | - | Text2Speech | TextInput, AudioInput, AudioOutput |
+| OpenAI | `gpt-5.4-mini-2026-03-17` | - | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
+| OpenAI | `gpt-audio-mini-2025-12-15` | - | - | - | Text2Speech, Speech2Text | TextInput, AudioInput, TextOutput, AudioOutput, FunctionCalling |
+| OpenAI | `gpt-5-mini-2025-08-07` | ⭐ | ✅ | - | Text2Text, ToolChat, ReasoningChat, ToolReasoningChat, Text2Json, Image2Text | TextInput, ImageInput, TextOutput, JsonOutput, FunctionCalling, Reasoning |
 | OpenAI | `dall-e-3` | ⭐ | - | - | Text2Image | TextInput, ImageOutput |
 | OpenAI | `gpt-image-2-2026-04-21` | - | - | - | Text2Image, Image2Image | TextInput, ImageInput, ImageOutput |
 | OpenAI | `whisper-1` | - | - | - | Speech2Text | SpeechInput, TextOutput |
+| OpenRouter | `google/gemini-3.1-flash-lite-image` | - | - | - | Text2Image, Image2Image, Image2Text | TextInput, ImageInput, TextOutput, ImageOutput, JsonOutput, Reasoning |
+| OpenRouter | `google/lyria-3-pro-preview` | - | ✅ | - | Text2Speech | TextInput, ImageInput, TextOutput, AudioOutput, JsonOutput |
 | OpenRouter | `openai/gpt-5-mini` | - | ✅ | - | Text2Text, Text2Json | TextInput, ImageInput, TextOutput, FunctionCalling, JsonOutput, Reasoning |
 
 ### Discouraged models for script tools
@@ -246,20 +263,12 @@ Some models are still supported but **not recommended** for script-oriented tool
 - **Anthropic**
   - `claude-haiku-4-5-20251001`/`claude-haiku-4-5`/`claude-haiku-4-5-latest` -> discouraged for: `script_generate`, `script_edit`
   - `claude-3-5-haiku-20241022`/`claude-3-5-haiku`/`claude-3-5-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
-  - `claude-3-haiku-20240307`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
+  - `claude-3-7-sonnet-20250219`/`claude-3-haiku`/`claude-3-haiku-latest` -> discouraged for: `script_generate`, `script_edit`
 - **MistralAI**
   - `mistral-small-2603`/`mistral-small`/`mistral-small-latest`/`magistral-small-latest`/`mistral-vibe-cli-fast` -> discouraged for: `script_generate`, `script_edit`
-  - `mistral-ocr-2512`/`mistral-ocr-latest` -> discouraged for: any tool
-  - `voxtral-mini-transcribe-realtime-2602`/`voxtral-mini-realtime-2602`/`voxtral-mini-realtime-latest` -> discouraged for: any tool
+  - `mistral-ocr-2512`/`mistral-ocr-3-0`/`mistral-ocr-3` -> discouraged for: any tool
   - `mistral-ocr-2505` -> discouraged for: any tool
 - **OpenAI**
-  - `gpt-4o-mini-realtime-preview-2024-12-17`/`gpt-4o-mini-realtime-preview`/`gpt-4o-mini-realtime-preview-latest` -> discouraged for: any tool
-  - `gpt-4o-realtime-preview-2024-12-17` -> discouraged for: any tool
-  - `gpt-4o-realtime-preview-2025-06-03`/`gpt-4o-realtime-preview`/`gpt-4o-realtime-preview-latest` -> discouraged for: any tool
-  - `gpt-realtime-1.5` -> discouraged for: any tool
-  - `gpt-realtime-2025-08-28`/`gpt-realtime`/`gpt-realtime-latest` -> discouraged for: any tool
-  - `gpt-realtime-mini-2025-10-06` -> discouraged for: any tool
-  - `gpt-realtime-mini-2025-12-15`/`gpt-realtime-mini`/`gpt-realtime-mini-latest` -> discouraged for: any tool
   - `omni-moderation-2024-09-26`/`omni-moderation-latest`/`omni-moderation` -> discouraged for: any tool
 
 ## 🔢 Supported Data Types

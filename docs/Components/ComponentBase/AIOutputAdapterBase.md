@@ -2,19 +2,19 @@
 
 `src/SmartHopper.Core/ComponentBase/AIOutputAdapterBase.cs`
 
-Specialised [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) for components that consume `AIInputPayload` trees, send them to the AI through a forced tool call, and project the response onto one or more typed outputs (e.g. `AI2Boolean`, `AI2Number`, `AI2GhJson`, …).
+Specialised [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) for components that consume `AIInputPayload` trees, send them to the AI through a forced tool call, and project the response onto one or more typed outputs (e.g. `AI2Boolean`, `AI2Number`, `AI2GhJson`, â€¦).
 
 ## Purpose
 
-Eliminate boilerplate for "tree of payloads in → typed values out" components. The base handles parameter shape, branch-by-branch execution, batch interception, decoding via declarative output mappings and atomic finalization.
+Eliminate boilerplate for "tree of payloads in â†’ typed values out" components. The base handles parameter shape, branch-by-branch execution, batch interception, decoding via declarative output mappings and atomic finalization.
 
 ## Design criteria
 
-- **Branch-by-branch conversation.** `ComponentProcessingOptions` is fixed to `BranchToBranch`: each input branch is one merged `AIBody` → one provider call.
+- **Branch-by-branch conversation.** `ComponentProcessingOptions` is fixed to `BranchToBranch`: each input branch is one merged `AIBody` â†’ one provider call.
 - **Forced tool calling.** `CallAIAsync(body, forceToolName: ...)` is used so the model is constrained to call the adapter's tool. Capabilities are derived from `UsingAiTools` (no need to override `RequiredCapability`).
 - **Declarative outputs via `OutputMapping`.** Subclasses declare a list; the base auto-registers Grasshopper outputs and runs every mapping's `Extractor` against the `AIReturn`. The first mapping is the *primary* output for batch reconstruction.
 - **`OutputMapping.Single` helper** wraps a scalar extractor into the unified `IEnumerable<IGH_Goo>` contract; list-shaped extractors return their list.
-- **Symmetric batch and sync paths.** Both legs run the same `DecodeAllMappings` helper, so list-shaped outputs work transparently in batch mode. The legacy `SentinelTransformOutputs` hook is **not** invoked by the adapter base — declare every named output through `GetOutputMappings` instead.
+- **Symmetric batch and sync paths.** Both legs run the same `DecodeAllMappings` helper, so list-shaped outputs work transparently in batch mode. The legacy `SentinelTransformOutputs` hook is **not** invoked by the adapter base â€” declare every named output through `GetOutputMappings` instead.
 - **Sealed input shape.** Adds `Input >` (`AIInputPayloadParameter`, tree access) at index 0, then chains to `base.RegisterInputParams`. Subclasses use `RegisterAdditionalInputParams` for extra inputs and `GatherAdditionalInputs(DA, dict)` to inject them into the per-branch input dictionary.
 - **Category locked** to `"SmartHopper" / "Output"`.
 
@@ -51,14 +51,51 @@ public class OutputMapping
 
 ```text
 PrepareInputs (merge Input> branch into AIBody, prepend system prompt)
-  → CallAIAsync(body, forceToolName)
-  → DecodeAllMappings(AIReturn)              ← runs every Extractor
-  → FinishResults(primary, …extras)          ← atomic persistence + metrics
+  â†’ CallAIAsync(body, forceToolName)
+  â†’ DecodeAllMappings(AIReturn)              â† runs every Extractor
+  â†’ FinishResults(primary, â€¦extras)          â† atomic persistence + metrics
 ```
 
 In batch mode the call is queued, `OnBatchCompleted` invokes `ProcessMappingsBatchResults` which calls the same `DecodeAllMappings` helper before delegating to `FinishResults`.
 
 ## Related
 
-- [AIInputAdapterBase](./AIInputAdapterBase.md) — producer side.
-- [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) — execution model and metrics.
+- [AIInputAdapterBase](./AIInputAdapterBase.md) â€” producer side.
+- [AIStatefulAsyncComponentBase](./AIStatefulAsyncComponentBase.md) â€” execution model and metrics.
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about AIOutputAdapterBase.
+
+
+## End-User Guide
+
+End-user guidance for AIOutputAdapterBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for AIOutputAdapterBase.

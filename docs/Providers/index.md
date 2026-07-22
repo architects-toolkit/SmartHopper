@@ -39,18 +39,18 @@ Providers implement API-specific logic while conforming to a common contract so 
 ### Key locations
 
 - `src/SmartHopper.Infrastructure/AIProviders/`
-  - `IAIProvider` — provider contract (name, icon, models, PreCall/Call/PostCall, settings)
-  - `AIProvider` — base template method flow and HTTP orchestration
-  - `AIProviderModels` — capability and default model registry integration
-  - `ProviderManager` — discovery, trust, registration, settings persistence
+  - `IAIProvider` â€” provider contract (name, icon, models, PreCall/Call/PostCall, settings)
+  - `AIProvider` â€” base template method flow and HTTP orchestration
+  - `AIProviderModels` â€” capability and default model registry integration
+  - `ProviderManager` â€” discovery, trust, registration, settings persistence
 - External providers: `SmartHopper.Providers.*` projects (e.g., OpenAI, DeepSeek, MistralAI, Gemini)
 
 ### Lifecycle
 
-1. Discovery and trust — provider assemblies are scanned, verified (Authenticode + strong-name), and optionally trusted.
-2. Initialization — provider registers its models and capabilities with the model registry.
-3. Request flow — PreCall → FormatRequestBody → CallApi → PostCall; responses normalized into `AIReturn<T>`.
-4. Settings — descriptor-driven, validated and persisted via `ProviderManager` (secrets stored securely).
+1. Discovery and trust â€” provider assemblies are scanned, verified (Authenticode + strong-name), and optionally trusted.
+2. Initialization â€” provider registers its models and capabilities with the model registry.
+3. Request flow â€” PreCall â†’ FormatRequestBody â†’ CallApi â†’ PostCall; responses normalized into `AIReturn<T>`.
+4. Settings â€” descriptor-driven, validated and persisted via `ProviderManager` (secrets stored securely).
 
 ### Security
 
@@ -87,3 +87,28 @@ Providers implement API-specific logic while conforming to a common contract so 
 - Anthropic
 - OpenRouter
 - [Google Gemini](./Gemini.md)
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for index.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

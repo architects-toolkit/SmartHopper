@@ -18,21 +18,21 @@ Run compute-heavy or I/O-bound work off the UI thread while staying inside Grass
 
 ## Key members
 
-- `protected abstract AsyncWorkerBase CreateWorker(Action<string> progressReporter)` — factory.
-- `protected virtual void OnSolveInstancePreSolve(IGH_DataAccess DA)` / `OnSolveInstancePostSolve(IGH_DataAccess DA)` — hooks.
-- `protected virtual void OnWorkerCompleted()` — called when all workers have set their outputs.
-- `protected virtual void OnTasksCancelDetected()` — fires after task cancellation; output phase is skipped.
-- `protected void ResetAsyncState()` — clears tasks, workers, cancellation sources and resets `_state`/`_setData`. Used when re-entering work.
-- `public virtual void RequestTaskCancellation()` — cancels every active token source.
-- `protected int DataCount { get; }` / `SetDataCount(int)` — surfaces the data count for state messages and metrics.
-- `public bool InPreSolve` — exposed for `IGH_TaskCapableComponent` callers.
+- `protected abstract AsyncWorkerBase CreateWorker(Action<string> progressReporter)` â€” factory.
+- `protected virtual void OnSolveInstancePreSolve(IGH_DataAccess DA)` / `OnSolveInstancePostSolve(IGH_DataAccess DA)` â€” hooks.
+- `protected virtual void OnWorkerCompleted()` â€” called when all workers have set their outputs.
+- `protected virtual void OnTasksCancelDetected()` â€” fires after task cancellation; output phase is skipped.
+- `protected void ResetAsyncState()` â€” clears tasks, workers, cancellation sources and resets `_state`/`_setData`. Used when re-entering work.
+- `public virtual void RequestTaskCancellation()` â€” cancels every active token source.
+- `protected int DataCount { get; }` / `SetDataCount(int)` â€” surfaces the data count for state messages and metrics.
+- `public bool InPreSolve` â€” exposed for `IGH_TaskCapableComponent` callers.
 
 ## Lifecycle
 
-1. **`BeforeSolveInstance`** – cancels in-flight tasks (unless we are already in the output phase) and calls `ResetAsyncState`.
-2. **`SolveInstance` (pre-solve)** – first pass: creates a worker, calls `worker.GatherInput`, starts `Task.Run(worker.DoWorkAsync)`, then returns so Grasshopper proceeds to `AfterSolveInstance`.
-3. **`AfterSolveInstance`** – `Task.WhenAll` of all worker tasks. On success: sets `_state = Workers.Count`, `_setData = 1`, reverses workers (LIFO). On cancel: resets state, raises `OnTasksCancelDetected`. On fault: surfaces task errors as runtime messages and still proceeds to the output phase. Always re-expires the solution to drive the second solve pass.
-4. **`SolveInstance` (post-solve)** – second pass: invokes `worker.SetOutput` for each worker on the UI thread, decrements `_state`. When `_state == 0` clears tasks/workers/sources and calls `OnWorkerCompleted`.
+1. **`BeforeSolveInstance`** â€“ cancels in-flight tasks (unless we are already in the output phase) and calls `ResetAsyncState`.
+2. **`SolveInstance` (pre-solve)** â€“ first pass: creates a worker, calls `worker.GatherInput`, starts `Task.Run(worker.DoWorkAsync)`, then returns so Grasshopper proceeds to `AfterSolveInstance`.
+3. **`AfterSolveInstance`** â€“ `Task.WhenAll` of all worker tasks. On success: sets `_state = Workers.Count`, `_setData = 1`, reverses workers (LIFO). On cancel: resets state, raises `OnTasksCancelDetected`. On fault: surfaces task errors as runtime messages and still proceeds to the output phase. Always re-expires the solution to drive the second solve pass.
+4. **`SolveInstance` (post-solve)** â€“ second pass: invokes `worker.SetOutput` for each worker on the UI thread, decrements `_state`. When `_state == 0` clears tasks/workers/sources and calls `OnWorkerCompleted`.
 
 ## When to derive
 
@@ -44,3 +44,43 @@ Run compute-heavy or I/O-bound work off the UI thread while staying inside Grass
 - [AsyncWorkerBase](./AsyncWorkerBase.md)
 - [StatefulComponentBase](./StatefulComponentBase.md)
 - [ProgressInfo](./ProgressInfo.md)
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about AsyncComponentBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for AsyncComponentBase.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

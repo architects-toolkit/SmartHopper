@@ -25,3 +25,48 @@ Provide the same provider-selection menu, badge and persistence as `AIProviderCo
 
 - Synchronous helper components that need the provider selection UI but no async work.
 - Anything async or stateful should use [AIProviderComponentBase](./AIProviderComponentBase.md) instead.
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about ProviderComponentBase.
+
+
+## End-User Guide
+
+End-user guidance for ProviderComponentBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for ProviderComponentBase.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

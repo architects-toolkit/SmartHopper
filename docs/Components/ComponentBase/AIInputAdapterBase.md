@@ -2,7 +2,7 @@
 
 `src/SmartHopper.Core/ComponentBase/AIInputAdapterBase.cs`
 
-Synchronous, **non-AI** base for components that build an `AIInputPayload` from a single piece of data (text, image, audio, context filter). Sits at the input edge of the AI pipeline — adapter components produced by this base feed [AIOutputAdapterBase](./AIOutputAdapterBase.md) components downstream.
+Synchronous, **non-AI** base for components that build an `AIInputPayload` from a single piece of data (text, image, audio, context filter). Sits at the input edge of the AI pipeline â€” adapter components produced by this base feed [AIOutputAdapterBase](./AIOutputAdapterBase.md) components downstream.
 
 ## Purpose
 
@@ -30,4 +30,49 @@ protected virtual void RegisterAdditionalOutputParams(GH_OutputParamManager pMan
 ## Related
 
 - `AIInputPayload`, `AIInputPayloadParameter`, `GH_AIInputPayload` in `SmartHopper.Core`.
-- [AIOutputAdapterBase](./AIOutputAdapterBase.md) — consumer side.
+- [AIOutputAdapterBase](./AIOutputAdapterBase.md) â€” consumer side.
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about AIInputAdapterBase.
+
+
+## End-User Guide
+
+End-user guidance for AIInputAdapterBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for AIInputAdapterBase.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

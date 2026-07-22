@@ -18,3 +18,48 @@ Defines the state enum used by [StatefulComponentBase](./StatefulComponentBase.m
 `ComponentStateExtensions.ToMessageString(state, progressInfo?)` produces the friendly message shown on the component (`"Run me!"`, `"Process N/M..."`, `"Done"`, etc.). Pass a [ProgressInfo](./ProgressInfo.md) to render counters during `Processing`.
 
 > Note: `StateManager.cs` only defines the enum and the extension. The runtime state machine (transitions, debounce, hash tracking) lives in [ComponentStateManager](./ComponentStateManager.md).
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about StateManager.
+
+
+## End-User Guide
+
+End-user guidance for StateManager.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for StateManager.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

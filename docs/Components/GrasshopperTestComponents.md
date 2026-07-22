@@ -75,18 +75,18 @@ public override async Task DoWorkAsync(CancellationToken token)
             // Assert
             if (result == expected)
             {
-                _messages.Add(new GH_String("✓ Test_Description"));
+                _messages.Add(new GH_String("âœ“ Test_Description"));
                 testsPassed++;
             }
             else
             {
-                _messages.Add(new GH_String("✗ Test_Description: Expected X, got Y"));
+                _messages.Add(new GH_String("âœ— Test_Description: Expected X, got Y"));
                 testsFailed++;
             }
         }
         catch (Exception ex)
         {
-            _messages.Add(new GH_String($"✗ Test_Description: {ex.Message}"));
+            _messages.Add(new GH_String($"âœ— Test_Description: {ex.Message}"));
             testsFailed++;
         }
 
@@ -125,8 +125,8 @@ public override async Task DoWorkAsync(CancellationToken token)
 
 1. **In Grasshopper**: Add test components to a canvas and set `Run` to true
 2. **Visual Feedback**:
-   - Green checkmarks (✓) indicate passing tests
-   - Red X marks (✗) indicate failing tests
+   - Green checkmarks (âœ“) indicate passing tests
+   - Red X marks (âœ—) indicate failing tests
    - Success output shows overall pass/fail status
    - Messages output shows detailed test results
 
@@ -134,29 +134,29 @@ public override async Task DoWorkAsync(CancellationToken token)
 
 | Aspect                | xUnit Tests                | Test Components           |
 | -------------------- | ------------------------- | ------------------------- |
-| Grasshopper Access    | ❌ No                     | ✅ Yes                    |
-| Runtime Environment   | ❌ Isolated               | ✅ Full Rhino/GH          |
-| Visual Feedback       | ❌ Console                | ✅ Canvas UI              |
-| Serialization Tests   | ❌ Limited                | ✅ Full GH_IO support     |
-| Integration Tests     | ❌ No                     | ✅ Yes                    |
-| Speed                 | ✅ Fast                   | ❌ Slower                 |
-| Automation            | ✅ Easy                   | ⚠️ Manual in Grasshopper  |
+| Grasshopper Access    | âŒ No                     | âœ… Yes                    |
+| Runtime Environment   | âŒ Isolated               | âœ… Full Rhino/GH          |
+| Visual Feedback       | âŒ Console                | âœ… Canvas UI              |
+| Serialization Tests   | âŒ Limited                | âœ… Full GH_IO support     |
+| Integration Tests     | âŒ No                     | âœ… Yes                    |
+| Speed                 | âœ… Fast                   | âŒ Slower                 |
+| Automation            | âœ… Easy                   | âš ï¸ Manual in Grasshopper  |
 
 ## When to Use Test Components
 
 Use test components for:
 
-- ✅ Testing Grasshopper types (GH_String, GH_Structure, etc.)
-- ✅ Testing GH_IO serialization/deserialization
-- ✅ Testing components that interact with Grasshopper document
-- ✅ Integration tests with Grasshopper canvas
+- âœ… Testing Grasshopper types (GH_String, GH_Structure, etc.)
+- âœ… Testing GH_IO serialization/deserialization
+- âœ… Testing components that interact with Grasshopper document
+- âœ… Integration tests with Grasshopper canvas
 
 Use xUnit tests for:
 
-- ✅ Pure logic tests (no Grasshopper dependencies)
-- ✅ Fast unit tests
-- ✅ CI/CD automated testing
-- ✅ Tests that don't need Rhino runtime
+- âœ… Pure logic tests (no Grasshopper dependencies)
+- âœ… Fast unit tests
+- âœ… CI/CD automated testing
+- âœ… Tests that don't need Rhino runtime
 
 ## Migration from xUnit to Test Components
 
@@ -193,7 +193,7 @@ The `GH_StructureTestComponent` demonstrates testing Grasshopper data structures
 
 Based on analysis of existing test components, the following tests from the test matrix are suitable for implementation as Grasshopper test components. **All test data is hardcoded internally** - users only need to toggle Run=true.
 
-### 🔴 P0 - Breaking Changes (2 tests)
+### ðŸ”´ P0 - Breaking Changes (2 tests)
 
 - **TC-BREAK-09**: Test AI tools are accessible by new names in chat/tool calls
   - Hardcoded: Use AIToolCall with new tool names (e.g., "text_generate")
@@ -205,7 +205,7 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: Error is returned (no silent failure, no crash)
   - Success: ToolManager returns expected "tool not found" error
 
-### 🔴 P0 - Mixed-Type Data Trees (5 tests)
+### ðŸ”´ P0 - Mixed-Type Data Trees (5 tests)
 
 - **TC-DATATREE-05**: Handle mixed-type trees with multiple IGH_Goo types
   - Hardcoded: Create GH_Structure<IGH_Goo> with GH_String, GH_Integer, GH_Number, GH_Boolean
@@ -232,7 +232,7 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: Outputs dictionary accessible and contains both results
   - Success: Dictionary has expected keys with correct GH_Structure values
 
-### 🟡 P1 - Vision Input (2 tests)
+### ðŸŸ¡ P1 - Vision Input (2 tests)
 
 - **TC-VISION-17**: `AIImgToTextComponent` - base64 input validation
   - Hardcoded: Create base64-encoded 1x1 PNG image (stored as constant string)
@@ -244,14 +244,14 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: Write to GH_IWriter, read from GH_IReader, compare properties
   - Success: All properties match after round-trip (no file save/load needed)
 
-### 🟡 P1 - File-to-Markdown (1 test)
+### ðŸŸ¡ P1 - File-to-Markdown (1 test)
 
 - **TC-F2MD-26**: `File2MdComponent` - Images output extraction
   - Hardcoded: Store sample PDF bytes internally (minimal test PDF or mock)
   - Verify: File2Md extracts images and returns GH_ExtractedImage objects
   - Success: Images list is non-empty, each item has valid base64 data
 
-### 🟡 P1 - AI Settings Components (4 tests)
+### ðŸŸ¡ P1 - AI Settings Components (4 tests)
 
 - **TC-SETTINGS-01**: Assemble AIRequestParameters from inputs
   - Hardcoded: Create AISettingsComponent with test values
@@ -273,7 +273,7 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: CastFrom string works, creates valid parameters with model set
   - Success: Backward compatibility maintained
 
-### 🟡 P1 - JSON Tools (6 tests)
+### ðŸŸ¡ P1 - JSON Tools (6 tests)
 
 - **TC-JSON-17**: `JsonArray2TextListComponent` - parse JSON array to GH text list
   - Hardcoded: JSON string `["item1","item2","item3"]`
@@ -305,7 +305,7 @@ Based on analysis of existing test components, the following tests from the test
   - Verify: Generated schema has type="object" with properties map
   - Success: Nested schema structure is correct
 
-### 🟢 P2 - UI/UX (1 test)
+### ðŸŸ¢ P2 - UI/UX (1 test)
 
 - **TC-UI-07**: Tool results inherit TurnId from ToolCall
   - Hardcoded: Create simulated tool call with TurnId=123
@@ -318,7 +318,7 @@ Based on analysis of existing test components, the following tests from the test
 
 These test components validate provider functionality using actual API credentials and runtime settings available in Grasshopper. Each provider has multiple components testing individual features.
 
-### 🔴 P0 - OpenAI Provider Tests (5 components)
+### ðŸ”´ P0 - OpenAI Provider Tests (5 components)
 
 - **TC-PROVIDER-OPENAI-01**: Encode AIRequestCall to OpenAI message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -345,7 +345,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
   - Success: Both success flags true - tool encoding works AND tool result parsing works
 
-### 🔴 P0 - MistralAI Provider Tests (5 components)
+### ðŸ”´ P0 - MistralAI Provider Tests (5 components)
 
 - **TC-PROVIDER-MISTRAL-01**: Encode AIRequestCall to MistralAI message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -372,7 +372,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
   - Success: Both success flags true - tool encoding works AND tool result parsing works
 
-### 🔴 P0 - DeepSeek Provider Tests (5 components)
+### ðŸ”´ P0 - DeepSeek Provider Tests (5 components)
 
 - **TC-PROVIDER-DEEPSEEK-01**: Encode AIRequestCall to DeepSeek message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -399,7 +399,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
   - Success: Both success flags true - tool encoding works AND tool result parsing works
 
-### 🟡 P1 - Google Gemini Provider Tests (5 components)
+### ðŸŸ¡ P1 - Google Gemini Provider Tests (5 components)
 
 - **TC-PROVIDER-GEMINI-01**: Encode AIRequestCall to Gemini message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -426,7 +426,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: Image encoded correctly in Gemini format
   - Success: Vision content structure is valid
 
-### 🟡 P1 - Anthropic Provider Tests (5 components)
+### ðŸŸ¡ P1 - Anthropic Provider Tests (5 components)
 
 - **TC-PROVIDER-ANTHROPIC-01**: Encode AIRequestCall to Anthropic message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -453,7 +453,7 @@ These test components validate provider functionality using actual API credentia
   - Verify: (1) Tools encoded correctly in request, (2) Tool results decoded from response
   - Success: Both success flags true - tool encoding works AND tool result parsing works
 
-### 🟢 P2 - OpenRouter Provider Tests (5 components)
+### ðŸŸ¢ P2 - OpenRouter Provider Tests (5 components)
 
 - **TC-PROVIDER-OPENROUTER-01**: Encode AIRequestCall to OpenRouter message format
   - Hardcoded: Create AIRequestCall with Context, ToolCall, ToolResult messages
@@ -528,8 +528,8 @@ Core tests focus on:
 
 Provider tests focus on:
 
-- Message encoding (AIRequestCall → provider format)
-- Response decoding (provider format → AIReturn)
+- Message encoding (AIRequestCall â†’ provider format)
+- Response decoding (provider format â†’ AIReturn)
 - Standard API calls with metrics validation (input_tokens > 0, output_tokens > 0)
 - Batch API calls with service_tier=batch
 - Tool/Function call encoding and response parsing
@@ -549,3 +549,40 @@ Provider tests focus on:
 - [ ] Test result persistence to file
 - [ ] Integration with CI/CD pipeline
 - [ ] Performance benchmarking components
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about GrasshopperTestComponents.
+
+
+## End-User Guide
+
+End-user guidance for GrasshopperTestComponents.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for GrasshopperTestComponents.

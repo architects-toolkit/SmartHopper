@@ -32,40 +32,40 @@ Build schemas visually by wiring components together instead of typing format st
 
 | Component | Nickname | Description |
 |-----------|----------|-------------|
-| `JsonSchemaPropComponent` | JsonSchemaProp | Property builder: Name, Description, Type, Array?, Required? → `"name:type:description:required"` string |
-| `JsonSchemaObjectComponent` | JsonSchemaObj | Object builder: Name, Description, Properties → dot-prefixed property strings + Required list |
+| `JsonSchemaPropComponent` | JsonSchemaProp | Property builder: Name, Description, Type, Array?, Required? â†’ `"name:type:description:required"` string |
+| `JsonSchemaObjectComponent` | JsonSchemaObj | Object builder: Name, Description, Properties â†’ dot-prefixed property strings + Required list |
 
 **Input order:**
 
-- **JsonSchemaProp**: Name → Description → Type → Array? → Required?
-- **JsonSchemaObject**: Name → Description → Properties
-- **JsonSchemaComponent**: Title → Description → Properties → Type → Required (manual override)
+- **JsonSchemaProp**: Name â†’ Description â†’ Type â†’ Array? â†’ Required?
+- **JsonSchemaObject**: Name â†’ Description â†’ Properties
+- **JsonSchemaComponent**: Title â†’ Description â†’ Properties â†’ Type â†’ Required (manual override)
 
 **Wiring pattern (visual pipeline):**
 
 ```
-JsonSchemaProp("street", "", "string", false, true)  ──┐  (Required? = true)
-JsonSchemaProp("city",   "", "string", false, true)  ──┼──► JsonSchemaObject("address") ──► (Properties list)
-JsonSchemaProp("zip",    "", "string", false, false) ──┘  (Required? = false)              │
-                                                                                              ▼
-JsonSchemaProp("name",   "", "string") ───────────────────────────────────────────►  Merge lists (Entwine/Insert)
-JsonSchemaProp("age",    "", "integer") ───────────────────────────────────────────►        │
-JsonSchemaProp("tags",   "", "string", true, false) ─────────────────────────────►        │  (Array? = true)
-                                                                                            ▼
+JsonSchemaProp("street", "", "string", false, true)  â”€â”€â”  (Required? = true)
+JsonSchemaProp("city",   "", "string", false, true)  â”€â”€â”¼â”€â”€â–º JsonSchemaObject("address") â”€â”€â–º (Properties list)
+JsonSchemaProp("zip",    "", "string", false, false) â”€â”€â”˜  (Required? = false)              â”‚
+                                                                                              â–¼
+JsonSchemaProp("name",   "", "string") â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–º  Merge lists (Entwine/Insert)
+JsonSchemaProp("age",    "", "integer") â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–º        â”‚
+JsonSchemaProp("tags",   "", "string", true, false) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–º        â”‚  (Array? = true)
+                                                                                            â–¼
                                                                                    JsonSchemaComponent
-                                                                                            │
-                                                                                            ▼
+                                                                                            â”‚
+                                                                                            â–¼
                                                                                    AIText2JsonComponent.Schema
 ```
 
 - **Array?** bool input on `JsonSchemaProp`: Set to `true` to create array properties (e.g., `tags:array[string]`)
 - **Required?** bool input on `JsonSchemaProp`: Set to `true` to mark property as required; auto-bubbles up through `JsonSchemaObject` to `JsonSchemaComponent.Required`
-- `JsonSchemaObject` outputs a **list** of dot-prefixed strings — merge with other properties using a GH `Entwine` or panel list
-- The `Required` output of `JsonSchemaObject` gives `"address.street"` style names — connect to `JsonSchemaComponent.Required` for nested objects, or let auto-extraction handle it
+- `JsonSchemaObject` outputs a **list** of dot-prefixed strings â€” merge with other properties using a GH `Entwine` or panel list
+- The `Required` output of `JsonSchemaObject` gives `"address.street"` style names â€” connect to `JsonSchemaComponent.Required` for nested objects, or let auto-extraction handle it
 
 ---
 
-## JsonSchemaComponent — Property Format
+## JsonSchemaComponent â€” Property Format
 
 Properties are defined as strings with the format:
 
@@ -88,9 +88,9 @@ This produces a nested `address` object with `city` and `zip` Properties, where 
 
 **Valid types:** `string`, `number`, `integer`, `boolean`, `object`, `array`
 
-**Input order (reorganized):** Title → Description → Properties → Type → Required (manual override)
+**Input order (reorganized):** Title â†’ Description â†’ Properties â†’ Type â†’ Required (manual override)
 
-## JsonGetValueComponent — Path Examples
+## JsonGetValueComponent â€” Path Examples
 
 Supports both dot notation and bracket notation for accessing nested values:
 
@@ -103,3 +103,48 @@ Supports both dot notation and bracket notation for accessing nested values:
 | `data.tags[1]` | Second element of `tags` array inside `data` |
 
 **Error Messages:** When a path fails to resolve, error messages clearly indicate the JSON path where the error occurred (e.g., `JSON Path: 'results[29].Effect' | Error: ...`), helping you quickly identify the problematic path.
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about index.
+
+
+## End-User Guide
+
+End-user guidance for index.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for index.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

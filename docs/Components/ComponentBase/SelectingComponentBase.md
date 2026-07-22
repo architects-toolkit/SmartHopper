@@ -28,12 +28,12 @@ public interface ISelectingComponent
 
 Contains every piece of selection logic. Created by each base in its constructor with a `SubscribeToDocumentEvents()` call:
 
-- `EnableSelectionMode()` — clears `SelectedObjects`, enters selection mode, hides the canvas context menu, refreshes the canvas to consume the current selection.
+- `EnableSelectionMode()` â€” clears `SelectedObjects`, enters selection mode, hides the canvas context menu, refreshes the canvas to consume the current selection.
 - Reads `Instances.ActiveCanvas.Document.SelectedObjects()` and filters to **components**, **params**, **groups**, **scribbles** (type name contains `Scribble`) and **panels** (type name contains `Panel`).
-- `Write(GH_IWriter)` / `Read(GH_IReader)` — persists `SelectedObjectsCount` and `SelectedObject_0..N` as `InstanceGuid`s.
-- `OnDocumentAdded` — restores GUIDs once the document is fully loaded; missing objects are skipped, the message is updated and `ExpireSolution` is called.
-- `PruneDeletedSelections(...)` — invoked from each `SelectedObjects` getter to drop dead references.
-- `RenderSelectButton` / `RenderSelectionOverlay` / `BuildSelectedBounds` / `Restart`+`StopSelectDisplayTimer` — drawing primitives shared between the plain and AI custom-attributes classes.
+- `Write(GH_IWriter)` / `Read(GH_IReader)` â€” persists `SelectedObjectsCount` and `SelectedObject_0..N` as `InstanceGuid`s.
+- `OnDocumentAdded` â€” restores GUIDs once the document is fully loaded; missing objects are skipped, the message is updated and `ExpireSolution` is called.
+- `PruneDeletedSelections(...)` â€” invoked from each `SelectedObjects` getter to drop dead references.
+- `RenderSelectButton` / `RenderSelectionOverlay` / `BuildSelectedBounds` / `Restart`+`StopSelectDisplayTimer` â€” drawing primitives shared between the plain and AI custom-attributes classes.
 
 All canvas/UI work is marshalled to Rhino's UI thread via `RhinoApp.InvokeOnUiThread`.
 
@@ -48,7 +48,7 @@ Both classes share a 5 s auto-hide timer for the dashed highlight when hovering 
 - Want to understand how selection persistence works across copy/paste and file re-open.
 - Need to choose between the three selection-enabled base classes.
 
-1. User clicks Select → attributes call `ISelectingComponent.EnableSelectionMode()`.
+1. User clicks Select â†’ attributes call `ISelectingComponent.EnableSelectionMode()`.
 2. Core enters selection mode, clears the list, refreshes canvas.
 3. Core reads currently-selected canvas objects, filters and stores them, sets `Message = "N selected"`.
 4. On `Write` the core stores `InstanceGuid`s.
@@ -65,3 +65,48 @@ Both classes share a 5 s auto-hide timer for the dashed highlight when hovering 
 
 - `ISelectingComponent`, `SelectingComponentCore`, `SelectingComponentAttributes`, `AISelectingComponentAttributes` in `src/SmartHopper.Core/ComponentBase/`
 - `ComponentBadgesAttributes` for the AI variant.
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about SelectingComponentBase.
+
+
+## End-User Guide
+
+End-user guidance for SelectingComponentBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for SelectingComponentBase.
+
+```csharp
+// Example code for Developer Reference
+```
+
+```csharp
+// Additional example for Developer Reference
+```

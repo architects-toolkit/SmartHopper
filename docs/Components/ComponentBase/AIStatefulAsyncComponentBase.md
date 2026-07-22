@@ -1,6 +1,6 @@
 # AIStatefulAsyncComponentBase
 
-`src/SmartHopper.Core/ComponentBase/AIStatefulAsyncComponentBase.*.cs` — partial class split across **8 files**:
+`src/SmartHopper.Core/ComponentBase/AIStatefulAsyncComponentBase.*.cs` â€” partial class split across **8 files**:
 
 | File | Concern |
 | --- | --- |
@@ -21,14 +21,14 @@ The canonical base for any component that talks to an AI provider through SmartH
 
 ## Inputs / outputs added
 
-- `Settings` (`S`, `IGH_Goo`, optional, item) — accepts an `AIRequestParameters` (preferred) or any value cast to a model name string. Drives the `_requestParameters` field used for model, temperature, max tokens, batch tier, custom timeout and provider-specific extras.
-- `Run?` (`R`, bool, item, default `false`) — inherited from `StatefulComponentBase`.
-- `Metrics` (`M`, text, item) — JSON containing provider/model, all token counters, finish reason, completion time, context usage, data count and iteration count. See `SetMetricsOutput`.
+- `Settings` (`S`, `IGH_Goo`, optional, item) â€” accepts an `AIRequestParameters` (preferred) or any value cast to a model name string. Drives the `_requestParameters` field used for model, temperature, max tokens, batch tier, custom timeout and provider-specific extras.
+- `Run?` (`R`, bool, item, default `false`) â€” inherited from `StatefulComponentBase`.
+- `Metrics` (`M`, text, item) â€” JSON containing provider/model, all token counters, finish reason, completion time, context usage, data count and iteration count. See `SetMetricsOutput`.
 
 ## Capability-aware model selection
 
-- `protected virtual AICapability RequiredCapability { get; set; }` — the component's declared capability. The getter merges in capabilities required by every tool listed in `UsingAiTools`.
-- `protected virtual IReadOnlyList<string> UsingAiTools => Array.Empty<string>()` — names of tools used by this component. Drives the merged capability and the *not recommended* badge.
+- `protected virtual AICapability RequiredCapability { get; set; }` â€” the component's declared capability. The getter merges in capabilities required by every tool listed in `UsingAiTools`.
+- `protected virtual IReadOnlyList<string> UsingAiTools => Array.Empty<string>()` â€” names of tools used by this component. Drives the merged capability and the *not recommended* badge.
 - `GetModel()` returns the user's model from `Settings`, or the provider's `GetDefaultModel(RequiredCapability, useSettings: true)` fallback.
 - `UpdateBadgeCache()` runs a synthetic `AIRequestCall` through validation to populate the badge flags: *Verified*, *Deprecated*, *Invalid*, *Replaced*, *Not recommended*. Cached per solve.
 
@@ -40,44 +40,44 @@ Both modes converge at `FinishResults<T>` and emit metrics atomically.
 
 ```text
 DoWorkAsync()
-  └── RunProcessingAsync()                 [via DataTreeProcessor.RunAsync]
-        └── function(inputs)               [once per branch/item]
-              1. PrepareInputs(inputs, ctx)            ← virtual hook
+  â””â”€â”€ RunProcessingAsync()                 [via DataTreeProcessor.RunAsync]
+        â””â”€â”€ function(inputs)               [once per branch/item]
+              1. PrepareInputs(inputs, ctx)            â† virtual hook
               2. CallAIToolAsync(...) / CallAIAsync(...)
               3. (return outputs dict)
-        └── FinishResults(primary, ...extras)
-              → SetPersistentOutput per output
-              → SetMetricsOutput(null)
-  └── Worker.SetOutput()  → no-op
+        â””â”€â”€ FinishResults(primary, ...extras)
+              â†’ SetPersistentOutput per output
+              â†’ SetMetricsOutput(null)
+  â””â”€â”€ Worker.SetOutput()  â†’ no-op
 ```
 
 ### Batch
 
 ```text
 DoWorkAsync()
-  └── RunProcessingAsync()
-        └── function(inputs)
+  â””â”€â”€ RunProcessingAsync()
+        â””â”€â”€ function(inputs)
               1. PrepareInputs(inputs, ctx)
               2. CallAIToolAsync / CallAIAsync queues item, returns sentinel ##SH_BATCH:{customId}##
-        └── TrySubmitBatchAsync()         → submits queue to provider
-  └── Worker.SetOutput()  → no-op
+        â””â”€â”€ TrySubmitBatchAsync()         â†’ submits queue to provider
+  â””â”€â”€ Worker.SetOutput()  â†’ no-op
 [Stay in Processing]
 PollBatchStatusAsync() [background timer]
-  └── OnBatchCompleted(results, messages)
-        └── ProcessBatchResults<T>(decode, messages)
+  â””â”€â”€ OnBatchCompleted(results, messages)
+        â””â”€â”€ ProcessBatchResults<T>(decode, messages)
               for each sentinel:
                 item = decode(customId, body)
-                SentinelTransformOutputs({ primary → item }, ctx)
+                SentinelTransformOutputs({ primary â†’ item }, ctx)
               SetAIReturnSnapshot(aggregatedMetrics)
               FinishResults(primary, ...extras)
-[Completed] → ExpireSolution → RestorePersistentOutputs
+[Completed] â†’ ExpireSolution â†’ RestorePersistentOutputs
 ```
 
 ## Virtual hooks
 
 ### `PrepareInputs(Dictionary<string, object> inputs, ProcessingUnitContext ctx)`
 
-Fires inside `function(inputs)` in both modes, **before** the AI call. Override to inject derived fields, normalize values or validate early. Inputs are not available to `SentinelTransformOutputs` in batch mode — cache anything you need on the component.
+Fires inside `function(inputs)` in both modes, **before** the AI call. Override to inject derived fields, normalize values or validate early. Inputs are not available to `SentinelTransformOutputs` in batch mode â€” cache anything you need on the component.
 
 ### `SentinelTransformOutputs(Dictionary<string, IGH_Goo> decodedOutputs, ProcessingUnitContext ctx)`
 
@@ -108,9 +108,9 @@ protected void FinishResults<T>(
 
 Single finalization point invoked by both modes. Routing for `additionalOutputs.value`:
 
-- `IGH_Structure` → `DA.SetDataTree`
-- `IEnumerable` (non-string) → `DA.SetDataList`
-- anything else → `GH_Convert.ToGoo` → `DA.SetData`
+- `IGH_Structure` â†’ `DA.SetDataTree`
+- `IEnumerable` (non-string) â†’ `DA.SetDataList`
+- anything else â†’ `GH_Convert.ToGoo` â†’ `DA.SetData`
 
 It also stamps `CompletionTime` from `_batchCompletionTime` when present and emits the `Metrics` output via `SetMetricsOutput(null)`.
 
@@ -120,32 +120,32 @@ Two emission patterns:
 
 | Component shape | Where metrics are emitted |
 | --- | --- |
-| Standard AI components | `FinishResults` (non-batch) or `ProcessBatchResults` → `FinishResults` (batch). |
+| Standard AI components | `FinishResults` (non-batch) or `ProcessBatchResults` â†’ `FinishResults` (batch). |
 | Sync-output components (e.g. `AIChatComponent`) | Call `SetMetricsOutput(DA)` directly inside their `SolveInstance`; do not use `FinishResults`. |
 
 `OnSolveInstancePostSolve` does not call `SetMetricsOutput`. The single authoritative metrics instance is `_persistedMetrics`; `AIReturn.Metrics` re-aggregates on every read so writes to it are no-ops, hence the dedicated field.
 
 ## Batch features
 
-- `IsBatchRequest()` — true when `Settings.BatchTier == true` **and** the provider implements `IAIBatchProvider`. Surfaces a one-shot remark when batch is requested but unsupported.
-- `TrySubmitBatchAsync<T>(outputName, resultDict, ct)` — convenience: stores the sentinel tree and submits the queue.
-- `_sentinelTrees`, `_batchSentinelIds`, `_batchQueue`, `_batchSubmission` — explicit lifecycle, see XML docs in `Main.cs`. Persisted by `Write/Read` so polling resumes after file save/load and *Load results from file* can rebuild trees.
-- Cancellation: `OnTasksCancelDetected` immediately surfaces *"Cancelling batch …"*, calls `IAIBatchProvider.CancelBatchAsync`, then updates the message with success/failure.
+- `IsBatchRequest()` â€” true when `Settings.BatchTier == true` **and** the provider implements `IAIBatchProvider`. Surfaces a one-shot remark when batch is requested but unsupported.
+- `TrySubmitBatchAsync<T>(outputName, resultDict, ct)` â€” convenience: stores the sentinel tree and submits the queue.
+- `_sentinelTrees`, `_batchSentinelIds`, `_batchQueue`, `_batchSubmission` â€” explicit lifecycle, see XML docs in `Main.cs`. Persisted by `Write/Read` so polling resumes after file save/load and *Load results from file* can rebuild trees.
+- Cancellation: `OnTasksCancelDetected` immediately surfaces *"Cancelling batch â€¦"*, calls `IAIBatchProvider.CancelBatchAsync`, then updates the message with success/failure.
 - Context menu: *Load results from file* (multi-select) and *Check batch status* (enabled only while a batch is active).
 
 ## Implementation requirements (standard AI component)
 
 ```csharp
-// Worker.DoWorkAsync — non-batch branch must call FinishResults:
+// Worker.DoWorkAsync â€” non-batch branch must call FinishResults:
 var batchSubmitted = await parent.TrySubmitBatchAsync("Result", result, token);
 if (!batchSubmitted)
     parent.FinishResults("Result", result["Result"]);
 
-// Worker.SetOutput — must be a no-op:
+// Worker.SetOutput â€” must be a no-op:
 public override void SetOutput(IGH_DataAccess DA, out string message)
     => message = string.Empty;
 
-// OnBatchCompleted — delegate entirely to ProcessBatchResults:
+// OnBatchCompleted â€” delegate entirely to ProcessBatchResults:
 protected override void OnBatchCompleted(
     IReadOnlyDictionary<string, JObject> results,
     IReadOnlyList<SHRuntimeMessage> messages = null)
@@ -184,3 +184,40 @@ This is the most important base class for all AI-driven SmartHopper components. 
 - [AIProviderComponentBase](./AIProviderComponentBase.md), [StatefulComponentBase](./StatefulComponentBase.md)
 - [AIOutputAdapterBase](./AIOutputAdapterBase.md), [AISelectingStatefulAsyncComponentBase](./AISelectingStatefulAsyncComponentBase.md)
 - [BatchSentinel](./BatchSentinel.md), [Data tree processing schema](./DataTreeProcessingSchema.md)
+
+## Metadata
+
+- Source Code: See source repository.
+- Since Version: 2.0.0
+- Last Updated: 2026-07-21
+- Documentation Maintainer: Marc Roca Musach
+
+---
+
+
+## Why Read This?
+
+This document provides details about AIStatefulAsyncComponentBase.
+
+
+## End-User Guide
+
+End-user guidance for AIStatefulAsyncComponentBase.
+
+
+## Developer Reference
+
+Example usage:
+
+`csharp
+// Placeholder example
+``r
+
+`csharp
+// Another placeholder example
+``r
+
+
+## Architecture & Design
+
+Architecture and design notes for AIStatefulAsyncComponentBase.
